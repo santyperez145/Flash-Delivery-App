@@ -1,0 +1,7 @@
+node_modules
+dist
+server/data
+qa-*.png
+vite-dev*.log
+*.log
+.git

@@ -1,0 +1,34 @@
+{
+  "name": "Flash Delivery Mobility",
+  "short_name": "Flash",
+  "description": "App de comida, delivery, taxi y conductor con consola de plataforma.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#f4511e",
+  "categories": ["food", "travel", "business", "productivity"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Pedir comida",
+      "short_name": "Comida",
+      "url": "/?service=food",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Pedir taxi",
+      "short_name": "Taxi",
+      "url": "/?service=ride",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ]
+}

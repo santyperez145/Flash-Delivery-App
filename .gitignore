@@ -1,0 +1,12 @@
+node_modules/
+dist/
+server/data/database.json
+server/data/flash.sqlite
+server/data/flash.sqlite-*
+qa-*.png
+vite-dev*.log
+*.log
+.env
+.env.*
+!.env.example
+.DS_Store
