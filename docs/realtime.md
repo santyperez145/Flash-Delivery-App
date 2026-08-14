@@ -22,7 +22,10 @@ El cliente vuelve a pedir `/api/state` cuando recibe una mutacion. El stream no 
 - `ride.created`
 - `ride.updated`
 - `driver.updated`
+- `driver.location.updated`
 - `platform.reset`
+
+Las coordenadas no se envian dentro del evento realtime. El evento solo dispara una recarga autorizada de estado; esto evita filtrar ubicaciones a sesiones que no deben verlas.
 
 ## Evolucion productiva
 

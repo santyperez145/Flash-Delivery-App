@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import * as Location from "expo-location";
 import {
   ActivityIndicator,
   Alert,
@@ -212,6 +213,50 @@ function DriverScreen({
   busy: boolean;
   runAction: (action: () => Promise<unknown>, success: string) => void;
 }) {
+  const [gpsStatus, setGpsStatus] = useState<"paused" | "requesting" | "live" | "denied">("paused");
+
+  useEffect(() => {
+    let subscription: Location.LocationSubscription | null = null;
+    let disposed = false;
+
+    const startLocationTracking = async () => {
+      if (!driver.online) {
+        setGpsStatus("paused");
+        return;
+      }
+      setGpsStatus("requesting");
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status !== "granted") {
+        setGpsStatus("denied");
+        return;
+      }
+      subscription = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.Balanced,
+          timeInterval: 15000,
+          distanceInterval: 50
+        },
+        ({ coords }) => {
+          if (disposed) return;
+          void api
+            .updateDriverLocation(driver.id, {
+              lat: coords.latitude,
+              lng: coords.longitude,
+              label: "Ubicacion GPS"
+            })
+            .then(() => setGpsStatus("live"))
+            .catch(() => setGpsStatus("denied"));
+        }
+      );
+    };
+
+    void startLocationTracking().catch(() => setGpsStatus("denied"));
+    return () => {
+      disposed = true;
+      subscription?.remove();
+    };
+  }, [driver.id, driver.online]);
+
   const activeOrders = state.orders.filter((order) => order.courierId === driver.id && !["delivered", "cancelled"].includes(order.status));
   const availableOrders = state.orders.filter((order) => !order.courierId && !["delivered", "cancelled"].includes(order.status));
   const activeRides = state.rides.filter((ride) => ride.driverId === driver.id && !["completed", "cancelled"].includes(ride.status));
@@ -223,6 +268,9 @@ function DriverScreen({
         <Text style={styles.heroLabel}>{driver.online ? "Online" : "Offline"}</Text>
         <Text style={styles.heroTitle}>{driver.name}</Text>
         <Text style={styles.heroCopy}>{driver.vehicle} - {driver.plate} - rating {driver.rating}</Text>
+        <Text style={styles.gpsText}>
+          {gpsStatus === "live" ? "GPS activo" : gpsStatus === "requesting" ? "Solicitando GPS" : gpsStatus === "denied" ? "GPS no disponible" : "GPS pausado"}
+        </Text>
       </View>
       <KpiRow
         items={[
@@ -428,6 +476,12 @@ const styles = StyleSheet.create({
     marginTop: 6,
     color: "rgba(255,255,255,0.76)",
     lineHeight: 20
+  },
+  gpsText: {
+    marginTop: 8,
+    color: "#8df0c3",
+    fontSize: 12,
+    fontWeight: "900"
   },
   kpiGrid: {
     flexDirection: "row",

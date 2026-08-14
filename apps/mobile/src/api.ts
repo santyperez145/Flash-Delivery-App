@@ -1,4 +1,4 @@
-import type { AppState, Driver, Order, Ride, ServiceMode } from "./types";
+import type { AppState, Driver, GeoPoint, Order, Ride, ServiceMode } from "./types";
 
 declare const process: { env?: { EXPO_PUBLIC_API_URL?: string } };
 
@@ -49,6 +49,12 @@ export const api = {
   },
   async updateDriver(driverId: string, payload: { online?: boolean; activeService?: ServiceMode }) {
     return request<{ driver: Driver }>(`/drivers/${driverId}/availability`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    });
+  },
+  async updateDriverLocation(driverId: string, payload: GeoPoint & { label?: string }) {
+    return request<{ driver: Driver }>(`/drivers/${driverId}/location`, {
       method: "PATCH",
       body: JSON.stringify(payload)
     });

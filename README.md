@@ -61,6 +61,7 @@ El backend responde con `requestId`, aplica headers de seguridad, CORS controlad
 - Conductor/repartidor: activar disponibilidad, cambiar modo delivery/taxi, aceptar pedidos/viajes y avanzar estados.
 - Operaciones: metricas en vivo, mapa operativo, pedidos/viajes activos, tickets y reinicio de demo.
 - Realtime: las superficies autenticadas reciben eventos SSE de pedidos, viajes, comercios y drivers, con reconexion automatica.
+- Geolocalizacion: origen de taxi por GPS del dispositivo, cotizacion por coordenadas y posicion foreground del driver.
 
 Los datos se persisten en SQLite. Las rutas sensibles usan JWT, RBAC y validacion de propiedad por cliente, comercio y driver. Para volver al estado inicial desde la UI, entrar a `Ops` o al superadmin desktop y usar `Reiniciar demo`.
 

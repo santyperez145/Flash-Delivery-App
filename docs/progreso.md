@@ -61,6 +61,8 @@ Flash Delivery Mobility ya es una app fullstack local con cuatro superficies: cl
   - GitHub Actions CI.
   - Documentacion competitiva, arquitectura, infraestructura, roadmap e investor readiness.
   - Smoke test de seguridad con `npm run test:security`.
+  - Geolocalizacion foreground: origen de taxi, cotizacion por coordenadas y tracking de drivers online.
+  - Migracion SQLite version 4 para posiciones de drivers y coordenadas de viajes.
 
 ## Reglas estrictas implementadas
 
@@ -96,6 +98,7 @@ Flash Delivery Mobility ya es una app fullstack local con cuatro superficies: cl
 - Migracion a Postgres/PostGIS.
 - Filtrado realtime por audiencia, Redis Pub/Sub y WebSocket para presencia/chat.
 - Integracion real de mapas/geocoding/rutas.
+- Geocoding y rutas viales con proveedor externo; hoy existe distancia geodesica por coordenadas y fallback por texto.
 - Integracion real de pagos y ledger.
 - Expo/React Native para apps mobile publicables.
 - Push notifications.

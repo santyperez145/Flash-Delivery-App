@@ -52,6 +52,19 @@ export type MenuItem = {
   tags: string[];
 };
 
+export type GeoPoint = {
+  lat: number;
+  lng: number;
+};
+
+export type RideForm = {
+  pickup: string;
+  destination: string;
+  service: Ride["service"];
+  pickupCoords: GeoPoint | null;
+  destinationCoords: GeoPoint | null;
+};
+
 export type Restaurant = {
   id: string;
   ownerId: string;
@@ -66,6 +79,8 @@ export type Restaurant = {
   cover: string;
   badge: string;
   address: string;
+  lat?: number | null;
+  lng?: number | null;
   menu: MenuItem[];
   extras: Extra[];
 };
@@ -84,6 +99,7 @@ export type Driver = {
     lat: number;
     lng: number;
     label: string;
+    updatedAt?: string | null;
   };
   earningsToday: number;
 };
@@ -128,6 +144,8 @@ export type Ride = {
   service: "economy" | "comfort" | "moto" | "xl";
   pickup: string;
   destination: string;
+  pickupLocation?: GeoPoint | null;
+  destinationLocation?: GeoPoint | null;
   distanceKm: number;
   etaMin: number;
   durationMin: number;
@@ -262,7 +280,10 @@ export type CartLine = {
 export type RideQuote = Pick<
   Ride,
   "service" | "distanceKm" | "etaMin" | "durationMin" | "fare"
->;
+> & {
+  estimated: boolean;
+  routingMode: "coordinates" | "text-estimate";
+};
 
 export type RealtimeEvent = {
   id: string;

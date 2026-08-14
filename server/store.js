@@ -180,6 +180,7 @@ function execSchema() {
       lat REAL NOT NULL,
       lng REAL NOT NULL,
       location_label TEXT NOT NULL,
+      location_updated_at TEXT,
       earnings_today INTEGER NOT NULL,
       created_at TEXT NOT NULL,
       FOREIGN KEY (user_id) REFERENCES users(id)
@@ -249,6 +250,10 @@ function execSchema() {
       service TEXT NOT NULL,
       pickup TEXT NOT NULL,
       destination TEXT NOT NULL,
+      pickup_lat REAL,
+      pickup_lng REAL,
+      destination_lat REAL,
+      destination_lng REAL,
       distance_km REAL NOT NULL,
       eta_min INTEGER NOT NULL,
       duration_min INTEGER NOT NULL,
@@ -317,13 +322,30 @@ function execSchema() {
   `);
 }
 
+function ensureSchemaColumns() {
+  const migrations = [
+    ["drivers", "location_updated_at", "TEXT"],
+    ["rides", "pickup_lat", "REAL"],
+    ["rides", "pickup_lng", "REAL"],
+    ["rides", "destination_lat", "REAL"],
+    ["rides", "destination_lng", "REAL"]
+  ];
+  for (const [table, column, type] of migrations) {
+    const exists = database
+      .prepare(`PRAGMA table_info(${table})`)
+      .all()
+      .some((entry) => entry.name === column);
+    if (!exists) database.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+  }
+}
+
 function createSeed() {
   const createdAt = now();
   const password = bcrypt.hashSync("demo123", 10);
   return {
     meta: {
       name: "Flash Delivery Mobility",
-      version: 3,
+      version: 4,
       createdAt,
       updatedAt: createdAt,
       database: "sqlite"
@@ -1018,10 +1040,10 @@ const replaceTransaction = database.transaction((state) => {
   const insertDriver = database.prepare(`
     INSERT INTO drivers (
       id, user_id, name, online, service_modes, active_service, rating, lat, lng, location_label,
-      earnings_today, created_at
+      location_updated_at, earnings_today, created_at
     ) VALUES (
       @id, @userId, @name, @online, @serviceModes, @activeService, @rating, @lat, @lng, @locationLabel,
-      @earningsToday, @createdAt
+      @locationUpdatedAt, @earningsToday, @createdAt
     )
   `);
   const insertVehicle = database.prepare(`
@@ -1041,6 +1063,7 @@ const replaceTransaction = database.transaction((state) => {
       lat: driver.location?.lat || 0,
       lng: driver.location?.lng || 0,
       locationLabel: driver.location?.label || "",
+      locationUpdatedAt: driver.location?.updatedAt || driver.createdAt || state.meta.createdAt || now(),
       earningsToday: driver.earningsToday || 0,
       createdAt: driver.createdAt || state.meta.createdAt || now()
     });
@@ -1101,17 +1124,24 @@ const replaceTransaction = database.transaction((state) => {
   const insertRide = database.prepare(`
     INSERT INTO rides (
       id, customer_id, driver_id, status, service, pickup, destination, distance_km, eta_min,
-      duration_min, fare, payment_method, created_at
+      pickup_lat, pickup_lng, destination_lat, destination_lng, duration_min, fare, payment_method, created_at
     ) VALUES (
       @id, @customerId, @driverId, @status, @service, @pickup, @destination, @distanceKm, @etaMin,
-      @durationMin, @fare, @paymentMethod, @createdAt
+      @pickupLat, @pickupLng, @destinationLat, @destinationLng, @durationMin, @fare, @paymentMethod, @createdAt
     )
   `);
   const insertRideTimeline = database.prepare(`
     INSERT INTO ride_timeline (id, ride_id, status, at) VALUES (@id, @rideId, @status, @at)
   `);
   for (const ride of state.rides || []) {
-    insertRide.run({ ...ride, driverId: ride.driverId || null });
+    insertRide.run({
+      ...ride,
+      driverId: ride.driverId || null,
+      pickupLat: ride.pickupLocation?.lat ?? null,
+      pickupLng: ride.pickupLocation?.lng ?? null,
+      destinationLat: ride.destinationLocation?.lat ?? null,
+      destinationLng: ride.destinationLocation?.lng ?? null
+    });
     for (const [index, entry] of (ride.timeline || []).entries()) {
       insertRideTimeline.run({
         id: `${ride.id}_timeline_${index}`,
@@ -1172,6 +1202,7 @@ const replaceTransaction = database.transaction((state) => {
 
 function seedIfNeeded() {
   execSchema();
+  ensureSchemaColumns();
   const count = database.prepare("SELECT COUNT(*) AS total FROM users").get().total;
   if (count === 0) {
     replaceTransaction(createSeed());
@@ -1258,7 +1289,8 @@ function readDrivers() {
       location: {
         lat: row.lat,
         lng: row.lng,
-        label: row.location_label
+        label: row.location_label,
+        updatedAt: row.location_updated_at || null
       },
       earningsToday: row.earnings_today
     };
@@ -1314,6 +1346,14 @@ function readRides() {
     service: row.service,
     pickup: row.pickup,
     destination: row.destination,
+    pickupLocation:
+      row.pickup_lat == null || row.pickup_lng == null
+        ? null
+        : { lat: row.pickup_lat, lng: row.pickup_lng },
+    destinationLocation:
+      row.destination_lat == null || row.destination_lng == null
+        ? null
+        : { lat: row.destination_lat, lng: row.destination_lng },
     distanceKm: row.distance_km,
     etaMin: row.eta_min,
     durationMin: row.duration_min,
@@ -1421,6 +1461,7 @@ export function writeDb(dbState) {
     ...dbState,
     meta: {
       ...dbState.meta,
+      version: Math.max(Number(dbState.meta?.version || 0), 4),
       updatedAt: now(),
       database: "sqlite"
     }

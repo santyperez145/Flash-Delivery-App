@@ -1,6 +1,11 @@
 export type Mode = "customer" | "merchant" | "driver";
 export type ServiceMode = "delivery" | "ride";
 
+export type GeoPoint = {
+  lat: number;
+  lng: number;
+};
+
 export type User = {
   id: string;
   name: string;
@@ -40,6 +45,7 @@ export type Driver = {
   plate: string;
   rating: number;
   earningsToday: number;
+  location: GeoPoint & { label: string; updatedAt?: string | null };
 };
 
 export type Order = {

@@ -9,8 +9,19 @@
     "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "app.flash.delivery"
+      "bundleIdentifier": "app.flash.delivery",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Flash usa tu ubicacion para ofrecer viajes y actualizar tu posicion mientras trabajas."
+      }
     },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Flash usa tu ubicacion para asignar viajes y deliveries con precision."
+        }
+      ]
+    ],
     "android": {
       "package": "app.flash.delivery",
       "adaptiveIcon": {
