@@ -27,6 +27,7 @@ const jwtSecret = config.jwtSecret;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const distDir = path.resolve(__dirname, "..", "dist");
+const realtimeClients = new Set();
 
 app.disable("x-powered-by");
 app.set("trust proxy", config.isProduction ? 1 : false);
@@ -74,6 +75,27 @@ function requestLogger(req, res, next) {
     );
   });
   return next();
+}
+
+function writeSseEvent(client, event, data) {
+  if (client.destroyed || client.writableEnded) return false;
+  client.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  return true;
+}
+
+function publishRealtimeEvent({ req, type, entityType = null, entityId = null, action = null }) {
+  const payload = {
+    id: createId("EVT"),
+    type,
+    entityType,
+    entityId,
+    action,
+    requestId: req?.requestId || null,
+    at: getTimestamp()
+  };
+  for (const client of realtimeClients) {
+    if (!writeSseEvent(client, "state.updated", payload)) realtimeClients.delete(client);
+  }
 }
 
 function corsOrigin(origin, callback) {
@@ -580,6 +602,31 @@ app.get("/api/state", requireAuth, (_req, res) => {
   });
 });
 
+app.get("/api/events", requireAuth, (req, res) => {
+  res.status(200);
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders?.();
+  realtimeClients.add(res);
+  writeSseEvent(res, "connected", {
+    id: createId("EVT"),
+    type: "connected",
+    at: getTimestamp()
+  });
+  const heartbeat = setInterval(() => {
+    if (!writeSseEvent(res, "heartbeat", { at: getTimestamp() })) {
+      clearInterval(heartbeat);
+      realtimeClients.delete(res);
+    }
+  }, 25000);
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    realtimeClients.delete(res);
+  });
+});
+
 app.get("/api/metrics", requireAuth, requireAnyRole("admin"), (_req, res) => {
   ok(res, { metrics: metrics(readDb()) });
 });
@@ -653,6 +700,7 @@ app.patch("/api/restaurants/:restaurantId", requireAuth, requireAnyRole("merchan
     etaMin: restaurant.etaMin
   });
   writeDb(db);
+  publishRealtimeEvent({ req, type: "restaurant.updated", entityType: "restaurant", entityId: restaurant.id, action: "restaurant.updated" });
   return ok(res, { restaurant });
 });
 
@@ -682,6 +730,7 @@ app.post("/api/restaurants/:restaurantId/menu", requireAuth, requireAnyRole("mer
     price: item.price
   });
   writeDb(db);
+  publishRealtimeEvent({ req, type: "restaurant.updated", entityType: "restaurant", entityId: restaurant.id, action: "menu_item.created" });
   return ok(res, { item, restaurant });
 });
 
@@ -701,6 +750,7 @@ app.patch("/api/restaurants/:restaurantId/menu/:itemId", requireAuth, requireAny
     price: item.price
   });
   writeDb(db);
+  publishRealtimeEvent({ req, type: "restaurant.updated", entityType: "restaurant", entityId: restaurant.id, action: "menu_item.updated" });
   return ok(res, { item, restaurant });
 });
 
@@ -745,6 +795,7 @@ app.post("/api/orders", requireAuth, requireAnyRole("customer", "admin"), (req, 
     itemCount: order.items.length
   });
   writeDb(db);
+  publishRealtimeEvent({ req, type: "order.created", entityType: "order", entityId: order.id, action: "order.created" });
   return ok(res, { order, label: orderLabels[status] });
 });
 
@@ -766,6 +817,7 @@ app.post("/api/orders/:orderId/accept-delivery", requireAuth, requireAnyRole("dr
   Object.assign(order, addTimeline(order, "courier_assigned"));
   audit(db, req, "order", order.id, "order.delivery_accepted", { driverId });
   writeDb(db);
+  publishRealtimeEvent({ req, type: "order.updated", entityType: "order", entityId: order.id, action: "order.delivery_accepted" });
   return ok(res, { order, label: orderLabels[order.status] });
 });
 
@@ -780,6 +832,7 @@ app.post("/api/orders/:orderId/advance", requireAuth, requireAnyRole("merchant",
   if (next === "delivered") db.orders[index].etaMin = 0;
   audit(db, req, "order", db.orders[index].id, "order.status_advanced", { status: next });
   writeDb(db);
+  publishRealtimeEvent({ req, type: "order.updated", entityType: "order", entityId: db.orders[index].id, action: "order.status_advanced" });
   return ok(res, { order: db.orders[index], label: orderLabels[next] });
 });
 
@@ -795,6 +848,7 @@ app.patch("/api/orders/:orderId/status", requireAuth, (req, res) => {
   db.orders[index] = addTimeline(db.orders[index], status);
   audit(db, req, "order", db.orders[index].id, "order.status_set", { status });
   writeDb(db);
+  publishRealtimeEvent({ req, type: "order.updated", entityType: "order", entityId: db.orders[index].id, action: "order.status_set" });
   return ok(res, { order: db.orders[index], label: orderLabels[status] });
 });
 
@@ -839,6 +893,7 @@ app.post("/api/rides", requireAuth, requireAnyRole("customer", "admin"), (req, r
     driverId: ride.driverId
   });
   writeDb(db);
+  publishRealtimeEvent({ req, type: "ride.created", entityType: "ride", entityId: ride.id, action: "ride.created" });
   return ok(res, { ride, label: rideLabels[ride.status] });
 });
 
@@ -862,6 +917,7 @@ app.post("/api/rides/:rideId/accept", requireAuth, requireAnyRole("driver", "adm
   );
   audit(db, req, "ride", db.rides[index].id, "ride.accepted", { driverId });
   writeDb(db);
+  publishRealtimeEvent({ req, type: "ride.updated", entityType: "ride", entityId: db.rides[index].id, action: "ride.accepted" });
   return ok(res, { ride: db.rides[index], label: rideLabels[db.rides[index].status] });
 });
 
@@ -876,6 +932,7 @@ app.post("/api/rides/:rideId/advance", requireAuth, requireAnyRole("driver", "ad
   if (next === "completed") db.rides[index].etaMin = 0;
   audit(db, req, "ride", db.rides[index].id, "ride.status_advanced", { status: next });
   writeDb(db);
+  publishRealtimeEvent({ req, type: "ride.updated", entityType: "ride", entityId: db.rides[index].id, action: "ride.status_advanced" });
   return ok(res, { ride: db.rides[index], label: rideLabels[next] });
 });
 
@@ -891,6 +948,7 @@ app.patch("/api/rides/:rideId/status", requireAuth, (req, res) => {
   db.rides[index] = addTimeline(db.rides[index], status);
   audit(db, req, "ride", db.rides[index].id, "ride.status_set", { status });
   writeDb(db);
+  publishRealtimeEvent({ req, type: "ride.updated", entityType: "ride", entityId: db.rides[index].id, action: "ride.status_set" });
   return ok(res, { ride: db.rides[index], label: rideLabels[status] });
 });
 
@@ -907,11 +965,13 @@ app.patch("/api/drivers/:driverId/availability", requireAuth, requireAnyRole("dr
     activeService: driver.activeService
   });
   writeDb(db);
+  publishRealtimeEvent({ req, type: "driver.updated", entityType: "driver", entityId: driver.id, action: "driver.availability_updated" });
   return ok(res, { driver });
 });
 
-app.post("/api/reset", requireAuth, requireAnyRole("admin"), (_req, res) => {
+app.post("/api/reset", requireAuth, requireAnyRole("admin"), (req, res) => {
   ok(res, { state: resetDb() });
+  publishRealtimeEvent({ req, type: "platform.reset", action: "platform.reset" });
 });
 
 if (fs.existsSync(distDir)) {

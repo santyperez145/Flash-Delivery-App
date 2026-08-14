@@ -2240,7 +2240,53 @@ textarea {
 
 .admin-actions {
   display: flex;
+  align-items: center;
   gap: 10px;
+}
+
+.realtime-status {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 0 10px;
+  color: var(--ink-soft) !important;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.72rem !important;
+  font-weight: 900 !important;
+  text-transform: none !important;
+  white-space: nowrap;
+}
+
+.realtime-status > span {
+  width: 7px;
+  height: 7px;
+  margin: 0;
+  background: var(--muted);
+  border-radius: 50%;
+}
+
+.realtime-status.live {
+  color: var(--mint) !important;
+  border-color: rgba(22, 166, 106, 0.28);
+}
+
+.realtime-status.live > span {
+  background: var(--mint);
+  box-shadow: 0 0 0 4px rgba(22, 166, 106, 0.12);
+}
+
+.realtime-status.reconnecting,
+.realtime-status.connecting {
+  color: var(--accent) !important;
+  border-color: rgba(244, 81, 30, 0.28);
+}
+
+.realtime-status.reconnecting > span,
+.realtime-status.connecting > span {
+  background: var(--accent);
 }
 
 .admin-actions button {

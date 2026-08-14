@@ -14,6 +14,7 @@ npm run dev
 - Frontend: http://127.0.0.1:5173/
 - Backend: http://127.0.0.1:4000/api/health
 - Readiness: http://127.0.0.1:4000/api/ready
+- Realtime: http://127.0.0.1:4000/api/events (requiere JWT en Authorization)
 - Base SQLite: `server/data/flash.sqlite`
 
 Produccion local con Docker:
@@ -59,6 +60,7 @@ El backend responde con `requestId`, aplica headers de seguridad, CORS controlad
 - Comercio: abrir/pausar local, avanzar pedidos de cocina, administrar stock y crear platos.
 - Conductor/repartidor: activar disponibilidad, cambiar modo delivery/taxi, aceptar pedidos/viajes y avanzar estados.
 - Operaciones: metricas en vivo, mapa operativo, pedidos/viajes activos, tickets y reinicio de demo.
+- Realtime: las superficies autenticadas reciben eventos SSE de pedidos, viajes, comercios y drivers, con reconexion automatica.
 
 Los datos se persisten en SQLite. Las rutas sensibles usan JWT, RBAC y validacion de propiedad por cliente, comercio y driver. Para volver al estado inicial desde la UI, entrar a `Ops` o al superadmin desktop y usar `Reiniciar demo`.
 
@@ -70,6 +72,7 @@ Los datos se persisten en SQLite. Las rutas sensibles usan JWT, RBAC y validacio
 - Investor readiness: `docs/investor-readiness.md`
 - Arquitectura: `docs/arquitectura-producto.md`
 - Infraestructura escalable: `docs/infraestructura-escalable.md`
+- Realtime: `docs/realtime.md`
 - Roadmap: `docs/roadmap.md`
 - Progreso: `docs/progreso.md`
 - Checklist de despliegue: `docs/deployment-checklist.md`

@@ -38,6 +38,14 @@ function assert(condition, label, detail) {
   console.log(`ok - ${label}`);
 }
 
+async function readRealtimeUntil(reader, expected) {
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const frame = new TextDecoder().decode((await reader.read()).value || new Uint8Array());
+    if (frame.includes(expected)) return frame;
+  }
+  return "";
+}
+
 async function login(email) {
   const response = await request("/auth/login", {
     method: "POST",
@@ -72,6 +80,9 @@ async function run() {
   const stateNoToken = await request("/state");
   assert(stateNoToken.status === 401, "state rejects anonymous", stateNoToken.text);
 
+  const eventsNoToken = await request("/events");
+  assert(eventsNoToken.status === 401, "realtime rejects anonymous", eventsNoToken.text);
+
   const resetNoToken = await request("/reset", { method: "POST" });
   assert(resetNoToken.status === 401, "reset rejects anonymous", resetNoToken.text);
 
@@ -96,6 +107,20 @@ async function run() {
     "admin reads investor dashboard",
     adminDashboard.text
   );
+
+  const realtimeController = new AbortController();
+  const realtimeResponse = await fetch(`${base}/events`, {
+    headers: auth(adminToken),
+    signal: realtimeController.signal
+  });
+  assert(
+    realtimeResponse.status === 200 && realtimeResponse.headers.get("content-type")?.includes("text/event-stream"),
+    "admin opens realtime stream",
+    `status=${realtimeResponse.status}`
+  );
+  const realtimeReader = realtimeResponse.body.getReader();
+  const firstRealtimeFrame = new TextDecoder().decode((await realtimeReader.read()).value || new Uint8Array());
+  assert(firstRealtimeFrame.includes("event: connected"), "realtime sends connected frame", firstRealtimeFrame);
 
   const forbiddenRestaurant = await request("/restaurants/rest_roja", {
     method: "PATCH",
@@ -136,6 +161,10 @@ async function run() {
     })
   });
   assert(order.status === 200 && order.body?.order?.id, "customer creates order", order.text);
+
+  const orderRealtimeFrame = await readRealtimeUntil(realtimeReader, "order.created");
+  assert(orderRealtimeFrame.includes("order.created"), "realtime publishes order mutation", orderRealtimeFrame);
+  realtimeController.abort();
 
   const accepted = await request(`/orders/${order.body.order.id}/accept-delivery`, {
     method: "POST",

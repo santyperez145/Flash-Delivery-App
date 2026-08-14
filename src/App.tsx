@@ -39,7 +39,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api } from "./api";
+import { api, subscribeToEvents } from "./api";
 import type {
   AppState,
   AdminDashboard,
@@ -54,6 +54,7 @@ import type {
   Ride,
   RideQuote,
   RideStatus,
+  RealtimeEvent,
   Service,
   User
 } from "./types";
@@ -156,6 +157,7 @@ function App() {
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [realtimeStatus, setRealtimeStatus] = useState<"connecting" | "live" | "reconnecting" | "offline">("offline");
   const [isDesktop, setIsDesktop] = useState(() =>
     typeof window === "undefined" ? false : window.matchMedia("(min-width: 900px)").matches
   );
@@ -203,6 +205,19 @@ function App() {
     }, 15000);
     return () => window.clearInterval(timer);
   }, [refresh]);
+
+  useEffect(() => {
+    if (loading) return;
+    const stopRealtime = subscribeToEvents(
+      (event: RealtimeEvent) => {
+        if (event.type !== "connected" && event.type !== "heartbeat") {
+          refresh().catch(() => undefined);
+        }
+      },
+      setRealtimeStatus
+    );
+    return stopRealtime;
+  }, [loading, refresh]);
 
   const runAction = useCallback(
     async (action: () => Promise<unknown>, success: string) => {
@@ -415,7 +430,15 @@ function App() {
   }
 
   if (isDesktop) {
-    return <SuperAdminConsole state={state} dashboard={adminDashboard} busy={busy} runAction={runAction} />;
+    return (
+      <SuperAdminConsole
+        state={state}
+        dashboard={adminDashboard}
+        busy={busy}
+        realtimeStatus={realtimeStatus}
+        runAction={runAction}
+      />
+    );
   }
 
   return (
@@ -523,11 +546,13 @@ function SuperAdminConsole({
   state,
   dashboard,
   busy,
+  realtimeStatus,
   runAction
 }: {
   state: AppState;
   dashboard: AdminDashboard | null;
   busy: boolean;
+  realtimeStatus: "connecting" | "live" | "reconnecting" | "offline";
   runAction: (action: () => Promise<unknown>, success: string) => void;
 }) {
   const [section, setSection] = useState<
@@ -596,6 +621,7 @@ function SuperAdminConsole({
             <h1>Control de marketplace, movilidad y delivery</h1>
           </div>
           <div className="admin-actions">
+            <RealtimeStatus status={realtimeStatus} />
             <button type="button" onClick={() => window.location.reload()}>
               <RefreshCw size={16} /> Refrescar
             </button>
@@ -808,6 +834,21 @@ function SuperAdminConsole({
         )}
       </section>
     </main>
+  );
+}
+
+function RealtimeStatus({ status }: { status: "connecting" | "live" | "reconnecting" | "offline" }) {
+  const labels = {
+    connecting: "Conectando live",
+    live: "Realtime activo",
+    reconnecting: "Reconectando",
+    offline: "Realtime offline"
+  } as const;
+  return (
+    <span className={`realtime-status ${status}`} title="Canal de actualizaciones de la plataforma">
+      <span />
+      {labels[status]}
+    </span>
   );
 }
 
