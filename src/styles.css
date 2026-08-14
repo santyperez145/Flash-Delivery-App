@@ -712,7 +712,8 @@ textarea::placeholder {
   letter-spacing: 0;
 }
 
-.section-title button {
+.section-title button,
+.section-title .section-action {
   min-height: auto;
   padding: 0;
   color: var(--accent);
@@ -769,6 +770,14 @@ textarea::placeholder {
   padding: 0 12px;
   color: var(--ink);
   background: var(--warm);
+}
+
+.flash-pass-status {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+  color: var(--warm) !important;
+  white-space: nowrap;
 }
 
 .promise-grid,
@@ -1664,6 +1673,22 @@ textarea {
   padding: 0 12px;
   color: #fff;
   background: var(--accent);
+}
+
+.wallet-topup {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.wallet-topup input {
+  width: 92px;
+  min-height: 34px;
+  padding: 0 8px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
 }
 
 .loyalty-card {

@@ -9,10 +9,22 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View
 } from "react-native";
 import { api, demoAccounts } from "./src/api";
-import type { AppState, Driver, Mode, Order, Restaurant, Ride } from "./src/types";
+import type {
+  AppState,
+  Driver,
+  GeoPoint,
+  Mode,
+  Order,
+  Restaurant,
+  Ride,
+  RideQuote,
+  RideService,
+  User
+} from "./src/types";
 
 const money = new Intl.NumberFormat("es-AR", {
   style: "currency",
@@ -65,6 +77,7 @@ export default function App() {
 
   const activeRestaurant = state?.restaurants.find((restaurant) => restaurant.id === "rest_roja") || null;
   const activeDriver = state?.drivers.find((driver) => driver.id === "drv_lautaro") || null;
+  const activeUser = state?.users.find((user) => user.email === demoAccounts[mode]) || null;
 
   return (
     <SafeAreaView style={styles.root}>
@@ -100,7 +113,9 @@ export default function App() {
           contentContainerStyle={styles.content}
           refreshControl={<RefreshControl refreshing={loading} onRefresh={bootstrap} />}
         >
-          {mode === "customer" && <CustomerScreen state={state} />}
+          {mode === "customer" && activeUser && (
+            <CustomerScreen state={state} user={activeUser} busy={busy} runAction={runAction} />
+          )}
           {mode === "merchant" && activeRestaurant && (
             <MerchantScreen restaurant={activeRestaurant} orders={state.orders} busy={busy} runAction={runAction} />
           )}
@@ -113,33 +128,246 @@ export default function App() {
   );
 }
 
-function CustomerScreen({ state }: { state: AppState }) {
+type MobileCartLine = {
+  restaurantId: string;
+  menuItemId: string;
+  name: string;
+  unitPrice: number;
+  quantity: number;
+};
+
+function CustomerScreen({
+  state,
+  user,
+  busy,
+  runAction
+}: {
+  state: AppState;
+  user: User;
+  busy: boolean;
+  runAction: (action: () => Promise<unknown>, success: string) => void;
+}) {
   const openRestaurants = state.restaurants.filter((restaurant) => restaurant.open);
-  const activeRide = state.rides.find((ride) => !["completed", "cancelled"].includes(ride.status));
+  const [cart, setCart] = useState<MobileCartLine[]>([]);
+  const [deliveryAddress, setDeliveryAddress] = useState(user.defaultAddress || "");
+  const [pickup, setPickup] = useState(user.defaultAddress || "Ubicacion actual");
+  const [destination, setDestination] = useState("Aeroparque Jorge Newbery");
+  const [pickupCoords, setPickupCoords] = useState<GeoPoint | null>(null);
+  const [rideService, setRideService] = useState<RideService>("economy");
+  const [rideQuote, setRideQuote] = useState<RideQuote | null>(null);
+  const [locationMessage, setLocationMessage] = useState("");
+  const activeOrders = state.orders.filter(
+    (order) => order.customerId === user.id && !["delivered", "cancelled"].includes(order.status)
+  );
+  const activeRides = state.rides.filter(
+    (ride) => ride.customerId === user.id && !["completed", "cancelled"].includes(ride.status)
+  );
+
+  const addItem = (restaurant: Restaurant, item: Restaurant["menu"][number]) => {
+    if (!item.stock || !restaurant.open) return;
+    if (cart.length > 0 && cart[0].restaurantId !== restaurant.id) {
+      Alert.alert("Carrito de un comercio", "Finaliza o vacia el carrito antes de pedir en otro local.");
+      return;
+    }
+    setCart((current) => {
+      const existing = current.find((line) => line.menuItemId === item.id);
+      if (existing) {
+        return current.map((line) =>
+          line.menuItemId === item.id ? { ...line, quantity: line.quantity + 1 } : line
+        );
+      }
+      return [
+        ...current,
+        {
+          restaurantId: restaurant.id,
+          menuItemId: item.id,
+          name: item.name,
+          unitPrice: item.price,
+          quantity: 1
+        }
+      ];
+    });
+  };
+
+  const cartTotal = cart.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0);
+  const cartRestaurant = openRestaurants.find((restaurant) => restaurant.id === cart[0]?.restaurantId);
+
+  const createOrder = () => {
+    if (!cart.length || !cartRestaurant || !deliveryAddress.trim()) {
+      Alert.alert("Pedido incompleto", "Selecciona productos y confirma una direccion de entrega.");
+      return;
+    }
+    runAction(
+      async () => {
+        await api.createOrder({
+          customerId: user.id,
+          restaurantId: cartRestaurant.id,
+          deliveryAddress: deliveryAddress.trim(),
+          paymentMethod: "Flash Wallet",
+          items: cart.map((line) => ({
+            menuItemId: line.menuItemId,
+            quantity: line.quantity,
+            extras: [],
+            note: ""
+          }))
+        });
+        setCart([]);
+      },
+      "Pedido enviado al comercio"
+    );
+  };
+
+  const useCurrentLocation = async () => {
+    setLocationMessage("Solicitando ubicacion...");
+    try {
+      const permission = await Location.requestForegroundPermissionsAsync();
+      if (permission.status !== "granted") {
+        setLocationMessage("Permiso de ubicacion rechazado");
+        return;
+      }
+      const current = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      setPickup("Ubicacion actual");
+      setPickupCoords({ lat: current.coords.latitude, lng: current.coords.longitude });
+      setLocationMessage("Origen tomado desde el GPS del dispositivo");
+    } catch (_error) {
+      setLocationMessage("No se pudo obtener la ubicacion");
+    }
+  };
+
+  const quoteRide = () => {
+    if (!pickup.trim() || !destination.trim()) {
+      Alert.alert("Viaje incompleto", "Indica origen y destino para cotizar.");
+      return;
+    }
+    runAction(
+      async () => {
+        const response = await api.quoteRide({
+          pickup: pickup.trim(),
+          destination: destination.trim(),
+          service: rideService,
+          pickupCoords,
+          destinationCoords: null
+        });
+        setRideQuote(response.quote);
+      },
+      "Cotizacion actualizada"
+    );
+  };
+
+  const requestRide = () => {
+    if (!rideQuote) {
+      Alert.alert("Cotiza primero", "La tarifa debe confirmarse antes de solicitar el viaje.");
+      return;
+    }
+    runAction(
+      () =>
+        api.createRide({
+          customerId: user.id,
+          pickup: pickup.trim(),
+          destination: destination.trim(),
+          service: rideService,
+          pickupCoords,
+          destinationCoords: null,
+          paymentMethod: "Flash Wallet"
+        }),
+      "Viaje solicitado"
+    );
+  };
+
   return (
     <View style={styles.stack}>
       <View style={styles.hero}>
-        <Text style={styles.heroLabel}>Flash Pass</Text>
-        <Text style={styles.heroTitle}>Envios gratis, taxi protegido y soporte prioritario</Text>
-        <Text style={styles.heroCopy}>La app nativa comparte backend con la web y queda lista para push, location y EAS builds.</Text>
+        <Text style={styles.heroLabel}>Cliente conectado</Text>
+        <Text style={styles.heroTitle}>Pide comida o solicita un viaje</Text>
+        <Text style={styles.heroCopy}>Cada accion se valida y persiste en la API de Flash.</Text>
       </View>
       <KpiRow
         items={[
-          ["Pedidos", state.metrics.activeOrders],
-          ["Viajes", state.metrics.activeRides],
-          ["Drivers", state.metrics.onlineDrivers],
+          ["Pedidos activos", activeOrders.length],
+          ["Viajes activos", activeRides.length],
+          ["Saldo", user.wallet],
           ["Locales", state.metrics.openRestaurants]
         ]}
       />
-      <Text style={styles.sectionTitle}>Restaurantes abiertos</Text>
+
+      <Text style={styles.sectionTitle}>Comida</Text>
       {openRestaurants.map((restaurant) => (
         <View key={restaurant.id} style={styles.card}>
           <Text style={styles.cardTitle}>{restaurant.name}</Text>
           <Text style={styles.cardText}>{restaurant.cuisine} - {restaurant.etaMin} min - {money.format(restaurant.deliveryFee)}</Text>
-          <Text style={styles.cardText}>{restaurant.menu.filter((item) => item.stock).length} productos disponibles</Text>
+          {restaurant.menu.filter((item) => item.stock).map((item) => (
+            <View key={item.id} style={styles.itemRow}>
+              <View style={styles.itemCopy}>
+                <Text style={styles.itemName}>{item.name}</Text>
+                <Text style={styles.cardText}>{money.format(item.price)}</Text>
+              </View>
+              <ActionButton label="Agregar" disabled={busy} onPress={() => addItem(restaurant, item)} />
+            </View>
+          ))}
         </View>
       ))}
-      {activeRide && <RideCard ride={activeRide} />}
+      {cart.length > 0 && (
+        <View style={styles.formCard}>
+          <Text style={styles.sectionTitle}>Carrito de {cartRestaurant?.name}</Text>
+          {cart.map((line) => (
+            <Text style={styles.cardText} key={line.menuItemId}>
+              {line.quantity} x {line.name} - {money.format(line.unitPrice * line.quantity)}
+            </Text>
+          ))}
+          <TextInput
+            value={deliveryAddress}
+            onChangeText={setDeliveryAddress}
+            placeholder="Direccion de entrega"
+            style={styles.input}
+          />
+          <Text style={styles.totalText}>Total productos: {money.format(cartTotal)}</Text>
+          <ActionButton label="Enviar pedido" disabled={busy} onPress={createOrder} />
+          <ActionButton label="Vaciar carrito" disabled={busy} onPress={() => setCart([])} />
+        </View>
+      )}
+
+      <Text style={styles.sectionTitle}>Taxi</Text>
+      <View style={styles.formCard}>
+        <TextInput value={pickup} onChangeText={(value) => { setPickup(value); setPickupCoords(null); }} placeholder="Origen" style={styles.input} />
+        <Pressable onPress={useCurrentLocation} style={styles.secondaryAction}>
+          <Text style={styles.secondaryActionText}>Usar mi ubicacion actual</Text>
+        </Pressable>
+        <TextInput value={destination} onChangeText={(value) => { setDestination(value); setRideQuote(null); }} placeholder="Destino" style={styles.input} />
+        <View style={styles.choiceRow}>
+          {(["economy", "comfort", "moto", "xl"] as RideService[]).map((service) => (
+            <Pressable key={service} onPress={() => { setRideService(service); setRideQuote(null); }} style={[styles.choice, rideService === service && styles.choiceActive]}>
+              <Text style={[styles.choiceText, rideService === service && styles.choiceTextActive]}>{service}</Text>
+            </Pressable>
+          ))}
+        </View>
+        {locationMessage ? <Text style={styles.helperText}>{locationMessage}</Text> : null}
+        {rideQuote && (
+          <View style={styles.quoteBox}>
+            <Text style={styles.cardTitle}>{money.format(rideQuote.fare)}</Text>
+            <Text style={styles.cardText}>{rideQuote.distanceKm} km - {rideQuote.durationMin} min - {rideQuote.routingMode === "coordinates" ? "GPS" : "estimacion por direccion"}</Text>
+          </View>
+        )}
+        <View style={styles.actionRow}>
+          <ActionButton label="Cotizar" disabled={busy} onPress={quoteRide} />
+          <ActionButton label="Solicitar" disabled={busy || !rideQuote} onPress={requestRide} />
+        </View>
+      </View>
+
+      <Text style={styles.sectionTitle}>Seguimiento</Text>
+      {activeOrders.map((order) => (
+        <View key={order.id} style={styles.card}>
+          <Text style={styles.cardTitle}>Pedido {order.status}</Text>
+          <Text style={styles.cardText}>{order.deliveryAddress} - {money.format(order.total)}</Text>
+          <ActionButton label="Cancelar pedido" disabled={busy || ["delivered", "cancelled"].includes(order.status)} onPress={() => runAction(() => api.setOrderStatus(order.id, "cancelled"), "Pedido cancelado")} />
+        </View>
+      ))}
+      {activeRides.map((ride) => (
+        <View key={ride.id} style={styles.card}>
+          <Text style={styles.cardTitle}>Viaje {ride.status}</Text>
+          <Text style={styles.cardText}>{ride.pickup} - {ride.destination} - {money.format(ride.fare)}</Text>
+          <ActionButton label="Cancelar viaje" disabled={busy || ["completed", "cancelled"].includes(ride.status)} onPress={() => runAction(() => api.setRideStatus(ride.id, "cancelled"), "Viaje cancelado")} />
+        </View>
+      ))}
     </View>
   );
 }
@@ -155,6 +383,12 @@ function MerchantScreen({
   busy: boolean;
   runAction: (action: () => Promise<unknown>, success: string) => void;
 }) {
+  const [newItem, setNewItem] = useState({
+    name: "",
+    description: "",
+    category: "Especiales",
+    price: ""
+  });
   const restaurantOrders = orders.filter((order) => order.restaurantId === restaurant.id);
   const activeOrders = restaurantOrders.filter((order) => !["delivered", "cancelled"].includes(order.status));
   const revenue = restaurantOrders.reduce((sum, order) => sum + order.total, 0);
@@ -198,6 +432,41 @@ function MerchantScreen({
           onPress={() => runAction(() => api.advanceOrder(order.id), "Pedido avanzado")}
         />
       ))}
+      {activeOrders.length === 0 && <Text style={styles.muted}>No hay pedidos activos para gestionar.</Text>}
+      <Text style={styles.sectionTitle}>Menu y stock</Text>
+      {restaurant.menu.map((item) => (
+        <View key={item.id} style={styles.itemRow}>
+          <View style={styles.itemCopy}>
+            <Text style={styles.itemName}>{item.name}</Text>
+            <Text style={styles.cardText}>{money.format(item.price)} - {item.stock ? "Disponible" : "Agotado"}</Text>
+          </View>
+          <ActionButton
+            label={item.stock ? "Agotar" : "Reponer"}
+            disabled={busy}
+            onPress={() => runAction(() => api.updateMenuStock(restaurant.id, item.id, !item.stock), "Stock actualizado")}
+          />
+        </View>
+      ))}
+      <View style={styles.formCard}>
+        <Text style={styles.sectionTitle}>Agregar producto</Text>
+        <TextInput value={newItem.name} onChangeText={(value) => setNewItem((current) => ({ ...current, name: value }))} placeholder="Nombre" style={styles.input} />
+        <TextInput value={newItem.description} onChangeText={(value) => setNewItem((current) => ({ ...current, description: value }))} placeholder="Descripcion" style={styles.input} />
+        <TextInput value={newItem.category} onChangeText={(value) => setNewItem((current) => ({ ...current, category: value }))} placeholder="Categoria" style={styles.input} />
+        <TextInput value={newItem.price} onChangeText={(value) => setNewItem((current) => ({ ...current, price: value }))} placeholder="Precio" keyboardType="numeric" style={styles.input} />
+        <ActionButton
+          label="Crear producto"
+          disabled={busy || !newItem.name.trim() || Number(newItem.price) <= 0}
+          onPress={() => runAction(async () => {
+            await api.addMenuItem(restaurant.id, {
+              name: newItem.name.trim(),
+              description: newItem.description.trim(),
+              category: newItem.category.trim() || "Especiales",
+              price: Number(newItem.price)
+            });
+            setNewItem({ name: "", description: "", category: "Especiales", price: "" });
+          }, "Producto creado")}
+        />
+      </View>
     </View>
   );
 }
@@ -258,9 +527,13 @@ function DriverScreen({
   }, [driver.id, driver.online]);
 
   const activeOrders = state.orders.filter((order) => order.courierId === driver.id && !["delivered", "cancelled"].includes(order.status));
-  const availableOrders = state.orders.filter((order) => !order.courierId && !["delivered", "cancelled"].includes(order.status));
+  const availableOrders = state.orders.filter(
+    (order) => driver.activeService === "delivery" && !order.courierId && !["delivered", "cancelled"].includes(order.status)
+  );
   const activeRides = state.rides.filter((ride) => ride.driverId === driver.id && !["completed", "cancelled"].includes(ride.status));
-  const availableRides = state.rides.filter((ride) => !ride.driverId && ride.status === "requested");
+  const availableRides = state.rides.filter(
+    (ride) => driver.activeService === "ride" && !ride.driverId && ride.status === "requested"
+  );
 
   return (
     <View style={styles.stack}>
@@ -304,6 +577,7 @@ function DriverScreen({
       {activeRides.map((ride) => (
         <RideCard key={ride.id} ride={ride} disabled={busy} onPress={() => runAction(() => api.advanceRide(ride.id), "Viaje avanzado")} />
       ))}
+      {activeOrders.length === 0 && activeRides.length === 0 && <Text style={styles.muted}>No tienes trabajos activos.</Text>}
       <Text style={styles.sectionTitle}>Ofertas</Text>
       {availableOrders.map((order) => (
         <OrderCard key={order.id} order={order} disabled={busy} onPress={() => runAction(() => api.acceptDelivery(order.id, driver.id), "Delivery aceptado")} />
@@ -311,6 +585,7 @@ function DriverScreen({
       {availableRides.map((ride) => (
         <RideCard key={ride.id} ride={ride} disabled={busy} onPress={() => runAction(() => api.acceptRide(ride.id, driver.id), "Viaje aceptado")} />
       ))}
+      {availableOrders.length === 0 && availableRides.length === 0 && <Text style={styles.muted}>No hay ofertas para el modo seleccionado.</Text>}
     </View>
   );
 }
@@ -528,6 +803,90 @@ const styles = StyleSheet.create({
   },
   cardText: {
     color: "#626a78"
+  },
+  itemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eef0f3"
+  },
+  itemCopy: {
+    flex: 1,
+    gap: 3
+  },
+  itemName: {
+    color: "#222832",
+    fontWeight: "800"
+  },
+  formCard: {
+    padding: 14,
+    borderRadius: 8,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#e6e9ef",
+    gap: 10
+  },
+  input: {
+    minHeight: 44,
+    borderWidth: 1,
+    borderColor: "#d8dde5",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    color: "#222832",
+    backgroundColor: "#fff"
+  },
+  secondaryAction: {
+    minHeight: 42,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#f4511e",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  secondaryActionText: {
+    color: "#d74317",
+    fontWeight: "800"
+  },
+  choiceRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8
+  },
+  choice: {
+    minWidth: 70,
+    minHeight: 36,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: "#eef0f3",
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  choiceActive: {
+    backgroundColor: "#f4511e"
+  },
+  choiceText: {
+    color: "#626a78",
+    fontWeight: "800",
+    textTransform: "capitalize"
+  },
+  choiceTextActive: {
+    color: "#fff"
+  },
+  helperText: {
+    color: "#627080",
+    fontSize: 12
+  },
+  quoteBox: {
+    padding: 12,
+    borderRadius: 8,
+    backgroundColor: "#e8f7ef",
+    gap: 4
+  },
+  totalText: {
+    color: "#222832",
+    fontWeight: "900"
   },
   actionRow: {
     flexDirection: "row",

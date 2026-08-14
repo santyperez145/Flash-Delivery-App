@@ -34,6 +34,8 @@ Flash debe competir con plataformas tipo Uber, Uber Eats y PedidosYa desde cuatr
 - [x] Reconexion automatica del frontend y estado visible del canal live.
 - [x] Geolocalizacion foreground para origen de taxi y drivers online.
 - [x] Cotizacion inicial por coordenadas y dispatch por cercania.
+- [x] Flujos mobile reales de comida, taxi, comercio y driver contra API autenticada.
+- [x] Wallet sandbox con transacciones persistentes y perfil/direccion editables.
 
 ## Principios tecnicos
 
@@ -199,5 +201,6 @@ Criterios de salida:
 - Conectar geocoding y rutas viales con proveedor externo, manteniendo fallback local.
 - Completar paridad comercial: incidencias de pedido, sustituciones, reembolsos y disponibilidad por sucursal.
 - Preparar integracion POS, notificaciones push y soporte multiagente con SLA.
+- Reemplazar login demo por onboarding, refresh tokens, secure storage y sesiones revocables.
 - Agregar pagos sandbox y ledger financiero.
 - Crear pitch demo mode con datos de crecimiento historico.

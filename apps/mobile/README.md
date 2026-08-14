@@ -6,8 +6,8 @@ Base Expo/React Native para las apps reales de cliente, comercio y driver.
 
 Esta carpeta inicia la migracion desde PWA mobile hacia apps nativas publicables. La primera version consume el mismo backend Express:
 
-- Cliente: restaurantes, metricas, Flash Pass y actividad viva.
-- Comercio: estado del local, ETA y pedidos activos.
+- Cliente: restaurantes, carrito, pedidos, cancelaciones, cotizacion de taxi, solicitud de viaje y seguimiento.
+- Comercio: estado del local, ETA, pedidos activos, avance de cocina, stock y alta de productos.
 - Driver: disponibilidad, modo delivery/taxi, ofertas, trabajos activos y tracking foreground con `expo-location`.
 
 ## Ejecutar
@@ -25,6 +25,7 @@ En simulador local puede funcionar `http://127.0.0.1:4000/api`. En telefono fisi
 
 - Expo SDK 57.
 - `expo-location` 19.0.8 para permisos foreground y actualizacion de posicion del driver.
+- `react-native-web` 0.21.2 y `react-dom` 19.2.3 para el preview web.
 - React 19.2.
 - React Native 0.86.
 
@@ -36,6 +37,16 @@ En simulador local puede funcionar `http://127.0.0.1:4000/api`. En telefono fisi
 - Agregar push notifications para ofertas, cambios de estado y soporte.
 - Agregar secure storage para tokens y refresh tokens.
 - Agregar EAS Build, EAS Update y crash reporting.
+
+## Flujos persistentes disponibles
+
+La app Expo consume endpoints autenticados del mismo backend Express, no fixtures locales:
+
+- `POST /orders` para confirmar comida con validacion de stock y totales en servidor.
+- `POST /rides/quote` y `POST /rides` para cotizar y solicitar taxi.
+- `PATCH /orders/:id/status` y `PATCH /rides/:id/status` para cancelaciones del cliente.
+- `PATCH /restaurants/:id`, `PATCH /restaurants/:id/menu/:itemId` y `POST /restaurants/:id/menu` para comercio.
+- `PATCH /drivers/:id/availability`, `PATCH /drivers/:id/location` y endpoints de aceptacion/avance para driver.
 
 ## Nota de seguridad
 

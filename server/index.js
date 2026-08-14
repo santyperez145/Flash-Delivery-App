@@ -289,6 +289,16 @@ const driverLocationSchema = coordinateSchema.extend({
   label: z.string().trim().min(2).max(120).optional()
 });
 
+const profileSchema = z.object({
+  name: z.string().trim().min(2).max(120),
+  phone: z.string().trim().max(40).optional().default(""),
+  defaultAddress: z.string().trim().min(3).max(240)
+});
+
+const walletTopUpSchema = z.object({
+  amount: z.coerce.number().int().min(1000).max(200000)
+});
+
 const orderLabels = {
   accepted: "Aceptado",
   preparing: "Preparando",
@@ -314,6 +324,17 @@ function publicUser(db, userId) {
   if (!user) return null;
   const { password, ...safeUser } = user;
   return safeUser;
+}
+
+function accountSnapshot(db, userId) {
+  return {
+    user: publicUser(db, userId),
+    addresses: (db.addresses || []).filter((entry) => entry.userId === userId),
+    paymentMethods: (db.paymentMethods || []).filter((entry) => entry.userId === userId),
+    walletTransactions: (db.walletTransactions || []).filter((entry) => entry.userId === userId),
+    supportTickets: (db.supportTickets || []).filter((entry) => entry.userId === userId),
+    ratings: (db.ratings || []).filter((entry) => entry.userId === userId)
+  };
 }
 
 function findRestaurant(db, restaurantId) {
@@ -636,6 +657,81 @@ app.get("/api/state", requireAuth, (_req, res) => {
       metrics: metrics(state)
     }
   });
+});
+
+app.get("/api/me", requireAuth, (req, res) => {
+  const db = readDb();
+  return ok(res, { account: accountSnapshot(db, req.auth.userId) });
+});
+
+app.patch("/api/me", requireAuth, (req, res) => {
+  const parsed = parseOrFail(profileSchema, req.body || {});
+  if (!parsed.ok) return fail(res, 400, parsed.message);
+  const db = readDb();
+  const user = db.users.find((entry) => entry.id === req.auth.userId);
+  if (!user) return fail(res, 404, "Usuario no encontrado");
+  const { name, phone, defaultAddress } = parsed.data;
+  user.name = name;
+  user.phone = phone || "";
+  user.defaultAddress = defaultAddress;
+  const existingAddress = (db.addresses || []).find(
+    (entry) => entry.userId === user.id && entry.isDefault
+  );
+  (db.addresses || []).forEach((entry) => {
+    if (entry.userId === user.id) entry.isDefault = false;
+  });
+  if (existingAddress) {
+    existingAddress.address = defaultAddress;
+    existingAddress.isDefault = true;
+  } else {
+    db.addresses = [
+      ...(db.addresses || []),
+      {
+        id: createId("ADDR"),
+        userId: user.id,
+        label: "Principal",
+        address: defaultAddress,
+        lat: null,
+        lng: null,
+        isDefault: true
+      }
+    ];
+  }
+  audit(db, req, "user", user.id, "user.profile_updated", {
+    fields: ["name", "phone", "defaultAddress"]
+  });
+  writeDb(db);
+  publishRealtimeEvent({ req, type: "user.updated", entityType: "user", entityId: user.id, action: "user.profile_updated" });
+  return ok(res, { account: accountSnapshot(readDb(), user.id) });
+});
+
+app.post("/api/wallet/topup", requireAuth, (req, res) => {
+  const parsed = parseOrFail(walletTopUpSchema, req.body || {});
+  if (!parsed.ok) return fail(res, 400, parsed.message);
+  const db = readDb();
+  const user = db.users.find((entry) => entry.id === req.auth.userId);
+  if (!user) return fail(res, 404, "Usuario no encontrado");
+  const amount = parsed.data.amount;
+  user.wallet += amount;
+  db.walletTransactions = [
+    {
+      id: createId("WAL"),
+      userId: user.id,
+      kind: "credit",
+      amount,
+      description: "Carga de saldo sandbox",
+      createdAt: getTimestamp()
+    },
+    ...(db.walletTransactions || [])
+  ];
+  const walletMethod = (db.paymentMethods || []).find(
+    (entry) => entry.userId === user.id && entry.type === "wallet"
+  );
+  if (walletMethod) walletMethod.balance = user.wallet;
+  audit(db, req, "wallet", user.id, "wallet.topped_up", { amount, balance: user.wallet });
+  writeDb(db);
+  publishRealtimeEvent({ req, type: "wallet.updated", entityType: "user", entityId: user.id, action: "wallet.topped_up" });
+  return ok(res, { account: accountSnapshot(readDb(), user.id) });
 });
 
 app.get("/api/events", requireAuth, (req, res) => {

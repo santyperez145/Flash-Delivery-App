@@ -117,6 +117,20 @@ export const api = {
     return request<{ state: AppState }>("/state");
   },
 
+  async updateProfile(payload: { name: string; phone: string; defaultAddress: string }) {
+    return request<{ account: { user: User } }>("/me", {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    });
+  },
+
+  async topUpWallet(amount: number) {
+    return request<{ account: { user: User } }>("/wallet/topup", {
+      method: "POST",
+      body: JSON.stringify({ amount })
+    });
+  },
+
   async adminDashboard() {
     return request<{ dashboard: AdminDashboard }>("/admin/dashboard");
   },

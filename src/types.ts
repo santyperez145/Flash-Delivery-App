@@ -170,6 +170,36 @@ export type SupportTicket = {
   status: "open" | "closed";
   title: string;
   priority: "low" | "medium" | "high";
+  userId?: string;
+};
+
+export type UserAddress = {
+  id: string;
+  userId: string;
+  label: string;
+  address: string;
+  lat: number | null;
+  lng: number | null;
+  isDefault: boolean;
+};
+
+export type PaymentMethod = {
+  id: string;
+  userId: string;
+  type: string;
+  label: string;
+  last4: string;
+  balance: number;
+  isDefault: boolean;
+};
+
+export type WalletTransaction = {
+  id: string;
+  userId: string;
+  kind: string;
+  amount: number;
+  description: string;
+  createdAt: string;
 };
 
 export type Zone = {
@@ -258,6 +288,9 @@ export type AppState = {
     updatedAt: string;
   };
   users: User[];
+  addresses: UserAddress[];
+  paymentMethods: PaymentMethod[];
+  walletTransactions: WalletTransaction[];
   restaurants: Restaurant[];
   drivers: Driver[];
   orders: Order[];

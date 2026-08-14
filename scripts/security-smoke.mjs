@@ -91,6 +91,35 @@ async function run() {
   const driverToken = await login("conductor@flash.app");
   const adminToken = await login("ops@flash.app");
 
+  const account = await request("/me", { headers: auth(customerToken) });
+  assert(
+    account.status === 200 && account.body?.account?.user?.email === "cliente@flash.app",
+    "customer reads own account",
+    account.text
+  );
+
+  const profile = await request("/me", {
+    method: "PATCH",
+    headers: auth(customerToken),
+    body: JSON.stringify({
+      name: "Lucia Flash",
+      phone: "+5491100000000",
+      defaultAddress: "Defensa 982, San Telmo"
+    })
+  });
+  assert(profile.status === 200 && profile.body?.account?.user?.name === "Lucia Flash", "customer updates own profile", profile.text);
+
+  const topUp = await request("/wallet/topup", {
+    method: "POST",
+    headers: auth(customerToken),
+    body: JSON.stringify({ amount: 10000 })
+  });
+  assert(
+    topUp.status === 200 && topUp.body?.account?.user?.wallet >= 28600 && topUp.body?.account?.walletTransactions?.[0]?.kind === "credit",
+    "customer tops up wallet in sandbox",
+    topUp.text
+  );
+
   const state = await request("/state", { headers: auth(customerToken) });
   assert(
     state.status === 200 && state.body?.state?.restaurants?.length > 0,
