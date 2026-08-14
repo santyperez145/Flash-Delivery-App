@@ -22,6 +22,8 @@ Uber Eats y PedidosYa compiten por frecuencia. La app debe permitir descubrir re
 
 DoorDash muestra que el comercio no puede ser un panel secundario. Los locales necesitan manejo de pedidos en tiempo real, ajuste de tiempos de preparacion, stock, tickets claros, chat con clientes/repartidores y acciones rapidas desde celular o tablet.
 
+La documentacion oficial de DoorDash Merchant confirma una expectativa mas alta para la operacion: live orders, ajustes de prep time, disponibilidad del local, productos agotados, refunds/substitutions, reportes, campanas y conexiones POS. Esto define la brecha de Flash para el siguiente sprint, no como una lista cosmetica sino como capacidades que reducen cancelaciones y trabajo manual.
+
 Para repartidores y conductores, la utilidad real depende de tres cosas: ver ganancia estimada antes de aceptar, conocer origen/destino/distancia, y poder avanzar el trabajo con estados claros. Uber tambien empuja oportunidades, promociones, recompensas, tasas de aceptacion/cancelacion y modos como Destination Mode.
 
 ## Requisitos derivados
@@ -79,3 +81,20 @@ Este repo ya tiene MVP funcional fullstack, pero para competir comercialmente fa
 - Backoffice antifraude, soporte multiagente y conciliacion financiera.
 - Apps nativas o PWA instalable con permisos de ubicacion.
 - Observabilidad: logs estructurados, metricas y alertas.
+
+## Matriz de paridad para los siguientes sprints
+
+Flash ya cubre parte del nucleo operativo: pedidos y viajes persistidos, estados de cocina, stock, disponibilidad, realtime SSE, cotizacion por coordenadas, tracking foreground y asignacion inicial por cercania.
+
+La prioridad competitiva siguiente es cerrar el circuito de excepciones y dinero:
+
+1. Comercio: marcar agotados por producto, proponer sustituciones, ajustar preparacion y abrir un ticket trazable.
+2. Cliente: aceptar sustitucion, cancelar con reglas, pedir reembolso y recibir push por cada cambio.
+3. Operaciones: aprobar/refutar reembolsos, ver SLA, intervenir una orden y auditar el resultado.
+4. Plataforma: conectar geocoding/routing, pagos sandbox, POS y ledger antes de escalar adquisicion.
+
+Referencias oficiales usadas para esta comparacion:
+
+- [DoorDash Business Manager](https://merchants.doordash.com/en-us/learning-center/business-manager-app)
+- [DoorDash Merchant Portal](https://merchants.doordash.com/en-us/products/merchant-portal)
+- [DoorDash real-time merchant features](https://about.doordash.com/en-us/news/doordash-empowers-merchants-with-new-real-time-features)
