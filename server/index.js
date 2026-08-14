@@ -4,8 +4,11 @@ import { fileURLToPath } from "node:url";
 import cors from "cors";
 import bcrypt from "bcryptjs";
 import express from "express";
+import rateLimit from "express-rate-limit";
+import helmet from "helmet";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
+import { config } from "./config.js";
 import {
   createId,
   getPublicState,
@@ -19,18 +22,17 @@ import {
 } from "./store.js";
 
 const app = express();
-const port = Number(process.env.PORT || 4000);
 const serviceFee = 520;
-const jwtSecret = process.env.JWT_SECRET || "flash-local-demo-secret";
+const jwtSecret = config.jwtSecret;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const distDir = path.resolve(__dirname, "..", "dist");
 
-app.use(cors());
-app.use(express.json({ limit: "1mb" }));
+app.disable("x-powered-by");
+app.set("trust proxy", config.isProduction ? 1 : false);
 
-const ok = (res, payload = {}) => res.json({ ok: true, ...payload });
-const fail = (res, status, message) => res.status(status).json({ ok: false, message });
+const ok = (res, payload = {}) => res.json({ ok: true, requestId: res.locals.requestId, ...payload });
+const fail = (res, status, message) => res.status(status).json({ ok: false, requestId: res.locals.requestId, message });
 const parseOrFail = (schema, payload) => {
   const result = schema.safeParse(payload);
   if (!result.success) {
@@ -41,6 +43,84 @@ const parseOrFail = (schema, payload) => {
   }
   return { ok: true, data: result.data };
 };
+
+function requestContext(req, res, next) {
+  const headerId = Array.isArray(req.headers["x-request-id"])
+    ? req.headers["x-request-id"][0]
+    : req.headers["x-request-id"];
+  const requestId =
+    typeof headerId === "string" && /^[a-zA-Z0-9._:-]{8,128}$/.test(headerId)
+      ? headerId
+      : createId("REQ");
+  req.requestId = requestId;
+  res.locals.requestId = requestId;
+  res.setHeader("X-Request-Id", requestId);
+  next();
+}
+
+function requestLogger(req, res, next) {
+  if (config.logLevel === "silent") return next();
+  const start = Date.now();
+  res.on("finish", () => {
+    console.log(
+      JSON.stringify({
+        level: res.statusCode >= 500 ? "error" : "info",
+        requestId: req.requestId,
+        method: req.method,
+        path: req.originalUrl,
+        status: res.statusCode,
+        durationMs: Date.now() - start
+      })
+    );
+  });
+  return next();
+}
+
+function corsOrigin(origin, callback) {
+  if (!origin || config.corsOrigins.includes("*") || config.corsOrigins.includes(origin)) {
+    return callback(null, true);
+  }
+  const error = new Error("Origen no permitido por CORS");
+  error.status = 403;
+  return callback(error);
+}
+
+function createLimiter({ max, message }) {
+  return rateLimit({
+    windowMs: config.rateLimit.windowMs,
+    limit: max,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    skip: (req) => ["/health", "/ready"].includes(req.path),
+    handler: (_req, res) => fail(res, 429, message)
+  });
+}
+
+app.use(requestContext);
+app.use(requestLogger);
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    strictTransportSecurity: config.isProduction ? undefined : false
+  })
+);
+app.use(cors({ origin: corsOrigin, credentials: true }));
+app.use(
+  "/api",
+  createLimiter({
+    max: config.rateLimit.max,
+    message: "Demasiadas solicitudes. Intenta nuevamente en unos segundos."
+  })
+);
+app.use(
+  "/api/auth",
+  createLimiter({
+    max: config.rateLimit.authMax,
+    message: "Demasiados intentos de autenticacion. Intenta mas tarde."
+  })
+);
+app.use(express.json({ limit: "1mb" }));
 
 function getBearerToken(req) {
   const header = req.headers.authorization || "";
@@ -404,9 +484,26 @@ function adminSnapshot(db) {
 app.get("/api/health", (_req, res) => {
   ok(res, {
     service: "flash-fullstack-api",
+    environment: config.env,
     database: getDatabasePath(),
     timestamp: getTimestamp()
   });
+});
+
+app.get("/api/ready", (_req, res) => {
+  try {
+    const db = readDb();
+    return ok(res, {
+      service: "flash-fullstack-api",
+      database: "ready",
+      users: db.users.length,
+      restaurants: db.restaurants.length,
+      drivers: db.drivers.length,
+      timestamp: getTimestamp()
+    });
+  } catch (_error) {
+    return fail(res, 503, "Base de datos no disponible");
+  }
 });
 
 app.get("/api/state", requireAuth, (_req, res) => {
@@ -764,11 +861,43 @@ app.use((req, res) => {
   fail(res, 404, `Ruta no encontrada: ${req.method} ${req.path}`);
 });
 
-const server = app.listen(port, "127.0.0.1", () => {
-  console.log(`Flash API running on http://127.0.0.1:${port}`);
+app.use((error, req, res, _next) => {
+  const status = Number(error.status || error.statusCode || 500);
+  if (status >= 500 && config.logLevel !== "silent") {
+    console.error(
+      JSON.stringify({
+        level: "error",
+        requestId: req.requestId,
+        method: req.method,
+        path: req.originalUrl,
+        status,
+        message: error.message
+      })
+    );
+  }
+  return fail(
+    res,
+    status >= 400 && status < 600 ? status : 500,
+    status >= 500 ? "Error interno del servidor" : error.message
+  );
+});
+
+const server = app.listen(config.port, config.host, () => {
+  console.log(`Flash API running on http://${config.host}:${config.port}`);
 });
 
 server.on("error", (error) => {
   console.error("Flash API failed to start", error);
   process.exitCode = 1;
 });
+
+function shutdown(signal) {
+  console.log(`Received ${signal}. Closing Flash API.`);
+  server.close(() => {
+    process.exit(0);
+  });
+  setTimeout(() => process.exit(1), 10000).unref();
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => shutdown("SIGINT"));

@@ -4,7 +4,7 @@ const port = process.env.TEST_PORT || "4199";
 const base = `http://127.0.0.1:${port}/api`;
 const server = spawn(process.execPath, ["server/index.js"], {
   cwd: process.cwd(),
-  env: { ...process.env, PORT: port },
+  env: { ...process.env, NODE_ENV: "test", LOG_LEVEL: "silent", PORT: port },
   stdio: ["ignore", "pipe", "pipe"]
 });
 
@@ -61,6 +61,13 @@ async function waitForApi() {
 
 async function run() {
   await waitForApi();
+
+  const ready = await request("/ready");
+  assert(
+    ready.status === 200 && ready.body?.requestId && ready.body?.database === "ready",
+    "ready endpoint exposes request id",
+    ready.text
+  );
 
   const stateNoToken = await request("/state");
   assert(stateNoToken.status === 401, "state rejects anonymous", stateNoToken.text);

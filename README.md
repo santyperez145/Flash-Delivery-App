@@ -13,6 +13,7 @@ npm run dev
 
 - Frontend: http://127.0.0.1:5173/
 - Backend: http://127.0.0.1:4000/api/health
+- Readiness: http://127.0.0.1:4000/api/ready
 - Base SQLite: `server/data/flash.sqlite`
 
 Produccion local con Docker:
@@ -32,6 +33,18 @@ npm run test:security
 
 `test:security` levanta una API aislada en otro puerto, prueba JWT/RBAC/ownership y reinicia los datos demo al terminar.
 
+## Configuracion
+
+Copiar `.env.example` como referencia para ambientes reales. Variables principales:
+
+- `NODE_ENV`: `development`, `test` o `production`.
+- `HOST` y `PORT`: direccion y puerto del backend.
+- `JWT_SECRET`: obligatorio y fuerte para produccion.
+- `CORS_ORIGIN`: allowlist separada por comas.
+- `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX`, `AUTH_RATE_LIMIT_MAX`: limites de abuso.
+
+El backend responde con `requestId`, aplica headers de seguridad, CORS controlado y rate limiting. En produccion no arranca con el secreto JWT demo.
+
 ## Cuentas demo
 
 - Cliente: `cliente@flash.app` / `demo123`
@@ -50,8 +63,10 @@ Los datos se persisten en SQLite. Las rutas sensibles usan JWT, RBAC y validacio
 
 ## Documentacion de producto
 
+- Roadmap ejecutivo: `ROADMAP.MD`
 - Investigacion competitiva: `docs/investigacion-competitiva.md`
 - Arquitectura: `docs/arquitectura-producto.md`
 - Infraestructura escalable: `docs/infraestructura-escalable.md`
 - Roadmap: `docs/roadmap.md`
 - Progreso: `docs/progreso.md`
+- Checklist de despliegue: `docs/deployment-checklist.md`

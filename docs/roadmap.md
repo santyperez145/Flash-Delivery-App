@@ -23,6 +23,10 @@ Flash debe operar cuatro superficies reales:
 - [x] Ownership en servidor para pedidos, viajes, restaurantes y drivers.
 - [x] Auditoria de mutaciones relevantes.
 - [x] Smoke test de seguridad para JWT/RBAC/ownership.
+- [x] Configuracion validada por entorno.
+- [x] Headers de seguridad, CORS allowlist y rate limiting inicial.
+- [x] Request IDs, logs estructurados y readiness.
+- [x] CI en GitHub Actions.
 - [x] PWA instalable para pruebas internas.
 - [x] Docker para ejecucion reproducible.
 - [x] Documentacion de investigacion, arquitectura e infraestructura.

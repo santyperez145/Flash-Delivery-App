@@ -46,10 +46,16 @@ Flash Delivery Mobility ya es una app fullstack local con cuatro superficies: cl
   - RBAC por rol.
   - Ownership por cliente, comercio y driver.
   - Auditoria de acciones relevantes.
+  - Configuracion por entorno validada.
+  - Headers de seguridad, CORS allowlist y rate limiting.
+  - Request IDs y logs estructurados.
+  - Health/readiness para operacion.
 
 - Producto e infraestructura:
   - PWA con manifest y service worker.
   - Dockerfile y Docker Compose.
+  - Docker healthcheck.
+  - GitHub Actions CI.
   - Documentacion competitiva, arquitectura, infraestructura y roadmap.
   - Smoke test de seguridad con `npm run test:security`.
 
@@ -64,6 +70,9 @@ Flash Delivery Mobility ya es una app fullstack local con cuatro superficies: cl
 - Un viaje solo puede avanzar si actua admin o el driver asignado.
 - Cambios manuales de estado por usuarios no admin quedan limitados a cancelacion propia.
 - Todas las mutaciones principales escriben eventos en `auditEvents`.
+- Produccion no arranca con `JWT_SECRET` demo.
+- Cada respuesta de API incluye `requestId`.
+- `/api/ready` valida lectura basica de base.
 
 ## Como verificar
 
