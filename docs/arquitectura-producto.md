@@ -14,6 +14,8 @@ Flash Delivery Mobility esta organizada como una plataforma multirol:
 - Base de datos: SQLite con `better-sqlite3`.
 - Auth: bcrypt para passwords, JWT para sesion y RBAC inicial por rol.
 - Validacion: `zod` en endpoints criticos.
+- Seguridad HTTP: Helmet, CORS con allowlist y rate limiting.
+- Operacion: request IDs, logs estructurados, health y readiness.
 
 ## Diagrama de dominio
 
@@ -44,6 +46,7 @@ erDiagram
 ## API principal
 
 - `GET /api/health`: salud del backend y path de SQLite.
+- `GET /api/ready`: readiness del backend y lectura basica de base.
 - `GET /api/state`: estado de app protegido por JWT.
 - `POST /api/auth/login`: login con password hasheado y JWT.
 - `POST /api/auth/register`: registro de cliente.
@@ -72,6 +75,8 @@ Las rutas sensibles requieren `Authorization: Bearer <token>`.
 - `customer`: puede crear pedidos/viajes solo para su usuario y cancelar solicitudes propias.
 
 Cada mutacion importante escribe un evento en `auditEvents` con actor, entidad, accion y fecha.
+
+El servidor agrega `X-Request-Id` a cada respuesta, limita abuso por ventana de tiempo y restringe origenes CORS desde configuracion. En produccion no arranca con el secreto JWT demo.
 
 ## Decisiones
 
