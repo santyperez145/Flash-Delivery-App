@@ -51,6 +51,7 @@ Flash Delivery Mobility ya es una app fullstack local con cuatro superficies: cl
   - Headers de seguridad, CORS allowlist y rate limiting.
   - Request IDs y logs estructurados.
   - Health/readiness para operacion.
+  - Stream SSE autenticado en `/api/events` con heartbeat, cleanup y eventos de mutacion.
 
 - Producto e infraestructura:
   - PWA con manifest y service worker.
@@ -93,7 +94,7 @@ Flash Delivery Mobility ya es una app fullstack local con cuatro superficies: cl
 
 - Suite completa de tests unitarios/integracion/e2e.
 - Migracion a Postgres/PostGIS.
-- Realtime con WebSocket/SSE.
+- Filtrado realtime por audiencia, Redis Pub/Sub y WebSocket para presencia/chat.
 - Integracion real de mapas/geocoding/rutas.
 - Integracion real de pagos y ledger.
 - Expo/React Native para apps mobile publicables.

@@ -263,3 +263,13 @@ export type RideQuote = Pick<
   Ride,
   "service" | "distanceKm" | "etaMin" | "durationMin" | "fare"
 >;
+
+export type RealtimeEvent = {
+  id: string;
+  type: string;
+  entityType?: string | null;
+  entityId?: string | null;
+  action?: string | null;
+  requestId?: string | null;
+  at: string;
+};

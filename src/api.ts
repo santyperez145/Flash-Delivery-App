@@ -1,4 +1,14 @@
-import type { AdminDashboard, AppState, CartLine, Driver, Restaurant, Ride, RideQuote, User } from "./types";
+import type {
+  AdminDashboard,
+  AppState,
+  CartLine,
+  Driver,
+  RealtimeEvent,
+  Restaurant,
+  Ride,
+  RideQuote,
+  User
+} from "./types";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:4000/api";
 const TOKEN_KEY = "flash_platform_token";
@@ -25,6 +35,59 @@ export function clearAuthToken() {
   if (typeof window !== "undefined") {
     window.localStorage.removeItem(TOKEN_KEY);
   }
+}
+
+export function subscribeToEvents(
+  onEvent: (event: RealtimeEvent) => void,
+  onStatus: (status: "connecting" | "live" | "reconnecting" | "offline") => void
+) {
+  const controller = new AbortController();
+  let stopped = false;
+  let retryTimer: number | undefined;
+
+  const connect = async () => {
+    if (stopped || !authToken) return;
+    onStatus("connecting");
+    try {
+      const response = await fetch(`${API_BASE}/events`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+        signal: controller.signal
+      });
+      if (!response.ok || !response.body) throw new Error("Realtime no disponible");
+      onStatus("live");
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (!stopped) {
+        const { done, value } = await reader.read();
+        if (done) throw new Error("Realtime desconectado");
+        buffer += decoder.decode(value, { stream: true });
+        const chunks = buffer.split("\n\n");
+        buffer = chunks.pop() || "";
+        chunks.forEach((chunk) => {
+          const dataLine = chunk.split("\n").find((line) => line.startsWith("data: "));
+          if (!dataLine) return;
+          try {
+            onEvent(JSON.parse(dataLine.slice(6)) as RealtimeEvent);
+          } catch (_error) {
+            // Ignore malformed event frames and keep the stream alive.
+          }
+        });
+      }
+    } catch (_error) {
+      if (stopped || controller.signal.aborted) return;
+      onStatus("reconnecting");
+      retryTimer = window.setTimeout(connect, 2500);
+    }
+  };
+
+  void connect();
+  return () => {
+    stopped = true;
+    if (retryTimer) window.clearTimeout(retryTimer);
+    controller.abort();
+    onStatus("offline");
+  };
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {

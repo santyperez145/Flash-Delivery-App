@@ -30,6 +30,8 @@ Flash debe competir con plataformas tipo Uber, Uber Eats y PedidosYa desde cuatr
 - [x] Investor Command Center en superadmin desktop.
 - [x] Base Expo/React Native en `apps/mobile`.
 - [x] Documento investor-ready con KPIs y data room inicial.
+- [x] Canal realtime SSE autenticado para pedidos, viajes, drivers y operaciones.
+- [x] Reconexion automatica del frontend y estado visible del canal live.
 
 ## Principios tecnicos
 
@@ -191,6 +193,6 @@ Criterios de salida:
 
 - Instalar y verificar `apps/mobile` con Expo Go/dev build.
 - Diseñar migracion a Postgres/PostGIS.
-- Implementar primer realtime con SSE para pedidos y viajes.
+- Extender realtime SSE a payloads por usuario, push y tracking; evaluar WebSocket para presencia bidireccional.
 - Agregar pagos sandbox y ledger financiero.
 - Crear pitch demo mode con datos de crecimiento historico.
