@@ -27,6 +27,9 @@ Flash debe competir con plataformas tipo Uber, Uber Eats y PedidosYa desde cuatr
 - [x] Docker y Docker Compose.
 - [x] Smoke test de seguridad con `npm run test:security`.
 - [x] Documentacion de arquitectura, investigacion, infraestructura y progreso.
+- [x] Investor Command Center en superadmin desktop.
+- [x] Base Expo/React Native en `apps/mobile`.
+- [x] Documento investor-ready con KPIs y data room inicial.
 
 ## Principios tecnicos
 
@@ -186,9 +189,8 @@ Criterios de salida:
 
 ## Proximo sprint
 
-- Finalizar hardening base de backend.
-- Agregar CI.
-- Crear checklist de despliegue.
+- Instalar y verificar `apps/mobile` con Expo Go/dev build.
 - Diseñar migracion a Postgres/PostGIS.
 - Implementar primer realtime con SSE para pedidos y viajes.
-- Crear estructura inicial `apps/mobile` para Expo.
+- Agregar pagos sandbox y ledger financiero.
+- Crear pitch demo mode con datos de crecimiento historico.

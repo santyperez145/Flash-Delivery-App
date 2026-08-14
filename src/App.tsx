@@ -37,10 +37,12 @@ import {
   X
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "./api";
 import type {
   AppState,
+  AdminDashboard,
   CartLine,
   CustomerTab,
   Driver,
@@ -123,6 +125,7 @@ const rideServices: Array<{ id: Ride["service"]; label: string; icon: LucideIcon
 
 function App() {
   const [state, setState] = useState<AppState | null>(null);
+  const [adminDashboard, setAdminDashboard] = useState<AdminDashboard | null>(null);
   const [mode, setMode] = useState<Mode>("customer");
   const [sessionUserId, setSessionUserId] = useState("usr_customer");
   const [service, setService] = useState<Service>("food");
@@ -160,7 +163,17 @@ function App() {
   const refresh = useCallback(async () => {
     const response = await api.state();
     setState(response.state);
-  }, []);
+    if (isDesktop) {
+      try {
+        const dashboardResponse = await api.adminDashboard();
+        setAdminDashboard(dashboardResponse.dashboard);
+      } catch (_requestError) {
+        setAdminDashboard(null);
+      }
+    } else {
+      setAdminDashboard(null);
+    }
+  }, [isDesktop]);
 
   const bootstrapSession = useCallback(async () => {
     const activeMode = isDesktop ? "ops" : mode;
@@ -402,7 +415,7 @@ function App() {
   }
 
   if (isDesktop) {
-    return <SuperAdminConsole state={state} busy={busy} runAction={runAction} />;
+    return <SuperAdminConsole state={state} dashboard={adminDashboard} busy={busy} runAction={runAction} />;
   }
 
   return (
@@ -508,15 +521,17 @@ function PhoneStatus() {
 
 function SuperAdminConsole({
   state,
+  dashboard,
   busy,
   runAction
 }: {
   state: AppState;
+  dashboard: AdminDashboard | null;
   busy: boolean;
   runAction: (action: () => Promise<unknown>, success: string) => void;
 }) {
   const [section, setSection] = useState<
-    "overview" | "dispatch" | "merchants" | "drivers" | "finance" | "support" | "infra"
+    "overview" | "dispatch" | "merchants" | "drivers" | "finance" | "investors" | "support" | "infra"
   >("overview");
   const activeOrders = state.orders.filter((order) => !["delivered", "cancelled"].includes(order.status));
   const activeRides = state.rides.filter((ride) => !["completed", "cancelled"].includes(ride.status));
@@ -528,12 +543,17 @@ function SuperAdminConsole({
   const cancellationCount =
     state.orders.filter((order) => order.status === "cancelled").length +
     state.rides.filter((ride) => ride.status === "cancelled").length;
+  const marketplace = dashboard?.marketplace;
+  const investor = dashboard?.investor;
+  const platformRevenue = marketplace?.estimatedPlatformRevenue ?? takeRate;
+  const readinessScore = investor?.readinessScore ?? 68;
   const nav = [
     ["overview", "Resumen", LineChart],
     ["dispatch", "Dispatch", LocateFixed],
     ["merchants", "Comercios", Store],
     ["drivers", "Drivers", Bike],
     ["finance", "Finanzas", WalletCards],
+    ["investors", "Inversion", BadgeDollarSign],
     ["support", "Soporte", MessageCircle],
     ["infra", "Infra", ShieldCheck]
   ] as const;
@@ -572,7 +592,7 @@ function SuperAdminConsole({
       <section className="admin-main">
         <header className="admin-topbar">
           <div>
-            <span>Produccion demo · SQLite local</span>
+            <span>Seed-ready ops · SQLite local</span>
             <h1>Control de marketplace, movilidad y delivery</h1>
           </div>
           <div className="admin-actions">
@@ -596,12 +616,16 @@ function SuperAdminConsole({
               <AdminKpi label="Pedidos activos" value={state.metrics.activeOrders} detail={`${state.metrics.avgOrderEta}m ETA`} tone="orange" />
               <AdminKpi label="Viajes activos" value={state.metrics.activeRides} detail={`${state.metrics.avgRideEta}m pickup`} tone="teal" />
               <AdminKpi label="Drivers online" value={state.metrics.onlineDrivers} detail={`${state.drivers.length} registrados`} tone="green" />
-              <AdminKpi label="GMV demo" value={money.format(grossVolume)} detail={`Take rate ${money.format(takeRate)}`} tone="dark" />
+              <AdminKpi label="GMV demo" value={money.format(grossVolume)} detail={`Revenue ${money.format(platformRevenue)}`} tone="dark" />
             </div>
+            <section className="admin-card">
+              <AdminSectionHeader title="Investor pulse" action={`${readinessScore}/100 readiness`} />
+              <InvestorPulse dashboard={dashboard} grossVolume={grossVolume} platformRevenue={platformRevenue} />
+            </section>
             <div className="admin-grid two">
               <section className="admin-card">
                 <AdminSectionHeader title="Salud del marketplace" action={`${state.restaurants.length} comercios`} />
-                <MarketplaceHealth state={state} cancellationCount={cancellationCount} />
+                <MarketplaceHealth state={state} dashboard={dashboard} cancellationCount={cancellationCount} />
               </section>
               <section className="admin-card">
                 <AdminSectionHeader title="Zonas calientes" action="Live" />
@@ -701,7 +725,7 @@ function SuperAdminConsole({
             <AdminSectionHeader title="Finanzas y conciliacion" action="Demo ledger" />
             <div className="admin-kpis finance">
               <AdminKpi label="GMV total" value={money.format(grossVolume)} detail="Pedidos + viajes" tone="orange" />
-              <AdminKpi label="Ingreso plataforma" value={money.format(takeRate)} detail="18% simulado" tone="green" />
+              <AdminKpi label="Ingreso plataforma" value={money.format(platformRevenue)} detail={`${marketplace?.takeRatePercent ?? 18}% simulado`} tone="green" />
               <AdminKpi label="Wallet clientes" value={money.format(state.users.reduce((sum, user) => sum + user.wallet, 0))} detail="Saldo total" tone="teal" />
               <AdminKpi label="Cancelaciones" value={cancellationCount} detail="Pedidos + viajes" tone="dark" />
             </div>
@@ -719,6 +743,35 @@ function SuperAdminConsole({
               ))}
             </div>
           </section>
+        )}
+
+        {section === "investors" && (
+          <div className="admin-grid">
+            <section className="admin-card">
+              <AdminSectionHeader title="Ronda seed readiness" action={`${readinessScore}/100`} />
+              <InvestorPulse dashboard={dashboard} grossVolume={grossVolume} platformRevenue={platformRevenue} />
+            </section>
+            <div className="admin-grid two">
+              <section className="admin-card">
+                <AdminSectionHeader title="Unit economics" action="Modelo demo" />
+                <UnitEconomicsBoard dashboard={dashboard} />
+              </section>
+              <section className="admin-card">
+                <AdminSectionHeader title="Milestones para levantar capital" action="18 meses" />
+                <MilestoneBoard dashboard={dashboard} />
+              </section>
+            </div>
+            <div className="admin-grid two">
+              <section className="admin-card">
+                <AdminSectionHeader title="Funnel de crecimiento" action="Seed metrics" />
+                <GrowthFunnel state={state} dashboard={dashboard} />
+              </section>
+              <section className="admin-card">
+                <AdminSectionHeader title="Riesgos y mitigacion" action={`${dashboard?.riskSignals.length ?? 0} senales`} />
+                <RiskSignalBoard dashboard={dashboard} />
+              </section>
+            </div>
+          </div>
         )}
 
         {section === "support" && (
@@ -787,10 +840,26 @@ function AdminSectionHeader({ title, action }: { title: string; action: string }
   );
 }
 
-function MarketplaceHealth({ state, cancellationCount }: { state: AppState; cancellationCount: number }) {
+function MarketplaceHealth({
+  state,
+  dashboard,
+  cancellationCount
+}: {
+  state: AppState;
+  dashboard: AdminDashboard | null;
+  cancellationCount: number;
+}) {
   const rows = [
-    ["Fill rate delivery", `${state.orders.filter((order) => order.courierId).length}/${state.orders.length}`, "Asignacion"],
-    ["Fill rate taxi", `${state.rides.filter((ride) => ride.driverId).length}/${state.rides.length}`, "Conductores"],
+    [
+      "Fill rate delivery",
+      dashboard ? `${dashboard.marketplace.fillRateDelivery}%` : `${state.orders.filter((order) => order.courierId).length}/${state.orders.length}`,
+      "Asignacion"
+    ],
+    [
+      "Fill rate taxi",
+      dashboard ? `${dashboard.marketplace.fillRateRide}%` : `${state.rides.filter((ride) => ride.driverId).length}/${state.rides.length}`,
+      "Conductores"
+    ],
     ["Locales abiertos", `${state.metrics.openRestaurants}/${state.restaurants.length}`, "Supply"],
     ["Cancelaciones", String(cancellationCount), "Riesgo"]
   ];
@@ -802,6 +871,122 @@ function MarketplaceHealth({ state, cancellationCount }: { state: AppState; canc
           <strong>{value}</strong>
           <small>{detail}</small>
         </div>
+      ))}
+    </div>
+  );
+}
+
+function InvestorPulse({
+  dashboard,
+  grossVolume,
+  platformRevenue
+}: {
+  dashboard: AdminDashboard | null;
+  grossVolume: number;
+  platformRevenue: number;
+}) {
+  const investor = dashboard?.investor;
+  const score = investor?.readinessScore ?? 68;
+  const margin = investor?.contributionMarginPercent ?? 0;
+  const runway = investor?.runwayMonths ?? 0;
+  return (
+    <div className="investor-pulse">
+      <div className="readiness-meter" style={{ "--score": `${score}%` } as CSSProperties}>
+        <strong>{score}</strong>
+        <span>readiness</span>
+      </div>
+      <div className="investor-summary">
+        <h3>Historia para inversores</h3>
+        <p>
+          Marketplace multi-servicio con demanda de comida y movilidad, supply flexible y backoffice
+          operativo. El foco de la ronda es convertir el MVP local en beta con realtime, pagos y app nativa.
+        </p>
+        <div className="investor-stats">
+          <span>GMV {money.format(grossVolume)}</span>
+          <span>Revenue {money.format(platformRevenue)}</span>
+          <span>Runway {runway || 18}m</span>
+          <span>Margen {margin}%</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UnitEconomicsBoard({ dashboard }: { dashboard: AdminDashboard | null }) {
+  const rows =
+    dashboard?.investor.unitEconomics || [
+      { label: "AOV comida", value: "$0", detail: "Ticket promedio" },
+      { label: "Fare taxi", value: "$0", detail: "Tarifa promedio" },
+      { label: "Take rate", value: "18%", detail: "Comision demo" }
+    ];
+  return (
+    <div className="unit-grid">
+      {rows.map((row) => (
+        <div key={row.label}>
+          <span>{row.label}</span>
+          <strong>{row.value}</strong>
+          <small>{row.detail}</small>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MilestoneBoard({ dashboard }: { dashboard: AdminDashboard | null }) {
+  const milestones = dashboard?.investor.milestones || [];
+  return (
+    <div className="milestone-list">
+      {milestones.map((milestone) => (
+        <article className={milestone.status} key={milestone.label}>
+          <span />
+          <div>
+            <strong>{milestone.label}</strong>
+            <small>{milestone.value}</small>
+          </div>
+          <b>{milestone.status.replace("_", " ")}</b>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function GrowthFunnel({ state, dashboard }: { state: AppState; dashboard: AdminDashboard | null }) {
+  const activatedUsers = state.users.filter((user) => user.roles.includes("customer")).length;
+  const completedJobs =
+    state.orders.filter((order) => order.status === "delivered").length +
+    state.rides.filter((ride) => ride.status === "completed").length;
+  const funnel = [
+    { label: "Usuarios", value: state.users.length, detail: "Cuentas demo" },
+    { label: "Activados", value: activatedUsers, detail: "Cliente con wallet" },
+    { label: "Jobs", value: state.orders.length + state.rides.length, detail: "Pedidos + viajes" },
+    { label: "Cumplidos", value: completedJobs, detail: "Conversion operativa" },
+    { label: "Fill delivery", value: `${dashboard?.marketplace.fillRateDelivery ?? 0}%`, detail: "Asignacion" },
+    { label: "Fill taxi", value: `${dashboard?.marketplace.fillRateRide ?? 0}%`, detail: "Asignacion" }
+  ];
+  return (
+    <div className="funnel-list">
+      {funnel.map((row, index) => (
+        <article key={row.label}>
+          <div style={{ width: `${100 - index * 9}%` }} />
+          <span>{row.label}</span>
+          <strong>{row.value}</strong>
+          <small>{row.detail}</small>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function RiskSignalBoard({ dashboard }: { dashboard: AdminDashboard | null }) {
+  const risks = dashboard?.riskSignals || [];
+  return (
+    <div className="risk-list">
+      {risks.map((risk) => (
+        <article className={risk.level} key={risk.id}>
+          <strong>{risk.label}</strong>
+          <span>{risk.value}</span>
+          <small>{risk.level === "low" ? "Controlado" : risk.level === "medium" ? "Monitorear" : "Accion inmediata"}</small>
+        </article>
       ))}
     </div>
   );
@@ -1200,6 +1385,8 @@ function FoodHome({
           <p>Pedidos, tracking y reparto con backend activo.</p>
         </div>
       </section>
+      <FlashPassTeaser />
+      <FlashPromiseGrid />
       <SearchBar query={query} setQuery={setQuery} />
       <CategoryRail categories={categories} category={category} setCategory={setCategory} />
       <SectionTitle title="Cerca tuyo" action="Abiertos" />
@@ -1224,6 +1411,40 @@ function FoodHome({
         ))}
       </div>
     </>
+  );
+}
+
+function FlashPassTeaser() {
+  return (
+    <section className="flash-pass">
+      <div>
+        <span>Flash Pass</span>
+        <strong>Envios gratis, soporte prioritario y promos cross-food/taxi</strong>
+      </div>
+      <button type="button">
+        <Sparkles size={15} /> Activar
+      </button>
+    </section>
+  );
+}
+
+function FlashPromiseGrid() {
+  const promises = [
+    ["Tracking vivo", "Mapa + ETA", LocateFixed],
+    ["Garantia", "Credito si falla", ShieldCheck],
+    ["Grupal", "Pedido compartido", UserRound],
+    ["Programar", "Food o taxi", Clock3]
+  ] as const;
+  return (
+    <div className="promise-grid">
+      {promises.map(([title, detail, Icon]) => (
+        <article key={title}>
+          <Icon size={16} />
+          <strong>{title}</strong>
+          <span>{detail}</span>
+        </article>
+      ))}
+    </div>
   );
 }
 
@@ -1315,6 +1536,7 @@ function RideHome({
           </button>
         </div>
       </section>
+      <RideSafetyPanel />
       {activeRide && (
         <TrackingCard
           title={`${rideStatusLabel[activeRide.status]} · ${activeRide.etaMin} min`}
@@ -1327,6 +1549,28 @@ function RideHome({
         />
       )}
     </>
+  );
+}
+
+function RideSafetyPanel() {
+  const items = [
+    ["PIN", "Verificacion al subir"],
+    ["Share", "Compartir recorrido"],
+    ["SOS", "Soporte prioritario"]
+  ];
+  return (
+    <section className="safety-panel">
+      <div>
+        <ShieldCheck size={18} />
+        <strong>Viaje protegido</strong>
+      </div>
+      {items.map(([label, detail]) => (
+        <span key={label}>
+          <b>{label}</b>
+          {detail}
+        </span>
+      ))}
+    </section>
   );
 }
 
@@ -1397,6 +1641,16 @@ function WalletScreen({ user, promotions }: { user: User | null; promotions: App
           <strong>{money.format(user?.wallet || 0)}</strong>
         </div>
         <button type="button">Cargar</button>
+      </section>
+      <section className="loyalty-card">
+        <div>
+          <span>Nivel Pro</span>
+          <strong>7 de 10 pedidos para envios gratis</strong>
+        </div>
+        <div className="loyalty-progress">
+          <span style={{ width: "70%" }} />
+        </div>
+        <small>Aplica en comida, taxi y promos de comercios aliados.</small>
       </section>
       {promotions.map((promotion) => (
         <article className="promo-row" key={promotion.id}>
@@ -1606,6 +1860,9 @@ function MerchantApp({
   runAction: (action: () => Promise<unknown>, success: string) => void;
 }) {
   const orders = state.orders.filter((order) => order.restaurantId === restaurant.id);
+  const activeOrders = orders.filter((order) => !["delivered", "cancelled"].includes(order.status));
+  const soldOutItems = restaurant.menu.filter((item) => !item.stock).length;
+  const todayRevenue = orders.reduce((sum, order) => sum + order.total, 0);
   return (
     <div className="screen">
       <TopBar title="Comercio" actionIcon={Store} />
@@ -1634,6 +1891,44 @@ function MerchantApp({
           disabled={busy}
         />
       </label>
+      <div className="merchant-command">
+        <MetricCard label="Venta" value={todayRevenue} tone="orange" />
+        <MetricCard label="Activos" value={activeOrders.length} tone="teal" />
+        <MetricCard label="ETA" value={restaurant.etaMin} tone="green" />
+        <MetricCard label="Sin stock" value={soldOutItems} tone="dark" />
+      </div>
+      <section className="prep-control">
+        <div>
+          <strong>Control de cocina</strong>
+          <span>Ajusta ETA en vivo para proteger SLA y evitar cancelaciones.</span>
+        </div>
+        <div className="prep-actions">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() =>
+              runAction(
+                () => api.updateRestaurant(restaurant.id, { etaMin: Math.max(5, restaurant.etaMin - 5) }),
+                "ETA reducida"
+              )
+            }
+          >
+            -5m
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() =>
+              runAction(
+                () => api.updateRestaurant(restaurant.id, { etaMin: restaurant.etaMin + 5 }),
+                "ETA ampliada"
+              )
+            }
+          >
+            +5m
+          </button>
+        </div>
+      </section>
       <SectionTitle title="Cocina" action={`${orders.length} pedidos`} />
       <div className="activity-stack">
         {orders.map((order) => (
@@ -1735,6 +2030,7 @@ function DriverApp({
   const activeRides = state.rides.filter(
     (ride) => ride.driverId === driver.id && !["completed", "cancelled"].includes(ride.status)
   );
+  const hotZone = state.zones.find((zone) => zone.demandLevel === "high") || state.zones[0];
   return (
     <div className="screen">
       <TopBar title="Driver" actionIcon={Bike} />
@@ -1778,6 +2074,31 @@ function DriverApp({
             {mode === "delivery" ? "Delivery" : "Taxi"}
           </button>
         ))}
+      </div>
+      <section className="driver-mission">
+        <div>
+          <span>Mision activa</span>
+          <strong>Completa 3 trabajos y desbloquea bono</strong>
+          <small>{hotZone?.name || "Zona centro"} con demanda alta</small>
+        </div>
+        <b>{money.format(driver.earningsToday)}</b>
+      </section>
+      <div className="driver-ops-grid">
+        <article>
+          <LocateFixed size={16} />
+          <strong>{availableOrders.length + availableRides.length}</strong>
+          <span>Ofertas</span>
+        </article>
+        <article>
+          <ShieldCheck size={16} />
+          <strong>99%</strong>
+          <span>Safety score</span>
+        </article>
+        <article>
+          <WalletCards size={16} />
+          <strong>Now</strong>
+          <span>Cashout</span>
+        </article>
       </div>
 
       <SectionTitle title="Activos" action={money.format(driver.earningsToday)} />
@@ -1856,6 +2177,7 @@ function OpsApp({
         <MetricCard label="Drivers" value={state.metrics.onlineDrivers} tone="green" />
         <MetricCard label="Tickets" value={state.metrics.openTickets} tone="dark" />
       </div>
+      <OpsRiskBoard state={state} />
       <section className="control-map">
         <div className="zone zone-one">Demanda alta</div>
         <div className="zone zone-two">Autos</div>
@@ -1898,6 +2220,31 @@ function OpsApp({
         <RefreshCw size={16} /> Reiniciar demo
       </button>
     </div>
+  );
+}
+
+function OpsRiskBoard({ state }: { state: AppState }) {
+  const unassignedOrders = state.orders.filter(
+    (order) => !order.courierId && !["delivered", "cancelled"].includes(order.status)
+  ).length;
+  const unassignedRides = state.rides.filter(
+    (ride) => !ride.driverId && !["completed", "cancelled"].includes(ride.status)
+  ).length;
+  const risks = [
+    ["Backlog", unassignedOrders + unassignedRides, "Asignaciones pendientes"],
+    ["Supply", state.metrics.onlineDrivers, "Drivers online"],
+    ["SLA", state.metrics.avgOrderEta + state.metrics.avgRideEta, "Minutos combinados"]
+  ] as const;
+  return (
+    <section className="ops-risk-board">
+      {risks.map(([label, value, detail]) => (
+        <article key={label}>
+          <strong>{label}</strong>
+          <span>{value}</span>
+          <small>{detail}</small>
+        </article>
+      ))}
+    </section>
   );
 }
 
