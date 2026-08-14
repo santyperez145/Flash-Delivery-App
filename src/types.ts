@@ -1,0 +1,218 @@
+export type Mode = "customer" | "merchant" | "driver" | "ops";
+export type UserRole = "customer" | "merchant" | "driver" | "admin";
+export type Service = "food" | "ride";
+export type DriverService = "delivery" | "ride";
+export type CustomerTab = "home" | "activity" | "wallet" | "profile";
+export type OrderStatus =
+  | "accepted"
+  | "preparing"
+  | "ready_for_pickup"
+  | "courier_assigned"
+  | "picked_up"
+  | "delivering"
+  | "delivered"
+  | "cancelled";
+export type RideStatus =
+  | "requested"
+  | "driver_assigned"
+  | "arriving"
+  | "in_progress"
+  | "completed"
+  | "cancelled";
+
+export type User = {
+  id: string;
+  name: string;
+  email: string;
+  roles: UserRole[];
+  phone: string;
+  wallet: number;
+  defaultAddress?: string;
+  restaurantId?: string;
+  driverId?: string;
+};
+
+export type Extra = {
+  id: string;
+  name: string;
+  price: number;
+};
+
+export type MenuItem = {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  price: number;
+  rating: number;
+  timeMin: number;
+  kcal: number;
+  stock: boolean;
+  image: string;
+  tags: string[];
+};
+
+export type Restaurant = {
+  id: string;
+  ownerId: string;
+  name: string;
+  cuisine: string;
+  rating: number;
+  distanceKm: number;
+  etaMin: number;
+  deliveryFee: number;
+  open: boolean;
+  image: string;
+  cover: string;
+  badge: string;
+  address: string;
+  menu: MenuItem[];
+  extras: Extra[];
+};
+
+export type Driver = {
+  id: string;
+  userId: string;
+  name: string;
+  online: boolean;
+  serviceModes: DriverService[];
+  activeService: DriverService;
+  vehicle: string;
+  plate: string;
+  rating: number;
+  location: {
+    lat: number;
+    lng: number;
+    label: string;
+  };
+  earningsToday: number;
+};
+
+export type TimelineEntry<TStatus extends string> = {
+  status: TStatus;
+  at: string;
+};
+
+export type OrderItem = {
+  menuItemId: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  extras: string[];
+  note: string;
+};
+
+export type Order = {
+  id: string;
+  customerId: string;
+  restaurantId: string;
+  courierId: string | null;
+  status: OrderStatus;
+  deliveryAddress: string;
+  paymentMethod: string;
+  items: OrderItem[];
+  subtotal: number;
+  deliveryFee: number;
+  serviceFee: number;
+  total: number;
+  etaMin: number;
+  createdAt: string;
+  timeline: TimelineEntry<OrderStatus>[];
+};
+
+export type Ride = {
+  id: string;
+  customerId: string;
+  driverId: string | null;
+  status: RideStatus;
+  service: "economy" | "comfort" | "moto" | "xl";
+  pickup: string;
+  destination: string;
+  distanceKm: number;
+  etaMin: number;
+  durationMin: number;
+  fare: number;
+  paymentMethod: string;
+  createdAt: string;
+  timeline: TimelineEntry<RideStatus>[];
+};
+
+export type Promotion = {
+  id: string;
+  title: string;
+  description: string;
+  service: Service;
+  discountPercent: number;
+  active: boolean;
+};
+
+export type SupportTicket = {
+  id: string;
+  service: Service;
+  status: "open" | "closed";
+  title: string;
+  priority: "low" | "medium" | "high";
+};
+
+export type Zone = {
+  id: string;
+  name: string;
+  demandLevel: "low" | "medium" | "high";
+  deliveryMultiplier: number;
+  rideMultiplier: number;
+  activeOrders: number;
+  activeRides: number;
+};
+
+export type AuditEvent = {
+  id: string;
+  actorId: string | null;
+  entityType: string;
+  entityId: string;
+  action: string;
+  payload: Record<string, unknown>;
+  createdAt: string;
+};
+
+export type Metrics = {
+  activeOrders: number;
+  activeRides: number;
+  onlineDrivers: number;
+  openRestaurants: number;
+  completedRevenue: number;
+  openTickets: number;
+  avgOrderEta: number;
+  avgRideEta: number;
+};
+
+export type AppState = {
+  meta: {
+    name: string;
+    version: number;
+    createdAt: string;
+    updatedAt: string;
+  };
+  users: User[];
+  restaurants: Restaurant[];
+  drivers: Driver[];
+  orders: Order[];
+  rides: Ride[];
+  promotions: Promotion[];
+  supportTickets: SupportTicket[];
+  zones: Zone[];
+  auditEvents: AuditEvent[];
+  metrics: Metrics;
+};
+
+export type CartLine = {
+  restaurantId: string;
+  item: MenuItem;
+  quantity: number;
+  extras: string[];
+  note: string;
+};
+
+export type RideQuote = Pick<
+  Ride,
+  "service" | "distanceKm" | "etaMin" | "durationMin" | "fare"
+>;

@@ -1,0 +1,15 @@
+services:
+  flash:
+    build: .
+    container_name: flash-delivery-mobility
+    environment:
+      PORT: "4000"
+      JWT_SECRET: "change-me-in-production"
+    ports:
+      - "4000:4000"
+    volumes:
+      - flash-data:/app/server/data
+    restart: unless-stopped
+
+volumes:
+  flash-data:

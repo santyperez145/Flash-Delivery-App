@@ -1,0 +1,81 @@
+# Investigacion competitiva
+
+Fecha de investigacion: 14 de agosto de 2026.
+
+Objetivo: definir el alcance funcional minimo para que Flash Delivery Mobility no sea una maqueta, sino una plataforma operable tipo Uber, Uber Eats, PedidosYa y DoorDash, con cliente, comercio, conductor/repartidor y operaciones.
+
+## Fuentes consultadas
+
+- Uber Driver App: https://www.uber.com/us/en/drive/driver-app/
+- Uber Price Estimate: https://www.uber.com/global/en/price-estimate/
+- Uber Platform: https://www.uber.com/
+- Uber Eats Google Play: https://play.google.com/store/apps/details?id=com.ubercab.eats
+- PedidosYa App Store: https://apps.apple.com/us/app/pedidosya-food-delivery/id490099807
+- DoorDash merchant real-time features: https://about.doordash.com/en-us/news/doordash-empowers-merchants-with-new-real-time-features
+- Uber delivery work guide 2026: https://www.uber.com/us/en/blog/best-delivery-app-to-work-with/
+
+## Lectura del mercado
+
+Uber ya no compite solo como app de viajes. Su posicionamiento combina movilidad, delivery y casos empresariales. La propuesta para conductores tambien cruza viajes y entregas: el conductor puede ganar con deliveries o rides, elegir horarios, ver oportunidades y usar herramientas de navegacion y seguridad.
+
+Uber Eats y PedidosYa compiten por frecuencia. La app debe permitir descubrir restaurantes y tiendas, buscar por plato/local/categoria, personalizar productos, pagar con varios metodos, programar pedidos, hacer pickup, seguir el estado en vivo, recibir notificaciones y resolver problemas desde soporte.
+
+DoorDash muestra que el comercio no puede ser un panel secundario. Los locales necesitan manejo de pedidos en tiempo real, ajuste de tiempos de preparacion, stock, tickets claros, chat con clientes/repartidores y acciones rapidas desde celular o tablet.
+
+Para repartidores y conductores, la utilidad real depende de tres cosas: ver ganancia estimada antes de aceptar, conocer origen/destino/distancia, y poder avanzar el trabajo con estados claros. Uber tambien empuja oportunidades, promociones, recompensas, tasas de aceptacion/cancelacion y modos como Destination Mode.
+
+## Requisitos derivados
+
+Cliente:
+- Alternar entre comida y taxi sin salir de la app.
+- Buscar restaurantes, categorias y platos.
+- Crear carrito por comercio, elegir extras, notas y checkout.
+- Cotizar viajes por origen, destino y tipo de servicio.
+- Confirmar viaje con conductor asignado cuando exista disponibilidad.
+- Ver tracking de pedidos y viajes.
+- Cancelar solicitudes activas.
+- Wallet, promociones, metodos de pago y direcciones guardadas.
+
+Comercio:
+- Abrir o pausar local.
+- Ver pedidos por estado.
+- Avanzar cocina: aceptado, preparando, listo para retirar.
+- Gestionar stock.
+- Crear nuevos productos.
+- Ajustar tiempos de preparacion.
+- Base preparada para chat y tickets.
+
+Conductor/repartidor:
+- Online/offline.
+- Elegir modo delivery o taxi.
+- Ver ofertas con monto, distancia, origen/destino.
+- Aceptar delivery o viaje.
+- Avanzar estados: asignado, retirado, en camino, entregado; o asignado, llegando, en viaje, completado.
+- Ver ganancias, vehiculo, patente, rating y zona.
+
+Operaciones:
+- Ver demanda por zona.
+- Medir pedidos activos, viajes activos, drivers online, locales abiertos y tickets.
+- Avanzar o corregir estados.
+- Reiniciar demo, auditar eventos y observar soporte.
+
+## Diferenciadores propuestos
+
+- Un solo driver puede trabajar como conductor o repartidor, con cambio de modo.
+- Un mismo cliente pide comida o taxi desde la misma experiencia.
+- La base de datos modela wallet, pagos, roles, vehiculos, zonas, ratings y auditoria desde el inicio.
+- El panel operativo no es decorativo: lee pedidos/viajes reales y puede intervenir.
+- El comercio puede actuar desde mobile, siguiendo el patron de live order management.
+
+## Lo que falta para competir en produccion
+
+Este repo ya tiene MVP funcional fullstack, pero para competir comercialmente faltan integraciones reales:
+- Mapas y geocoding: Google Maps, Mapbox o HERE.
+- Calculo real de rutas, ETA y distancia.
+- Pagos: Mercado Pago, Stripe o proveedor local.
+- Push notifications: Firebase Cloud Messaging o similar.
+- WebSockets para tracking en vivo sin polling.
+- Autenticacion con refresh tokens, sesiones y permisos por rol.
+- Backoffice antifraude, soporte multiagente y conciliacion financiera.
+- Apps nativas o PWA instalable con permisos de ubicacion.
+- Observabilidad: logs estructurados, metricas y alertas.
