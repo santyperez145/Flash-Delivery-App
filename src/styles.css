@@ -1459,6 +1459,35 @@ textarea {
   text-transform: uppercase;
 }
 
+.location-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  color: var(--teal);
+  background: #eaf8f8;
+  border: 1px solid rgba(18, 161, 167, 0.22);
+  border-radius: 8px;
+  font-size: 0.76rem;
+  font-weight: 900;
+}
+
+.location-message {
+  display: block;
+  margin: -3px 2px 2px;
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+}
+
+.location-message.ready {
+  color: var(--mint);
+}
+
+.location-message.denied {
+  color: var(--accent-deep);
+}
+
 .ride-services {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1758,6 +1787,22 @@ textarea {
   margin: 4px 0 0;
   color: rgba(255, 255, 255, 0.68);
   font-size: 0.78rem;
+}
+
+.driver-gps-status {
+  display: block;
+  margin-top: 6px;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.driver-gps-status.live {
+  color: #8df0c3;
+}
+
+.driver-gps-status.denied {
+  color: #ffb28e;
 }
 
 .toggle-row {

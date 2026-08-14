@@ -8,7 +8,7 @@ Esta carpeta inicia la migracion desde PWA mobile hacia apps nativas publicables
 
 - Cliente: restaurantes, metricas, Flash Pass y actividad viva.
 - Comercio: estado del local, ETA y pedidos activos.
-- Driver: disponibilidad, modo delivery/taxi, ofertas y trabajos activos.
+- Driver: disponibilidad, modo delivery/taxi, ofertas, trabajos activos y tracking foreground con `expo-location`.
 
 ## Ejecutar
 
@@ -24,6 +24,7 @@ En simulador local puede funcionar `http://127.0.0.1:4000/api`. En telefono fisi
 ## Versiones base
 
 - Expo SDK 57.
+- `expo-location` 19.0.8 para permisos foreground y actualizacion de posicion del driver.
 - React 19.2.
 - React Native 0.86.
 
@@ -31,7 +32,7 @@ En simulador local puede funcionar `http://127.0.0.1:4000/api`. En telefono fisi
 
 - Separar builds por app: cliente, comercio y driver.
 - Agregar navegacion nativa.
-- Agregar mapas, geolocalizacion foreground/background y permisos por rol.
+- Agregar mapas, geolocalizacion background controlada y permisos por rol.
 - Agregar push notifications para ofertas, cambios de estado y soporte.
 - Agregar secure storage para tokens y refresh tokens.
 - Agregar EAS Build, EAS Update y crash reporting.

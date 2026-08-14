@@ -3,10 +3,12 @@ import type {
   AppState,
   CartLine,
   Driver,
+  GeoPoint,
   RealtimeEvent,
   Restaurant,
   Ride,
   RideQuote,
+  RideForm,
   User
 } from "./types";
 
@@ -164,7 +166,7 @@ export const api = {
     });
   },
 
-  async quoteRide(payload: { pickup: string; destination: string; service: Ride["service"] }) {
+  async quoteRide(payload: Pick<RideForm, "pickup" | "destination" | "service" | "pickupCoords" | "destinationCoords">) {
     return request<{ quote: RideQuote }>("/rides/quote", {
       method: "POST",
       body: JSON.stringify(payload)
@@ -176,6 +178,8 @@ export const api = {
     pickup: string;
     destination: string;
     service: Ride["service"];
+    pickupCoords?: GeoPoint | null;
+    destinationCoords?: GeoPoint | null;
     paymentMethod: string;
   }) {
     return request<{ ride: Ride; label: string }>("/rides", {
@@ -206,6 +210,13 @@ export const api = {
 
   async updateDriver(driverId: string, payload: Partial<Pick<Driver, "online" | "activeService">>) {
     return request<{ driver: Driver }>(`/drivers/${driverId}/availability`, {
+      method: "PATCH",
+      body: JSON.stringify(payload)
+    });
+  },
+
+  async updateDriverLocation(driverId: string, payload: GeoPoint & { label?: string }) {
+    return request<{ driver: Driver }>(`/drivers/${driverId}/location`, {
       method: "PATCH",
       body: JSON.stringify(payload)
     });

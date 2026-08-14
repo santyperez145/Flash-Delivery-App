@@ -97,6 +97,7 @@ async function run() {
     "state accepts authenticated user",
     state.text
   );
+  assert(state.body?.state?.meta?.version >= 4, "database schema version is current", state.text);
 
   const customerDashboard = await request("/admin/dashboard", { headers: auth(customerToken) });
   assert(customerDashboard.status === 403, "customer cannot read admin dashboard", customerDashboard.text);
@@ -106,6 +107,40 @@ async function run() {
     adminDashboard.status === 200 && adminDashboard.body?.dashboard?.investor?.readinessScore,
     "admin reads investor dashboard",
     adminDashboard.text
+  );
+
+  const coordinateQuote = await request("/rides/quote", {
+    method: "POST",
+    body: JSON.stringify({
+      pickup: "Defensa 982, San Telmo",
+      destination: "Aeroparque Jorge Newbery",
+      service: "economy",
+      pickupCoords: { lat: -34.6177, lng: -58.3621 },
+      destinationCoords: { lat: -34.5596, lng: -58.4156 }
+    })
+  });
+  assert(
+    coordinateQuote.status === 200 && coordinateQuote.body?.quote?.routingMode === "coordinates",
+    "ride quote uses coordinates",
+    coordinateQuote.text
+  );
+
+  const forbiddenLocation = await request("/drivers/drv_lautaro/location", {
+    method: "PATCH",
+    headers: auth(customerToken),
+    body: JSON.stringify({ lat: -34.6, lng: -58.4, label: "Intento" })
+  });
+  assert(forbiddenLocation.status === 403, "customer cannot update driver location", forbiddenLocation.text);
+
+  const driverLocation = await request("/drivers/drv_lautaro/location", {
+    method: "PATCH",
+    headers: auth(driverToken),
+    body: JSON.stringify({ lat: -34.6177, lng: -58.3621, label: "San Telmo GPS" })
+  });
+  assert(
+    driverLocation.status === 200 && driverLocation.body?.driver?.location?.label === "San Telmo GPS",
+    "driver updates own location",
+    driverLocation.text
   );
 
   const realtimeController = new AbortController();

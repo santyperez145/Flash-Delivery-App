@@ -38,7 +38,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { CSSProperties } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, subscribeToEvents } from "./api";
 import type {
   AppState,
@@ -46,6 +46,7 @@ import type {
   CartLine,
   CustomerTab,
   Driver,
+  GeoPoint,
   MenuItem,
   Mode,
   Order,
@@ -55,6 +56,7 @@ import type {
   RideQuote,
   RideStatus,
   RealtimeEvent,
+  RideForm,
   Service,
   User
 } from "./types";
@@ -141,12 +143,16 @@ function App() {
   const [draftExtras, setDraftExtras] = useState<string[]>([]);
   const [draftNote, setDraftNote] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
-  const [rideForm, setRideForm] = useState({
+  const [rideForm, setRideForm] = useState<RideForm>({
     pickup: "Defensa 982, San Telmo",
     destination: "Aeroparque Jorge Newbery",
-    service: "economy" as Ride["service"]
+    service: "economy" as Ride["service"],
+    pickupCoords: { lat: -34.6177, lng: -58.3621 },
+    destinationCoords: { lat: -34.5596, lng: -58.4156 }
   });
   const [quote, setQuote] = useState<RideQuote | null>(null);
+  const [locationStatus, setLocationStatus] = useState<"idle" | "locating" | "ready" | "denied">("idle");
+  const [locationMessage, setLocationMessage] = useState("");
   const [newDish, setNewDish] = useState({
     name: "Menu ejecutivo",
     description: "Principal, bebida y postre del dia.",
@@ -385,6 +391,33 @@ function App() {
       "Tarifa calculada"
     );
 
+  const locatePickup = useCallback(() => {
+    if (!navigator.geolocation) {
+      setLocationStatus("denied");
+      setLocationMessage("Este dispositivo no permite geolocalizacion.");
+      return;
+    }
+    setLocationStatus("locating");
+    setLocationMessage("Buscando tu ubicacion actual...");
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        const point = { lat: coords.latitude, lng: coords.longitude };
+        setRideForm((current) => ({
+          ...current,
+          pickup: "Ubicacion actual",
+          pickupCoords: point
+        }));
+        setLocationStatus("ready");
+        setLocationMessage(`GPS listo: ${point.lat.toFixed(4)}, ${point.lng.toFixed(4)}`);
+      },
+      () => {
+        setLocationStatus("denied");
+        setLocationMessage("No pudimos acceder al GPS. Puedes escribir el origen.");
+      },
+      { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 }
+    );
+  }, []);
+
   const requestRide = () => {
     if (!activeUser) return;
     runAction(
@@ -394,6 +427,8 @@ function App() {
           pickup: rideForm.pickup,
           destination: rideForm.destination,
           service: rideForm.service,
+          pickupCoords: rideForm.pickupCoords,
+          destinationCoords: rideForm.destinationCoords,
           paymentMethod: "Flash Wallet"
         });
         setTab("activity");
@@ -482,6 +517,9 @@ function App() {
                   quote={quote}
                   quoteRide={quoteRide}
                   requestRide={requestRide}
+                  locatePickup={locatePickup}
+                  locationStatus={locationStatus}
+                  locationMessage={locationMessage}
                   busy={busy}
                   runAction={runAction}
                 />
@@ -1234,11 +1272,14 @@ function CustomerApp(props: {
   cartRestaurant: Restaurant | null;
   openItem: (restaurant: Restaurant, item: MenuItem) => void;
   createOrder: () => void;
-  rideForm: { pickup: string; destination: string; service: Ride["service"] };
-  setRideForm: React.Dispatch<React.SetStateAction<{ pickup: string; destination: string; service: Ride["service"] }>>;
+  rideForm: RideForm;
+  setRideForm: React.Dispatch<React.SetStateAction<RideForm>>;
   quote: RideQuote | null;
   quoteRide: () => void;
   requestRide: () => void;
+  locatePickup: () => void;
+  locationStatus: "idle" | "locating" | "ready" | "denied";
+  locationMessage: string;
   busy: boolean;
   runAction: (action: () => Promise<unknown>, success: string) => void;
 }) {
@@ -1273,6 +1314,9 @@ function CustomerApp(props: {
     quote,
     quoteRide,
     requestRide,
+    locatePickup,
+    locationStatus,
+    locationMessage,
     busy,
     runAction
   } = props;
@@ -1352,6 +1396,9 @@ function CustomerApp(props: {
           quote={quote}
           quoteRide={quoteRide}
           requestRide={requestRide}
+          locatePickup={locatePickup}
+          locationStatus={locationStatus}
+          locationMessage={locationMessage}
           busy={busy}
         />
       )}
@@ -1497,15 +1544,21 @@ function RideHome({
   quote,
   quoteRide,
   requestRide,
+  locatePickup,
+  locationStatus,
+  locationMessage,
   busy
 }: {
   state: AppState;
   user: User | null;
-  rideForm: { pickup: string; destination: string; service: Ride["service"] };
-  setRideForm: React.Dispatch<React.SetStateAction<{ pickup: string; destination: string; service: Ride["service"] }>>;
+  rideForm: RideForm;
+  setRideForm: React.Dispatch<React.SetStateAction<RideForm>>;
   quote: RideQuote | null;
   quoteRide: () => void;
   requestRide: () => void;
+  locatePickup: () => void;
+  locationStatus: "idle" | "locating" | "ready" | "denied";
+  locationMessage: string;
   busy: boolean;
 }) {
   const activeRide = state.rides.find(
@@ -1533,7 +1586,7 @@ function RideHome({
           <input
             value={rideForm.pickup}
             onChange={(event) =>
-              setRideForm((current) => ({ ...current, pickup: event.target.value }))
+              setRideForm((current) => ({ ...current, pickup: event.target.value, pickupCoords: null }))
             }
           />
         </label>
@@ -1542,10 +1595,20 @@ function RideHome({
           <input
             value={rideForm.destination}
             onChange={(event) =>
-              setRideForm((current) => ({ ...current, destination: event.target.value }))
+              setRideForm((current) => ({ ...current, destination: event.target.value, destinationCoords: null }))
             }
           />
         </label>
+        <button
+          className="location-action"
+          type="button"
+          onClick={locatePickup}
+          disabled={busy || locationStatus === "locating"}
+        >
+          <LocateFixed size={15} />
+          {locationStatus === "locating" ? "Buscando GPS..." : "Usar mi ubicacion actual"}
+        </button>
+        {locationMessage && <small className={`location-message ${locationStatus}`}>{locationMessage}</small>}
         <div className="ride-services">
           {rideServices.map(({ id, label, icon: Icon }) => (
             <button
@@ -1565,7 +1628,9 @@ function RideHome({
               <span>{quote.distanceKm} km · {quote.durationMin} min</span>
               <strong>{money.format(quote.fare)}</strong>
             </div>
-            <small>{quote.etaMin} min hasta el punto</small>
+            <small>
+              {quote.etaMin} min hasta el punto · {quote.routingMode === "coordinates" ? "basado en coordenadas" : "estimacion por direccion"}
+            </small>
           </div>
         )}
         <div className="two-actions">
@@ -2059,6 +2124,39 @@ function DriverApp({
   busy: boolean;
   runAction: (action: () => Promise<unknown>, success: string) => void;
 }) {
+  const lastLocationSentAt = useRef(0);
+  const [gpsStatus, setGpsStatus] = useState<"idle" | "locating" | "live" | "denied">("idle");
+
+  useEffect(() => {
+    if (!driver.online) {
+      setGpsStatus("idle");
+      return;
+    }
+    if (!navigator.geolocation) {
+      setGpsStatus("denied");
+      return;
+    }
+    setGpsStatus("locating");
+    const watchId = navigator.geolocation.watchPosition(
+      ({ coords }) => {
+        const now = Date.now();
+        if (now - lastLocationSentAt.current < 12000) return;
+        lastLocationSentAt.current = now;
+        api
+          .updateDriverLocation(driver.id, {
+            lat: coords.latitude,
+            lng: coords.longitude,
+            label: "Ubicacion GPS"
+          })
+          .then(() => setGpsStatus("live"))
+          .catch(() => setGpsStatus("denied"));
+      },
+      () => setGpsStatus("denied"),
+      { enableHighAccuracy: true, maximumAge: 15000, timeout: 10000 }
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [driver.id, driver.online]);
+
   const availableOrders = state.orders.filter(
     (order) => !order.courierId && !["delivered", "cancelled"].includes(order.status)
   );
@@ -2081,6 +2179,9 @@ function DriverApp({
           <span>{driver.vehicle} · {driver.plate}</span>
           <h2>{driver.name}</h2>
           <p>{driver.location.label} · rating {driver.rating}</p>
+          <small className={`driver-gps-status ${gpsStatus}`}>
+            {gpsStatus === "live" ? "GPS activo" : gpsStatus === "locating" ? "Conectando GPS" : gpsStatus === "denied" ? "GPS no disponible" : "GPS pausado"}
+          </small>
         </div>
       </section>
       <label className="toggle-row light">

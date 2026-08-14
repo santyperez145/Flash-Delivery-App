@@ -60,9 +60,11 @@ erDiagram
 - `PATCH /api/orders/:orderId/status`: correccion/cancelacion.
 - `POST /api/rides/quote`: cotizar taxi.
 - `POST /api/rides`: crear viaje.
+- `POST /api/rides/quote`: cotizar por coordenadas cuando estan disponibles y conservar fallback por texto.
 - `POST /api/rides/:rideId/accept`: aceptar viaje.
 - `POST /api/rides/:rideId/advance`: avanzar viaje.
 - `PATCH /api/drivers/:driverId/availability`: online/offline y modo.
+- `PATCH /api/drivers/:driverId/location`: actualizar posicion GPS del propio driver.
 - `POST /api/reset`: reset de datos demo.
 
 ## Seguridad aplicada
@@ -86,4 +88,4 @@ El frontend consume una API unica. Esto permite reemplazar la base local por ser
 
 La sesion actual usa cuentas demo, pero la proteccion vive en servidor: JWT, roles, ownership y auditoria. Para produccion faltan refresh tokens, rotacion de sesiones, rate limiting, MFA para superadmin y politicas finas de permisos.
 
-Los mapas son visuales por ahora. El siguiente paso productivo es conectar geocoding, calculo de ruta, tracking GPS y actualizaciones en tiempo real.
+La plataforma ya acepta coordenadas, calcula distancia geodesica inicial y recibe posiciones foreground de drivers. El siguiente paso productivo es conectar geocoding, calculo de ruta vial con un proveedor, tracking background controlado y mapas nativos.

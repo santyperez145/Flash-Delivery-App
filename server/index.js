@@ -252,6 +252,11 @@ const registerSchema = z.object({
   phone: z.string().optional()
 });
 
+const coordinateSchema = z.object({
+  lat: z.coerce.number().min(-90).max(90),
+  lng: z.coerce.number().min(-180).max(180)
+});
+
 const orderSchema = z.object({
   customerId: z.string().min(1),
   restaurantId: z.string().min(1),
@@ -270,12 +275,18 @@ const orderSchema = z.object({
 const rideQuoteSchema = z.object({
   pickup: z.string().min(3, "Origen obligatorio"),
   destination: z.string().min(3, "Destino obligatorio"),
-  service: z.enum(["economy", "comfort", "moto", "xl"]).default("economy")
+  service: z.enum(["economy", "comfort", "moto", "xl"]).default("economy"),
+  pickupCoords: coordinateSchema.nullable().optional(),
+  destinationCoords: coordinateSchema.nullable().optional()
 });
 
 const rideCreateSchema = rideQuoteSchema.extend({
   customerId: z.string().min(1),
   paymentMethod: z.string().min(2)
+});
+
+const driverLocationSchema = coordinateSchema.extend({
+  label: z.string().trim().min(2).max(120).optional()
 });
 
 const orderLabels = {
@@ -349,7 +360,20 @@ function calculateOrderTotals(restaurant, items) {
   };
 }
 
-function calculateRideQuote({ pickup, destination, service = "economy" }) {
+function distanceBetween(first, second) {
+  if (!first || !second) return null;
+  const earthRadiusKm = 6371;
+  const latDelta = ((second.lat - first.lat) * Math.PI) / 180;
+  const lngDelta = ((second.lng - first.lng) * Math.PI) / 180;
+  const firstLat = (first.lat * Math.PI) / 180;
+  const secondLat = (second.lat * Math.PI) / 180;
+  const haversine =
+    Math.sin(latDelta / 2) ** 2 +
+    Math.sin(lngDelta / 2) ** 2 * Math.cos(firstLat) * Math.cos(secondLat);
+  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+}
+
+function calculateRideQuote({ pickup, destination, service = "economy", pickupCoords, destinationCoords }) {
   const normalizedService = ["economy", "comfort", "moto", "xl"].includes(service)
     ? service
     : "economy";
@@ -360,7 +384,10 @@ function calculateRideQuote({ pickup, destination, service = "economy" }) {
     xl: 1.65
   }[normalizedService];
   const textWeight = `${pickup || ""}${destination || ""}`.length;
-  const distanceKm = Math.max(2.4, Math.min(28, 2.2 + (textWeight % 19) * 0.72));
+  const coordinateDistance = distanceBetween(pickupCoords, destinationCoords);
+  const distanceKm = coordinateDistance !== null
+    ? Math.max(1.2, Math.min(50, coordinateDistance * 1.22))
+    : Math.max(2.4, Math.min(28, 2.2 + (textWeight % 19) * 0.72));
   const demandMultiplier = distanceKm > 12 ? 1.18 : 1.04;
   const fare = Math.round((1450 + distanceKm * 620) * serviceMultiplier * demandMultiplier);
   return {
@@ -368,21 +395,30 @@ function calculateRideQuote({ pickup, destination, service = "economy" }) {
     distanceKm: Number(distanceKm.toFixed(1)),
     etaMin: Math.max(3, Math.round(4 + distanceKm * 0.55)),
     durationMin: Math.round(8 + distanceKm * 2.1),
-    fare
+    fare,
+    estimated: coordinateDistance === null,
+    routingMode: coordinateDistance === null ? "text-estimate" : "coordinates"
   };
 }
 
 function assignRideDriver(db, ride) {
-  const driver = db.drivers.find(
-    (entry) =>
-      entry.online &&
-      entry.serviceModes.includes("ride") &&
-      !db.rides.some(
-        (candidate) =>
-          candidate.driverId === entry.id &&
-          !["completed", "cancelled"].includes(candidate.status)
-      )
-  );
+  const candidates = db.drivers
+    .filter(
+      (entry) =>
+        entry.online &&
+        entry.serviceModes.includes("ride") &&
+        !db.rides.some(
+          (candidate) =>
+            candidate.driverId === entry.id &&
+            !["completed", "cancelled"].includes(candidate.status)
+        )
+    )
+    .map((driver) => ({
+      driver,
+      distance: distanceBetween(driver.location, ride.pickupLocation) ?? Number.MAX_SAFE_INTEGER
+    }))
+    .sort((left, right) => left.distance - right.distance);
+  const driver = candidates[0]?.driver;
   if (!driver) return ride;
   return {
     ...ride,
@@ -855,19 +891,21 @@ app.patch("/api/orders/:orderId/status", requireAuth, (req, res) => {
 app.post("/api/rides/quote", (req, res) => {
   const parsed = parseOrFail(rideQuoteSchema, req.body || {});
   if (!parsed.ok) return fail(res, 400, parsed.message);
-  const { pickup, destination, service } = parsed.data;
-  return ok(res, { quote: calculateRideQuote({ pickup, destination, service }) });
+  const { pickup, destination, service, pickupCoords, destinationCoords } = parsed.data;
+  return ok(res, {
+    quote: calculateRideQuote({ pickup, destination, service, pickupCoords, destinationCoords })
+  });
 });
 
 app.post("/api/rides", requireAuth, requireAnyRole("customer", "admin"), (req, res) => {
   const parsed = parseOrFail(rideCreateSchema, req.body || {});
   if (!parsed.ok) return fail(res, 400, parsed.message);
-  const { customerId, pickup, destination, service, paymentMethod } = parsed.data;
+  const { customerId, pickup, destination, service, paymentMethod, pickupCoords, destinationCoords } = parsed.data;
   const db = readDb();
   const customer = db.users.find((user) => user.id === customerId);
   if (!customer) return fail(res, 404, "Cliente no encontrado");
   if (!canActAsCustomer(req, customerId)) return fail(res, 403, "No puedes crear viajes para otro cliente");
-  const quote = calculateRideQuote({ pickup, destination, service });
+  const quote = calculateRideQuote({ pickup, destination, service, pickupCoords, destinationCoords });
   const createdAt = getTimestamp();
   let ride = {
     id: createId("RIDE"),
@@ -877,6 +915,8 @@ app.post("/api/rides", requireAuth, requireAnyRole("customer", "admin"), (req, r
     service: quote.service,
     pickup: String(pickup),
     destination: String(destination),
+    pickupLocation: pickupCoords || null,
+    destinationLocation: destinationCoords || null,
     distanceKm: quote.distanceKm,
     etaMin: quote.etaMin,
     durationMin: quote.durationMin,
@@ -966,6 +1006,30 @@ app.patch("/api/drivers/:driverId/availability", requireAuth, requireAnyRole("dr
   });
   writeDb(db);
   publishRealtimeEvent({ req, type: "driver.updated", entityType: "driver", entityId: driver.id, action: "driver.availability_updated" });
+  return ok(res, { driver });
+});
+
+app.patch("/api/drivers/:driverId/location", requireAuth, requireAnyRole("driver", "admin"), (req, res) => {
+  const parsed = parseOrFail(driverLocationSchema, req.body || {});
+  if (!parsed.ok) return fail(res, 400, parsed.message);
+  const db = readDb();
+  const driver = db.drivers.find((entry) => entry.id === req.params.driverId);
+  if (!driver) return fail(res, 404, "Conductor no encontrado");
+  if (!canActAsDriver(req, driver.id)) return fail(res, 403, "No puedes actualizar otro conductor");
+  const { lat, lng, label } = parsed.data;
+  driver.location = {
+    lat,
+    lng,
+    label: label || driver.location.label || "Ubicacion GPS",
+    updatedAt: getTimestamp()
+  };
+  audit(db, req, "driver", driver.id, "driver.location_updated", {
+    lat,
+    lng,
+    label: driver.location.label
+  });
+  writeDb(db);
+  publishRealtimeEvent({ req, type: "driver.location.updated", entityType: "driver", entityId: driver.id, action: "driver.location_updated" });
   return ok(res, { driver });
 });
 
