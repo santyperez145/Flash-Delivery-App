@@ -87,6 +87,16 @@ async function run() {
     state.text
   );
 
+  const customerDashboard = await request("/admin/dashboard", { headers: auth(customerToken) });
+  assert(customerDashboard.status === 403, "customer cannot read admin dashboard", customerDashboard.text);
+
+  const adminDashboard = await request("/admin/dashboard", { headers: auth(adminToken) });
+  assert(
+    adminDashboard.status === 200 && adminDashboard.body?.dashboard?.investor?.readinessScore,
+    "admin reads investor dashboard",
+    adminDashboard.text
+  );
+
   const forbiddenRestaurant = await request("/restaurants/rest_roja", {
     method: "PATCH",
     headers: auth(customerToken),

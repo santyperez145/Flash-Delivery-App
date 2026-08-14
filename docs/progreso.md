@@ -32,6 +32,7 @@ Flash Delivery Mobility ya es una app fullstack local con cuatro superficies: cl
 - Superadmin web:
   - Dashboard operativo en escritorio.
   - Metricas de pedidos, viajes, drivers, restaurantes, tickets y GMV.
+  - Investor Command Center con readiness, unit economics, milestones, funnel y riesgos.
   - Vista de actividad activa.
   - Zonas operativas.
   - Tickets y auditoria reciente.
@@ -53,10 +54,11 @@ Flash Delivery Mobility ya es una app fullstack local con cuatro superficies: cl
 
 - Producto e infraestructura:
   - PWA con manifest y service worker.
+  - Base Expo/React Native para apps nativas en `apps/mobile`.
   - Dockerfile y Docker Compose.
   - Docker healthcheck.
   - GitHub Actions CI.
-  - Documentacion competitiva, arquitectura, infraestructura y roadmap.
+  - Documentacion competitiva, arquitectura, infraestructura, roadmap e investor readiness.
   - Smoke test de seguridad con `npm run test:security`.
 
 ## Reglas estrictas implementadas

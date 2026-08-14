@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "Flash",
+    "slug": "flash-delivery-app",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "flash",
+    "userInterfaceStyle": "automatic",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.flash.delivery"
+    },
+    "android": {
+      "package": "app.flash.delivery",
+      "adaptiveIcon": {
+        "backgroundColor": "#f4511e"
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "POST_NOTIFICATIONS"
+      ]
+    },
+    "extra": {
+      "apiUrl": "http://127.0.0.1:4000/api"
+    }
+  }
+}

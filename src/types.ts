@@ -185,6 +185,53 @@ export type Metrics = {
   avgRideEta: number;
 };
 
+export type AdminDashboard = {
+  generatedAt: string;
+  metrics: Metrics;
+  marketplace: {
+    grossVolume: number;
+    estimatedPlatformRevenue: number;
+    takeRatePercent: number;
+    averageOrderValue: number;
+    averageRideFare: number;
+    fillRateDelivery: number;
+    fillRateRide: number;
+    cancellationRate: number;
+    supplyDemandRatio: number;
+    unassignedOrders: number;
+    unassignedRides: number;
+    openRestaurants: number;
+    onlineDrivers: number;
+  };
+  investor: {
+    seedTarget: number;
+    monthlyBurn: number;
+    runwayMonths: number;
+    netRevenueRunRate: number;
+    contributionMargin: number;
+    contributionMarginPercent: number;
+    readinessScore: number;
+    milestones: Array<{
+      label: string;
+      status: "done" | "in_progress" | "next";
+      value: string;
+    }>;
+    unitEconomics: Array<{
+      label: string;
+      value: string;
+      detail: string;
+    }>;
+  };
+  riskSignals: Array<{
+    id: string;
+    level: "low" | "medium" | "high";
+    label: string;
+    value: number;
+  }>;
+  zones: Zone[];
+  recentAuditEvents: AuditEvent[];
+};
+
 export type AppState = {
   meta: {
     name: string;

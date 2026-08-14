@@ -436,6 +436,16 @@ function metrics(db) {
   };
 }
 
+function ratio(part, total) {
+  if (!total) return 0;
+  return Number(((part / total) * 100).toFixed(1));
+}
+
+function average(values) {
+  if (!values.length) return 0;
+  return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+}
+
 function adminSnapshot(db) {
   const activeOrders = db.orders.filter((order) => !["delivered", "cancelled"].includes(order.status));
   const activeRides = db.rides.filter((ride) => !["completed", "cancelled"].includes(ride.status));
@@ -443,18 +453,72 @@ function adminSnapshot(db) {
     ...db.orders.map((order) => order.total),
     ...db.rides.map((ride) => ride.fare)
   ].reduce((sum, value) => sum + value, 0);
+  const completedJobs =
+    db.orders.filter((order) => order.status === "delivered").length +
+    db.rides.filter((ride) => ride.status === "completed").length;
+  const cancelledJobs =
+    db.orders.filter((order) => order.status === "cancelled").length +
+    db.rides.filter((ride) => ride.status === "cancelled").length;
+  const totalJobs = db.orders.length + db.rides.length;
   const unassignedOrders = activeOrders.filter((order) => !order.courierId).length;
   const unassignedRides = activeRides.filter((ride) => !ride.driverId).length;
+  const estimatedPlatformRevenue = Math.round(grossVolume * 0.18);
+  const incentiveBudget = Math.round(grossVolume * 0.055);
+  const supportCost = db.supportTickets.filter((ticket) => ticket.status === "open").length * 450;
+  const dispatchCost = activeOrders.length * 260 + activeRides.length * 320;
+  const contributionMargin = Math.max(0, estimatedPlatformRevenue - incentiveBudget - supportCost - dispatchCost);
+  const monthlyBurn = 12500000;
+  const seedTarget = 240000000;
+  const netRevenueRunRate = estimatedPlatformRevenue * 30;
   return {
     generatedAt: getTimestamp(),
     metrics: metrics(db),
     marketplace: {
       grossVolume,
-      estimatedPlatformRevenue: Math.round(grossVolume * 0.18),
+      estimatedPlatformRevenue,
+      takeRatePercent: 18,
+      averageOrderValue: average(db.orders.map((order) => order.total)),
+      averageRideFare: average(db.rides.map((ride) => ride.fare)),
+      fillRateDelivery: ratio(db.orders.filter((order) => order.courierId).length, db.orders.length),
+      fillRateRide: ratio(db.rides.filter((ride) => ride.driverId).length, db.rides.length),
+      cancellationRate: ratio(cancelledJobs, totalJobs),
+      supplyDemandRatio: Number((db.drivers.filter((driver) => driver.online).length / Math.max(1, activeOrders.length + activeRides.length)).toFixed(2)),
       unassignedOrders,
       unassignedRides,
       openRestaurants: db.restaurants.filter((restaurant) => restaurant.open).length,
       onlineDrivers: db.drivers.filter((driver) => driver.online).length
+    },
+    investor: {
+      seedTarget,
+      monthlyBurn,
+      runwayMonths: Math.round(seedTarget / monthlyBurn),
+      netRevenueRunRate,
+      contributionMargin,
+      contributionMarginPercent: ratio(contributionMargin, estimatedPlatformRevenue || 1),
+      readinessScore: Math.min(
+        100,
+        Math.round(
+          42 +
+            ratio(completedJobs, totalJobs) * 0.18 +
+            ratio(db.orders.filter((order) => order.courierId).length, db.orders.length) * 0.16 +
+            ratio(db.rides.filter((ride) => ride.driverId).length, db.rides.length) * 0.16
+        )
+      ),
+      milestones: [
+        { label: "Producto fullstack", status: "done", value: "Cliente, comercio, driver y admin" },
+        { label: "Seguridad API", status: "done", value: "JWT, RBAC, ownership, rate limits" },
+        { label: "Mobile nativo", status: "in_progress", value: "Expo base para 3 apps" },
+        { label: "Realtime dispatch", status: "next", value: "SSE/WebSocket + Redis GEO" },
+        { label: "Pagos reales", status: "next", value: "PSP + ledger financiero" }
+      ],
+      unitEconomics: [
+        { label: "AOV comida", value: `$${average(db.orders.map((order) => order.total))}`, detail: "Ticket promedio" },
+        { label: "Fare taxi", value: `$${average(db.rides.map((ride) => ride.fare))}`, detail: "Tarifa promedio" },
+        { label: "Take rate", value: "18%", detail: "Comision demo" },
+        { label: "Incentivos", value: `${ratio(incentiveBudget, grossVolume || 1)}%`, detail: "Promo/supply budget" },
+        { label: "Margen contrib.", value: `${ratio(contributionMargin, estimatedPlatformRevenue || 1)}%`, detail: "Despues de soporte/dispatch" },
+        { label: "Jobs cumplidos", value: String(completedJobs), detail: "Pedidos + viajes finalizados" }
+      ]
     },
     riskSignals: [
       {

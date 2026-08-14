@@ -29,6 +29,7 @@ Luego abrir http://127.0.0.1:4000/
 ```bash
 npm run build
 npm run test:security
+npm run check
 ```
 
 `test:security` levanta una API aislada en otro puerto, prueba JWT/RBAC/ownership y reinicia los datos demo al terminar.
@@ -64,7 +65,9 @@ Los datos se persisten en SQLite. Las rutas sensibles usan JWT, RBAC y validacio
 ## Documentacion de producto
 
 - Roadmap ejecutivo: `ROADMAP.MD`
+- Apps nativas base: `apps/mobile/README.md`
 - Investigacion competitiva: `docs/investigacion-competitiva.md`
+- Investor readiness: `docs/investor-readiness.md`
 - Arquitectura: `docs/arquitectura-producto.md`
 - Infraestructura escalable: `docs/infraestructura-escalable.md`
 - Roadmap: `docs/roadmap.md`

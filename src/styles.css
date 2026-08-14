@@ -94,6 +94,8 @@ img {
 .status-card button,
 .ghost-action,
 .primary-button,
+.flash-pass button,
+.prep-actions button,
 .wallet-card button,
 .section-title button {
   display: inline-flex;
@@ -729,10 +731,105 @@ textarea::placeholder {
   scrollbar-width: none;
 }
 
+.flash-pass {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  color: #fff;
+  background: linear-gradient(135deg, #161b22, #2f3743);
+}
+
+.flash-pass span,
+.flash-pass strong,
+.driver-mission span,
+.driver-mission strong,
+.driver-mission small {
+  display: block;
+}
+
+.flash-pass span,
+.driver-mission span,
+.driver-mission small {
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 0.74rem;
+  font-weight: 900;
+}
+
+.flash-pass strong {
+  margin-top: 4px;
+  color: #fff;
+  font-size: 0.92rem;
+  line-height: 1.22;
+}
+
+.flash-pass button {
+  min-width: 96px;
+  padding: 0 12px;
+  color: var(--ink);
+  background: var(--warm);
+}
+
+.promise-grid,
+.driver-ops-grid,
+.merchant-command,
+.ops-risk-board {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.promise-grid article,
+.driver-ops-grid article,
+.ops-risk-board article {
+  min-height: 76px;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.promise-grid svg,
+.driver-ops-grid svg {
+  color: var(--accent);
+}
+
+.promise-grid strong,
+.promise-grid span,
+.driver-ops-grid strong,
+.driver-ops-grid span,
+.ops-risk-board strong,
+.ops-risk-board span,
+.ops-risk-board small {
+  display: block;
+}
+
+.promise-grid strong,
+.driver-ops-grid strong,
+.ops-risk-board strong {
+  margin-top: 7px;
+  color: var(--ink);
+  font-size: 0.86rem;
+}
+
+.promise-grid span,
+.driver-ops-grid span,
+.ops-risk-board small {
+  margin-top: 3px;
+  color: var(--ink-soft);
+  font-size: 0.74rem;
+}
+
 .restaurant-card,
 .food-row,
 .settings-row,
 .promo-row,
+.flash-pass,
+.loyalty-card,
+.safety-panel,
+.prep-control,
+.driver-mission,
 .context-card,
 .status-card,
 .work-card,
@@ -1211,6 +1308,8 @@ textarea {
 .checkout-card,
 .tracking-card,
 .wallet-card,
+.loyalty-card,
+.safety-panel,
 .profile-hero {
   margin-top: 14px;
   padding: 14px;
@@ -1242,6 +1341,36 @@ textarea {
   border-top: 1px solid var(--line);
   font-size: 1rem;
   font-weight: 900;
+}
+
+.safety-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.safety-panel div,
+.safety-panel span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.safety-panel div {
+  justify-content: flex-start;
+}
+
+.safety-panel span {
+  min-height: 34px;
+  padding: 0 10px;
+  color: var(--ink-soft);
+  background: var(--paper-soft);
+  border-radius: 8px;
+  font-size: 0.78rem;
+}
+
+.safety-panel b {
+  color: var(--ink);
 }
 
 .checkout-card {
@@ -1508,6 +1637,40 @@ textarea {
   background: var(--accent);
 }
 
+.loyalty-card {
+  display: grid;
+  gap: 10px;
+}
+
+.loyalty-card span,
+.loyalty-card strong,
+.loyalty-card small {
+  display: block;
+}
+
+.loyalty-card span,
+.loyalty-card small {
+  color: var(--ink-soft);
+  font-size: 0.76rem;
+}
+
+.loyalty-card strong {
+  color: var(--ink);
+  font-size: 0.95rem;
+}
+
+.loyalty-progress {
+  height: 9px;
+  overflow: hidden;
+  background: var(--paper-soft);
+  border-radius: 999px;
+}
+
+.loyalty-progress span {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--warm));
+}
+
 .promo-row {
   grid-template-columns: auto 1fr auto;
 }
@@ -1664,6 +1827,78 @@ textarea {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.merchant-command {
+  margin: 12px 0 4px;
+}
+
+.prep-control {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.prep-control strong,
+.prep-control span {
+  display: block;
+}
+
+.prep-control strong {
+  color: var(--ink);
+}
+
+.prep-control span {
+  margin-top: 4px;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+}
+
+.prep-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.prep-actions button {
+  color: #fff;
+  background: var(--dark);
+}
+
+.driver-mission {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 14px;
+  color: #fff;
+  background: linear-gradient(135deg, var(--accent), #a93116);
+}
+
+.driver-mission strong,
+.driver-mission b {
+  color: #fff;
+}
+
+.driver-mission b {
+  font-size: 1rem;
+}
+
+.driver-ops-grid,
+.ops-risk-board {
+  margin-top: 10px;
+}
+
+.driver-ops-grid article,
+.ops-risk-board article {
+  min-height: 82px;
+}
+
+.ops-risk-board span {
+  margin-top: 7px;
+  color: var(--ink);
+  font-size: 1.25rem;
+  font-weight: 900;
 }
 
 .metric-card {
@@ -2119,6 +2354,10 @@ textarea {
 
 .health-list div,
 .zone-board article,
+.unit-grid div,
+.milestone-list article,
+.funnel-list article,
+.risk-list article,
 .infra-list article {
   padding: 14px;
   background: var(--paper-soft);
@@ -2130,6 +2369,12 @@ textarea {
 .health-list small,
 .zone-board span,
 .zone-board small,
+.unit-grid span,
+.unit-grid small,
+.milestone-list small,
+.funnel-list span,
+.funnel-list small,
+.risk-list small,
 .infra-list span {
   display: block;
   color: var(--ink-soft);
@@ -2138,11 +2383,165 @@ textarea {
 
 .health-list strong,
 .zone-board strong,
+.unit-grid strong,
+.milestone-list strong,
+.funnel-list strong,
+.risk-list strong,
 .infra-list strong {
   display: block;
   margin: 4px 0;
   color: var(--ink);
   font-size: 1rem;
+}
+
+.investor-pulse {
+  display: grid;
+  grid-template-columns: 164px minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+}
+
+.readiness-meter {
+  --score: 0%;
+  display: grid;
+  width: 146px;
+  height: 146px;
+  place-items: center;
+  justify-self: center;
+  background:
+    radial-gradient(circle at center, #fff 0 56%, transparent 57%),
+    conic-gradient(var(--accent) var(--score), #e7ebf1 0);
+  border-radius: 50%;
+}
+
+.readiness-meter strong,
+.readiness-meter span {
+  grid-area: 1 / 1;
+}
+
+.readiness-meter strong {
+  margin-top: -12px;
+  color: var(--ink);
+  font-size: 2rem;
+}
+
+.readiness-meter span {
+  margin-top: 44px;
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.investor-summary h3 {
+  margin: 0 0 7px;
+  color: var(--ink);
+  font-size: 1.05rem;
+}
+
+.investor-summary p {
+  max-width: 78ch;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.investor-stats,
+.unit-grid,
+.risk-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.investor-stats span {
+  min-height: 38px;
+  padding: 10px 12px;
+  color: var(--ink);
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.unit-grid {
+  margin-top: 0;
+}
+
+.milestone-list,
+.funnel-list {
+  display: grid;
+  gap: 10px;
+}
+
+.milestone-list article {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.milestone-list article > span {
+  width: 12px;
+  height: 12px;
+  background: var(--muted);
+  border-radius: 50%;
+}
+
+.milestone-list article.done > span {
+  background: var(--mint);
+}
+
+.milestone-list article.in_progress > span {
+  background: var(--accent);
+}
+
+.milestone-list b {
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.funnel-list article {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+
+.funnel-list article > div {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: linear-gradient(90deg, rgba(244, 81, 30, 0.18), rgba(18, 161, 167, 0.12));
+}
+
+.funnel-list span,
+.funnel-list strong,
+.funnel-list small {
+  position: relative;
+}
+
+.funnel-list strong {
+  justify-self: end;
+}
+
+.risk-list {
+  margin-top: 0;
+}
+
+.risk-list article.low {
+  border-color: rgba(22, 166, 106, 0.28);
+}
+
+.risk-list article.medium {
+  border-color: rgba(244, 81, 30, 0.34);
+}
+
+.risk-list article.high {
+  border-color: rgba(196, 53, 44, 0.42);
 }
 
 .zone-board {
@@ -2292,6 +2691,10 @@ textarea {
   .admin-kpis,
   .admin-grid.two,
   .admin-live-grid,
+  .investor-pulse,
+  .investor-stats,
+  .unit-grid,
+  .risk-list,
   .infra-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
