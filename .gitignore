@@ -1,4 +1,5 @@
 node_modules/
+apps/mobile/.expo/
 dist/
 server/data/database.json
 server/data/flash.sqlite

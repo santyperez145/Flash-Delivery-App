@@ -197,5 +197,7 @@ Criterios de salida:
 - Diseñar migracion a Postgres/PostGIS.
 - Extender realtime SSE a payloads por usuario, push y tracking; evaluar WebSocket para presencia bidireccional.
 - Conectar geocoding y rutas viales con proveedor externo, manteniendo fallback local.
+- Completar paridad comercial: incidencias de pedido, sustituciones, reembolsos y disponibilidad por sucursal.
+- Preparar integracion POS, notificaciones push y soporte multiagente con SLA.
 - Agregar pagos sandbox y ledger financiero.
 - Crear pitch demo mode con datos de crecimiento historico.

@@ -35,6 +35,33 @@ npm run check
 
 `test:security` levanta una API aislada en otro puerto, prueba JWT/RBAC/ownership y reinicia los datos demo al terminar.
 
+## Ver las apps mobile
+
+La base nativa vive en `apps/mobile` y tiene tres superficies dentro de la misma app: Cliente, Comercio y Driver.
+
+### Preview en navegador
+
+Con el backend activo en el puerto `4000`, ejecutar:
+
+```bash
+npm --prefix apps/mobile run web -- --port 8081
+```
+
+Abrir http://127.0.0.1:8081/ y usar las pestanas de rol. Esta vista sirve para validar layout y flujos; los permisos GPS se validan mejor en un dispositivo o emulador.
+
+### Android/iOS real
+
+```bash
+cd apps/mobile
+npm install
+set EXPO_PUBLIC_API_URL=http://IP_DE_TU_PC:4000/api
+npm run start
+```
+
+Escanear el QR con Expo Go o ejecutar un dev build. El telefono y la PC deben estar en la misma red. En emulador Android usar `http://10.0.2.2:4000/api`; en simulador iOS, `http://127.0.0.1:4000/api`.
+
+El rol Driver solicita permiso de ubicacion foreground y envia posicion al backend cuando esta online. Para produccion se debe completar tracking background, push y builds EAS.
+
 ## Configuracion
 
 Copiar `.env.example` como referencia para ambientes reales. Variables principales:
