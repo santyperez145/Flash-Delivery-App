@@ -1,4 +1,4 @@
-import type { AppState, Driver, GeoPoint, Order, Ride, ServiceMode } from "./types";
+import type { AppState, Driver, GeoPoint, Order, Restaurant, Ride, RideQuote, RideService, ServiceMode } from "./types";
 
 declare const process: { env?: { EXPO_PUBLIC_API_URL?: string } };
 
@@ -41,9 +41,74 @@ export const api = {
   async state() {
     return request<{ state: AppState }>("/state");
   },
+  async createOrder(payload: {
+    customerId: string;
+    restaurantId: string;
+    deliveryAddress: string;
+    paymentMethod: string;
+    items: Array<{ menuItemId: string; quantity: number; extras: string[]; note: string }>;
+  }) {
+    return request<{ order: Order }>("/orders", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+  },
+  async setOrderStatus(orderId: string, status: Order["status"]) {
+    return request<{ order: Order }>(`/orders/${orderId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status })
+    });
+  },
+  async quoteRide(payload: {
+    pickup: string;
+    destination: string;
+    service: RideService;
+    pickupCoords?: GeoPoint | null;
+    destinationCoords?: GeoPoint | null;
+  }) {
+    return request<{ quote: RideQuote }>("/rides/quote", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+  },
+  async createRide(payload: {
+    customerId: string;
+    pickup: string;
+    destination: string;
+    service: RideService;
+    pickupCoords?: GeoPoint | null;
+    destinationCoords?: GeoPoint | null;
+    paymentMethod: string;
+  }) {
+    return request<{ ride: Ride }>("/rides", {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+  },
+  async setRideStatus(rideId: string, status: Ride["status"]) {
+    return request<{ ride: Ride }>(`/rides/${rideId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status })
+    });
+  },
   async updateRestaurant(restaurantId: string, payload: { open?: boolean; etaMin?: number }) {
     return request(`/restaurants/${restaurantId}`, {
       method: "PATCH",
+      body: JSON.stringify(payload)
+    });
+  },
+  async updateMenuStock(restaurantId: string, itemId: string, stock: boolean) {
+    return request<{ restaurant: Restaurant }>(`/restaurants/${restaurantId}/menu/${itemId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ stock })
+    });
+  },
+  async addMenuItem(
+    restaurantId: string,
+    payload: { name: string; description: string; category: string; price: number }
+  ) {
+    return request<{ restaurant: Restaurant }>(`/restaurants/${restaurantId}/menu`, {
+      method: "POST",
       body: JSON.stringify(payload)
     });
   },

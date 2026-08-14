@@ -437,6 +437,12 @@ function App() {
     );
   };
 
+  const topUpWallet = (amount: number) =>
+    runAction(() => api.topUpWallet(amount), "Saldo cargado en wallet sandbox");
+
+  const updateProfile = (payload: { name: string; phone: string; defaultAddress: string }) =>
+    runAction(() => api.updateProfile(payload), "Perfil actualizado");
+
   if (loading) {
     return (
       <main className="app loading-app">
@@ -520,6 +526,8 @@ function App() {
                   locatePickup={locatePickup}
                   locationStatus={locationStatus}
                   locationMessage={locationMessage}
+                  onTopUpWallet={topUpWallet}
+                  onUpdateProfile={updateProfile}
                   busy={busy}
                   runAction={runAction}
                 />
@@ -535,7 +543,7 @@ function App() {
                 />
               )}
               {mode === "driver" && driver && (
-                <DriverApp state={state} driver={driver} busy={busy} runAction={runAction} />
+                <DriverApp state={state} driver={driver} user={activeUser} busy={busy} runAction={runAction} />
               )}
               {mode === "ops" && <OpsApp state={state} busy={busy} runAction={runAction} />}
             </div>
@@ -571,11 +579,16 @@ function App() {
 }
 
 function PhoneStatus() {
+  const [time, setTime] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setTime(new Date()), 30000);
+    return () => window.clearInterval(timer);
+  }, []);
   return (
     <div className="phone-status" aria-hidden="true">
-      <span>14:32</span>
+      <span>{time.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}</span>
       <span className="dynamic-island" />
-      <span>5G 82%</span>
+      <span>{navigator.onLine ? "Live" : "Offline"}</span>
     </div>
   );
 }
@@ -1225,9 +1238,11 @@ function BrandPanel({
         <Metric label="Drivers online" value={String(state.metrics.onlineDrivers)} trend={`${state.metrics.openRestaurants} locales`} />
       </div>
       <div className="dispatch-map">
-        <div className="zone zone-one">Palermo</div>
-        <div className="zone zone-two">Centro</div>
-        <div className="zone zone-three">San Telmo</div>
+        {state.zones.slice(0, 3).map((zone, index) => (
+          <div className={`zone zone-${["one", "two", "three"][index]}`} key={zone.id}>
+            {zone.name} · {zone.demandLevel}
+          </div>
+        ))}
         <span className="pin pin-a" />
         <span className="pin pin-b" />
         <span className="pin pin-c" />
@@ -1280,6 +1295,8 @@ function CustomerApp(props: {
   locatePickup: () => void;
   locationStatus: "idle" | "locating" | "ready" | "denied";
   locationMessage: string;
+  onTopUpWallet: (amount: number) => void;
+  onUpdateProfile: (payload: { name: string; phone: string; defaultAddress: string }) => void;
   busy: boolean;
   runAction: (action: () => Promise<unknown>, success: string) => void;
 }) {
@@ -1317,6 +1334,8 @@ function CustomerApp(props: {
     locatePickup,
     locationStatus,
     locationMessage,
+    onTopUpWallet,
+    onUpdateProfile,
     busy,
     runAction
   } = props;
@@ -1357,12 +1376,17 @@ function CustomerApp(props: {
       <header className="home-header">
         <div>
           <span className="muted-label">Enviar a</span>
-          <button className="location-button" type="button">
+          <span className="location-button">
             <MapPin size={15} /> {user?.defaultAddress || "Definir direccion"}
-          </button>
+          </span>
         </div>
         <div className="header-actions">
-          <IconButton icon={Bell} label="Notificaciones" badge={4} />
+          <IconButton
+            icon={Bell}
+            label="Notificaciones"
+            badge={state.supportTickets.filter((ticket) => ticket.status === "open").length}
+            onClick={() => setTab("activity")}
+          />
           <IconButton
             icon={ShoppingBag}
             label="Carrito"
@@ -1405,8 +1429,22 @@ function CustomerApp(props: {
       {tab === "activity" && (
         <CustomerActivity state={state} user={user} runAction={runAction} busy={busy} />
       )}
-      {tab === "wallet" && <WalletScreen user={user} promotions={state.promotions} />}
-      {tab === "profile" && <ProfileScreen user={user} />}
+      {tab === "wallet" && (
+        <WalletScreen
+          user={user}
+          promotions={state.promotions}
+          transactions={state.walletTransactions.filter((entry) => entry.userId === user?.id)}
+          onTopUp={onTopUpWallet}
+        />
+      )}
+      {tab === "profile" && (
+        <ProfileScreen
+          user={user}
+          address={state.addresses.find((entry) => entry.userId === user?.id && entry.isDefault)?.address}
+          paymentMethods={state.paymentMethods.filter((entry) => entry.userId === user?.id)}
+          onSave={onUpdateProfile}
+        />
+      )}
       <BottomNav tab={tab} onTabChange={setTab} />
     </div>
   );
@@ -1509,9 +1547,7 @@ function FlashPassTeaser() {
         <span>Flash Pass</span>
         <strong>Envios gratis, soporte prioritario y promos cross-food/taxi</strong>
       </div>
-      <button type="button">
-        <Sparkles size={15} /> Activar
-      </button>
+      <span className="flash-pass-status"><Sparkles size={15} /> Disponible en checkout</span>
     </section>
   );
 }
@@ -1737,7 +1773,19 @@ function CustomerActivity({
   );
 }
 
-function WalletScreen({ user, promotions }: { user: User | null; promotions: AppState["promotions"] }) {
+function WalletScreen({
+  user,
+  promotions,
+  transactions,
+  onTopUp
+}: {
+  user: User | null;
+  promotions: AppState["promotions"];
+  transactions: AppState["walletTransactions"];
+  onTopUp: (amount: number) => void;
+}) {
+  const [amount, setAmount] = useState("10000");
+  const parsedAmount = Number(amount);
   return (
     <div className="activity-stack">
       <section className="wallet-card">
@@ -1746,18 +1794,41 @@ function WalletScreen({ user, promotions }: { user: User | null; promotions: App
           <span>Flash Wallet</span>
           <strong>{money.format(user?.wallet || 0)}</strong>
         </div>
-        <button type="button">Cargar</button>
+        <div className="wallet-topup">
+          <input
+            type="number"
+            min="1000"
+            max="200000"
+            value={amount}
+            onChange={(event) => setAmount(event.target.value)}
+            aria-label="Monto a cargar"
+          />
+          <button
+            type="button"
+            disabled={!Number.isInteger(parsedAmount) || parsedAmount < 1000 || parsedAmount > 200000}
+            onClick={() => onTopUp(parsedAmount)}
+          >
+            Cargar saldo
+          </button>
+        </div>
       </section>
       <section className="loyalty-card">
         <div>
-          <span>Nivel Pro</span>
-          <strong>7 de 10 pedidos para envios gratis</strong>
+          <span>Actividad financiera</span>
+          <strong>{transactions.length} movimientos registrados</strong>
         </div>
-        <div className="loyalty-progress">
-          <span style={{ width: "70%" }} />
-        </div>
-        <small>Aplica en comida, taxi y promos de comercios aliados.</small>
+        <small>Las cargas y consumos quedan auditados en la cuenta autenticada.</small>
       </section>
+      {transactions.slice(0, 5).map((transaction) => (
+        <article className="promo-row" key={transaction.id}>
+          <WalletCards size={18} />
+          <div>
+            <strong>{transaction.description}</strong>
+            <span>{new Date(transaction.createdAt).toLocaleString("es-AR")}</span>
+          </div>
+          <small>{transaction.kind === "credit" ? "+" : "-"}{money.format(transaction.amount)}</small>
+        </article>
+      ))}
       {promotions.map((promotion) => (
         <article className="promo-row" key={promotion.id}>
           <TicketPercent size={18} />
@@ -1772,13 +1843,25 @@ function WalletScreen({ user, promotions }: { user: User | null; promotions: App
   );
 }
 
-function ProfileScreen({ user }: { user: User | null }) {
-  const rows = [
-    ["Direcciones", user?.defaultAddress || "Sin direccion", MapPin],
-    ["Pagos", "Wallet y Mastercard 7234", CreditCard],
-    ["Seguridad", "Sesion demo local", ShieldCheck],
-    ["Soporte", "Pedidos, viajes y comercios", MessageCircle]
-  ] as const;
+function ProfileScreen({
+  user,
+  address,
+  paymentMethods,
+  onSave
+}: {
+  user: User | null;
+  address?: string;
+  paymentMethods: AppState["paymentMethods"];
+  onSave: (payload: { name: string; phone: string; defaultAddress: string }) => void;
+}) {
+  const [name, setName] = useState(user?.name || "");
+  const [phone, setPhone] = useState(user?.phone || "");
+  const [defaultAddress, setDefaultAddress] = useState(address || user?.defaultAddress || "");
+  useEffect(() => {
+    setName(user?.name || "");
+    setPhone(user?.phone || "");
+    setDefaultAddress(address || user?.defaultAddress || "");
+  }, [address, user?.defaultAddress, user?.name, user?.phone]);
   return (
     <div className="activity-stack">
       <section className="profile-hero">
@@ -1789,17 +1872,30 @@ function ProfileScreen({ user }: { user: User | null }) {
         </div>
       </section>
       <div className="settings-list">
-        {rows.map(([title, text, Icon]) => (
-          <button className="settings-row" type="button" key={title}>
-            <Icon size={18} />
-            <div>
-              <strong>{title}</strong>
-              <span>{text}</span>
-            </div>
-            <ChevronRight size={17} />
-          </button>
-        ))}
+        <label className="settings-row">
+          <UserRound size={18} />
+          <div><strong>Nombre</strong><input value={name} onChange={(event) => setName(event.target.value)} /></div>
+        </label>
+        <label className="settings-row">
+          <MessageCircle size={18} />
+          <div><strong>Telefono</strong><input value={phone} onChange={(event) => setPhone(event.target.value)} /></div>
+        </label>
+        <label className="settings-row">
+          <MapPin size={18} />
+          <div><strong>Direccion principal</strong><input value={defaultAddress} onChange={(event) => setDefaultAddress(event.target.value)} /></div>
+        </label>
+        <div className="settings-row">
+          <CreditCard size={18} />
+          <div><strong>Metodos de pago</strong><span>{paymentMethods.length ? paymentMethods.map((method) => method.label).join(", ") : "Sin metodos configurados"}</span></div>
+        </div>
+        <div className="settings-row">
+          <ShieldCheck size={18} />
+          <div><strong>Cuenta autenticada</strong><span>{user?.email}</span></div>
+        </div>
       </div>
+      <button className="primary-button" type="button" disabled={!name.trim() || !defaultAddress.trim()} onClick={() => onSave({ name: name.trim(), phone: phone.trim(), defaultAddress: defaultAddress.trim() })}>
+        <Check size={17} /> Guardar cambios
+      </button>
     </div>
   );
 }
@@ -2116,11 +2212,13 @@ function MerchantApp({
 function DriverApp({
   state,
   driver,
+  user,
   busy,
   runAction
 }: {
   state: AppState;
   driver: Driver;
+  user: User | null;
   busy: boolean;
   runAction: (action: () => Promise<unknown>, success: string) => void;
 }) {
@@ -2158,13 +2256,13 @@ function DriverApp({
   }, [driver.id, driver.online]);
 
   const availableOrders = state.orders.filter(
-    (order) => !order.courierId && !["delivered", "cancelled"].includes(order.status)
+    (order) => driver.activeService === "delivery" && !order.courierId && !["delivered", "cancelled"].includes(order.status)
   );
   const activeOrders = state.orders.filter(
     (order) => order.courierId === driver.id && !["delivered", "cancelled"].includes(order.status)
   );
   const availableRides = state.rides.filter(
-    (ride) => !ride.driverId && ride.status === "requested"
+    (ride) => driver.activeService === "ride" && !ride.driverId && ride.status === "requested"
   );
   const activeRides = state.rides.filter(
     (ride) => ride.driverId === driver.id && !["completed", "cancelled"].includes(ride.status)
@@ -2219,9 +2317,9 @@ function DriverApp({
       </div>
       <section className="driver-mission">
         <div>
-          <span>Mision activa</span>
-          <strong>Completa 3 trabajos y desbloquea bono</strong>
-          <small>{hotZone?.name || "Zona centro"} con demanda alta</small>
+          <span>Demanda actual</span>
+          <strong>{hotZone?.name || "Zona sin datos"}</strong>
+          <small>{hotZone ? `${hotZone.activeOrders} pedidos y ${hotZone.activeRides} viajes activos` : "Sin zona disponible"}</small>
         </div>
         <b>{money.format(driver.earningsToday)}</b>
       </section>
@@ -2233,13 +2331,13 @@ function DriverApp({
         </article>
         <article>
           <ShieldCheck size={16} />
-          <strong>99%</strong>
-          <span>Safety score</span>
+          <strong>{driver.rating}</strong>
+          <span>Rating</span>
         </article>
         <article>
           <WalletCards size={16} />
-          <strong>Now</strong>
-          <span>Cashout</span>
+          <strong>{money.format(user?.wallet || 0)}</strong>
+          <span>Saldo Flash</span>
         </article>
       </div>
 
@@ -2321,9 +2419,11 @@ function OpsApp({
       </div>
       <OpsRiskBoard state={state} />
       <section className="control-map">
-        <div className="zone zone-one">Demanda alta</div>
-        <div className="zone zone-two">Autos</div>
-        <div className="zone zone-three">Delivery</div>
+        {state.zones.slice(0, 3).map((zone, index) => (
+          <div className={`zone zone-${["one", "two", "three"][index]}`} key={zone.id}>
+            {zone.name} · {zone.activeOrders + zone.activeRides} activos
+          </div>
+        ))}
         <span className="pin pin-a" />
         <span className="pin pin-b" />
         <span className="pin pin-c" />
@@ -2407,7 +2507,8 @@ function OpsRail({
   busy: boolean;
   runAction: (action: () => Promise<unknown>, success: string) => void;
 }) {
-  const driver = state.drivers.find((entry) => entry.userId === "usr_driver");
+  const driver = state.drivers.find((entry) => entry.userId === user?.id);
+  const merchantRestaurantId = user?.restaurantId || state.restaurants[0]?.id;
   const activeOrder = state.orders.find((order) => !["delivered", "cancelled"].includes(order.status));
   const activeRide = state.rides.find((ride) => !["completed", "cancelled"].includes(ride.status));
   return (
@@ -2432,10 +2533,10 @@ function OpsRail({
           <div className="ops-card">
             <span>Cuenta</span>
             <strong>{user?.name}</strong>
-            <p>{state.orders.filter((order) => order.restaurantId === "rest_roja").length} pedidos historicos</p>
+            <p>{state.orders.filter((order) => order.restaurantId === merchantRestaurantId).length} pedidos historicos</p>
           </div>
           {state.orders
-            .filter((order) => order.restaurantId === "rest_roja")
+            .filter((order) => order.restaurantId === merchantRestaurantId)
             .slice(0, 3)
             .map((order) => (
               <MiniOrder key={order.id} state={state} order={order} />
@@ -2501,8 +2602,8 @@ function SearchBar({ query, setQuery }: { query: string; setQuery: (query: strin
         onChange={(event) => setQuery(event.target.value)}
         placeholder="Que queres pedir hoy?"
       />
-      <button type="button" aria-label="Filtros" title="Filtros">
-        <SlidersHorizontal size={17} />
+      <button type="button" aria-label="Limpiar busqueda" title="Limpiar busqueda" onClick={() => setQuery("")}>
+        {query ? <X size={17} /> : <SlidersHorizontal size={17} />}
       </button>
     </div>
   );
@@ -2921,7 +3022,7 @@ function SectionTitle({ title, action }: { title: string; action?: string }) {
   return (
     <div className="section-title">
       <h2>{title}</h2>
-      {action && <button type="button">{action}</button>}
+      {action && <span className="section-action">{action}</span>}
     </div>
   );
 }

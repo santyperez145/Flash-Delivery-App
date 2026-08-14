@@ -1,5 +1,6 @@
 export type Mode = "customer" | "merchant" | "driver";
 export type ServiceMode = "delivery" | "ride";
+export type RideService = "economy" | "comfort" | "moto" | "xl";
 
 export type GeoPoint = {
   lat: number;
@@ -29,6 +30,8 @@ export type Restaurant = {
   menu: Array<{
     id: string;
     name: string;
+    description?: string;
+    category?: string;
     price: number;
     stock: boolean;
   }>;
@@ -53,10 +56,12 @@ export type Order = {
   customerId: string;
   restaurantId: string;
   courierId: string | null;
-  status: string;
+  status: "accepted" | "preparing" | "ready_for_pickup" | "courier_assigned" | "picked_up" | "delivering" | "delivered" | "cancelled";
   deliveryAddress: string;
+  paymentMethod?: string;
   total: number;
   etaMin: number;
+  createdAt?: string;
   items: Array<{ name: string; quantity: number }>;
 };
 
@@ -64,12 +69,26 @@ export type Ride = {
   id: string;
   customerId: string;
   driverId: string | null;
-  status: string;
+  status: "requested" | "driver_assigned" | "arriving" | "in_progress" | "completed" | "cancelled";
+  service?: RideService;
   pickup: string;
   destination: string;
+  pickupLocation?: GeoPoint | null;
+  destinationLocation?: GeoPoint | null;
   distanceKm: number;
+  etaMin?: number;
   durationMin: number;
   fare: number;
+};
+
+export type RideQuote = {
+  service: RideService;
+  distanceKm: number;
+  etaMin: number;
+  durationMin: number;
+  fare: number;
+  estimated: boolean;
+  routingMode: "coordinates" | "text-estimate";
 };
 
 export type AppState = {
