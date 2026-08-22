@@ -379,6 +379,7 @@ export const api = {
   },
   async getMerchantPaymentConnection(merchantId:string){return request<{connection:import("./types").MerchantPaymentConnection|null;configured:boolean}>(`/merchant/payment-provider?merchantId=${encodeURIComponent(merchantId)}`);},
   async beginMerchantPaymentConnection(merchantId:string){return request<{authorizationUrl:string;expiresAt:string}>("/merchant/payment-provider/connect",{method:"POST",body:JSON.stringify({merchantId})});},
+  async disconnectMerchantPaymentConnection(merchantId:string,password:string){return request<{connection:import("./types").MerchantPaymentConnection}>("/merchant/payment-provider/disconnect",{method:"POST",body:JSON.stringify({merchantId,password})});},
   async authorizeMerchantPayout(merchantId: string, amount: number, password: string) {
     return request<{ authorizationToken:string;expiresAt:string;merchantId:string;amount:number }>("/merchant/payouts/authorize", {
       method:"POST",
