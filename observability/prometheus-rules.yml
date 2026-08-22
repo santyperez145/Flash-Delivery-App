@@ -1,0 +1,38 @@
+groups:
+  - name: flash-api-slo
+    interval: 30s
+    rules:
+      - alert: FlashApiFastErrorBudgetBurn
+        expr: |
+          (sum(rate(flash_http_requests_total{status=~"5.."}[5m])) / clamp_min(sum(rate(flash_http_requests_total[5m])), 0.001)) > 0.0144
+          and
+          (sum(rate(flash_http_requests_total{status=~"5.."}[1h])) / clamp_min(sum(rate(flash_http_requests_total[1h])), 0.001)) > 0.0144
+        for: 5m
+        labels: { severity: page, slo: api-availability-99.9 }
+        annotations: { summary: "Flash API consume rápidamente su presupuesto de error", runbook: "docs/runbooks/api-error-budget.md" }
+      - alert: FlashApiSlowErrorBudgetBurn
+        expr: |
+          (sum(rate(flash_http_requests_total{status=~"5.."}[6h])) / clamp_min(sum(rate(flash_http_requests_total[6h])), 0.001)) > 0.006
+          and
+          (sum(rate(flash_http_requests_total{status=~"5.."}[3d])) / clamp_min(sum(rate(flash_http_requests_total[3d])), 0.001)) > 0.006
+        for: 30m
+        labels: { severity: ticket, slo: api-availability-99.9 }
+        annotations: { summary: "Flash API consume sostenidamente su presupuesto de error", runbook: "docs/runbooks/api-error-budget.md" }
+      - alert: FlashApiP95LatencyHigh
+        expr: histogram_quantile(0.95, sum by (le) (rate(flash_http_request_duration_seconds_bucket[10m]))) > 1.5
+        for: 15m
+        labels: { severity: ticket, slo: api-latency }
+        annotations: { summary: "Latencia p95 de Flash API por encima de 1,5 segundos", runbook: "docs/runbooks/api-latency.md" }
+  - name: flash-runtime-health
+    interval: 30s
+    rules:
+      - alert: FlashPostgresPoolSaturated
+        expr: flash_postgres_pool_connections{state="waiting"} > 5
+        for: 5m
+        labels: { severity: page }
+        annotations: { summary: "Solicitudes esperando conexiones PostgreSQL", runbook: "docs/runbooks/postgres-pool.md" }
+      - alert: FlashNotificationDeadLetters
+        expr: flash_notifications{status="dead_letter"} > 0
+        for: 10m
+        labels: { severity: ticket }
+        annotations: { summary: "Existen notificaciones en dead-letter", runbook: "docs/runbooks/notification-dead-letter.md" }

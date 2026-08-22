@@ -36,6 +36,9 @@ jobs:
       - name: OpenTelemetry export contract
         run: npm run test:telemetry
 
+      - name: Prometheus alert contracts
+        run: npm run test:observability-rules
+
   mobile-typecheck:
     runs-on: ubuntu-latest
     timeout-minutes: 15
