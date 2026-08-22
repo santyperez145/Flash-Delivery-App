@@ -1,5 +1,7 @@
 # Flash Delivery App Roadmap
 
+> Lineamiento obligatorio para cada entrega: [`docs/product-execution-guidelines.md`](docs/product-execution-guidelines.md). Define investigación competitiva, segmentación, cero hardcodeos productivos, calidad visual, arquitectura, seguridad y definición de terminado.
+
 ## Roadmap rector adoptado — 21 de agosto de 2026
 
 Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estrategia **delivery/courier primero, B2B después y movilidad pública sólo tras safety y habilitación local**. La auditoría describe una versión anterior; sus EPICs se mantienen, pero estos checks reflejan el runtime actual y sustituyen sus puntuaciones históricas.
@@ -8,6 +10,7 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 
 ## Auditoría 22 de agosto de 2026 — arquitectura completa de pantallas
 
+- [x] `docs/product-execution-guidelines.md` formaliza como contrato versionado los lineamientos de producto competitivo, frontend/backend real, visuales completas, guía exclusiva de Driver y publicación verificada.
 - [x] Se creó `docs/experience-surface-inventory.md` como inventario rector de pantallas, hojas, modales y estados para Cliente, Driver, Comercio y Operaciones.
 - [x] La segmentación se contrastó con documentación oficial vigente de Uber Driver, Lyft Driver y DoorDash Dasher; se adoptan jerarquía y estados, nunca activos ni identidad propietaria.
 - [x] La guía giro a giro queda exclusivamente en Flash Driver. El cliente conserva mapa, ubicación, ETA y progreso, pero no instrucciones de conducción.
