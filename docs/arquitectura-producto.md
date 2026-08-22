@@ -20,7 +20,10 @@ Flash Delivery Mobility esta organizada como una plataforma multirol:
   `test:web-delivery` verifica los cuatro contratos sobre un servidor real.
 - Backend: Express.
 - Base de datos principal: PostgreSQL 17 + PostGIS, migraciones SQL versionadas y RLS. SQLite queda aislado como fallback de pruebas sin `DATABASE_URL`.
-- Auth: bcrypt, access/refresh tokens rotativos, sesiones revocables, bloqueo por intentos y MFA administrativo.
+- Auth: bcrypt, access/refresh tokens rotativos, sesiones revocables, bloqueo por
+  intentos y MFA administrativo. Web conserva el access token corto sólo en
+  memoria y rota refresh mediante cookie HttpOnly `SameSite=Strict`; mobile usa
+  Keychain/Keystore y recibe el refresh token explícitamente.
 - Validacion: `zod` en endpoints criticos.
 - Seguridad HTTP: Helmet, CORS con allowlist, rate limiting y CSP activa. CSP
   restringe scripts y conexiones a orígenes declarados, bloquea objetos,
