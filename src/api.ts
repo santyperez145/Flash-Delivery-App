@@ -57,13 +57,45 @@ function persistRefreshToken(token: string) {
   if (typeof window !== "undefined") window.localStorage.removeItem(REFRESH_KEY);
 }
 
+const SAFE_READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+const REQUEST_TIMEOUT_MS = 12000;
+
+function emitNetworkStatus(online: boolean) {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent("flash:network", { detail: { online } }),
+    );
+  }
+}
+
+function wait(milliseconds: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
 async function refreshAccessToken() {
-  const response = await fetch(`${API_BASE}/auth/refresh`, {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json", "X-Flash-Client": "web" },
-    body: JSON.stringify({ ...(refreshToken ? { refreshToken } : {}), deviceName: "Flash Web" }),
-  });
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(`${API_BASE}/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", "X-Flash-Client": "web" },
+      body: JSON.stringify({ ...(refreshToken ? { refreshToken } : {}), deviceName: "Flash Web" }),
+    });
+  } catch (_error) {
+    emitNetworkStatus(false);
+    return false;
+  }
+  emitNetworkStatus(true);
   if (!response.ok) {
     clearAuthToken();
     return false;
@@ -184,6 +216,7 @@ async function request<T>(
   path: string,
   init?: RequestInit,
   retry = true,
+  transportRetry = true,
 ): Promise<T> {
   const { headers, ...requestInit } = init || {};
   const requestHeaders = new Headers(headers);
@@ -194,18 +227,30 @@ async function request<T>(
   if (authToken && !requestHeaders.has("Authorization")) {
     requestHeaders.set("Authorization", `Bearer ${authToken}`);
   }
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...requestInit,
-    credentials: "include",
-    headers: requestHeaders,
-  });
+  const method = (requestInit.method || "GET").toUpperCase();
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(`${API_BASE}${path}`, {
+      ...requestInit,
+      credentials: "include",
+      headers: requestHeaders,
+    });
+    emitNetworkStatus(true);
+  } catch (_error) {
+    emitNetworkStatus(false);
+    if (transportRetry && SAFE_READ_METHODS.has(method)) {
+      await wait(350);
+      return request<T>(path, init, retry, false);
+    }
+    throw new Error("No hay conexión con Flash. Revisá tu red e intentá nuevamente.");
+  }
   if (
     response.status === 401 &&
     retry &&
     path !== "/auth/login" &&
     (await refreshAccessToken())
   ) {
-    return request<T>(path, init, false);
+    return request<T>(path, init, false, transportRetry);
   }
   const payload = (await response.json()) as ApiEnvelope<T>;
   if (!response.ok || payload.ok === false) {

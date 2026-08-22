@@ -45,6 +45,8 @@
     "test:payment-methods": "node --env-file-if-exists=.env.local scripts/payment-methods-smoke.mjs",
     "test:notification-preferences": "node --env-file-if-exists=.env.local scripts/notification-preferences-smoke.mjs",
     "test:notification-local": "node scripts/notification-local-smoke.mjs",
+    "test:dietary-local": "node scripts/dietary-local-smoke.mjs",
+    "test:network-resilience": "node scripts/network-resilience-smoke.mjs",
     "test:notification-dead-letters": "node --env-file-if-exists=.env.local scripts/notification-dead-letter-smoke.mjs",
     "test:support-sla": "node --env-file-if-exists=.env.local scripts/support-sla-smoke.mjs",
     "test:support-routing": "node --env-file-if-exists=.env.local scripts/support-routing-smoke.mjs",

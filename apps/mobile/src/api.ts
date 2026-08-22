@@ -14,6 +14,22 @@ const appVariant=String(Constants.expoConfig?.extra?.appVariant||"customer") as 
 const allowsVariant=(user:import("./types").User)=>user.roles.includes(appVariant);
 
 type Envelope<T> = T & { ok: boolean; message?: string };
+const SAFE_READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+const REQUEST_TIMEOUT_MS = 12000;
+
+function wait(milliseconds: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function fetchWithTimeout(input: RequestInfo, init: RequestInit) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 async function persistSession() {
   return saveMobileSession(refreshToken?{accessToken:token,refreshToken,driverId:sessionDriverId}:null);
@@ -24,11 +40,16 @@ async function refreshAccessToken() {
   if(stored?.refreshToken&&stored.refreshToken!==refreshToken){token=stored.accessToken;refreshToken=stored.refreshToken;sessionDriverId=stored.driverId;}
   if (!refreshToken) return false;
   const attemptedRefreshToken=refreshToken;
-  const response = await fetch(`${API_BASE}/auth/refresh`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refreshToken, deviceName: "Flash Mobile" })
-  });
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(`${API_BASE}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken, deviceName: "Flash Mobile" })
+    });
+  } catch (_error) {
+    return false;
+  }
   if (!response.ok) {
     const concurrent=await loadMobileSession();
     if(concurrent?.refreshToken&&concurrent.refreshToken!==attemptedRefreshToken){token=concurrent.accessToken;refreshToken=concurrent.refreshToken;sessionDriverId=concurrent.driverId;return Boolean(token);}
@@ -44,17 +65,27 @@ async function refreshAccessToken() {
   return true;
 }
 
-async function request<T>(path: string, init?: RequestInit, retry = true): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init?.headers || {})
+async function request<T>(path: string, init?: RequestInit, retry = true, transportRetry = true): Promise<T> {
+  const method = (init?.method || "GET").toUpperCase();
+  let response: Response;
+  try {
+    response = await fetchWithTimeout(`${API_BASE}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(init?.headers || {})
+      }
+    });
+  } catch (_error) {
+    if (transportRetry && SAFE_READ_METHODS.has(method)) {
+      await wait(350);
+      return request<T>(path, init, retry, false);
     }
-  });
+    throw new Error("No hay conexión con Flash. Revisá tu red e intentá nuevamente.");
+  }
   if (response.status === 401 && retry && path !== "/auth/login" && await refreshAccessToken()) {
-    return request<T>(path, init, false);
+    return request<T>(path, init, false, transportRetry);
   }
   const payload = (await response.json()) as Envelope<T>;
   if (!response.ok || payload.ok === false) {

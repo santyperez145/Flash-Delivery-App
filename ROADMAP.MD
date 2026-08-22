@@ -6,6 +6,24 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 22 de agosto de 2026 — resiliencia de red web y mobile
+
+- [x] El cliente web y el cliente mobile aplican timeout de 12 segundos a las llamadas HTTP para no dejar pantallas bloqueadas indefinidamente.
+- [x] Las lecturas `GET`, `HEAD` y `OPTIONS` reintentan una sola vez después de un corte transitorio; `POST`, `PATCH` y `DELETE` no se reintentan automáticamente para evitar duplicar pedidos, viajes, pagos, cancelaciones o evidencias.
+- [x] Web escucha conectividad del navegador y fallas de transporte, muestra una alerta accesible de offline/reconexión y refresca al recuperar conexión; el desktop operativo también queda visible.
+- [x] Mobile incorpora `expo-network` compatible con Expo SDK 57, escucha conectividad nativa y refresca el estado al volver internet; el canal de estado offline es explícito.
+- [x] `test:network-resilience`, `build` y `mobile:typecheck` cubren la política de transporte y los puntos de integración del frontend.
+- [~] No se presenta una cola offline de escrituras como capacidad productiva: queda pendiente diseñar persistencia local, expiración, consentimiento visible e idempotencia por operación antes de permitir acciones diferidas.
+
+Decisión técnica: se usa el módulo oficial [Expo Network](https://docs.expo.dev/versions/latest/sdk/network/) para observar conectividad en la app nativa y se mantiene `fetch` con `AbortController` para el transporte, evitando introducir un cliente HTTP adicional en esta etapa. La resiliencia sólo suaviza fallas de lectura; la autoridad de pedidos, pagos y estados sigue siendo el backend.
+
+## Corrección 22 de agosto de 2026 — preferencias alimentarias en demo local
+
+- [x] El bootstrap de cliente ya no intenta usar `postgresPool.query` cuando se ejecuta sin `DATABASE_URL`: las preferencias alimentarias tienen tabla SQLite persistente, migración idempotente y ownership por usuario.
+- [x] `GET` y `PUT /api/dietary-preferences` mantienen el contrato de PostgreSQL, validan el mismo esquema y registran auditoría local; las preferencias sobreviven a la escritura de eventos de auditoría.
+- [x] `test:dietary-local` cubre lectura inicial, actualización, persistencia y contrato de respuesta; se verificó la recuperación del frontend en el navegador después de reiniciar el API.
+- [~] SQLite sigue siendo sólo modo demo/desarrollo; producción requiere PostgreSQL con migraciones `059` y `060` aplicadas.
+
 ## Corrección 22 de agosto de 2026 — panel operativo local
 
 - [x] Comercios, conductores, usuarios, soporte y auditoría operativos seleccionan PostgreSQL cuando `DATABASE_URL` está configurado y el fallback SQLite local cuando se ejecuta el entorno demo.
@@ -463,7 +481,7 @@ La implementacion se sigue por flujos completos y no por pantallas aisladas. Cad
 - [x] Envios web/PWA: Actividad abre tracking autenticado con ruta OSRM, destinatario, repartidor, ETA/timeline, PIN de entrega, prueba de entrega y fallback honesto.
 - [x] Envios web/PWA: cotización y solicitud reales con geocodificación, categorías/SLA configurables, protección, firma, términos, token firmado e idempotencia; esta superficie cobra sólo con Flash Wallet.
 - [x] Actividad, wallet, perfil, soporte y notificaciones como navegacion compartida.
-- [ ] Paridad de estados vacios, errores, carga, offline y accesibilidad en todos los flujos.
+- [~] Paridad de estados vacios, errores, carga, offline y accesibilidad en todos los flujos: offline/reconexión base está cubierto en web y mobile; faltan cola de escrituras diferidas, auditoría visual exhaustiva y ensayo con redes degradadas en dispositivos físicos.
 
 ## Principios tecnicos
 

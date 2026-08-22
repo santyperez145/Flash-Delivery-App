@@ -290,6 +290,7 @@ import {
   createLocalNotification,
   getLocalNotificationPreferences,
   getLocalNotifications,
+  getLocalDietaryPreferences,
   getPublicState,
   getDatabasePath,
   getTimestamp,
@@ -300,6 +301,7 @@ import {
   resetDb,
   rideStatuses,
   updateLocalNotificationPreference,
+  replaceLocalDietaryPreferences,
   shipmentStatuses,
   writeDb,
 } from "./store.js";
@@ -3748,6 +3750,11 @@ app.get(
   requireAnyRole("customer", "admin"),
   async (req, res) => {
     try {
+      if (!usesPostgresAuth()) {
+        return ok(res, {
+          preferences: getLocalDietaryPreferences(req.auth.userId),
+        });
+      }
       return ok(res, {
         preferences: await getUserDietaryPreferences(req.auth.userId),
       });
@@ -3768,6 +3775,25 @@ app.put(
     const parsed = parseOrFail(userDietaryPreferenceSchema, req.body || {});
     if (!parsed.ok) return fail(res, 400, parsed.message);
     try {
+      if (!usesPostgresAuth()) {
+        const preferences = replaceLocalDietaryPreferences({
+          userId: req.auth.userId,
+          ...parsed.data,
+        });
+        await auditRuntime(
+          readDb(),
+          req,
+          "user",
+          req.auth.userId,
+          "user.dietary_preferences_updated",
+          {
+            dietaryCount: parsed.data.dietaryLabels.length,
+            allergenCount: parsed.data.avoidedAllergens.length,
+            hideIncompatible: parsed.data.hideIncompatible,
+          },
+        );
+        return ok(res, { preferences });
+      }
       const preferences = await replaceUserDietaryPreferences({
         userPublicId: req.auth.userId,
         ...parsed.data,
