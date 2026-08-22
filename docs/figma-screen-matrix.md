@@ -31,7 +31,7 @@ Estados: `[x]` funcional y visible, `[~]` base funcional con paridad visual pend
 | [x] | Detalle del restaurante | comercio, catalogo, disponibilidad |
 | [x] | Detalle de producto | hoja visual con grupos, mínimos/máximos, extras con precio, nota de cocina, dietas y advertencias de alérgenos estructuradas |
 | [x] | Carrito y cantidades | carrito persistente PostgreSQL por cliente |
-| [x] | Checkout completo | vista dedicada con dirección PostGIS propia, método tokenizado propio, cupón, ETA, artículos, desglose exacto firmado y captura Wallet; PSP externo pendiente de producción |
+| [x] | Checkout completo | mobile y web seleccionan dirección PostGIS propia y pago disponible, recotizan ante cambios, muestran ETA/desglose/expiración firmados y confirman el mismo token; PSP externo pendiente de producción |
 | [x] | Pedido confirmado | creación y cobro reales; confirmación visual con ID, ETA, total y seguimiento |
 | [x] | Tracking del pedido | modal dedicado, ruta vial OSM, ETA, timeline real, conductor y posición cuando está asignado |
 | [x] | Actividad/pedidos activos | API autenticada |

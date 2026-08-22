@@ -6,6 +6,15 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 22 de agosto de 2026 — checkout web de comida sin datos simulados
+
+- [x] Desktop/PWA eliminó la dirección visible fija y ofrece sólo direcciones privadas con coordenadas verificadas de la cuenta autenticada.
+- [x] Cambiar dirección, Wallet/tarjeta, promoción o carrito invalida la cotización anterior y solicita al backend un nuevo total firmado.
+- [x] Distancia, ETA, versión tarifaria, desglose y vencimiento provienen de `/orders/quote`; confirmar reutiliza exactamente ese token y bloquea cotizaciones vencidas o fallidas.
+- [x] Wallet usa el método propio persistido y Mercado Pago sólo aparece si el comercio y la clave pública están realmente configurados; PAN/CVV permanece dentro del Brick oficial.
+- [x] `test:web-checkout`, build, bundle budget y contratos PostgreSQL existentes cubren la frontera cliente-servidor; la prueba visual y sandbox externa sigue condicionada al motor/credenciales reales.
+- [x] La analítica first-party se carga fuera del camino crítico web y conserva su cola no bloqueante, evitando relajar el presupuesto de JavaScript inicial tras sumar el checkout.
+
 ## Avance 22 de agosto de 2026 — resiliencia de red web y mobile
 
 - [x] El cliente web y el cliente mobile aplican timeout de 12 segundos a las llamadas HTTP para no dejar pantallas bloqueadas indefinidamente.

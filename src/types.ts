@@ -449,6 +449,44 @@ export type PaymentMethod = {
   isDefault: boolean;
 };
 
+export type FoodCheckoutQuote = {
+  quoteId: string;
+  quoteToken: string;
+  expiresAt: string;
+  customerId: string;
+  restaurantId: string;
+  branchId: string;
+  deliveryAddressId: string;
+  deliveryAddress: string;
+  distanceKm: number;
+  deliveryFee: number;
+  serviceFee: number;
+  subtotal: number;
+  discount: number;
+  promotionCode: string | null;
+  total: number;
+  etaMin: number;
+  paymentMethod: string;
+  paymentMethodId: string | null;
+  pricingVersion: string;
+  currency: string;
+  items: Array<{
+    menuItemId: string;
+    name: string;
+    quantity: number;
+    baseUnitPrice: number;
+    unitPrice: number;
+    modifiers: Array<{
+      id: string;
+      name: string;
+      price: number;
+      groupId: string;
+      groupName: string;
+    }>;
+    note: string;
+  }>;
+};
+
 export type WalletTransaction = {
   id: string;
   userId: string;
