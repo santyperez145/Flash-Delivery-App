@@ -21,6 +21,9 @@ assert(refreshBody.grant_type==="refresh_token"&&refreshBody.refresh_token==="TG
 globalThis.fetch=async()=>new Response(JSON.stringify({access_token:"APP_USR-incomplete",refresh_token:"TG-incomplete",user_id:12345}),{status:200,headers:{"content-type":"application/json"}});
 let rejectedIncomplete=false;try{await refreshMercadoPagoCredential("TG-old-refresh");}catch(error){rejectedIncomplete=error.providerCode==="incomplete_oauth_credential";}
 assert(rejectedIncomplete,"refresh rejects credentials without an enforceable expiration");
+const timeout=Object.assign(new Error("provider leaked TG-secret"),{name:"TimeoutError"});globalThis.fetch=async()=>{throw timeout;};
+let rejectedTimeout=false;try{await refreshMercadoPagoCredential("TG-old-refresh");}catch(error){rejectedTimeout=error.status===504&&error.providerCode==="provider_timeout"&&!error.message.includes("TG-secret");}
+assert(rejectedTimeout,"OAuth refresh sanitizes and classifies provider timeout");
 globalThis.fetch=async(url,init)=>{captured={url:String(url),init};return new Response(JSON.stringify({id:"PAY-1",status:"approved",status_detail:"accredited",external_reference:"JOB-1",transaction_amount:1200,currency_id:"ARS",application_fee:120,collector_id:12345,payer:{email:"must-not-persist@example.test"},card:{last_four_digits:"1234"}}),{status:200,headers:{"content-type":"application/json"}});};
 const snapshot=await fetchMercadoPagoResource({topic:"payment",resourceId:"PAY-1",accessToken:credential.accessToken});
 assert(captured.init.headers.authorization===`Bearer ${credential.accessToken}`&&snapshot.status==="approved","worker fetches authoritative resource with seller bearer token");

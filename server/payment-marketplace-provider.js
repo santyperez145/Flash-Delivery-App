@@ -15,18 +15,20 @@ export function mercadoPagoAuthorizationUrl(state,codeChallenge) {
 
 export async function exchangeMercadoPagoCode(code,codeVerifier) {
   if(config.paymentMarketplace.provider!=="mercadopago"||!config.paymentMarketplace.clientId||!config.paymentMarketplace.clientSecret)throw Object.assign(new Error("Mercado Pago Marketplace no está configurado"),{status:503});
-  const response=await fetch("https://api.mercadopago.com/oauth/token",{method:"POST",headers:{accept:"application/json","content-type":"application/x-www-form-urlencoded"},body:new URLSearchParams({client_id:config.paymentMarketplace.clientId,client_secret:config.paymentMarketplace.clientSecret,grant_type:"authorization_code",code,redirect_uri:config.paymentMarketplace.redirectUri,code_verifier:codeVerifier}),signal:AbortSignal.timeout(5000)});
+  const response=await mercadoPagoRequest("oauth_exchange","https://api.mercadopago.com/oauth/token",{method:"POST",headers:{accept:"application/json","content-type":"application/x-www-form-urlencoded"},body:new URLSearchParams({client_id:config.paymentMarketplace.clientId,client_secret:config.paymentMarketplace.clientSecret,grant_type:"authorization_code",code,redirect_uri:config.paymentMarketplace.redirectUri,code_verifier:codeVerifier}),signal:AbortSignal.timeout(5000)});
   const body=await response.json().catch(()=>({}));
   const expiresIn=Number(body.expires_in);
-  if(!response.ok||!body.access_token||!body.refresh_token||!body.user_id||!Number.isFinite(expiresIn)||expiresIn<=0)throw Object.assign(new Error("Mercado Pago no pudo completar la vinculación"),{status:response.status===429?429:502,providerCode:body.error||body.status||"incomplete_oauth_credential"});
+  if(!response.ok||!body.access_token||!body.refresh_token||!body.user_id||!Number.isFinite(expiresIn)||expiresIn<=0){observeMercadoPago("oauth_exchange",response.status===429?"rate_limited":response.ok?"invalid_response":`http_${response.status}`);throw Object.assign(new Error("Mercado Pago no pudo completar la vinculación"),{status:response.status===429?429:502,providerCode:body.error||body.status||"incomplete_oauth_credential"});}
+  observeMercadoPago("oauth_exchange","success");
   return{accessToken:String(body.access_token),refreshToken:String(body.refresh_token),externalAccountId:String(body.user_id),expiresIn,scope:body.scope?String(body.scope):null,liveMode:Boolean(body.live_mode)};
 }
 
 export async function refreshMercadoPagoCredential(refreshToken){
   if(config.paymentMarketplace.provider!=="mercadopago"||!config.paymentMarketplace.clientId||!config.paymentMarketplace.clientSecret)throw Object.assign(new Error("Mercado Pago Marketplace no está configurado"),{status:503});
-  const response=await fetch("https://api.mercadopago.com/oauth/token",{method:"POST",headers:{accept:"application/json","content-type":"application/json"},body:JSON.stringify({client_id:config.paymentMarketplace.clientId,client_secret:config.paymentMarketplace.clientSecret,grant_type:"refresh_token",refresh_token:refreshToken}),signal:AbortSignal.timeout(5000)}),body=await response.json().catch(()=>({}));
+  const response=await mercadoPagoRequest("oauth_refresh","https://api.mercadopago.com/oauth/token",{method:"POST",headers:{accept:"application/json","content-type":"application/json"},body:JSON.stringify({client_id:config.paymentMarketplace.clientId,client_secret:config.paymentMarketplace.clientSecret,grant_type:"refresh_token",refresh_token:refreshToken}),signal:AbortSignal.timeout(5000)}),body=await response.json().catch(()=>({}));
   const expiresIn=Number(body.expires_in);
-  if(!response.ok||!body.access_token||!body.refresh_token||!body.user_id||!Number.isFinite(expiresIn)||expiresIn<=0)throw Object.assign(new Error("Mercado Pago no pudo renovar la autorización"),{status:response.status===429?429:502,providerCode:body.error||body.status||"incomplete_oauth_credential"});
+  if(!response.ok||!body.access_token||!body.refresh_token||!body.user_id||!Number.isFinite(expiresIn)||expiresIn<=0){observeMercadoPago("oauth_refresh",response.status===429?"rate_limited":response.ok?"invalid_response":`http_${response.status}`);throw Object.assign(new Error("Mercado Pago no pudo renovar la autorización"),{status:response.status===429?429:502,providerCode:body.error||body.status||"incomplete_oauth_credential"});}
+  observeMercadoPago("oauth_refresh","success");
   return{accessToken:String(body.access_token),refreshToken:String(body.refresh_token),externalAccountId:String(body.user_id),expiresIn,scope:body.scope?String(body.scope):null,liveMode:Boolean(body.live_mode)};
 }
 
@@ -72,7 +74,9 @@ export async function refundMercadoPagoPayment({accessToken,paymentId,idempotenc
 export async function fetchMercadoPagoResource({topic,resourceId,accessToken}){
   const resource=topic==="payment"?`payments/${encodeURIComponent(resourceId)}`:["order","orders"].includes(topic)?`orders/${encodeURIComponent(resourceId)}`:null;
   if(!resource)throw Object.assign(new Error("Tópico sin recurso conciliable"),{status:422});
-  const response=await fetch(`https://api.mercadopago.com/v1/${resource}`,{headers:{accept:"application/json",authorization:`Bearer ${accessToken}`},signal:AbortSignal.timeout(5000)}),body=await response.json().catch(()=>({}));
-  if(!response.ok)throw Object.assign(new Error("No se pudo recuperar el recurso del proveedor"),{status:response.status===429?429:502,providerStatus:response.status});
+  const response=await mercadoPagoRequest("fetch_resource",`https://api.mercadopago.com/v1/${resource}`,{headers:{accept:"application/json",authorization:`Bearer ${accessToken}`},signal:AbortSignal.timeout(5000)}),body=await response.json().catch(()=>({}));
+  if(!response.ok){observeMercadoPago("fetch_resource",response.status===429?"rate_limited":`http_${response.status}`);throw Object.assign(new Error("No se pudo recuperar el recurso del proveedor"),{status:response.status===429?429:502,providerStatus:response.status});}
+  if(!body.id){observeMercadoPago("fetch_resource","invalid_response");throw Object.assign(new Error("El proveedor devolvió un recurso incompleto"),{status:502,providerCode:"invalid_provider_resource"});}
+  observeMercadoPago("fetch_resource","success");
   return{id:String(body.id||resourceId),status:String(body.status||"unknown"),statusDetail:body.status_detail?String(body.status_detail):null,externalReference:body.external_reference?String(body.external_reference):null,transactionAmount:Number(body.transaction_amount||body.total_amount||0),currency:String(body.currency_id||body.currency||"ARS"),applicationFee:Number(body.application_fee||body.marketplace_fee||0),collectorId:body.collector_id?String(body.collector_id):body.collector?.id?String(body.collector.id):null,dateApproved:body.date_approved||null};
 }
