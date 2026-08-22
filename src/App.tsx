@@ -91,6 +91,7 @@ const money = new Intl.NumberFormat("es-AR", {
 });
 const dietOptions=[{code:"vegetarian",name:"Vegetariano"},{code:"vegan",name:"Vegano"},{code:"gluten_free",name:"Sin gluten"},{code:"halal",name:"Halal"},{code:"kosher",name:"Kosher"}];
 const allergenOptions=[{code:"gluten",name:"Gluten"},{code:"milk",name:"Leche"},{code:"eggs",name:"Huevo"},{code:"peanuts",name:"Maní"},{code:"tree_nuts",name:"Frutos secos"},{code:"soy",name:"Soja"},{code:"fish",name:"Pescado"},{code:"shellfish",name:"Crustáceos"},{code:"sesame",name:"Sésamo"}];
+const itemMatchesDietary=(item:MenuItem,preferences:DietaryPreferences)=>{const diets=new Set((item.dietaryLabels||[]).map(entry=>entry.code)),allergens=new Set((item.allergens||[]).map(entry=>entry.code));return preferences.dietaryLabels.every(entry=>diets.has(entry.code))&&!preferences.avoidedAllergens.some(entry=>allergens.has(entry.code));};
 
 const orderStatusLabel: Record<OrderStatus, string> = {
   requested: "Validando pago",
@@ -168,6 +169,7 @@ function App() {
   const [draftExtras, setDraftExtras] = useState<string[]>([]);
   const [draftNote, setDraftNote] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
+  const [dietaryPreferences,setDietaryPreferences]=useState<DietaryPreferences|null>(null);
   const [rideForm, setRideForm] = useState<RideForm>({
     pickup: "Defensa 982, San Telmo",
     destination: "Aeroparque Jorge Newbery",
@@ -249,8 +251,8 @@ function App() {
     else setMode("customer");
     await refresh();
     if (user.roles.includes("customer")) {
-      const saved = await api.cart();
-      setCart(saved.cart);
+      const [saved,dietary]=await Promise.all([api.cart(),api.getDietaryPreferences()]);
+      setCart(saved.cart);setDietaryPreferences(dietary.preferences);
     }
   }, [refresh]);
 
@@ -306,6 +308,7 @@ function App() {
     await api.logout();
     setSessionUserId("");
     setState(null);
+    setDietaryPreferences(null);
     setAdminDashboard(null);
     setAuthRequired(true);
     setDesktopPortal("admin");
@@ -395,19 +398,20 @@ function App() {
         restaurant.menu.some((item) =>
           item.name.toLowerCase().includes(search),
         );
-      return categoryMatch && queryMatch;
+      const dietaryMatch=!dietaryPreferences?.hideIncompatible||restaurant.menu.some(item=>item.stock&&itemMatchesDietary(item,dietaryPreferences));
+      return categoryMatch && queryMatch && dietaryMatch;
     });
-  }, [category, query, state]);
+  }, [category, dietaryPreferences, query, state]);
 
   const allItems = useMemo(() => {
     if (!state) return [];
     return state.restaurants.flatMap((restaurant) =>
-      restaurant.menu.map((item) => ({
+      restaurant.menu.filter(item=>!dietaryPreferences?.hideIncompatible||itemMatchesDietary(item,dietaryPreferences)).map((item) => ({
         restaurant,
         item,
       })),
     );
-  }, [state]);
+  }, [dietaryPreferences, state]);
 
   const cartRestaurant = useMemo(() => {
     if (!state || !cart.length) return null;
@@ -761,6 +765,8 @@ function App() {
                   onUpdateProfile={updateProfile}
                   busy={busy}
                   runAction={runAction}
+                  dietaryPreferences={dietaryPreferences}
+                  onDietaryPreferencesChange={setDietaryPreferences}
                 />
               )}
               {mode === "merchant" && merchantRestaurant && (
@@ -5705,6 +5711,8 @@ function CustomerApp(props: {
   }) => void;
   busy: boolean;
   runAction: (action: () => Promise<unknown>, success: string) => void;
+  dietaryPreferences:DietaryPreferences|null;
+  onDietaryPreferencesChange:(preferences:DietaryPreferences)=>void;
 }) {
   const {
     state,
@@ -5747,12 +5755,15 @@ function CustomerApp(props: {
     onUpdateProfile,
     busy,
     runAction,
+    dietaryPreferences,
+    onDietaryPreferencesChange,
   } = props;
 
   if (selectedRestaurant) {
     return (
       <RestaurantDetail
         restaurant={selectedRestaurant}
+        dietaryPreferences={dietaryPreferences}
         cartCount={cart.reduce((sum, line) => sum + line.quantity, 0)}
         onBack={() => setSelectedRestaurantId(null)}
         onOpenCart={() => setCartOpen(true)}
@@ -5889,6 +5900,8 @@ function CustomerApp(props: {
             (entry) => entry.userId === user?.id,
           )}
           onSave={onUpdateProfile}
+          dietaryPreferences={dietaryPreferences}
+          onDietaryPreferencesChange={onDietaryPreferencesChange}
         />
       )}
       <BottomNav tab={tab} onTabChange={setTab} />
@@ -6398,6 +6411,8 @@ function ProfileScreen({
   address,
   paymentMethods,
   onSave,
+  dietaryPreferences,
+  onDietaryPreferencesChange,
 }: {
   user: User | null;
   address?: string;
@@ -6407,22 +6422,24 @@ function ProfileScreen({
     phone: string;
     defaultAddress: string;
   }) => void;
+  dietaryPreferences:DietaryPreferences|null;
+  onDietaryPreferencesChange:(preferences:DietaryPreferences)=>void;
 }) {
   const [name, setName] = useState(user?.name || "");
   const [phone, setPhone] = useState(user?.phone || "");
   const [defaultAddress, setDefaultAddress] = useState(
     address || user?.defaultAddress || "",
   );
-  const [dietary,setDietary]=useState<DietaryPreferences|null>(null),[dietaryBusy,setDietaryBusy]=useState(false),[dietaryError,setDietaryError]=useState("");
+  const [dietary,setDietary]=useState<DietaryPreferences|null>(dietaryPreferences),[dietaryBusy,setDietaryBusy]=useState(false),[dietaryError,setDietaryError]=useState("");
   useEffect(() => {
     setName(user?.name || "");
     setPhone(user?.phone || "");
     setDefaultAddress(address || user?.defaultAddress || "");
   }, [address, user?.defaultAddress, user?.name, user?.phone]);
-  useEffect(()=>{let active=true;setDietaryError("");api.getDietaryPreferences().then(result=>{if(active)setDietary(result.preferences);}).catch(error=>{if(active)setDietaryError(error instanceof Error?error.message:"No se pudieron cargar tus preferencias");});return()=>{active=false;};},[user?.id]);
+  useEffect(()=>setDietary(dietaryPreferences),[dietaryPreferences]);
   const toggleDiet=(code:string)=>setDietary(current=>current?{...current,dietaryLabels:current.dietaryLabels.some(item=>item.code===code)?current.dietaryLabels.filter(item=>item.code!==code):[...current.dietaryLabels,{code,name:dietOptions.find(item=>item.code===code)?.name||code}]}:current);
   const toggleAllergen=(code:string)=>setDietary(current=>current?{...current,avoidedAllergens:current.avoidedAllergens.some(item=>item.code===code)?current.avoidedAllergens.filter(item=>item.code!==code):[...current.avoidedAllergens,{code,name:allergenOptions.find(item=>item.code===code)?.name||code}]}:current);
-  const saveDietary=async()=>{if(!dietary)return;setDietaryBusy(true);setDietaryError("");try{const result=await api.updateDietaryPreferences({dietaryLabels:dietary.dietaryLabels.map(item=>item.code),avoidedAllergens:dietary.avoidedAllergens.map(item=>item.code),hideIncompatible:dietary.hideIncompatible});setDietary(result.preferences);}catch(error){setDietaryError(error instanceof Error?error.message:"No se pudieron guardar tus preferencias");}finally{setDietaryBusy(false);}};
+  const saveDietary=async()=>{if(!dietary)return;setDietaryBusy(true);setDietaryError("");try{const result=await api.updateDietaryPreferences({dietaryLabels:dietary.dietaryLabels.map(item=>item.code),avoidedAllergens:dietary.avoidedAllergens.map(item=>item.code),hideIncompatible:dietary.hideIncompatible});setDietary(result.preferences);onDietaryPreferencesChange(result.preferences);}catch(error){setDietaryError(error instanceof Error?error.message:"No se pudieron guardar tus preferencias");}finally{setDietaryBusy(false);}};
   return (
     <div className="activity-stack">
       <section className="profile-hero">
@@ -6508,12 +6525,14 @@ function ProfileScreen({
 
 function RestaurantDetail({
   restaurant,
+  dietaryPreferences,
   cartCount,
   onBack,
   onOpenCart,
   onOpenItem,
 }: {
   restaurant: Restaurant;
+  dietaryPreferences:DietaryPreferences|null;
   cartCount: number;
   onBack: () => void;
   onOpenCart: () => void;
@@ -6525,7 +6544,7 @@ function RestaurantDetail({
     ...Array.from(new Set(restaurant.menu.map((item) => item.category))),
   ];
   const menu = restaurant.menu.filter(
-    (item) => category === "Todo" || item.category === category,
+    (item) => (category === "Todo" || item.category === category)&&(!dietaryPreferences?.hideIncompatible||itemMatchesDietary(item,dietaryPreferences)),
   );
   return (
     <div className="screen detail-screen">
@@ -6564,6 +6583,7 @@ function RestaurantDetail({
         category={category}
         setCategory={setCategory}
       />
+      {dietaryPreferences?.hideIncompatible&&<div className="dietary-filter-banner"><Leaf size={16}/><span>Filtro alimentario activo · sólo productos con declaraciones compatibles.</span></div>}
       <div className="item-list">
         {menu.map((item) => (
           <FoodRow
@@ -6573,6 +6593,7 @@ function RestaurantDetail({
             onClick={() => onOpenItem(item)}
           />
         ))}
+        {!menu.length&&<EmptyState icon={Search} title="Sin coincidencias declaradas" text="Probá otra categoría o revisá tu filtro alimentario en Perfil."/>}
       </div>
     </div>
   );
