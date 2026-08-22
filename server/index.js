@@ -109,6 +109,7 @@ import { claimReferral, getReferralSummary } from "./referral-repository.js";
 import { decodeActivityCursor, getActivityPage, getAssignedDriverProjections } from "./activity-repository.js";
 import { findPublicCity, getPublicCities } from "./city-repository.js";
 import { evaluateFeatureFlags, getFeatureFlags, updateFeatureFlag } from "./feature-flag-repository.js";
+import { getProductMetrics, ingestProductEvents } from "./product-analytics-repository.js";
 import {
   getPaymentReconciliation,
   recordPaymentWebhook,
@@ -1208,6 +1209,8 @@ const featureFlagUpdateSchema = z.object({
   endsAt: z.string().datetime().nullable().optional(),
   variant: z.record(z.string(),z.union([z.string(),z.number(),z.boolean(),z.null()])).optional(),
 }).refine((value)=>Object.keys(value).length>0,"Indicá al menos un cambio").refine((value)=>!value.startsAt||!value.endsAt||new Date(value.endsAt)>new Date(value.startsAt),"La fecha final debe ser posterior al inicio");
+const productEventSchema=z.object({id:z.string().uuid(),name:z.enum(["home_viewed","search_started","merchant_viewed","cart_updated","checkout_started","quote_received","job_created","activity_viewed"]),surface:z.enum(["web","customer_app","driver_app","merchant_app"]),sessionId:z.string().uuid(),occurredAt:z.string().datetime(),properties:z.record(z.string(),z.union([z.string().max(80),z.number().finite(),z.boolean(),z.null()])).default({})}).superRefine((event,ctx)=>{const timestamp=new Date(event.occurredAt).getTime();if(timestamp<Date.now()-86400000||timestamp>Date.now()+300000)ctx.addIssue({code:"custom",message:"Fecha de analytics fuera de ventana"});for(const key of Object.keys(event.properties))if(/email|phone|address|coord|lat|lng|token|name|note|query|text/i.test(key))ctx.addIssue({code:"custom",message:`Propiedad sensible no permitida: ${key}`});});
+const productEventsSchema=z.object({events:z.array(productEventSchema).min(1).max(20)});
 const tipSchema = z.object({
   amount: z.coerce.number().int().min(100).max(100000),
 });
@@ -2736,6 +2739,8 @@ app.get("/api/operations/audit-events",requireAuth,requireAnyRole("admin"),async
 app.get("/api/features",requireAuth,async(req,res)=>{try{res.set("Cache-Control","no-store, private");return ok(res,{features:usesPostgresAuth()?await evaluateFeatureFlags({userId:req.auth.userId,roles:req.auth.roles}):{delivery_beta:{active:true,variant:{phase:"local_demo"}},shipment_beta:{active:true,variant:{phase:"local_demo"}},public_rides:{active:false,variant:{}}}});}catch(_error){return ok(res,{features:{},degraded:true});}});
 app.get("/api/operations/feature-flags",requireAuth,requireAnyRole("admin"),async(_req,res)=>{try{res.set("Cache-Control","no-store, private");return ok(res,{flags:await getFeatureFlags()});}catch(error){return fail(res,error.status||500,error.message||"No se pudieron cargar los feature flags");}});
 app.patch("/api/operations/feature-flags/:flagId",requireAuth,requireAnyRole("admin"),async(req,res)=>{const parsed=parseOrFail(featureFlagUpdateSchema,req.body||{});if(!parsed.ok)return fail(res,400,parsed.message);try{const before=(await getFeatureFlags()).find((flag)=>flag.id===req.params.flagId);if(!before)return fail(res,404,"Feature flag no encontrado");const flag=await updateFeatureFlag({publicId:req.params.flagId,changes:parsed.data});await recordPostgresAudit({actorPublicId:req.auth.userId,roles:req.auth.roles,action:"feature_flag.updated",entityType:"feature_flag",entityId:flag.id,requestId:req.requestId,beforeData:before,afterData:flag});return ok(res,{flag});}catch(error){return fail(res,error.status||500,error.message||"No se pudo actualizar el feature flag");}});
+app.post("/api/analytics/events",requireAuth,async(req,res)=>{const parsed=parseOrFail(productEventsSchema,req.body||{});if(!parsed.ok)return fail(res,400,parsed.message);try{return res.status(202).json({ok:true,requestId:req.requestId,...await ingestProductEvents({userPublicId:req.auth.userId,events:parsed.data.events})});}catch(error){return fail(res,error.status||500,error.message||"No se pudieron registrar los eventos");}});
+app.get("/api/operations/product-metrics",requireAuth,requireAnyRole("admin"),async(req,res)=>{const days=Math.min(90,Math.max(1,Number(req.query.days)||7));try{res.set("Cache-Control","no-store, private");return ok(res,{metrics:await getProductMetrics({days})});}catch(error){return fail(res,error.status||500,error.message||"No se pudieron calcular las métricas de producto");}});
 
 app.get("/api/state", requireAuth, (_req,res) => {
   res.set("Cache-Control","no-store");

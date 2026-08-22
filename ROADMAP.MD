@@ -47,7 +47,7 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 
 - [x] Sustituciones, refunds, cancelaciones, ratings, suspensiones, promociones, soporte y métricas financieras de ledger.
 - [~] Payout/conciliación interna; falta adaptador bancario/PSP.
-- [~] Feature flags persistidos con rollout estable, ciudad/rol, ventanas y auditoría listos; faltan analytics de producto, prep-time predictivo y go/no-go de zona real.
+- [~] Feature flags persistidos y analytics first-party con dedupe, privacidad, retención y funnel listos; faltan instrumentar todas las pantallas, prep-time predictivo y go/no-go de zona real.
 
 #### Fase 4 — piloto de movilidad
 
