@@ -781,6 +781,35 @@ export const api = {
     });
   },
 
+  async createRideTrackingLink(rideId: string, ttlMinutes = 180) {
+    return request<{
+      link: { id: string; trackingUrl: string; expiresAt: string };
+    }>(`/rides/${rideId}/tracking-links`, {
+      method: "POST",
+      body: JSON.stringify({ ttlMinutes }),
+    });
+  },
+
+  async createRideSafetyIncident(
+    rideId: string,
+    input: {
+      type: "sos" | "unsafe_driving" | "medical" | "harassment" | "crash" | "other";
+      details?: string;
+      location?: GeoPoint;
+    },
+  ) {
+    return request<{
+      incident: { id: string; rideId: string; type: string; status: string; createdAt: string };
+    }>(`/rides/${rideId}/safety-incidents`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+
+  async getRidePickupCode(rideId: string) {
+    return request<{ pickupCode: string }>(`/rides/${rideId}/pickup-code`);
+  },
+
   async updateDriver(
     driverId: string,
     payload: Partial<Pick<Driver, "online" | "activeService">>,
