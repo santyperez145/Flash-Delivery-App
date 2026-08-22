@@ -446,6 +446,7 @@ export async function setPostgresOrderStatus(orderPublicId, status, actorPublicI
       UPDATE jobs SET status = $1, version = version + 1, updated_at = now(),
         metadata = CASE WHEN $1::job_status = 'completed' THEN jsonb_set(metadata, '{etaMin}', '0') ELSE metadata END
       WHERE public_id = $2 AND kind = 'delivery' AND status NOT IN ('completed','cancelled')
+        AND NOT (metadata ? 'refundPending')
         AND NOT EXISTS(SELECT 1 FROM order_item_substitutions s WHERE s.job_id=jobs.id AND s.status='pending') RETURNING id,customer_id
     ) INSERT INTO job_events(job_id, actor_id, status) SELECT id, $3, $1 FROM changed RETURNING job_id`,
     [databaseStatus(status), orderPublicId, actor.rows[0]?.id || null]

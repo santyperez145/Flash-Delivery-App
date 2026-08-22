@@ -48,7 +48,8 @@ export async function refundMercadoPagoPayment({accessToken,paymentId,idempotenc
   if(amount!==null&&(!Number.isFinite(Number(amount))||Number(amount)<=0))throw Object.assign(new Error("Importe de reembolso inválido"),{status:400});
   const response=await fetchImpl(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(paymentId)}/refunds`,{method:"POST",headers:{accept:"application/json","content-type":"application/json",authorization:`Bearer ${accessToken}`,"x-idempotency-key":String(idempotencyKey)},body:JSON.stringify(amount===null?{}:{amount:Number(Number(amount).toFixed(2))}),signal:AbortSignal.timeout(5000)}),body=await response.json().catch(()=>({}));
   if(!response.ok||!body.id)throw Object.assign(new Error(response.status===429?"Mercado Pago limitó temporalmente los reintegros":"Mercado Pago no pudo completar el reintegro"),{status:response.status===429?429:502,providerStatus:response.status,providerCode:body.cause?.[0]?.code||body.code||null});
-  return{id:String(body.id),paymentId:String(body.payment_id||paymentId),amount:Number(body.amount||amount||0),status:String(body.status||"processed"),dateCreated:body.date_created||null};
+  const status=String(body.status||"processed");if(!["approved","processed","refunded"].includes(status))throw Object.assign(new Error("Mercado Pago dejó el reintegro sin confirmar"),{status:502,providerCode:status});
+  return{id:String(body.id),paymentId:String(body.payment_id||paymentId),amount:Number(body.amount||amount||0),status,dateCreated:body.date_created||null};
 }
 
 export async function fetchMercadoPagoResource({topic,resourceId,accessToken}){
