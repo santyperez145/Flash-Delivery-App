@@ -30,7 +30,7 @@ procedimiento de incidentes estén conectados y ensayados.
 ## Secuencia obligatoria
 
 1. Alta comercial de la aplicación Marketplace y confirmación contractual.
-2. OAuth seller con `state` de un solo uso, callback exacto y tokens cifrados.
+2. [x] OAuth seller con `state` de un solo uso, PKCE S256, callback exacto, tokens cifrados y renovación rotativa.
 3. [~] Saga idempotente con `application_fee`, token seller, Card Payment Brick web, captura en ledger, recuperación por webhook y refund previo a cancelación implementada sin PAN/CVV; falta Core Methods mobile y la prueba sandbox física.
 4. Webhooks firmados, inbox deduplicado y reconciliación contra ledger.
 5. Refund proporcional, saldos insuficientes y runbook de discrepancias.
@@ -39,9 +39,11 @@ procedimiento de incidentes estén conectados y ensayados.
 ## Implementación disponible
 
 El backend ya crea 256 bits de `state`, persiste sólo SHA-256 con diez minutos de
-vigencia y lo consume exactamente una vez antes de intercambiar el `code`. El
-intercambio ocurre server-to-server con timeout de cinco segundos. Access y
-refresh tokens se guardan como envelopes AES-256-GCM con clave independiente;
+vigencia y lo consume exactamente una vez antes de intercambiar el `code`. Cada
+intento crea además un `code_verifier` aleatorio cifrado y envía sólo su challenge
+SHA-256 (`S256`) al navegador; el verifier se usa una vez en el intercambio TLS y
+se elimina incluso si el proveedor falla. El intercambio ocurre server-to-server
+con timeout de cinco segundos. Access y refresh tokens se guardan como envelopes AES-256-GCM con clave independiente;
 RLS y privilegios de columna impiden que el rol auditor los lea. El callback no
 se cachea, no refleja códigos en la redirección y el logger elimina todo query
 string para que `code` y `state` no terminen en logs.
@@ -54,6 +56,13 @@ El comercio también puede desvincularse desde el portal, pero debe reingresar s
 contraseña actual. La revocación es transaccional y reemplaza inmediatamente
 access/refresh ciphertexts por `NULL`; sólo conserva proveedor, cuenta externa,
 fechas y auditoría. Reconectar requiere un OAuth completo con un `state` nuevo.
+
+`npm run worker:payment-oauth` reclama con `FOR UPDATE SKIP LOCKED` las conexiones
+que vencen dentro de treinta días, recupera leases abandonados y usa el grant
+`refresh_token`. Exige que Mercado Pago rote ambos tokens y que la identidad seller
+no cambie antes de reemplazar los envelopes. Tras cinco fallos, el portal solicita
+reconexión; un access token aún vigente no se inutiliza antes de tiempo. Producción
+debe programar este worker y alertar por fallos/reconexiones requeridas.
 
 El webhook productivo implementa el manifest oficial
 `id:<data.id>;request-id:<x-request-id>;ts:<ts>;`, normaliza IDs alfanuméricos,
@@ -77,6 +86,10 @@ de `external_reference`.
   https://www.mercadopago.com.ar/developers/es/docs/split-payments/split-1-1/prerequisites
 - Flujo OAuth y credenciales seller:
   https://www.mercadopago.com.ar/developers/es/docs/split-payments/split-1-1/integration-configuration/create-configuration
+- Creación OAuth, PKCE S256 y vigencia:
+  https://www.mercadopago.com.ar/developers/es/docs/split-payments/additional-content/security/oauth/creation
+- Renovación OAuth y rotación de credenciales:
+  https://www.mercadopago.com.ar/developers/es/docs/subscriptions/additional-content/security/oauth/renewal
 - Stripe Connect como alternativa de cuentas conectadas:
   https://docs.stripe.com/connect/how-connect-works
 - Firma, ACK y política de reintentos de webhooks Mercado Pago:

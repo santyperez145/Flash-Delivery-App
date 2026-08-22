@@ -28,8 +28,9 @@ aporta el requisito WYSIWYS, credencial corta, única y ligada a datos significa
 
 ## Pendiente productivo
 
-- Implementar el onboarding OAuth y Split Payments 1:1 definido en
-  `docs/payment-provider-decision.md`; no construir una transferencia bancaria
-  propia ni presentar la reserva del ledger como dinero enviado.
+- Completar alta comercial/KYC, credenciales y ensayo sandbox del onboarding OAuth
+  y Split Payments 1:1 ya implementado según `docs/payment-provider-decision.md`;
+  no construir una transferencia bancaria propia ni presentar la reserva del
+  ledger como dinero enviado.
 - Webhooks de payout con reintentos, estados fallidos y liberación de reservas.
 - KYC/KYB, retenciones impositivas, CBU/CVU tokenizado y aprobación dual para ajustes.
