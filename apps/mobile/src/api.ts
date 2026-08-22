@@ -87,6 +87,8 @@ export const api = {
   },
   async resendEmailVerification(email:string){return request<{message:string;developmentCode?:string;expiresAt?:string}>("/auth/email-verification/resend",{method:"POST",body:JSON.stringify({email})});},
   async confirmEmailVerification(email:string,code:string){return request<{verified:boolean;user:import("./types").User}>("/auth/email-verification/confirm",{method:"POST",body:JSON.stringify({email,code})});},
+  async requestPhoneVerification(){return request<{expiresAt:string;retryAfterSeconds:number;developmentCode?:string}>("/me/phone-verification/request",{method:"POST",body:"{}"});},
+  async confirmPhoneVerification(code:string){return request<{verified:true;phone:string}>("/me/phone-verification/confirm",{method:"POST",body:JSON.stringify({code})});},
   async requestPasswordRecovery(email:string){return request<{message:string;developmentToken?:string;expiresAt?:string}>("/auth/password-recovery/request",{method:"POST",body:JSON.stringify({email})});},
   async confirmPasswordRecovery(token:string,password:string){return request<{passwordChanged:boolean;revokedSessions:number}>("/auth/password-recovery/confirm",{method:"POST",body:JSON.stringify({token,password})});},
   async restoreSession() {
