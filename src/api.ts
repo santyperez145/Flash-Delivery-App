@@ -377,11 +377,17 @@ export const api = {
       `/merchant/finance?merchantId=${encodeURIComponent(merchantId)}`,
     );
   },
-  async requestMerchantPayout(merchantId: string, amount: number) {
+  async authorizeMerchantPayout(merchantId: string, amount: number, password: string) {
+    return request<{ authorizationToken:string;expiresAt:string;merchantId:string;amount:number }>("/merchant/payouts/authorize", {
+      method:"POST",
+      body:JSON.stringify({merchantId,amount,password}),
+    });
+  },
+  async requestMerchantPayout(merchantId: string, amount: number, authorizationToken:string) {
     return request<{ finance: MerchantFinance }>("/merchant/payouts", {
       method: "POST",
       headers: { "Idempotency-Key": crypto.randomUUID() },
-      body: JSON.stringify({ merchantId, amount }),
+      body: JSON.stringify({ merchantId, amount, authorizationToken }),
     });
   },
   async getAdminPayouts() {

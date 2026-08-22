@@ -197,6 +197,7 @@ import {
   getMerchantFinance,
   getPayoutReviewQueue,
   requestMerchantPayout,
+  createPayoutStepUp,
   reviewMerchantPayout,
 } from "./merchant-finance-repository.js";
 import {
@@ -471,6 +472,7 @@ function createLimiter({ max, message, prefix }) {
     ...(redisClient ? { store: new RedisStore({ sendCommand: (...args) => redisClient.sendCommand(args), prefix: `flash:rate:${prefix}:` }) } : {}),
   });
 }
+const payoutStepUpLimiter = createLimiter({max:10,prefix:"payout-step-up",message:"Demasiados intentos de autorización financiera. Intenta más tarde."});
 
 app.use(requestContext);
 app.use(requestLogger);
@@ -924,7 +926,9 @@ const shipmentServiceLevelUpdateSchema = z
 const payoutRequestSchema = z.object({
   amount: z.coerce.number().positive().max(100000000),
   merchantId: z.string().optional(),
+  authorizationToken: z.string().min(20),
 });
+const payoutAuthorizeSchema = payoutRequestSchema.omit({authorizationToken:true}).extend({password:z.string().min(4).max(128)});
 const payoutReviewSchema = z.object({
   decision: z.enum(["approved", "rejected"]),
   note: z.string().trim().min(5).max(1000),
@@ -7102,6 +7106,26 @@ app.get(
   },
 );
 app.post(
+  "/api/merchant/payouts/authorize",
+  requireAuth,
+  requireAnyRole("merchant", "admin"),
+  payoutStepUpLimiter,
+  async (req,res) => {
+    const parsed=parseOrFail(payoutAuthorizeSchema,req.body||{});
+    if(!parsed.ok)return fail(res,400,parsed.message);
+    const merchantId=parsed.data.merchantId||req.auth.user.restaurantId;
+    if(!merchantId)return fail(res,400,"Falta el comercio");
+    if(!bcrypt.compareSync(parsed.data.password,req.auth.user.password))return fail(res,401,"La contraseña actual no es válida");
+    try{
+      const jti=crypto.randomUUID(),expiresAt=new Date(Date.now()+5*60*1000);
+      await createPayoutStepUp({jti,merchantPublicId:merchantId,actorPublicId:req.auth.userId,admin:isAdmin(req),amount:parsed.data.amount,expiresAt});
+      const authorizationToken=jwt.sign({sub:req.auth.userId,purpose:"merchant_payout",merchantId,amountCents:Math.round(parsed.data.amount*100),jti},jwtSecret,{expiresIn:"5m"});
+      await recordPostgresAudit({actorPublicId:req.auth.userId,roles:req.auth.roles,action:"merchant.payout_authorized",entityType:"merchant",entityId:merchantId,requestId:req.requestId,afterData:{amount:parsed.data.amount,expiresAt:expiresAt.toISOString()}});
+      return ok(res,{authorizationToken,expiresAt:expiresAt.toISOString(),merchantId,amount:parsed.data.amount});
+    }catch(error){return fail(res,error.status||500,error.message||"No se pudo autorizar el retiro");}
+  },
+);
+app.post(
   "/api/merchant/payouts",
   requireAuth,
   requireAnyRole("merchant", "admin"),
@@ -7114,12 +7138,16 @@ app.post(
     const merchantId = parsed.data.merchantId || req.auth.user.restaurantId;
     if (!merchantId) return fail(res, 400, "Falta el comercio");
     try {
+      let stepUp;
+      try{stepUp=jwt.verify(parsed.data.authorizationToken,jwtSecret);}catch{return fail(res,403,"Autorización reforzada inválida o vencida");}
+      if(stepUp.sub!==req.auth.userId||stepUp.purpose!=="merchant_payout"||stepUp.merchantId!==merchantId||stepUp.amountCents!==Math.round(parsed.data.amount*100)||typeof stepUp.jti!=="string")return fail(res,403,"La autorización no corresponde a este retiro");
       const finance = await requestMerchantPayout({
         merchantPublicId: merchantId,
         actorPublicId: req.auth.userId,
         admin: isAdmin(req),
         amount: parsed.data.amount,
         idempotencyKey,
+        stepUpJti:stepUp.jti,
       });
       await recordPostgresAudit({
         actorPublicId: req.auth.userId,

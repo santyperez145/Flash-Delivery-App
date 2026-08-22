@@ -40,6 +40,7 @@ const login = async (email) =>
       }),
     })
   ).body.token;
+const authorize = async (amount) => (await call("/merchant/payouts/authorize",{method:"POST",body:JSON.stringify({merchantId:"rest_roja",amount,password:"demo123"})})).body.authorizationToken;
 try {
   const fixture = await pool.connect();
   try {
@@ -82,10 +83,11 @@ try {
       .availableBalance,
     keyRejected = `${marker}-reject-${crypto.randomUUID()}`;
   payoutKeys.push(keyRejected);
+  const rejectedAuthorization=await authorize(40);
   const requested = await call("/merchant/payouts", {
       method: "POST",
       headers: { "Idempotency-Key": keyRejected },
-      body: JSON.stringify({ merchantId: "rest_roja", amount: 40 }),
+      body: JSON.stringify({ merchantId: "rest_roja", amount: 40, authorizationToken:rejectedAuthorization }),
     }),
     rejectedId = requested.body.finance?.payouts?.find(
       (entry) => entry.amount === 40 && entry.status === "pending",
@@ -132,10 +134,11 @@ try {
   );
   const keyApproved = `${marker}-approve-${crypto.randomUUID()}`;
   payoutKeys.push(keyApproved);
+  const approvedAuthorization=await authorize(30);
   const requestedApproved = await call("/merchant/payouts", {
       method: "POST",
       headers: { "Idempotency-Key": keyApproved },
-      body: JSON.stringify({ merchantId: "rest_roja", amount: 30 }),
+      body: JSON.stringify({ merchantId: "rest_roja", amount: 30, authorizationToken:approvedAuthorization }),
     }),
     approvedId = requestedApproved.body.finance?.payouts?.find(
       (entry) => entry.amount === 30 && entry.status === "pending",

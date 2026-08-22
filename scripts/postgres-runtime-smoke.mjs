@@ -1880,15 +1880,19 @@ try {
     0.01,
     Math.floor((merchantBalanceAfter - merchantBalanceBefore) / 2) / 100,
   );
+  const payoutAuthorization = await request("/merchant/payouts/authorize", {
+    method:"POST",
+    body:JSON.stringify({merchantId:"rest_roja",amount:payoutAmount,password:"demo123"}),
+  });
   const payoutFirst = await request("/merchant/payouts", {
     method: "POST",
     headers: { "Idempotency-Key": merchantPayoutKey },
-    body: JSON.stringify({ merchantId: "rest_roja", amount: payoutAmount }),
+    body: JSON.stringify({ merchantId: "rest_roja", amount: payoutAmount, authorizationToken:payoutAuthorization.body.authorizationToken }),
   });
   const payoutSecond = await request("/merchant/payouts", {
     method: "POST",
     headers: { "Idempotency-Key": merchantPayoutKey },
-    body: JSON.stringify({ merchantId: "rest_roja", amount: payoutAmount }),
+    body: JSON.stringify({ merchantId: "rest_roja", amount: payoutAmount, authorizationToken:payoutAuthorization.body.authorizationToken }),
   });
   merchantPayoutId = payoutFirst.body.finance?.payouts?.find(
     (entry) => entry.amount === payoutAmount,

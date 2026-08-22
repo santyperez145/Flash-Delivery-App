@@ -1431,6 +1431,7 @@ function MerchantDesktopConsole({
   const [finance, setFinance] = useState<MerchantFinance | null>(null);
   const [financeLoading, setFinanceLoading] = useState(false);
   const [payoutAmount, setPayoutAmount] = useState("");
+  const [payoutPassword, setPayoutPassword] = useState("");
   const loadFinance = useCallback(async () => {
     setFinanceLoading(true);
     try {
@@ -1986,23 +1987,33 @@ function MerchantDesktopConsole({
                   value={payoutAmount}
                   onChange={(event) => setPayoutAmount(event.target.value)}
                 />
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  placeholder="Contraseña actual"
+                  value={payoutPassword}
+                  onChange={(event) => setPayoutPassword(event.target.value)}
+                  aria-label="Contraseña actual para autorizar el retiro"
+                />
                 <button
                   className="primary-button"
                   disabled={
                     busy ||
                     !Number(payoutAmount) ||
+                    payoutPassword.length < 4 ||
                     Number(payoutAmount) > (finance?.availableBalance || 0)
                   }
                   onClick={async () => {
+                    const amount=Number(payoutAmount);
                     await runAction(
-                      () =>
-                        api.requestMerchantPayout(
-                          restaurant.id,
-                          Number(payoutAmount),
-                        ),
+                      async () => {
+                        const authorization=await api.authorizeMerchantPayout(restaurant.id,amount,payoutPassword);
+                        return api.requestMerchantPayout(restaurant.id,amount,authorization.authorizationToken);
+                      },
                       "Retiro reservado",
                     );
                     setPayoutAmount("");
+                    setPayoutPassword("");
                     await loadFinance();
                   }}
                 >
@@ -2010,8 +2021,9 @@ function MerchantDesktopConsole({
                 </button>
               </div>
               <small>
-                El retiro queda pendiente hasta la confirmación del proveedor
-                bancario.
+                Confirmás comercio e importe con tu contraseña. La autorización
+                vence en 5 minutos, funciona una sola vez y el retiro queda
+                pendiente del proveedor bancario.
               </small>
             </section>
             <section className="admin-card">
