@@ -324,8 +324,8 @@ export type SupportTicket = {
   priority: "low" | "medium" | "high" | "urgent";
   userId?: string;
   assignedTo: string | null;
-  firstResponseDueAt: string;
-  resolutionDueAt: string;
+  firstResponseDueAt: string | null;
+  resolutionDueAt: string | null;
   firstRespondedAt: string | null;
   slaStatus:
     "on_track" | "first_response_breached" | "resolution_breached" | "met";

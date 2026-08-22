@@ -4931,8 +4931,9 @@ function SupportOperationsPanel({
                 </article>
               </div>
               <small>
-                {ticket.priority} · resolución{" "}
-                {new Date(ticket.resolutionDueAt).toLocaleString("es-AR")}
+                {ticket.priority} · {ticket.resolutionDueAt
+                  ? `resolución ${new Date(ticket.resolutionDueAt).toLocaleString("es-AR")}`
+                  : "SLA persistido sólo con PostgreSQL"}
               </small>
               <label className="wide">
                 Asignar
