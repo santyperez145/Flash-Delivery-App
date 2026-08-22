@@ -8,10 +8,10 @@ const assert=(condition,label)=>{if(!condition)throw new Error(`failed: ${label}
 let captured=null;
 globalThis.fetch=async(url,init)=>{captured={url:String(url),init};return new Response(JSON.stringify({access_token:"APP_USR-access-secret",refresh_token:"TG-refresh-secret",user_id:12345,expires_in:3600,scope:"offline_access payments write",live_mode:false}),{status:200,headers:{"content-type":"application/json"}});};
 const {mercadoPagoAuthorizationUrl,exchangeMercadoPagoCode,fetchMercadoPagoResource}=await import("../server/payment-marketplace-provider.js"),{encryptPaymentOAuthToken,decryptPaymentOAuthToken}=await import("../server/secret-envelope.js");
-const state="opaque-state-with-more-than-128-bits",authorization=new URL(mercadoPagoAuthorizationUrl(state));
-assert(authorization.origin==="https://auth.mercadopago.com.ar"&&authorization.searchParams.get("state")===state&&authorization.searchParams.get("redirect_uri")===process.env.MERCADOPAGO_REDIRECT_URI,"authorization URL binds opaque state and exact callback");
-const credential=await exchangeMercadoPagoCode("one-time-provider-code"),body=new URLSearchParams(captured.init.body);
-assert(captured.url==="https://api.mercadopago.com/oauth/token"&&captured.init.method==="POST"&&body.get("client_secret")===process.env.MERCADOPAGO_CLIENT_SECRET&&!captured.url.includes(process.env.MERCADOPAGO_CLIENT_SECRET),"code exchange keeps client secret in TLS form body");
+const state="opaque-state-with-more-than-128-bits",verifier="pkce-verifier-with-at-least-forty-three-random-characters-123456",challenge="pkce-s256-challenge",authorization=new URL(mercadoPagoAuthorizationUrl(state,challenge));
+assert(authorization.origin==="https://auth.mercadopago.com.ar"&&authorization.searchParams.get("state")===state&&authorization.searchParams.get("redirect_uri")===process.env.MERCADOPAGO_REDIRECT_URI&&authorization.searchParams.get("code_challenge")===challenge&&authorization.searchParams.get("code_challenge_method")==="S256","authorization URL binds opaque state, PKCE S256 and exact callback");
+const credential=await exchangeMercadoPagoCode("one-time-provider-code",verifier),body=new URLSearchParams(captured.init.body);
+assert(captured.url==="https://api.mercadopago.com/oauth/token"&&captured.init.method==="POST"&&body.get("client_secret")===process.env.MERCADOPAGO_CLIENT_SECRET&&body.get("code_verifier")===verifier&&!captured.url.includes(process.env.MERCADOPAGO_CLIENT_SECRET),"code exchange keeps client secret and PKCE verifier in TLS form body");
 assert(credential.externalAccountId==="12345"&&!JSON.stringify(credential).includes("client-secret"),"provider response is normalized without integration credentials");
 const envelope=encryptPaymentOAuthToken(credential.accessToken);
 assert(envelope!==credential.accessToken&&!envelope.includes(credential.accessToken)&&decryptPaymentOAuthToken(envelope)===credential.accessToken,"seller access token uses authenticated AES-256-GCM envelope");
