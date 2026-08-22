@@ -74,7 +74,8 @@
     "test:zone-readiness": "node --env-file-if-exists=.env.local scripts/zone-readiness-smoke.mjs",
     "test:remote-sessions": "node --env-file-if-exists=.env.local scripts/remote-sessions-smoke.mjs",
     "test:redis-rate-limit": "node scripts/redis-rate-limit-smoke.mjs",
-    "test:container-security": "node scripts/container-security-smoke.mjs"
+    "test:container-security": "node scripts/container-security-smoke.mjs",
+    "test:web-bundle-budget": "node scripts/web-bundle-budget.mjs"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",
