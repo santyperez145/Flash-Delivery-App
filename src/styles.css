@@ -1387,6 +1387,17 @@ textarea {
   gap: 10px;
 }
 
+.payment-choice { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.payment-choice button { display:flex; gap:9px; align-items:center; min-width:0; padding:12px; text-align:left; color:var(--ink); background:var(--paper-soft); border:1px solid transparent; border-radius:14px; }
+.payment-choice button.active { border-color:var(--accent); background:color-mix(in srgb,var(--accent) 8%,var(--paper)); box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 12%,transparent); }
+.payment-choice button:disabled { opacity:.55; }
+.payment-choice span { display:grid; min-width:0; }
+.payment-choice small { overflow:hidden; color:var(--ink-soft); text-overflow:ellipsis; white-space:nowrap; }
+.payment-brick { overflow:hidden; padding:8px; background:#fff; border:1px solid var(--line); border-radius:16px; }
+.payment-brick.busy { opacity:.65; pointer-events:none; }
+.payment-brick-loading { display:flex; gap:8px; align-items:center; justify-content:center; min-height:120px; color:var(--ink-soft); background:var(--paper-soft); border-radius:14px; }
+.payment-provider-error { display:block; padding:9px 11px; color:#9f2d25; background:#fff0ed; border-radius:10px; }
+
 .checkout-line {
   grid-template-columns: auto 1fr auto;
   min-height: 54px;

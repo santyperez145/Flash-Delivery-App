@@ -4,6 +4,7 @@ export type Service = "food" | "ride";
 export type DriverService = "delivery" | "ride";
 export type CustomerTab = "home" | "activity" | "wallet" | "profile";
 export type OrderStatus =
+  | "requested"
   | "accepted"
   | "preparing"
   | "ready_for_pickup"
