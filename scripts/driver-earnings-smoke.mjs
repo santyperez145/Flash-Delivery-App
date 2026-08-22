@@ -28,6 +28,7 @@ try{
     FROM scoped`)).rows[0];
   assert(earnings.walletBalance===Number(expected.wallet_balance)/100&&earnings.today.amount===Number(expected.today_amount)/100&&earnings.week.amount===Number(expected.week_amount)/100,"wallet, day and week equal authoritative ledger sums");
   assert(earnings.today.tips===Number(expected.today_tips)/100&&earnings.today.adjustments===Number(expected.today_adjustments)/100,"tips and reviewed corrections preserve their signed ledger value");
+  assert(earnings.timeTracking.status==="available"&&earnings.timeTracking.source==="postgres-operational-sessions"&&Number.isInteger(earnings.today.onlineSeconds)&&Number.isInteger(earnings.today.activeSeconds),"operational time comes from PostgreSQL sessions and never seeded metadata");
   assert(earnings.recent.length<=100&&earnings.recent.every(entry=>["food","ride","shipment","tip","adjustment"].includes(entry.category)&&Number.isFinite(entry.amount)),"recent detail is bounded and classified without fabricated rows");
   assert(earnings.cashout.status==="not_configured"&&earnings.cashout.reason==="external_payout_provider_required","cashout stays honestly gated until an external provider exists");
   const profile=await call("/driver/me",{token:driverToken});
