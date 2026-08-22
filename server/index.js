@@ -110,6 +110,7 @@ import { decodeActivityCursor, getActivityPage, getAssignedDriverProjections } f
 import { findPublicCity, getPublicCities } from "./city-repository.js";
 import { evaluateFeatureFlags, getFeatureFlags, updateFeatureFlag } from "./feature-flag-repository.js";
 import { getProductMetrics, ingestProductEvents } from "./product-analytics-repository.js";
+import { assessZoneReadiness, getZoneReadiness } from "./zone-readiness-repository.js";
 import {
   getPaymentReconciliation,
   recordPaymentWebhook,
@@ -2741,6 +2742,8 @@ app.get("/api/operations/feature-flags",requireAuth,requireAnyRole("admin"),asyn
 app.patch("/api/operations/feature-flags/:flagId",requireAuth,requireAnyRole("admin"),async(req,res)=>{const parsed=parseOrFail(featureFlagUpdateSchema,req.body||{});if(!parsed.ok)return fail(res,400,parsed.message);try{const before=(await getFeatureFlags()).find((flag)=>flag.id===req.params.flagId);if(!before)return fail(res,404,"Feature flag no encontrado");const flag=await updateFeatureFlag({publicId:req.params.flagId,changes:parsed.data});await recordPostgresAudit({actorPublicId:req.auth.userId,roles:req.auth.roles,action:"feature_flag.updated",entityType:"feature_flag",entityId:flag.id,requestId:req.requestId,beforeData:before,afterData:flag});return ok(res,{flag});}catch(error){return fail(res,error.status||500,error.message||"No se pudo actualizar el feature flag");}});
 app.post("/api/analytics/events",requireAuth,async(req,res)=>{const parsed=parseOrFail(productEventsSchema,req.body||{});if(!parsed.ok)return fail(res,400,parsed.message);try{return res.status(202).json({ok:true,requestId:req.requestId,...await ingestProductEvents({userPublicId:req.auth.userId,events:parsed.data.events})});}catch(error){return fail(res,error.status||500,error.message||"No se pudieron registrar los eventos");}});
 app.get("/api/operations/product-metrics",requireAuth,requireAnyRole("admin"),async(req,res)=>{const days=Math.min(90,Math.max(1,Number(req.query.days)||7));try{res.set("Cache-Control","no-store, private");return ok(res,{metrics:await getProductMetrics({days})});}catch(error){return fail(res,error.status||500,error.message||"No se pudieron calcular las métricas de producto");}});
+app.get("/api/operations/zones/:zoneId/readiness",requireAuth,requireAnyRole("admin"),async(req,res)=>{try{res.set("Cache-Control","no-store, private");return ok(res,{readiness:await getZoneReadiness(req.params.zoneId)});}catch(error){return fail(res,error.status||500,error.message||"No se pudo evaluar la zona");}});
+app.post("/api/operations/zones/:zoneId/readiness-assessments",requireAuth,requireAnyRole("admin"),async(req,res)=>{try{const assessment=await assessZoneReadiness({zonePublicId:req.params.zoneId,actorPublicId:req.auth.userId});await recordPostgresAudit({actorPublicId:req.auth.userId,roles:req.auth.roles,action:"zone.readiness_assessed",entityType:"service_zone",entityId:req.params.zoneId,requestId:req.requestId,afterData:{assessmentId:assessment.id,decision:assessment.decision,checks:assessment.checks}});return res.status(201).json({ok:true,requestId:req.requestId,assessment});}catch(error){return fail(res,error.status||500,error.message||"No se pudo registrar la evaluación");}});
 
 app.get("/api/state", requireAuth, (_req,res) => {
   res.set("Cache-Control","no-store");
