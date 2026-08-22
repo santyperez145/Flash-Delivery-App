@@ -109,6 +109,7 @@ type FoodCheckoutSelection = {
   quoteToken: string;
 };
 const NotificationCenter = lazy(() => import("./NotificationCenter"));
+const RideHome = lazy(() => import("./RideHome"));
 
 const orderStatusLabel: Record<OrderStatus, string> = {
   requested: "Validando pago",
@@ -158,17 +159,6 @@ const rideSteps: RideStatus[] = [
   "arriving",
   "in_progress",
   "completed",
-];
-
-const rideServices: Array<{
-  id: Ride["service"];
-  label: string;
-  icon: LucideIcon;
-}> = [
-  { id: "economy", label: "Flash", icon: Car },
-  { id: "comfort", label: "Comfort", icon: Sparkles },
-  { id: "moto", label: "Moto", icon: Bike },
-  { id: "xl", label: "XL", icon: Truck },
 ];
 
 const shipmentSteps: Shipment["status"][] = [
@@ -354,12 +344,13 @@ function App() {
   const [cart, setCart] = useState<CartLine[]>([]);
   const [dietaryPreferences,setDietaryPreferences]=useState<DietaryPreferences|null>(null);
   const [rideForm, setRideForm] = useState<RideForm>({
-    pickup: "Defensa 982, San Telmo",
-    destination: "Aeroparque Jorge Newbery",
+    pickup: "",
+    destination: "",
     service: "economy" as Ride["service"],
-    pickupCoords: { lat: -34.6177, lng: -58.3621 },
-    destinationCoords: { lat: -34.5596, lng: -58.4156 },
+    pickupCoords: null,
+    destinationCoords: null,
   });
+  const rideSeededUserId=useRef("");
   const [quote, setQuote] = useState<RideQuote | null>(null);
   const [locationStatus, setLocationStatus] = useState<
     "idle" | "locating" | "ready" | "denied"
@@ -504,6 +495,9 @@ function App() {
     setSessionUserId("");
     setState(null);
     setDietaryPreferences(null);
+    rideSeededUserId.current="";
+    setRideForm({pickup:"",destination:"",service:"economy",pickupCoords:null,destinationCoords:null});
+    setQuote(null);
     setAdminDashboard(null);
     setAuthRequired(true);
     setDesktopPortal("admin");
@@ -577,6 +571,15 @@ function App() {
     if (!state) return null;
     return state.users.find((user) => user.id === sessionUserId) || null;
   }, [sessionUserId, state]);
+
+  useEffect(()=>{
+    if(!activeUser||!state)return;
+    if(rideSeededUserId.current===activeUser.id)return;
+    rideSeededUserId.current=activeUser.id;
+    const saved=state.addresses.find(entry=>entry.userId===activeUser.id&&entry.isDefault&&!entry.id.startsWith("profile-")&&entry.lat!==null&&entry.lng!==null);
+    if(!saved)return;
+    setRideForm(current=>current.pickup.trim()||current.pickupCoords?current:{...current,pickup:saved.address,pickupCoords:{lat:saved.lat!,lng:saved.lng!}});
+  },[activeUser,state]);
 
   const lastHomeAnalyticsKey = useRef("");
   const lastActivityAnalyticsKey = useRef("");
@@ -6306,19 +6309,22 @@ function CustomerApp(props: {
         />
       )}
       {tab === "home" && service === "ride" && (
-        <RideHome
-          state={state}
-          user={user}
-          rideForm={rideForm}
-          setRideForm={setRideForm}
-          quote={quote}
-          quoteRide={quoteRide}
-          requestRide={requestRide}
-          locatePickup={locatePickup}
-          locationStatus={locationStatus}
-          locationMessage={locationMessage}
-          busy={busy}
-        />
+        <Suspense fallback={<div className="ride-map ride-map-empty"><div className="ride-map-empty-copy"><RefreshCw size={20}/><strong>Cargando Viajes</strong></div></div>}>
+          <RideHome
+            state={state}
+            user={user}
+            addresses={addresses}
+            rideForm={rideForm}
+            setRideForm={setRideForm}
+            quote={quote}
+            quoteRide={quoteRide}
+            requestRide={requestRide}
+            locatePickup={locatePickup}
+            locationStatus={locationStatus}
+            locationMessage={locationMessage}
+            busy={busy}
+          />
+        </Suspense>
       )}
       {tab === "home" && service === "shipment" && (
         <ShipmentHome
@@ -6522,185 +6528,6 @@ function FlashPromiseGrid() {
         </article>
       ))}
     </div>
-  );
-}
-
-function RideHome({
-  state,
-  user,
-  rideForm,
-  setRideForm,
-  quote,
-  quoteRide,
-  requestRide,
-  locatePickup,
-  locationStatus,
-  locationMessage,
-  busy,
-}: {
-  state: AppState;
-  user: User | null;
-  rideForm: RideForm;
-  setRideForm: React.Dispatch<React.SetStateAction<RideForm>>;
-  quote: RideQuote | null;
-  quoteRide: () => void;
-  requestRide: () => void;
-  locatePickup: () => void;
-  locationStatus: "idle" | "locating" | "ready" | "denied";
-  locationMessage: string;
-  busy: boolean;
-}) {
-  const activeRide = state.rides.find(
-    (ride) =>
-      ride.customerId === user?.id &&
-      !["completed", "cancelled"].includes(ride.status),
-  );
-  const driver = state.drivers.find(
-    (entry) => entry.id === activeRide?.driverId,
-  );
-
-  return (
-    <>
-      <section className="ride-map">
-        <div className="route-line" />
-        <span className="map-dot pickup">
-          <MapPin size={13} />
-        </span>
-        <span className="map-dot car-dot">
-          <Car size={13} />
-        </span>
-        <span className="map-dot destination">
-          <Home size={13} />
-        </span>
-      </section>
-      <section className="booking-card">
-        <label>
-          <span>Origen</span>
-          <input
-            value={rideForm.pickup}
-            onChange={(event) =>
-              setRideForm((current) => ({
-                ...current,
-                pickup: event.target.value,
-                pickupCoords: null,
-              }))
-            }
-          />
-        </label>
-        <label>
-          <span>Destino</span>
-          <input
-            value={rideForm.destination}
-            onChange={(event) =>
-              setRideForm((current) => ({
-                ...current,
-                destination: event.target.value,
-                destinationCoords: null,
-              }))
-            }
-          />
-        </label>
-        <button
-          className="location-action"
-          type="button"
-          onClick={locatePickup}
-          disabled={busy || locationStatus === "locating"}
-        >
-          <LocateFixed size={15} />
-          {locationStatus === "locating"
-            ? "Buscando GPS..."
-            : "Usar mi ubicacion actual"}
-        </button>
-        {locationMessage && (
-          <small className={`location-message ${locationStatus}`}>
-            {locationMessage}
-          </small>
-        )}
-        <div className="ride-services">
-          {rideServices.map(({ id, label, icon: Icon }) => (
-            <button
-              className={rideForm.service === id ? "active" : ""}
-              key={id}
-              onClick={() =>
-                setRideForm((current) => ({ ...current, service: id }))
-              }
-              type="button"
-            >
-              <Icon size={16} />
-              <span>{label}</span>
-            </button>
-          ))}
-        </div>
-        {quote && (
-          <div className="quote-card">
-            <div>
-              <span>
-                {quote.distanceKm} km · {quote.durationMin} min
-              </span>
-              <strong>{money.format(quote.fare)}</strong>
-            </div>
-            <small>
-              {quote.etaMin} min hasta el punto ·{" "}
-              {quote.routingMode === "coordinates"
-                ? "basado en coordenadas"
-                : "estimacion por direccion"}
-            </small>
-          </div>
-        )}
-        <div className="two-actions">
-          <button
-            className="ghost-action"
-            onClick={quoteRide}
-            type="button"
-            disabled={busy}
-          >
-            <BadgeDollarSign size={16} /> Cotizar
-          </button>
-          <button
-            className="primary-button"
-            onClick={requestRide}
-            type="button"
-            disabled={busy || !quote?.quoteToken}
-          >
-            <Car size={16} /> Pedir taxi
-          </button>
-        </div>
-      </section>
-      <RideSafetyPanel />
-      {activeRide && (
-        <TrackingCard
-          title={`${rideStatusLabel[activeRide.status]} · ${activeRide.etaMin} min`}
-          subtitle={`${activeRide.pickup} → ${activeRide.destination}`}
-          amount={activeRide.fare}
-          person={driver?.name || "Asignando conductor"}
-          steps={rideSteps}
-          currentStatus={activeRide.status}
-          labels={rideStatusLabel}
-        />
-      )}
-    </>
-  );
-}
-
-function RideSafetyPanel() {
-  const items = [
-    ["PIN", "Verificacion al subir"],
-    ["Share", "Compartir recorrido"],
-    ["SOS", "Soporte prioritario"],
-  ];
-  return (
-    <section className="safety-panel">
-      <div>
-        <ShieldCheck size={18} />
-        <strong>Viaje protegido</strong>
-      </div>
-      {items.map(([label, detail]) => (
-        <span key={label}>
-          <b>{label}</b>
-          {detail}
-        </span>
-      ))}
-    </section>
   );
 }
 
@@ -9975,56 +9802,6 @@ function SummaryBlock({
       <div className="total-line">
         <span>Total</span>
         <strong>{money.format(totals.total)}</strong>
-      </div>
-    </section>
-  );
-}
-
-function TrackingCard<TStatus extends string>({
-  title,
-  subtitle,
-  amount,
-  person,
-  steps,
-  currentStatus,
-  labels,
-}: {
-  title: string;
-  subtitle: string;
-  amount: number;
-  person: string;
-  steps: TStatus[];
-  currentStatus: TStatus;
-  labels: Record<TStatus, string>;
-}) {
-  const currentIndex = steps.indexOf(currentStatus);
-  return (
-    <section className="tracking-card">
-      <div>
-        <span className="muted-label">Tracking</span>
-        <h2>{title}</h2>
-        <p>{subtitle}</p>
-      </div>
-      <div className="courier-card">
-        <div className="avatar">{initials(person)}</div>
-        <div>
-          <strong>{person}</strong>
-          <span>{money.format(amount)}</span>
-        </div>
-        <IconButton icon={MessageCircle} label="Chat" />
-      </div>
-      <div className="stepper">
-        {steps.map((step, index) => (
-          <div
-            className={index <= currentIndex ? "step active" : "step"}
-            key={step}
-          >
-            <span>
-              {index < currentIndex ? <Check size={12} /> : index + 1}
-            </span>
-            <small>{labels[step]}</small>
-          </div>
-        ))}
       </div>
     </section>
   );

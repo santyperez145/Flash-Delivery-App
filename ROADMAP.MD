@@ -6,6 +6,21 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 22 de agosto de 2026 — inicio real de Viajes web
+
+- [x] Desktop/PWA dejó de precargar Defensa→Aeroparque: toma una vez la dirección principal geocodificada del usuario o muestra un estado vacío honesto.
+- [x] GPS, edición manual y destinos guardados invalidan coordenadas/tarifa anteriores; no se puede cotizar sin origen y destino explícitos.
+- [x] La vista previa usa `/routes`, polyline y teselas OpenStreetMap con atribución; si no hay coordenadas no dibuja una ruta ni un vehículo inventados.
+- [x] La superficie Viajes se carga como chunk independiente, reduciendo nuevamente el JavaScript inicial en lugar de relajar el presupuesto.
+- [x] `test:web-ride-home`, build, mobile typecheck y bundle budget cubren la integración; navegación/ubicación física prolongada continúa pendiente de dispositivo y proveedor productivo.
+
+## Corrección 22 de agosto de 2026 — migración física de verificación telefónica
+
+- [x] `097_phone_verification.sql` ya no falla al encontrar `users.phone_verified_at`, columna creada originalmente por la migración `003`; conserva compatibilidad con reconstrucciones y bases existentes.
+- [x] PostgreSQL 17.11/PostGIS 3.6 aplicó `097`–`105`; mapas y RLS físicos quedaron verdes.
+- [x] El contador OTP ahora tipa el parámetro como `smallint`, persiste cinco intentos fallidos y responde `400` en vez de filtrar un error SQL `500`; la suite sandbox completa quedó verde.
+- [~] Restore drill y SMS real continúan pendientes antes de cerrar el gate P0-03.
+
 ## Avance 22 de agosto de 2026 — checkout web de comida sin datos simulados
 
 - [x] Desktop/PWA eliminó la dirección visible fija y ofrece sólo direcciones privadas con coordenadas verificadas de la cuenta autenticada.
@@ -73,8 +88,8 @@ Decisión competitiva: se adopta una bandeja transaccional persistente y prefere
 
 - [x] **P0-01 / SEC-001 — aislamiento.** Ownership, serializers por rol, RLS físico y tests cross-tenant funcionan. Web, mobile y suites migraron a bootstrap y recursos segmentados; `/api/state` responde permanentemente `410 Gone`.
 - [x] **P0-02 / DAT-001 — PostgreSQL/PostGIS.** Runtime principal, migraciones, índices, transacciones por operación, auditoría append-only, backup y restore drill operativos; SQLite está aislado como fallback de tests.
-- [~] **P0-03 / IAM-001 — identidad.** Access/refresh rotativo, refresh web en cookie HttpOnly con defensa de origen, respuestas autenticadas `no-store`, sesiones remotas, recuperación, email OTP, MFA admin y suspensión funcionan. Teléfono E.164 tiene OTP y adaptador Twilio; payouts exigen step-up WYSIWYS de un solo uso ligado a comercio/importe. Falta ejecutar las migraciones/pruebas PostgreSQL tras reiniciar Docker y prueba física SMS.
-- [~] **P0-04 / PAY-001 — dinero.** Payment intents, Wallet sandbox, ledger, reservas, conciliación y riesgo existen. Mercado Pago suma OAuth seller con PKCE S256, tokens cifrados y rotación automática, Card Payment Brick web oficial cargado bajo demanda, readiness por comercio, tokenización sin PAN/CVV, creación idempotente con `application_fee`, saga sin despacho hasta `approved`, conciliación estricta por webhook, captura balanceada y refund real previo a cancelar con reserva contra carreras. El split del seller queda fuera del saldo retirable interno para no duplicar fondos. Falta Core Methods nativo mobile, scheduler/alertas productivas del worker OAuth, alta comercial/credenciales, conciliar tasas del reporte del PSP, ejecutar migraciones hasta `105` y prueba sandbox/visual física.
+- [~] **P0-03 / IAM-001 — identidad.** Access/refresh rotativo, refresh web en cookie HttpOnly con defensa de origen, respuestas autenticadas `no-store`, sesiones remotas, recuperación, email OTP, MFA admin y suspensión funcionan. Teléfono E.164 tiene OTP y adaptador Twilio; migraciones hasta `105`, RLS y prueba física sandbox están verdes. Payouts exigen step-up WYSIWYS de un solo uso ligado a comercio/importe. Falta prueba SMS real con cuenta/proveedor habilitado.
+- [~] **P0-04 / PAY-001 — dinero.** Payment intents, Wallet sandbox, ledger, reservas, conciliación y riesgo existen. Mercado Pago suma OAuth seller con PKCE S256, tokens cifrados y rotación automática, Card Payment Brick web oficial cargado bajo demanda, readiness por comercio, tokenización sin PAN/CVV, creación idempotente con `application_fee`, saga sin despacho hasta `approved`, conciliación estricta por webhook, captura balanceada y refund real previo a cancelar con reserva contra carreras. El split del seller queda fuera del saldo retirable interno para no duplicar fondos. Migraciones hasta `105` están aplicadas; faltan Core Methods nativo mobile, scheduler/alertas productivas del worker OAuth, alta comercial/credenciales, conciliar tasas del reporte del PSP y prueba sandbox/visual física.
 - [x] **P0-05 / IDEM-001 — concurrencia.** Idempotencia, constraints, locks, ofertas privadas, TTL, aceptación atómica, dedupe y prune acotado/concurrente de claves vencidas cubiertos.
 - [x] **P0-05b / API-001 — contratos de escritura.** Las mutaciones con cuerpo exigen JSON, rechazan media types ambiguos con `415` y validan payloads tipados antes de escribir.
 - [~] **P0-06 / GEO-001 — mapas.** Geocoding, PostGIS, zonas, OSRM, polylines, caché, quotes firmados, circuit breaker, stale controlado, presupuesto y métricas funcionan. Faltan tráfico/Route Matrix productivo y cuota distribuida.
