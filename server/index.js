@@ -5686,6 +5686,17 @@ app.get("/api/internal/metrics", async (req, res) => {
     ),
     tips = await postgresPool.query(
       "SELECT count(*)::int count,COALESCE(sum(amount_cents),0)::bigint cents FROM service_tips",
+    ),
+    paymentOAuthConnections = await postgresPool.query(
+      `SELECT status,count(*)::int count FROM (
+        SELECT CASE
+          WHEN revoked_at IS NOT NULL THEN 'revoked'
+          WHEN refresh_failures>=5 OR token_expires_at<=now() THEN 'reconnect_required'
+          WHEN token_expires_at<now()+interval '30 days' THEN 'renewal_due'
+          ELSE 'connected'
+        END status
+        FROM merchant_payment_connections
+      ) connections GROUP BY status ORDER BY status`,
     );
   res.type("text/plain; version=0.0.4; charset=utf-8").send(
     renderPrometheus({
@@ -5703,6 +5714,7 @@ app.get("/api/internal/metrics", async (req, res) => {
         merchantPayableCents: merchantPayable.rows[0].cents,
         tipsCount: tips.rows[0].count,
         tipsCents: tips.rows[0].cents,
+        paymentOAuthConnections: paymentOAuthConnections.rows,
       },
       startedAt: processStartedAt,
       realtimeConnections: realtimeClients.size,
