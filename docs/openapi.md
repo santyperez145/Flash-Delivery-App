@@ -10,14 +10,18 @@ de documentación; no contiene tokens, credenciales ni ejemplos personales.
 - Ciudades y zonas públicas.
 - Registro, login, rotación y revocación de sesión.
 - Inventario y cierre remoto de sesiones propias.
+- Cotización firmada y creación idempotente de pedidos de comida.
+- Opciones firmadas y creación idempotente de viajes.
+- Cotización con protección y creación idempotente de envíos.
 - Bearer JWT, respuestas de error, límites básicos y códigos HTTP relevantes.
 
 La cobertura es incremental. Una ruta ausente todavía no tiene contrato público
-y no debe integrarse por inferencia. Comida, viajes, envíos, dispatch, pagos,
-comercios, soporte y operaciones se incorporarán por dominios junto con pruebas
-de respuestas reales.
+y no debe integrarse por inferencia. Tracking, dispatch, pagos, comercios,
+soporte y operaciones se incorporarán por dominios junto con pruebas de
+respuestas reales.
 
 `npm run test:openapi-contract` inicia la API, comprueba referencias y
 `operationId`, y enfrenta el documento con respuestas reales de health,
-ciudades, validación de login y autorización de sesiones. CI bloquea cambios que
+ciudades, validación de login, autorización de sesiones, cotizaciones firmadas
+de viajes/envíos y protección de creación de pedidos. CI bloquea cambios que
 rompan este núcleo.

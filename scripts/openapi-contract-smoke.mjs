@@ -32,7 +32,7 @@ try {
 
   const operations = Object.values(spec.paths).flatMap((path) => Object.values(path)).filter((operation) => operation?.operationId);
   const operationIds = operations.map((operation) => operation.operationId);
-  assert(operationIds.length === new Set(operationIds).size && operationIds.length >= 9, "operationId es único en el núcleo documentado");
+  assert(operationIds.length === new Set(operationIds).size && operationIds.length >= 15, "operationId es único en los dominios documentados");
   const refs = collectRefs(spec);
   const unresolvedRefs = refs.filter((ref) => !ref.startsWith("#/components/schemas/") || !spec.components.schemas[ref.split("/").at(-1)]);
   assert(unresolvedRefs.length === 0, `${new Set(refs).size} referencias internas están resueltas`);
@@ -50,6 +50,15 @@ try {
   assert(invalidLogin.status === 400 && spec.paths["/api/auth/login"].post.responses[400], "login valida el límite documentado de deviceName");
   const anonymousSessions = await fetch(`${origin}/api/me/sessions`);
   assert(anonymousSessions.status === 401 && spec.paths["/api/me/sessions"].get.responses[401], "sesiones exige el bearer documentado");
+  const routeInput = { pickup: "Defensa 982, Buenos Aires", destination: "Av. Santa Fe 1800, Buenos Aires", pickupCoords: { lat: -34.6177, lng: -58.3621 }, destinationCoords: { lat: -34.595, lng: -58.392 } };
+  const rideOptionsResponse = await fetch(`${origin}/api/rides/options`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(routeInput) });
+  const rideOptions = await rideOptionsResponse.json();
+  assert(rideOptionsResponse.status === 200 && rideOptions.options?.length === 4 && rideOptions.options.every((option) => option.quoteId && option.quoteToken && option.expiresAt), "opciones de viaje entregan cotizaciones firmadas documentadas");
+  const shipmentQuoteResponse = await fetch(`${origin}/api/shipments/quote`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...routeInput, packageSize: "small", weightKg: 1, declaredValue: 0, protection: "none" }) });
+  const shipmentQuote = await shipmentQuoteResponse.json();
+  assert(shipmentQuoteResponse.status === 200 && shipmentQuote.quote?.quoteId && shipmentQuote.quote?.quoteToken && shipmentQuote.quote?.expiresAt, "envíos entrega una cotización firmada documentada");
+  const anonymousOrder = await fetch(`${origin}/api/orders`, { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": "contract-order-0001" }, body: "{}" });
+  assert(anonymousOrder.status === 401 && spec.paths["/api/orders"].post.security, "creación de pedidos exige bearer antes de procesar payload");
 } finally {
   server.kill("SIGTERM");
 }
