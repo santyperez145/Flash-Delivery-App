@@ -47,6 +47,7 @@ import type {
   DriverVehicle,
   FoodCheckoutQuote,
   GeoPoint,
+  MerchantOperationsDashboard,
   Mode,
   Order,
   OrderSubstitution,
@@ -74,6 +75,7 @@ const money = new Intl.NumberFormat("es-AR", {
   currency: "ARS",
   maximumFractionDigits: 0,
 });
+const mobileOrderStatusLabel:Record<Order["status"],string>={requested:"Validando pago",accepted:"Nuevo · aceptar",preparing:"En preparación",ready_for_pickup:"Listo para retirar",courier_assigned:"Courier asignado",picked_up:"Retirado",delivering:"En camino",delivered:"Entregado",cancelled:"Cancelado"};
 
 function operationalDuration(seconds: number | null | undefined) {
   if (seconds == null) return "No disponible";
@@ -348,8 +350,8 @@ export default function App() {
       {mode === "merchant" && (
         <View style={styles.header}>
           <View>
-            <Text style={styles.eyebrow}>Flash native</Text>
-            <Text style={styles.title}>Food, taxi and driver ops</Text>
+            <Text style={styles.eyebrow}>Flash Negocios</Text>
+            <Text style={styles.title}>Control en vivo de tu local</Text>
           </View>
           <Pressable onPress={logout} style={styles.logoutButton}>
             <Text style={styles.logoutText}>Salir</Text>
@@ -360,7 +362,7 @@ export default function App() {
       {mode === "merchant" && (
         <View style={styles.sessionBar}>
           <Text style={styles.sessionRole}>
-            {mode === "merchant" ? "Comercio" : "Conductor"}
+            Cuenta comercio
           </Text>
           <Text style={styles.sessionName}>{sessionUser?.name}</Text>
         </View>
@@ -2719,6 +2721,9 @@ function MerchantScreen({
   runAction: (action: () => Promise<unknown>, success: string) => void;
 }) {
   const [chatJobId,setChatJobId]=useState<string|null>(null);
+  const [operations,setOperations]=useState<MerchantOperationsDashboard|null>(null);
+  const [operationsLoading,setOperationsLoading]=useState(true);
+  const [operationsError,setOperationsError]=useState("");
   const [newItem, setNewItem] = useState({
     name: "",
     description: "",
@@ -2731,33 +2736,60 @@ function MerchantScreen({
   const activeOrders = restaurantOrders.filter(
     (order) => !["delivered", "cancelled"].includes(order.status),
   );
-  const revenue = restaurantOrders.reduce((sum, order) => sum + order.total, 0);
+  const orderStatusSignature=restaurantOrders.map(order=>`${order.id}:${order.status}`).join("|");
+  const stockSignature=restaurant.menu.map(item=>`${item.id}:${item.stock}`).join("|");
+  const loadOperations=useCallback(async()=>{
+    setOperationsLoading(true);
+    try{
+      const result=await api.getMerchantDashboard(restaurant.id);
+      setOperations(result.dashboard);
+      setOperationsError("");
+    }catch(error){setOperationsError(error instanceof Error?error.message:"No se pudo actualizar la operación");}
+    finally{setOperationsLoading(false);}
+  },[restaurant.id]);
+  useEffect(()=>{
+    void loadOperations();
+    const timer=setInterval(()=>void loadOperations(),30_000);
+    return()=>clearInterval(timer);
+  },[loadOperations,orderStatusSignature,restaurant.etaMin,restaurant.manualOpen,stockSignature]);
+  const metrics=operations?.metrics;
+  const manualOpen=operations?.branch?.manualOpen??restaurant.manualOpen??restaurant.open;
+  const effectiveOpen=operations?.branch?.open??restaurant.open;
+  const etaMin=operations?.branch?.etaMin??restaurant.etaMin;
+  const updatedAt=operations?new Intl.DateTimeFormat("es-AR",{hour:"2-digit",minute:"2-digit",timeZone:operations.timezone}).format(new Date(operations.generatedAt)):null;
   return (
     <View style={styles.stack}>
       <ServiceChatModal jobId={chatJobId} currentUserId={restaurant.ownerId} onClose={()=>setChatJobId(null)}/>
-      <View style={styles.cardDark}>
-        <Text style={styles.heroLabel}>
-          {restaurant.open ? "Abierto" : "Pausado"}
-        </Text>
+      <LinearGradient colors={["#2d180e","#12100f"]} start={{x:0,y:0}} end={{x:1,y:1}} style={styles.merchantHero}>
+        <View style={styles.merchantHeroTopline}><View style={[styles.merchantLiveDot,effectiveOpen?styles.merchantLiveDotOpen:styles.merchantLiveDotPaused]}/><Text style={styles.heroLabel}>{!manualOpen?"Pausado por el local":effectiveOpen?"Abierto y recibiendo":"Fuera de horario"}</Text></View>
         <Text style={styles.heroTitle}>{restaurant.name}</Text>
-        <Text style={styles.heroCopy}>{restaurant.address}</Text>
+        <Text style={styles.heroCopy}>{operations?.branch?.name||restaurant.address}</Text>
+        <View style={styles.merchantHeroMeta}><Text style={styles.merchantHeroMetaText}>{etaMin} min ETA</Text><Text style={styles.merchantHeroMetaText}>{operations?.timezone||"Zona horaria pendiente"}</Text></View>
+      </LinearGradient>
+      <View style={[styles.merchantSync,operationsError?styles.merchantSyncError:styles.merchantSyncLive]}>
+        <View style={styles.merchantSyncCopy}><Text style={styles.merchantSyncTitle}>{operationsError?(operations?"Última lectura conservada":"Operación sin actualizar"):operations?.source==="postgres-live-operations"?"Operación PostgreSQL en vivo":operations?"Modo local explícito":"Conectando operación"}</Text><Text style={styles.merchantSyncDetail}>{operationsError?`${operationsError}${updatedAt?` · Último dato ${updatedAt}`:""}`:(updatedAt?`Actualizado ${updatedAt}`:"Consultando la fuente autoritativa")}</Text></View>
+        {operationsLoading?<ActivityIndicator size="small" color="#ff7a2d"/>:<Pressable accessibilityRole="button" accessibilityLabel="Actualizar operación" onPress={()=>void loadOperations()} style={styles.merchantSyncButton}><Ionicons name="refresh" size={17} color="#28150d"/></Pressable>}
       </View>
       <KpiRow
         items={[
-          ["Venta", revenue],
-          ["Activos", activeOrders.length],
-          ["ETA", restaurant.etaMin],
-          ["Stock", restaurant.menu.filter((item) => item.stock).length],
+          ["Venta de hoy",metrics?money.format(metrics.grossSalesToday):"—"],
+          ["Activos",metrics?.activeOrders??"—"],
+          ["Ticket hoy",metrics?money.format(metrics.averageTicketToday):"—"],
+          ["Atención",metrics?metrics.needsAction+metrics.lateOrders:"—"],
         ]}
       />
+      <View style={styles.merchantPulseCard}>
+        <View style={styles.merchantPulseHeader}><View><Text style={styles.merchantPulseEyebrow}>AHORA</Text><Text style={styles.merchantPulseTitle}>Pulso de cocina</Text></View><Text style={styles.merchantPulseTotal}>{metrics?`${metrics.activeOrders} en flujo`:"Sin sincronizar"}</Text></View>
+        <View style={styles.merchantPulseGrid}>{[["Por aceptar",metrics?.needsAction],["Preparando",metrics?.preparing],["Listos",metrics?.readyForPickup],["Con courier",metrics?.courierFlow],["Sin stock",metrics?.unavailableItems]].map(([label,value])=><View key={String(label)} style={styles.merchantPulseStage}><Text style={styles.merchantPulseStageValue}>{value??"—"}</Text><Text style={styles.merchantPulseStageLabel}>{label}</Text></View>)}</View>
+        {metrics&&(metrics.lateOrders>0||metrics.untrackedPrepOrders>0)?<View style={styles.merchantSlaAlert}><Ionicons name="warning-outline" size={18} color="#b33a25"/><Text style={styles.merchantSlaAlertText}>{metrics.lateOrders>0?`${metrics.lateOrders} fuera de plazo. `:""}{metrics.untrackedPrepOrders>0?`${metrics.untrackedPrepOrders} sin SLA histórico observado.`:""}</Text></View>:null}
+      </View>
       <View style={styles.actionRow}>
         <ActionButton
-          label={restaurant.open ? "Pausar" : "Abrir"}
+          label={manualOpen ? "Pausar pedidos" : "Abrir pedidos"}
           disabled={busy}
           onPress={() =>
             runAction(
-              () =>
-                api.updateRestaurant(restaurant.id, { open: !restaurant.open }),
+              () => api.updateRestaurant(restaurant.id, { open: !manualOpen }),
               "Estado actualizado",
             )
           }
@@ -2769,7 +2801,7 @@ function MerchantScreen({
             runAction(
               () =>
                 api.updateRestaurant(restaurant.id, {
-                  etaMin: restaurant.etaMin + 5,
+                  etaMin: etaMin + 5,
                 }),
               "ETA actualizada",
             )
@@ -2781,9 +2813,9 @@ function MerchantScreen({
         <View key={order.id} style={styles.stack}><OrderCard
           order={order}
           disabled={busy}
-          onPress={() =>
+          onPress={["accepted","preparing"].includes(order.status) ? () =>
             runAction(() => api.advanceOrder(order.id), "Pedido avanzado")
-          }
+          :undefined}
         /><Pressable style={styles.shareAction} onPress={()=>setChatJobId(order.id)}><Ionicons name="chatbubbles-outline" size={18} color="#7c3cff"/><Text style={styles.shareActionText}>Chat del pedido</Text></Pressable></View>
       ))}
       {activeOrders.length === 0 && (
@@ -3408,7 +3440,7 @@ function OrderCard({
 }) {
   return (
     <View style={styles.card}>
-      <Text style={styles.cardTitle}>{order.status}</Text>
+      <Text style={styles.cardTitle}>{mobileOrderStatusLabel[order.status]}</Text>
       <Text style={styles.cardText}>{order.deliveryAddress}</Text>
       <Text style={styles.cardText}>
         {order.items.length} items - {money.format(order.total)}
@@ -4438,6 +4470,31 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: "#161b22",
   },
+  merchantHero:{padding:20,borderRadius:24,minHeight:174,justifyContent:"flex-end",overflow:"hidden"},
+  merchantHeroTopline:{position:"absolute",top:18,left:20,right:20,flexDirection:"row",alignItems:"center",gap:8},
+  merchantLiveDot:{width:9,height:9,borderRadius:999},
+  merchantLiveDotOpen:{backgroundColor:"#64e49d"},
+  merchantLiveDotPaused:{backgroundColor:"#ff9453"},
+  merchantHeroMeta:{flexDirection:"row",flexWrap:"wrap",gap:8,marginTop:14},
+  merchantHeroMetaText:{paddingHorizontal:10,paddingVertical:6,borderRadius:999,overflow:"hidden",color:"#fff",backgroundColor:"rgba(255,255,255,.12)",fontSize:11,fontWeight:"800"},
+  merchantSync:{minHeight:66,paddingHorizontal:14,paddingVertical:11,borderRadius:18,borderWidth:1,flexDirection:"row",alignItems:"center",gap:12},
+  merchantSyncLive:{backgroundColor:"#f1fbf5",borderColor:"#c8ebd5"},
+  merchantSyncError:{backgroundColor:"#fff2ef",borderColor:"#f2c7bd"},
+  merchantSyncCopy:{flex:1,gap:3},
+  merchantSyncTitle:{color:"#201b18",fontSize:13,fontWeight:"900"},
+  merchantSyncDetail:{color:"#716862",fontSize:11,lineHeight:16},
+  merchantSyncButton:{width:36,height:36,borderRadius:999,alignItems:"center",justifyContent:"center",backgroundColor:"#fff",borderWidth:1,borderColor:"#eaded7"},
+  merchantPulseCard:{padding:16,borderRadius:22,backgroundColor:"#fff",borderWidth:1,borderColor:"#ebe6e2",gap:14,shadowColor:"#3a2315",shadowOpacity:.06,shadowRadius:18,shadowOffset:{width:0,height:8},elevation:2},
+  merchantPulseHeader:{flexDirection:"row",alignItems:"flex-start",justifyContent:"space-between",gap:10},
+  merchantPulseEyebrow:{color:"#f06720",fontSize:10,fontWeight:"900",letterSpacing:1.2},
+  merchantPulseTitle:{marginTop:3,color:"#201b18",fontSize:18,fontWeight:"900"},
+  merchantPulseTotal:{color:"#756b65",fontSize:11,fontWeight:"800"},
+  merchantPulseGrid:{flexDirection:"row",flexWrap:"wrap",gap:8},
+  merchantPulseStage:{minWidth:"30%",flexGrow:1,padding:11,borderRadius:15,backgroundColor:"#f7f4f1"},
+  merchantPulseStageValue:{color:"#261d18",fontSize:21,fontWeight:"900"},
+  merchantPulseStageLabel:{marginTop:2,color:"#766d67",fontSize:10,fontWeight:"800"},
+  merchantSlaAlert:{flexDirection:"row",alignItems:"flex-start",gap:8,padding:11,borderRadius:14,backgroundColor:"#fff0ec"},
+  merchantSlaAlertText:{flex:1,color:"#93301f",fontSize:12,fontWeight:"700",lineHeight:17},
   heroLabel: {
     color: "rgba(255,255,255,0.72)",
     fontSize: 12,

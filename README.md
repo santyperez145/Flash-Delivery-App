@@ -18,7 +18,7 @@ Las propinas tienen correcciones operativas reales con cuatro ojos: solicitud fu
 
 Soporte distribuye casos por especialidad y capacidad, conserva el historial de responsables y escala incumplimientos SLA mediante un worker idempotente. Ver `docs/support-sla.md`.
 
-En escritorio se muestra solo la consola de superadministrador. La experiencia de cliente, comercio y conductor/repartidor queda como app mobile/PWA.
+En escritorio, cada rol recibe su superficie autorizada: Flash Operaciones para administración y Flash Negocios para comercios. Cliente y conductor/repartidor usan apps mobile/PWA separadas; Flash Negocios también dispone de variante mobile propia.
 
 ## Levantar la app
 

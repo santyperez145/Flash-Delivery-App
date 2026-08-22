@@ -102,7 +102,7 @@ Flash adopta jerarquía y estados comparables, no texto, activos, colores ni ide
 
 | Segmento | Superficies | Estado Flash |
 |---|---|---|
-| Hoy | estado abierto/pausado, cola, SLA de preparación, atrasos, ventas del día e incidencias | [~] backend PostgreSQL local-time listo; falta conectar y verificar desktop/mobile |
+| Hoy | estado abierto/pausado, cola, SLA de preparación, atrasos, ventas del día e incidencias | [~] desktop y Merchant App conectados/verificados contra PostgreSQL; falta prueba física nativa, teclado y red degradada |
 | Pedidos | nuevos, aceptados, preparación, listos, sustituciones, detalle | [x] |
 | Catálogo | categorías, productos, modificadores, dieta/alérgenos, stock por sucursal | [x] |
 | Operación | sucursales, horarios, excepciones, zonas, capacidad/ETA | [x] |

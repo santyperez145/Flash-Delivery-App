@@ -113,9 +113,18 @@ export async function updatePostgresRestaurant(publicId, changes) {
     values.push(Math.max(5, Math.round(changes.etaMin))); fields.push(`eta_min = $${values.length}`);
   }
   if (fields.length) {
-    values.push(publicId);
-    await postgresPool.query(`UPDATE merchants SET ${fields.join(", ")} WHERE public_id = $${values.length}`, values);
-    const branchFields=[];const branchValues=[];if(typeof changes.open==="boolean"){branchValues.push(changes.open);branchFields.push(`open=$${branchValues.length}`);}if(typeof changes.etaMin==="number"){branchValues.push(Math.max(5,Math.round(changes.etaMin)));branchFields.push(`eta_min=$${branchValues.length}`);}branchValues.push(publicId);if(branchFields.length)await postgresPool.query(`UPDATE merchant_branches b SET ${branchFields.join(",")},updated_at=now() FROM merchants m WHERE b.merchant_id=m.id AND b.is_primary AND m.public_id=$${branchValues.length}`,branchValues);
+    const client=await postgresPool.connect();
+    try{
+      await client.query("BEGIN");
+      values.push(publicId);
+      await client.query(`UPDATE merchants SET ${fields.join(", ")} WHERE public_id = $${values.length}`, values);
+      const branchFields=[];const branchValues=[];
+      if(typeof changes.open==="boolean"){branchValues.push(changes.open);branchFields.push(`open=$${branchValues.length}`);}
+      if(typeof changes.etaMin==="number"){branchValues.push(Math.max(5,Math.round(changes.etaMin)));branchFields.push(`eta_min=$${branchValues.length}`);}
+      branchValues.push(publicId);
+      await client.query(`UPDATE merchant_branches b SET ${branchFields.join(",")},updated_at=now() FROM merchants m WHERE b.merchant_id=m.id AND b.is_primary AND m.public_id=$${branchValues.length}`,branchValues);
+      await client.query("COMMIT");
+    }catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
   }
   return (await getPostgresRestaurants()).find((restaurant) => restaurant.id === publicId) || null;
 }

@@ -906,6 +906,38 @@ export type MerchantFinance = {
     reviewedAt: string | null;
   }>;
 };
+export type MerchantOperationsMetrics = {
+  activeOrders: number;
+  needsAction: number;
+  preparing: number;
+  readyForPickup: number;
+  courierFlow: number;
+  lateOrders: number;
+  untrackedPrepOrders: number;
+  oldestActiveMinutes: number;
+  completedToday: number;
+  cancelledToday: number;
+  grossSalesToday: number;
+  averageTicketToday: number;
+  unavailableItems: number;
+};
+export type MerchantOperationsDashboard = {
+  generatedAt: string;
+  source: "postgres-live-operations" | "sqlite-test-fallback";
+  timezone: string;
+  restaurantId: string;
+  branch: null | {
+    id: string;
+    name: string;
+    timezone: string;
+    open: boolean;
+    manualOpen: boolean;
+    status: "active" | "paused" | "closed";
+    etaMin: number;
+  };
+  restaurant: Restaurant;
+  metrics: MerchantOperationsMetrics;
+};
 export type MerchantPaymentConnection={provider:"mercadopago";externalAccountId:string;liveMode:boolean;scope:string|null;connectedAt:string;tokenExpiresAt:string|null;status:"connected"|"reconnect_required"|"revoked"};
 export type PayoutReview = {
   id: string;

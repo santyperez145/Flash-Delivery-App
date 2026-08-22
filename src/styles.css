@@ -4393,6 +4393,50 @@ textarea {
   .checkout-quote-proof{align-items:flex-start;flex-wrap:wrap}.checkout-quote-proof>small{width:100%;margin-left:26px;text-align:left}
 }
 
+.merchant-operations-status {
+  display: grid;
+  grid-template-columns: auto minmax(0,1fr) auto;
+  align-items: center;
+  gap: 11px;
+  min-height: 66px;
+  padding: 11px 14px;
+  border: 1px solid #d9e8df;
+  border-radius: 15px;
+  background: #f5fbf7;
+}
+.merchant-operations-status.error { color: #8e2d21; border-color: #f0c4bb; background: #fff1ee; }
+.merchant-operations-status.fallback { color: #7d5317; border-color: #ead6b4; background: #fff8e9; }
+.merchant-operations-dot { width: 9px; height: 9px; background: #18a46c; border-radius: 999px; box-shadow: 0 0 0 5px rgba(24,164,108,.1); }
+.merchant-operations-status.error .merchant-operations-dot { background: #c34131; box-shadow: 0 0 0 5px rgba(195,65,49,.1); }
+.merchant-operations-status.fallback .merchant-operations-dot { background: #d2881f; box-shadow: 0 0 0 5px rgba(210,136,31,.1); }
+.merchant-operations-status strong,.merchant-operations-status small { display: block; }
+.merchant-operations-status small { margin-top: 3px; color: var(--ink-soft); }
+.merchant-operations-status button { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 0 12px; color: var(--ink); border: 1px solid var(--line); border-radius: 999px; background: #fff; font-weight: 900; }
+.merchant-operations-spinner { color: #ff6a21; animation: merchant-spin 1s linear infinite; }
+@keyframes merchant-spin { to { transform: rotate(360deg); } }
+
+.merchant-pulse { padding: 20px; overflow: hidden; background: linear-gradient(135deg,#211811,#0f0d0b); border-radius: 20px; box-shadow: 0 20px 42px rgba(48,28,16,.14); }
+.merchant-pulse-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; color: #fff; }
+.merchant-pulse-heading small { color: #ff8b4e; font-size: .68rem; font-weight: 950; letter-spacing: .12em; }
+.merchant-pulse-heading h2 { margin: 3px 0 0; font-size: 1.3rem; }
+.merchant-pulse-heading > span { color: rgba(255,255,255,.62); font-size: .78rem; font-weight: 800; }
+.merchant-pulse-stages { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 9px; margin-top: 17px; }
+.merchant-pulse-stages article { min-width: 0; padding: 13px; color: #fff; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; }
+.merchant-pulse-stages article.attention { background: rgba(255,106,33,.18); border-color: rgba(255,139,78,.42); }
+.merchant-pulse-stages article.stock { background: rgba(255,255,255,.13); }
+.merchant-pulse-stages span,.merchant-pulse-stages small { display: block; overflow: hidden; color: rgba(255,255,255,.62); font-size: .7rem; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.merchant-pulse-stages strong { display: block; margin: 9px 0 4px; font-size: 1.65rem; }
+.merchant-pulse-alert { display: flex; align-items: flex-start; gap: 9px; margin-top: 12px; padding: 11px 13px; color: #ffd7c7; background: rgba(211,69,42,.18); border-radius: 12px; font-size: .8rem; font-weight: 800; }
+.merchant-pulse-alert svg { flex: 0 0 auto; }
+.merchant-capacity-facts { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin-top: 18px; }
+.merchant-capacity-facts article { min-width: 0; padding: 12px; background: #f8f5f2; border-radius: 12px; }
+.merchant-capacity-facts small,.merchant-capacity-facts strong { display: block; }
+.merchant-capacity-facts small { min-height: 30px; color: var(--ink-soft); font-size: .68rem; font-weight: 800; }
+.merchant-capacity-facts strong { margin-top: 7px; font-size: 1.05rem; }
+
+@media (max-width: 1100px) { .merchant-pulse-stages { grid-template-columns: repeat(3,minmax(0,1fr)); } }
+@media (max-width: 720px) { .merchant-operations-status { grid-template-columns: auto minmax(0,1fr); } .merchant-operations-status button,.merchant-operations-spinner { grid-column: 2; justify-self: start; } .merchant-pulse-stages { grid-template-columns: repeat(2,minmax(0,1fr)); } .merchant-capacity-facts { grid-template-columns: 1fr; } }
+
 .driver-compliance-inline{grid-column:1/-1;display:grid;gap:.65rem;padding:.85rem;border-radius:16px;background:#f8f5fb;border:1px solid #ebe4f0}.driver-compliance-inline>div:first-child{display:flex;justify-content:space-between;gap:1rem}.driver-compliance-inline small{display:block;color:#7c7480}.driver-document-review{display:flex;align-items:center;gap:.55rem}.driver-document-review span{flex:1;text-transform:capitalize}.driver-compliance-inline input{width:100%;padding:.7rem .8rem;border:1px solid #ddd3e2;border-radius:11px;background:#fff}
 .address-book-card{display:grid;gap:14px;padding:16px;background:#fff;border:1px solid var(--line);border-radius:8px}
 .notification-center-header h2{margin:3px 0 4px;color:var(--ink);font-size:1.1rem}.notification-center-header p{margin:0;color:var(--ink-soft);font-size:.76rem;line-height:1.4}.notification-center-header .address-book-heading>svg{padding:10px;color:var(--accent);background:#fff1ea;border-radius:10px}

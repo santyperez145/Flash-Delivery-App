@@ -6,6 +6,7 @@ import type {
   DriverCompliance,
   DispatchOffer,
   MerchantFinance,
+  MerchantOperationsDashboard,
   GeoPoint,
   PublicRideTracking,
   RealtimeEvent,
@@ -731,6 +732,11 @@ export const api = {
         headers: { "Idempotency-Key": crypto.randomUUID() },
         body: JSON.stringify({ ...payload, quoteToken }),
       },
+    );
+  },
+  async getMerchantDashboard(merchantId: string) {
+    return request<{ dashboard: MerchantOperationsDashboard }>(
+      `/merchant/dashboard?restaurantId=${encodeURIComponent(merchantId)}`,
     );
   },
 
