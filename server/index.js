@@ -63,6 +63,7 @@ import {
   processPostgresOrderMarketplacePayment,
   createPostgresMenuItem,
   getPostgresOrders,
+  getPostgresMerchantActiveOrderPage,
   getPostgresFoodDeliveryQuote,
   getPostgresFoodCheckoutQuote,
   getPostgresCart,
@@ -7434,6 +7435,19 @@ app.get(
     });
   },
 );
+
+app.get("/api/merchant/orders/active",requireAuth,requireAnyRole("merchant","admin"),async(req,res)=>{
+  const restaurantId=String(req.query.restaurantId||"").trim(),limit=Math.min(100,Math.max(1,Number(req.query.limit)||100));
+  if(!restaurantId)return fail(res,400,"Indicá el comercio a consultar");
+  res.set("Cache-Control","no-store, private");
+  try{
+    if(usesPostgresCommerce())return ok(res,await getPostgresMerchantActiveOrderPage({actorPublicId:req.auth.userId,merchantPublicId:restaurantId,admin:isAdmin(req),limit}));
+    const db=readDb(),restaurant=db.restaurants.find(entry=>entry.id===restaurantId);
+    if(!restaurant||!canManageRestaurant(req,restaurant))return fail(res,404,"Comercio no encontrado o no autorizado");
+    const activeStatuses=new Set(["accepted","preparing","ready_for_pickup","courier_assigned","picked_up","delivering"]),all=db.orders.filter(order=>order.restaurantId===restaurantId&&activeStatuses.has(order.status));
+    return ok(res,{generatedAt:getTimestamp(),source:"sqlite-test-fallback",orders:all.slice(0,limit),hasMore:all.length>limit});
+  }catch(error){return fail(res,error.status||500,error.message||"No se pudo cargar la cola activa");}
+});
 
 app.get(
   "/api/merchant/finance",

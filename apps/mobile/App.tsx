@@ -390,23 +390,9 @@ export default function App() {
           onLogout={logout}
           onRefresh={refresh}
         />
-      ) : (
-        <ScrollView
-          contentContainerStyle={styles.content}
-          refreshControl={
-            <RefreshControl refreshing={loading} onRefresh={refresh} />
-          }
-        >
-          {mode === "merchant" && activeRestaurant && (
-            <MerchantScreen
-              restaurant={activeRestaurant}
-              orders={state.orders}
-              busy={busy}
-              runAction={runAction}
-            />
-          )}
-        </ScrollView>
-      )}
+      ) : mode === "merchant" && activeRestaurant ? (
+        <MerchantScreen restaurant={activeRestaurant} orders={state.orders} busy={busy} runAction={runAction} onRefresh={refresh}/>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -2714,14 +2700,20 @@ function MerchantScreen({
   orders,
   busy,
   runAction,
+  onRefresh,
 }: {
   restaurant: Restaurant;
   orders: Order[];
   busy: boolean;
   runAction: (action: () => Promise<unknown>, success: string) => void;
+  onRefresh:()=>Promise<void>;
 }) {
+  const merchantScrollRef=useRef<ScrollView>(null);
+  const [merchantView,setMerchantView]=useState<"today"|"orders"|"catalog"|"account">("today");
   const [chatJobId,setChatJobId]=useState<string|null>(null);
   const [operations,setOperations]=useState<MerchantOperationsDashboard|null>(null);
+  const [activeOrders,setActiveOrders]=useState<Order[]>([]);
+  const [activeOrdersHasMore,setActiveOrdersHasMore]=useState(false);
   const [operationsLoading,setOperationsLoading]=useState(true);
   const [operationsError,setOperationsError]=useState("");
   const [newItem, setNewItem] = useState({
@@ -2730,19 +2722,19 @@ function MerchantScreen({
     category: "Especiales",
     price: "",
   });
+  useEffect(()=>{merchantScrollRef.current?.scrollTo({y:0,animated:false});},[merchantView]);
   const restaurantOrders = orders.filter(
     (order) => order.restaurantId === restaurant.id,
-  );
-  const activeOrders = restaurantOrders.filter(
-    (order) => !["delivered", "cancelled"].includes(order.status),
   );
   const orderStatusSignature=restaurantOrders.map(order=>`${order.id}:${order.status}`).join("|");
   const stockSignature=restaurant.menu.map(item=>`${item.id}:${item.stock}`).join("|");
   const loadOperations=useCallback(async()=>{
     setOperationsLoading(true);
     try{
-      const result=await api.getMerchantDashboard(restaurant.id);
+      const [result,queue]=await Promise.all([api.getMerchantDashboard(restaurant.id),api.getMerchantActiveOrders(restaurant.id)]);
       setOperations(result.dashboard);
+      setActiveOrders(queue.orders);
+      setActiveOrdersHasMore(queue.hasMore);
       setOperationsError("");
     }catch(error){setOperationsError(error instanceof Error?error.message:"No se pudo actualizar la operación");}
     finally{setOperationsLoading(false);}
@@ -2758,8 +2750,11 @@ function MerchantScreen({
   const etaMin=operations?.branch?.etaMin??restaurant.etaMin;
   const updatedAt=operations?new Intl.DateTimeFormat("es-AR",{hour:"2-digit",minute:"2-digit",timeZone:operations.timezone}).format(new Date(operations.generatedAt)):null;
   return (
-    <View style={styles.stack}>
+    <View style={styles.merchantShell}>
       <ServiceChatModal jobId={chatJobId} currentUserId={restaurant.ownerId} onClose={()=>setChatJobId(null)}/>
+      <ScrollView ref={merchantScrollRef} contentContainerStyle={styles.merchantContent} refreshControl={<RefreshControl refreshing={operationsLoading} onRefresh={async()=>{await onRefresh();await loadOperations();}}/>}>
+      <View style={styles.stack}>
+      {merchantView==="today"?<>
       <LinearGradient colors={["#2d180e","#12100f"]} start={{x:0,y:0}} end={{x:1,y:1}} style={styles.merchantHero}>
         <View style={styles.merchantHeroTopline}><View style={[styles.merchantLiveDot,effectiveOpen?styles.merchantLiveDotOpen:styles.merchantLiveDotPaused]}/><Text style={styles.heroLabel}>{!manualOpen?"Pausado por el local":effectiveOpen?"Abierto y recibiendo":"Fuera de horario"}</Text></View>
         <Text style={styles.heroTitle}>{restaurant.name}</Text>
@@ -2808,7 +2803,12 @@ function MerchantScreen({
           }
         />
       </View>
+      </>:null}
+      {merchantView==="orders"?<>
+      <View style={styles.merchantScreenHeading}><Text style={styles.merchantScreenEyebrow}>OPERACIÓN</Text><Text style={styles.merchantScreenTitle}>Pedidos activos</Text><Text style={styles.merchantScreenCopy}>La cola se prioriza por responsabilidad de cocina, plazo y etapa logística.</Text></View>
+      <View style={styles.merchantOrderSummary}>{[["Por aceptar",metrics?.needsAction],["Preparando",metrics?.preparing],["Listos",metrics?.readyForPickup],["Courier",metrics?.courierFlow]].map(([label,value])=><View key={String(label)} style={styles.merchantOrderSummaryItem}><Text style={styles.merchantOrderSummaryValue}>{value??"—"}</Text><Text style={styles.merchantOrderSummaryLabel}>{label}</Text></View>)}</View>
       <Text style={styles.sectionTitle}>Cocina en vivo</Text>
+      {activeOrdersHasMore?<View style={styles.merchantSlaAlert}><Ionicons name="warning-outline" size={18} color="#b33a25"/><Text style={styles.merchantSlaAlertText}>La cola supera los 100 pedidos activos. Se muestran primero los que requieren acción.</Text></View>:null}
       {activeOrders.map((order) => (
         <View key={order.id} style={styles.stack}><OrderCard
           order={order}
@@ -2819,8 +2819,11 @@ function MerchantScreen({
         /><Pressable style={styles.shareAction} onPress={()=>setChatJobId(order.id)}><Ionicons name="chatbubbles-outline" size={18} color="#7c3cff"/><Text style={styles.shareActionText}>Chat del pedido</Text></Pressable></View>
       ))}
       {activeOrders.length === 0 && (
-        <Text style={styles.muted}>No hay pedidos activos para gestionar.</Text>
+        <View style={styles.merchantEmpty}><Ionicons name="checkmark-circle-outline" size={28} color="#1d9b63"/><Text style={styles.merchantEmptyTitle}>{operationsLoading?"Sincronizando la cola":"Cocina al día"}</Text><Text style={styles.merchantEmptyCopy}>{operationsLoading?"Consultando pedidos activos en PostgreSQL…":"No hay pedidos activos para gestionar."}</Text></View>
       )}
+      </>:null}
+      {merchantView==="catalog"?<>
+      <View style={styles.merchantScreenHeading}><Text style={styles.merchantScreenEyebrow}>MENÚ</Text><Text style={styles.merchantScreenTitle}>Catálogo y stock</Text><Text style={styles.merchantScreenCopy}>{metrics?`${restaurant.menu.length-metrics.unavailableItems} disponibles · ${metrics.unavailableItems} sin stock`:"Sincronizando inventario de la sucursal"}</Text></View>
       <Text style={styles.sectionTitle}>Menu y stock</Text>
       {restaurant.menu.map((item) => (
         <View key={item.id} style={styles.itemRow}>
@@ -2899,6 +2902,16 @@ function MerchantScreen({
           }
         />
       </View>
+      </>:null}
+      {merchantView==="account"?<>
+        <View style={styles.merchantScreenHeading}><Text style={styles.merchantScreenEyebrow}>TU NEGOCIO</Text><Text style={styles.merchantScreenTitle}>{restaurant.name}</Text><Text style={styles.merchantScreenCopy}>Identidad operativa, sucursales y procedencia de los datos.</Text></View>
+        <View style={styles.merchantAccountCard}><View style={styles.merchantAccountIcon}><Ionicons name="storefront-outline" size={24} color="#fff"/></View><View style={styles.merchantAccountCopy}><Text style={styles.merchantAccountCardTitle}>{operations?.branch?.name||restaurant.address}</Text><Text style={styles.merchantAccountCardDetail}>{operations?.timezone||"Zona horaria sin sincronizar"}</Text></View><Text style={[styles.merchantAccountStatus,effectiveOpen?styles.merchantAccountStatusOpen:styles.merchantAccountStatusPaused]}>{effectiveOpen?"Abierto":"Cerrado"}</Text></View>
+        <View style={styles.formCard}><Text style={styles.sectionTitle}>Sucursales</Text>{(restaurant.branches||[]).map(branch=><View key={branch.id} style={styles.merchantBranchRow}><View style={[styles.merchantBranchPin,branch.open?styles.merchantBranchPinOpen:styles.merchantBranchPinClosed]}><Ionicons name="location-outline" size={19} color={branch.open?"#15764c":"#98532e"}/></View><View style={styles.merchantAccountCopy}><Text style={styles.itemName}>{branch.name}</Text><Text style={styles.cardText}>{branch.address}</Text><Text style={styles.merchantBranchMeta}>{branch.etaMin} min · {branch.manualOpen?branch.open?"Abierta ahora":"Fuera de horario":"Pausada manualmente"}</Text></View></View>)}{!restaurant.branches?.length?<Text style={styles.muted}>No hay sucursales configuradas.</Text>:null}</View>
+        <View style={styles.merchantDataCard}><Ionicons name="shield-checkmark-outline" size={22} color="#1b8859"/><View style={styles.merchantAccountCopy}><Text style={styles.merchantAccountTitle}>{operations?.source==="postgres-live-operations"?"Datos operativos PostgreSQL":"Fuente local explícita"}</Text><Text style={styles.merchantAccountDetail}>{updatedAt?`Última lectura ${updatedAt}`:"Esperando primera lectura"} · Los datos retenidos se identifican cuando falla una actualización.</Text></View></View>
+      </>:null}
+      </View>
+      </ScrollView>
+      <View style={styles.merchantBottomNav}>{([['today','home-outline','Hoy'],['orders','receipt-outline','Pedidos'],['catalog','restaurant-outline','Catálogo'],['account','person-circle-outline','Cuenta']] as const).map(([value,icon,label])=><Pressable key={value} style={[styles.merchantBottomItem,merchantView===value&&styles.merchantBottomItemActive]} onPress={()=>setMerchantView(value)} accessibilityRole="tab" accessibilityState={{selected:merchantView===value}}><View style={styles.merchantBottomIconWrap}><Ionicons name={icon} size={22} color={merchantView===value?"#ef641f":"#8b817b"}/>{value==="orders"&&Boolean(metrics?.needsAction||metrics?.lateOrders)?<View style={styles.merchantBottomDot}/>:null}</View><Text style={[styles.merchantBottomLabel,merchantView===value&&styles.merchantBottomLabelActive]}>{label}</Text></Pressable>)}</View>
     </View>
   );
 }
@@ -4471,6 +4484,42 @@ const styles = StyleSheet.create({
     backgroundColor: "#161b22",
   },
   merchantHero:{padding:20,borderRadius:24,minHeight:174,justifyContent:"flex-end",overflow:"hidden"},
+  merchantShell:{flex:1,backgroundColor:"#f6f3f0"},
+  merchantContent:{padding:14,paddingBottom:30,width:"100%",maxWidth:560,alignSelf:"center"},
+  merchantScreenHeading:{paddingTop:5,paddingBottom:5,gap:4},
+  merchantScreenEyebrow:{color:"#ef641f",fontSize:10,fontWeight:"900",letterSpacing:1.3},
+  merchantScreenTitle:{color:"#201b18",fontSize:27,fontWeight:"900",letterSpacing:-.7},
+  merchantScreenCopy:{color:"#736962",fontSize:13,lineHeight:19},
+  merchantOrderSummary:{flexDirection:"row",flexWrap:"wrap",gap:8},
+  merchantOrderSummaryItem:{minWidth:"22%",flexGrow:1,padding:11,borderRadius:15,backgroundColor:"#241a14"},
+  merchantOrderSummaryValue:{color:"#fff",fontSize:21,fontWeight:"900"},
+  merchantOrderSummaryLabel:{marginTop:3,color:"rgba(255,255,255,.62)",fontSize:10,fontWeight:"800"},
+  merchantEmpty:{minHeight:180,alignItems:"center",justifyContent:"center",gap:6,padding:20,borderRadius:22,backgroundColor:"#fff",borderWidth:1,borderColor:"#e7e1dc"},
+  merchantEmptyTitle:{color:"#211c18",fontSize:18,fontWeight:"900"},
+  merchantEmptyCopy:{color:"#756c65",fontSize:12,textAlign:"center"},
+  merchantAccountCard:{flexDirection:"row",alignItems:"center",gap:12,padding:16,borderRadius:20,backgroundColor:"#211813"},
+  merchantAccountIcon:{width:46,height:46,borderRadius:15,alignItems:"center",justifyContent:"center",backgroundColor:"#ef641f"},
+  merchantAccountCopy:{flex:1,gap:3},
+  merchantAccountTitle:{color:"#211c18",fontSize:14,fontWeight:"900"},
+  merchantAccountDetail:{color:"#756c65",fontSize:11,lineHeight:16},
+  merchantAccountStatus:{paddingHorizontal:9,paddingVertical:6,borderRadius:999,overflow:"hidden",fontSize:10,fontWeight:"900"},
+  merchantAccountStatusOpen:{color:"#b9f4d2",backgroundColor:"rgba(45,177,108,.18)"},
+  merchantAccountStatusPaused:{color:"#ffd0b6",backgroundColor:"rgba(239,100,31,.18)"},
+  merchantAccountCardTitle:{color:"#fff",fontSize:14,fontWeight:"900"},
+  merchantAccountCardDetail:{color:"rgba(255,255,255,.6)",fontSize:11,lineHeight:16},
+  merchantBranchRow:{flexDirection:"row",alignItems:"flex-start",gap:11,paddingVertical:11,borderBottomWidth:1,borderBottomColor:"#eee8e3"},
+  merchantBranchPin:{width:38,height:38,borderRadius:13,alignItems:"center",justifyContent:"center"},
+  merchantBranchPinOpen:{backgroundColor:"#e4f7ed"},
+  merchantBranchPinClosed:{backgroundColor:"#fff0e6"},
+  merchantBranchMeta:{marginTop:3,color:"#ef641f",fontSize:10,fontWeight:"800"},
+  merchantDataCard:{flexDirection:"row",alignItems:"flex-start",gap:11,padding:15,borderRadius:18,backgroundColor:"#edf8f2",borderWidth:1,borderColor:"#cce9da"},
+  merchantBottomNav:{minHeight:72,flexDirection:"row",alignItems:"center",justifyContent:"space-around",paddingHorizontal:8,paddingTop:7,paddingBottom:Math.max(8,Platform.OS==="ios"?12:8),backgroundColor:"#fff",borderTopWidth:1,borderTopColor:"#e7e0db",shadowColor:"#382116",shadowOpacity:.12,shadowRadius:14,shadowOffset:{width:0,height:-4},elevation:16},
+  merchantBottomItem:{flex:1,minHeight:52,alignItems:"center",justifyContent:"center",gap:3,borderRadius:16,outlineWidth:0,outlineStyle:"solid"},
+  merchantBottomItemActive:{backgroundColor:"#fff3ec"},
+  merchantBottomIconWrap:{position:"relative",minWidth:30,alignItems:"center"},
+  merchantBottomDot:{position:"absolute",top:-1,right:1,width:7,height:7,borderRadius:999,backgroundColor:"#d94a31",borderWidth:1,borderColor:"#fff"},
+  merchantBottomLabel:{color:"#8b817b",fontSize:10,fontWeight:"800"},
+  merchantBottomLabelActive:{color:"#ef641f"},
   merchantHeroTopline:{position:"absolute",top:18,left:20,right:20,flexDirection:"row",alignItems:"center",gap:8},
   merchantLiveDot:{width:9,height:9,borderRadius:999},
   merchantLiveDotOpen:{backgroundColor:"#64e49d"},

@@ -223,7 +223,7 @@ function rowsToOrders(rows) {
   return [...orders.values()];
 }
 
-export async function getPostgresOrders() {
+export async function getPostgresOrders({publicIds=null}={}) {
   const result = await postgresPool.query(`
     SELECT j.*, j.metadata AS job_metadata, customer.public_id AS customer_public_id,
       ST_Y(j.pickup_location::geometry) pickup_lat,ST_X(j.pickup_location::geometry) pickup_lng,
@@ -243,9 +243,18 @@ export async function getPostgresOrders() {
     LEFT JOIN job_items ji ON ji.job_id = j.id
     LEFT JOIN catalog_items catalog ON catalog.id = ji.catalog_item_id
     WHERE j.kind = 'delivery' AND j.metadata->>'subtype' = 'food_order'
+      AND ($1::text[] IS NULL OR j.public_id=ANY($1::text[]))
     ORDER BY j.created_at DESC, ji.id
-  `);
+  `,[publicIds]);
   return rowsToOrders(result.rows);
+}
+
+export async function getPostgresMerchantActiveOrderPage({actorPublicId,merchantPublicId,admin=false,limit=100}){
+  const selected=(await postgresPool.query(`SELECT m.id FROM merchants m JOIN users owner ON owner.id=m.owner_id WHERE m.status='active' AND m.public_id=$2 AND ($3::boolean OR owner.public_id=$1)`,[actorPublicId,merchantPublicId,admin])).rows[0];
+  if(!selected)throw Object.assign(new Error("Comercio no encontrado o no autorizado"),{status:404});
+  const page=await postgresPool.query(`SELECT j.public_id FROM jobs j WHERE j.merchant_id=$1 AND j.kind='delivery' AND j.metadata->>'subtype'='food_order' AND j.status=ANY($2::job_status[]) ORDER BY CASE j.status WHEN 'accepted' THEN 0 WHEN 'preparing' THEN 1 WHEN 'ready_for_pickup' THEN 2 WHEN 'driver_assigned' THEN 3 WHEN 'picked_up' THEN 4 WHEN 'delivering' THEN 5 ELSE 6 END,j.merchant_ready_due_at NULLS LAST,j.created_at LIMIT $3`,[selected.id,["accepted","preparing","ready_for_pickup","driver_assigned","picked_up","delivering"],limit+1]);
+  const hasMore=page.rows.length>limit,publicIds=page.rows.slice(0,limit).map(row=>row.public_id),orders=await getPostgresOrders({publicIds}),byId=new Map(orders.map(order=>[order.id,order]));
+  return{generatedAt:new Date().toISOString(),source:"postgres-live-operations",orders:publicIds.map(id=>byId.get(id)).filter(Boolean),hasMore};
 }
 
 export async function getPostgresFoodDeliveryQuote({customerPublicId,merchantPublicId,deliveryAddressId,branchPublicId}){

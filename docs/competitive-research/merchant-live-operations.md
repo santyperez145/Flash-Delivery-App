@@ -24,6 +24,10 @@ En cuentas con más de un comercio, desktop y Merchant App envían una selecció
 
 El home adopta la jerarquía observada en las referencias: estado operativo y vigencia, KPIs de hoy, pulso por etapa, alertas SLA y luego comandas/capacidad. No reproduce identidad visual ni textos de terceros. La acción global de apertura y ETA modifica comercio y sucursal principal dentro de una misma transacción, de modo que discovery, cotización y tablero no observen valores intermedios distintos.
 
+La cola visible usa `GET /api/merchant/orders/active`, no `/api/me/activity`: PostgreSQL selecciona únicamente trabajos activos del comercio propio y prioriza aceptar, preparar, listo y etapas del courier. El límite de 100 se comunica con `hasMore`; nunca se convierte un truncamiento en un falso “todo al día”. Desktop y Merchant App ocultan acciones cuando la etapa pertenece al conductor.
+
+Merchant App separa Hoy, Pedidos, Catálogo y Cuenta mediante navegación inferior fija. Hoy concentra estado/KPIs/capacidad; Pedidos conserva la cola y el chat; Catálogo mantiene stock/altas; Cuenta muestra sucursales y procedencia. Es una segmentación funcional sobre datos compartidos, no cuatro copias del mismo home.
+
 Cada pedido nuevo conserva `merchant_prep_minutes` como snapshot inmutable de la sucursal. `merchant_ready_due_at` empieza cuando el pago se acepta, para que una espera del PSP no consuma preparación antes de que el comercio reciba la orden. Los pedidos heredados no se rellenan: `untrackedPrepOrders` comunica la brecha.
 
 La venta diaria exige estado terminal y un evento `completed` dentro del día local. No se usa `created_at` ni se suma el historial descargado en el frontend. Un pedido pendiente de pago tampoco entra en la cola accionable.

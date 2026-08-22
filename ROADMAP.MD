@@ -50,6 +50,8 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [x] La decisión se contrastó con DoorDash Merchant y Uber Eats Manager y queda registrada en `docs/competitive-research/merchant-live-operations.md`.
 - [x] Desktop y Merchant App consumen el contrato privado: venta/ticket del día, cola, SLA y stock nunca se reconstruyen desde el historial parcial. Ambas superficies distinguen loading, error y última lectura conservada, refrescan por evento/poll acotado y muestran procedencia/horario.
 - [x] La selección multi-comercio es explícita y revalida ownership; apertura y ETA actualizan comercio + sucursal principal en una única transacción. La app móvil sólo ofrece las transiciones de cocina que pertenecen al comercio.
+- [x] `GET /api/merchant/orders/active` reemplaza la lista derivada de actividad parcial: exige selección propia, prioriza acción/plazo/etapa en PostgreSQL, excluye terminales, limita 100 y declara `hasMore` en lugar de truncar silenciosamente.
+- [x] Merchant App dejó de ser una pantalla plana: Hoy, Pedidos, Catálogo y Cuenta tienen contenido propio y navegación inferior fija/accesible. Pedidos y desktop comparten la cola autoritativa; estados que pertenecen al courier ya no muestran CTA de comercio.
 - [~] La composición amplia de desktop y la superficie mobile/web se verificaron visualmente con datos PostgreSQL. Falta prueba física en build nativo, teclado/safe areas y red degradada; el pre-dispatch antes de “listo” requiere separar estados de cocina/logística y medir esperas reales.
 
 ## Avance 22 de agosto de 2026 — preferencia de navegación Driver

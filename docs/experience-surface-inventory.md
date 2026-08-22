@@ -98,10 +98,11 @@ Flash adopta jerarquía y estados comparables, no texto, activos, colores ni ide
 - [~] proveedor de navegación externa ya es una preferencia persistida y funcional; accesibilidad, privacidad, seguridad y ayuda todavía requieren subsecciones propias.
 - [ ] CarPlay/Android Auto no se declara hasta tener build, entitlement y prueba vehicular.
 
-## Comercio desktop
+## Comercio desktop y Merchant App
 
 | Segmento | Superficies | Estado Flash |
 |---|---|---|
+| Navegación mobile | Hoy, Pedidos, Catálogo y Cuenta con barra inferior fija | [~] funcional y verificada en web; falta build físico/safe areas/teclado |
 | Hoy | estado abierto/pausado, cola, SLA de preparación, atrasos, ventas del día e incidencias | [~] desktop y Merchant App conectados/verificados contra PostgreSQL; falta prueba física nativa, teclado y red degradada |
 | Pedidos | nuevos, aceptados, preparación, listos, sustituciones, detalle | [x] |
 | Catálogo | categorías, productos, modificadores, dieta/alérgenos, stock por sucursal | [x] |
