@@ -64,6 +64,11 @@ no cambie antes de reemplazar los envelopes. Tras cinco fallos, el portal solici
 reconexión; un access token aún vigente no se inutiliza antes de tiempo. Producción
 debe programar este worker y alertar por fallos/reconexiones requeridas.
 
+Checkout aplica fail-closed: requiere access token cifrado, vencimiento futuro y
+menos de cinco fallos de renovación. Una credencial legacy sin expiración conocida
+no se presenta como utilizable; el worker puede repararla mediante refresh o el
+comercio debe reconectar.
+
 Creación de pagos y reintegros conservan la misma clave idempotente en cada
 reintento lógico, aplican timeout de cinco segundos y convierten fallos de red,
 timeout, rate limit, HTTP e incoherencias del body en resultados sanitizados. La
