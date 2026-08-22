@@ -34,3 +34,8 @@ rompan este núcleo.
 Las mutaciones con cuerpo aceptan exclusivamente `application/json` (incluidos
 subtipos `application/*+json`). Cualquier cuerpo con otro `Content-Type` se
 rechaza con `415` antes de autenticación, validación de dominio o escritura.
+
+Crear un ticket exige `Idempotency-Key`. La clave queda ligada durante 24 horas al
+usuario y al hash del payload: repetirla devuelve el mismo ticket; reutilizarla
+con otro contenido responde `409`. Esto evita casos duplicados por doble toque,
+refresh de sesión o pérdida de la respuesta móvil.

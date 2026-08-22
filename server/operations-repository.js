@@ -113,6 +113,7 @@ export async function createPostgresSupportTicket({
   subject,
   body,
   jobPublicId = null,
+  idempotencyKey,
 }) {
   const client = await postgresPool.connect();
   try {
@@ -124,6 +125,9 @@ export async function createPostgresSupportTicket({
     ).rows[0];
     if (!user)
       throw Object.assign(new Error("Usuario no encontrado"), { status: 404 });
+    const requestHash=crypto.createHash("sha256").update(JSON.stringify({userPublicId,category,priority,subject,body,jobPublicId})).digest("hex");
+    const claim=(await client.query("INSERT INTO idempotency_keys(key,user_id,request_hash,expires_at) VALUES($1,$2,$3,now()+interval '24 hours') ON CONFLICT DO NOTHING RETURNING key",[idempotencyKey,user.id,requestHash])).rows[0];
+    if(!claim){const existing=(await client.query("SELECT user_id,request_hash,response_body FROM idempotency_keys WHERE key=$1",[idempotencyKey])).rows[0];if(String(existing?.user_id)!==String(user.id)||existing?.request_hash!==requestHash)throw Object.assign(new Error("Clave de idempotencia reutilizada con otra solicitud"),{status:409});if(existing?.response_body?.ticketId){await client.query("ROLLBACK");return{ticket:(await getPostgresSupportTickets({userPublicId,roles:[]})).find(entry=>entry.id===existing.response_body.ticketId),replayed:true};}throw Object.assign(new Error("Solicitud de soporte en proceso"),{status:409});}
     let jobId = null;
     if (jobPublicId) {
       const job = (
@@ -174,10 +178,11 @@ export async function createPostgresSupportTicket({
         `support-created-${publicId}`,
       ],
     );
+    await client.query("UPDATE idempotency_keys SET response_status=201,response_body=$2 WHERE key=$1",[idempotencyKey,{ticketId:publicId}]);
     await client.query("COMMIT");
-    return (await getPostgresSupportTickets({ userPublicId, roles: [] })).find(
+    return {ticket:(await getPostgresSupportTickets({ userPublicId, roles: [] })).find(
       (entry) => entry.id === publicId,
-    );
+    ),replayed:false};
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
