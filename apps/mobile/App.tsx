@@ -404,6 +404,9 @@ function CustomerScreen({
   const [paymentExpiry,setPaymentExpiry]=useState("");
   const [notifications,setNotifications]=useState<AppNotification[]>([]);
   const [accountSessions,setAccountSessions]=useState<import("./src/types").AccountSession[]>([]);
+  const [phoneVerificationCode,setPhoneVerificationCode]=useState("");
+  const [phoneVerified,setPhoneVerified]=useState(Boolean(user.phoneVerifiedAt));
+  const [phoneRetrySeconds,setPhoneRetrySeconds]=useState(0);
   const [referral,setReferral]=useState<import("./src/types").ReferralSummary|null>(null);
   const [referralClaim,setReferralClaim]=useState("");
   const [notificationPreferences,setNotificationPreferences]=useState<NotificationPreference[]>([]);
@@ -414,6 +417,7 @@ function CustomerScreen({
   useEffect(()=>{let cancelled=false;api.getDietaryPreferences().then(result=>{if(!cancelled)setDietaryPreferences(result.preferences);}).catch(()=>{});return()=>{cancelled=true;};},[user.id]);
   useEffect(()=>{if(foodScreen!=="search")return;let cancelled=false;setCatalogSearchLoading(true);setCatalogSearchError("");const timer=setTimeout(()=>{void api.searchCatalog(foodQuery,0).then(result=>{if(!cancelled){setCatalogResults(result.results);setCatalogNextOffset(result.nextOffset);}}).catch(error=>{if(!cancelled){setCatalogResults([]);setCatalogSearchError(error instanceof Error?error.message:"No se pudo buscar");}}).finally(()=>{if(!cancelled)setCatalogSearchLoading(false);});},250);return()=>{cancelled=true;clearTimeout(timer);};},[foodScreen,foodQuery,dietaryPreferences.hideIncompatible,dietaryPreferences.dietaryLabels,dietaryPreferences.avoidedAllergens]);
   useEffect(()=>{if(sharedView!=="account")return;let cancelled=false;Promise.all([api.getNotifications(),api.getNotificationPreferences(),api.getDietaryPreferences(),api.getReferralSummary(),api.getAccountSessions()]).then(([inbox,settings,dietary,referrals,sessions])=>{if(!cancelled){setNotifications(inbox.notifications);setNotificationPreferences(settings.preferences);setDietaryPreferences(dietary.preferences);setReferral(referrals.referral);setAccountSessions(sessions.sessions);}}).catch(()=>{});return()=>{cancelled=true;};},[sharedView]);
+  useEffect(()=>{if(phoneRetrySeconds<=0)return;const timer=setInterval(()=>setPhoneRetrySeconds(value=>Math.max(0,value-1)),1000);return()=>clearInterval(timer);},[phoneRetrySeconds>0]);
   const [pickup, setPickup] = useState(
     user.defaultAddress || "Ubicacion actual",
   );
@@ -2336,6 +2340,10 @@ function CustomerScreen({
                   Wallet {money.format(user.wallet)}
                 </Text>
               </View>
+            </View>
+            <View style={styles.addressBookCard}>
+              <View style={styles.addressBookHeading}><View style={styles.savedAddressCopy}><Text style={styles.foodRestaurantTitle}>Teléfono de seguridad</Text><Text style={styles.cardText}>{user.phone||"Agregá un teléfono internacional desde tu perfil."}</Text></View><Ionicons name={phoneVerified?"checkmark-circle":"shield-outline"} size={28} color={phoneVerified?"#087a50":"#7c3cff"}/></View>
+              {phoneVerified?<View style={styles.dietarySafetyNote}><Ionicons name="checkmark-circle-outline" size={19} color="#087a50"/><Text style={styles.cardText}>Número verificado. Si lo cambiás, Flash solicitará una verificación nueva.</Text></View>:user.phone?<><Text style={styles.cardText}>Confirmá que tenés acceso a este número. El código vence en 10 minutos y admite cinco intentos.</Text><TextInput value={phoneVerificationCode} onChangeText={value=>setPhoneVerificationCode(value.replace(/\D/g,"").slice(0,6))} keyboardType="number-pad" textContentType="oneTimeCode" autoComplete="sms-otp" maxLength={6} placeholder="Código de 6 dígitos" style={styles.input}/><Pressable disabled={busy||phoneVerificationCode.length!==6} style={[styles.primaryButton,(busy||phoneVerificationCode.length!==6)&&styles.disabledButton]} onPress={()=>runAction(async()=>{await api.confirmPhoneVerification(phoneVerificationCode);setPhoneVerified(true);setPhoneVerificationCode("");},"Teléfono verificado")}><Ionicons name="shield-checkmark-outline" size={19} color="#fff"/><Text style={styles.primaryButtonText}>Verificar teléfono</Text></Pressable><Pressable disabled={busy||phoneRetrySeconds>0} style={[styles.secondaryButton,(busy||phoneRetrySeconds>0)&&styles.disabledButton]} onPress={()=>runAction(async()=>{const result=await api.requestPhoneVerification();setPhoneVerificationCode(result.developmentCode||"");setPhoneRetrySeconds(result.retryAfterSeconds);},"Código solicitado")}><Ionicons name="chatbubble-ellipses-outline" size={18} color="#7c3cff"/><Text style={styles.secondaryButtonText}>{phoneRetrySeconds>0?`Reenviar en ${phoneRetrySeconds}s`:"Enviar código por SMS"}</Text></Pressable></>:null}
             </View>
             <View style={styles.addressBookCard}>
               <View style={styles.addressBookHeading}><View style={styles.savedAddressCopy}><Text style={styles.foodRestaurantTitle}>Dispositivos y sesiones</Text><Text style={styles.cardText}>Cerrá accesos que no reconozcas. Flash nunca muestra tus credenciales.</Text></View><Ionicons name="shield-checkmark-outline" size={26} color="#087a50"/></View>

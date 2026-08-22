@@ -11,6 +11,8 @@ export type User = {
   id: string;
   name: string;
   email: string;
+  phone?: string;
+  phoneVerifiedAt?: string | null;
   roles: Array<"customer" | "merchant" | "driver" | "admin">;
   wallet: number;
   defaultAddress?: string;

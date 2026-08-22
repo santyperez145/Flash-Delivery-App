@@ -17,6 +17,10 @@ durante los primeros 30 segundos. Cambiar el teléfono invalida automáticamente
   a `502` sin filtrar payloads del proveedor.
 - La activación comercial requiere credenciales, permisos geográficos, presupuesto
   y una prueba física de entrega SMS; hasta entonces el roadmap permanece parcial.
+- Mobile muestra el teléfono completo durante enrolamiento para detectar errores,
+  usa autofill OTP nativo, contador de reenvío, estado verificado y explica que un
+  cambio de número invalida la prueba. El código sandbox sólo se autocompleta en
+  builds no productivas.
 
 ## Referencias competitivas y técnicas
 
