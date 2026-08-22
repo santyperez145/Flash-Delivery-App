@@ -5692,7 +5692,7 @@ app.get("/api/internal/metrics", async (req, res) => {
         SELECT CASE
           WHEN revoked_at IS NOT NULL THEN 'revoked'
           WHEN refresh_failures>=5 OR token_expires_at<=now() THEN 'reconnect_required'
-          WHEN token_expires_at<now()+interval '30 days' THEN 'renewal_due'
+          WHEN token_expires_at IS NULL OR token_expires_at<now()+interval '30 days' THEN 'renewal_due'
           ELSE 'connected'
         END status
         FROM merchant_payment_connections

@@ -11,15 +11,17 @@ export async function exchangeMercadoPagoCode(code,codeVerifier) {
   if(config.paymentMarketplace.provider!=="mercadopago"||!config.paymentMarketplace.clientId||!config.paymentMarketplace.clientSecret)throw Object.assign(new Error("Mercado Pago Marketplace no está configurado"),{status:503});
   const response=await fetch("https://api.mercadopago.com/oauth/token",{method:"POST",headers:{accept:"application/json","content-type":"application/x-www-form-urlencoded"},body:new URLSearchParams({client_id:config.paymentMarketplace.clientId,client_secret:config.paymentMarketplace.clientSecret,grant_type:"authorization_code",code,redirect_uri:config.paymentMarketplace.redirectUri,code_verifier:codeVerifier}),signal:AbortSignal.timeout(5000)});
   const body=await response.json().catch(()=>({}));
-  if(!response.ok||!body.access_token||!body.user_id)throw Object.assign(new Error("Mercado Pago no pudo completar la vinculación"),{status:response.status===429?429:502,providerCode:body.error||body.status});
-  return{accessToken:String(body.access_token),refreshToken:body.refresh_token?String(body.refresh_token):null,externalAccountId:String(body.user_id),expiresIn:Number(body.expires_in)||null,scope:body.scope?String(body.scope):null,liveMode:Boolean(body.live_mode)};
+  const expiresIn=Number(body.expires_in);
+  if(!response.ok||!body.access_token||!body.refresh_token||!body.user_id||!Number.isFinite(expiresIn)||expiresIn<=0)throw Object.assign(new Error("Mercado Pago no pudo completar la vinculación"),{status:response.status===429?429:502,providerCode:body.error||body.status||"incomplete_oauth_credential"});
+  return{accessToken:String(body.access_token),refreshToken:String(body.refresh_token),externalAccountId:String(body.user_id),expiresIn,scope:body.scope?String(body.scope):null,liveMode:Boolean(body.live_mode)};
 }
 
 export async function refreshMercadoPagoCredential(refreshToken){
   if(config.paymentMarketplace.provider!=="mercadopago"||!config.paymentMarketplace.clientId||!config.paymentMarketplace.clientSecret)throw Object.assign(new Error("Mercado Pago Marketplace no está configurado"),{status:503});
   const response=await fetch("https://api.mercadopago.com/oauth/token",{method:"POST",headers:{accept:"application/json","content-type":"application/json"},body:JSON.stringify({client_id:config.paymentMarketplace.clientId,client_secret:config.paymentMarketplace.clientSecret,grant_type:"refresh_token",refresh_token:refreshToken}),signal:AbortSignal.timeout(5000)}),body=await response.json().catch(()=>({}));
-  if(!response.ok||!body.access_token||!body.refresh_token||!body.user_id)throw Object.assign(new Error("Mercado Pago no pudo renovar la autorización"),{status:response.status===429?429:502,providerCode:body.error||body.status||null});
-  return{accessToken:String(body.access_token),refreshToken:String(body.refresh_token),externalAccountId:String(body.user_id),expiresIn:Number(body.expires_in)||null,scope:body.scope?String(body.scope):null,liveMode:Boolean(body.live_mode)};
+  const expiresIn=Number(body.expires_in);
+  if(!response.ok||!body.access_token||!body.refresh_token||!body.user_id||!Number.isFinite(expiresIn)||expiresIn<=0)throw Object.assign(new Error("Mercado Pago no pudo renovar la autorización"),{status:response.status===429?429:502,providerCode:body.error||body.status||"incomplete_oauth_credential"});
+  return{accessToken:String(body.access_token),refreshToken:String(body.refresh_token),externalAccountId:String(body.user_id),expiresIn,scope:body.scope?String(body.scope):null,liveMode:Boolean(body.live_mode)};
 }
 
 const mercadoPagoPaymentStatus=new Set(["pending","approved","authorized","in_process","in_mediation","rejected","cancelled","refunded","charged_back"]);
