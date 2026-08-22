@@ -27,6 +27,7 @@ import {
   revokePostgresPaymentMethod,
   getPostgresUsers,
   getPostgresOperationsUserPage,
+  getPostgresUserSessions,
   recordPostgresLoginFailure,
   recordPostgresLoginSuccess,
   requestPasswordRecovery,
@@ -35,6 +36,8 @@ import {
   confirmEmailVerification,
   registerAuthUser,
   revokePostgresSession,
+  revokeOwnedPostgresSession,
+  revokeOtherPostgresSessions,
   rotatePostgresSession,
   setPostgresDefaultAddress,
   setPostgresUserStatus,
@@ -5999,6 +6002,9 @@ app.post("/api/auth/logout", async (req, res) => {
   else revokeAuthSession(parsed.data.refreshToken);
   return ok(res, { loggedOut: true });
 });
+app.get("/api/me/sessions",requireAuth,async(req,res)=>{if(!usesPostgresAuth())return ok(res,{sessions:[]});try{res.set("Cache-Control","no-store, private");return ok(res,{sessions:await getPostgresUserSessions(req.auth.userId)});}catch(error){return fail(res,error.status||500,error.message||"No se pudieron cargar las sesiones");}});
+app.delete("/api/me/sessions/:sessionId",requireAuth,async(req,res)=>{if(!usesPostgresAuth())return fail(res,503,"El cierre remoto requiere PostgreSQL");try{const result=await revokeOwnedPostgresSession({userPublicId:req.auth.userId,sessionPublicId:req.params.sessionId});await recordPostgresAudit({actorPublicId:req.auth.userId,roles:req.auth.roles,action:"auth.session_revoked",entityType:"refresh_session",entityId:req.params.sessionId,requestId:req.requestId});return ok(res,result);}catch(error){return fail(res,error.status||500,error.message||"No se pudo cerrar la sesión");}});
+app.post("/api/me/sessions/revoke-others",requireAuth,async(req,res)=>{const parsed=parseOrFail(refreshSchema.pick({refreshToken:true}),req.body||{});if(!parsed.ok)return fail(res,400,parsed.message);if(!usesPostgresAuth())return fail(res,503,"El cierre remoto requiere PostgreSQL");try{const result=await revokeOtherPostgresSessions({userPublicId:req.auth.userId,currentRefreshToken:parsed.data.refreshToken});await recordPostgresAudit({actorPublicId:req.auth.userId,roles:req.auth.roles,action:"auth.other_sessions_revoked",entityType:"user",entityId:req.auth.userId,requestId:req.requestId,afterData:result});return ok(res,result);}catch(error){return fail(res,error.status||500,error.message||"No se pudieron cerrar las demás sesiones");}});
 
 app.post("/api/auth/password-recovery/request", async (req, res) => {
   const parsed = parseOrFail(passwordRecoveryRequestSchema, req.body || {});

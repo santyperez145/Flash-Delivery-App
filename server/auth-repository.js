@@ -267,6 +267,13 @@ export async function revokePostgresSession(refreshToken) {
   );
 }
 
+export async function getPostgresUserSessions(userPublicId){const result=await postgresPool.query(`SELECT s.public_id,s.device_name,s.expires_at,s.created_at FROM refresh_sessions s JOIN users u ON u.id=s.user_id
+  WHERE u.public_id=$1 AND s.revoked_at IS NULL AND s.expires_at>now() ORDER BY s.created_at DESC`,[userPublicId]);return result.rows.map(row=>({id:row.public_id,deviceName:row.device_name||"Dispositivo desconocido",createdAt:row.created_at.toISOString(),expiresAt:row.expires_at.toISOString()}));}
+
+export async function revokeOwnedPostgresSession({userPublicId,sessionPublicId}){const result=await postgresPool.query(`UPDATE refresh_sessions s SET revoked_at=now() FROM users u WHERE s.user_id=u.id AND u.public_id=$1 AND s.public_id=$2 AND s.revoked_at IS NULL RETURNING s.public_id`,[userPublicId,sessionPublicId]);if(!result.rowCount)throw Object.assign(new Error("Sesión no encontrada o ya cerrada"),{status:404});return{revoked:true,id:sessionPublicId};}
+
+export async function revokeOtherPostgresSessions({userPublicId,currentRefreshToken}){const current=(await postgresPool.query(`SELECT s.id,s.user_id FROM refresh_sessions s JOIN users u ON u.id=s.user_id WHERE u.public_id=$1 AND s.token_hash=$2 AND s.revoked_at IS NULL AND s.expires_at>now()`,[userPublicId,tokenHash(currentRefreshToken)])).rows[0];if(!current)throw Object.assign(new Error("La sesión actual no es válida"),{status:401});const result=await postgresPool.query("UPDATE refresh_sessions SET revoked_at=now() WHERE user_id=$1 AND id<>$2 AND revoked_at IS NULL",[current.user_id,current.id]);return{revokedSessions:result.rowCount};}
+
 export async function updatePostgresAuthProfile(publicId, { name, phone, defaultAddress }) {
   await postgresPool.query(
     `UPDATE users SET name = $2, phone = $3,
