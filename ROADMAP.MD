@@ -31,6 +31,7 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [x] Las migraciones `107_driver_operational_sessions.sql` y `108_driver_job_session_assignment_reason.sql` registran intervalos online por modo y de asignación a cierre por job, con razones de apertura/cierre, índices parciales y baselines honestos para estados preexistentes.
 - [x] Triggers PostgreSQL cubren disponibilidad, cambio de modo, reasignación, finalización, cancelación y desconexiones indirectas por compliance/vehículo/suspensión; no dependen de que una única ruta HTTP sea la autora del cambio.
 - [x] Ganancias devuelve `onlineSeconds` y `activeSeconds` diario/semanal, recorta al huso horario y momento observado, y une solapamientos para no duplicar batching.
+- [x] La vista Ganancias presenta ingresos, jornada conectada/activa, proporción válida, resumen semanal, anomalía explícita, procedencia y refresco cada 60 segundos sin mezclar métricas con navegación.
 - [x] Sin PostgreSQL no hay horas simuladas: el contrato responde `null` y procedencia no disponible. La métrica no habilita salario horario, promociones, surge ni garantía de ingreso.
 - [x] Ownership RLS, auditoría de sólo lectura, `401/403`, `no-store`, atribución de razones y cálculo con trabajos concurrentes quedan cubiertos por smokes dedicados.
 - [x] La semántica competitiva y las fronteras de producto se documentan en `docs/competitive-research/driver-operational-time.md`.
