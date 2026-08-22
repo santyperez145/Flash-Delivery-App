@@ -442,6 +442,23 @@ function corsOrigin(origin, callback) {
   return callback(error);
 }
 
+function requireTrustedWebOrigin(req, res, next) {
+  if (req.get("x-flash-client") !== "web") return next();
+  const origin = req.get("origin");
+  const fetchSite = req.get("sec-fetch-site");
+  if (fetchSite === "cross-site") {
+    return fail(res, 403, "Solicitud web cross-site rechazada");
+  }
+  if (
+    origin &&
+    !config.corsOrigins.includes("*") &&
+    !config.corsOrigins.includes(origin)
+  ) {
+    return fail(res, 403, "Origen web no permitido");
+  }
+  return next();
+}
+
 function createLimiter({ max, message, prefix }) {
   return rateLimit({
     windowMs: config.rateLimit.windowMs,
@@ -488,6 +505,7 @@ app.use("/api/auth", (_req, res, next) => {
   res.set("Pragma", "no-cache");
   next();
 });
+app.use("/api/auth", requireTrustedWebOrigin);
 app.use(
   "/api",
   createLimiter({
@@ -6100,7 +6118,7 @@ app.post("/api/auth/logout", async (req, res) => {
 });
 app.get("/api/me/sessions",requireAuth,async(req,res)=>{if(!usesPostgresAuth())return ok(res,{sessions:[]});try{res.set("Cache-Control","no-store, private");return ok(res,{sessions:await getPostgresUserSessions(req.auth.userId)});}catch(error){return fail(res,error.status||500,error.message||"No se pudieron cargar las sesiones");}});
 app.delete("/api/me/sessions/:sessionId",requireAuth,async(req,res)=>{if(!usesPostgresAuth())return fail(res,503,"El cierre remoto requiere PostgreSQL");try{const result=await revokeOwnedPostgresSession({userPublicId:req.auth.userId,sessionPublicId:req.params.sessionId});await recordPostgresAudit({actorPublicId:req.auth.userId,roles:req.auth.roles,action:"auth.session_revoked",entityType:"refresh_session",entityId:req.params.sessionId,requestId:req.requestId});return ok(res,result);}catch(error){return fail(res,error.status||500,error.message||"No se pudo cerrar la sesión");}});
-app.post("/api/me/sessions/revoke-others",requireAuth,async(req,res)=>{const parsed=parseOrFail(refreshSchema.pick({refreshToken:true}),{...(req.body||{}),refreshToken:req.body?.refreshToken||readRefreshCookie(req)});if(!parsed.ok)return fail(res,400,parsed.message);if(!usesPostgresAuth())return fail(res,503,"El cierre remoto requiere PostgreSQL");try{const result=await revokeOtherPostgresSessions({userPublicId:req.auth.userId,currentRefreshToken:parsed.data.refreshToken});await recordPostgresAudit({actorPublicId:req.auth.userId,roles:req.auth.roles,action:"auth.other_sessions_revoked",entityType:"user",entityId:req.auth.userId,requestId:req.requestId,afterData:result});return ok(res,result);}catch(error){return fail(res,error.status||500,error.message||"No se pudieron cerrar las demás sesiones");}});
+app.post("/api/me/sessions/revoke-others",requireTrustedWebOrigin,requireAuth,async(req,res)=>{const parsed=parseOrFail(refreshSchema.pick({refreshToken:true}),{...(req.body||{}),refreshToken:req.body?.refreshToken||readRefreshCookie(req)});if(!parsed.ok)return fail(res,400,parsed.message);if(!usesPostgresAuth())return fail(res,503,"El cierre remoto requiere PostgreSQL");try{const result=await revokeOtherPostgresSessions({userPublicId:req.auth.userId,currentRefreshToken:parsed.data.refreshToken});await recordPostgresAudit({actorPublicId:req.auth.userId,roles:req.auth.roles,action:"auth.other_sessions_revoked",entityType:"user",entityId:req.auth.userId,requestId:req.requestId,afterData:result});return ok(res,result);}catch(error){return fail(res,error.status||500,error.message||"No se pudieron cerrar las demás sesiones");}});
 
 app.post("/api/auth/password-recovery/request", async (req, res) => {
   const parsed = parseOrFail(passwordRecoveryRequestSchema, req.body || {});

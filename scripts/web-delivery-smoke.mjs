@@ -63,6 +63,12 @@ try {
     firstCookie = firstSetCookie.split(";")[0];
   assert(webLoginResponse.ok && webLogin.token && !webLogin.refreshToken && firstSetCookie.includes("HttpOnly") && firstSetCookie.includes("SameSite=Strict"), "web recibe refresh token sólo en cookie HttpOnly SameSite");
   assert(webLoginResponse.headers.get("cache-control") === "no-store, private", "login web con cookie no puede almacenarse en caches");
+  const crossSiteRefreshResponse = await fetch(`${origin}/api/auth/refresh`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Flash-Client": "web", "Sec-Fetch-Site": "cross-site", Cookie: firstCookie },
+    body: "{}",
+  });
+  assert(crossSiteRefreshResponse.status === 403, "refresh web rechaza navegación cross-site antes de usar la cookie");
   const webRefreshResponse = await fetch(`${origin}/api/auth/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Flash-Client": "web", Cookie: firstCookie },
