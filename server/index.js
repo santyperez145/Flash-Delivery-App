@@ -503,7 +503,7 @@ app.use(
     strictTransportSecurity: config.isProduction ? undefined : false,
   }),
 );
-app.use(cors({ origin: corsOrigin, credentials: true }));
+app.use("/api", cors({ origin: corsOrigin, credentials: true }));
 app.use(compression({
   threshold: 1024,
   filter: (req, res) => req.path !== "/api/events" && compression.filter(req, res),
