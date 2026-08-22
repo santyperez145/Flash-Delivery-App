@@ -27,6 +27,8 @@ lote borra como máximo `IDEMPOTENCY_PRUNE_BATCH` claves ya vencidas (límite du
 defecto, límite duro 100). Se detiene al encontrar un lote parcial. Usa
 `FOR UPDATE SKIP LOCKED`, por lo que varias réplicas no eliminan el mismo lote ni
 bloquean escrituras activas. Nunca elimina una clave antes de `expires_at`.
+Prometheus expone `flash_idempotency_keys{status="active|expired"}` y genera un
+ticket si más de 10.000 claves vencidas permanecen retenidas durante 30 minutos.
 
 ## Renovación OAuth de comercios
 

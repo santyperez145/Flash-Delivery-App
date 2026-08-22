@@ -4,7 +4,7 @@ import YAML from "yaml";
 const document = YAML.parse(await fs.readFile("observability/prometheus-rules.yml", "utf8"));
 const rules = (document.groups || []).flatMap((group) => group.rules || []);
 const names = new Set(rules.map((rule) => rule.alert));
-for (const name of ["FlashApiFastErrorBudgetBurn","FlashApiSlowErrorBudgetBurn","FlashApiP95LatencyHigh","FlashPostgresPoolSaturated","FlashNotificationDeadLetters","FlashMapProviderDegraded","FlashPaymentProviderDegraded","FlashMerchantPaymentOAuthReconnectRequired"]) {
+for (const name of ["FlashApiFastErrorBudgetBurn","FlashApiSlowErrorBudgetBurn","FlashApiP95LatencyHigh","FlashPostgresPoolSaturated","FlashNotificationDeadLetters","FlashMapProviderDegraded","FlashPaymentProviderDegraded","FlashMerchantPaymentOAuthReconnectRequired","FlashExpiredIdempotencyBacklog"]) {
   if (!names.has(name)) throw new Error(`Falta alerta ${name}`);
 }
 for (const rule of rules) {

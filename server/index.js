@@ -5706,6 +5706,10 @@ app.get("/api/internal/metrics", async (req, res) => {
         END status
         FROM merchant_payment_connections
       ) connections GROUP BY status ORDER BY status`,
+    ),
+    idempotencyKeys = await postgresPool.query(
+      `SELECT CASE WHEN expires_at<=now() THEN 'expired' ELSE 'active' END status,count(*)::int count
+       FROM idempotency_keys GROUP BY 1 ORDER BY 1`,
     );
   res.type("text/plain; version=0.0.4; charset=utf-8").send(
     renderPrometheus({
@@ -5724,6 +5728,7 @@ app.get("/api/internal/metrics", async (req, res) => {
         tipsCount: tips.rows[0].count,
         tipsCents: tips.rows[0].cents,
         paymentOAuthConnections: paymentOAuthConnections.rows,
+        idempotencyKeys: idempotencyKeys.rows,
       },
       startedAt: processStartedAt,
       realtimeConnections: realtimeClients.size,

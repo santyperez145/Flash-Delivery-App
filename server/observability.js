@@ -29,6 +29,8 @@ export function renderPrometheus({pool,business,startedAt,realtimeConnections=0}
   lines.push("# HELP flash_service_tips_total Retained completed service tips.","# TYPE flash_service_tips_total gauge",`flash_service_tips_total ${business.tipsCount||0}`,"# HELP flash_service_tips_cents Retained value transferred as tips.","# TYPE flash_service_tips_cents gauge",`flash_service_tips_cents ${business.tipsCents||0}`);
   lines.push("# HELP flash_merchant_payment_oauth_connections Seller payment connections by renewal health.","# TYPE flash_merchant_payment_oauth_connections gauge");
   for(const row of business.paymentOAuthConnections||[])lines.push(`flash_merchant_payment_oauth_connections{status="${esc(row.status)}"} ${row.count}`);
+  lines.push("# HELP flash_idempotency_keys Retained idempotency keys by expiry state.","# TYPE flash_idempotency_keys gauge");
+  for(const row of business.idempotencyKeys||[])lines.push(`flash_idempotency_keys{status="${esc(row.status)}"} ${row.count}`);
   lines.push("# HELP flash_provider_calls_total External provider calls and controlled degradations.","# TYPE flash_provider_calls_total counter");
   for(const[key,value]of providerCalls){const[provider,operation,outcome]=key.split("|");lines.push(`flash_provider_calls_total{provider="${esc(provider)}",operation="${esc(operation)}",outcome="${esc(outcome)}"} ${value}`);}
   return `${lines.join("\n")}\n`;
