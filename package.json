@@ -100,6 +100,7 @@
     "test:web-checkout": "node scripts/web-checkout-ui-smoke.mjs",
     "test:web-ride-home": "node scripts/web-ride-home-ui-smoke.mjs",
     "test:web-tracking-maps": "node scripts/web-tracking-map-ui-smoke.mjs",
+    "test:responsive-layout": "node scripts/responsive-layout-smoke.mjs",
     "test:openapi-contract": "node scripts/openapi-contract-smoke.mjs",
     "test:graceful-shutdown": "node scripts/graceful-shutdown-smoke.mjs",
     "test:idempotency-prune": "node scripts/idempotency-prune-smoke.mjs"

@@ -20,7 +20,6 @@ import {
   Platform,
   Pressable,
   RefreshControl,
-  SafeAreaView,
   Share,
   ScrollView,
   StyleSheet,
@@ -29,6 +28,11 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import {
+  initialWindowMetrics,
+  SafeAreaProvider,
+  SafeAreaView,
+} from "react-native-safe-area-context";
 import { api } from "./src/api";
 import { configureAnalytics, track } from "./src/analytics";
 import FlashNativeMap from "./src/FlashNativeMap";
@@ -207,6 +211,14 @@ function MobileNetworkStatus({ online }: { online: boolean }) {
 }
 
 export default function App() {
+  return (
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+      <AppContent />
+    </SafeAreaProvider>
+  );
+}
+
+function AppContent() {
   const [mode, setMode] = useState<Mode>("customer");
   const [state, setState] = useState<AppState | null>(null);
   const [sessionUser, setSessionUser] = useState<User | null>(null);
@@ -346,53 +358,69 @@ export default function App() {
     <SafeAreaView
       style={[styles.root, mode === "customer" && styles.customerRoot]}
     >
-      <MobileNetworkStatus online={networkOnline} />
-      {mode === "merchant" && (
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.eyebrow}>Flash Negocios</Text>
-            <Text style={styles.title}>Control en vivo de tu local</Text>
+      <View
+        style={[
+          styles.appViewport,
+          mode === "customer"
+            ? styles.customerViewport
+            : styles.operationsViewport,
+        ]}
+      >
+        <MobileNetworkStatus online={networkOnline} />
+        {mode === "merchant" && (
+          <View style={styles.header}>
+            <View style={styles.headerCopy}>
+              <Text style={styles.eyebrow}>Flash Negocios</Text>
+              <Text style={styles.title}>Control en vivo de tu local</Text>
+            </View>
+            <Pressable onPress={logout} style={styles.logoutButton}>
+              <Text style={styles.logoutText}>Salir</Text>
+            </Pressable>
           </View>
-          <Pressable onPress={logout} style={styles.logoutButton}>
-            <Text style={styles.logoutText}>Salir</Text>
-          </Pressable>
-        </View>
-      )}
+        )}
 
-      {mode === "merchant" && (
-        <View style={styles.sessionBar}>
-          <Text style={styles.sessionRole}>
-            Cuenta comercio
-          </Text>
-          <Text style={styles.sessionName}>{sessionUser?.name}</Text>
-        </View>
-      )}
+        {mode === "merchant" && (
+          <View style={styles.sessionBar}>
+            <Text style={styles.sessionRole}>Cuenta comercio</Text>
+            <Text style={styles.sessionName} numberOfLines={1}>
+              {sessionUser?.name}
+            </Text>
+          </View>
+        )}
 
-      {loading || !state ? (
-        <View style={styles.loader}>
-          <ActivityIndicator color="#f4511e" />
-          <Text style={styles.muted}>Conectando con backend...</Text>
-        </View>
-      ) : mode === "customer" && activeUser ? (
-        <CustomerScreen
-          state={state}
-          user={activeUser}
-          busy={busy}
-          runAction={runAction}
-          refresh={refresh}
-        />
-      ) : mode === "driver" && activeDriver ? (
-        <DriverScreen
-          state={state}
-          driver={activeDriver}
-          busy={busy}
-          runAction={runAction}
-          onLogout={logout}
-          onRefresh={refresh}
-        />
-      ) : mode === "merchant" && activeRestaurant ? (
-        <MerchantScreen restaurant={activeRestaurant} orders={state.orders} busy={busy} runAction={runAction} onRefresh={refresh}/>
-      ) : null}
+        {loading || !state ? (
+          <View style={styles.loader}>
+            <ActivityIndicator color="#f4511e" />
+            <Text style={styles.muted}>Conectando con backend...</Text>
+          </View>
+        ) : mode === "customer" && activeUser ? (
+          <CustomerScreen
+            state={state}
+            user={activeUser}
+            busy={busy}
+            runAction={runAction}
+            refresh={refresh}
+            onLogout={logout}
+          />
+        ) : mode === "driver" && activeDriver ? (
+          <DriverScreen
+            state={state}
+            driver={activeDriver}
+            busy={busy}
+            runAction={runAction}
+            onLogout={logout}
+            onRefresh={refresh}
+          />
+        ) : mode === "merchant" && activeRestaurant ? (
+          <MerchantScreen
+            restaurant={activeRestaurant}
+            orders={state.orders}
+            busy={busy}
+            runAction={runAction}
+            onRefresh={refresh}
+          />
+        ) : null}
+      </View>
     </SafeAreaView>
   );
 }
@@ -414,12 +442,14 @@ function CustomerScreen({
   busy,
   runAction,
   refresh,
+  onLogout,
 }: {
   state: AppState;
   user: User;
   busy: boolean;
   runAction: (action: () => Promise<unknown>, success: string) => void;
   refresh: () => Promise<void>;
+  onLogout: () => Promise<void>;
 }) {
   const customerScrollRef = useRef<ScrollView>(null);
   const [customerWindow, setCustomerWindow] = useState<
@@ -2348,11 +2378,26 @@ function CustomerScreen({
         )}
         {sharedView === "account" && (
           <>
-            <View style={styles.activityHeading}>
-              <Text style={styles.foodRestaurantTitle}>Tu cuenta</Text>
-              <Text style={styles.cardText}>
-                Datos utilizados por todos los servicios Flash.
-              </Text>
+            <View style={styles.customerAccountHeading}>
+              <View style={styles.itemCopy}>
+                <Text style={styles.foodRestaurantTitle}>Tu cuenta</Text>
+                <Text style={styles.cardText}>
+                  Datos utilizados por todos los servicios Flash.
+                </Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Cerrar sesión"
+                disabled={busy}
+                onPress={() => void onLogout()}
+                style={({ pressed }) => [
+                  styles.customerLogoutButton,
+                  (pressed || busy) && styles.disabledButton,
+                ]}
+              >
+                <Ionicons name="log-out-outline" size={18} color="#27242a" />
+                <Text style={styles.customerLogoutText}>Salir</Text>
+              </Pressable>
             </View>
             <View style={styles.accountCard}>
               <View style={styles.accountAvatar}>
@@ -3652,6 +3697,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f4f6f8",
   },
+  appViewport: {
+    flex: 1,
+    width: "100%",
+    alignSelf: "center",
+    overflow: "hidden",
+  },
+  customerViewport: { maxWidth: 430, backgroundColor: "#fff" },
+  operationsViewport: { maxWidth: 620, backgroundColor: "#f6f3f0" },
   networkStatusBanner: {
     position: "absolute",
     top: 8,
@@ -3697,6 +3750,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
+  headerCopy: { flex: 1, minWidth: 0 },
   eyebrow: {
     color: "#ffcc1c",
     fontSize: 12,
@@ -4187,6 +4241,27 @@ const styles = StyleSheet.create({
   },
   shareActionText: { color: "#ff6a21", fontSize: 12, fontWeight: "900" },
   activityHeading: { paddingVertical: 10, gap: 4 },
+  customerAccountHeading: {
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  customerLogoutButton: {
+    minHeight: 44,
+    paddingHorizontal: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "#dedbe1",
+    backgroundColor: "#fff",
+  },
+  customerLogoutText: { color: "#27242a", fontSize: 13, fontWeight: "900" },
   activityCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -4227,15 +4302,15 @@ const styles = StyleSheet.create({
   substitutionReason:{color:"#736d77",fontSize:12,lineHeight:17},
   substitutionRefund:{flexDirection:"row",alignItems:"center",gap:7,padding:10,borderRadius:13,backgroundColor:"#e6f8ef"},
   substitutionRefundText:{flex:1,color:"#087a50",fontSize:12,fontWeight:"800"},
-  substitutionActions:{flexDirection:"row",gap:9},
+  substitutionActions:{flexDirection:"row",flexWrap:"wrap",gap:9},
   substitutionReject:{flex:1,minHeight:43,alignItems:"center",justifyContent:"center",borderRadius:14,borderWidth:1,borderColor:"#ddd6e2",backgroundColor:"#fff"},
   substitutionRejectText:{color:"#554f59",fontSize:12,fontWeight:"900"},
   substitutionAccept:{flex:1.35,minHeight:43,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:6,borderRadius:14,backgroundColor:"#ff6a21"},
   substitutionAcceptText:{color:"#fff",fontSize:12,fontWeight:"900"},
   reportIssueButton:{minHeight:46,flexDirection:"row",alignItems:"center",gap:8,paddingHorizontal:12,borderRadius:14,backgroundColor:"#fff4f1",borderWidth:1,borderColor:"#ffd9d1"},
   reportIssueText:{flex:1,color:"#a63e2c",fontSize:12,fontWeight:"900"},
-  issueModalBackdrop:{flex:1,justifyContent:"flex-end",backgroundColor:"rgba(24,18,27,.52)"},
-  issueModalSheet:{maxHeight:"90%",gap:14,paddingHorizontal:20,paddingTop:10,paddingBottom:28,backgroundColor:"#fff",borderTopLeftRadius:30,borderTopRightRadius:30},
+  issueModalBackdrop:{flex:1,alignItems:"center",justifyContent:"flex-end",backgroundColor:"rgba(24,18,27,.52)"},
+  issueModalSheet:{width:"100%",maxWidth:620,maxHeight:"90%",gap:14,paddingHorizontal:20,paddingTop:10,paddingBottom:28,backgroundColor:"#fff",borderTopLeftRadius:30,borderTopRightRadius:30},
   issueModalHandle:{alignSelf:"center",width:42,height:5,borderRadius:4,backgroundColor:"#ddd6e0"},
   issueModalHeader:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",gap:12},
   issueModalClose:{width:38,height:38,alignItems:"center",justifyContent:"center",borderRadius:13,backgroundColor:"#f5f1f6"},
@@ -4284,18 +4359,18 @@ const styles = StyleSheet.create({
   },
   addressBookCard:{gap:14,padding:18,borderRadius:24,backgroundColor:"#fff",borderWidth:1,borderColor:"#ebe7ed"},
   addressBookHeading:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",gap:12},
-  savedAddressRow:{flexDirection:"row",alignItems:"center",gap:11,paddingVertical:12,borderTopWidth:1,borderTopColor:"#f0edf2"},
+  savedAddressRow:{flexDirection:"row",flexWrap:"wrap",alignItems:"center",gap:11,paddingVertical:12,borderTopWidth:1,borderTopColor:"#f0edf2"},
   savedAddressIcon:{width:42,height:42,borderRadius:14,alignItems:"center",justifyContent:"center",backgroundColor:"#f0eaff"},
   savedAddressIconDefault:{backgroundColor:"#7c3cff"},
-  savedAddressCopy:{flex:1,gap:3},
+  savedAddressCopy:{flex:1,minWidth:180,gap:3},
   savedAddressTitle:{flexDirection:"row",alignItems:"center",gap:8},
   defaultAddressBadge:{paddingHorizontal:8,paddingVertical:3,color:"#6d35dc",backgroundColor:"#efe7ff",borderRadius:999,fontSize:10,fontWeight:"900",textTransform:"uppercase"},
   savedAddressActions:{flexDirection:"row",alignItems:"center",gap:13},
   newAddressForm:{gap:11,paddingTop:5},
   paymentMethodRow:{flexDirection:"row",alignItems:"center",gap:11,paddingVertical:12,borderTopWidth:1,borderTopColor:"#f0edf2"},
   paymentBrandRail:{gap:8,paddingVertical:2},
-  paymentCompactFields:{flexDirection:"row",gap:10},
-  paymentCompactInput:{flex:1},
+  paymentCompactFields:{flexDirection:"row",flexWrap:"wrap",gap:10},
+  paymentCompactInput:{flex:1,minWidth:140},
   notificationBell:{width:42,height:42,borderRadius:15,backgroundColor:"#7c3cff",alignItems:"center",justifyContent:"center"},
   notificationRow:{flexDirection:"row",alignItems:"flex-start",gap:10,padding:13,borderRadius:17,backgroundColor:"#faf8fb"},
   notificationUnread:{backgroundColor:"#f3edff",borderWidth:1,borderColor:"#dfd0ff"},
@@ -4328,8 +4403,8 @@ const styles = StyleSheet.create({
   deliveryProofIcon:{width:40,height:40,borderRadius:13,alignItems:"center",justifyContent:"center",backgroundColor:"#7c3cff"},
   deliveryEvidenceBadge:{flexDirection:"row",alignItems:"center",gap:7,alignSelf:"flex-start",paddingHorizontal:10,paddingVertical:7,borderRadius:999,backgroundColor:"#e8f7f0"},
   deliveryEvidenceBadgeText:{fontSize:12,fontWeight:"800",color:"#087a50"},
-  productCustomizerBackdrop:{flex:1,justifyContent:"flex-end",backgroundColor:"rgba(20,16,24,.48)"},
-  productCustomizerSheet:{maxHeight:"88%",padding:18,paddingBottom:28,gap:14,borderTopLeftRadius:28,borderTopRightRadius:28,backgroundColor:"#fff"},
+  productCustomizerBackdrop:{flex:1,alignItems:"center",justifyContent:"flex-end",backgroundColor:"rgba(20,16,24,.48)"},
+  productCustomizerSheet:{width:"100%",maxWidth:620,maxHeight:"88%",padding:18,paddingBottom:28,gap:14,borderTopLeftRadius:28,borderTopRightRadius:28,backgroundColor:"#fff"},
   productCustomizerContent:{gap:13,paddingBottom:10},
   dietaryBadgeRow:{flexDirection:"row",flexWrap:"wrap",gap:7},
   dietaryBadge:{flexDirection:"row",alignItems:"center",gap:5,backgroundColor:"#e9f8ef",borderRadius:999,paddingHorizontal:10,paddingVertical:7},
@@ -4354,8 +4429,8 @@ const styles = StyleSheet.create({
   orderConfirmationActionText:{color:"#fff",fontWeight:"900"},
   reorderButton:{flexDirection:"row",alignItems:"center",justifyContent:"center",gap:7,backgroundColor:"#ff6a21",borderRadius:13,padding:12,marginTop:12},
   reorderButtonText:{color:"#fff",fontWeight:"900"},
-  trackingBackdrop:{flex:1,justifyContent:"flex-end",backgroundColor:"rgba(20,15,24,.48)"},
-  trackingSheet:{maxHeight:"92%",backgroundColor:"#fff",borderTopLeftRadius:28,borderTopRightRadius:28,padding:18,gap:15},
+  trackingBackdrop:{flex:1,alignItems:"center",justifyContent:"flex-end",backgroundColor:"rgba(20,15,24,.48)"},
+  trackingSheet:{width:"100%",maxWidth:620,maxHeight:"92%",backgroundColor:"#fff",borderTopLeftRadius:28,borderTopRightRadius:28,padding:18,gap:15},
   trackingHeader:{flexDirection:"row",alignItems:"center",justifyContent:"space-between"},
   trackingMap:{height:260,borderRadius:20,overflow:"hidden",backgroundColor:"#e8e4ed"},
   nativeMapEmpty:{alignItems:"center",justifyContent:"center",gap:7,paddingHorizontal:26,borderWidth:1,borderColor:"#ded9e3"},
@@ -4579,7 +4654,7 @@ const styles = StyleSheet.create({
   merchantEmpty:{minHeight:180,alignItems:"center",justifyContent:"center",gap:6,padding:20,borderRadius:22,backgroundColor:"#fff",borderWidth:1,borderColor:"#e7e1dc"},
   merchantEmptyTitle:{color:"#211c18",fontSize:18,fontWeight:"900"},
   merchantEmptyCopy:{color:"#756c65",fontSize:12,textAlign:"center"},
-  merchantOrderActions:{flexDirection:"row",gap:8},
+  merchantOrderActions:{flexDirection:"row",flexWrap:"wrap",gap:8},
   merchantOrderDetailAction:{flex:1,minHeight:44,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:7,borderRadius:14,backgroundColor:"#fff0e7",borderWidth:1,borderColor:"#ffd4bc"},
   merchantOrderDetailActionText:{color:"#9a3e12",fontSize:12,fontWeight:"900"},
   merchantDetailBackdrop:{flex:1,alignItems:"center",justifyContent:"flex-end",backgroundColor:"rgba(24,16,12,.58)"},
@@ -4589,8 +4664,8 @@ const styles = StyleSheet.create({
   merchantDetailSubtitle:{color:"#766d66",fontSize:11,fontWeight:"700"},
   merchantDetailScroll:{flex:1},
   merchantDetailContent:{gap:13,paddingTop:14,paddingBottom:18},
-  merchantDetailFacts:{flexDirection:"row",gap:8},
-  merchantDetailFact:{flex:1,minWidth:0,padding:10,borderRadius:14,backgroundColor:"#fff"},
+  merchantDetailFacts:{flexDirection:"row",flexWrap:"wrap",gap:8},
+  merchantDetailFact:{flex:1,minWidth:120,padding:10,borderRadius:14,backgroundColor:"#fff"},
   merchantDetailFactLabel:{color:"#8a7f77",fontSize:9,fontWeight:"800",textTransform:"uppercase"},
   merchantDetailFactValue:{marginTop:4,color:"#211b17",fontSize:14,fontWeight:"900"},
   merchantDetailSection:{gap:9,padding:14,borderRadius:20,backgroundColor:"#fff",borderWidth:1,borderColor:"#ebe4df"},
@@ -4628,7 +4703,7 @@ const styles = StyleSheet.create({
   merchantDetailErrorText:{flex:1,color:"#8e3322",fontSize:11,fontWeight:"700",lineHeight:16},
   merchantDetailDelivery:{flexDirection:"row",alignItems:"flex-start",gap:10,padding:14,borderRadius:18,backgroundColor:"#f1edff"},
   merchantDetailChat:{minHeight:48,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:8,borderRadius:15,backgroundColor:"#7c3cff"},
-  merchantAccountCard:{flexDirection:"row",alignItems:"center",gap:12,padding:16,borderRadius:20,backgroundColor:"#211813"},
+  merchantAccountCard:{flexDirection:"row",flexWrap:"wrap",alignItems:"center",gap:12,padding:16,borderRadius:20,backgroundColor:"#211813"},
   merchantAccountIcon:{width:46,height:46,borderRadius:15,alignItems:"center",justifyContent:"center",backgroundColor:"#ef641f"},
   merchantAccountCopy:{flex:1,gap:3},
   merchantAccountTitle:{color:"#211c18",fontSize:14,fontWeight:"900"},
@@ -4923,8 +4998,8 @@ const styles = StyleSheet.create({
   driverEarningsValue: { color: "#fff", fontSize: 38, fontWeight: "900", marginTop: 9 },
   driverEarningsCopy: { color: "rgba(255,255,255,.78)", fontSize: 12, lineHeight: 18, marginTop: 10, maxWidth: 360 },
   driverEarningsError: { flexDirection: "row", alignItems: "center", gap: 11, padding: 14, borderRadius: 18, backgroundColor: "#fff0ef", borderWidth: 1, borderColor: "#f1cfcc" },
-  driverPeriodGrid: { flexDirection: "row", gap: 10 },
-  driverPeriodCard: { flex: 1, minHeight: 112, borderRadius: 21, padding: 15, justifyContent: "center", backgroundColor: "#fff", borderWidth: 1, borderColor: "#e9e3ed" },
+  driverPeriodGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  driverPeriodCard: { flex: 1, minWidth: 150, minHeight: 112, borderRadius: 21, padding: 15, justifyContent: "center", backgroundColor: "#fff", borderWidth: 1, borderColor: "#e9e3ed" },
   driverPeriodLabel: { color: "#7c3cff", fontSize: 9, fontWeight: "900", letterSpacing: 1.1 },
   driverPeriodValue: { color: "#17131c", fontSize: 21, fontWeight: "900", marginTop: 8 },
   driverPeriodMeta: { color: "#77707b", fontSize: 10, fontWeight: "700", marginTop: 5 },
@@ -5244,8 +5319,8 @@ const styles = StyleSheet.create({
     textAlign: "center",
     flexShrink: 1,
   },
-  signatureBackdrop:{flex:1,backgroundColor:"rgba(20,16,24,.48)",justifyContent:"flex-end"},
-  signatureSheet:{backgroundColor:"#fff",borderTopLeftRadius:28,borderTopRightRadius:28,padding:20,paddingBottom:32,gap:14},
+  signatureBackdrop:{flex:1,alignItems:"center",backgroundColor:"rgba(20,16,24,.48)",justifyContent:"flex-end"},
+  signatureSheet:{width:"100%",maxWidth:620,backgroundColor:"#fff",borderTopLeftRadius:28,borderTopRightRadius:28,padding:20,paddingBottom:32,gap:14},
   signatureRelationshipRow:{flexDirection:"row",gap:8},
   signatureChoice:{flex:1,minHeight:42,borderRadius:14,borderWidth:1,borderColor:"#ded9e2",alignItems:"center",justifyContent:"center",paddingHorizontal:8},
   signatureChoiceActive:{backgroundColor:"#17131c",borderColor:"#17131c"},

@@ -17,6 +17,15 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [x] Flash Driver separa Home/Mapa, Ganancias, Inbox y Cuenta con barra inferior fija; legajo/flota salen del flujo de conducción y cada cambio de sección vuelve al inicio de su contenido.
 - [~] El mapa de demanda observada ya usa polígonos y conteos reales; voz, tráfico, reportes viales, waiting fees, llamadas anonimizadas y CarPlay/Android Auto permanecen bloqueados hasta tener contratos, proveedor, operación y prueba física.
 
+## Avance 22 de agosto de 2026 — contrato adaptativo transversal
+
+- [x] `docs/ui-layout-guidelines.md` convierte distribución, safe areas, barras, sheets, mapas, texto variable y breakpoints en lineamiento obligatorio para cada audiencia.
+- [x] La decisión se contrastó con Uber Base Web, DoorDash Business Manager, Apple HIG y Expo; se adoptan estándares de composición y accesibilidad, nunca identidad propietaria.
+- [x] Customer, Driver y Merchant comparten `SafeAreaProvider` real y un viewport mobile/web acotado; notch, barras del sistema y home indicator dejan de depender de padding supuesto.
+- [x] Tracking, incidencias, personalización, firma y comanda limitan ancho; hechos, formularios, métricas y acciones permiten wrap en pantallas compactas.
+- [x] Operaciones y Negocios cambian sidebar por navegación superior desplazable bajo 900 px; los grids de alta densidad colapsan antes de provocar scroll horizontal.
+- [~] Composición wide y viewports acotados verificados en navegador; la regresión protege reglas compact/medium/expanded, pero la matriz visual 320/390/768 y safe areas, teclado, orientación y Dynamic Type continúan abiertos hasta navegador redimensionable y prueba física Android/iOS.
+
 ## Avance 22 de agosto de 2026 — ganancias contables de Flash Driver
 
 - [x] `GET /api/driver/earnings` deriva identidad exclusivamente de la sesión Driver y devuelve cortes diario/semanal en su zona horaria, nunca acepta un `driverId` del cliente.
