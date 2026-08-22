@@ -30,6 +30,16 @@ export const rideStatuses = [
   "cancelled"
 ];
 
+export const shipmentStatuses = [
+  "requested",
+  "driver_assigned",
+  "arriving",
+  "picked_up",
+  "delivering",
+  "delivered",
+  "cancelled"
+];
+
 const now = () => new Date().toISOString();
 
 export const createId = (prefix) =>
@@ -270,6 +280,52 @@ function execSchema() {
       status TEXT NOT NULL,
       at TEXT NOT NULL,
       FOREIGN KEY (ride_id) REFERENCES rides(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS auth_sessions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      refresh_token_hash TEXT NOT NULL UNIQUE,
+      device_name TEXT,
+      expires_at TEXT NOT NULL,
+      revoked_at TEXT,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS auth_sessions_user_idx ON auth_sessions(user_id, expires_at);
+
+    CREATE TABLE IF NOT EXISTS shipments (
+      id TEXT PRIMARY KEY,
+      customer_id TEXT NOT NULL,
+      driver_id TEXT,
+      status TEXT NOT NULL,
+      pickup TEXT NOT NULL,
+      destination TEXT NOT NULL,
+      pickup_lat REAL,
+      pickup_lng REAL,
+      destination_lat REAL,
+      destination_lng REAL,
+      recipient_name TEXT NOT NULL,
+      recipient_phone TEXT NOT NULL,
+      package_size TEXT NOT NULL,
+      description TEXT NOT NULL,
+      weight_kg REAL NOT NULL,
+      delivery_notes TEXT,
+      distance_km REAL NOT NULL,
+      eta_min INTEGER NOT NULL,
+      fare INTEGER NOT NULL,
+      payment_method TEXT NOT NULL,
+      delivery_pin TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (customer_id) REFERENCES users(id),
+      FOREIGN KEY (driver_id) REFERENCES drivers(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS shipment_timeline (
+      id TEXT PRIMARY KEY,
+      shipment_id TEXT NOT NULL,
+      status TEXT NOT NULL,
+      at TEXT NOT NULL,
+      FOREIGN KEY (shipment_id) REFERENCES shipments(id) ON DELETE CASCADE
     );
 
     CREATE TABLE IF NOT EXISTS promotions (
@@ -909,6 +965,8 @@ function clearAll() {
     DELETE FROM promotions;
     DELETE FROM ride_timeline;
     DELETE FROM rides;
+    DELETE FROM shipment_timeline;
+    DELETE FROM shipments;
     DELETE FROM order_timeline;
     DELETE FROM order_item_extras;
     DELETE FROM order_items;
@@ -1152,6 +1210,43 @@ const replaceTransaction = database.transaction((state) => {
     }
   }
 
+  const insertShipment = database.prepare(`
+    INSERT INTO shipments (
+      id, customer_id, driver_id, status, pickup, destination, pickup_lat, pickup_lng,
+      destination_lat, destination_lng, recipient_name, recipient_phone, package_size,
+      description, weight_kg, delivery_notes, distance_km, eta_min, fare, payment_method,
+      delivery_pin, created_at
+    ) VALUES (
+      @id, @customerId, @driverId, @status, @pickup, @destination, @pickupLat, @pickupLng,
+      @destinationLat, @destinationLng, @recipientName, @recipientPhone, @packageSize,
+      @description, @weightKg, @deliveryNotes, @distanceKm, @etaMin, @fare, @paymentMethod,
+      @deliveryPin, @createdAt
+    )
+  `);
+  const insertShipmentTimeline = database.prepare(`
+    INSERT INTO shipment_timeline (id, shipment_id, status, at)
+    VALUES (@id, @shipmentId, @status, @at)
+  `);
+  for (const shipment of state.shipments || []) {
+    insertShipment.run({
+      ...shipment,
+      driverId: shipment.driverId || null,
+      pickupLat: shipment.pickupLocation?.lat ?? null,
+      pickupLng: shipment.pickupLocation?.lng ?? null,
+      destinationLat: shipment.destinationLocation?.lat ?? null,
+      destinationLng: shipment.destinationLocation?.lng ?? null,
+      deliveryNotes: shipment.deliveryNotes || ""
+    });
+    for (const [index, entry] of (shipment.timeline || []).entries()) {
+      insertShipmentTimeline.run({
+        id: `${shipment.id}_timeline_${index}`,
+        shipmentId: shipment.id,
+        status: entry.status,
+        at: entry.at
+      });
+    }
+  }
+
   const insertPromotion = database.prepare(`
     INSERT INTO promotions (id, title, description, service, discount_percent, active)
     VALUES (@id, @title, @description, @service, @discountPercent, @active)
@@ -1369,6 +1464,33 @@ function readRides() {
   }));
 }
 
+function readShipments() {
+  const timelines = database.prepare("SELECT * FROM shipment_timeline ORDER BY at, rowid").all();
+  return database.prepare("SELECT * FROM shipments ORDER BY created_at DESC, rowid DESC").all().map((row) => ({
+    id: row.id,
+    customerId: row.customer_id,
+    driverId: row.driver_id,
+    status: row.status,
+    pickup: row.pickup,
+    destination: row.destination,
+    pickupLocation: row.pickup_lat == null ? null : { lat: row.pickup_lat, lng: row.pickup_lng },
+    destinationLocation: row.destination_lat == null ? null : { lat: row.destination_lat, lng: row.destination_lng },
+    recipientName: row.recipient_name,
+    recipientPhone: row.recipient_phone,
+    packageSize: row.package_size,
+    description: row.description,
+    weightKg: row.weight_kg,
+    deliveryNotes: row.delivery_notes || "",
+    distanceKm: row.distance_km,
+    etaMin: row.eta_min,
+    fare: row.fare,
+    paymentMethod: row.payment_method,
+    deliveryPin: row.delivery_pin,
+    createdAt: row.created_at,
+    timeline: timelines.filter((entry) => entry.shipment_id === row.id).map((entry) => ({ status: entry.status, at: entry.at }))
+  }));
+}
+
 function sanitize(dbState) {
   return {
     ...dbState,
@@ -1411,6 +1533,7 @@ export function readDb() {
     drivers: readDrivers(),
     orders: readOrders(),
     rides: readRides(),
+    shipments: readShipments(),
     promotions: database.prepare("SELECT * FROM promotions ORDER BY rowid").all().map((row) => ({
       id: row.id,
       title: row.title,
@@ -1461,7 +1584,7 @@ export function writeDb(dbState) {
     ...dbState,
     meta: {
       ...dbState.meta,
-      version: Math.max(Number(dbState.meta?.version || 0), 4),
+      version: Math.max(Number(dbState.meta?.version || 0), 5),
       updatedAt: now(),
       database: "sqlite"
     }
@@ -1486,4 +1609,40 @@ export function getTimestamp() {
 
 export function getDatabasePath() {
   return sqlitePath;
+}
+
+const hashRefreshToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
+
+export function createAuthSession(userId, deviceName = "unknown") {
+  const id = createId("SES");
+  const refreshToken = crypto.randomBytes(48).toString("base64url");
+  const createdAt = now();
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  database.prepare(`
+    INSERT INTO auth_sessions (id, user_id, refresh_token_hash, device_name, expires_at, revoked_at, created_at)
+    VALUES (?, ?, ?, ?, ?, NULL, ?)
+  `).run(id, userId, hashRefreshToken(refreshToken), String(deviceName).slice(0, 160), expiresAt, createdAt);
+  return { id, refreshToken, expiresAt };
+}
+
+export function consumeAuthSession(refreshToken, deviceName = "unknown") {
+  const tokenHash = hashRefreshToken(String(refreshToken || ""));
+  const session = database.prepare(`
+    SELECT * FROM auth_sessions
+    WHERE refresh_token_hash = ? AND revoked_at IS NULL AND expires_at > ?
+  `).get(tokenHash, now());
+  if (!session) return null;
+  const replacement = database.transaction(() => {
+    database.prepare("UPDATE auth_sessions SET revoked_at = ? WHERE id = ?").run(now(), session.id);
+    return createAuthSession(session.user_id, deviceName || session.device_name);
+  })();
+  return { userId: session.user_id, ...replacement };
+}
+
+export function revokeAuthSession(refreshToken) {
+  const result = database.prepare(`
+    UPDATE auth_sessions SET revoked_at = ?
+    WHERE refresh_token_hash = ? AND revoked_at IS NULL
+  `).run(now(), hashRefreshToken(String(refreshToken || "")));
+  return result.changes > 0;
 }

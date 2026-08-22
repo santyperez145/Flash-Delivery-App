@@ -1,5 +1,7 @@
 # Flash Mobile Apps
 
+Las variantes Customer, Driver y Merchant se generan con identidades, schemes, perfiles EAS y permisos diferentes. Ver `../../docs/mobile-build-variants.md`.
+
 Base Expo/React Native para las apps reales de cliente, comercio y driver.
 
 ## Objetivo
@@ -33,9 +35,9 @@ En simulador local puede funcionar `http://127.0.0.1:4000/api`. En telefono fisi
 
 - Separar builds por app: cliente, comercio y driver.
 - Agregar navegacion nativa.
-- Agregar mapas, geolocalizacion background controlada y permisos por rol.
+- [x] Geolocalización background controlada para driver, con permisos nativos, foreground service y detención al quedar offline/logout.
 - Agregar push notifications para ofertas, cambios de estado y soporte.
-- Agregar secure storage para tokens y refresh tokens.
+- [x] SecureStore nativo para access/refresh tokens; fallback web explícito y migración automática de la sesión legacy.
 - Agregar EAS Build, EAS Update y crash reporting.
 
 ## Flujos persistentes disponibles

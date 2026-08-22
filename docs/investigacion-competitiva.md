@@ -98,3 +98,42 @@ Referencias oficiales usadas para esta comparacion:
 - [DoorDash Business Manager](https://merchants.doordash.com/en-us/learning-center/business-manager-app)
 - [DoorDash Merchant Portal](https://merchants.doordash.com/en-us/products/merchant-portal)
 - [DoorDash real-time merchant features](https://about.doordash.com/en-us/news/doordash-empowers-merchants-with-new-real-time-features)
+
+## Benchmark visual y de experiencia aplicado
+
+Revision adicional: 14 de agosto de 2026.
+
+Patrones adoptados sin copiar marca ni recursos de terceros:
+
+- Uber Eats: descubrimiento primero, atajos de categorias, filtros rapidos, recomendaciones, volver a pedir y tracking compartible.
+- Uber: origen y destino como accion principal, costo/ETA antes de confirmar y seguridad accesible durante todo el viaje.
+- Lyft: modalidades comparables por espera, capacidad y precio; destinos frecuentes visibles antes de escribir.
+- Rappi/PedidosYa: verticales separadas, promociones de alta visibilidad, comercios por cercania y estado de entrega entendible.
+- DoorDash: estados operativos, disponibilidad, stock y tiempos de preparacion accionables para el comercio.
+
+Decisiones de interfaz para Flash:
+
+1. Mantener Comidas, Viajes y Envios como ventanas claras dentro de una misma identidad.
+2. Contener la experiencia cliente a un ancho mobile y usar carruseles horizontales para evitar grillas rotas.
+3. Mostrar siempre contexto antes de la accion: direccion, ETA, tarifa, disponibilidad y restricciones.
+4. Evitar datos tecnicos o estados crudos en UI; cada estado necesita etiqueta, color, proxima accion y ayuda.
+5. Diseñar primero estados angostos, vacios, loading, error, offline y contenido largo.
+6. Introducir progresivamente favoritos, pedir de nuevo, filtros, pedidos grupales, programacion y multi-comercio solo con soporte real de backend.
+
+Fuentes oficiales adicionales:
+
+- [Nuevo descubrimiento de Uber Eats](https://www.uber.com/us/en/newsroom/arriving-now-the-new-uber-eats/)
+- [Pedidos grupales de Uber Eats](https://www.uber.com/us/en/business/solutions/eats/group-ordering/)
+- [Pedidos multi-comercio de Uber Eats](https://www.uber.com/us/en/newsroom/multi-store-ordering/)
+- [Seguridad de Uber](https://www.uber.com/us/en/safety/)
+- [Modalidades de viaje de Lyft](https://help.lyft.com/hc/en-ca/all/articles/115012927427-Lyft-ride-modes-overview)
+
+## Pricing y rutas competitivas
+
+El cotizador de movilidad adopta el patron de precio adelantado: el servidor combina distancia y duracion previstas, modalidad, oferta/demanda, tarifa de servicio y peajes estimados. La cotizacion se firma y conserva durante cinco minutos; al solicitar, la API valida el token para impedir que el cliente modifique el precio.
+
+La navegacion separa dos responsabilidades, como recomiendan los proveedores de mapas: matriz/estimacion para comparar alternativas y ruta detallada para polyline y maniobras. Flash usa OSRM/OpenStreetMap en desarrollo y deja los proveedores configurables para migrar a trafico predictivo, peajes y SLA comercial.
+
+- [Precio adelantado de Uber](https://www.uber.com/us/en/ride/how-it-works/upfront-pricing/)
+- [Google Routes: matriz de distancia y duracion](https://developers.google.com/maps/documentation/routes/compute_route_matrix)
+- [Google Routes: trafico, peajes y rutas detalladas](https://developers.google.com/maps/documentation/routes/reference/rpc/google.maps.routing.v2)

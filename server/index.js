@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import cors from "cors";
@@ -8,17 +9,272 @@ import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
+import { SpanStatusCode, trace } from "@opentelemetry/api";
 import { config } from "./config.js";
+import { postgresPool, postgresReadiness } from "./postgres.js";
+import { observeHttpRequest, renderPrometheus } from "./observability.js";
 import {
+  createPostgresSession,
+  createPostgresAddress,
+  deletePostgresAddress,
+  findAuthUserByEmail,
+  findAuthUserByPublicId,
+  getPostgresAddresses,
+  getPostgresPaymentMethods,
+  createSandboxPaymentMethod,
+  setDefaultPostgresPaymentMethod,
+  revokePostgresPaymentMethod,
+  getPostgresUsers,
+  getPostgresOperationsUserPage,
+  recordPostgresLoginFailure,
+  recordPostgresLoginSuccess,
+  requestPasswordRecovery,
+  consumePasswordRecovery,
+  resendEmailVerification,
+  confirmEmailVerification,
+  registerAuthUser,
+  revokePostgresSession,
+  rotatePostgresSession,
+  setPostgresDefaultAddress,
+  setPostgresUserStatus,
+  updatePostgresAddress,
+  updatePostgresAuthProfile,
+  usesPostgresAuth,
+} from "./auth-repository.js";
+import {
+  assignPostgresOrderDriver,
+  createPostgresOrder,
+  createPostgresMenuItem,
+  getPostgresOrders,
+  getPostgresFoodDeliveryQuote,
+  getPostgresFoodCheckoutQuote,
+  getPostgresCart,
+  getPostgresDrivers,
+  getPostgresDriverForUser,
+  getPostgresRestaurants,
+  getPostgresRestaurantPage,
+  getPostgresOperationsRestaurantPage,
+  getPostgresOperationsDriverPage,
+  setPostgresOrderStatus,
+  replacePostgresCart,
+  reorderPostgresOrder,
+  updatePostgresMenuItem,
+  replacePostgresItemModifiers,
+  replacePostgresItemDietary,
+  updatePostgresRestaurant,
+  updatePostgresDriver,
+  updatePostgresBranch,
+  updatePostgresBranchInventory,
+  replacePostgresBranchSchedule,
+  upsertPostgresBranchScheduleException,
+  usesPostgresCommerce,
+} from "./commerce-repository.js";
+import {
+  createPostgresRide,
+  createPostgresShipment,
+  getPostgresRides,
+  getPostgresShipments,
+  setPostgresRideStatus,
+  setPostgresShipmentStatus,
+  getPostgresShipmentDeliveryCode,
+  verifyPostgresShipmentDelivery,
+  addPostgresShipmentDeliveryEvidence,
+  getPostgresShipmentDeliveryEvidence,
+  getPostgresShipmentDeliveryEvidenceContent,
+  getShipmentProtectionPlan,
+  getShipmentOptions,
+  getShipmentServiceConfiguration,
+  updateShipmentItemCategory,
+  updateShipmentServiceLevel,
+  getPostgresShipmentReturns,
+  createPostgresShipmentReturn,
+  updatePostgresShipmentReturn,
+  getPostgresShipmentClaims,
+  createPostgresShipmentClaim,
+  updatePostgresShipmentClaim,
+  addPostgresShipmentClaimEvidence,
+  getPostgresShipmentClaimEvidenceContent,
+} from "./mobility-repository.js";
+import {
+  cancelMobilityJobAndRefundWallet,
+  cancelOrderAndRefundWallet,
+  creditWallet,
+  getPostgresWalletTransactions,
+  getWallet,
+  getWalletBalances,
+  settleMobilityWalletPayment,
+} from "./wallet-repository.js";
+import { claimReferral, getReferralSummary } from "./referral-repository.js";
+import { decodeActivityCursor, getActivityPage, getAssignedDriverProjections } from "./activity-repository.js";
+import {
+  getPaymentReconciliation,
+  recordPaymentWebhook,
+  resolvePaymentReconciliationCase,
+  scanPaymentReconciliation,
+  verifyWebhookSignature,
+} from "./payment-repository.js";
+import {
+  assessTransactionRisk,
+  getTransactionRisks,
+  reviewTransactionRisk,
+  setRiskEntity,
+} from "./risk-repository.js";
+import {
+  addPostgresSupportMessage,
+  createPostgresSupportTicket,
+  getPostgresAdminFinancials,
+  getPostgresAuditEvents,
+  getPostgresAuditEventPage,
+  getPostgresNotifications,
+  getPostgresSupportTickets,
+  getPostgresOperationsSupportTicketPage,
+  getSupportAgents,
+  markPostgresNotificationRead,
+  processSupportQueue,
+  recordPostgresAudit,
+  updateSupportAgent,
+  updatePostgresSupportTicket,
+} from "./operations-repository.js";
+import {
+  createPostgresPricingChangeRequest,
+  createPostgresPricingRollbackRequest,
+  createPostgresPromotion,
+  getPostgresPricingChangeRequests,
+  getPostgresPricingPlan,
+  getPostgresPricingPlans,
+  getPostgresPromotions,
+  getPostgresZonePricing,
+  getPostgresZones,
+  reviewPostgresPricingChangeRequest,
+  updatePostgresPromotion,
+  updatePostgresZone,
+} from "./configuration-repository.js";
+import {
+  createPostgresRating,
+  getPostgresFavoriteMerchantIds,
+  getPostgresRatings,
+  setPostgresFavorite,
+} from "./feedback-repository.js";
+import {
+  enqueuePostgresNotification,
+  getNotificationDeadLetters,
+  getPostgresDevices,
+  getPostgresNotificationPreferences,
+  processPostgresNotificationBatch,
+  registerPostgresDevice,
+  replayNotificationDeadLetter,
+  revokePostgresDevice,
+  updatePostgresNotificationPreference,
+} from "./notification-repository.js";
+import {
+  getPostgresDispatchOffers,
+  processPostgresDispatchBatch,
+  rejectPostgresDispatchOffer,
+} from "./dispatch-repository.js";
+import {
+  canReceiveRealtimeEvent,
+  getPostgresRealtimeCursor,
+  getPostgresRealtimeReplay,
+  persistPostgresRealtimeEvent,
+  startPostgresRealtimeListener,
+} from "./realtime-repository.js";
+import {
+  getMerchantFinance,
+  getPayoutReviewQueue,
+  requestMerchantPayout,
+  reviewMerchantPayout,
+} from "./merchant-finance-repository.js";
+import {
+  getUserDietaryPreferences,
+  replaceUserDietaryPreferences,
+} from "./dietary-preference-repository.js";
+import { searchPostgresCatalog } from "./catalog-search-repository.js";
+import {
+  createPostgresTip,
+  getPostgresTips,
+  getTipAdjustments,
+  requestTipAdjustment,
+  reviewTipAdjustment,
+} from "./tip-repository.js";
+import { getOrCreatePostgresReceipt } from "./receipt-repository.js";
+import {
+  createOrderIssue,
+  getOrderIssues,
+  resolveOrderIssue,
+} from "./order-issue-repository.js";
+import {
+  decideOrderSubstitution,
+  getOrderSubstitutions,
+  proposeOrderSubstitution,
+} from "./substitution-repository.js";
+import {
+  createMapCacheKey,
+  getCachedMapResponse,
+  putCachedMapResponse,
+} from "./map-cache-repository.js";
+import {
+  assertDriverCanGoOnline,
+  getDriverCompliance,
+  getDriverDocumentContent,
+  reviewDriverDocument,
+  submitDriverDocument,
+} from "./compliance-repository.js";
+import {
+  activateDriverVehicle,
+  createDriverVehicle,
+  getDriverVehicles,
+  retireDriverVehicle,
+  reviewDriverVehicle,
+  updateDriverVehicle,
+} from "./driver-vehicle-repository.js";
+import {
+  createRideSafetyIncident,
+  createRideTrackingLink,
+  getPublicRideTracking,
+  getRidePickupCode,
+  revokeRideTrackingLink,
+  verifyRidePickupCode,
+} from "./ride-safety-repository.js";
+import {
+  beginAdminMfaEnrollment,
+  confirmAdminMfa,
+  getAdminMfaStatus,
+  verifyAdminMfa,
+} from "./mfa-repository.js";
+import {
+  deletePostgresRideDestination,
+  getPostgresRideDestinations,
+  recordPostgresRideDestination,
+} from "./destination-repository.js";
+import {
+  createPostgresTrustedContact,
+  deletePostgresTrustedContact,
+  getPostgresTrustedContacts,
+} from "./trusted-contact-repository.js";
+import {
+  createServiceMessage,
+  createServiceQuickReply,
+  getServiceAttachmentContent,
+  getServiceMessages,
+  getServiceQuickReplies,
+  listServiceQuickReplies,
+  markServiceMessagesRead,
+  updateServiceQuickReply,
+} from "./service-chat-repository.js";
+import {
+  consumeAuthSession,
+  createAuthSession,
   createId,
   getPublicState,
   getDatabasePath,
   getTimestamp,
   orderStatuses,
-  readDb,
+  readDb as readFallbackDb,
+  revokeAuthSession,
   resetDb,
   rideStatuses,
-  writeDb
+  shipmentStatuses,
+  writeDb,
 } from "./store.js";
 
 const app = express();
@@ -27,19 +283,29 @@ const jwtSecret = config.jwtSecret;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const distDir = path.resolve(__dirname, "..", "dist");
-const realtimeClients = new Set();
+const realtimeClients = new Map();
+const processStartedAt = Date.now();
+let sqliteRuntimeReads = 0;
+function readDb() {
+  sqliteRuntimeReads += 1;
+  return readFallbackDb();
+}
 
 app.disable("x-powered-by");
 app.set("trust proxy", config.isProduction ? 1 : false);
 
-const ok = (res, payload = {}) => res.json({ ok: true, requestId: res.locals.requestId, ...payload });
-const fail = (res, status, message) => res.status(status).json({ ok: false, requestId: res.locals.requestId, message });
+const ok = (res, payload = {}) =>
+  res.json({ ok: true, requestId: res.locals.requestId, ...payload });
+const fail = (res, status, message) =>
+  res
+    .status(status)
+    .json({ ok: false, requestId: res.locals.requestId, message });
 const parseOrFail = (schema, payload) => {
   const result = schema.safeParse(payload);
   if (!result.success) {
     return {
       ok: false,
-      message: result.error.issues.map((issue) => issue.message).join(", ")
+      message: result.error.issues.map((issue) => issue.message).join(", "),
     };
   }
   return { ok: true, data: result.data };
@@ -56,34 +322,78 @@ function requestContext(req, res, next) {
   req.requestId = requestId;
   res.locals.requestId = requestId;
   res.setHeader("X-Request-Id", requestId);
+  trace.getActiveSpan()?.setAttribute("flash.request.id", requestId);
   next();
 }
 
 function requestLogger(req, res, next) {
-  if (config.logLevel === "silent") return next();
   const start = Date.now();
+  const span = trace.getActiveSpan();
   res.on("finish", () => {
-    console.log(
-      JSON.stringify({
-        level: res.statusCode >= 500 ? "error" : "info",
-        requestId: req.requestId,
-        method: req.method,
-        path: req.originalUrl,
-        status: res.statusCode,
-        durationMs: Date.now() - start
-      })
-    );
+    const durationMs = Date.now() - start;
+    const route = req.route?.path || req.originalUrl.split("?", 1)[0];
+    span?.updateName(`${req.method} ${route}`);
+    span?.setAttributes({
+      "http.route": route,
+      "http.response.status_code": res.statusCode,
+      "flash.http.duration_ms": durationMs,
+    });
+    if (res.statusCode >= 500) span?.setStatus({ code: SpanStatusCode.ERROR });
+    observeHttpRequest({
+      method: req.method,
+      path: route,
+      status: res.statusCode,
+      durationMs,
+    });
+    if (config.logLevel !== "silent")
+      console.log(
+        JSON.stringify({
+          level: res.statusCode >= 500 ? "error" : "info",
+          requestId: req.requestId,
+          method: req.method,
+          path: req.originalUrl,
+          status: res.statusCode,
+          durationMs,
+        }),
+      );
   });
   return next();
 }
 
-function writeSseEvent(client, event, data) {
+function writeSseEvent(client, event, data, cursor = null) {
   if (client.destroyed || client.writableEnded) return false;
-  client.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  client.write(
+    `${cursor ? `id: ${cursor}\n` : ""}event: ${event}\ndata: ${JSON.stringify(data)}\n\n`,
+  );
   return true;
 }
 
-function publishRealtimeEvent({ req, type, entityType = null, entityId = null, action = null }) {
+function fanoutRealtimeEvent(payload) {
+  for (const [client, context] of realtimeClients) {
+    if (!canReceiveRealtimeEvent(payload, context)) continue;
+    if (!writeSseEvent(client, "state.updated", payload, payload.cursor))
+      realtimeClients.delete(client);
+  }
+}
+
+async function publishRealtimeEvent({
+  req,
+  type,
+  entityType = null,
+  entityId = null,
+  action = null,
+}) {
+  if (postgresPool) {
+    await persistPostgresRealtimeEvent({
+      type,
+      entityType,
+      entityId,
+      action,
+      requestId: req?.requestId || null,
+      actorPublicId: req?.auth?.userId || null,
+    });
+    return;
+  }
   const payload = {
     id: createId("EVT"),
     type,
@@ -91,15 +401,23 @@ function publishRealtimeEvent({ req, type, entityType = null, entityId = null, a
     entityId,
     action,
     requestId: req?.requestId || null,
-    at: getTimestamp()
+    at: getTimestamp(),
   };
-  for (const client of realtimeClients) {
-    if (!writeSseEvent(client, "state.updated", payload)) realtimeClients.delete(client);
-  }
+  for (const [client] of realtimeClients)
+    if (!writeSseEvent(client, "state.updated", payload))
+      realtimeClients.delete(client);
 }
 
+const stopRealtimeListener = postgresPool
+  ? await startPostgresRealtimeListener(fanoutRealtimeEvent)
+  : null;
+
 function corsOrigin(origin, callback) {
-  if (!origin || config.corsOrigins.includes("*") || config.corsOrigins.includes(origin)) {
+  if (
+    !origin ||
+    config.corsOrigins.includes("*") ||
+    config.corsOrigins.includes(origin)
+  ) {
     return callback(null, true);
   }
   const error = new Error("Origen no permitido por CORS");
@@ -114,7 +432,7 @@ function createLimiter({ max, message }) {
     standardHeaders: "draft-8",
     legacyHeaders: false,
     skip: (req) => ["/health", "/ready"].includes(req.path),
-    handler: (_req, res) => fail(res, 429, message)
+    handler: (_req, res) => fail(res, 429, message),
   });
 }
 
@@ -124,25 +442,32 @@ app.use(
   helmet({
     contentSecurityPolicy: false,
     crossOriginEmbedderPolicy: false,
-    strictTransportSecurity: config.isProduction ? undefined : false
-  })
+    strictTransportSecurity: config.isProduction ? undefined : false,
+  }),
 );
 app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(
   "/api",
   createLimiter({
     max: config.rateLimit.max,
-    message: "Demasiadas solicitudes. Intenta nuevamente en unos segundos."
-  })
+    message: "Demasiadas solicitudes. Intenta nuevamente en unos segundos.",
+  }),
 );
 app.use(
   "/api/auth",
   createLimiter({
     max: config.rateLimit.authMax,
-    message: "Demasiados intentos de autenticacion. Intenta mas tarde."
-  })
+    message: "Demasiados intentos de autenticacion. Intenta mas tarde.",
+  }),
 );
-app.use(express.json({ limit: "1mb" }));
+app.use(
+  express.json({
+    limit: "1mb",
+    verify: (req, _res, buffer) => {
+      req.rawBody = Buffer.from(buffer);
+    },
+  }),
+);
 
 function getBearerToken(req) {
   const header = req.headers.authorization || "";
@@ -150,18 +475,25 @@ function getBearerToken(req) {
   return header.slice("Bearer ".length).trim();
 }
 
-function requireAuth(req, res, next) {
+async function requireAuth(req, res, next) {
   const token = getBearerToken(req);
   if (!token) return fail(res, 401, "Token requerido");
   try {
     const payload = jwt.verify(token, jwtSecret);
-    const db = readDb();
-    const user = db.users.find((entry) => entry.id === payload.sub);
+    const db = usesPostgresAuth() ? null : readDb();
+    const user = usesPostgresAuth()
+      ? await findAuthUserByPublicId(payload.sub)
+      : db.users.find((entry) => entry.id === payload.sub);
     if (!user) return fail(res, 401, "Usuario no existe");
     req.auth = {
       userId: user.id,
       roles: Array.isArray(user.roles) ? user.roles : [],
-      user
+      user,
+      mfaVerified: payload.mfa === true,
+      mfa:
+        usesPostgresAuth() && user.roles?.includes("admin")
+          ? await getAdminMfaStatus(user.id)
+          : { enabled: false },
     };
     return next();
   } catch (_error) {
@@ -174,27 +506,55 @@ function hasRole(req, role) {
 }
 
 function isAdmin(req) {
-  return hasRole(req, "admin");
+  return (
+    hasRole(req, "admin") &&
+    !(
+      (req.auth?.mfa?.enabled || config.requireAdminMfa) &&
+      !req.auth?.mfaVerified
+    )
+  );
 }
 
-const requireAnyRole = (...roles) => (req, res, next) => {
-  if (!req.auth) return fail(res, 401, "Token requerido");
-  if (!roles.some((role) => hasRole(req, role))) {
-    return fail(res, 403, "No tienes permisos para esta accion");
-  }
-  return next();
-};
+const requireAnyRole =
+  (...roles) =>
+  (req, res, next) => {
+    if (!req.auth) return fail(res, 401, "Token requerido");
+    if (!roles.some((role) => hasRole(req, role))) {
+      return fail(res, 403, "No tienes permisos para esta accion");
+    }
+    if (
+      roles.includes("admin") &&
+      hasRole(req, "admin") &&
+      (req.auth.mfa?.enabled || config.requireAdminMfa) &&
+      !req.auth.mfaVerified
+    ) {
+      return fail(
+        res,
+        403,
+        "Completa el segundo factor para usar privilegios administrativos",
+      );
+    }
+    return next();
+  };
 
 function canActAsCustomer(req, customerId) {
-  return isAdmin(req) || (hasRole(req, "customer") && req.auth.userId === customerId);
+  return (
+    isAdmin(req) || (hasRole(req, "customer") && req.auth.userId === customerId)
+  );
 }
 
 function canActAsDriver(req, driverId) {
-  return isAdmin(req) || (hasRole(req, "driver") && req.auth.user.driverId === driverId);
+  return (
+    isAdmin(req) ||
+    (hasRole(req, "driver") && req.auth.user.driverId === driverId)
+  );
 }
 
 function canManageRestaurant(req, restaurant) {
-  return isAdmin(req) || (hasRole(req, "merchant") && restaurant.ownerId === req.auth.userId);
+  return (
+    isAdmin(req) ||
+    (hasRole(req, "merchant") && restaurant.ownerId === req.auth.userId)
+  );
 }
 
 function canAdvanceOrder(req, db, order) {
@@ -224,7 +584,10 @@ function canAdvanceRide(req, ride) {
 function canMutateRideStatus(req, ride, status) {
   if (isAdmin(req)) return true;
   if (status !== "cancelled") return false;
-  return canActAsCustomer(req, ride.customerId) || (ride.driverId && canActAsDriver(req, ride.driverId));
+  return (
+    canActAsCustomer(req, ride.customerId) ||
+    (ride.driverId && canActAsDriver(req, ride.driverId))
+  );
 }
 
 function audit(db, req, entityType, entityId, action, payload = {}) {
@@ -235,41 +598,107 @@ function audit(db, req, entityType, entityId, action, payload = {}) {
     entityId,
     action,
     payload,
-    createdAt: getTimestamp()
+    createdAt: getTimestamp(),
   };
   db.auditEvents = [event, ...(db.auditEvents || [])].slice(0, 500);
+}
+// The database independently locks PIN verification after five failures. This
+// wider edge budget also covers authorized photo upload/download operations.
+const deliveryProofLimiter = createLimiter({
+  max: 30,
+  message: "Demasiadas operaciones de prueba de entrega. Intenta más tarde.",
+});
+const serviceChatLimiter = createLimiter({
+  max: 60,
+  message: "Demasiados mensajes. Espera antes de continuar.",
+});
+
+async function auditRuntime(
+  db,
+  req,
+  entityType,
+  entityId,
+  action,
+  payload = {},
+) {
+  if (usesPostgresCommerce())
+    await recordPostgresAudit({
+      actorPublicId: req.auth?.userId,
+      roles: req.auth?.roles || [],
+      action,
+      entityType,
+      entityId,
+      requestId: req.requestId,
+      afterData: payload,
+    });
+  else {
+    audit(db, req, entityType, entityId, action, payload);
+    writeDb(db);
+  }
 }
 
 const loginSchema = z.object({
   email: z.string().email("Email invalido"),
-  password: z.string().min(4, "Password demasiado corto")
+  password: z.string().min(4, "Password demasiado corto"),
 });
 
 const registerSchema = z.object({
   name: z.string().min(2, "Nombre obligatorio"),
   email: z.string().email("Email invalido"),
-  password: z.string().min(6, "Password minimo 6 caracteres"),
-  phone: z.string().optional()
+  password: z
+    .string()
+    .min(8, "Password minimo 8 caracteres")
+    .max(128, "Password demasiado largo"),
+  phone: z.string().trim().max(30).optional(),
+  deviceName: z.string().trim().max(160).optional(),
+});
+const passwordRecoveryRequestSchema = z.object({
+  email: z.string().email("Email inválido"),
+});
+const passwordRecoveryConsumeSchema = z.object({
+  token: z.string().min(40).max(128),
+  password: z
+    .string()
+    .min(8, "Password mínimo 8 caracteres")
+    .max(128, "Password demasiado largo"),
+});
+const emailVerificationRequestSchema = z.object({
+  email: z.string().email("Email inválido"),
+});
+const emailVerificationConfirmSchema = emailVerificationRequestSchema.extend({
+  code: z.string().regex(/^\d{6}$/, "Código inválido"),
+});
+const mfaCodeSchema = z.object({ code: z.string().trim().min(6).max(32) });
+const mfaCompleteSchema = mfaCodeSchema.extend({
+  challenge: z.string().min(20),
+  deviceName: z.string().trim().max(160).optional(),
 });
 
 const coordinateSchema = z.object({
   lat: z.coerce.number().min(-90).max(90),
-  lng: z.coerce.number().min(-180).max(180)
+  lng: z.coerce.number().min(-180).max(180),
 });
 
 const orderSchema = z.object({
   customerId: z.string().min(1),
   restaurantId: z.string().min(1),
+  deliveryAddressId: z.string().uuid().optional(),
+  branchId: z.string().min(3).max(100).optional(),
   deliveryAddress: z.string().min(3),
   paymentMethod: z.string().min(2),
-  items: z.array(
-    z.object({
-      menuItemId: z.string().min(1),
-      quantity: z.coerce.number().int().min(1).max(30),
-      extras: z.array(z.string()).default([]),
-      note: z.string().default("")
-    })
-  ).min(1)
+  paymentMethodId: z.string().uuid().optional(),
+  promotionCode: z.string().trim().min(3).max(40).optional(),
+  quoteToken: z.string().min(20).optional(),
+  items: z
+    .array(
+      z.object({
+        menuItemId: z.string().min(1),
+        quantity: z.coerce.number().int().min(1).max(30),
+        extras: z.array(z.string().trim().min(1).max(100)).max(20).default([]),
+        note: z.string().trim().max(500).default(""),
+      }),
+    )
+    .min(1),
 });
 
 const rideQuoteSchema = z.object({
@@ -277,26 +706,826 @@ const rideQuoteSchema = z.object({
   destination: z.string().min(3, "Destino obligatorio"),
   service: z.enum(["economy", "comfort", "moto", "xl"]).default("economy"),
   pickupCoords: coordinateSchema.nullable().optional(),
-  destinationCoords: coordinateSchema.nullable().optional()
+  destinationCoords: coordinateSchema.nullable().optional(),
 });
 
 const rideCreateSchema = rideQuoteSchema.extend({
   customerId: z.string().min(1),
-  paymentMethod: z.string().min(2)
+  paymentMethod: z.string().min(2),
+  quoteToken: z.string().min(20).optional(),
+  scheduledFor: z.string().datetime().optional(),
+});
+const foodOrderQuoteSchema = z.object({
+  customerId: z.string().min(1),
+  restaurantId: z.string().min(1),
+  deliveryAddressId: z.string().uuid(),
+  branchId: z.string().min(3).max(100).optional(),
+  paymentMethod: z.string().min(2).optional(),
+  paymentMethodId: z.string().uuid().optional(),
+  promotionCode: z.string().trim().min(3).max(40).optional(),
+  items: z
+    .array(
+      z.object({
+        menuItemId: z.string().min(1),
+        quantity: z.coerce.number().int().min(1).max(30),
+        extras: z.array(z.string().trim().min(1).max(100)).max(20).default([]),
+        note: z.string().trim().max(500).default(""),
+      }),
+    )
+    .min(1)
+    .max(50)
+    .optional(),
+});
+
+const cartSchema = z.object({
+  restaurantId: z.string().min(1).optional(),
+  items: z
+    .array(
+      z.object({
+        menuItemId: z.string().min(1),
+        quantity: z.coerce.number().int().min(1).max(99),
+        extras: z.array(z.string().trim().min(1).max(100)).max(20).default([]),
+        note: z.string().trim().max(500).default(""),
+      }),
+    )
+    .max(99),
+});
+
+const refreshSchema = z.object({
+  refreshToken: z.string().min(32),
+  deviceName: z.string().trim().max(160).optional(),
+});
+
+const shipmentQuoteSchema = z.object({
+  pickup: z.string().min(3, "Origen obligatorio"),
+  destination: z.string().min(3, "Destino obligatorio"),
+  packageSize: z.enum(["small", "medium", "large"]),
+  weightKg: z.coerce.number().positive().max(20),
+  declaredValue: z.coerce.number().nonnegative().max(1000000).default(0),
+  protection: z.enum(["none", "standard"]).default("none"),
+  signatureRequired: z.boolean().default(false),
+  itemCategory: z
+    .string()
+    .regex(/^[a-z][a-z0-9_]{1,31}$/)
+    .default("standard"),
+  serviceLevel: z
+    .string()
+    .regex(/^[a-z][a-z0-9_]{1,31}$/)
+    .default("standard"),
+  pickupCoords: coordinateSchema.nullable().optional(),
+  destinationCoords: coordinateSchema.nullable().optional(),
+  quoteToken: z.string().min(20).optional(),
+});
+
+const shipmentCreateSchema = shipmentQuoteSchema.extend({
+  customerId: z.string().min(1),
+  recipientName: z.string().trim().min(2).max(120),
+  recipientPhone: z.string().trim().min(6).max(40),
+  description: z.string().trim().min(2).max(180),
+  deliveryNotes: z.string().trim().max(300).default(""),
+  paymentMethod: z.string().min(2),
+  termsAccepted: z.literal(true, {
+    error: "Debes aceptar las restricciones de envio",
+  }),
+});
+const shipmentReturnSchema = z.object({
+    reason: z.string().trim().min(5).max(500),
+  }),
+  shipmentReturnUpdateSchema = z.object({
+    status: z.enum(["approved", "rejected", "in_transit", "completed"]),
+    resolutionNote: z.string().trim().min(3).max(500).optional(),
+  });
+const shipmentClaimSchema = z.object({
+    claimType: z.enum(["lost", "damaged", "stolen"]),
+    description: z.string().trim().min(10).max(1000),
+    requestedAmount: z.coerce.number().positive().max(1000000),
+  }),
+  shipmentClaimUpdateSchema = z.object({
+    status: z.enum([
+      "under_review",
+      "approved",
+      "rejected",
+      "settlement_pending",
+      "settled",
+    ]),
+    resolutionNote: z.string().trim().min(5).max(1000),
+    approvedAmount: z.coerce.number().positive().max(1000000).optional(),
+  }),
+  shipmentClaimEvidenceSchema = z.object({
+    fileName: z.string().trim().min(1).max(160),
+    mimeType: z.enum(["image/jpeg", "image/png", "application/pdf"]),
+    contentBase64: z.string().min(4).max(1024000),
+  });
+const shipmentCategoryUpdateSchema = z
+  .object({
+    name: z.string().trim().min(2).max(80).optional(),
+    handlingInstructions: z.string().trim().min(3).max(300).optional(),
+    surcharge: z.coerce.number().nonnegative().max(100000).optional(),
+    maximumWeightKg: z.coerce.number().positive().max(20).optional(),
+    active: z.boolean().optional(),
+  })
+  .refine(
+    (value) => Object.keys(value).length > 0,
+    "Indicá al menos un cambio",
+  );
+const shipmentServiceLevelUpdateSchema = z
+  .object({
+    name: z.string().trim().min(2).max(80).optional(),
+    transportMultiplier: z.coerce.number().min(0.5).max(5).optional(),
+    etaMultiplier: z.coerce.number().min(0.25).max(3).optional(),
+    maximumDistanceKm: z.coerce
+      .number()
+      .positive()
+      .max(500)
+      .nullable()
+      .optional(),
+    active: z.boolean().optional(),
+  })
+  .refine(
+    (value) => Object.keys(value).length > 0,
+    "Indicá al menos un cambio",
+  );
+const payoutRequestSchema = z.object({
+  amount: z.coerce.number().positive().max(100000000),
+  merchantId: z.string().optional(),
+});
+const payoutReviewSchema = z.object({
+  decision: z.enum(["approved", "rejected"]),
+  note: z.string().trim().min(5).max(1000),
 });
 
 const driverLocationSchema = coordinateSchema.extend({
-  label: z.string().trim().min(2).max(120).optional()
+  label: z.string().trim().min(2).max(120).optional(),
+  source:z.enum(["foreground","background"]).optional(),
+  accuracyM:z.coerce.number().min(0).max(1000).optional(),
 });
+const driverVehicleFields={
+  kind:z.enum(["bicycle","motorcycle","car","van"]),
+  model:z.string().trim().min(2).max(80),
+  plate:z.string().trim().min(3).max(16).regex(/^[A-Za-z0-9 -]+$/),
+  color:z.string().trim().min(2).max(40).nullable().optional(),
+  seats:z.coerce.number().int().min(1).max(8).nullable().optional(),
+  serviceModes:z.array(z.enum(["delivery","ride"])).min(1).max(2),
+};
+const driverVehicleSchema=z.object(driverVehicleFields).superRefine((value,ctx)=>{
+  if(value.serviceModes.includes("ride")&&(!["car","van"].includes(value.kind)||!value.seats))ctx.addIssue({code:"custom",path:["seats"],message:"Viajes requiere auto o van con asientos declarados"});
+});
+const driverVehicleUpdateSchema=z.object(Object.fromEntries(Object.entries(driverVehicleFields).map(([key,value])=>[key,value.optional()]))).refine(value=>Object.keys(value).length>0,"Indicá al menos un cambio");
+const driverVehicleReviewSchema=z.object({status:z.enum(["approved","rejected"]),rejectionReason:z.string().trim().max(500).nullable().optional()}).superRefine((value,ctx)=>{if(value.status==="rejected"&&(!value.rejectionReason||value.rejectionReason.length<5))ctx.addIssue({code:"custom",path:["rejectionReason"],message:"Explica el rechazo"});});
 
 const profileSchema = z.object({
   name: z.string().trim().min(2).max(120),
   phone: z.string().trim().max(40).optional().default(""),
-  defaultAddress: z.string().trim().min(3).max(240)
+  defaultAddress: z.string().trim().min(3).max(240),
 });
 
 const walletTopUpSchema = z.object({
-  amount: z.coerce.number().int().min(1000).max(200000)
+  amount: z.coerce.number().int().min(1000).max(200000),
+});
+const referralClaimSchema = z.object({
+  code: z.string().trim().toUpperCase().regex(/^FLASH[A-Z0-9]{8}$/),
+});
+const driverDocumentSchema = z
+  .object({
+    type: z.enum([
+      "identity",
+      "driver_license",
+      "vehicle_registration",
+      "insurance",
+      "background_check",
+    ]),
+    mimeType: z.enum(["image/jpeg", "image/png", "application/pdf"]),
+    contentBase64: z.string().min(4).max(1000000),
+    expiresAt: z.string().date().nullable().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (
+      ["driver_license", "vehicle_registration", "insurance"].includes(
+        value.type,
+      ) &&
+      !value.expiresAt
+    )
+      ctx.addIssue({
+        code: "custom",
+        path: ["expiresAt"],
+        message: "El vencimiento es obligatorio",
+      });
+    if (
+      value.expiresAt &&
+      new Date(`${value.expiresAt}T23:59:59Z`) < new Date()
+    )
+      ctx.addIssue({
+        code: "custom",
+        path: ["expiresAt"],
+        message: "El documento está vencido",
+      });
+  });
+const driverDocumentReviewSchema = z
+  .object({
+    status: z.enum(["approved", "rejected"]),
+    rejectionReason: z.string().trim().max(500).nullable().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (
+      value.status === "rejected" &&
+      (!value.rejectionReason || value.rejectionReason.length < 5)
+    )
+      ctx.addIssue({
+        code: "custom",
+        path: ["rejectionReason"],
+        message: "Explica el rechazo",
+      });
+  });
+const addressSchema = z.object({
+  label: z.string().trim().min(1).max(60),
+  address: z.string().trim().min(3).max(240),
+  lat: z.coerce.number().min(-90).max(90),
+  lng: z.coerce.number().min(-180).max(180),
+  isDefault: z.boolean().default(false),
+});
+const rideDestinationSchema = z.object({
+  label: z.string().trim().min(1).max(80),
+  address: z.string().trim().min(3).max(240),
+  lat: z.coerce.number().min(-90).max(90),
+  lng: z.coerce.number().min(-180).max(180),
+});
+const trustedContactSchema = z.object({
+  name: z.string().trim().min(2).max(80),
+  relationship: z.enum(["family", "friend", "partner", "coworker", "other"]),
+  phone: z
+    .string()
+    .trim()
+    .regex(
+      /^\+[1-9][0-9]{7,14}$/,
+      "Usa formato internacional, por ejemplo +5491112345678",
+    ),
+});
+const sandboxPaymentMethodSchema = z
+  .object({
+    providerToken: z
+      .string()
+      .regex(/^pm_test_[A-Za-z0-9_-]{8,120}$/, "Token sandbox inválido"),
+    brand: z.enum(["visa", "mastercard", "amex", "cabal"]),
+    last4: z.string().regex(/^\d{4}$/),
+    expiryMonth: z.coerce.number().int().min(1).max(12),
+    expiryYear: z.coerce
+      .number()
+      .int()
+      .min(new Date().getUTCFullYear())
+      .max(new Date().getUTCFullYear() + 25),
+    isDefault: z.boolean().default(false),
+  })
+  .superRefine((value, ctx) => {
+    const now = new Date();
+    if (
+      value.expiryYear === now.getUTCFullYear() &&
+      value.expiryMonth < now.getUTCMonth() + 1
+    )
+      ctx.addIssue({
+        code: "custom",
+        path: ["expiryMonth"],
+        message: "La tarjeta está vencida",
+      });
+  });
+const paymentReconciliationResolutionSchema = z.object({
+  status: z.enum(["resolved", "ignored"]),
+  resolutionNote: z.string().trim().min(5).max(1000),
+});
+const transactionRiskReviewSchema = z.object({
+  reviewStatus: z.enum(["confirmed_fraud", "false_positive", "cleared"]),
+  reviewNote: z.string().trim().min(5).max(1000),
+});
+
+const supportTicketCreateSchema = z.object({
+  category: z.enum([
+    "food",
+    "ride",
+    "shipment",
+    "payment",
+    "account",
+    "safety",
+    "other",
+  ]),
+  priority: z.enum(["low", "normal", "high", "urgent"]).default("normal"),
+  subject: z.string().trim().min(4).max(160),
+  body: z.string().trim().min(4).max(5000),
+  jobId: z.string().trim().max(64).optional(),
+});
+const rideTrackingCreateSchema = z.object({
+  ttlMinutes: z.coerce.number().int().min(15).max(1440).default(180),
+});
+const rideSafetyIncidentSchema = z.object({
+  type: z.enum([
+    "sos",
+    "unsafe_driving",
+    "medical",
+    "harassment",
+    "crash",
+    "other",
+  ]),
+  details: z.string().trim().max(1000).optional(),
+  location: z
+    .object({
+      lat: z.coerce.number().min(-90).max(90),
+      lng: z.coerce.number().min(-180).max(180),
+    })
+    .optional(),
+});
+const ridePickupVerificationSchema = z.object({
+  pin: z.string().regex(/^\d{4}$/, "El PIN debe tener 4 dígitos"),
+});
+const serviceMessageSchema = z
+  .object({
+    body: z.string().trim().max(1000).optional().default(""),
+    attachment: z
+      .object({
+        fileName: z.string().trim().min(1).max(160),
+        mimeType: z.enum(["image/jpeg", "image/png", "application/pdf"]),
+        contentBase64: z.string().min(4).max(1024000),
+      })
+      .optional(),
+  })
+  .refine(
+    (value) => Boolean(value.body || value.attachment),
+    "El mensaje requiere texto o adjunto",
+  );
+const serviceQuickReplyFields = {
+  serviceScope: z.enum(["all", "food", "ride", "shipment"]),
+  audience: z.enum(["customer", "driver", "merchant"]),
+  locale: z.string().regex(/^[a-z]{2}-[A-Z]{2}$/),
+  body: z.string().trim().min(1).max(160),
+  position: z.coerce.number().int().min(0).max(1000),
+  active: z.boolean(),
+};
+const serviceQuickReplyCreateSchema = z.object(serviceQuickReplyFields),
+  serviceQuickReplyUpdateSchema = z
+    .object(
+      Object.fromEntries(
+        Object.entries(serviceQuickReplyFields).map(([key, value]) => [
+          key,
+          value.optional(),
+        ]),
+      ),
+    )
+    .refine((value) => Object.keys(value).length > 0, "No hay cambios");
+const supportMessageSchema = z.object({
+  body: z.string().trim().min(1).max(5000),
+  internal: z.boolean().default(false),
+});
+const supportTicketUpdateSchema = z
+  .object({
+    status: z
+      .enum([
+        "open",
+        "waiting_customer",
+        "waiting_operations",
+        "resolved",
+        "closed",
+      ])
+      .optional(),
+    priority: z.enum(["low", "normal", "high", "urgent"]).optional(),
+    assignedTo: z.string().trim().max(64).optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, "Debes indicar un cambio");
+const supportAgentUpdateSchema = z
+  .object({
+    availability: z.enum(["available", "busy", "offline"]).optional(),
+    maxActiveTickets: z.coerce.number().int().min(1).max(100).optional(),
+    skills: z.array(z.string().trim().min(1).max(80)).min(1).max(20).optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, "Debes indicar un cambio");
+const supportQueueProcessSchema = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+});
+const promotionFields = z.object({
+  code: z.string().trim().min(3).max(40).optional(),
+  title: z.string().trim().min(3).max(160),
+  description: z.string().trim().max(500).default(""),
+  service: z.enum(["food", "ride"]),
+  kind: z.enum(["percentage", "fixed", "free_delivery", "wallet_credit"]),
+  value: z.coerce.number().int().positive(),
+  maxDiscount: z.coerce.number().nonnegative().optional(),
+  minSubtotal: z.coerce.number().nonnegative().default(0),
+  usageLimit: z.coerce.number().int().positive().optional(),
+  perUserLimit: z.coerce.number().int().positive().max(100).default(1),
+  startsAt: z.string().datetime(),
+  endsAt: z.string().datetime(),
+  rules: z.record(z.string(), z.unknown()).default({}),
+  active: z.boolean().default(true),
+});
+const promotionCreateSchema = promotionFields.refine(
+  (value) => new Date(value.endsAt) > new Date(value.startsAt),
+  "La fecha final debe ser posterior",
+);
+const promotionUpdateSchema = promotionFields
+  .partial()
+  .refine(
+    (value) =>
+      Object.keys(value).length > 0 &&
+      (!value.startsAt ||
+        !value.endsAt ||
+        new Date(value.endsAt) > new Date(value.startsAt)),
+    "Cambio de promoción inválido",
+  );
+const zoneUpdateSchema = z
+  .object({
+    name: z.string().trim().min(2).max(120).optional(),
+    demandLevel: z.enum(["low", "medium", "high"]).optional(),
+    deliveryMultiplier: z.coerce.number().min(0.5).max(3).optional(),
+    rideMultiplier: z.coerce.number().min(0.5).max(3).optional(),
+    active: z.boolean().optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, "Debes indicar un cambio");
+const favoriteSchema = z.object({ favorite: z.boolean() });
+const ratingSchema = z.object({
+  jobId: z.string().min(3).max(64),
+  subjectType: z.enum(["driver", "merchant", "customer"]),
+  score: z.coerce.number().int().min(1).max(5),
+  tags: z.array(z.string().trim().min(1).max(40)).max(10).default([]),
+  comment: z.string().trim().max(1000).default(""),
+});
+const deviceSchema = z.object({
+  platform: z.enum(["ios", "android", "web"]),
+  pushToken: z.string().trim().min(16).max(512),
+  appVersion: z.string().trim().max(40).optional(),
+  deviceFingerprint: z.string().trim().min(8).max(256),
+});
+const notificationPreferenceSchema = z.object({
+  pushEnabled: z.boolean(),
+  emailEnabled: z.boolean(),
+});
+const deliveryPinSchema = z.object({
+  pin: z.string().regex(/^\d{4}$/, "El PIN debe tener cuatro dígitos"),
+});
+const deliveryEvidenceSchema = z
+  .object({
+    type: z.enum(["photo", "signature"]),
+    mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+    contentBase64: z.string().min(4).max(2100000),
+    capturedAt: z.string().datetime().optional(),
+    location: z
+      .object({
+        lat: z.coerce.number().min(-90).max(90),
+        lng: z.coerce.number().min(-180).max(180),
+      })
+      .optional(),
+    signerName: z.string().trim().min(2).max(120).optional(),
+    signerRelationship: z.enum(["recipient", "authorized_person"]).optional(),
+    consentVersion: z.literal("shipment-receipt-v1").optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (
+      value.type === "signature" &&
+      (!value.signerName || !value.signerRelationship || !value.consentVersion)
+    )
+      ctx.addIssue({
+        code: "custom",
+        message: "La firma requiere identidad, relación y consentimiento",
+      });
+    if (
+      value.type === "photo" &&
+      (value.signerName || value.signerRelationship || value.consentVersion)
+    )
+      ctx.addIssue({
+        code: "custom",
+        message: "Los datos del firmante sólo corresponden a una firma",
+      });
+  });
+const userStatusSchema = z.object({
+  status: z.enum(["active", "suspended"]),
+  reason: z.string().trim().min(5).max(240),
+});
+const tipSchema = z.object({
+  amount: z.coerce.number().int().min(100).max(100000),
+});
+const tipAdjustmentRequestSchema = z.object({
+  tipId: z.string().trim().min(8).max(80),
+  amount: z.coerce.number().positive().max(100000),
+  reason: z.string().trim().min(5).max(1000),
+});
+const tipAdjustmentReviewSchema = z.object({
+  decision: z.enum(["approved", "rejected"]),
+  note: z.string().trim().min(5).max(1000),
+});
+const orderIssueSchema = z.object({
+  category: z.enum([
+    "missing_item",
+    "wrong_item",
+    "damaged_item",
+    "quality",
+    "late",
+    "other",
+  ]),
+  description: z.string().trim().min(5).max(1000),
+  requestedRefund: z.coerce.number().nonnegative().max(1000000),
+});
+const orderIssueResolutionSchema = z
+  .object({
+    status: z.enum(["approved", "rejected"]),
+    approvedRefund: z.coerce.number().nonnegative().max(1000000).default(0),
+    resolutionNote: z.string().trim().min(3).max(1000),
+  })
+  .superRefine((value, ctx) => {
+    if (value.status === "rejected" && value.approvedRefund !== 0)
+      ctx.addIssue({
+        code: "custom",
+        path: ["approvedRefund"],
+        message: "Una incidencia rechazada no puede reintegrar dinero",
+      });
+  });
+const substitutionProposalSchema = z.object({
+  originalMenuItemId: z.string().min(3).max(100),
+  replacementMenuItemId: z.string().min(3).max(100),
+  reason: z.string().trim().min(3).max(500),
+});
+const substitutionDecisionSchema = z.object({
+  decision: z.enum(["accepted", "rejected"]),
+});
+const branchUpdateSchema = z
+  .object({
+    open: z.boolean().optional(),
+    etaMin: z.coerce.number().int().min(5).max(240).optional(),
+    status: z.enum(["active", "paused", "closed"]).optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, "Debes indicar un cambio");
+const branchInventorySchema = z.object({
+  available: z.boolean(),
+  stockQuantity: z.coerce.number().int().nonnegative().nullable().optional(),
+});
+const localTimeSchema = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Hora inválida");
+const branchScheduleSchema = z
+  .object({
+    timezone: z.string().trim().min(3).max(100),
+    hours: z
+      .array(
+        z.object({
+          weekday: z.coerce.number().int().min(0).max(6),
+          opensAt: localTimeSchema,
+          closesAt: localTimeSchema,
+          enabled: z.boolean(),
+        }),
+      )
+      .length(7),
+  })
+  .superRefine((value, ctx) => {
+    if (new Set(value.hours.map((hour) => hour.weekday)).size !== 7)
+      ctx.addIssue({
+        code: "custom",
+        path: ["hours"],
+        message: "Debes enviar exactamente un horario por día",
+      });
+  });
+const branchScheduleExceptionSchema = z
+  .object({
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida"),
+    isOpen: z.boolean(),
+    opensAt: localTimeSchema.optional(),
+    closesAt: localTimeSchema.optional(),
+    reason: z.string().trim().max(160).optional(),
+  })
+  .superRefine((value, ctx) => {
+    const date = new Date(`${value.date}T00:00:00Z`);
+    if (
+      Number.isNaN(date.getTime()) ||
+      date.toISOString().slice(0, 10) !== value.date
+    )
+      ctx.addIssue({
+        code: "custom",
+        path: ["date"],
+        message: "Fecha calendario inválida",
+      });
+    if (value.isOpen && (!value.opensAt || !value.closesAt))
+      ctx.addIssue({
+        code: "custom",
+        path: ["opensAt"],
+        message: "Una excepción abierta requiere horario",
+      });
+  });
+const itemModifierGroupsSchema = z
+  .object({
+    groups: z
+      .array(
+        z
+          .object({
+            id: z.string().regex(/^[a-zA-Z0-9_-]{2,80}$/),
+            name: z.string().trim().min(2).max(100),
+            min: z.coerce.number().int().min(0).max(20),
+            max: z.coerce.number().int().min(1).max(20),
+            active: z.boolean().default(true),
+            modifiers: z
+              .array(
+                z.object({
+                  id: z.string().regex(/^[a-zA-Z0-9_-]{2,80}$/),
+                  name: z.string().trim().min(1).max(100),
+                  price: z.coerce.number().min(0).max(1000000),
+                  available: z.boolean().default(true),
+                }),
+              )
+              .max(40),
+          })
+          .refine(
+            (group) =>
+              group.min <= group.max && group.max <= group.modifiers.length,
+            { message: "Los límites del grupo no coinciden con sus opciones" },
+          ),
+      )
+      .max(12),
+  })
+  .superRefine((value, ctx) => {
+    const groupIds = value.groups.map((group) => group.id),
+      modifierIds = value.groups.flatMap((group) =>
+        group.modifiers.map((modifier) => modifier.id),
+      );
+    if (new Set(groupIds).size !== groupIds.length)
+      ctx.addIssue({
+        code: "custom",
+        path: ["groups"],
+        message: "Los identificadores de grupo no pueden repetirse",
+      });
+    if (new Set(modifierIds).size !== modifierIds.length)
+      ctx.addIssue({
+        code: "custom",
+        path: ["groups"],
+        message:
+          "Los identificadores de agregados deben ser únicos dentro del producto",
+      });
+  });
+const itemDietarySchema = z.object({
+  dietaryLabels: z
+    .array(z.enum(["vegetarian", "vegan", "gluten_free", "halal", "kosher"]))
+    .max(5)
+    .refine(
+      (values) => new Set(values).size === values.length,
+      "No repitas restricciones",
+    ),
+  allergens: z
+    .array(
+      z.object({
+        code: z.enum([
+          "gluten",
+          "milk",
+          "eggs",
+          "peanuts",
+          "tree_nuts",
+          "soy",
+          "fish",
+          "shellfish",
+          "sesame",
+        ]),
+        presence: z.enum(["contains", "may_contain"]),
+      }),
+    )
+    .max(9)
+    .refine(
+      (values) =>
+        new Set(values.map((value) => value.code)).size === values.length,
+      "No repitas alérgenos",
+    ),
+});
+const userDietaryPreferenceSchema = z.object({
+  dietaryLabels: z
+    .array(z.enum(["vegetarian", "vegan", "gluten_free", "halal", "kosher"]))
+    .max(5)
+    .refine(
+      (values) => new Set(values).size === values.length,
+      "No repitas preferencias",
+    ),
+  avoidedAllergens: z
+    .array(
+      z.enum([
+        "gluten",
+        "milk",
+        "eggs",
+        "peanuts",
+        "tree_nuts",
+        "soy",
+        "fish",
+        "shellfish",
+        "sesame",
+      ]),
+    )
+    .max(9)
+    .refine(
+      (values) => new Set(values).size === values.length,
+      "No repitas alérgenos",
+    ),
+  hideIncompatible: z.boolean(),
+});
+const catalogSearchSchema = z.object({
+  q: z.string().trim().max(120).default(""),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+  offset: z.coerce.number().int().min(0).max(10000).default(0),
+});
+const cancellationSchema = z
+  .object({
+    status: z.literal("cancelled"),
+    reason: z.enum([
+      "changed_mind",
+      "wrong_address",
+      "long_wait",
+      "price",
+      "driver_issue",
+      "merchant_issue",
+      "recipient_unavailable",
+      "other",
+    ]),
+    reasonDetail: z.string().trim().min(3).max(500).nullable().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.reason === "other" && !value.reasonDetail)
+      ctx.addIssue({
+        code: "custom",
+        path: ["reasonDetail"],
+        message: "Describe el motivo",
+      });
+  });
+const positiveRate = z.coerce.number().positive().max(1000000),
+  multiplier = z.coerce.number().positive().max(10);
+const ridePricingConfigSchema = z
+  .object({
+    baseFare: positiveRate,
+    distancePerKm: positiveRate,
+    timePerMin: positiveRate,
+    serviceFee: positiveRate,
+    tollThresholdKm: positiveRate,
+    tollAmount: z.coerce.number().nonnegative().max(1000000),
+    roadFactor: multiplier,
+    minDistanceKm: positiveRate,
+    maxDistanceKm: positiveRate,
+    durationBaseMin: positiveRate,
+    durationPerKm: positiveRate,
+    etaBaseMin: positiveRate,
+    etaPerKm: positiveRate,
+    serviceMultipliers: z.object({
+      moto: multiplier,
+      economy: multiplier,
+      comfort: multiplier,
+      xl: multiplier,
+    }),
+  })
+  .refine(
+    (value) => value.maxDistanceKm > value.minDistanceKm,
+    "Distancias tarifarias inválidas",
+  );
+const shipmentPricingConfigSchema = z
+  .object({
+    baseFare: positiveRate,
+    distancePerKm: positiveRate,
+    weightPerKg: positiveRate,
+    roadFactor: multiplier,
+    minDistanceKm: positiveRate,
+    maxDistanceKm: positiveRate,
+    etaBaseMin: positiveRate,
+    etaPerKm: positiveRate,
+    minimumEtaMin: positiveRate,
+    sizeMultipliers: z.object({
+      small: multiplier,
+      medium: multiplier,
+      large: multiplier,
+    }),
+  })
+  .refine(
+    (value) => value.maxDistanceKm > value.minDistanceKm,
+    "Distancias tarifarias inválidas",
+  );
+const foodPricingConfigSchema = z
+  .object({
+    baseDeliveryFee: positiveRate,
+    distancePerKm: positiveRate,
+    minimumDeliveryFee: positiveRate,
+    maximumDeliveryFee: positiveRate,
+    serviceFee: positiveRate,
+    roadFactor: multiplier,
+    maximumDistanceKm: positiveRate,
+  })
+  .refine(
+    (value) => value.maximumDeliveryFee >= value.minimumDeliveryFee,
+    "Límites tarifarios inválidos",
+  );
+const pricingPlanSchema = z.object({
+  version: z
+    .string()
+    .trim()
+    .regex(/^[A-Z0-9._-]{6,64}$/),
+  config: z.record(z.string(), z.unknown()),
+  effectiveAt: z.string().datetime({ offset: true }).optional(),
+});
+const pricingRollbackSchema = z.object({
+  targetVersion: z
+    .string()
+    .trim()
+    .regex(/^[A-Z0-9._-]{6,64}$/),
+  version: z
+    .string()
+    .trim()
+    .regex(/^[A-Z0-9._-]{6,64}$/),
+  effectiveAt: z.string().datetime({ offset: true }).optional(),
+});
+const pricingReviewSchema = z.object({
+  decision: z.enum(["approved", "rejected"]),
+  note: z.string().trim().min(5).max(500),
 });
 
 const orderLabels = {
@@ -307,7 +1536,7 @@ const orderLabels = {
   picked_up: "Retirado",
   delivering: "En camino",
   delivered: "Entregado",
-  cancelled: "Cancelado"
+  cancelled: "Cancelado",
 };
 
 const rideLabels = {
@@ -316,7 +1545,7 @@ const rideLabels = {
   arriving: "Llegando al punto",
   in_progress: "Viaje iniciado",
   completed: "Completado",
-  cancelled: "Cancelado"
+  cancelled: "Cancelado",
 };
 
 function publicUser(db, userId) {
@@ -330,10 +1559,16 @@ function accountSnapshot(db, userId) {
   return {
     user: publicUser(db, userId),
     addresses: (db.addresses || []).filter((entry) => entry.userId === userId),
-    paymentMethods: (db.paymentMethods || []).filter((entry) => entry.userId === userId),
-    walletTransactions: (db.walletTransactions || []).filter((entry) => entry.userId === userId),
-    supportTickets: (db.supportTickets || []).filter((entry) => entry.userId === userId),
-    ratings: (db.ratings || []).filter((entry) => entry.userId === userId)
+    paymentMethods: (db.paymentMethods || []).filter(
+      (entry) => entry.userId === userId,
+    ),
+    walletTransactions: (db.walletTransactions || []).filter(
+      (entry) => entry.userId === userId,
+    ),
+    supportTickets: (db.supportTickets || []).filter(
+      (entry) => entry.userId === userId,
+    ),
+    ratings: (db.ratings || []).filter((entry) => entry.userId === userId),
   };
 }
 
@@ -344,7 +1579,9 @@ function findRestaurant(db, restaurantId) {
 function calculateOrderTotals(restaurant, items) {
   let subtotal = 0;
   const expandedItems = items.map((entry) => {
-    const menuItem = restaurant.menu.find((item) => item.id === entry.menuItemId);
+    const menuItem = restaurant.menu.find(
+      (item) => item.id === entry.menuItemId,
+    );
     if (!menuItem || !menuItem.stock) {
       throw new Error(`Producto no disponible: ${entry.menuItemId}`);
     }
@@ -352,7 +1589,7 @@ function calculateOrderTotals(restaurant, items) {
     const extras = Array.isArray(entry.extras) ? entry.extras : [];
     const extrasTotal = extras.reduce((sum, extraIdOrName) => {
       const extra = restaurant.extras.find(
-        (item) => item.id === extraIdOrName || item.name === extraIdOrName
+        (item) => item.id === extraIdOrName || item.name === extraIdOrName,
       );
       return sum + (extra?.price || 0);
     }, 0);
@@ -364,11 +1601,11 @@ function calculateOrderTotals(restaurant, items) {
       unitPrice: menuItem.price,
       extras: extras.map((extraIdOrName) => {
         const extra = restaurant.extras.find(
-          (item) => item.id === extraIdOrName || item.name === extraIdOrName
+          (item) => item.id === extraIdOrName || item.name === extraIdOrName,
         );
         return extra?.name || extraIdOrName;
       }),
-      note: String(entry.note || "")
+      note: String(entry.note || ""),
     };
   });
 
@@ -377,7 +1614,7 @@ function calculateOrderTotals(restaurant, items) {
     subtotal,
     deliveryFee: restaurant.deliveryFee,
     serviceFee,
-    total: subtotal + restaurant.deliveryFee + serviceFee
+    total: subtotal + restaurant.deliveryFee + serviceFee,
   };
 }
 
@@ -391,34 +1628,554 @@ function distanceBetween(first, second) {
   const haversine =
     Math.sin(latDelta / 2) ** 2 +
     Math.sin(lngDelta / 2) ** 2 * Math.cos(firstLat) * Math.cos(secondLat);
-  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+  return (
+    earthRadiusKm *
+    2 *
+    Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine))
+  );
 }
 
-function calculateRideQuote({ pickup, destination, service = "economy", pickupCoords, destinationCoords }) {
-  const normalizedService = ["economy", "comfort", "moto", "xl"].includes(service)
+const fallbackRidePricing = {
+  version: "sqlite-test-fallback",
+  config: {
+    baseFare: 850,
+    distancePerKm: 420,
+    timePerMin: 48,
+    serviceFee: 390,
+    tollThresholdKm: 18,
+    tollAmount: 850,
+    roadFactor: 1.22,
+    minDistanceKm: 1.2,
+    maxDistanceKm: 50,
+    durationBaseMin: 8,
+    durationPerKm: 2.1,
+    etaBaseMin: 4,
+    etaPerKm: 0.55,
+    serviceMultipliers: { moto: 0.78, economy: 1, comfort: 1.28, xl: 1.65 },
+  },
+};
+const fallbackShipmentPricing = {
+  version: "sqlite-test-fallback",
+  config: {
+    baseFare: 1200,
+    distancePerKm: 540,
+    weightPerKg: 85,
+    roadFactor: 1.22,
+    minDistanceKm: 1,
+    maxDistanceKm: 45,
+    etaBaseMin: 12,
+    etaPerKm: 2.2,
+    minimumEtaMin: 15,
+    sizeMultipliers: { small: 1, medium: 1.18, large: 1.42 },
+  },
+};
+function calculateRideQuote(
+  {
+    pickup,
+    destination,
+    service = "economy",
+    pickupCoords,
+    destinationCoords,
+    demandMultiplier = 1,
+  },
+  pricing = fallbackRidePricing,
+) {
+  const normalizedService = ["economy", "comfort", "moto", "xl"].includes(
+    service,
+  )
     ? service
     : "economy";
-  const serviceMultiplier = {
-    moto: 0.78,
-    economy: 1,
-    comfort: 1.28,
-    xl: 1.65
-  }[normalizedService];
+  const rules = pricing.config,
+    serviceMultiplier = Number(rules.serviceMultipliers[normalizedService]);
   const textWeight = `${pickup || ""}${destination || ""}`.length;
   const coordinateDistance = distanceBetween(pickupCoords, destinationCoords);
-  const distanceKm = coordinateDistance !== null
-    ? Math.max(1.2, Math.min(50, coordinateDistance * 1.22))
-    : Math.max(2.4, Math.min(28, 2.2 + (textWeight % 19) * 0.72));
-  const demandMultiplier = distanceKm > 12 ? 1.18 : 1.04;
-  const fare = Math.round((1450 + distanceKm * 620) * serviceMultiplier * demandMultiplier);
+  const distanceKm =
+    coordinateDistance !== null
+      ? Math.max(
+          rules.minDistanceKm,
+          Math.min(rules.maxDistanceKm, coordinateDistance * rules.roadFactor),
+        )
+      : Math.max(2.4, Math.min(28, 2.2 + (textWeight % 19) * 0.72));
+  const durationMin = Math.round(
+    rules.durationBaseMin + distanceKm * rules.durationPerKm,
+  );
+  const baseFare = Number(rules.baseFare);
+  const distanceFare = Math.round(distanceKm * rules.distancePerKm);
+  const timeFare = Math.round(durationMin * rules.timePerMin);
+  const serviceFee = Number(rules.serviceFee);
+  const tolls =
+    distanceKm > rules.tollThresholdKm ? Number(rules.tollAmount) : 0;
+  const subtotal = Math.round(
+    (baseFare + distanceFare + timeFare) * serviceMultiplier,
+  );
+  const demandAdjustment = Math.round(subtotal * (demandMultiplier - 1));
+  const fare = Math.round(subtotal + demandAdjustment + serviceFee + tolls);
   return {
     service: normalizedService,
     distanceKm: Number(distanceKm.toFixed(1)),
-    etaMin: Math.max(3, Math.round(4 + distanceKm * 0.55)),
-    durationMin: Math.round(8 + distanceKm * 2.1),
+    etaMin: Math.max(
+      3,
+      Math.round(rules.etaBaseMin + distanceKm * rules.etaPerKm),
+    ),
+    durationMin,
     fare,
+    breakdown: {
+      baseFare,
+      distanceFare,
+      timeFare,
+      serviceFee,
+      tolls,
+      demandAdjustment,
+      demandMultiplier,
+      serviceMultiplier,
+    },
+    pricingVersion: pricing.version,
     estimated: coordinateDistance === null,
-    routingMode: coordinateDistance === null ? "text-estimate" : "coordinates"
+    routingMode: coordinateDistance === null ? "text-estimate" : "coordinates",
+  };
+}
+
+function scopeStateForRequest(state, req) {
+  if (isAdmin(req) || hasRole(req, "support")) return state;
+  const userId = req.auth.userId;
+  const scoped = { ...state };
+  scoped.users = state.users.filter((user) => user.id === userId);
+  scoped.addresses = (state.addresses || []).filter(
+    (entry) => entry.userId === userId,
+  );
+  scoped.paymentMethods = (state.paymentMethods || []).filter(
+    (entry) => entry.userId === userId,
+  );
+  scoped.walletTransactions = (state.walletTransactions || []).filter(
+    (entry) => entry.userId === userId,
+  );
+  scoped.supportTickets = (state.supportTickets || []).filter(
+    (entry) => !entry.userId || entry.userId === userId,
+  );
+  scoped.ratings = (state.ratings || []).filter(
+    (entry) => entry.userId === userId,
+  );
+  scoped.auditEvents = [];
+
+  if (hasRole(req, "customer")) {
+    scoped.orders = state.orders.filter((entry) => entry.customerId === userId);
+    scoped.rides = state.rides.filter((entry) => entry.customerId === userId);
+    scoped.shipments = (state.shipments || []).filter(
+      (entry) => entry.customerId === userId,
+    );
+    const assignedDriverIds = new Set(
+      [
+        ...scoped.orders.map((entry) => entry.courierId),
+        ...scoped.rides.map((entry) => entry.driverId),
+        ...scoped.shipments.map((entry) => entry.driverId),
+      ].filter(Boolean),
+    );
+    scoped.drivers = state.drivers.filter((entry) =>
+      assignedDriverIds.has(entry.id),
+    );
+  } else if (hasRole(req, "merchant")) {
+    scoped.restaurants = state.restaurants.filter(
+      (entry) => entry.ownerId === userId,
+    );
+    const merchantIds = new Set(scoped.restaurants.map((entry) => entry.id));
+    scoped.orders = state.orders.filter((entry) =>
+      merchantIds.has(entry.restaurantId),
+    );
+    scoped.rides = [];
+    scoped.shipments = [];
+    const courierIds = new Set(
+      scoped.orders.map((entry) => entry.courierId).filter(Boolean),
+    );
+    scoped.drivers = state.drivers.filter((entry) => courierIds.has(entry.id));
+  } else if (hasRole(req, "driver")) {
+    const driverId = req.auth.user.driverId;
+    scoped.orders = state.orders
+      .filter((entry) => !entry.courierId || entry.courierId === driverId)
+      .map((entry) =>
+        entry.courierId === driverId
+          ? entry
+          : {
+              ...entry,
+              customerId: "private",
+              deliveryAddress: "Disponible después de aceptar",
+              items: entry.items.map((item) => ({ ...item, note: "" })),
+            },
+      );
+    scoped.rides = state.rides
+      .filter((entry) => !entry.driverId || entry.driverId === driverId)
+      .map((entry) =>
+        entry.driverId === driverId
+          ? entry
+          : { ...entry, customerId: "private" },
+      );
+    scoped.shipments = (state.shipments || [])
+      .filter((entry) => !entry.driverId || entry.driverId === driverId)
+      .map((entry) =>
+        entry.driverId === driverId
+          ? entry
+          : {
+              ...entry,
+              customerId: "private",
+              recipientName: "Oculto hasta aceptar",
+              recipientPhone: "Oculto",
+              deliveryNotes: "",
+            },
+      );
+    scoped.drivers = state.drivers.filter((entry) => entry.id === driverId);
+  } else {
+    scoped.orders = [];
+    scoped.rides = [];
+    scoped.shipments = [];
+    scoped.drivers = [];
+  }
+  return scoped;
+}
+
+async function loadRuntimeState(req) {
+  if (!usesPostgresCommerce()) return getPublicState();
+  const state = {
+    meta: { version: 65, updatedAt: getTimestamp(), database: "postgres" },
+    users: [],
+    addresses: [],
+    paymentMethods: [],
+    walletTransactions: [],
+    restaurants: [],
+    drivers: [],
+    orders: [],
+    rides: [],
+    shipments: [],
+    promotions: [],
+    supportTickets: [],
+    ratings: [],
+    zones: [],
+    auditEvents: [],
+    favoriteRestaurantIds: [],
+    tips: [],
+  };
+  [
+    state.users,
+    state.addresses,
+    state.paymentMethods,
+    state.walletTransactions,
+    state.restaurants,
+    state.orders,
+    state.drivers,
+    state.rides,
+    state.shipments,
+    state.supportTickets,
+    state.promotions,
+    state.zones,
+    state.auditEvents,
+    state.ratings,
+    state.favoriteRestaurantIds,
+    state.tips,
+  ] = await Promise.all([
+    getPostgresUsers({ includeInactive: isAdmin(req) }),
+    getPostgresAddresses(),
+    getPostgresPaymentMethods(),
+    getPostgresWalletTransactions({
+      userPublicId: req.auth.userId,
+      includeAll: isAdmin(req),
+    }),
+    getPostgresRestaurants(),
+    getPostgresOrders(),
+    getPostgresDrivers(),
+    getPostgresRides(),
+    getPostgresShipments(),
+    getPostgresSupportTickets({
+      userPublicId: req.auth.userId,
+      roles: req.auth.roles,
+    }),
+    getPostgresPromotions({ includeInactive: isAdmin(req) }),
+    getPostgresZones(),
+    isAdmin(req) ? getPostgresAuditEvents(100) : Promise.resolve([]),
+    getPostgresRatings({
+      userPublicId: req.auth.userId,
+      includeAll: isAdmin(req),
+    }),
+    getPostgresFavoriteMerchantIds(req.auth.userId),
+    getPostgresTips({ userPublicId: req.auth.userId, roles: req.auth.roles }),
+  ]);
+  const balances = await getWalletBalances();
+  state.users = state.users.map((user) => {
+    const {password:_password,internalId:_internalId,loginLockedUntil:_loginLockedUntil,...safeUser}=user;
+    return {...safeUser,wallet:balances.get(user.id)||0};
+  });
+  return state;
+}
+
+function sanitizeUser(user) {
+  if (!user) return null;
+  const { password, internalId, loginLockedUntil, ...safeUser } = user;
+  return safeUser;
+}
+
+function issueAccessToken(user, { mfaVerified = false } = {}) {
+  return jwt.sign(
+    { sub: user.id, roles: user.roles, mfa: mfaVerified },
+    jwtSecret,
+    { expiresIn: "15m" },
+  );
+}
+
+function issueMfaChallenge(user) {
+  return jwt.sign({ sub: user.id, purpose: "admin_mfa" }, jwtSecret, {
+    expiresIn: "5m",
+  });
+}
+
+async function issueSession(user, deviceName, { mfaVerified = false } = {}) {
+  const session = usesPostgresAuth()
+    ? await createPostgresSession(user, deviceName)
+    : createAuthSession(user.id, deviceName);
+  return {
+    token: issueAccessToken(user, { mfaVerified }),
+    refreshToken: session.refreshToken,
+    refreshExpiresAt: session.expiresAt,
+  };
+}
+
+function creditDriverEarnings(db, driverId, amount, reference) {
+  const driver = db.drivers.find((entry) => entry.id === driverId);
+  if (!driver || !Number.isFinite(amount) || amount <= 0) return;
+  driver.earningsToday = Number(driver.earningsToday || 0) + Math.round(amount);
+  const user = db.users.find((entry) => entry.id === driver.userId);
+  if (user) user.wallet = Number(user.wallet || 0) + Math.round(amount);
+  db.walletTransactions ||= [];
+  db.walletTransactions.unshift({
+    id: createId("WAL"),
+    userId: driver.userId,
+    kind: "credit",
+    amount: Math.round(amount),
+    description: `Ganancia ${reference}`,
+    createdAt: getTimestamp(),
+  });
+}
+
+async function creditDriverEarningsRuntime(db, driverId, amount, reference) {
+  if (!usesPostgresCommerce())
+    return creditDriverEarnings(db, driverId, amount, reference);
+  const driver = (await getPostgresDrivers()).find(
+    (entry) => entry.id === driverId,
+  );
+  if (!driver || amount <= 0) return;
+  const publicId = reference.replace(/^(viaje|envio)-/, "");
+  return settleMobilityWalletPayment({
+    publicId,
+    driverPublicId: driverId,
+    driverAmount: Math.round(amount),
+    reference,
+  });
+}
+
+const rideServiceCatalog = {
+  moto: { label: "Flash Moto", capacity: 1, description: "La opcion mas agil" },
+  economy: { label: "Flash", capacity: 4, description: "Precio accesible" },
+  comfort: {
+    label: "Flash Comfort",
+    capacity: 4,
+    description: "Autos con mejor calificacion",
+  },
+  xl: {
+    label: "Flash XL",
+    capacity: 6,
+    description: "Mas lugar para tu grupo",
+  },
+};
+const requireAdminIdentity = (req, res, next) =>
+  hasRole(req, "admin")
+    ? next()
+    : fail(res, 403, "MFA administrativo requiere rol admin");
+
+function calculateRideOptions(
+  db,
+  input,
+  zoneMultiplier = 1,
+  pricing = fallbackRidePricing,
+) {
+  const eligibleDrivers = db.drivers.filter(
+    (driver) =>
+      driver.online &&
+      driver.serviceModes.includes("ride") &&
+      !db.rides.some(
+        (ride) =>
+          ride.driverId === driver.id &&
+          !["completed", "cancelled"].includes(ride.status),
+      ),
+  );
+  const activeDemand = db.rides.filter((ride) =>
+    ["requested", "driver_assigned", "arriving"].includes(ride.status),
+  ).length;
+  const demandRatio = activeDemand / Math.max(1, eligibleDrivers.length);
+  const demandMultiplier = Math.max(
+    zoneMultiplier,
+    demandRatio > 3 ? 1.35 : demandRatio > 2 ? 1.22 : demandRatio > 1 ? 1.1 : 1,
+  );
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+  return ["economy", "comfort", "moto", "xl"].map((service) => {
+    const quote = calculateRideQuote(
+      { ...input, service, demandMultiplier },
+      pricing,
+    );
+    const nearestDistance = eligibleDrivers.reduce((nearest, driver) => {
+      const distance = distanceBetween(driver.location, input.pickupCoords);
+      return distance === null ? nearest : Math.min(nearest, distance);
+    }, Number.POSITIVE_INFINITY);
+    const pickupEtaMin = Number.isFinite(nearestDistance)
+      ? Math.max(2, Math.round(nearestDistance * 2.6))
+      : quote.etaMin;
+    const quoteId = createId("QUOTE");
+    const quoteToken = jwt.sign(
+      {
+        kind: "ride_quote",
+        quoteId,
+        service,
+        fare: quote.fare,
+        breakdown: quote.breakdown,
+        pricingVersion: quote.pricingVersion,
+        pickup: input.pickup,
+        destination: input.destination,
+        pickupCoords: input.pickupCoords,
+        destinationCoords: input.destinationCoords,
+      },
+      jwtSecret,
+      { expiresIn: "5m" },
+    );
+    return {
+      ...quote,
+      ...rideServiceCatalog[service],
+      pickupEtaMin,
+      availableDrivers: eligibleDrivers.length,
+      available: eligibleDrivers.length > 0,
+      quoteId,
+      quoteToken,
+      expiresAt,
+    };
+  });
+}
+
+function calculateShipmentQuote(
+  {
+    pickup,
+    destination,
+    packageSize,
+    weightKg,
+    pickupCoords,
+    destinationCoords,
+    deliveryMultiplier = 1,
+    zoneId = null,
+    declaredValue = 0,
+    protection = "none",
+    protectionPlan = null,
+    shipmentServiceConfig = null,
+  },
+  pricing = fallbackShipmentPricing,
+) {
+  const rules = pricing.config;
+  const coordinateDistance = distanceBetween(pickupCoords, destinationCoords);
+  const textWeight = `${pickup}${destination}`.length;
+  const distanceKm =
+    coordinateDistance !== null
+      ? Math.max(
+          rules.minDistanceKm,
+          Math.min(rules.maxDistanceKm, coordinateDistance * rules.roadFactor),
+        )
+      : Math.max(2, Math.min(25, 2 + (textWeight % 18) * 0.7));
+  const sizeMultiplier = Number(rules.sizeMultipliers[packageSize]);
+  const serviceMultiplier =
+      shipmentServiceConfig?.level.transportMultiplier || 1,
+    categorySurcharge = shipmentServiceConfig?.category.surcharge || 0,
+    baseTransportFare = Math.round(
+      (rules.baseFare +
+        distanceKm * rules.distancePerKm +
+        Number(weightKg) * rules.weightPerKg) *
+        sizeMultiplier *
+        deliveryMultiplier,
+    ),
+    transportFare =
+      Math.round(baseTransportFare * serviceMultiplier) + categorySurcharge,
+    protectionPremium =
+      protection === "standard" && protectionPlan
+        ? Math.max(
+            protectionPlan.minimumPremium,
+            Math.round(Number(declaredValue) * protectionPlan.premiumRate),
+          )
+        : 0,
+    fare = transportFare + protectionPremium;
+  return {
+    packageSize,
+    distanceKm: Number(distanceKm.toFixed(1)),
+    etaMin: Math.max(
+      rules.minimumEtaMin,
+      Math.round(
+        (rules.etaBaseMin + distanceKm * rules.etaPerKm) *
+          (shipmentServiceConfig?.level.etaMultiplier || 1),
+      ),
+    ),
+    fare,
+    zoneId,
+    deliveryMultiplier,
+    pricingVersion: pricing.version,
+    declaredValue: Number(declaredValue),
+    protection,
+    protectionPremium,
+    protectionPlanId:
+      protection === "standard" ? protectionPlan?.id || null : null,
+    deductible: protection === "standard" ? protectionPlan?.deductible || 0 : 0,
+    itemCategory: shipmentServiceConfig?.category.code || "standard",
+    itemCategoryName:
+      shipmentServiceConfig?.category.name || "Paquete estándar",
+    itemCategoryId: shipmentServiceConfig?.category.id || null,
+    handlingInstructions:
+      shipmentServiceConfig?.category.handlingInstructions || "",
+    serviceLevel: shipmentServiceConfig?.level.code || "standard",
+    serviceLevelName: shipmentServiceConfig?.level.name || "Standard",
+    serviceLevelId: shipmentServiceConfig?.level.id || null,
+    breakdown: {
+      base: Number(rules.baseFare),
+      distance: Math.round(distanceKm * rules.distancePerKm),
+      weight: Math.round(Number(weightKg) * rules.weightPerKg),
+      sizeMultiplier,
+      deliveryMultiplier,
+      baseTransportFare,
+      serviceMultiplier,
+      categorySurcharge,
+      transportFare,
+      protectionPremium,
+    },
+    estimated: coordinateDistance === null,
+    routingMode: coordinateDistance === null ? "text-estimate" : "coordinates",
+  };
+}
+
+function assignShipmentDriver(db, shipment) {
+  const driver = db.drivers
+    .filter(
+      (entry) =>
+        entry.online &&
+        entry.serviceModes.includes("delivery") &&
+        !(db.shipments || []).some(
+          (candidate) =>
+            candidate.driverId === entry.id &&
+            !["delivered", "cancelled"].includes(candidate.status),
+        ),
+    )
+    .map((entry) => ({
+      entry,
+      distance:
+        distanceBetween(entry.location, shipment.pickupLocation) ??
+        Number.MAX_SAFE_INTEGER,
+    }))
+    .sort((left, right) => left.distance - right.distance)[0]?.entry;
+  if (!driver) return shipment;
+  return {
+    ...shipment,
+    driverId: driver.id,
+    status: "driver_assigned",
+    timeline: [
+      ...shipment.timeline,
+      { status: "driver_assigned", at: getTimestamp() },
+    ],
   };
 }
 
@@ -431,12 +2188,14 @@ function assignRideDriver(db, ride) {
         !db.rides.some(
           (candidate) =>
             candidate.driverId === entry.id &&
-            !["completed", "cancelled"].includes(candidate.status)
-        )
+            !["completed", "cancelled"].includes(candidate.status),
+        ),
     )
     .map((driver) => ({
       driver,
-      distance: distanceBetween(driver.location, ride.pickupLocation) ?? Number.MAX_SAFE_INTEGER
+      distance:
+        distanceBetween(driver.location, ride.pickupLocation) ??
+        Number.MAX_SAFE_INTEGER,
     }))
     .sort((left, right) => left.distance - right.distance);
   const driver = candidates[0]?.driver;
@@ -447,8 +2206,8 @@ function assignRideDriver(db, ride) {
     status: "driver_assigned",
     timeline: [
       ...ride.timeline,
-      { status: "driver_assigned", at: getTimestamp() }
-    ]
+      { status: "driver_assigned", at: getTimestamp() },
+    ],
   };
 }
 
@@ -476,9 +2235,9 @@ function addTimeline(entity, status) {
       ...(entity.timeline || []),
       {
         status,
-        at: getTimestamp()
-      }
-    ]
+        at: getTimestamp(),
+      },
+    ],
   };
 }
 
@@ -489,29 +2248,51 @@ function metrics(db) {
     "ready_for_pickup",
     "courier_assigned",
     "picked_up",
-    "delivering"
+    "delivering",
   ];
-  const activeRideStatuses = ["requested", "driver_assigned", "arriving", "in_progress"];
-  const activeOrders = db.orders.filter((order) => activeOrderStatuses.includes(order.status));
-  const activeRides = db.rides.filter((ride) => activeRideStatuses.includes(ride.status));
+  const activeRideStatuses = [
+    "requested",
+    "driver_assigned",
+    "arriving",
+    "in_progress",
+  ];
+  const activeOrders = db.orders.filter((order) =>
+    activeOrderStatuses.includes(order.status),
+  );
+  const activeRides = db.rides.filter((ride) =>
+    activeRideStatuses.includes(ride.status),
+  );
   const completedRevenue = [
-    ...db.orders.filter((order) => order.status === "delivered").map((order) => order.total),
-    ...db.rides.filter((ride) => ride.status === "completed").map((ride) => ride.fare)
+    ...db.orders
+      .filter((order) => order.status === "delivered")
+      .map((order) => order.total),
+    ...db.rides
+      .filter((ride) => ride.status === "completed")
+      .map((ride) => ride.fare),
   ].reduce((sum, value) => sum + value, 0);
-  const openTickets = db.supportTickets.filter((ticket) => ticket.status === "open").length;
+  const openTickets = db.supportTickets.filter(
+    (ticket) => ticket.status === "open",
+  ).length;
   return {
     activeOrders: activeOrders.length,
     activeRides: activeRides.length,
     onlineDrivers: db.drivers.filter((driver) => driver.online).length,
-    openRestaurants: db.restaurants.filter((restaurant) => restaurant.open).length,
+    openRestaurants: db.restaurants.filter((restaurant) => restaurant.open)
+      .length,
     completedRevenue,
     openTickets,
     avgOrderEta: activeOrders.length
-      ? Math.round(activeOrders.reduce((sum, order) => sum + order.etaMin, 0) / activeOrders.length)
+      ? Math.round(
+          activeOrders.reduce((sum, order) => sum + order.etaMin, 0) /
+            activeOrders.length,
+        )
       : 0,
     avgRideEta: activeRides.length
-      ? Math.round(activeRides.reduce((sum, ride) => sum + ride.etaMin, 0) / activeRides.length)
-      : 0
+      ? Math.round(
+          activeRides.reduce((sum, ride) => sum + ride.etaMin, 0) /
+            activeRides.length,
+        )
+      : 0,
   };
 }
 
@@ -522,15 +2303,21 @@ function ratio(part, total) {
 
 function average(values) {
   if (!values.length) return 0;
-  return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
+  return Math.round(
+    values.reduce((sum, value) => sum + value, 0) / values.length,
+  );
 }
 
-function adminSnapshot(db) {
-  const activeOrders = db.orders.filter((order) => !["delivered", "cancelled"].includes(order.status));
-  const activeRides = db.rides.filter((ride) => !["completed", "cancelled"].includes(ride.status));
+function adminSnapshot(db, financial = null) {
+  const activeOrders = db.orders.filter(
+    (order) => !["delivered", "cancelled"].includes(order.status),
+  );
+  const activeRides = db.rides.filter(
+    (ride) => !["completed", "cancelled"].includes(ride.status),
+  );
   const grossVolume = [
     ...db.orders.map((order) => order.total),
-    ...db.rides.map((ride) => ride.fare)
+    ...db.rides.map((ride) => ride.fare),
   ].reduce((sum, value) => sum + value, 0);
   const completedJobs =
     db.orders.filter((order) => order.status === "delivered").length +
@@ -539,88 +2326,164 @@ function adminSnapshot(db) {
     db.orders.filter((order) => order.status === "cancelled").length +
     db.rides.filter((ride) => ride.status === "cancelled").length;
   const totalJobs = db.orders.length + db.rides.length;
-  const unassignedOrders = activeOrders.filter((order) => !order.courierId).length;
+  const unassignedOrders = activeOrders.filter(
+    (order) => !order.courierId,
+  ).length;
   const unassignedRides = activeRides.filter((ride) => !ride.driverId).length;
-  const estimatedPlatformRevenue = Math.round(grossVolume * 0.18);
-  const incentiveBudget = Math.round(grossVolume * 0.055);
-  const supportCost = db.supportTickets.filter((ticket) => ticket.status === "open").length * 450;
-  const dispatchCost = activeOrders.length * 260 + activeRides.length * 320;
-  const contributionMargin = Math.max(0, estimatedPlatformRevenue - incentiveBudget - supportCost - dispatchCost);
-  const monthlyBurn = 12500000;
-  const seedTarget = 240000000;
-  const netRevenueRunRate = estimatedPlatformRevenue * 30;
+  const recordedGrossVolume = financial?.grossProcessed ?? grossVolume,
+    postedPlatformRevenue = financial?.postedPlatformRevenue ?? 0;
+  const actualTakeRate = recordedGrossVolume
+    ? Number(((postedPlatformRevenue / recordedGrossVolume) * 100).toFixed(2))
+    : 0;
   return {
     generatedAt: getTimestamp(),
     metrics: metrics(db),
     marketplace: {
-      grossVolume,
-      estimatedPlatformRevenue,
-      takeRatePercent: 18,
+      grossVolume: recordedGrossVolume,
+      estimatedPlatformRevenue: postedPlatformRevenue,
+      takeRatePercent: actualTakeRate,
+      financial,
       averageOrderValue: average(db.orders.map((order) => order.total)),
       averageRideFare: average(db.rides.map((ride) => ride.fare)),
-      fillRateDelivery: ratio(db.orders.filter((order) => order.courierId).length, db.orders.length),
-      fillRateRide: ratio(db.rides.filter((ride) => ride.driverId).length, db.rides.length),
+      fillRateDelivery: ratio(
+        db.orders.filter((order) => order.courierId).length,
+        db.orders.length,
+      ),
+      fillRateRide: ratio(
+        db.rides.filter((ride) => ride.driverId).length,
+        db.rides.length,
+      ),
       cancellationRate: ratio(cancelledJobs, totalJobs),
-      supplyDemandRatio: Number((db.drivers.filter((driver) => driver.online).length / Math.max(1, activeOrders.length + activeRides.length)).toFixed(2)),
+      supplyDemandRatio: Number(
+        (
+          db.drivers.filter((driver) => driver.online).length /
+          Math.max(1, activeOrders.length + activeRides.length)
+        ).toFixed(2),
+      ),
       unassignedOrders,
       unassignedRides,
-      openRestaurants: db.restaurants.filter((restaurant) => restaurant.open).length,
-      onlineDrivers: db.drivers.filter((driver) => driver.online).length
+      openRestaurants: db.restaurants.filter((restaurant) => restaurant.open)
+        .length,
+      onlineDrivers: db.drivers.filter((driver) => driver.online).length,
     },
     investor: {
-      seedTarget,
-      monthlyBurn,
-      runwayMonths: Math.round(seedTarget / monthlyBurn),
-      netRevenueRunRate,
-      contributionMargin,
-      contributionMarginPercent: ratio(contributionMargin, estimatedPlatformRevenue || 1),
+      dataStatus: "operational_only",
+      seedTarget: null,
+      monthlyBurn: null,
+      runwayMonths: null,
+      netRevenueRunRate: null,
+      contributionMargin: null,
+      contributionMarginPercent: null,
       readinessScore: Math.min(
         100,
         Math.round(
           42 +
             ratio(completedJobs, totalJobs) * 0.18 +
-            ratio(db.orders.filter((order) => order.courierId).length, db.orders.length) * 0.16 +
-            ratio(db.rides.filter((ride) => ride.driverId).length, db.rides.length) * 0.16
-        )
+            ratio(
+              db.orders.filter((order) => order.courierId).length,
+              db.orders.length,
+            ) *
+              0.16 +
+            ratio(
+              db.rides.filter((ride) => ride.driverId).length,
+              db.rides.length,
+            ) *
+              0.16,
+        ),
       ),
       milestones: [
-        { label: "Producto fullstack", status: "done", value: "Cliente, comercio, driver y admin" },
-        { label: "Seguridad API", status: "done", value: "JWT, RBAC, ownership, rate limits" },
-        { label: "Mobile nativo", status: "in_progress", value: "Expo base para 3 apps" },
-        { label: "Realtime dispatch", status: "next", value: "SSE/WebSocket + Redis GEO" },
-        { label: "Pagos reales", status: "next", value: "PSP + ledger financiero" }
+        {
+          label: "Producto fullstack",
+          status: "done",
+          value: "Cliente, comercio, driver y admin",
+        },
+        {
+          label: "Seguridad API",
+          status: "done",
+          value: "JWT, RBAC, ownership, rate limits",
+        },
+        {
+          label: "Mobile nativo",
+          status: "in_progress",
+          value: "Expo base para 3 apps",
+        },
+        {
+          label: "Realtime dispatch",
+          status: "next",
+          value: "SSE/WebSocket + Redis GEO",
+        },
+        {
+          label: "Pagos reales",
+          status: "next",
+          value: "PSP + ledger financiero",
+        },
       ],
       unitEconomics: [
-        { label: "AOV comida", value: `$${average(db.orders.map((order) => order.total))}`, detail: "Ticket promedio" },
-        { label: "Fare taxi", value: `$${average(db.rides.map((ride) => ride.fare))}`, detail: "Tarifa promedio" },
-        { label: "Take rate", value: "18%", detail: "Comision demo" },
-        { label: "Incentivos", value: `${ratio(incentiveBudget, grossVolume || 1)}%`, detail: "Promo/supply budget" },
-        { label: "Margen contrib.", value: `${ratio(contributionMargin, estimatedPlatformRevenue || 1)}%`, detail: "Despues de soporte/dispatch" },
-        { label: "Jobs cumplidos", value: String(completedJobs), detail: "Pedidos + viajes finalizados" }
-      ]
+        {
+          label: "AOV comida",
+          value: `$${average(db.orders.map((order) => order.total))}`,
+          detail: "Ticket promedio",
+        },
+        {
+          label: "Fare taxi",
+          value: `$${average(db.rides.map((ride) => ride.fare))}`,
+          detail: "Tarifa promedio",
+        },
+        {
+          label: "Take rate registrado",
+          value: `${actualTakeRate}%`,
+          detail: "Revenue posteado / pagos procesados",
+        },
+        {
+          label: "Reintegros",
+          value: `$${financial?.refunded ?? 0}`,
+          detail: "Refunds confirmados en ledger",
+        },
+        {
+          label: "Revenue cubierto",
+          value:
+            financial?.revenueCoverage === "wallet_settlements"
+              ? "Flash Wallet"
+              : "Sin datos",
+          detail: "Métodos externos pendientes de conciliación",
+        },
+        {
+          label: "Jobs cumplidos",
+          value: String(completedJobs),
+          detail: "Pedidos + viajes finalizados",
+        },
+      ],
     },
     riskSignals: [
       {
         id: "dispatch_backlog",
         level: unassignedOrders + unassignedRides > 2 ? "medium" : "low",
         label: "Backlog de asignacion",
-        value: unassignedOrders + unassignedRides
+        value: unassignedOrders + unassignedRides,
       },
       {
         id: "support_queue",
-        level: db.supportTickets.filter((ticket) => ticket.status === "open").length > 5 ? "high" : "low",
+        level:
+          db.supportTickets.filter((ticket) => ticket.status === "open")
+            .length > 5
+            ? "high"
+            : "low",
         label: "Tickets abiertos",
-        value: db.supportTickets.filter((ticket) => ticket.status === "open").length
+        value: db.supportTickets.filter((ticket) => ticket.status === "open")
+          .length,
       },
       {
         id: "supply",
-        level: db.drivers.filter((driver) => driver.online).length < 2 ? "medium" : "low",
+        level:
+          db.drivers.filter((driver) => driver.online).length < 2
+            ? "medium"
+            : "low",
         label: "Supply online",
-        value: db.drivers.filter((driver) => driver.online).length
-      }
+        value: db.drivers.filter((driver) => driver.online).length,
+      },
     ],
     zones: db.zones || [],
-    recentAuditEvents: (db.auditEvents || []).slice(0, 10)
+    recentAuditEvents: (db.auditEvents || []).slice(0, 10),
   };
 }
 
@@ -628,90 +2491,2354 @@ app.get("/api/health", (_req, res) => {
   ok(res, {
     service: "flash-fullstack-api",
     environment: config.env,
-    database: getDatabasePath(),
-    timestamp: getTimestamp()
+    storageMode: config.databaseUrl ? "postgres-primary" : "sqlite-demo",
+    timestamp: getTimestamp(),
   });
 });
 
-app.get("/api/ready", (_req, res) => {
+app.get("/api/ready", async (_req, res) => {
   try {
-    const db = readDb();
+    const db = config.databaseUrl ? null : readDb();
+    const postgres = await postgresReadiness();
+    if (config.databaseUrl && !postgres.ready)
+      return fail(res, 503, "PostgreSQL/PostGIS no disponible");
+    const runtimeCounts = usesPostgresCommerce()
+      ? await Promise.all([
+          getPostgresUsers(),
+          getPostgresRestaurants(),
+          getPostgresDrivers(),
+        ])
+      : [db.users, db.restaurants, db.drivers];
     return ok(res, {
       service: "flash-fullstack-api",
-      database: "ready",
-      users: db.users.length,
-      restaurants: db.restaurants.length,
-      drivers: db.drivers.length,
-      timestamp: getTimestamp()
+      database: postgres,
+      runtimeStore: config.databaseUrl ? "postgres-primary" : "sqlite-demo",
+      fallbackDiagnostics: { sqliteReads: sqliteRuntimeReads },
+      authStore: usesPostgresAuth() ? "postgres" : "sqlite-test-fallback",
+      domainStores: {
+        catalog: usesPostgresCommerce() ? "postgres" : "sqlite-test-fallback",
+        carts: usesPostgresCommerce() ? "postgres" : "sqlite-test-fallback",
+        foodOrders: usesPostgresCommerce()
+          ? "postgres"
+          : "sqlite-test-fallback",
+        drivers: usesPostgresCommerce()
+          ? "postgres-postgis"
+          : "sqlite-test-fallback",
+        driverLocations: usesPostgresCommerce()
+          ? "postgres-postgis+source+accuracy+freshness-gate"
+          : "sqlite-test-fallback",
+        driverVehicles: usesPostgresCommerce()
+          ? "postgres-verified-registry+mode-eligibility"
+          : "sqlite-test-fallback",
+        rides: usesPostgresCommerce()
+          ? "postgres-postgis"
+          : "sqlite-test-fallback",
+        shipments: usesPostgresCommerce()
+          ? "postgres-postgis"
+          : "sqlite-test-fallback",
+        dispatch: usesPostgresCommerce()
+          ? "postgres-postgis-expiring-offers+wave-worker"
+          : "sqlite-test-fallback",
+        wallet: usesPostgresAuth()
+          ? "postgres-double-entry-ledger"
+          : "sqlite-test-fallback",
+        payments: usesPostgresAuth()
+          ? "wallet-capture-refunds+signed-webhooks+balanced-settlements+tips+dual-control-adjustments+reconciliation-cases+risk-scoring"
+          : "sqlite-test-fallback",
+        receipts: usesPostgresAuth()
+          ? "postgres-immutable-service-snapshots"
+          : "sqlite-test-fallback",
+        cancellations: usesPostgresAuth()
+          ? "postgres-auditable-reasons+refund-outcomes"
+          : "sqlite-test-fallback",
+        orderIssues: usesPostgresAuth()
+          ? "postgres-workflow+partial-refunds+settlement-reversal"
+          : "sqlite-test-fallback",
+        substitutions: usesPostgresAuth()
+          ? "postgres-customer-consent+wallet-price-adjustment"
+          : "sqlite-test-fallback",
+        merchantBranches: usesPostgresAuth()
+          ? "postgres-postgis+branch-inventory"
+          : "sqlite-test-fallback",
+        merchantFinance: usesPostgresAuth()
+          ? "postgres-ledger+payout-reservations+independent-review"
+          : "sqlite-test-fallback",
+        support: usesPostgresAuth()
+          ? "postgres-conversations+priority-sla+capacity-routing+automatic-escalation"
+          : "sqlite-test-fallback",
+        notifications: usesPostgresAuth()
+          ? `postgres-outbox+preferences+in-app+invalid-token-revocation+dead-letter-replay+${config.notificationProvider}-worker`
+          : "sqlite-test-fallback",
+        realtime: usesPostgresAuth()
+          ? "postgres-event-log+listen-notify+sse-replay"
+          : "memory-test-fallback",
+        promotions: usesPostgresCommerce()
+          ? "postgres-transactional-redemptions"
+          : "sqlite-test-fallback",
+        zones: usesPostgresCommerce()
+          ? "postgres-postgis-live-counts"
+          : "sqlite-test-fallback",
+        pricing: usesPostgresCommerce()
+          ? "postgres-versioned-plans+signed-quotes"
+          : "sqlite-test-fallback",
+        audit: usesPostgresCommerce()
+          ? "postgres-operational-events"
+          : "sqlite-test-fallback",
+        feedback: usesPostgresCommerce()
+          ? "postgres-ratings+favorites"
+          : "sqlite-test-fallback",
+        addresses: usesPostgresAuth()
+          ? "postgres-postgis-address-book"
+          : "sqlite-test-fallback",
+        rideDestinations: usesPostgresAuth()
+          ? "postgres-postgis-private-recents"
+          : "sqlite-test-fallback",
+        rideTrustedContacts: usesPostgresAuth()
+          ? "postgres-rls+aes256gcm-private-contacts"
+          : "unavailable",
+        ridePickupVerification: usesPostgresAuth()
+          ? "postgres-bcrypt-pin+lockout"
+          : "unavailable",
+        serviceChat: usesPostgresAuth()
+          ? "postgres-aes256gcm+participant-rls+receipts+attachments+configured-replies"
+          : "unavailable",
+        maps: usesPostgresAuth()
+          ? "nominatim+osrm+postgres-ttl-cache"
+          : "external-provider-only",
+        driverCompliance: usesPostgresAuth()
+          ? "postgres-kyc+encrypted-documents+manual-review"
+          : "unavailable",
+        rideSafety: usesPostgresAuth()
+          ? "postgres-expiring-tracking-links+sos-incidents"
+          : "unavailable",
+        passwordRecovery: usesPostgresAuth()
+          ? `postgres-one-time-digests+encrypted-${config.emailProvider}-email+session-revocation`
+          : "unavailable",
+        emailVerification: usesPostgresAuth()
+          ? `postgres-bcrypt-otp+encrypted-${config.emailProvider}-email+login-gate`
+          : "unavailable",
+        shipmentClaims: usesPostgresAuth()
+          ? "postgres-protection-eligibility+encrypted-evidence+auditable-workflow"
+          : "unavailable",
+      },
+      users: runtimeCounts[0].length,
+      restaurants: runtimeCounts[1].length,
+      drivers: runtimeCounts[2].length,
+      timestamp: getTimestamp(),
     });
   } catch (_error) {
     return fail(res, 503, "Base de datos no disponible");
   }
 });
 
-app.get("/api/state", requireAuth, (_req, res) => {
-  const state = getPublicState();
+const bootstrapAudienceRoles = {
+  customer: "customer",
+  merchant: "merchant",
+  driver: "driver",
+  operations: "admin",
+};
+
+app.get("/api/bootstrap/:audience", requireAuth, async (req, res) => {
+  const requiredRole = bootstrapAudienceRoles[req.params.audience];
+  if (!requiredRole) return fail(res, 404, "Audiencia inexistente");
+  if (!req.auth.roles.includes(requiredRole))
+    return fail(res, 403, "La audiencia no pertenece a esta sesión");
+  const state = await loadRuntimeState(req);
+  const scopedState = scopeStateForRequest(state, req);
+  const { orders: _orders, rides: _rides, shipments: _shipments, tips: _tips, ...withoutActivity } = scopedState;
+  const excludedBootstrapKeys=["customer","merchant","driver","operations"].includes(req.params.audience)?["restaurants","drivers","zones","promotions","addresses","paymentMethods","walletTransactions","supportTickets","ratings","favoriteRestaurantIds","tips",...(req.params.audience==="operations"?["users","auditEvents"]:[])]:[];
+  const bootstrapState=Object.fromEntries(Object.entries(withoutActivity).filter(([key])=>!excludedBootstrapKeys.includes(key)));
+  res.set("Cache-Control", "no-store, private");
   ok(res, {
+    audience: req.params.audience,
     state: {
-      ...state,
-      metrics: metrics(state)
-    }
+      ...bootstrapState,
+      metrics: metrics(scopedState),
+    },
   });
 });
 
-app.get("/api/me", requireAuth, (req, res) => {
-  const db = readDb();
-  return ok(res, { account: accountSnapshot(db, req.auth.userId) });
+app.get("/api/me/activity", requireAuth, async (req,res)=>{
+  const limit=Math.min(50,Math.max(1,Number(req.query.limit)||20));
+  const cursor=decodeActivityCursor(String(req.query.cursor||""));
+  if(req.query.cursor&&!cursor)return fail(res,400,"Cursor de actividad inválido");
+  if(!usesPostgresCommerce()){
+    const scoped=scopeStateForRequest(getPublicState(),req),items=[
+      ...scoped.orders.map(resource=>({id:resource.id,kind:"order",createdAt:resource.createdAt,resource})),
+      ...scoped.rides.map(resource=>({id:resource.id,kind:"ride",createdAt:resource.createdAt,resource})),
+      ...(scoped.shipments||[]).map(resource=>({id:resource.id,kind:"shipment",createdAt:resource.createdAt,resource})),
+    ].sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt))).slice(0,limit);
+    res.set("Cache-Control","no-store, private");return ok(res,{items,nextCursor:null});
+  }
+  try{res.set("Cache-Control","no-store, private");return ok(res,await getActivityPage({userPublicId:req.auth.userId,roles:req.auth.roles,limit,cursor}));}
+  catch(error){return fail(res,error.status||500,error.message||"No se pudo cargar la actividad");}
 });
 
-app.patch("/api/me", requireAuth, (req, res) => {
+app.get("/api/driver/me", requireAuth, requireAnyRole("driver"), async (req,res)=>{
+  try {
+    const driver=usesPostgresCommerce()
+      ? await getPostgresDriverForUser(req.auth.userId)
+      : readDb().drivers.find((entry)=>entry.userId===req.auth.userId)||null;
+    if(!driver)return fail(res,404,"Perfil de conductor no encontrado");
+    res.set("Cache-Control","no-store, private");
+    return ok(res,{driver});
+  } catch(error) {
+    return fail(res,error.status||500,error.message||"No se pudo cargar el perfil del conductor");
+  }
+});
+
+app.get("/api/merchant/me", requireAuth, requireAnyRole("merchant"), async (req,res)=>{
+  try {
+    const restaurants=usesPostgresCommerce()
+      ? await getPostgresRestaurants({ownerPublicId:req.auth.userId})
+      : readDb().restaurants.filter((entry)=>entry.ownerId===req.auth.userId);
+    res.set("Cache-Control","no-store, private");
+    return ok(res,{restaurants});
+  } catch(error) {
+    return fail(res,error.status||500,error.message||"No se pudo cargar el comercio");
+  }
+});
+
+app.get("/api/me/assigned-drivers",requireAuth,requireAnyRole("customer","merchant"),async(req,res)=>{
+  try {
+    const drivers=usesPostgresCommerce()
+      ? await getAssignedDriverProjections({userPublicId:req.auth.userId,roles:req.auth.roles})
+      : scopeStateForRequest(getPublicState(),req).drivers.map(({id,name,rating,vehicle,plate,vehicleKind,location})=>({id,name,rating,vehicle,plate,vehicleKind,location}));
+    res.set("Cache-Control","no-store, private");
+    return ok(res,{drivers});
+  } catch(error) {
+    return fail(res,error.status||500,error.message||"No se pudieron cargar los conductores asignados");
+  }
+});
+
+const publicRestaurantFallback=restaurant=>{const{ownerId:_ownerId,manualOpen:_manualOpen,...safe}=restaurant;return{...safe,branches:(restaurant.branches||[]).map(({manualOpen:_branchManual,weeklyHours:_hours,scheduleExceptions:_exceptions,inventory:_inventory,...branch})=>branch)};};
+app.get("/api/catalog/restaurants",async(req,res)=>{const limit=Math.min(50,Math.max(1,Number(req.query.limit)||20)),query=String(req.query.q||"").slice(0,100);let cursor=null;if(req.query.cursor){try{cursor=JSON.parse(Buffer.from(String(req.query.cursor),"base64url").toString("utf8"));if(typeof cursor.id!=="string"||!cursor.createdAt)throw new Error();}catch{return fail(res,400,"Cursor de catálogo inválido");}}try{res.set("Cache-Control","public, max-age=30, stale-while-revalidate=120");if(!usesPostgresCommerce()){const normalized=query.trim().toLowerCase(),all=getPublicState().restaurants.filter(item=>!normalized||`${item.name} ${item.cuisine}`.toLowerCase().includes(normalized)).map(publicRestaurantFallback),offset=cursor?Math.max(0,all.findIndex(item=>item.id===cursor.id)+1):0,restaurants=all.slice(offset,offset+limit),last=restaurants.at(-1),nextCursor=offset+limit<all.length&&last?Buffer.from(JSON.stringify({createdAt:new Date(0).toISOString(),id:last.id})).toString("base64url"):null;return ok(res,{restaurants,nextCursor});}return ok(res,await getPostgresRestaurantPage({limit,cursor,query}));}catch(error){return fail(res,500,error.message||"No se pudo cargar el catálogo");}});
+
+function parseOperationsCursor(value){if(!value)return null;try{const cursor=JSON.parse(Buffer.from(String(value),"base64url").toString("utf8"));if(typeof cursor.id!=="string"||!/^[0-9]{4}-/.test(cursor.createdAt))return false;return cursor;}catch{return false;}}
+app.get("/api/operations/restaurants",requireAuth,requireAnyRole("admin"),async(req,res)=>{const limit=Math.min(100,Math.max(1,Number(req.query.limit)||50)),cursor=parseOperationsCursor(req.query.cursor),query=String(req.query.q||"").slice(0,100);if(cursor===false)return fail(res,400,"Cursor operativo inválido");try{res.set("Cache-Control","no-store, private");return ok(res,await getPostgresOperationsRestaurantPage({limit,cursor,query}));}catch(error){return fail(res,error.status||500,error.message||"No se pudieron cargar los comercios operativos");}});
+app.get("/api/operations/drivers",requireAuth,requireAnyRole("admin"),async(req,res)=>{const limit=Math.min(100,Math.max(1,Number(req.query.limit)||50)),cursor=parseOperationsCursor(req.query.cursor),query=String(req.query.q||"").slice(0,100);if(cursor===false)return fail(res,400,"Cursor operativo inválido");try{res.set("Cache-Control","no-store, private");return ok(res,await getPostgresOperationsDriverPage({limit,cursor,query}));}catch(error){return fail(res,error.status||500,error.message||"No se pudo cargar la flota operativa");}});
+app.get("/api/operations/users",requireAuth,requireAnyRole("admin"),async(req,res)=>{const limit=Math.min(100,Math.max(1,Number(req.query.limit)||50)),cursor=parseOperationsCursor(req.query.cursor),query=String(req.query.q||"").slice(0,100);if(cursor===false)return fail(res,400,"Cursor operativo inválido");try{const page=await getPostgresOperationsUserPage({limit,cursor,query}),balances=await getWalletBalances();page.users=page.users.map(user=>({...user,wallet:balances.get(user.id)||0}));res.set("Cache-Control","no-store, private");return ok(res,page);}catch(error){return fail(res,error.status||500,error.message||"No se pudieron cargar los usuarios operativos");}});
+app.get("/api/operations/support-tickets",requireAuth,requireAnyRole("admin"),async(req,res)=>{const limit=Math.min(100,Math.max(1,Number(req.query.limit)||50)),query=String(req.query.q||"").slice(0,100);let cursor=null;if(req.query.cursor){try{cursor=JSON.parse(Buffer.from(String(req.query.cursor),"base64url").toString("utf8"));if(typeof cursor.id!=="string"||!/^[0-9]{4}-/.test(cursor.updatedAt))throw new Error();}catch{return fail(res,400,"Cursor operativo inválido");}}try{res.set("Cache-Control","no-store, private");return ok(res,await getPostgresOperationsSupportTicketPage({limit,cursor,query}));}catch(error){return fail(res,error.status||500,error.message||"No se pudo cargar la mesa de ayuda");}});
+app.get("/api/operations/audit-events",requireAuth,requireAnyRole("admin"),async(req,res)=>{const limit=Math.min(100,Math.max(1,Number(req.query.limit)||50)),query=String(req.query.q||"").slice(0,100);let cursor=null;if(req.query.cursor){try{cursor=JSON.parse(Buffer.from(String(req.query.cursor),"base64url").toString("utf8"));if(!/^\d+$/.test(cursor.id)||!/^[0-9]{4}-/.test(cursor.occurredAt))throw new Error();}catch{return fail(res,400,"Cursor operativo inválido");}}try{res.set("Cache-Control","no-store, private");return ok(res,await getPostgresAuditEventPage({limit,cursor,query}));}catch(error){return fail(res,error.status||500,error.message||"No se pudo cargar la auditoría");}});
+
+app.get("/api/state", requireAuth, (_req,res) => {
+  res.set("Cache-Control","no-store");
+  return fail(res,410,"El estado global fue retirado; usa bootstrap y recursos segmentados");
+});
+
+app.get("/api/public/rides/track/:token", async (req, res) => {
+  const token = String(req.params.token || "");
+  if (!/^[A-Za-z0-9_-]{40,64}$/.test(token))
+    return fail(res, 404, "El enlace no existe o venció");
+  try {
+    res.set("Cache-Control", "no-store, private");
+    return ok(res, { tracking: await getPublicRideTracking(token) });
+  } catch (error) {
+    return fail(
+      res,
+      error.status || 500,
+      error.message || "No se pudo consultar el viaje",
+    );
+  }
+});
+app.post(
+  "/api/rides/:rideId/tracking-links",
+  requireAuth,
+  requireAnyRole("customer", "admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(rideTrackingCreateSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const link = await createRideTrackingLink({
+        ridePublicId: req.params.rideId,
+        userPublicId: req.auth.userId,
+        ttlMinutes: parsed.data.ttlMinutes,
+      });
+      const trackingUrl = `${req.protocol}://${req.get("host")}/api/public/rides/track/${link.token}`;
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "ride.tracking_link_created",
+        entityType: "ride",
+        entityId: req.params.rideId,
+        requestId: req.requestId,
+        afterData: { linkId: link.id, expiresAt: link.expiresAt },
+      });
+      return res.status(201).json({
+        ok: true,
+        requestId: req.requestId,
+        link: { id: link.id, trackingUrl, expiresAt: link.expiresAt },
+      });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo compartir el viaje",
+      );
+    }
+  },
+);
+app.delete(
+  "/api/rides/:rideId/tracking-links/:linkId",
+  requireAuth,
+  requireAnyRole("customer", "admin"),
+  async (req, res) => {
+    try {
+      const result = await revokeRideTrackingLink({
+        ridePublicId: req.params.rideId,
+        linkPublicId: req.params.linkId,
+        userPublicId: req.auth.userId,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "ride.tracking_link_revoked",
+        entityType: "ride",
+        entityId: req.params.rideId,
+        requestId: req.requestId,
+        afterData: { linkId: req.params.linkId },
+      });
+      return ok(res, result);
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo revocar el enlace",
+      );
+    }
+  },
+);
+app.post(
+  "/api/rides/:rideId/safety-incidents",
+  requireAuth,
+  requireAnyRole("customer", "driver", "admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(rideSafetyIncidentSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const incident = await createRideSafetyIncident({
+        ridePublicId: req.params.rideId,
+        userPublicId: req.auth.userId,
+        ...parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "ride.safety_incident_created",
+        entityType: "ride",
+        entityId: req.params.rideId,
+        requestId: req.requestId,
+        afterData: { incidentId: incident.id, type: incident.type },
+      });
+      await publishRealtimeEvent({
+        req,
+        type: "ride.safety",
+        entityType: "ride",
+        entityId: req.params.rideId,
+        action: "ride.safety_incident_created",
+      });
+      return res
+        .status(201)
+        .json({ ok: true, requestId: req.requestId, incident });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo activar Seguridad Flash",
+      );
+    }
+  },
+);
+app.get(
+  "/api/rides/:rideId/pickup-code",
+  requireAuth,
+  requireAnyRole("customer", "admin"),
+  async (req, res) => {
+    try {
+      return ok(
+        res,
+        await getRidePickupCode({
+          ridePublicId: req.params.rideId,
+          userPublicId: req.auth.userId,
+        }),
+      );
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo consultar el PIN de retiro",
+      );
+    }
+  },
+);
+app.post(
+  "/api/rides/:rideId/verify-pickup",
+  deliveryProofLimiter,
+  requireAuth,
+  requireAnyRole("driver", "admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(ridePickupVerificationSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const verification = await verifyRidePickupCode({
+        ridePublicId: req.params.rideId,
+        userPublicId: req.auth.userId,
+        pin: parsed.data.pin,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "ride.pickup_verified",
+        entityType: "ride",
+        entityId: req.params.rideId,
+        requestId: req.requestId,
+        afterData: { verifiedAt: verification.verifiedAt },
+      });
+      await publishRealtimeEvent({
+        req,
+        type: "ride.updated",
+        entityType: "ride",
+        entityId: req.params.rideId,
+        action: "ride.pickup_verified",
+      });
+      return ok(res, { verification });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo verificar el pasajero",
+        error.attemptsRemaining === undefined
+          ? undefined
+          : { attemptsRemaining: error.attemptsRemaining },
+      );
+    }
+  },
+);
+app.get(
+  "/api/jobs/:jobId/messages",
+  requireAuth,
+  requireAnyRole("customer", "driver", "merchant"),
+  async (req, res) => {
+    try {
+      return ok(
+        res,
+        await getServiceMessages({
+          jobPublicId: req.params.jobId,
+          userPublicId: req.auth.userId,
+        }),
+      );
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo abrir la conversación",
+      );
+    }
+  },
+);
+app.post(
+  "/api/jobs/:jobId/messages/read",
+  requireAuth,
+  requireAnyRole("customer", "driver", "merchant"),
+  async (req, res) => {
+    try {
+      return ok(res, {
+        receipt: await markServiceMessagesRead({
+          jobPublicId: req.params.jobId,
+          userPublicId: req.auth.userId,
+        }),
+      });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo confirmar la lectura",
+      );
+    }
+  },
+);
+app.post(
+  "/api/jobs/:jobId/messages",
+  serviceChatLimiter,
+  requireAuth,
+  requireAnyRole("customer", "driver", "merchant"),
+  async (req, res) => {
+    const parsed = parseOrFail(serviceMessageSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const message = await createServiceMessage({
+        jobPublicId: req.params.jobId,
+        userPublicId: req.auth.userId,
+        ...parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "service_message.created",
+        entityType: "job",
+        entityId: req.params.jobId,
+        requestId: req.requestId,
+        afterData: {
+          messageId: message.id,
+          attachmentIds: message.attachments.map((entry) => entry.id),
+        },
+      });
+      await publishRealtimeEvent({
+        req,
+        type: "service.message_created",
+        entityType: "job",
+        entityId: req.params.jobId,
+        action: "service_message.created",
+      });
+      return res
+        .status(201)
+        .json({ ok: true, requestId: req.requestId, message });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo enviar el mensaje",
+      );
+    }
+  },
+);
+app.get(
+  "/api/service-message-attachments/:attachmentId/content",
+  serviceChatLimiter,
+  requireAuth,
+  requireAnyRole("customer", "driver", "merchant"),
+  async (req, res) => {
+    try {
+      return ok(
+        res,
+        await getServiceAttachmentContent({
+          attachmentPublicId: req.params.attachmentId,
+          userPublicId: req.auth.userId,
+        }),
+      );
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo abrir el adjunto",
+      );
+    }
+  },
+);
+app.get(
+  "/api/jobs/:jobId/quick-replies",
+  requireAuth,
+  requireAnyRole("customer", "driver", "merchant"),
+  async (req, res) => {
+    try {
+      return ok(
+        res,
+        await getServiceQuickReplies({
+          jobPublicId: req.params.jobId,
+          userPublicId: req.auth.userId,
+          locale: String(req.query.locale || "es-AR"),
+        }),
+      );
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudieron cargar respuestas rápidas",
+      );
+    }
+  },
+);
+app.get(
+  "/api/admin/service-chat/quick-replies",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (_req, res) =>
+    ok(res, { quickReplies: await listServiceQuickReplies() }),
+);
+app.post(
+  "/api/admin/service-chat/quick-replies",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(serviceQuickReplyCreateSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const quickReply = await createServiceQuickReply(parsed.data);
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "service_chat.quick_reply_created",
+        entityType: "service_chat_quick_reply",
+        entityId: quickReply.id,
+        requestId: req.requestId,
+        afterData: quickReply,
+      });
+      return res
+        .status(201)
+        .json({ ok: true, requestId: req.requestId, quickReply });
+    } catch (error) {
+      return fail(
+        res,
+        error.code === "23505" ? 409 : error.status || 500,
+        error.code === "23505" ? "La respuesta ya existe" : error.message,
+      );
+    }
+  },
+);
+app.patch(
+  "/api/admin/service-chat/quick-replies/:quickReplyId",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(serviceQuickReplyUpdateSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const quickReply = await updateServiceQuickReply({
+        publicId: req.params.quickReplyId,
+        ...parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "service_chat.quick_reply_updated",
+        entityType: "service_chat_quick_reply",
+        entityId: quickReply.id,
+        requestId: req.requestId,
+        afterData: quickReply,
+      });
+      return ok(res, { quickReply });
+    } catch (error) {
+      return fail(
+        res,
+        error.code === "23505" ? 409 : error.status || 500,
+        error.code === "23505" ? "La respuesta ya existe" : error.message,
+      );
+    }
+  },
+);
+
+app.post(
+  "/api/payment-methods/sandbox",
+  requireAuth,
+  requireAnyRole("customer", "admin"),
+  async (req, res) => {
+    if (config.isProduction) return fail(res, 404, "Ruta no disponible");
+    const parsed = parseOrFail(sandboxPaymentMethodSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const paymentMethod = await createSandboxPaymentMethod({
+        userPublicId: req.auth.userId,
+        ...parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "payment_method.created",
+        entityType: "payment_method",
+        entityId: paymentMethod.id,
+        requestId: req.requestId,
+        afterData: {
+          provider: "sandbox",
+          brand: paymentMethod.brand,
+          last4: paymentMethod.last4,
+        },
+      });
+      return res
+        .status(201)
+        .json({ ok: true, requestId: req.requestId, paymentMethod });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo registrar el método de pago",
+      );
+    }
+  },
+);
+app.patch(
+  "/api/payment-methods/:paymentMethodId/default",
+  requireAuth,
+  requireAnyRole("customer", "admin"),
+  async (req, res) => {
+    try {
+      const paymentMethod = await setDefaultPostgresPaymentMethod({
+        userPublicId: req.auth.userId,
+        paymentMethodId: req.params.paymentMethodId,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "payment_method.default_changed",
+        entityType: "payment_method",
+        entityId: paymentMethod.id,
+        requestId: req.requestId,
+      });
+      return ok(res, { paymentMethod });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo cambiar el método predeterminado",
+      );
+    }
+  },
+);
+app.delete(
+  "/api/payment-methods/:paymentMethodId",
+  requireAuth,
+  requireAnyRole("customer", "admin"),
+  async (req, res) => {
+    try {
+      const paymentMethods = await revokePostgresPaymentMethod({
+        userPublicId: req.auth.userId,
+        paymentMethodId: req.params.paymentMethodId,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "payment_method.revoked",
+        entityType: "payment_method",
+        entityId: req.params.paymentMethodId,
+        requestId: req.requestId,
+      });
+      return ok(res, {
+        paymentMethods: paymentMethods.filter(
+          (entry) => entry.userId === req.auth.userId,
+        ),
+      });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo eliminar el método de pago",
+      );
+    }
+  },
+);
+
+app.get("/api/support/tickets", requireAuth, async (req, res) => {
+  if (!usesPostgresCommerce())
+    return ok(res, {
+      tickets: scopeStateForRequest(getPublicState(), req).supportTickets || [],
+    });
+  try {
+    return ok(res, {
+      tickets: await getPostgresSupportTickets({
+        userPublicId: req.auth.userId,
+        roles: req.auth.roles,
+      }),
+    });
+  } catch (error) {
+    return fail(
+      res,
+      error.status || 500,
+      error.message || "No se pudo cargar soporte",
+    );
+  }
+});
+app.post("/api/support/tickets", requireAuth, async (req, res) => {
+  if (!usesPostgresCommerce())
+    return fail(res, 503, "Soporte real requiere PostgreSQL");
+  const parsed = parseOrFail(supportTicketCreateSchema, req.body || {});
+  if (!parsed.ok) return fail(res, 400, parsed.message);
+  try {
+    const ticket = await createPostgresSupportTicket({
+      userPublicId: req.auth.userId,
+      ...parsed.data,
+    });
+    await recordPostgresAudit({
+      actorPublicId: req.auth.userId,
+      roles: req.auth.roles,
+      action: "support.created",
+      entityType: "support_ticket",
+      entityId: ticket.id,
+      requestId: req.requestId,
+      afterData: {
+        category: parsed.data.category,
+        priority: parsed.data.priority,
+      },
+    });
+    await publishRealtimeEvent({
+      req,
+      type: "support.updated",
+      entityType: "support_ticket",
+      entityId: ticket.id,
+      action: "support.created",
+    });
+    return res
+      .status(201)
+      .json({ ok: true, requestId: res.locals.requestId, ticket });
+  } catch (error) {
+    return fail(
+      res,
+      error.status || 500,
+      error.message || "No se pudo crear el ticket",
+    );
+  }
+});
+app.post(
+  "/api/support/tickets/:ticketId/messages",
+  requireAuth,
+  async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "Soporte real requiere PostgreSQL");
+    const parsed = parseOrFail(supportMessageSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const ticket = await addPostgresSupportMessage({
+        ticketPublicId: req.params.ticketId,
+        senderPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        ...parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: parsed.data.internal
+          ? "support.internal_note_created"
+          : "support.message_created",
+        entityType: "support_ticket",
+        entityId: ticket.id,
+        requestId: req.requestId,
+        afterData: { internal: parsed.data.internal },
+      });
+      await publishRealtimeEvent({
+        req,
+        type: "support.updated",
+        entityType: "support_ticket",
+        entityId: ticket.id,
+        action: "support.message_created",
+      });
+      return ok(res, { ticket });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo enviar el mensaje",
+      );
+    }
+  },
+);
+app.patch(
+  "/api/support/tickets/:ticketId",
+  requireAuth,
+  requireAnyRole("support", "admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(supportTicketUpdateSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const ticket = await updatePostgresSupportTicket({
+        ticketPublicId: req.params.ticketId,
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        ...parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "support.updated",
+        entityType: "support_ticket",
+        entityId: ticket.id,
+        requestId: req.requestId,
+        afterData: parsed.data,
+      });
+      return ok(res, { ticket });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo actualizar el ticket",
+      );
+    }
+  },
+);
+app.get(
+  "/api/admin/support/agents",
+  requireAuth,
+  requireAnyRole("support", "admin"),
+  async (_req, res) => {
+    try {
+      return ok(res, { agents: await getSupportAgents() });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudieron cargar los agentes",
+      );
+    }
+  },
+);
+app.patch(
+  "/api/admin/support/agents/:userId",
+  requireAuth,
+  requireAnyRole("support", "admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(supportAgentUpdateSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const agent = await updateSupportAgent({
+        userPublicId: req.params.userId,
+        ...parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "support.agent_updated",
+        entityType: "support_agent",
+        entityId: agent.userId,
+        requestId: req.requestId,
+        afterData: parsed.data,
+      });
+      return ok(res, { agent });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo actualizar el agente",
+      );
+    }
+  },
+);
+app.post(
+  "/api/admin/support/process",
+  requireAuth,
+  requireAnyRole("support", "admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(supportQueueProcessSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const result = await processSupportQueue(parsed.data);
+      for (const escalation of result.escalated)
+        await recordPostgresAudit({
+          actorPublicId: req.auth.userId,
+          roles: req.auth.roles,
+          action: "support.sla_escalated",
+          entityType: "support_ticket",
+          entityId: escalation.ticketId,
+          requestId: req.requestId,
+          afterData: {
+            level: escalation.level,
+            breachKind: escalation.breachKind,
+          },
+        });
+      return ok(res, { result });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo procesar la cola de soporte",
+      );
+    }
+  },
+);
+app.get("/api/notifications", requireAuth, async (req, res) => {
+  if (!usesPostgresCommerce()) return ok(res, { notifications: [] });
+  try {
+    return ok(res, {
+      notifications: await getPostgresNotifications(req.auth.userId),
+    });
+  } catch (_error) {
+    return fail(res, 500, "No se pudieron cargar las notificaciones");
+  }
+});
+app.patch(
+  "/api/notifications/:notificationId/read",
+  requireAuth,
+  async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "Notificaciones reales requieren PostgreSQL");
+    try {
+      return ok(res, {
+        notifications: await markPostgresNotificationRead({
+          publicId: req.params.notificationId,
+          userPublicId: req.auth.userId,
+        }),
+      });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo marcar la notificación",
+      );
+    }
+  },
+);
+app.get("/api/notification-preferences", requireAuth, async (req, res) => {
+  try {
+    return ok(res, {
+      preferences: await getPostgresNotificationPreferences(req.auth.userId),
+    });
+  } catch (_error) {
+    return fail(res, 500, "No se pudieron cargar las preferencias");
+  }
+});
+app.patch(
+  "/api/notification-preferences/:category",
+  requireAuth,
+  async (req, res) => {
+    const category = String(req.params.category);
+    if (
+      ![
+        "service_updates",
+        "promotions",
+        "support",
+        "wallet",
+        "account",
+      ].includes(category)
+    )
+      return fail(res, 400, "Categoría inválida");
+    const parsed = parseOrFail(notificationPreferenceSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const preferences = await updatePostgresNotificationPreference({
+        userPublicId: req.auth.userId,
+        category,
+        ...parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "notification_preference.updated",
+        entityType: "notification_preference",
+        entityId: category,
+        requestId: req.requestId,
+        afterData: parsed.data,
+      });
+      return ok(res, { preferences });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo actualizar la preferencia",
+      );
+    }
+  },
+);
+app.get(
+  "/api/dietary-preferences",
+  requireAuth,
+  requireAnyRole("customer", "admin"),
+  async (req, res) => {
+    try {
+      return ok(res, {
+        preferences: await getUserDietaryPreferences(req.auth.userId),
+      });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudieron cargar las preferencias alimentarias",
+      );
+    }
+  },
+);
+app.put(
+  "/api/dietary-preferences",
+  requireAuth,
+  requireAnyRole("customer", "admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(userDietaryPreferenceSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const preferences = await replaceUserDietaryPreferences({
+        userPublicId: req.auth.userId,
+        ...parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "user.dietary_preferences_updated",
+        entityType: "user",
+        entityId: req.auth.userId,
+        requestId: req.requestId,
+        afterData: {
+          dietaryCount: parsed.data.dietaryLabels.length,
+          allergenCount: parsed.data.avoidedAllergens.length,
+          hideIncompatible: parsed.data.hideIncompatible,
+        },
+      });
+      return ok(res, { preferences });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message ||
+          "No se pudieron actualizar las preferencias alimentarias",
+      );
+    }
+  },
+);
+app.get(
+  "/api/catalog/search",
+  requireAuth,
+  requireAnyRole("customer", "admin"),
+  async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "La búsqueda de catálogo requiere PostgreSQL");
+    const parsed = parseOrFail(catalogSearchSchema, req.query);
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      return ok(
+        res,
+        await searchPostgresCatalog({
+          userPublicId: req.auth.userId,
+          query: parsed.data.q,
+          limit: parsed.data.limit,
+          offset: parsed.data.offset,
+        }),
+      );
+    } catch (_error) {
+      return fail(res, 500, "No se pudo buscar el catálogo");
+    }
+  },
+);
+app.get("/api/devices", requireAuth, async (req, res) => {
+  try {
+    return ok(res, { devices: await getPostgresDevices(req.auth.userId) });
+  } catch (_error) {
+    return fail(res, 500, "No se pudieron cargar los dispositivos");
+  }
+});
+app.post("/api/devices", requireAuth, async (req, res) => {
+  const parsed = parseOrFail(deviceSchema, req.body || {});
+  if (!parsed.ok) return fail(res, 400, parsed.message);
+  try {
+    const fingerprint = crypto
+        .createHmac("sha256", jwtSecret)
+        .update(parsed.data.deviceFingerprint)
+        .digest("hex"),
+      device = await registerPostgresDevice({
+        userPublicId: req.auth.userId,
+        platform: parsed.data.platform,
+        pushToken: parsed.data.pushToken,
+        appVersion: parsed.data.appVersion,
+        fingerprint,
+      });
+    await recordPostgresAudit({
+      actorPublicId: req.auth.userId,
+      roles: req.auth.roles,
+      action: "device.registered",
+      entityType: "user_device",
+      entityId: device.id,
+      requestId: req.requestId,
+      afterData: { platform: device.platform, appVersion: device.appVersion },
+    });
+    return res
+      .status(201)
+      .json({ ok: true, requestId: res.locals.requestId, device });
+  } catch (error) {
+    return fail(
+      res,
+      error.status || 500,
+      error.message || "No se pudo registrar el dispositivo",
+    );
+  }
+});
+app.delete("/api/devices/:deviceId", requireAuth, async (req, res) => {
+  try {
+    await revokePostgresDevice({
+      userPublicId: req.auth.userId,
+      devicePublicId: req.params.deviceId,
+    });
+    await recordPostgresAudit({
+      actorPublicId: req.auth.userId,
+      roles: req.auth.roles,
+      action: "device.revoked",
+      entityType: "user_device",
+      entityId: req.params.deviceId,
+      requestId: req.requestId,
+    });
+    return ok(res, { revoked: true });
+  } catch (error) {
+    return fail(
+      res,
+      error.status || 500,
+      error.message || "No se pudo revocar el dispositivo",
+    );
+  }
+});
+app.get(
+  "/api/driver/offers",
+  requireAuth,
+  requireAnyRole("driver", "admin"),
+  async (req, res) => {
+    const driverId = isAdmin(req)
+      ? String(req.query.driverId || req.auth.user.driverId || "")
+      : req.auth.user.driverId;
+    if (!driverId) return fail(res, 400, "Falta el conductor");
+    try {
+      return ok(res, { offers: await getPostgresDispatchOffers(driverId) });
+    } catch (_error) {
+      return fail(res, 500, "No se pudieron cargar las ofertas");
+    }
+  },
+);
+app.post(
+  "/api/driver/offers/:offerId/reject",
+  requireAuth,
+  requireAnyRole("driver", "admin"),
+  async (req, res) => {
+    const driverId = isAdmin(req)
+      ? String(req.body?.driverId || req.auth.user.driverId || "")
+      : req.auth.user.driverId;
+    if (!driverId) return fail(res, 400, "Falta el conductor");
+    try {
+      await rejectPostgresDispatchOffer({
+        driverPublicId: driverId,
+        offerPublicId: req.params.offerId,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "dispatch_offer.rejected",
+        entityType: "dispatch_offer",
+        entityId: req.params.offerId,
+        requestId: req.requestId,
+      });
+      return ok(res, { rejected: true });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo rechazar la oferta",
+      );
+    }
+  },
+);
+app.post(
+  "/api/admin/dispatch/process",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (req, res) => {
+    try {
+      return ok(res, {
+        result: await processPostgresDispatchBatch({
+          limit: Math.min(100, Math.max(1, Number(req.body?.limit) || 20)),
+        }),
+      });
+    } catch (_error) {
+      return fail(res, 500, "No se pudo procesar el dispatch");
+    }
+  },
+);
+app.post(
+  "/api/admin/notifications/process",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (req, res) => {
+    if (
+      config.notificationProvider === "disabled" &&
+      config.emailProvider === "disabled"
+    )
+      return fail(
+        res,
+        503,
+        "Los proveedores de notificaciones están deshabilitados",
+      );
+    try {
+      return ok(res, {
+        result: await processPostgresNotificationBatch({
+          workerId: `api-${process.pid}`,
+          limit: Math.min(100, Math.max(1, Number(req.body?.limit) || 25)),
+          provider: config.notificationProvider,
+        }),
+      });
+    } catch (_error) {
+      return fail(res, 500, "No se pudo procesar la cola de notificaciones");
+    }
+  },
+);
+app.get(
+  "/api/admin/notifications/dead-letters",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (_req, res) => {
+    try {
+      return ok(res, { deadLetters: await getNotificationDeadLetters() });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo cargar la cola de descarte",
+      );
+    }
+  },
+);
+app.post(
+  "/api/admin/notifications/dead-letters/:notificationId/replay",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (req, res) => {
+    try {
+      const deadLetter = await replayNotificationDeadLetter({
+        notificationPublicId: req.params.notificationId,
+        actorPublicId: req.auth.userId,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "notification.dead_letter_replayed",
+        entityType: "notification",
+        entityId: req.params.notificationId,
+        requestId: req.requestId,
+        afterData: {
+          reason: deadLetter.reason,
+          replayCount: deadLetter.replayCount,
+        },
+      });
+      return ok(res, { deadLetter });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo reintentar la notificación",
+      );
+    }
+  },
+);
+
+app.get("/api/promotions", async (_req, res) => {
+  try {
+    res.set("Cache-Control","public, max-age=30, stale-while-revalidate=120");
+    return ok(res, {
+      promotions: usesPostgresCommerce()
+        ? await getPostgresPromotions()
+        : readDb().promotions,
+    });
+  } catch (_error) {
+    return fail(res, 500, "No se pudieron cargar las promociones");
+  }
+});
+app.post(
+  "/api/promotions",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "Promociones reales requieren PostgreSQL");
+    const parsed = parseOrFail(promotionCreateSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const promotion = await createPostgresPromotion(parsed.data);
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "promotion.created",
+        entityType: "promotion",
+        entityId: promotion.id,
+        requestId: req.requestId,
+        afterData: {
+          code: promotion.code,
+          service: promotion.service,
+          kind: promotion.kind,
+        },
+      });
+      return res
+        .status(201)
+        .json({ ok: true, requestId: res.locals.requestId, promotion });
+    } catch (error) {
+      return fail(
+        res,
+        error.code === "23505" ? 409 : error.status || 500,
+        error.code === "23505"
+          ? "El código ya existe"
+          : error.message || "No se pudo crear la promoción",
+      );
+    }
+  },
+);
+app.patch(
+  "/api/promotions/:promotionId",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(promotionUpdateSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const promotion = await updatePostgresPromotion(
+        req.params.promotionId,
+        parsed.data,
+      );
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "promotion.updated",
+        entityType: "promotion",
+        entityId: promotion.id,
+        requestId: req.requestId,
+        afterData: parsed.data,
+      });
+      return ok(res, { promotion });
+    } catch (error) {
+      return fail(
+        res,
+        error.code === "23505" ? 409 : error.status || 500,
+        error.code === "23505"
+          ? "El código ya existe"
+          : error.message || "No se pudo actualizar la promoción",
+      );
+    }
+  },
+);
+app.get("/api/zones", async (_req, res) => {
+  try {
+    res.set("Cache-Control","public, max-age=30, stale-while-revalidate=120");
+    return ok(res, {
+      zones: usesPostgresCommerce() ? await getPostgresZones() : readDb().zones,
+    });
+  } catch (_error) {
+    return fail(res, 500, "No se pudieron cargar las zonas");
+  }
+});
+app.get("/api/pricing", async (_req, res) => {
+  try {
+    return ok(res, {
+      plans: usesPostgresCommerce()
+        ? await getPostgresPricingPlans()
+        : [fallbackRidePricing, fallbackShipmentPricing],
+    });
+  } catch (_error) {
+    return fail(res, 500, "No se pudieron cargar las tarifas");
+  }
+});
+app.get("/api/shipment-options", async (_req, res) => {
+  if (!usesPostgresCommerce())
+    return fail(
+      res,
+      503,
+      "Las opciones operativas de envío requieren PostgreSQL",
+    );
+  try {
+    return ok(res, await getShipmentOptions());
+  } catch (_error) {
+    return fail(res, 500, "No se pudieron cargar las opciones de envío");
+  }
+});
+app.get(
+  "/api/admin/shipment-options",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (_req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(
+        res,
+        503,
+        "Las opciones operativas de envío requieren PostgreSQL",
+      );
+    try {
+      return ok(res, await getShipmentOptions({ includeInactive: true }));
+    } catch (_error) {
+      return fail(res, 500, "No se pudo cargar la configuración de envíos");
+    }
+  },
+);
+app.patch(
+  "/api/admin/shipment-item-categories/:code",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(shipmentCategoryUpdateSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const before =
+          (await getShipmentOptions({ includeInactive: true })).categories.find(
+            (entry) => entry.code === req.params.code,
+          ) || null,
+        category = await updateShipmentItemCategory(
+          req.params.code,
+          parsed.data,
+        );
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "shipment.category_updated",
+        entityType: "shipment_item_category",
+        entityId: req.params.code,
+        requestId: req.requestId,
+        beforeData: before,
+        afterData: category,
+      });
+      return ok(res, { category });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo actualizar la categoría",
+      );
+    }
+  },
+);
+app.patch(
+  "/api/admin/shipment-service-levels/:code",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(
+      shipmentServiceLevelUpdateSchema,
+      req.body || {},
+    );
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const before =
+          (
+            await getShipmentOptions({ includeInactive: true })
+          ).serviceLevels.find((entry) => entry.code === req.params.code) ||
+          null,
+        serviceLevel = await updateShipmentServiceLevel(
+          req.params.code,
+          parsed.data,
+        );
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "shipment.service_level_updated",
+        entityType: "shipment_service_level",
+        entityId: req.params.code,
+        requestId: req.requestId,
+        beforeData: before,
+        afterData: serviceLevel,
+      });
+      return ok(res, { serviceLevel });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo actualizar el nivel de servicio",
+      );
+    }
+  },
+);
+app.get(
+  "/api/admin/pricing-changes",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (_req, res) => {
+    try {
+      return ok(res, { requests: await getPostgresPricingChangeRequests() });
+    } catch (error) {
+      return fail(
+        res,
+        500,
+        error.message || "No se pudo cargar la cola tarifaria",
+      );
+    }
+  },
+);
+app.post(
+  "/api/admin/pricing/:service",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "La configuración tarifaria requiere PostgreSQL");
+    const service = String(req.params.service),
+      base = parseOrFail(pricingPlanSchema, req.body || {});
+    if (!base.ok || !["food", "ride", "shipment"].includes(service))
+      return fail(
+        res,
+        400,
+        base.ok ? "Servicio tarifario inválido" : base.message,
+      );
+    const schemas = {
+        food: foodPricingConfigSchema,
+        ride: ridePricingConfigSchema,
+        shipment: shipmentPricingConfigSchema,
+      },
+      validatedConfig = parseOrFail(schemas[service], base.data.config);
+    if (!validatedConfig.ok) return fail(res, 400, validatedConfig.message);
+    const effectiveAt = base.data.effectiveAt
+      ? new Date(base.data.effectiveAt)
+      : new Date();
+    if (
+      effectiveAt.getTime() < Date.now() - 60000 ||
+      effectiveAt.getTime() > Date.now() + 366 * 86400000
+    )
+      return fail(res, 400, "La vigencia debe estar entre ahora y 366 días");
+    try {
+      const changeRequest = await createPostgresPricingChangeRequest({
+        service,
+        version: base.data.version,
+        config: validatedConfig.data,
+        effectiveAt,
+        requesterPublicId: req.auth.userId,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "pricing.change_requested",
+        entityType: "pricing_change_request",
+        entityId: changeRequest.id,
+        requestId: req.requestId,
+        afterData: {
+          service,
+          version: changeRequest.version,
+          effectiveAt: changeRequest.effectiveAt,
+          riskLevel: changeRequest.riskLevel,
+          maximumChangePercent: changeRequest.maximumChangePercent,
+        },
+      });
+      return res
+        .status(201)
+        .json({ ok: true, requestId: req.requestId, changeRequest });
+    } catch (error) {
+      return fail(
+        res,
+        error.code === "23505" ? 409 : error.status || 500,
+        error.code === "23505"
+          ? "La versión tarifaria ya existe"
+          : error.message || "No se pudo solicitar la tarifa",
+      );
+    }
+  },
+);
+app.post(
+  "/api/admin/pricing/:service/rollback",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (req, res) => {
+    const service = String(req.params.service),
+      parsed = parseOrFail(pricingRollbackSchema, req.body || {});
+    if (!parsed.ok || !["food", "ride", "shipment"].includes(service))
+      return fail(
+        res,
+        400,
+        parsed.ok ? "Servicio tarifario inválido" : parsed.message,
+      );
+    const effectiveAt = parsed.data.effectiveAt
+      ? new Date(parsed.data.effectiveAt)
+      : new Date();
+    if (
+      effectiveAt.getTime() < Date.now() - 60000 ||
+      effectiveAt.getTime() > Date.now() + 366 * 86400000
+    )
+      return fail(res, 400, "La vigencia debe estar entre ahora y 366 días");
+    try {
+      const changeRequest = await createPostgresPricingRollbackRequest({
+        service,
+        targetVersion: parsed.data.targetVersion,
+        version: parsed.data.version,
+        effectiveAt,
+        requesterPublicId: req.auth.userId,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "pricing.rollback_requested",
+        entityType: "pricing_change_request",
+        entityId: changeRequest.id,
+        requestId: req.requestId,
+        afterData: {
+          service,
+          version: changeRequest.version,
+          sourceVersion: changeRequest.sourceVersion,
+          effectiveAt: changeRequest.effectiveAt,
+          riskLevel: changeRequest.riskLevel,
+        },
+      });
+      return res
+        .status(201)
+        .json({ ok: true, requestId: req.requestId, changeRequest });
+    } catch (error) {
+      return fail(
+        res,
+        error.code === "23505" ? 409 : error.status || 500,
+        error.code === "23505"
+          ? "La versión de rollback ya existe"
+          : error.message || "No se pudo solicitar el rollback",
+      );
+    }
+  },
+);
+app.patch(
+  "/api/admin/pricing-changes/:requestId/review",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(pricingReviewSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const changeRequest = await reviewPostgresPricingChangeRequest({
+        publicId: req.params.requestId,
+        reviewerPublicId: req.auth.userId,
+        decision: parsed.data.decision,
+        note: parsed.data.note,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: `pricing.${changeRequest.status}`,
+        entityType: "pricing_change_request",
+        entityId: changeRequest.id,
+        requestId: req.requestId,
+        afterData: {
+          service: changeRequest.service,
+          version: changeRequest.version,
+          status: changeRequest.status,
+          effectiveAt: changeRequest.effectiveAt,
+          riskLevel: changeRequest.riskLevel,
+          changeKind: changeRequest.changeKind,
+        },
+      });
+      await publishRealtimeEvent({
+        req,
+        type: "pricing.change_reviewed",
+        entityType: "pricing_change_request",
+        entityId: changeRequest.id,
+        action: changeRequest.status,
+      });
+      return ok(res, { changeRequest });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo revisar la tarifa",
+      );
+    }
+  },
+);
+app.patch(
+  "/api/zones/:zoneId",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(zoneUpdateSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const zone = await updatePostgresZone(req.params.zoneId, parsed.data);
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "zone.updated",
+        entityType: "service_zone",
+        entityId: zone.id,
+        requestId: req.requestId,
+        afterData: parsed.data,
+      });
+      await publishRealtimeEvent({
+        req,
+        type: "zone.updated",
+        entityType: "service_zone",
+        entityId: zone.id,
+        action: "zone.updated",
+      });
+      return ok(res, { zone });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo actualizar la zona",
+      );
+    }
+  },
+);
+app.get("/api/favorites", requireAuth, async (req, res) => {
+  try {
+    return ok(res, {
+      restaurantIds: usesPostgresCommerce()
+        ? await getPostgresFavoriteMerchantIds(req.auth.userId)
+        : [],
+    });
+  } catch (_error) {
+    return fail(res, 500, "No se pudieron cargar favoritos");
+  }
+});
+app.put(
+  "/api/favorites/:restaurantId",
+  requireAuth,
+  requireAnyRole("customer", "admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(favoriteSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const restaurantIds = await setPostgresFavorite({
+        userPublicId: req.auth.userId,
+        merchantPublicId: req.params.restaurantId,
+        favorite: parsed.data.favorite,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: parsed.data.favorite ? "favorite.added" : "favorite.removed",
+        entityType: "merchant",
+        entityId: req.params.restaurantId,
+        requestId: req.requestId,
+      });
+      return ok(res, { restaurantIds });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo actualizar favoritos",
+      );
+    }
+  },
+);
+app.get("/api/ratings", requireAuth, async (req, res) => {
+  try {
+    return ok(res, {
+      ratings: await getPostgresRatings({
+        userPublicId: req.auth.userId,
+        includeAll: isAdmin(req),
+      }),
+    });
+  } catch (_error) {
+    return fail(res, 500, "No se pudieron cargar calificaciones");
+  }
+});
+app.post("/api/ratings", requireAuth, async (req, res) => {
+  const parsed = parseOrFail(ratingSchema, req.body || {});
+  if (!parsed.ok) return fail(res, 400, parsed.message);
+  try {
+    const rating = await createPostgresRating({
+      jobPublicId: parsed.data.jobId,
+      authorPublicId: req.auth.userId,
+      subjectType: parsed.data.subjectType,
+      score: parsed.data.score,
+      tags: parsed.data.tags,
+      comment: parsed.data.comment,
+    });
+    await recordPostgresAudit({
+      actorPublicId: req.auth.userId,
+      roles: req.auth.roles,
+      action: "rating.created",
+      entityType: "rating",
+      entityId: rating.id,
+      requestId: req.requestId,
+      afterData: {
+        jobId: rating.jobId,
+        subjectType: rating.subjectType,
+        score: rating.score,
+      },
+    });
+    return res
+      .status(201)
+      .json({ ok: true, requestId: res.locals.requestId, rating });
+  } catch (error) {
+    return fail(
+      res,
+      error.status || 500,
+      error.message || "No se pudo guardar la calificación",
+    );
+  }
+});
+
+app.get("/api/me", requireAuth, async (req, res) => {
+  const db = usesPostgresAuth() ? null : readDb();
+  const account = usesPostgresAuth()
+    ? {
+        user: null,
+        addresses: [],
+        paymentMethods: [],
+        walletTransactions: [],
+        supportTickets: [],
+        ratings: [],
+      }
+    : accountSnapshot(db, req.auth.userId);
+  if (usesPostgresAuth()) {
+    account.user = sanitizeUser(await findAuthUserByPublicId(req.auth.userId));
+    const [wallet, addresses, paymentMethods, supportTickets, ratings] =
+      await Promise.all([
+        getWallet(req.auth.userId),
+        getPostgresAddresses(req.auth.userId),
+        getPostgresPaymentMethods(),
+        getPostgresSupportTickets({
+          userPublicId: req.auth.userId,
+          roles: [],
+        }),
+        getPostgresRatings({ userPublicId: req.auth.userId }),
+      ]);
+    account.user.wallet = wallet.balance;
+    account.walletTransactions = wallet.transactions;
+    account.addresses = addresses;
+    account.paymentMethods = paymentMethods.filter(
+      (entry) => entry.userId === req.auth.userId,
+    );
+    account.supportTickets = supportTickets;
+    account.ratings = ratings;
+    account.favoriteRestaurantIds=await getPostgresFavoriteMerchantIds(req.auth.userId);
+    account.tips=await getPostgresTips({userPublicId:req.auth.userId,roles:[]});
+  }
+  res.set("Cache-Control","no-store, private");
+  return ok(res, { account });
+});
+
+app.get("/api/addresses", requireAuth, async (req, res) => {
+  if (!usesPostgresAuth())
+    return fail(res, 503, "La libreta real requiere PostgreSQL");
+  return ok(res, { addresses: await getPostgresAddresses(req.auth.userId) });
+});
+app.post("/api/addresses", requireAuth, async (req, res) => {
+  if (!usesPostgresAuth())
+    return fail(res, 503, "La libreta real requiere PostgreSQL");
+  const parsed = parseOrFail(addressSchema, req.body || {});
+  if (!parsed.ok) return fail(res, 400, parsed.message);
+  try {
+    const address = await createPostgresAddress({
+      userPublicId: req.auth.userId,
+      ...parsed.data,
+    });
+    await recordPostgresAudit({
+      actorPublicId: req.auth.userId,
+      roles: req.auth.roles,
+      action: "address.created",
+      entityType: "address",
+      entityId: address.id,
+      requestId: req.requestId,
+      afterData: { label: address.label, isDefault: address.isDefault },
+    });
+    await publishRealtimeEvent({
+      req,
+      type: "user.updated",
+      entityType: "address",
+      entityId: address.id,
+      action: "address.created",
+    });
+    return res.status(201).json({
+      ok: true,
+      requestId: req.requestId,
+      address,
+      addresses: await getPostgresAddresses(req.auth.userId),
+    });
+  } catch (error) {
+    return fail(
+      res,
+      error.status || 500,
+      error.message || "No se pudo guardar la dirección",
+    );
+  }
+});
+app.put("/api/addresses/:addressId", requireAuth, async (req, res) => {
+  const parsed = parseOrFail(addressSchema, req.body || {});
+  if (!parsed.ok) return fail(res, 400, parsed.message);
+  try {
+    const address = await updatePostgresAddress({
+      userPublicId: req.auth.userId,
+      addressId: req.params.addressId,
+      ...parsed.data,
+    });
+    await recordPostgresAudit({
+      actorPublicId: req.auth.userId,
+      roles: req.auth.roles,
+      action: "address.updated",
+      entityType: "address",
+      entityId: address.id,
+      requestId: req.requestId,
+      afterData: { label: address.label, isDefault: address.isDefault },
+    });
+    return ok(res, {
+      address,
+      addresses: await getPostgresAddresses(req.auth.userId),
+    });
+  } catch (error) {
+    return fail(
+      res,
+      error.code === "22P02" ? 404 : error.status || 500,
+      error.code === "22P02"
+        ? "Dirección no encontrada"
+        : error.message || "No se pudo actualizar la dirección",
+    );
+  }
+});
+app.patch(
+  "/api/addresses/:addressId/default",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const address = await setPostgresDefaultAddress({
+        userPublicId: req.auth.userId,
+        addressId: req.params.addressId,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "address.default_changed",
+        entityType: "address",
+        entityId: address.id,
+        requestId: req.requestId,
+        afterData: { isDefault: true },
+      });
+      await publishRealtimeEvent({
+        req,
+        type: "user.updated",
+        entityType: "address",
+        entityId: address.id,
+        action: "address.default_changed",
+      });
+      return ok(res, {
+        address,
+        addresses: await getPostgresAddresses(req.auth.userId),
+      });
+    } catch (error) {
+      return fail(
+        res,
+        error.code === "22P02" ? 404 : error.status || 500,
+        error.code === "22P02"
+          ? "Dirección no encontrada"
+          : error.message || "No se pudo cambiar la dirección principal",
+      );
+    }
+  },
+);
+app.delete("/api/addresses/:addressId", requireAuth, async (req, res) => {
+  try {
+    const addresses = await deletePostgresAddress({
+      userPublicId: req.auth.userId,
+      addressId: req.params.addressId,
+    });
+    await recordPostgresAudit({
+      actorPublicId: req.auth.userId,
+      roles: req.auth.roles,
+      action: "address.deleted",
+      entityType: "address",
+      entityId: req.params.addressId,
+      requestId: req.requestId,
+    });
+    await publishRealtimeEvent({
+      req,
+      type: "user.updated",
+      entityType: "address",
+      entityId: req.params.addressId,
+      action: "address.deleted",
+    });
+    return ok(res, { deleted: true, addresses });
+  } catch (error) {
+    return fail(
+      res,
+      error.code === "22P02" ? 404 : error.status || 500,
+      error.code === "22P02"
+        ? "Dirección no encontrada"
+        : error.message || "No se pudo eliminar la dirección",
+    );
+  }
+});
+app.get(
+  "/api/ride-destinations",
+  requireAuth,
+  requireAnyRole("customer", "admin"),
+  async (req, res) => {
+    try {
+      return ok(res, {
+        destinations: await getPostgresRideDestinations(req.auth.userId),
+      });
+    } catch (_error) {
+      return fail(res, 500, "No se pudieron cargar los destinos recientes");
+    }
+  },
+);
+app.post(
+  "/api/ride-destinations",
+  requireAuth,
+  requireAnyRole("customer", "admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(rideDestinationSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const destination = await recordPostgresRideDestination({
+        userPublicId: req.auth.userId,
+        ...parsed.data,
+      });
+      return res.status(201).json({
+        ok: true,
+        requestId: req.requestId,
+        destination,
+        destinations: await getPostgresRideDestinations(req.auth.userId),
+      });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo guardar el destino reciente",
+      );
+    }
+  },
+);
+app.delete(
+  "/api/ride-destinations/:destinationId",
+  requireAuth,
+  requireAnyRole("customer", "admin"),
+  async (req, res) => {
+    try {
+      const destinations = await deletePostgresRideDestination({
+        userPublicId: req.auth.userId,
+        destinationId: req.params.destinationId,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "ride_destination.deleted",
+        entityType: "ride_destination",
+        entityId: req.params.destinationId,
+        requestId: req.requestId,
+      });
+      return ok(res, { deleted: true, destinations });
+    } catch (error) {
+      return fail(
+        res,
+        error.code === "22P02" ? 404 : error.status || 500,
+        error.code === "22P02"
+          ? "Destino reciente no encontrado"
+          : error.message || "No se pudo eliminar el destino",
+      );
+    }
+  },
+);
+app.get(
+  "/api/ride-trusted-contacts",
+  requireAuth,
+  requireAnyRole("customer", "admin"),
+  async (req, res) => {
+    try {
+      return ok(res, {
+        contacts: await getPostgresTrustedContacts(req.auth.userId),
+      });
+    } catch (_error) {
+      return fail(res, 500, "No se pudieron cargar los contactos de confianza");
+    }
+  },
+);
+app.post(
+  "/api/ride-trusted-contacts",
+  requireAuth,
+  requireAnyRole("customer", "admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(trustedContactSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const contact = await createPostgresTrustedContact({
+        userPublicId: req.auth.userId,
+        ...parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "ride_trusted_contact.created",
+        entityType: "ride_trusted_contact",
+        entityId: contact.id,
+        requestId: req.requestId,
+        afterData: { relationship: contact.relationship, last4: contact.last4 },
+      });
+      return res.status(201).json({
+        ok: true,
+        requestId: req.requestId,
+        contact,
+        contacts: await getPostgresTrustedContacts(req.auth.userId),
+      });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo guardar el contacto de confianza",
+      );
+    }
+  },
+);
+app.delete(
+  "/api/ride-trusted-contacts/:contactId",
+  requireAuth,
+  requireAnyRole("customer", "admin"),
+  async (req, res) => {
+    try {
+      const contacts = await deletePostgresTrustedContact({
+        userPublicId: req.auth.userId,
+        contactId: req.params.contactId,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "ride_trusted_contact.deleted",
+        entityType: "ride_trusted_contact",
+        entityId: req.params.contactId,
+        requestId: req.requestId,
+      });
+      return ok(res, { deleted: true, contacts });
+    } catch (error) {
+      return fail(
+        res,
+        error.code === "22P02" ? 404 : error.status || 500,
+        error.code === "22P02"
+          ? "Contacto de confianza no encontrado"
+          : error.message || "No se pudo eliminar el contacto",
+      );
+    }
+  },
+);
+
+app.patch("/api/me", requireAuth, async (req, res) => {
   const parsed = parseOrFail(profileSchema, req.body || {});
   if (!parsed.ok) return fail(res, 400, parsed.message);
-  const db = readDb();
-  const user = db.users.find((entry) => entry.id === req.auth.userId);
+  const db = usesPostgresAuth() ? null : readDb();
+  const user = usesPostgresAuth()
+    ? await findAuthUserByPublicId(req.auth.userId)
+    : db.users.find((entry) => entry.id === req.auth.userId);
   if (!user) return fail(res, 404, "Usuario no encontrado");
   const { name, phone, defaultAddress } = parsed.data;
   user.name = name;
   user.phone = phone || "";
   user.defaultAddress = defaultAddress;
-  const existingAddress = (db.addresses || []).find(
-    (entry) => entry.userId === user.id && entry.isDefault
-  );
-  (db.addresses || []).forEach((entry) => {
-    if (entry.userId === user.id) entry.isDefault = false;
-  });
-  if (existingAddress) {
-    existingAddress.address = defaultAddress;
-    existingAddress.isDefault = true;
-  } else {
-    db.addresses = [
-      ...(db.addresses || []),
-      {
-        id: createId("ADDR"),
-        userId: user.id,
-        label: "Principal",
-        address: defaultAddress,
-        lat: null,
-        lng: null,
-        isDefault: true
-      }
-    ];
+  if (usesPostgresAuth())
+    await updatePostgresAuthProfile(user.id, { name, phone, defaultAddress });
+  if (!usesPostgresAuth()) {
+    const existingAddress = (db.addresses || []).find(
+      (entry) => entry.userId === user.id && entry.isDefault,
+    );
+    (db.addresses || []).forEach((entry) => {
+      if (entry.userId === user.id) entry.isDefault = false;
+    });
+    if (existingAddress) {
+      existingAddress.address = defaultAddress;
+      existingAddress.isDefault = true;
+    } else {
+      db.addresses = [
+        ...(db.addresses || []),
+        {
+          id: createId("ADDR"),
+          userId: user.id,
+          label: "Principal",
+          address: defaultAddress,
+          lat: null,
+          lng: null,
+          isDefault: true,
+        },
+      ];
+    }
   }
-  audit(db, req, "user", user.id, "user.profile_updated", {
-    fields: ["name", "phone", "defaultAddress"]
+  if (usesPostgresAuth())
+    await recordPostgresAudit({
+      actorPublicId: user.id,
+      roles: req.auth.roles,
+      action: "user.profile_updated",
+      entityType: "user",
+      entityId: user.id,
+      requestId: req.requestId,
+      afterData: { fields: ["name", "phone", "defaultAddress"] },
+    });
+  else {
+    audit(db, req, "user", user.id, "user.profile_updated", {
+      fields: ["name", "phone", "defaultAddress"],
+    });
+    writeDb(db);
+  }
+  await publishRealtimeEvent({
+    req,
+    type: "user.updated",
+    entityType: "user",
+    entityId: user.id,
+    action: "user.profile_updated",
   });
-  writeDb(db);
-  publishRealtimeEvent({ req, type: "user.updated", entityType: "user", entityId: user.id, action: "user.profile_updated" });
-  return ok(res, { account: accountSnapshot(readDb(), user.id) });
+  const account = usesPostgresAuth()
+    ? {
+        user: null,
+        addresses: [],
+        paymentMethods: [],
+        walletTransactions: [],
+        supportTickets: [],
+        ratings: [],
+      }
+    : accountSnapshot(readDb(), user.id);
+  if (usesPostgresAuth()) {
+    account.user = sanitizeUser(await findAuthUserByPublicId(user.id));
+    const [wallet, addresses, paymentMethods, supportTickets, ratings] =
+      await Promise.all([
+        getWallet(user.id),
+        getPostgresAddresses(user.id),
+        getPostgresPaymentMethods(),
+        getPostgresSupportTickets({
+          userPublicId: user.id,
+          roles: req.auth.roles,
+        }),
+        getPostgresRatings({ userPublicId: user.id }),
+      ]);
+    account.user.wallet = wallet.balance;
+    account.walletTransactions = wallet.transactions;
+    account.addresses = addresses;
+    account.paymentMethods = paymentMethods.filter(
+      (entry) => entry.userId === user.id,
+    );
+    account.supportTickets = supportTickets;
+    account.ratings = ratings;
+  }
+  return ok(res, { account });
 });
 
-app.post("/api/wallet/topup", requireAuth, (req, res) => {
+app.get("/api/referrals/me", requireAuth, async (req, res) => {
+  if (!usesPostgresAuth()) return fail(res, 503, "Referidos requiere PostgreSQL");
+  try {
+    return ok(res, { referral: await getReferralSummary(req.auth.userId) });
+  } catch (error) {
+    return fail(res, error.status || 500, error.message || "No se pudo cargar referidos");
+  }
+});
+
+app.post("/api/referrals/claim", requireAuth, async (req, res) => {
+  const parsed = parseOrFail(referralClaimSchema, req.body || {});
+  if (!parsed.ok) return fail(res, 400, parsed.message);
+  if (!usesPostgresAuth()) return fail(res, 503, "Referidos requiere PostgreSQL");
+  try {
+    const referral = await claimReferral({ publicUserId: req.auth.userId, code: parsed.data.code });
+    await recordPostgresAudit({ actorPublicId: req.auth.userId, roles: req.auth.roles, action: "referral.claimed", entityType: "user", entityId: req.auth.userId, requestId: req.requestId, afterData: { code: parsed.data.code } });
+    return ok(res, { referral });
+  } catch (error) {
+    return fail(res, error.status || 500, error.message || "No se pudo aplicar el referido");
+  }
+});
+
+app.post("/api/wallet/topup", requireAuth, async (req, res) => {
   const parsed = parseOrFail(walletTopUpSchema, req.body || {});
   if (!parsed.ok) return fail(res, 400, parsed.message);
-  const db = readDb();
-  const user = db.users.find((entry) => entry.id === req.auth.userId);
+  const db = usesPostgresAuth() ? null : readDb();
+  const user = usesPostgresAuth()
+    ? await findAuthUserByPublicId(req.auth.userId)
+    : db.users.find((entry) => entry.id === req.auth.userId);
   if (!user) return fail(res, 404, "Usuario no encontrado");
   const amount = parsed.data.amount;
+  if (usesPostgresAuth()) {
+    if (!config.allowSandboxTopups)
+      return fail(
+        res,
+        503,
+        "Las cargas directas están deshabilitadas; se requiere un payment intent confirmado",
+      );
+    const idempotencyKey = req.get("idempotency-key");
+    if (!idempotencyKey || !/^[a-zA-Z0-9._:-]{16,128}$/.test(idempotencyKey))
+      return fail(res, 400, "Idempotency-Key válido es obligatorio");
+    const wallet = await creditWallet({
+      publicUserId: user.id,
+      amount,
+      idempotencyKey,
+      kind: "sandbox_topup",
+      description: "Carga sandbox",
+      metadata: { requestId: req.requestId },
+    });
+    const pgUser = sanitizeUser(await findAuthUserByPublicId(user.id));
+    pgUser.wallet = wallet.balance;
+    await publishRealtimeEvent({
+      req,
+      type: "wallet.updated",
+      entityType: "user",
+      entityId: user.id,
+      action: "wallet.topped_up",
+    });
+    const [addresses, paymentMethods, supportTickets] = await Promise.all([
+      getPostgresAddresses(user.id),
+      getPostgresPaymentMethods(),
+      getPostgresSupportTickets({
+        userPublicId: user.id,
+        roles: req.auth.roles,
+      }),
+    ]);
+    return ok(res, {
+      account: {
+        user: pgUser,
+        addresses,
+        paymentMethods: paymentMethods.filter(
+          (entry) => entry.userId === user.id,
+        ),
+        supportTickets,
+        walletTransactions: wallet.transactions,
+        ratings: [],
+      },
+    });
+  }
   user.wallet += amount;
   db.walletTransactions = [
     {
@@ -720,33 +4847,61 @@ app.post("/api/wallet/topup", requireAuth, (req, res) => {
       kind: "credit",
       amount,
       description: "Carga de saldo sandbox",
-      createdAt: getTimestamp()
+      createdAt: getTimestamp(),
     },
-    ...(db.walletTransactions || [])
+    ...(db.walletTransactions || []),
   ];
   const walletMethod = (db.paymentMethods || []).find(
-    (entry) => entry.userId === user.id && entry.type === "wallet"
+    (entry) => entry.userId === user.id && entry.type === "wallet",
   );
   if (walletMethod) walletMethod.balance = user.wallet;
-  audit(db, req, "wallet", user.id, "wallet.topped_up", { amount, balance: user.wallet });
+  audit(db, req, "wallet", user.id, "wallet.topped_up", {
+    amount,
+    balance: user.wallet,
+  });
   writeDb(db);
-  publishRealtimeEvent({ req, type: "wallet.updated", entityType: "user", entityId: user.id, action: "wallet.topped_up" });
+  await publishRealtimeEvent({
+    req,
+    type: "wallet.updated",
+    entityType: "user",
+    entityId: user.id,
+    action: "wallet.topped_up",
+  });
   return ok(res, { account: accountSnapshot(readDb(), user.id) });
 });
 
-app.get("/api/events", requireAuth, (req, res) => {
+app.get("/api/events", requireAuth, async (req, res) => {
   res.status(200);
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("Connection", "keep-alive");
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders?.();
-  realtimeClients.add(res);
-  writeSseEvent(res, "connected", {
-    id: createId("EVT"),
-    type: "connected",
-    at: getTimestamp()
-  });
+  const context = { userPublicId: req.auth.userId, roles: req.auth.roles };
+  realtimeClients.set(res, context);
+  const requestedCursor = Math.max(
+    0,
+    Number(req.get("last-event-id") || req.query.cursor || 0) || 0,
+  );
+  const cursor = postgresPool ? await getPostgresRealtimeCursor() : null;
+  writeSseEvent(
+    res,
+    "connected",
+    {
+      id: createId("EVT"),
+      type: "connected",
+      at: getTimestamp(),
+      cursor,
+    },
+    cursor,
+  );
+  if (postgresPool && requestedCursor) {
+    for (const event of await getPostgresRealtimeReplay({
+      after: requestedCursor,
+      ...context,
+    }))
+      writeSseEvent(res, "state.updated", event, event.cursor);
+  }
   const heartbeat = setInterval(() => {
     if (!writeSseEvent(res, "heartbeat", { at: getTimestamp() })) {
       clearInterval(heartbeat);
@@ -759,42 +4914,1138 @@ app.get("/api/events", requireAuth, (req, res) => {
   });
 });
 
-app.get("/api/metrics", requireAuth, requireAnyRole("admin"), (_req, res) => {
-  ok(res, { metrics: metrics(readDb()) });
+app.get(
+  "/api/metrics",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (req, res) => {
+    ok(res, { metrics: metrics(await loadRuntimeState(req)) });
+  },
+);
+
+app.post(
+  "/api/jobs/:jobId/tips",
+  requireAuth,
+  requireAnyRole("customer"),
+  async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "Las propinas requieren PostgreSQL");
+    const parsed = parseOrFail(tipSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    const idempotencyKey = String(req.get("idempotency-key") || "");
+    if (!/^[a-zA-Z0-9._:-]{16,128}$/.test(idempotencyKey))
+      return fail(res, 400, "Idempotency-Key válido es obligatorio");
+    try {
+      const tip = await createPostgresTip({
+        jobPublicId: req.params.jobId,
+        customerPublicId: req.auth.userId,
+        amount: parsed.data.amount,
+        idempotencyKey,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "service.tip_created",
+        entityType: "job",
+        entityId: req.params.jobId,
+        requestId: req.requestId,
+        afterData: { tipId: tip.id, amount: tip.amount },
+      });
+      await publishRealtimeEvent({
+        req,
+        type: "wallet.updated",
+        entityType: "job",
+        entityId: req.params.jobId,
+        action: "service.tip_created",
+      });
+      return res.status(201).json({ ok: true, requestId: req.requestId, tip });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo enviar la propina",
+      );
+    }
+  },
+);
+app.get(
+  "/api/admin/tip-adjustments",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (_req, res) => {
+    try {
+      return ok(res, { adjustments: await getTipAdjustments() });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudieron cargar los ajustes de propinas",
+      );
+    }
+  },
+);
+app.post(
+  "/api/admin/tip-adjustments",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(tipAdjustmentRequestSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    const idempotencyKey = String(req.get("idempotency-key") || "");
+    if (!/^[a-zA-Z0-9._:-]{16,128}$/.test(idempotencyKey))
+      return fail(res, 400, "Idempotency-Key válido es obligatorio");
+    try {
+      const adjustment = await requestTipAdjustment({
+        actorPublicId: req.auth.userId,
+        idempotencyKey,
+        ...parsed.data,
+        tipPublicId: parsed.data.tipId,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "service.tip_adjustment_requested",
+        entityType: "tip_adjustment",
+        entityId: adjustment.id,
+        requestId: req.requestId,
+        afterData: {
+          tipId: adjustment.tipId,
+          amount: adjustment.amount,
+          reason: adjustment.reason,
+        },
+      });
+      return res
+        .status(201)
+        .json({ ok: true, requestId: req.requestId, adjustment });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo solicitar el ajuste",
+      );
+    }
+  },
+);
+app.patch(
+  "/api/admin/tip-adjustments/:adjustmentId/review",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(tipAdjustmentReviewSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const adjustment = await reviewTipAdjustment({
+        adjustmentPublicId: req.params.adjustmentId,
+        actorPublicId: req.auth.userId,
+        ...parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: `service.tip_adjustment_${parsed.data.decision}`,
+        entityType: "tip_adjustment",
+        entityId: adjustment.id,
+        requestId: req.requestId,
+        afterData: {
+          tipId: adjustment.tipId,
+          amount: adjustment.amount,
+          status: adjustment.status,
+        },
+      });
+      await publishRealtimeEvent({
+        req,
+        type: "wallet.updated",
+        entityType: "job",
+        entityId: adjustment.jobId,
+        action: `service.tip_adjustment_${parsed.data.decision}`,
+      });
+      return ok(res, { adjustment });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo revisar el ajuste",
+      );
+    }
+  },
+);
+app.post(
+  "/api/orders/:orderId/issues",
+  requireAuth,
+  requireAnyRole("customer"),
+  async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "Las incidencias requieren PostgreSQL");
+    const parsed = parseOrFail(orderIssueSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const issue = await createOrderIssue({
+        orderPublicId: req.params.orderId,
+        customerPublicId: req.auth.userId,
+        ...parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "order_issue.created",
+        entityType: "order_issue",
+        entityId: issue.id,
+        requestId: req.requestId,
+        afterData: {
+          orderId: req.params.orderId,
+          category: issue.category,
+          requestedRefund: issue.requestedRefund,
+        },
+      });
+      await publishRealtimeEvent({
+        req,
+        type: "order.issue_updated",
+        entityType: "order",
+        entityId: req.params.orderId,
+        action: "order_issue.created",
+      });
+      return res
+        .status(201)
+        .json({ ok: true, requestId: req.requestId, issue });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo crear la incidencia",
+      );
+    }
+  },
+);
+app.get("/api/orders/:orderId/issues", requireAuth, async (req, res) => {
+  try {
+    return ok(res, {
+      issues: await getOrderIssues({
+        orderPublicId: req.params.orderId,
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+      }),
+    });
+  } catch (error) {
+    return fail(
+      res,
+      error.status || 500,
+      error.message || "No se pudieron cargar las incidencias",
+    );
+  }
+});
+app.patch(
+  "/api/order-issues/:issueId/resolve",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(orderIssueResolutionSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const issue = await resolveOrderIssue({
+        issuePublicId: req.params.issueId,
+        actorPublicId: req.auth.userId,
+        ...parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: `order_issue.${issue.status}`,
+        entityType: "order_issue",
+        entityId: issue.id,
+        requestId: req.requestId,
+        afterData: {
+          orderId: issue.orderId,
+          approvedRefund: issue.approvedRefund,
+        },
+      });
+      await publishRealtimeEvent({
+        req,
+        type: "order.issue_updated",
+        entityType: "order",
+        entityId: issue.orderId,
+        action: `order_issue.${issue.status}`,
+      });
+      return ok(res, { issue });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo resolver la incidencia",
+      );
+    }
+  },
+);
+app.post(
+  "/api/orders/:orderId/substitutions",
+  requireAuth,
+  requireAnyRole("merchant", "admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(substitutionProposalSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const substitution = await proposeOrderSubstitution({
+        orderPublicId: req.params.orderId,
+        merchantOwnerPublicId: req.auth.userId,
+        admin: isAdmin(req),
+        ...parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "order_substitution.proposed",
+        entityType: "order_substitution",
+        entityId: substitution.id,
+        requestId: req.requestId,
+        afterData: {
+          orderId: req.params.orderId,
+          original: substitution.original.id,
+          replacement: substitution.replacement.id,
+        },
+      });
+      await publishRealtimeEvent({
+        req,
+        type: "order.substitution_updated",
+        entityType: "order",
+        entityId: req.params.orderId,
+        action: "order_substitution.proposed",
+      });
+      return res
+        .status(201)
+        .json({ ok: true, requestId: req.requestId, substitution });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo proponer la sustitución",
+      );
+    }
+  },
+);
+app.get("/api/orders/:orderId/substitutions", requireAuth, async (req, res) => {
+  try {
+    return ok(res, {
+      substitutions: await getOrderSubstitutions({
+        orderPublicId: req.params.orderId,
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+      }),
+    });
+  } catch (error) {
+    return fail(
+      res,
+      error.status || 500,
+      error.message || "No se pudieron cargar las sustituciones",
+    );
+  }
+});
+app.patch(
+  "/api/order-substitutions/:substitutionId",
+  requireAuth,
+  requireAnyRole("customer"),
+  async (req, res) => {
+    const parsed = parseOrFail(substitutionDecisionSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const substitution = await decideOrderSubstitution({
+        substitutionPublicId: req.params.substitutionId,
+        customerPublicId: req.auth.userId,
+        ...parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: `order_substitution.${substitution.status}`,
+        entityType: "order_substitution",
+        entityId: substitution.id,
+        requestId: req.requestId,
+        afterData: {
+          orderId: substitution.orderId,
+          refundAmount: substitution.refundAmount,
+        },
+      });
+      await publishRealtimeEvent({
+        req,
+        type: "order.substitution_updated",
+        entityType: "order",
+        entityId: substitution.orderId,
+        action: `order_substitution.${substitution.status}`,
+      });
+      return ok(res, { substitution });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo responder la sustitución",
+      );
+    }
+  },
+);
+app.patch(
+  "/api/restaurants/:restaurantId/branches/:branchId",
+  requireAuth,
+  requireAnyRole("merchant", "admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(branchUpdateSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const restaurant = await updatePostgresBranch({
+        merchantPublicId: req.params.restaurantId,
+        branchPublicId: req.params.branchId,
+        actorPublicId: req.auth.userId,
+        admin: isAdmin(req),
+        changes: parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "merchant_branch.updated",
+        entityType: "merchant_branch",
+        entityId: req.params.branchId,
+        requestId: req.requestId,
+        afterData: parsed.data,
+      });
+      return ok(res, { restaurant });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo actualizar la sucursal",
+      );
+    }
+  },
+);
+app.patch(
+  "/api/restaurants/:restaurantId/branches/:branchId/inventory/:itemId",
+  requireAuth,
+  requireAnyRole("merchant", "admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(branchInventorySchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const restaurant = await updatePostgresBranchInventory({
+        merchantPublicId: req.params.restaurantId,
+        branchPublicId: req.params.branchId,
+        itemPublicId: req.params.itemId,
+        actorPublicId: req.auth.userId,
+        admin: isAdmin(req),
+        ...parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "branch_inventory.updated",
+        entityType: "merchant_branch",
+        entityId: req.params.branchId,
+        requestId: req.requestId,
+        afterData: {
+          itemId: req.params.itemId,
+          available: parsed.data.available,
+          stockQuantity: parsed.data.stockQuantity,
+        },
+      });
+      return ok(res, { restaurant });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo actualizar el inventario de la sucursal",
+      );
+    }
+  },
+);
+app.put(
+  "/api/restaurants/:restaurantId/branches/:branchId/schedule",
+  requireAuth,
+  requireAnyRole("merchant", "admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(branchScheduleSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const restaurant = await replacePostgresBranchSchedule({
+        merchantPublicId: req.params.restaurantId,
+        branchPublicId: req.params.branchId,
+        actorPublicId: req.auth.userId,
+        admin: isAdmin(req),
+        ...parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "merchant_branch.schedule_replaced",
+        entityType: "merchant_branch",
+        entityId: req.params.branchId,
+        requestId: req.requestId,
+        afterData: { timezone: parsed.data.timezone, hours: parsed.data.hours },
+      });
+      return ok(res, { restaurant });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo guardar el horario",
+      );
+    }
+  },
+);
+app.put(
+  "/api/restaurants/:restaurantId/branches/:branchId/schedule-exceptions",
+  requireAuth,
+  requireAnyRole("merchant", "admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(branchScheduleExceptionSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const restaurant = await upsertPostgresBranchScheduleException({
+        merchantPublicId: req.params.restaurantId,
+        branchPublicId: req.params.branchId,
+        actorPublicId: req.auth.userId,
+        admin: isAdmin(req),
+        ...parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "merchant_branch.schedule_exception_upserted",
+        entityType: "merchant_branch",
+        entityId: req.params.branchId,
+        requestId: req.requestId,
+        afterData: parsed.data,
+      });
+      return ok(res, { restaurant });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo guardar la excepción",
+      );
+    }
+  },
+);
+app.get(
+  "/api/jobs/:jobId/receipt",
+  requireAuth,
+  requireAnyRole("customer", "admin"),
+  async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "Los comprobantes requieren PostgreSQL");
+    try {
+      const result = await getOrCreatePostgresReceipt({
+        jobPublicId: req.params.jobId,
+        actorPublicId: req.auth.userId,
+        admin: isAdmin(req),
+      });
+      if (result.created)
+        await recordPostgresAudit({
+          actorPublicId: req.auth.userId,
+          roles: req.auth.roles,
+          action: "service.receipt_issued",
+          entityType: "job",
+          entityId: req.params.jobId,
+          requestId: req.requestId,
+          afterData: {
+            receiptId: result.receipt.id,
+            receiptNumber: result.receipt.number,
+          },
+        });
+      return ok(res, { receipt: result.receipt });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo obtener el comprobante",
+      );
+    }
+  },
+);
+
+app.get("/api/internal/metrics", async (req, res) => {
+  const supplied = String(req.get("authorization") || "").replace(
+    /^Bearer\s+/i,
+    "",
+  );
+  const expected = Buffer.from(config.metricsToken),
+    actual = Buffer.from(supplied);
+  if (
+    actual.length !== expected.length ||
+    !crypto.timingSafeEqual(actual, expected)
+  )
+    return fail(res, 401, "Token de métricas inválido");
+  if (!postgresPool) return fail(res, 503, "PostgreSQL no configurado");
+  const rows = await postgresPool.query(`SELECT
+  count(*) FILTER(WHERE kind='delivery' AND metadata->>'subtype'='food_order' AND status NOT IN('completed','cancelled'))::int active_food,
+  count(*) FILTER(WHERE kind='ride' AND status NOT IN('completed','cancelled'))::int active_rides,
+  count(*) FILTER(WHERE kind='delivery' AND metadata->>'subtype'='shipment' AND status NOT IN('completed','cancelled'))::int active_shipments FROM jobs`);
+  const tickets = await postgresPool.query(
+      "SELECT count(*)::int count FROM support_tickets WHERE status NOT IN('resolved','closed')",
+    ),
+    payments = await postgresPool.query(
+      "SELECT status::text,count(*)::int count FROM payment_intents GROUP BY status ORDER BY status",
+    ),
+    notifications = await postgresPool.query(
+      "SELECT status,count(*)::int count FROM notifications GROUP BY status ORDER BY status",
+    ),
+    dispatchOffers = await postgresPool.query(
+      "SELECT status,count(*)::int count FROM dispatch_offers GROUP BY status ORDER BY status",
+    ),
+    realtimeEvents = await postgresPool.query(
+      "SELECT count(*)::int count FROM realtime_events",
+    ),
+    payouts = await postgresPool.query(
+      "SELECT status,count(*)::int count FROM payouts GROUP BY status ORDER BY status",
+    ),
+    merchantPayable = await postgresPool.query(
+      `SELECT COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint cents FROM ledger_accounts a JOIN ledger_entries e ON e.account_id=a.id WHERE a.owner_type='merchant' AND a.account_type='payable'`,
+    ),
+    tips = await postgresPool.query(
+      "SELECT count(*)::int count,COALESCE(sum(amount_cents),0)::bigint cents FROM service_tips",
+    );
+  res.type("text/plain; version=0.0.4; charset=utf-8").send(
+    renderPrometheus({
+      pool: postgresPool,
+      business: {
+        activeFood: rows.rows[0].active_food,
+        activeRides: rows.rows[0].active_rides,
+        activeShipments: rows.rows[0].active_shipments,
+        openTickets: tickets.rows[0].count,
+        payments: payments.rows,
+        notifications: notifications.rows,
+        dispatchOffers: dispatchOffers.rows,
+        realtimeEvents: realtimeEvents.rows[0].count,
+        payouts: payouts.rows,
+        merchantPayableCents: merchantPayable.rows[0].cents,
+        tipsCount: tips.rows[0].count,
+        tipsCents: tips.rows[0].cents,
+      },
+      startedAt: processStartedAt,
+      realtimeConnections: realtimeClients.size,
+    }),
+  );
 });
 
-app.get("/api/admin/dashboard", requireAuth, requireAnyRole("admin"), (_req, res) => {
-  const db = readDb();
-  ok(res, { dashboard: adminSnapshot(db) });
-});
+app.get(
+  "/api/admin/dashboard",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (req, res) => {
+    ok(res, {
+      dashboard: adminSnapshot(
+        await loadRuntimeState(req),
+        usesPostgresCommerce() ? await getPostgresAdminFinancials() : null,
+      ),
+    });
+  },
+);
 
-app.post("/api/auth/login", (req, res) => {
+app.post("/api/auth/login", async (req, res) => {
   const parsed = parseOrFail(loginSchema, req.body || {});
   if (!parsed.ok) return fail(res, 400, parsed.message);
   const { email, password } = parsed.data;
-  const db = readDb();
-  const user = db.users.find(
-    (entry) => entry.email.toLowerCase() === String(email || "").trim().toLowerCase()
+  const db = usesPostgresAuth() ? null : readDb();
+  const user = usesPostgresAuth()
+    ? await findAuthUserByEmail(email)
+    : db.users.find(
+        (entry) =>
+          entry.email.toLowerCase() ===
+          String(email || "")
+            .trim()
+            .toLowerCase(),
+      );
+  const passwordMatches = bcrypt.compareSync(
+    password,
+    user?.password ||
+      "$2b$10$qJvN1MRgLJYlRirjP6N7ruoJc0mKlf2klq7iW03DIdDgV7gKDCl7.",
   );
-  if (!user || !bcrypt.compareSync(password, user.password)) {
+  const accountLocked = Boolean(
+    user?.loginLockedUntil && new Date(user.loginLockedUntil) > new Date(),
+  );
+  if (!user || accountLocked || !passwordMatches) {
+    if (usesPostgresAuth() && user && !accountLocked)
+      await recordPostgresLoginFailure(email);
     return fail(res, 401, "Credenciales invalidas");
   }
+  if (usesPostgresAuth() && !user.emailVerifiedAt)
+    return res.status(403).json({
+      ok: false,
+      requestId: req.requestId,
+      message: "Debes verificar tu email",
+      verificationRequired: true,
+      email: user.email,
+    });
+  if (usesPostgresAuth()) await recordPostgresLoginSuccess(user.id);
+  if (
+    usesPostgresAuth() &&
+    user.roles?.includes("admin") &&
+    (await getAdminMfaStatus(user.id)).enabled
+  ) {
+    return ok(res, {
+      user: sanitizeUser(user),
+      mfaRequired: true,
+      mfaChallenge: issueMfaChallenge(user),
+    });
+  }
   return ok(res, {
-    user: publicUser(db, user.id),
-    token: jwt.sign({ sub: user.id, roles: user.roles }, jwtSecret, { expiresIn: "8h" })
+    user: usesPostgresAuth() ? sanitizeUser(user) : publicUser(db, user.id),
+    ...(await issueSession(
+      user,
+      req.body?.deviceName || req.get("user-agent") || "unknown",
+    )),
   });
 });
 
-app.post("/api/auth/register", (req, res) => {
+app.get("/api/auth/mfa/status", requireAuth, async (req, res) => {
+  if (!hasRole(req, "admin"))
+    return fail(res, 403, "MFA administrativo requiere rol admin");
+  return ok(res, { mfa: await getAdminMfaStatus(req.auth.userId) });
+});
+
+app.patch(
+  "/api/admin/users/:userId/status",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (req, res) => {
+    if (!usesPostgresAuth())
+      return fail(res, 503, "La moderación de cuentas requiere PostgreSQL");
+    const parsed = parseOrFail(userStatusSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const moderation = await setPostgresUserStatus({
+        targetPublicId: req.params.userId,
+        actorPublicId: req.auth.userId,
+        actorRoles: req.auth.roles,
+        requestId: req.requestId,
+        ...parsed.data,
+      });
+      await publishRealtimeEvent({
+        req,
+        type: "user.status.updated",
+        entityType: "user",
+        entityId: req.params.userId,
+        action:
+          parsed.data.status === "active"
+            ? "user.reactivated"
+            : "user.suspended",
+      });
+      return ok(res, { moderation });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo cambiar el estado de la cuenta",
+      );
+    }
+  },
+);
+
+app.post(
+  "/api/auth/mfa/enroll",
+  requireAuth,
+  requireAdminIdentity,
+  async (req, res) => {
+    if (!usesPostgresAuth())
+      return fail(res, 503, "MFA real requiere PostgreSQL");
+    try {
+      const enrollment = await beginAdminMfaEnrollment({
+        userPublicId: req.auth.userId,
+        email: req.auth.user.email,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "admin.mfa_enrollment_started",
+        entityType: "user",
+        entityId: req.auth.userId,
+        requestId: req.requestId,
+      });
+      return ok(res, { enrollment });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo iniciar MFA",
+      );
+    }
+  },
+);
+
+app.post(
+  "/api/auth/mfa/confirm",
+  requireAuth,
+  requireAdminIdentity,
+  async (req, res) => {
+    const parsed = parseOrFail(mfaCodeSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const mfa = await confirmAdminMfa({
+        userPublicId: req.auth.userId,
+        code: parsed.data.code,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "admin.mfa_enabled",
+        entityType: "user",
+        entityId: req.auth.userId,
+        requestId: req.requestId,
+      });
+      return ok(res, {
+        mfa,
+        ...(await issueSession(
+          req.auth.user,
+          req.body?.deviceName || req.get("user-agent") || "unknown",
+          { mfaVerified: true },
+        )),
+      });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo confirmar MFA",
+      );
+    }
+  },
+);
+
+app.post("/api/auth/mfa/complete", async (req, res) => {
+  const parsed = parseOrFail(mfaCompleteSchema, req.body || {});
+  if (!parsed.ok) return fail(res, 400, parsed.message);
+  try {
+    const challenge = jwt.verify(parsed.data.challenge, jwtSecret);
+    if (challenge.purpose !== "admin_mfa")
+      return fail(res, 401, "Desafío MFA inválido");
+    const user = await findAuthUserByPublicId(challenge.sub);
+    if (!user?.roles?.includes("admin"))
+      return fail(res, 401, "Desafío MFA inválido");
+    const verification = await verifyAdminMfa({
+      userPublicId: user.id,
+      code: parsed.data.code,
+    });
+    await recordPostgresAudit({
+      actorPublicId: user.id,
+      roles: user.roles,
+      action: verification.recoveryCodeUsed
+        ? "admin.mfa_recovery_used"
+        : "admin.mfa_verified",
+      entityType: "user",
+      entityId: user.id,
+      requestId: req.requestId,
+    });
+    return ok(res, {
+      user: sanitizeUser(user),
+      verification,
+      ...(await issueSession(
+        user,
+        parsed.data.deviceName || req.get("user-agent") || "unknown",
+        { mfaVerified: true },
+      )),
+    });
+  } catch (error) {
+    return fail(
+      res,
+      error.name === "JsonWebTokenError" || error.name === "TokenExpiredError"
+        ? 401
+        : error.status || 500,
+      error.name === "TokenExpiredError"
+        ? "Desafío MFA expirado"
+        : error.name === "JsonWebTokenError"
+          ? "Desafío MFA inválido"
+          : error.message || "No se pudo verificar MFA",
+    );
+  }
+});
+
+app.post("/api/payments/webhooks/:provider", async (req, res) => {
+  const provider = String(req.params.provider || "").toLowerCase();
+  if (!/^[a-z0-9_-]{2,40}$/.test(provider))
+    return fail(res, 400, "Proveedor inválido");
+  const eventId = String(req.body?.id || "");
+  const eventType = String(req.body?.type || "");
+  if (!eventId || !eventType) return fail(res, 400, "Evento incompleto");
+  const signatureValid = verifyWebhookSignature(
+    req.rawBody || Buffer.from(""),
+    req.get("x-flash-signature"),
+    config.paymentWebhookSecret,
+  );
+  const result = await recordPaymentWebhook({
+    provider,
+    eventId,
+    eventType,
+    payload: req.body,
+    signatureValid,
+  });
+  if (!signatureValid) return fail(res, 401, "Firma de webhook inválida");
+  return ok(res, result);
+});
+app.get(
+  "/api/admin/payment-reconciliation",
+  requireAuth,
+  requireAnyRole("support", "admin"),
+  async (_req, res) => {
+    try {
+      return ok(res, await getPaymentReconciliation());
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo cargar la conciliación",
+      );
+    }
+  },
+);
+app.post(
+  "/api/admin/payment-reconciliation/scan",
+  requireAuth,
+  requireAnyRole("support", "admin"),
+  async (req, res) => {
+    try {
+      const reconciliation = await scanPaymentReconciliation();
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "payment.reconciliation_scanned",
+        entityType: "payment_reconciliation",
+        entityId: "scan",
+        requestId: req.requestId,
+        afterData: {
+          openCount: reconciliation.summary.openCount,
+          urgentCount: reconciliation.summary.urgentCount,
+        },
+      });
+      return ok(res, reconciliation);
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo ejecutar la conciliación",
+      );
+    }
+  },
+);
+app.patch(
+  "/api/admin/payment-reconciliation/:caseId",
+  requireAuth,
+  requireAnyRole("support", "admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(
+      paymentReconciliationResolutionSchema,
+      req.body || {},
+    );
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const reconciliationCase = await resolvePaymentReconciliationCase({
+        casePublicId: req.params.caseId,
+        actorPublicId: req.auth.userId,
+        ...parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "payment.reconciliation_resolved",
+        entityType: "payment_reconciliation",
+        entityId: reconciliationCase.id,
+        requestId: req.requestId,
+        afterData: {
+          status: reconciliationCase.status,
+          caseType: reconciliationCase.caseType,
+        },
+      });
+      return ok(res, { case: reconciliationCase });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo resolver el caso",
+      );
+    }
+  },
+);
+app.get(
+  "/api/admin/transaction-risks",
+  requireAuth,
+  requireAnyRole("support", "admin"),
+  async (_req, res) => {
+    try {
+      return ok(res, { assessments: await getTransactionRisks() });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudieron cargar las evaluaciones",
+      );
+    }
+  },
+);
+app.patch(
+  "/api/admin/transaction-risks/:assessmentId",
+  requireAuth,
+  requireAnyRole("support", "admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(transactionRiskReviewSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const assessment = await reviewTransactionRisk({
+        assessmentPublicId: req.params.assessmentId,
+        actorPublicId: req.auth.userId,
+        ...parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "risk.assessment_reviewed",
+        entityType: "risk_assessment",
+        entityId: assessment.id,
+        requestId: req.requestId,
+        afterData: {
+          decision: assessment.decision,
+          reviewStatus: assessment.reviewStatus,
+          score: assessment.score,
+        },
+      });
+      return ok(res, { assessment });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo revisar la evaluación",
+      );
+    }
+  },
+);
+
+app.post("/api/auth/refresh", async (req, res) => {
+  const parsed = parseOrFail(refreshSchema, req.body || {});
+  if (!parsed.ok) return fail(res, 400, parsed.message);
+  const rotated = usesPostgresAuth()
+    ? await rotatePostgresSession(
+        parsed.data.refreshToken,
+        parsed.data.deviceName || req.get("user-agent") || "unknown",
+      )
+    : consumeAuthSession(
+        parsed.data.refreshToken,
+        parsed.data.deviceName || req.get("user-agent") || "unknown",
+      );
+  if (!rotated) return fail(res, 401, "Sesion expirada o revocada");
+  const db = usesPostgresAuth() ? null : readDb();
+  const user = usesPostgresAuth()
+    ? rotated.user
+    : db.users.find((entry) => entry.id === rotated.userId);
+  if (!user) return fail(res, 401, "Usuario no existe");
+  if (
+    usesPostgresAuth() &&
+    user.roles?.includes("admin") &&
+    (await getAdminMfaStatus(user.id)).enabled
+  ) {
+    await revokePostgresSession(rotated.refreshToken);
+    return ok(res, {
+      user: sanitizeUser(user),
+      mfaRequired: true,
+      mfaChallenge: issueMfaChallenge(user),
+    });
+  }
+  return ok(res, {
+    user: usesPostgresAuth() ? sanitizeUser(user) : publicUser(db, user.id),
+    token: issueAccessToken(user),
+    refreshToken: rotated.refreshToken,
+    refreshExpiresAt: rotated.expiresAt,
+  });
+});
+
+app.post("/api/auth/logout", async (req, res) => {
+  const parsed = parseOrFail(
+    refreshSchema.pick({ refreshToken: true }),
+    req.body || {},
+  );
+  if (!parsed.ok) return fail(res, 400, parsed.message);
+  if (usesPostgresAuth()) await revokePostgresSession(parsed.data.refreshToken);
+  else revokeAuthSession(parsed.data.refreshToken);
+  return ok(res, { loggedOut: true });
+});
+
+app.post("/api/auth/password-recovery/request", async (req, res) => {
+  const parsed = parseOrFail(passwordRecoveryRequestSchema, req.body || {});
+  if (!parsed.ok) return fail(res, 400, parsed.message);
+  try {
+    const fingerprint = crypto
+        .createHmac("sha256", jwtSecret)
+        .update(`${req.ip || ""}|${req.get("user-agent") || ""}`)
+        .digest("hex"),
+      recovery = await requestPasswordRecovery({
+        email: parsed.data.email,
+        requesterFingerprintHash: fingerprint,
+      });
+    return ok(res, {
+      message:
+        "Si la cuenta existe, enviamos las instrucciones de recuperación.",
+      ...(!config.isProduction && recovery
+        ? { developmentToken: recovery.token, expiresAt: recovery.expiresAt }
+        : {}),
+    });
+  } catch (_error) {
+    return fail(res, 500, "No se pudo procesar la recuperación");
+  }
+});
+app.post("/api/auth/password-recovery/confirm", async (req, res) => {
+  const parsed = parseOrFail(passwordRecoveryConsumeSchema, req.body || {});
+  if (!parsed.ok) return fail(res, 400, parsed.message);
+  try {
+    const result = await consumePasswordRecovery({
+      token: parsed.data.token,
+      password: parsed.data.password,
+    });
+    return ok(res, {
+      passwordChanged: true,
+      revokedSessions: result.revokedSessions,
+    });
+  } catch (error) {
+    return fail(
+      res,
+      error.status || 500,
+      error.message || "No se pudo cambiar la contraseña",
+    );
+  }
+});
+app.post("/api/auth/email-verification/resend", async (req, res) => {
+  const parsed = parseOrFail(emailVerificationRequestSchema, req.body || {});
+  if (!parsed.ok) return fail(res, 400, parsed.message);
+  try {
+    const challenge = await resendEmailVerification(parsed.data.email);
+    return ok(res, {
+      message: "Si la cuenta está pendiente, enviamos un código nuevo.",
+      ...(!config.isProduction && challenge
+        ? { developmentCode: challenge.code, expiresAt: challenge.expiresAt }
+        : {}),
+    });
+  } catch (_error) {
+    return fail(res, 500, "No se pudo reenviar el código");
+  }
+});
+app.post("/api/auth/email-verification/confirm", async (req, res) => {
+  const parsed = parseOrFail(emailVerificationConfirmSchema, req.body || {});
+  if (!parsed.ok) return fail(res, 400, parsed.message);
+  try {
+    const user = await confirmEmailVerification(parsed.data);
+    return ok(res, { verified: true, user: sanitizeUser(user) });
+  } catch (error) {
+    return fail(
+      res,
+      error.status || 500,
+      error.message || "No se pudo verificar el email",
+    );
+  }
+});
+
+app.post("/api/auth/register", async (req, res) => {
   const parsed = parseOrFail(registerSchema, req.body || {});
   if (!parsed.ok) return fail(res, 400, parsed.message);
   const { name, email, password, phone } = parsed.data;
-  const db = readDb();
-  const exists = db.users.some(
-    (entry) => entry.email.toLowerCase() === String(email).trim().toLowerCase()
-  );
+  const db = usesPostgresAuth() ? null : readDb();
+  const exists = usesPostgresAuth()
+    ? await findAuthUserByEmail(email)
+    : db.users.some(
+        (entry) =>
+          entry.email.toLowerCase() === String(email).trim().toLowerCase(),
+      );
   if (exists) return fail(res, 409, "Ese email ya existe");
-  const user = {
+  let user = {
     id: createId("USR"),
     name: String(name),
     email: String(email).trim().toLowerCase(),
@@ -802,337 +6053,2681 @@ app.post("/api/auth/register", (req, res) => {
     roles: ["customer"],
     phone: String(phone || ""),
     wallet: 0,
-    defaultAddress: ""
+    defaultAddress: "",
   };
-  db.users.push(user);
-  audit(db, { auth: { userId: user.id } }, "user", user.id, "user.registered", {
-    email: user.email
-  });
-  writeDb(db);
+  if (usesPostgresAuth()) {
+    user = await registerAuthUser({
+      publicId: user.id,
+      name: user.name,
+      email: user.email,
+      passwordHash: user.password,
+      phone: user.phone,
+    });
+  } else {
+    db.users.push(user);
+  }
+  const verificationCode = user.verificationCode;
+  delete user.verificationCode;
+  if (usesPostgresAuth())
+    await recordPostgresAudit({
+      actorPublicId: user.id,
+      roles: user.roles,
+      action: "user.registered",
+      entityType: "user",
+      entityId: user.id,
+      requestId: req.requestId,
+      afterData: { email: user.email },
+    });
+  else {
+    audit(
+      db,
+      { auth: { userId: user.id } },
+      "user",
+      user.id,
+      "user.registered",
+      { email: user.email },
+    );
+    writeDb(db);
+  }
+  if (usesPostgresAuth())
+    return ok(res, {
+      user: sanitizeUser(user),
+      verificationRequired: true,
+      ...(!config.isProduction
+        ? {
+            developmentCode: verificationCode.code,
+            expiresAt: verificationCode.expiresAt,
+          }
+        : {}),
+    });
   return ok(res, {
     user: publicUser(db, user.id),
-    token: jwt.sign({ sub: user.id, roles: user.roles }, jwtSecret, { expiresIn: "8h" })
+    ...(await issueSession(
+      user,
+      req.body?.deviceName || req.get("user-agent") || "unknown",
+    )),
   });
 });
 
-app.get("/api/restaurants", (_req, res) => {
-  ok(res, { restaurants: readDb().restaurants });
+app.get("/api/restaurants", async (_req, res) => {
+  const restaurants = usesPostgresCommerce()
+    ? await getPostgresRestaurants()
+    : readDb().restaurants;
+  ok(res, { restaurants });
 });
 
-app.patch("/api/restaurants/:restaurantId", requireAuth, requireAnyRole("merchant", "admin"), (req, res) => {
-  const db = readDb();
-  const restaurant = findRestaurant(db, req.params.restaurantId);
-  if (!restaurant) return fail(res, 404, "Restaurante no encontrado");
-  if (!canManageRestaurant(req, restaurant)) return fail(res, 403, "No puedes gestionar este restaurante");
-  const body = req.body || {};
-  if (typeof body.open === "boolean") restaurant.open = body.open;
-  if (typeof body.etaMin === "number") restaurant.etaMin = Math.max(5, body.etaMin);
-  audit(db, req, "restaurant", restaurant.id, "restaurant.updated", {
-    open: restaurant.open,
-    etaMin: restaurant.etaMin
-  });
-  writeDb(db);
-  publishRealtimeEvent({ req, type: "restaurant.updated", entityType: "restaurant", entityId: restaurant.id, action: "restaurant.updated" });
-  return ok(res, { restaurant });
-});
+app.get(
+  "/api/cart",
+  requireAuth,
+  requireAnyRole("customer", "admin"),
+  async (req, res) => {
+    if (!usesPostgresCommerce()) return ok(res, { cart: [] });
+    return ok(res, { cart: await getPostgresCart(req.auth.userId) });
+  },
+);
 
-app.post("/api/restaurants/:restaurantId/menu", requireAuth, requireAnyRole("merchant", "admin"), (req, res) => {
-  const db = readDb();
-  const restaurant = findRestaurant(db, req.params.restaurantId);
-  if (!restaurant) return fail(res, 404, "Restaurante no encontrado");
-  if (!canManageRestaurant(req, restaurant)) return fail(res, 403, "No puedes gestionar este restaurante");
-  const { name, description, category, price } = req.body || {};
-  if (!name || !price) return fail(res, 400, "Nombre y precio son obligatorios");
-  const item = {
-    id: createId("ITEM"),
-    name: String(name),
-    description: String(description || ""),
-    category: String(category || "Especiales"),
-    price: Math.max(100, Number(price)),
-    rating: 4.5,
-    timeMin: restaurant.etaMin,
-    kcal: 500,
-    stock: true,
-    image: restaurant.image,
-    tags: ["Nuevo"]
-  };
-  restaurant.menu.unshift(item);
-  audit(db, req, "menu_item", item.id, "menu_item.created", {
-    restaurantId: restaurant.id,
-    price: item.price
-  });
-  writeDb(db);
-  publishRealtimeEvent({ req, type: "restaurant.updated", entityType: "restaurant", entityId: restaurant.id, action: "menu_item.created" });
-  return ok(res, { item, restaurant });
-});
+app.put(
+  "/api/cart",
+  requireAuth,
+  requireAnyRole("customer", "admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(cartSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const cart = await replacePostgresCart(
+        req.auth.userId,
+        parsed.data.restaurantId,
+        parsed.data.items,
+      );
+      return ok(res, { cart });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo guardar el carrito",
+      );
+    }
+  },
+);
 
-app.patch("/api/restaurants/:restaurantId/menu/:itemId", requireAuth, requireAnyRole("merchant", "admin"), (req, res) => {
-  const db = readDb();
-  const restaurant = findRestaurant(db, req.params.restaurantId);
-  if (!restaurant) return fail(res, 404, "Restaurante no encontrado");
-  if (!canManageRestaurant(req, restaurant)) return fail(res, 403, "No puedes gestionar este restaurante");
-  const item = restaurant.menu.find((entry) => entry.id === req.params.itemId);
-  if (!item) return fail(res, 404, "Producto no encontrado");
-  const body = req.body || {};
-  if (typeof body.stock === "boolean") item.stock = body.stock;
-  if (typeof body.price === "number") item.price = Math.max(100, body.price);
-  audit(db, req, "menu_item", item.id, "menu_item.updated", {
-    restaurantId: restaurant.id,
-    stock: item.stock,
-    price: item.price
-  });
-  writeDb(db);
-  publishRealtimeEvent({ req, type: "restaurant.updated", entityType: "restaurant", entityId: restaurant.id, action: "menu_item.updated" });
-  return ok(res, { item, restaurant });
-});
+app.post(
+  "/api/orders/:orderId/reorder",
+  requireAuth,
+  requireAnyRole("customer"),
+  async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "La recompra requiere PostgreSQL");
+    try {
+      const result = await reorderPostgresOrder({
+        customerPublicId: req.auth.userId,
+        orderPublicId: req.params.orderId,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "order.reordered_to_cart",
+        entityType: "order",
+        entityId: req.params.orderId,
+        requestId: req.requestId,
+        afterData: {
+          restaurantId: result.restaurantId,
+          lineCount: result.cart.length,
+        },
+      });
+      return ok(res, result);
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo reconstruir el carrito",
+      );
+    }
+  },
+);
 
-app.post("/api/orders", requireAuth, requireAnyRole("customer", "admin"), (req, res) => {
-  const parsed = parseOrFail(orderSchema, req.body || {});
-  if (!parsed.ok) return fail(res, 400, parsed.message);
-  const { customerId, restaurantId, items, deliveryAddress, paymentMethod } = parsed.data;
-  const db = readDb();
-  const customer = db.users.find((user) => user.id === customerId);
-  if (!customer) return fail(res, 404, "Cliente no encontrado");
-  if (!canActAsCustomer(req, customerId)) return fail(res, 403, "No puedes crear pedidos para otro cliente");
-  const restaurant = findRestaurant(db, restaurantId);
-  if (!restaurant || !restaurant.open) return fail(res, 404, "Restaurante no disponible");
-  if (!Array.isArray(items) || items.length === 0) return fail(res, 400, "Agrega productos al pedido");
+app.patch(
+  "/api/restaurants/:restaurantId",
+  requireAuth,
+  requireAnyRole("merchant", "admin"),
+  async (req, res) => {
+    const db = usesPostgresAuth() ? null : readDb();
+    let restaurant = usesPostgresCommerce()
+      ? (await getPostgresRestaurants()).find(
+          (entry) => entry.id === req.params.restaurantId,
+        )
+      : findRestaurant(db, req.params.restaurantId);
+    if (!restaurant) return fail(res, 404, "Restaurante no encontrado");
+    if (!canManageRestaurant(req, restaurant))
+      return fail(res, 403, "No puedes gestionar este restaurante");
+    const body = req.body || {};
+    if (usesPostgresCommerce()) {
+      restaurant = await updatePostgresRestaurant(restaurant.id, body);
+    } else {
+      if (typeof body.open === "boolean") restaurant.open = body.open;
+      if (typeof body.etaMin === "number")
+        restaurant.etaMin = Math.max(5, body.etaMin);
+    }
+    await auditRuntime(
+      db,
+      req,
+      "restaurant",
+      restaurant.id,
+      "restaurant.updated",
+      {
+        open: restaurant.open,
+        etaMin: restaurant.etaMin,
+      },
+    );
+    await publishRealtimeEvent({
+      req,
+      type: "restaurant.updated",
+      entityType: "restaurant",
+      entityId: restaurant.id,
+      action: "restaurant.updated",
+    });
+    return ok(res, { restaurant });
+  },
+);
 
-  let totals;
-  try {
-    totals = calculateOrderTotals(restaurant, items);
-  } catch (error) {
-    return fail(res, 400, error.message);
-  }
+app.post(
+  "/api/restaurants/:restaurantId/menu",
+  requireAuth,
+  requireAnyRole("merchant", "admin"),
+  async (req, res) => {
+    const db = usesPostgresAuth() ? null : readDb();
+    let restaurant = usesPostgresCommerce()
+      ? (await getPostgresRestaurants()).find(
+          (entry) => entry.id === req.params.restaurantId,
+        )
+      : findRestaurant(db, req.params.restaurantId);
+    if (!restaurant) return fail(res, 404, "Restaurante no encontrado");
+    if (!canManageRestaurant(req, restaurant))
+      return fail(res, 403, "No puedes gestionar este restaurante");
+    const { name, description, category, price } = req.body || {};
+    if (!name || !price)
+      return fail(res, 400, "Nombre y precio son obligatorios");
+    const item = {
+      id: createId("ITEM"),
+      name: String(name),
+      description: String(description || ""),
+      category: String(category || "Especiales"),
+      price: Math.max(100, Number(price)),
+      rating: 4.5,
+      timeMin: restaurant.etaMin,
+      kcal: 500,
+      stock: true,
+      image: restaurant.image,
+      tags: ["Nuevo"],
+    };
+    if (usesPostgresCommerce())
+      restaurant = await createPostgresMenuItem(restaurant.id, item);
+    else restaurant.menu.unshift(item);
+    await auditRuntime(db, req, "menu_item", item.id, "menu_item.created", {
+      restaurantId: restaurant.id,
+      price: item.price,
+    });
+    await publishRealtimeEvent({
+      req,
+      type: "restaurant.updated",
+      entityType: "restaurant",
+      entityId: restaurant.id,
+      action: "menu_item.created",
+    });
+    return ok(res, { item, restaurant });
+  },
+);
 
-  const status = "accepted";
-  const createdAt = getTimestamp();
-  const order = {
-    id: createId("ORD"),
-    customerId,
-    restaurantId,
-    courierId: null,
-    status,
-    deliveryAddress: String(deliveryAddress || customer.defaultAddress || ""),
-    paymentMethod: String(paymentMethod || "Flash Wallet"),
-    ...totals,
-    etaMin: restaurant.etaMin + 8,
-    createdAt,
-    timeline: [{ status, at: createdAt }]
-  };
-  db.orders.unshift(order);
-  audit(db, req, "order", order.id, "order.created", {
-    restaurantId,
-    total: order.total,
-    itemCount: order.items.length
-  });
-  writeDb(db);
-  publishRealtimeEvent({ req, type: "order.created", entityType: "order", entityId: order.id, action: "order.created" });
-  return ok(res, { order, label: orderLabels[status] });
-});
+app.patch(
+  "/api/restaurants/:restaurantId/menu/:itemId",
+  requireAuth,
+  requireAnyRole("merchant", "admin"),
+  async (req, res) => {
+    const db = usesPostgresCommerce() ? {} : readDb();
+    let restaurant = usesPostgresCommerce()
+      ? (await getPostgresRestaurants()).find(
+          (entry) => entry.id === req.params.restaurantId,
+        )
+      : findRestaurant(db, req.params.restaurantId);
+    if (!restaurant) return fail(res, 404, "Restaurante no encontrado");
+    if (!canManageRestaurant(req, restaurant))
+      return fail(res, 403, "No puedes gestionar este restaurante");
+    const item = restaurant.menu.find(
+      (entry) => entry.id === req.params.itemId,
+    );
+    if (!item) return fail(res, 404, "Producto no encontrado");
+    const body = req.body || {};
+    if (usesPostgresCommerce()) {
+      restaurant = await updatePostgresMenuItem(restaurant.id, item.id, body);
+      Object.assign(
+        item,
+        restaurant.menu.find((entry) => entry.id === item.id),
+      );
+    } else {
+      if (typeof body.stock === "boolean") item.stock = body.stock;
+      if (typeof body.price === "number")
+        item.price = Math.max(100, body.price);
+    }
+    await auditRuntime(db, req, "menu_item", item.id, "menu_item.updated", {
+      restaurantId: restaurant.id,
+      stock: item.stock,
+      price: item.price,
+    });
+    await publishRealtimeEvent({
+      req,
+      type: "restaurant.updated",
+      entityType: "restaurant",
+      entityId: restaurant.id,
+      action: "menu_item.updated",
+    });
+    return ok(res, { item, restaurant });
+  },
+);
 
-app.post("/api/orders/:orderId/accept-delivery", requireAuth, requireAnyRole("driver", "admin"), (req, res) => {
-  const { driverId } = req.body || {};
-  const db = readDb();
-  const order = db.orders.find((entry) => entry.id === req.params.orderId);
-  const driver = db.drivers.find((entry) => entry.id === driverId);
-  if (!order) return fail(res, 404, "Pedido no encontrado");
-  if (!canActAsDriver(req, driverId)) return fail(res, 403, "No puedes aceptar pedidos con otro conductor");
-  if (!driver || !driver.online || !driver.serviceModes.includes("delivery")) {
-    return fail(res, 409, "Repartidor no disponible");
-  }
-  if (order.courierId) return fail(res, 409, "El pedido ya tiene repartidor");
-  if (["delivered", "cancelled"].includes(order.status)) {
-    return fail(res, 409, "El pedido ya no esta disponible");
-  }
-  order.courierId = driverId;
-  Object.assign(order, addTimeline(order, "courier_assigned"));
-  audit(db, req, "order", order.id, "order.delivery_accepted", { driverId });
-  writeDb(db);
-  publishRealtimeEvent({ req, type: "order.updated", entityType: "order", entityId: order.id, action: "order.delivery_accepted" });
-  return ok(res, { order, label: orderLabels[order.status] });
-});
+app.put(
+  "/api/restaurants/:restaurantId/menu/:itemId/modifiers",
+  requireAuth,
+  requireAnyRole("merchant", "admin"),
+  async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "La gestión de agregados requiere PostgreSQL");
+    const parsed = parseOrFail(itemModifierGroupsSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const restaurant = await replacePostgresItemModifiers({
+        merchantPublicId: req.params.restaurantId,
+        itemPublicId: req.params.itemId,
+        actorPublicId: req.auth.user.id,
+        admin: req.auth.user.role === "admin",
+        groups: parsed.data.groups,
+      });
+      await auditRuntime(
+        {},
+        req,
+        "menu_item",
+        req.params.itemId,
+        "catalog_item.modifiers_replaced",
+        {
+          restaurantId: req.params.restaurantId,
+          groupCount: parsed.data.groups.length,
+        },
+      );
+      await publishRealtimeEvent({
+        req,
+        type: "restaurant.updated",
+        entityType: "restaurant",
+        entityId: req.params.restaurantId,
+        action: "catalog_item.modifiers_replaced",
+      });
+      return ok(res, { restaurant });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudieron guardar los agregados",
+      );
+    }
+  },
+);
 
-app.post("/api/orders/:orderId/advance", requireAuth, requireAnyRole("merchant", "driver", "admin"), (req, res) => {
-  const db = readDb();
-  const index = db.orders.findIndex((entry) => entry.id === req.params.orderId);
-  if (index < 0) return fail(res, 404, "Pedido no encontrado");
-  if (!canAdvanceOrder(req, db, db.orders[index])) return fail(res, 403, "No puedes avanzar este pedido");
-  const next = nextOrderStatus(db.orders[index]);
-  if (!next) return fail(res, 409, "El pedido no puede avanzar desde este estado");
-  db.orders[index] = addTimeline(db.orders[index], next);
-  if (next === "delivered") db.orders[index].etaMin = 0;
-  audit(db, req, "order", db.orders[index].id, "order.status_advanced", { status: next });
-  writeDb(db);
-  publishRealtimeEvent({ req, type: "order.updated", entityType: "order", entityId: db.orders[index].id, action: "order.status_advanced" });
-  return ok(res, { order: db.orders[index], label: orderLabels[next] });
-});
+app.put(
+  "/api/restaurants/:restaurantId/menu/:itemId/dietary",
+  requireAuth,
+  requireAnyRole("merchant", "admin"),
+  async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "La información alimentaria requiere PostgreSQL");
+    const parsed = parseOrFail(itemDietarySchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const restaurant = await replacePostgresItemDietary({
+        merchantPublicId: req.params.restaurantId,
+        itemPublicId: req.params.itemId,
+        actorPublicId: req.auth.user.id,
+        admin: req.auth.user.role === "admin",
+        ...parsed.data,
+      });
+      await auditRuntime(
+        {},
+        req,
+        "menu_item",
+        req.params.itemId,
+        "catalog_item.dietary_replaced",
+        {
+          restaurantId: req.params.restaurantId,
+          dietaryCount: parsed.data.dietaryLabels.length,
+          allergenCount: parsed.data.allergens.length,
+        },
+      );
+      await publishRealtimeEvent({
+        req,
+        type: "restaurant.updated",
+        entityType: "restaurant",
+        entityId: req.params.restaurantId,
+        action: "catalog_item.dietary_replaced",
+      });
+      return ok(res, { restaurant });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo guardar la información alimentaria",
+      );
+    }
+  },
+);
 
-app.patch("/api/orders/:orderId/status", requireAuth, (req, res) => {
+app.post(
+  "/api/orders/quote",
+  requireAuth,
+  requireAnyRole("customer", "admin"),
+  async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "La cotización geográfica requiere PostgreSQL");
+    const parsed = parseOrFail(foodOrderQuoteSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    if (!canActAsCustomer(req, parsed.data.customerId))
+      return fail(res, 403, "No puedes cotizar para otro cliente");
+    try {
+      const calculated = parsed.data.items
+        ? await getPostgresFoodCheckoutQuote({
+            customerPublicId: parsed.data.customerId,
+            merchantPublicId: parsed.data.restaurantId,
+            deliveryAddressId: parsed.data.deliveryAddressId,
+            branchPublicId: parsed.data.branchId,
+            items: parsed.data.items,
+            paymentMethod: parsed.data.paymentMethod || "Flash Wallet",
+            paymentMethodId: parsed.data.paymentMethodId,
+            promotionCode: parsed.data.promotionCode,
+          })
+        : await getPostgresFoodDeliveryQuote({
+            customerPublicId: parsed.data.customerId,
+            merchantPublicId: parsed.data.restaurantId,
+            deliveryAddressId: parsed.data.deliveryAddressId,
+            branchPublicId: parsed.data.branchId,
+          });
+      const quoteId = createId("QUOTE"),
+        expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+      const quoteToken = jwt.sign(
+        { kind: "food_quote", quoteId, ...calculated },
+        jwtSecret,
+        { expiresIn: "5m" },
+      );
+      return ok(res, {
+        quote: { ...calculated, quoteId, quoteToken, expiresAt },
+      });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo cotizar la entrega",
+      );
+    }
+  },
+);
+
+app.post(
+  "/api/orders",
+  requireAuth,
+  requireAnyRole("customer", "admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(orderSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    const {
+      customerId,
+      restaurantId,
+      items,
+      deliveryAddressId,
+      deliveryAddress,
+      paymentMethod,
+      paymentMethodId,
+      promotionCode,
+      quoteToken,
+    } = parsed.data;
+    const idempotencyKey = req.get("idempotency-key");
+    if (
+      usesPostgresCommerce() &&
+      (!idempotencyKey || !/^[a-zA-Z0-9._:-]{16,128}$/.test(idempotencyKey))
+    ) {
+      return fail(
+        res,
+        400,
+        "Idempotency-Key válido es obligatorio para crear pedidos",
+      );
+    }
+    const db = usesPostgresCommerce() ? {} : readDb();
+    const customer = usesPostgresAuth()
+      ? await findAuthUserByPublicId(customerId)
+      : db.users.find((user) => user.id === customerId);
+    if (!customer) return fail(res, 404, "Cliente no encontrado");
+    if (!canActAsCustomer(req, customerId))
+      return fail(res, 403, "No puedes crear pedidos para otro cliente");
+    let lockedQuote = null;
+    if (usesPostgresCommerce()) {
+      if (!quoteToken)
+        return fail(
+          res,
+          400,
+          "Debes cotizar la entrega antes de confirmar el pedido",
+        );
+      try {
+        lockedQuote = jwt.verify(quoteToken, jwtSecret);
+        if (
+          lockedQuote.kind !== "food_quote" ||
+          lockedQuote.customerId !== customerId ||
+          lockedQuote.restaurantId !== restaurantId ||
+          lockedQuote.deliveryAddressId !== deliveryAddressId
+        )
+          return fail(res, 409, "La cotización no corresponde a este pedido");
+      } catch (_error) {
+        return fail(
+          res,
+          409,
+          "La cotización venció; actualiza el precio antes de confirmar",
+        );
+      }
+    }
+    const restaurant = usesPostgresCommerce()
+      ? (await getPostgresRestaurants()).find(
+          (entry) => entry.id === restaurantId,
+        )
+      : findRestaurant(db, restaurantId);
+    if (!restaurant || !restaurant.open)
+      return fail(res, 404, "Restaurante no disponible");
+    if (!Array.isArray(items) || items.length === 0)
+      return fail(res, 400, "Agrega productos al pedido");
+
+    let totals;
+    try {
+      totals = calculateOrderTotals(restaurant, items);
+    } catch (error) {
+      return fail(res, 400, error.message);
+    }
+    let riskAssessment = null;
+    if (usesPostgresCommerce()) {
+      try {
+        riskAssessment = await assessTransactionRisk({
+          customerPublicId: customerId,
+          service: "food",
+          amount: lockedQuote?.total ?? totals.total,
+          requestId: req.requestId,
+          idempotencyKey,
+        });
+        if (riskAssessment.decision === "block") {
+          await recordPostgresAudit({
+            actorPublicId: req.auth.userId,
+            roles: req.auth.roles,
+            action: "risk.transaction_blocked",
+            entityType: "risk_assessment",
+            entityId: riskAssessment.id,
+            requestId: req.requestId,
+            afterData: { service: "food", score: riskAssessment.score },
+          });
+          return fail(
+            res,
+            403,
+            "La operación requiere verificación de seguridad. Contactá a soporte.",
+          );
+        }
+      } catch (error) {
+        return fail(
+          res,
+          error.status || 500,
+          error.message || "No se pudo verificar el riesgo de la operación",
+        );
+      }
+    }
+
+    const status = "accepted";
+    const createdAt = getTimestamp();
+    let order = {
+      id: createId("ORD"),
+      customerId,
+      restaurantId,
+      courierId: null,
+      status,
+      deliveryAddress: String(deliveryAddress || customer.defaultAddress || ""),
+      paymentMethod: String(paymentMethod || "Flash Wallet"),
+      ...totals,
+      etaMin: restaurant.etaMin + 8,
+      createdAt,
+      timeline: [{ status, at: createdAt }],
+    };
+    if (usesPostgresCommerce()) {
+      try {
+        order = await createPostgresOrder({
+          publicId: order.id,
+          customerPublicId: customerId,
+          merchantPublicId: restaurantId,
+          deliveryAddressId,
+          deliveryAddress: order.deliveryAddress,
+          paymentMethod: order.paymentMethod,
+          paymentMethodId,
+          promotionCode,
+          items,
+          serviceFee: lockedQuote?.serviceFee ?? serviceFee,
+          lockedQuote,
+          idempotencyKey,
+        });
+        if (riskAssessment)
+          await setRiskEntity({
+            assessmentPublicId: riskAssessment.id,
+            entityPublicId: order.id,
+          });
+      } catch (error) {
+        return fail(
+          res,
+          error.status || 500,
+          error.message || "No se pudo crear el pedido",
+        );
+      }
+    } else {
+      db.orders.unshift(order);
+    }
+    await auditRuntime(db, req, "order", order.id, "order.created", {
+      restaurantId,
+      total: order.total,
+      itemCount: order.items.length,
+    });
+    await publishRealtimeEvent({
+      req,
+      type: "order.created",
+      entityType: "order",
+      entityId: order.id,
+      action: "order.created",
+    });
+    return ok(res, { order, label: orderLabels[status] });
+  },
+);
+
+app.post(
+  "/api/orders/:orderId/accept-delivery",
+  requireAuth,
+  requireAnyRole("driver", "admin"),
+  async (req, res) => {
+    const { driverId } = req.body || {};
+    const db = usesPostgresCommerce() ? {} : readDb();
+    let order = usesPostgresCommerce()
+      ? (await getPostgresOrders()).find(
+          (entry) => entry.id === req.params.orderId,
+        )
+      : db.orders.find((entry) => entry.id === req.params.orderId);
+    const driver = usesPostgresCommerce()
+      ? (await getPostgresDrivers()).find((entry) => entry.id === driverId)
+      : db.drivers.find((entry) => entry.id === driverId);
+    if (!order) return fail(res, 404, "Pedido no encontrado");
+    if (!canActAsDriver(req, driverId))
+      return fail(res, 403, "No puedes aceptar pedidos con otro conductor");
+    if (
+      !driver ||
+      !driver.online ||
+      !driver.serviceModes.includes("delivery")
+    ) {
+      return fail(res, 409, "Repartidor no disponible");
+    }
+    if (order.courierId) return fail(res, 409, "El pedido ya tiene repartidor");
+    if (["delivered", "cancelled"].includes(order.status)) {
+      return fail(res, 409, "El pedido ya no esta disponible");
+    }
+    if (usesPostgresCommerce()) {
+      try {
+        order = await assignPostgresOrderDriver(
+          order.id,
+          driverId,
+          req.auth.userId,
+        );
+      } catch (error) {
+        return fail(res, error.status || 500, error.message);
+      }
+    } else {
+      order.courierId = driverId;
+      Object.assign(order, addTimeline(order, "courier_assigned"));
+    }
+    await auditRuntime(db, req, "order", order.id, "order.delivery_accepted", {
+      driverId,
+    });
+    await publishRealtimeEvent({
+      req,
+      type: "order.updated",
+      entityType: "order",
+      entityId: order.id,
+      action: "order.delivery_accepted",
+    });
+    return ok(res, { order, label: orderLabels[order.status] });
+  },
+);
+
+app.post(
+  "/api/orders/:orderId/advance",
+  requireAuth,
+  requireAnyRole("merchant", "driver", "admin"),
+  async (req, res) => {
+    const db = usesPostgresCommerce() ? {} : readDb();
+    if (usesPostgresCommerce())
+      [db.orders, db.drivers, db.restaurants] = await Promise.all([
+        getPostgresOrders(),
+        getPostgresDrivers(),
+        getPostgresRestaurants(),
+      ]);
+    const index = db.orders.findIndex(
+      (entry) => entry.id === req.params.orderId,
+    );
+    if (index < 0) return fail(res, 404, "Pedido no encontrado");
+    if (!canAdvanceOrder(req, db, db.orders[index]))
+      return fail(res, 403, "No puedes avanzar este pedido");
+    const next = nextOrderStatus(db.orders[index]);
+    if (!next)
+      return fail(res, 409, "El pedido no puede avanzar desde este estado");
+    db.orders[index] = usesPostgresCommerce()
+      ? await setPostgresOrderStatus(db.orders[index].id, next, req.auth.userId)
+      : addTimeline(db.orders[index], next);
+    if (next === "delivered") {
+      db.orders[index].etaMin = 0;
+      if (!usesPostgresCommerce())
+        await creditDriverEarningsRuntime(
+          db,
+          db.orders[index].courierId,
+          db.orders[index].deliveryFee,
+          `delivery-${db.orders[index].id}`,
+        );
+    }
+    await auditRuntime(
+      db,
+      req,
+      "order",
+      db.orders[index].id,
+      "order.status_advanced",
+      { status: next },
+    );
+    await publishRealtimeEvent({
+      req,
+      type: "order.updated",
+      entityType: "order",
+      entityId: db.orders[index].id,
+      action: "order.status_advanced",
+    });
+    return ok(res, { order: db.orders[index], label: orderLabels[next] });
+  },
+);
+
+app.patch("/api/orders/:orderId/status", requireAuth, async (req, res) => {
   const { status } = req.body || {};
-  if (!orderStatuses.includes(status)) return fail(res, 400, "Estado de pedido invalido");
-  const db = readDb();
+  if (!orderStatuses.includes(status))
+    return fail(res, 400, "Estado de pedido invalido");
+  const cancellation =
+    status === "cancelled"
+      ? parseOrFail(cancellationSchema, req.body || {})
+      : null;
+  if (cancellation && !cancellation.ok)
+    return fail(res, 400, cancellation.message);
+  const db = usesPostgresCommerce() ? {} : readDb();
+  if (usesPostgresCommerce())
+    [db.orders, db.restaurants] = await Promise.all([
+      getPostgresOrders(),
+      getPostgresRestaurants(),
+    ]);
   const index = db.orders.findIndex((entry) => entry.id === req.params.orderId);
   if (index < 0) return fail(res, 404, "Pedido no encontrado");
   if (!canMutateOrderStatus(req, db, db.orders[index], status)) {
     return fail(res, 403, "No puedes cambiar este estado de pedido");
   }
-  db.orders[index] = addTimeline(db.orders[index], status);
-  audit(db, req, "order", db.orders[index].id, "order.status_set", { status });
-  writeDb(db);
-  publishRealtimeEvent({ req, type: "order.updated", entityType: "order", entityId: db.orders[index].id, action: "order.status_set" });
+  if (usesPostgresCommerce() && status === "cancelled") {
+    const cancellationResult = await cancelOrderAndRefundWallet({
+      orderPublicId: db.orders[index].id,
+      actorPublicId: req.auth.userId,
+      reason: cancellation.data.reason,
+      reasonDetail: cancellation.data.reasonDetail,
+    });
+    db.orders[index] = (await getPostgresOrders()).find(
+      (entry) => entry.id === db.orders[index].id,
+    );
+    db.orders[index].cancellation = cancellationResult;
+  } else
+    db.orders[index] = usesPostgresCommerce()
+      ? await setPostgresOrderStatus(
+          db.orders[index].id,
+          status,
+          req.auth.userId,
+        )
+      : addTimeline(db.orders[index], status);
+  await auditRuntime(
+    db,
+    req,
+    "order",
+    db.orders[index].id,
+    "order.status_set",
+    { status },
+  );
+  await publishRealtimeEvent({
+    req,
+    type: "order.updated",
+    entityType: "order",
+    entityId: db.orders[index].id,
+    action: "order.status_set",
+  });
   return ok(res, { order: db.orders[index], label: orderLabels[status] });
 });
 
-app.post("/api/rides/quote", (req, res) => {
+app.post("/api/rides/quote", async (req, res) => {
   const parsed = parseOrFail(rideQuoteSchema, req.body || {});
   if (!parsed.ok) return fail(res, 400, parsed.message);
-  const { pickup, destination, service, pickupCoords, destinationCoords } = parsed.data;
+  const { pickup, destination, service, pickupCoords, destinationCoords } =
+    parsed.data;
+  const [zone, pricing] = usesPostgresCommerce()
+    ? await Promise.all([
+        getPostgresZonePricing(pickupCoords),
+        getPostgresPricingPlan("ride"),
+      ])
+    : [{ rideMultiplier: 1, zoneId: null }, fallbackRidePricing];
   return ok(res, {
-    quote: calculateRideQuote({ pickup, destination, service, pickupCoords, destinationCoords })
-  });
-});
-
-app.post("/api/rides", requireAuth, requireAnyRole("customer", "admin"), (req, res) => {
-  const parsed = parseOrFail(rideCreateSchema, req.body || {});
-  if (!parsed.ok) return fail(res, 400, parsed.message);
-  const { customerId, pickup, destination, service, paymentMethod, pickupCoords, destinationCoords } = parsed.data;
-  const db = readDb();
-  const customer = db.users.find((user) => user.id === customerId);
-  if (!customer) return fail(res, 404, "Cliente no encontrado");
-  if (!canActAsCustomer(req, customerId)) return fail(res, 403, "No puedes crear viajes para otro cliente");
-  const quote = calculateRideQuote({ pickup, destination, service, pickupCoords, destinationCoords });
-  const createdAt = getTimestamp();
-  let ride = {
-    id: createId("RIDE"),
-    customerId,
-    driverId: null,
-    status: "requested",
-    service: quote.service,
-    pickup: String(pickup),
-    destination: String(destination),
-    pickupLocation: pickupCoords || null,
-    destinationLocation: destinationCoords || null,
-    distanceKm: quote.distanceKm,
-    etaMin: quote.etaMin,
-    durationMin: quote.durationMin,
-    fare: quote.fare,
-    paymentMethod: String(paymentMethod || "Flash Wallet"),
-    createdAt,
-    timeline: [{ status: "requested", at: createdAt }]
-  };
-  ride = assignRideDriver(db, ride);
-  db.rides.unshift(ride);
-  audit(db, req, "ride", ride.id, "ride.created", {
-    service: ride.service,
-    fare: ride.fare,
-    driverId: ride.driverId
-  });
-  writeDb(db);
-  publishRealtimeEvent({ req, type: "ride.created", entityType: "ride", entityId: ride.id, action: "ride.created" });
-  return ok(res, { ride, label: rideLabels[ride.status] });
-});
-
-app.post("/api/rides/:rideId/accept", requireAuth, requireAnyRole("driver", "admin"), (req, res) => {
-  const { driverId } = req.body || {};
-  const db = readDb();
-  const index = db.rides.findIndex((entry) => entry.id === req.params.rideId);
-  const driver = db.drivers.find((entry) => entry.id === driverId);
-  if (index < 0) return fail(res, 404, "Viaje no encontrado");
-  if (!canActAsDriver(req, driverId)) return fail(res, 403, "No puedes aceptar viajes con otro conductor");
-  if (!driver || !driver.online || !driver.serviceModes.includes("ride")) {
-    return fail(res, 409, "Conductor no disponible");
-  }
-  if (db.rides[index].driverId) return fail(res, 409, "El viaje ya tiene conductor");
-  db.rides[index] = addTimeline(
-    {
-      ...db.rides[index],
-      driverId
+    quote: {
+      ...calculateRideQuote(
+        {
+          pickup,
+          destination,
+          service,
+          pickupCoords,
+          destinationCoords,
+          demandMultiplier: zone.rideMultiplier,
+        },
+        pricing,
+      ),
+      zoneId: zone.zoneId,
     },
-    "driver_assigned"
+  });
+});
+
+app.get(
+  "/api/merchant/dashboard",
+  requireAuth,
+  requireAnyRole("merchant", "admin"),
+  async (req, res) => {
+    const db = usesPostgresCommerce() ? {} : readDb();
+    if (usesPostgresCommerce()) {
+      [db.restaurants, db.orders] = await Promise.all([
+        getPostgresRestaurants(),
+        getPostgresOrders(),
+      ]);
+    }
+    const restaurant = isAdmin(req)
+      ? db.restaurants.find((entry) => entry.id === req.query.restaurantId)
+      : db.restaurants.find((entry) => entry.ownerId === req.auth.userId);
+    if (!restaurant) return fail(res, 404, "Comercio no encontrado");
+    const orders = db.orders.filter(
+      (order) => order.restaurantId === restaurant.id,
+    );
+    const activeOrders = orders.filter(
+      (order) => !["delivered", "cancelled"].includes(order.status),
+    );
+    const completedOrders = orders.filter(
+      (order) => order.status === "delivered",
+    );
+    const cancelledOrders = orders.filter(
+      (order) => order.status === "cancelled",
+    );
+    const grossSales = completedOrders.reduce(
+      (sum, order) => sum + order.total,
+      0,
+    );
+    return ok(res, {
+      dashboard: {
+        generatedAt: getTimestamp(),
+        restaurant,
+        orders,
+        metrics: {
+          activeOrders: activeOrders.length,
+          completedOrders: completedOrders.length,
+          cancelledOrders: cancelledOrders.length,
+          grossSales,
+          averageTicket: completedOrders.length
+            ? Math.round(grossSales / completedOrders.length)
+            : 0,
+          unavailableItems: restaurant.menu.filter((item) => !item.stock)
+            .length,
+          etaMin: restaurant.etaMin,
+        },
+      },
+    });
+  },
+);
+
+app.get(
+  "/api/merchant/finance",
+  requireAuth,
+  requireAnyRole("merchant", "admin"),
+  async (req, res) => {
+    const merchantId = String(
+      req.query.merchantId || req.auth.user.restaurantId || "",
+    );
+    if (!merchantId) return fail(res, 400, "Falta el comercio");
+    try {
+      return ok(res, {
+        finance: await getMerchantFinance({
+          merchantPublicId: merchantId,
+          actorPublicId: req.auth.userId,
+          admin: isAdmin(req),
+        }),
+      });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudieron cargar las finanzas",
+      );
+    }
+  },
+);
+app.post(
+  "/api/merchant/payouts",
+  requireAuth,
+  requireAnyRole("merchant", "admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(payoutRequestSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    const idempotencyKey = String(req.get("idempotency-key") || "");
+    if (idempotencyKey.length < 16)
+      return fail(res, 400, "Idempotency-Key es obligatorio");
+    const merchantId = parsed.data.merchantId || req.auth.user.restaurantId;
+    if (!merchantId) return fail(res, 400, "Falta el comercio");
+    try {
+      const finance = await requestMerchantPayout({
+        merchantPublicId: merchantId,
+        actorPublicId: req.auth.userId,
+        admin: isAdmin(req),
+        amount: parsed.data.amount,
+        idempotencyKey,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "merchant.payout_requested",
+        entityType: "merchant",
+        entityId: merchantId,
+        requestId: req.requestId,
+        afterData: { amount: parsed.data.amount },
+      });
+      await publishRealtimeEvent({
+        req,
+        type: "merchant.finance.updated",
+        entityType: "restaurant",
+        entityId: merchantId,
+        action: "merchant.payout_requested",
+      });
+      return res
+        .status(201)
+        .json({ ok: true, requestId: req.requestId, finance });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo solicitar el payout",
+      );
+    }
+  },
+);
+app.get(
+  "/api/admin/payouts",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (_req, res) => {
+    try {
+      return ok(res, { payouts: await getPayoutReviewQueue() });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudieron cargar los payouts",
+      );
+    }
+  },
+);
+app.patch(
+  "/api/admin/payouts/:payoutId/review",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(payoutReviewSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const payout = await reviewMerchantPayout({
+        payoutPublicId: req.params.payoutId,
+        actorPublicId: req.auth.userId,
+        ...parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: `merchant.payout_${parsed.data.decision}`,
+        entityType: "payout",
+        entityId: payout.id,
+        requestId: req.requestId,
+        afterData: {
+          merchantId: payout.merchantId,
+          amount: payout.amount,
+          status: payout.status,
+        },
+      });
+      await publishRealtimeEvent({
+        req,
+        type: "merchant.finance.updated",
+        entityType: "restaurant",
+        entityId: payout.merchantId,
+        action: `merchant.payout_${parsed.data.decision}`,
+      });
+      return ok(res, { payout });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo revisar el payout",
+      );
+    }
+  },
+);
+
+app.post("/api/rides/options", async (req, res) => {
+  const parsed = parseOrFail(rideQuoteSchema, req.body || {});
+  if (!parsed.ok) return fail(res, 400, parsed.message);
+  const db = usesPostgresCommerce() ? {} : readDb();
+  if (usesPostgresCommerce())
+    [db.drivers, db.rides] = await Promise.all([
+      getPostgresDrivers(),
+      getPostgresRides(),
+    ]);
+  const [zone, pricing] = usesPostgresCommerce()
+    ? await Promise.all([
+        getPostgresZonePricing(parsed.data.pickupCoords),
+        getPostgresPricingPlan("ride"),
+      ])
+    : [{ rideMultiplier: 1 }, fallbackRidePricing];
+  return ok(res, {
+    options: calculateRideOptions(
+      db,
+      parsed.data,
+      zone.rideMultiplier,
+      pricing,
+    ),
+  });
+});
+
+app.get("/api/maps/geocode", requireAuth, async (req, res) => {
+  const query = String(req.query.q || "").trim();
+  if (query.length < 3 || query.length > 180)
+    return fail(res, 400, "La direccion debe tener entre 3 y 180 caracteres");
+  try {
+    const normalizedQuery = query
+      .normalize("NFKC")
+      .toLocaleLowerCase("es-AR")
+      .replace(/\s+/g, " ");
+    const cacheKey = createMapCacheKey(
+      `${config.geocodingUrl}|${normalizedQuery}`,
+    );
+    const cached = await getCachedMapResponse({
+      kind: "geocode",
+      key: cacheKey,
+    });
+    if (cached)
+      return ok(res, {
+        results: cached.payload.results,
+        provider: cached.provider,
+        cache: "hit",
+      });
+    const url = new URL("/search", config.geocodingUrl);
+    url.searchParams.set("q", query);
+    url.searchParams.set("format", "jsonv2");
+    url.searchParams.set("limit", "5");
+    url.searchParams.set("addressdetails", "1");
+    url.searchParams.set("countrycodes", "ar");
+    const response = await fetch(url, {
+      headers: { "User-Agent": "FlashDeliveryApp/0.1 (local-development)" },
+      signal: AbortSignal.timeout(7000),
+    });
+    if (!response.ok) throw new Error(`Geocoder ${response.status}`);
+    const payload = await response.json();
+    const results = payload
+      .map((entry) => ({
+        label: entry.display_name,
+        point: { lat: Number(entry.lat), lng: Number(entry.lon) },
+        type: entry.type || "address",
+      }))
+      .filter(
+        (entry) =>
+          Number.isFinite(entry.point.lat) && Number.isFinite(entry.point.lng),
+      );
+    await putCachedMapResponse({
+      kind: "geocode",
+      key: cacheKey,
+      provider: "openstreetmap",
+      payload: { results },
+      ttlSeconds: config.geocodingCacheTtlSeconds,
+    });
+    return ok(res, { results, provider: "openstreetmap", cache: "miss" });
+  } catch (error) {
+    return fail(res, 503, "El servicio de geocodificacion no esta disponible");
+  }
+});
+
+app.get("/api/maps/route", requireAuth, async (req, res) => {
+  const fromLat = Number(req.query.fromLat);
+  const fromLng = Number(req.query.fromLng);
+  const toLat = Number(req.query.toLat);
+  const toLng = Number(req.query.toLng);
+  if (![fromLat, fromLng, toLat, toLng].every(Number.isFinite))
+    return fail(res, 400, "Coordenadas invalidas");
+  if (
+    Math.abs(fromLat) > 90 ||
+    Math.abs(toLat) > 90 ||
+    Math.abs(fromLng) > 180 ||
+    Math.abs(toLng) > 180
+  )
+    return fail(res, 400, "Coordenadas fuera de rango");
+  try {
+    const routeIdentity = [fromLat, fromLng, toLat, toLng]
+      .map((value) => value.toFixed(5))
+      .join(",");
+    const cacheKey = createMapCacheKey(
+      `${config.routingUrl}|driving|${routeIdentity}`,
+    );
+    const cached = await getCachedMapResponse({ kind: "route", key: cacheKey });
+    if (cached)
+      return ok(res, {
+        route: cached.payload.route,
+        provider: cached.provider,
+        cache: "hit",
+      });
+    const url = new URL(
+      `/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}`,
+      config.routingUrl,
+    );
+    url.searchParams.set("overview", "full");
+    url.searchParams.set("geometries", "geojson");
+    url.searchParams.set("steps", "true");
+    const response = await fetch(url, { signal: AbortSignal.timeout(7000) });
+    if (!response.ok) throw new Error(`Router ${response.status}`);
+    const payload = await response.json();
+    const route = payload.routes?.[0];
+    if (!route) return fail(res, 404, "No se encontro una ruta transitable");
+    const normalizedRoute = {
+      distanceKm: Number((route.distance / 1000).toFixed(1)),
+      durationMin: Math.max(1, Math.round(route.duration / 60)),
+      coordinates: route.geometry.coordinates.map(([lng, lat]) => ({
+        lat,
+        lng,
+      })),
+      steps: (route.legs || [])
+        .flatMap((leg) => leg.steps || [])
+        .map((step) => ({
+          type: step.maneuver?.type || "continue",
+          modifier: step.maneuver?.modifier || "straight",
+          street: step.name || "calle sin nombre",
+          distanceM: Math.round(step.distance),
+          durationSec: Math.round(step.duration),
+          location: {
+            lat: Number(step.maneuver.location[1]),
+            lng: Number(step.maneuver.location[0]),
+          },
+        })),
+    };
+    await putCachedMapResponse({
+      kind: "route",
+      key: cacheKey,
+      provider: "osrm",
+      payload: { route: normalizedRoute },
+      ttlSeconds: config.routingCacheTtlSeconds,
+    });
+    return ok(res, { route: normalizedRoute, provider: "osrm", cache: "miss" });
+  } catch (error) {
+    return fail(res, 503, "El servicio de rutas no esta disponible");
+  }
+});
+
+app.post(
+  "/api/rides",
+  requireAuth,
+  requireAnyRole("customer", "admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(rideCreateSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    const {
+      customerId,
+      pickup,
+      destination,
+      service,
+      paymentMethod,
+      pickupCoords,
+      destinationCoords,
+      quoteToken,
+      scheduledFor,
+    } = parsed.data;
+    if (scheduledFor) {
+      const scheduledMs = new Date(scheduledFor).getTime();
+      if (scheduledMs < Date.now() + 30 * 60 * 1000)
+        return fail(
+          res,
+          400,
+          "La reserva debe hacerse con al menos 30 minutos",
+        );
+      if (scheduledMs > Date.now() + 30 * 24 * 60 * 60 * 1000)
+        return fail(res, 400, "Sólo puedes reservar hasta 30 días antes");
+    }
+    const db = usesPostgresCommerce() ? {} : readDb();
+    const customer = usesPostgresAuth()
+      ? await findAuthUserByPublicId(customerId)
+      : db.users.find((user) => user.id === customerId);
+    if (!customer) return fail(res, 404, "Cliente no encontrado");
+    if (!canActAsCustomer(req, customerId))
+      return fail(res, 403, "No puedes crear viajes para otro cliente");
+    const idempotencyKey = req.get("idempotency-key");
+    if (
+      usesPostgresCommerce() &&
+      (!idempotencyKey || !/^[a-zA-Z0-9._:-]{16,128}$/.test(idempotencyKey))
+    ) {
+      return fail(
+        res,
+        400,
+        "Idempotency-Key válido es obligatorio para solicitar viajes",
+      );
+    }
+    const [rideZone, ridePricing] = usesPostgresCommerce()
+      ? await Promise.all([
+          getPostgresZonePricing(pickupCoords),
+          getPostgresPricingPlan("ride"),
+        ])
+      : [{ rideMultiplier: 1, zoneId: null }, fallbackRidePricing];
+    let quote = {
+      ...calculateRideQuote(
+        {
+          pickup,
+          destination,
+          service,
+          pickupCoords,
+          destinationCoords,
+          demandMultiplier: rideZone.rideMultiplier,
+        },
+        ridePricing,
+      ),
+      zoneId: rideZone.zoneId,
+    };
+    if (quoteToken) {
+      try {
+        const locked = jwt.verify(quoteToken, jwtSecret);
+        if (
+          locked.kind !== "ride_quote" ||
+          locked.service !== service ||
+          locked.pickup !== pickup ||
+          locked.destination !== destination ||
+          JSON.stringify(locked.pickupCoords || null) !==
+            JSON.stringify(pickupCoords || null) ||
+          JSON.stringify(locked.destinationCoords || null) !==
+            JSON.stringify(destinationCoords || null)
+        )
+          return fail(res, 409, "La cotizacion no corresponde a este viaje");
+        quote = {
+          ...quote,
+          fare: locked.fare,
+          breakdown: locked.breakdown,
+          pricingVersion: locked.pricingVersion,
+          quoteId: locked.quoteId,
+        };
+      } catch (_error) {
+        return fail(
+          res,
+          409,
+          "La cotizacion vencio; actualiza el precio antes de solicitar",
+        );
+      }
+    }
+    let riskAssessment = null;
+    if (usesPostgresCommerce()) {
+      try {
+        riskAssessment = await assessTransactionRisk({
+          customerPublicId: customerId,
+          service: "ride",
+          amount: quote.fare,
+          requestId: req.requestId,
+          idempotencyKey,
+        });
+        if (riskAssessment.decision === "block") {
+          await recordPostgresAudit({
+            actorPublicId: req.auth.userId,
+            roles: req.auth.roles,
+            action: "risk.transaction_blocked",
+            entityType: "risk_assessment",
+            entityId: riskAssessment.id,
+            requestId: req.requestId,
+            afterData: { service: "ride", score: riskAssessment.score },
+          });
+          return fail(
+            res,
+            403,
+            "La operación requiere verificación de seguridad. Contactá a soporte.",
+          );
+        }
+      } catch (error) {
+        return fail(
+          res,
+          error.status || 500,
+          error.message || "No se pudo verificar el riesgo de la operación",
+        );
+      }
+    }
+    const createdAt = getTimestamp();
+    let ride = {
+      id: createId("RIDE"),
+      customerId,
+      driverId: null,
+      status: "requested",
+      service: quote.service,
+      pickup: String(pickup),
+      destination: String(destination),
+      pickupLocation: pickupCoords || null,
+      destinationLocation: destinationCoords || null,
+      distanceKm: quote.distanceKm,
+      etaMin: quote.etaMin,
+      durationMin: quote.durationMin,
+      fare: quote.fare,
+      paymentMethod: String(paymentMethod || "Flash Wallet"),
+      scheduledFor: scheduledFor || null,
+      createdAt,
+      timeline: [{ status: "requested", at: createdAt }],
+    };
+    if (usesPostgresCommerce()) {
+      try {
+        ride = await createPostgresRide({
+          publicId: ride.id,
+          customerPublicId: customerId,
+          pickup,
+          destination,
+          service,
+          pickupCoords,
+          destinationCoords,
+          quote,
+          paymentMethod: ride.paymentMethod,
+          idempotencyKey,
+          scheduledFor,
+        });
+        if (riskAssessment)
+          await setRiskEntity({
+            assessmentPublicId: riskAssessment.id,
+            entityPublicId: ride.id,
+          });
+      } catch (error) {
+        return fail(
+          res,
+          error.status || 500,
+          error.message || "No se pudo solicitar el viaje",
+        );
+      }
+    } else {
+      ride = assignRideDriver(db, ride);
+      db.rides.unshift(ride);
+    }
+    await auditRuntime(db, req, "ride", ride.id, "ride.created", {
+      service: ride.service,
+      fare: ride.fare,
+      driverId: ride.driverId,
+      scheduledFor: ride.scheduledFor,
+    });
+    await publishRealtimeEvent({
+      req,
+      type: "ride.created",
+      entityType: "ride",
+      entityId: ride.id,
+      action: "ride.created",
+    });
+    return ok(res, { ride, label: rideLabels[ride.status] });
+  },
+);
+
+app.post("/api/shipments/quote", async (req, res) => {
+  const parsed = parseOrFail(shipmentQuoteSchema, req.body || {});
+  if (!parsed.ok) return fail(res, 400, parsed.message);
+  if (parsed.data.protection === "standard" && parsed.data.declaredValue <= 0)
+    return fail(
+      res,
+      400,
+      "Indicá el valor declarado para contratar protección",
+    );
+  const fallbackServiceConfig = {
+      category: {
+        id: null,
+        code: "standard",
+        name: "Paquete estándar",
+        handlingInstructions: "",
+        surcharge: 0,
+        maximumWeightKg: 20,
+      },
+      level: {
+        id: null,
+        code: "standard",
+        name: "Standard",
+        transportMultiplier: 1,
+        etaMultiplier: 1,
+        maximumDistanceKm: null,
+      },
+    },
+    [zone, pricing, protectionPlan, shipmentServiceConfig] =
+      usesPostgresCommerce()
+        ? await Promise.all([
+            getPostgresZonePricing(parsed.data.pickupCoords),
+            getPostgresPricingPlan("shipment"),
+            parsed.data.protection === "standard"
+              ? getShipmentProtectionPlan()
+              : Promise.resolve(null),
+            getShipmentServiceConfiguration(parsed.data),
+          ])
+        : [
+            { deliveryMultiplier: 1, zoneId: null },
+            fallbackShipmentPricing,
+            null,
+            fallbackServiceConfig,
+          ];
+  if (
+    protectionPlan &&
+    parsed.data.declaredValue > protectionPlan.maximumDeclaredValue
+  )
+    return fail(res, 400, "El valor declarado supera el máximo protegible");
+  if (parsed.data.weightKg > shipmentServiceConfig.category.maximumWeightKg)
+    return fail(
+      res,
+      400,
+      `La categoría ${shipmentServiceConfig.category.name} admite hasta ${shipmentServiceConfig.category.maximumWeightKg} kg`,
+    );
+  const quote = calculateShipmentQuote(
+    { ...parsed.data, ...zone, protectionPlan, shipmentServiceConfig },
+    pricing,
   );
-  audit(db, req, "ride", db.rides[index].id, "ride.accepted", { driverId });
-  writeDb(db);
-  publishRealtimeEvent({ req, type: "ride.updated", entityType: "ride", entityId: db.rides[index].id, action: "ride.accepted" });
-  return ok(res, { ride: db.rides[index], label: rideLabels[db.rides[index].status] });
+  if (
+    shipmentServiceConfig.level.maximumDistanceKm &&
+    quote.distanceKm > shipmentServiceConfig.level.maximumDistanceKm
+  )
+    return fail(
+      res,
+      400,
+      `${shipmentServiceConfig.level.name} admite recorridos de hasta ${shipmentServiceConfig.level.maximumDistanceKm} km`,
+    );
+  const quoteId = createId("QUOTE"),
+    expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+  const quoteToken = jwt.sign(
+    {
+      kind: "shipment_quote",
+      quoteId,
+      fare: quote.fare,
+      breakdown: quote.breakdown,
+      pricingVersion: quote.pricingVersion,
+      zoneId: quote.zoneId,
+      pickup: parsed.data.pickup,
+      destination: parsed.data.destination,
+      packageSize: parsed.data.packageSize,
+      weightKg: parsed.data.weightKg,
+      declaredValue: parsed.data.declaredValue,
+      protection: parsed.data.protection,
+      signatureRequired: parsed.data.signatureRequired,
+      itemCategory: parsed.data.itemCategory,
+      serviceLevel: parsed.data.serviceLevel,
+      pickupCoords: parsed.data.pickupCoords || null,
+      destinationCoords: parsed.data.destinationCoords || null,
+    },
+    jwtSecret,
+    { expiresIn: "5m" },
+  );
+  return ok(res, { quote: { ...quote, quoteId, quoteToken, expiresAt } });
 });
 
-app.post("/api/rides/:rideId/advance", requireAuth, requireAnyRole("driver", "admin"), (req, res) => {
-  const db = readDb();
-  const index = db.rides.findIndex((entry) => entry.id === req.params.rideId);
-  if (index < 0) return fail(res, 404, "Viaje no encontrado");
-  if (!canAdvanceRide(req, db.rides[index])) return fail(res, 403, "No puedes avanzar este viaje");
-  const next = nextRideStatus(db.rides[index]);
-  if (!next) return fail(res, 409, "El viaje no puede avanzar desde este estado");
-  db.rides[index] = addTimeline(db.rides[index], next);
-  if (next === "completed") db.rides[index].etaMin = 0;
-  audit(db, req, "ride", db.rides[index].id, "ride.status_advanced", { status: next });
-  writeDb(db);
-  publishRealtimeEvent({ req, type: "ride.updated", entityType: "ride", entityId: db.rides[index].id, action: "ride.status_advanced" });
-  return ok(res, { ride: db.rides[index], label: rideLabels[next] });
-});
+app.post(
+  "/api/shipments",
+  requireAuth,
+  requireAnyRole("customer", "admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(shipmentCreateSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    if (!canActAsCustomer(req, parsed.data.customerId))
+      return fail(res, 403, "No puedes crear envios para otro cliente");
+    const idempotencyKey = req.get("idempotency-key");
+    if (
+      usesPostgresCommerce() &&
+      (!idempotencyKey || !/^[a-zA-Z0-9._:-]{16,128}$/.test(idempotencyKey))
+    )
+      return fail(
+        res,
+        400,
+        "Idempotency-Key válido es obligatorio para crear envíos",
+      );
+    if (usesPostgresCommerce() && !parsed.data.quoteToken)
+      return fail(res, 400, "Debes cotizar el envío antes de solicitarlo");
+    const db = usesPostgresCommerce() ? {} : readDb();
+    if (parsed.data.protection === "standard" && parsed.data.declaredValue <= 0)
+      return fail(
+        res,
+        400,
+        "Indicá el valor declarado para contratar protección",
+      );
+    const fallbackServiceConfig = {
+        category: {
+          id: null,
+          code: "standard",
+          name: "Paquete estándar",
+          handlingInstructions: "",
+          surcharge: 0,
+          maximumWeightKg: 20,
+        },
+        level: {
+          id: null,
+          code: "standard",
+          name: "Standard",
+          transportMultiplier: 1,
+          etaMultiplier: 1,
+          maximumDistanceKm: null,
+        },
+      },
+      [shipmentZone, shipmentPricing, protectionPlan, shipmentServiceConfig] =
+        usesPostgresCommerce()
+          ? await Promise.all([
+              getPostgresZonePricing(parsed.data.pickupCoords),
+              getPostgresPricingPlan("shipment"),
+              parsed.data.protection === "standard"
+                ? getShipmentProtectionPlan()
+                : Promise.resolve(null),
+              getShipmentServiceConfiguration(parsed.data),
+            ])
+          : [
+              { deliveryMultiplier: 1, zoneId: null },
+              fallbackShipmentPricing,
+              null,
+              fallbackServiceConfig,
+            ];
+    if (
+      protectionPlan &&
+      parsed.data.declaredValue > protectionPlan.maximumDeclaredValue
+    )
+      return fail(res, 400, "El valor declarado supera el máximo protegible");
+    if (parsed.data.weightKg > shipmentServiceConfig.category.maximumWeightKg)
+      return fail(
+        res,
+        400,
+        `La categoría ${shipmentServiceConfig.category.name} admite hasta ${shipmentServiceConfig.category.maximumWeightKg} kg`,
+      );
+    let quote = calculateShipmentQuote(
+      {
+        ...parsed.data,
+        ...shipmentZone,
+        protectionPlan,
+        shipmentServiceConfig,
+      },
+      shipmentPricing,
+    );
+    if (
+      shipmentServiceConfig.level.maximumDistanceKm &&
+      quote.distanceKm > shipmentServiceConfig.level.maximumDistanceKm
+    )
+      return fail(
+        res,
+        400,
+        `${shipmentServiceConfig.level.name} admite recorridos de hasta ${shipmentServiceConfig.level.maximumDistanceKm} km`,
+      );
+    if (parsed.data.quoteToken) {
+      try {
+        const locked = jwt.verify(parsed.data.quoteToken, jwtSecret);
+        if (
+          locked.kind !== "shipment_quote" ||
+          locked.pickup !== parsed.data.pickup ||
+          locked.destination !== parsed.data.destination ||
+          locked.packageSize !== parsed.data.packageSize ||
+          Number(locked.weightKg) !== Number(parsed.data.weightKg) ||
+          Number(locked.declaredValue || 0) !==
+            Number(parsed.data.declaredValue) ||
+          String(locked.protection || "none") !== parsed.data.protection ||
+          Boolean(locked.signatureRequired) !== parsed.data.signatureRequired ||
+          String(locked.itemCategory || "standard") !==
+            parsed.data.itemCategory ||
+          String(locked.serviceLevel || "standard") !==
+            parsed.data.serviceLevel ||
+          JSON.stringify(locked.pickupCoords || null) !==
+            JSON.stringify(parsed.data.pickupCoords || null) ||
+          JSON.stringify(locked.destinationCoords || null) !==
+            JSON.stringify(parsed.data.destinationCoords || null)
+        )
+          return fail(res, 409, "La cotización no corresponde a este envío");
+        quote = {
+          ...quote,
+          fare: locked.fare,
+          breakdown: locked.breakdown,
+          pricingVersion: locked.pricingVersion,
+          zoneId: locked.zoneId,
+          quoteId: locked.quoteId,
+        };
+      } catch (_error) {
+        return fail(
+          res,
+          409,
+          "La cotización venció; actualiza el precio antes de solicitar",
+        );
+      }
+    }
+    let riskAssessment = null;
+    if (usesPostgresCommerce()) {
+      try {
+        riskAssessment = await assessTransactionRisk({
+          customerPublicId: parsed.data.customerId,
+          service: "shipment",
+          amount: quote.fare,
+          requestId: req.requestId,
+          idempotencyKey,
+        });
+        if (riskAssessment.decision === "block") {
+          await recordPostgresAudit({
+            actorPublicId: req.auth.userId,
+            roles: req.auth.roles,
+            action: "risk.transaction_blocked",
+            entityType: "risk_assessment",
+            entityId: riskAssessment.id,
+            requestId: req.requestId,
+            afterData: { service: "shipment", score: riskAssessment.score },
+          });
+          return fail(
+            res,
+            403,
+            "La operación requiere verificación de seguridad. Contactá a soporte.",
+          );
+        }
+      } catch (error) {
+        return fail(
+          res,
+          error.status || 500,
+          error.message || "No se pudo verificar el riesgo de la operación",
+        );
+      }
+    }
+    const createdAt = getTimestamp();
+    let shipment = {
+      id: createId("SHIP"),
+      customerId: parsed.data.customerId,
+      driverId: null,
+      status: "requested",
+      pickup: parsed.data.pickup,
+      destination: parsed.data.destination,
+      pickupLocation: parsed.data.pickupCoords || null,
+      destinationLocation: parsed.data.destinationCoords || null,
+      recipientName: parsed.data.recipientName,
+      recipientPhone: parsed.data.recipientPhone,
+      packageSize: parsed.data.packageSize,
+      description: parsed.data.description,
+      weightKg: parsed.data.weightKg,
+      deliveryNotes: parsed.data.deliveryNotes,
+      distanceKm: quote.distanceKm,
+      etaMin: quote.etaMin,
+      fare: quote.fare,
+      quoteId: quote.quoteId || null,
+      pricingVersion: quote.pricingVersion,
+      fareBreakdown: quote.breakdown,
+      paymentMethod: parsed.data.paymentMethod,
+      deliveryPin: String(crypto.randomInt(1000, 10000)),
+      createdAt,
+      timeline: [{ status: "requested", at: createdAt }],
+    };
+    if (usesPostgresCommerce()) {
+      try {
+        shipment = await createPostgresShipment({
+          publicId: shipment.id,
+          customerPublicId: parsed.data.customerId,
+          data: parsed.data,
+          quote,
+          idempotencyKey,
+        });
+        if (riskAssessment)
+          await setRiskEntity({
+            assessmentPublicId: riskAssessment.id,
+            entityPublicId: shipment.id,
+          });
+      } catch (error) {
+        return fail(
+          res,
+          error.status || 500,
+          error.message || "No se pudo crear el envío",
+        );
+      }
+    } else {
+      db.shipments ||= [];
+      shipment = assignShipmentDriver(db, shipment);
+      db.shipments.unshift(shipment);
+    }
+    await auditRuntime(db, req, "shipment", shipment.id, "shipment.created", {
+      fare: shipment.fare,
+      packageSize: shipment.packageSize,
+    });
+    await publishRealtimeEvent({
+      req,
+      type: "shipment.created",
+      entityType: "shipment",
+      entityId: shipment.id,
+      action: "shipment.created",
+    });
+    return ok(res, { shipment });
+  },
+);
 
-app.patch("/api/rides/:rideId/status", requireAuth, (req, res) => {
+app.post(
+  "/api/shipments/:shipmentId/accept",
+  requireAuth,
+  requireAnyRole("driver", "admin"),
+  async (req, res) => {
+    const db = usesPostgresCommerce() ? {} : readDb();
+    if (usesPostgresCommerce())
+      [db.shipments, db.drivers] = await Promise.all([
+        getPostgresShipments(),
+        getPostgresDrivers(),
+      ]);
+    const shipment = db.shipments.find(
+      (entry) => entry.id === req.params.shipmentId,
+    );
+    const driver = db.drivers.find((entry) => entry.id === req.body?.driverId);
+    if (!shipment) return fail(res, 404, "Envio no encontrado");
+    if (
+      !driver ||
+      !canActAsDriver(req, driver.id) ||
+      !driver.online ||
+      !driver.serviceModes.includes("delivery")
+    )
+      return fail(res, 409, "Conductor no disponible");
+    if (shipment.driverId) return fail(res, 409, "Envio ya asignado");
+    if (usesPostgresCommerce())
+      Object.assign(
+        shipment,
+        await setPostgresShipmentStatus(
+          shipment.id,
+          "driver_assigned",
+          req.auth.userId,
+          driver.id,
+        ),
+      );
+    else {
+      shipment.driverId = driver.id;
+      shipment.status = "driver_assigned";
+      shipment.timeline.push({ status: shipment.status, at: getTimestamp() });
+    }
+    await auditRuntime(db, req, "shipment", shipment.id, "shipment.accepted", {
+      driverId: driver.id,
+    });
+    return ok(res, { shipment });
+  },
+);
+
+app.post(
+  "/api/shipments/:shipmentId/advance",
+  requireAuth,
+  requireAnyRole("driver", "admin"),
+  async (req, res) => {
+    const db = usesPostgresCommerce() ? {} : readDb();
+    if (usesPostgresCommerce())
+      [db.shipments, db.drivers] = await Promise.all([
+        getPostgresShipments(),
+        getPostgresDrivers(),
+      ]);
+    const shipment = db.shipments.find(
+      (entry) => entry.id === req.params.shipmentId,
+    );
+    if (!shipment) return fail(res, 404, "Envio no encontrado");
+    if (!isAdmin(req) && !canActAsDriver(req, shipment.driverId))
+      return fail(res, 403, "No puedes avanzar este envio");
+    const next = {
+      driver_assigned: "arriving",
+      arriving: "picked_up",
+      picked_up: "delivering",
+      delivering: "delivered",
+    }[shipment.status];
+    if (!next)
+      return fail(res, 409, "El envio no puede avanzar desde su estado actual");
+    if (next === "delivered" && usesPostgresCommerce())
+      return fail(
+        res,
+        409,
+        "Debes verificar el PIN del destinatario para completar la entrega",
+      );
+    if (usesPostgresCommerce())
+      Object.assign(
+        shipment,
+        await setPostgresShipmentStatus(shipment.id, next, req.auth.userId),
+      );
+    else {
+      shipment.status = next;
+      shipment.timeline.push({ status: next, at: getTimestamp() });
+    }
+    if (next === "delivered")
+      await creditDriverEarningsRuntime(
+        db,
+        shipment.driverId,
+        Math.round(shipment.fare * 0.78),
+        `envio-${shipment.id}`,
+      );
+    await auditRuntime(db, req, "shipment", shipment.id, "shipment.advanced", {
+      status: next,
+    });
+    return ok(res, { shipment });
+  },
+);
+
+app.get(
+  "/api/shipments/:shipmentId/delivery-code",
+  deliveryProofLimiter,
+  requireAuth,
+  requireAnyRole("customer", "admin"),
+  async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "La prueba de entrega requiere PostgreSQL");
+    try {
+      const code = await getPostgresShipmentDeliveryCode({
+        publicId: req.params.shipmentId,
+        customerPublicId: req.auth.userId,
+        admin: isAdmin(req),
+      });
+      return ok(res, { deliveryCode: code });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo consultar el código",
+      );
+    }
+  },
+);
+
+app.post(
+  "/api/shipments/:shipmentId/delivery-evidence",
+  deliveryProofLimiter,
+  requireAuth,
+  requireAnyRole("driver", "admin"),
+  async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "La evidencia de entrega requiere PostgreSQL");
+    const parsed = parseOrFail(deliveryEvidenceSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const evidence = await addPostgresShipmentDeliveryEvidence({
+        publicId: req.params.shipmentId,
+        actorPublicId: req.auth.userId,
+        ...parsed.data,
+        admin: isAdmin(req),
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "shipment.delivery_evidence_recorded",
+        entityType: "shipment",
+        entityId: req.params.shipmentId,
+        requestId: req.requestId,
+        afterData: {
+          evidenceId: evidence.id,
+          type: evidence.type,
+          sha256: evidence.sha256,
+          sizeBytes: evidence.sizeBytes,
+          hasLocation: Boolean(evidence.capturedLocation),
+        },
+      });
+      res.status(201);
+      return ok(res, { evidence });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo registrar la evidencia",
+      );
+    }
+  },
+);
+
+app.get(
+  "/api/shipments/:shipmentId/delivery-evidence",
+  requireAuth,
+  async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "La evidencia de entrega requiere PostgreSQL");
+    try {
+      return ok(res, {
+        evidence: await getPostgresShipmentDeliveryEvidence({
+          publicId: req.params.shipmentId,
+          actorPublicId: req.auth.userId,
+          admin: isAdmin(req),
+        }),
+      });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo consultar la evidencia",
+      );
+    }
+  },
+);
+
+app.get(
+  "/api/shipment-delivery-evidence/:evidenceId/content",
+  deliveryProofLimiter,
+  requireAuth,
+  async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "La evidencia de entrega requiere PostgreSQL");
+    try {
+      return ok(
+        res,
+        await getPostgresShipmentDeliveryEvidenceContent({
+          evidencePublicId: req.params.evidenceId,
+          actorPublicId: req.auth.userId,
+          admin: isAdmin(req),
+        }),
+      );
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo abrir la evidencia",
+      );
+    }
+  },
+);
+
+app.post(
+  "/api/shipments/:shipmentId/verify-delivery",
+  deliveryProofLimiter,
+  requireAuth,
+  requireAnyRole("driver", "admin"),
+  async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "La prueba de entrega requiere PostgreSQL");
+    const parsed = parseOrFail(deliveryPinSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const result = await verifyPostgresShipmentDelivery({
+        publicId: req.params.shipmentId,
+        actorPublicId: req.auth.userId,
+        pin: parsed.data.pin,
+        admin: isAdmin(req),
+      });
+      if (!result.verified) {
+        await recordPostgresAudit({
+          actorPublicId: req.auth.userId,
+          roles: req.auth.roles,
+          action: "shipment.delivery_pin_failed",
+          entityType: "shipment",
+          entityId: req.params.shipmentId,
+          requestId: req.requestId,
+          afterData: {
+            attemptsRemaining: result.attemptsRemaining,
+            lockedUntil: result.lockedUntil,
+          },
+        });
+        return fail(
+          res,
+          result.lockedUntil ? 429 : 400,
+          result.lockedUntil
+            ? "Verificación bloqueada temporalmente"
+            : `PIN incorrecto. Quedan ${result.attemptsRemaining} intentos`,
+        );
+      }
+      await creditDriverEarningsRuntime(
+        null,
+        result.shipment.driverId,
+        Math.round(result.shipment.fare * 0.78),
+        `envio-${result.shipment.id}`,
+      );
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "shipment.delivery_verified",
+        entityType: "shipment",
+        entityId: req.params.shipmentId,
+        requestId: req.requestId,
+        afterData: { proofType: result.proofType },
+      });
+      await publishRealtimeEvent({
+        req,
+        type: "shipment.updated",
+        entityType: "shipment",
+        entityId: req.params.shipmentId,
+        action: "shipment.delivery_verified",
+      });
+      return ok(res, {
+        shipment: result.shipment,
+        proof: { type: result.proofType, verified: true },
+      });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo verificar la entrega",
+      );
+    }
+  },
+);
+app.get(
+  "/api/shipment-returns",
+  requireAuth,
+  requireAnyRole("customer", "support", "admin"),
+  async (req, res) => {
+    try {
+      return ok(res, {
+        returns: await getPostgresShipmentReturns({
+          customerPublicId: req.auth.userId,
+          includeAll: isAdmin(req) || req.auth.roles.includes("support"),
+        }),
+      });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudieron cargar las devoluciones",
+      );
+    }
+  },
+);
+app.post(
+  "/api/shipments/:shipmentId/returns",
+  requireAuth,
+  requireAnyRole("customer"),
+  async (req, res) => {
+    const parsed = parseOrFail(shipmentReturnSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const shipmentReturn = await createPostgresShipmentReturn({
+        shipmentPublicId: req.params.shipmentId,
+        customerPublicId: req.auth.userId,
+        reason: parsed.data.reason,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "shipment.return_requested",
+        entityType: "shipment_return",
+        entityId: shipmentReturn.id,
+        requestId: req.requestId,
+        afterData: { shipmentId: req.params.shipmentId },
+      });
+      return res
+        .status(201)
+        .json({ ok: true, requestId: req.requestId, return: shipmentReturn });
+    } catch (error) {
+      return fail(
+        res,
+        error.code === "23505" ? 409 : error.status || 500,
+        error.code === "23505"
+          ? "Ya existe una devolución para este envío"
+          : error.message || "No se pudo solicitar la devolución",
+      );
+    }
+  },
+);
+app.patch(
+  "/api/shipment-returns/:returnId",
+  requireAuth,
+  requireAnyRole("support", "admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(shipmentReturnUpdateSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const shipmentReturn = await updatePostgresShipmentReturn({
+        returnPublicId: req.params.returnId,
+        ...parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "shipment.return_updated",
+        entityType: "shipment_return",
+        entityId: shipmentReturn.id,
+        requestId: req.requestId,
+        afterData: { status: shipmentReturn.status },
+      });
+      return ok(res, { return: shipmentReturn });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo actualizar la devolución",
+      );
+    }
+  },
+);
+app.get(
+  "/api/shipment-claims",
+  requireAuth,
+  requireAnyRole("customer", "support", "admin"),
+  async (req, res) => {
+    try {
+      return ok(res, {
+        claims: await getPostgresShipmentClaims({
+          customerPublicId: req.auth.userId,
+          includeAll: isAdmin(req) || req.auth.roles.includes("support"),
+        }),
+      });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudieron cargar los siniestros",
+      );
+    }
+  },
+);
+app.post(
+  "/api/shipments/:shipmentId/claims",
+  requireAuth,
+  requireAnyRole("customer"),
+  async (req, res) => {
+    const parsed = parseOrFail(shipmentClaimSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const claim = await createPostgresShipmentClaim({
+        shipmentPublicId: req.params.shipmentId,
+        customerPublicId: req.auth.userId,
+        ...parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "shipment.claim_submitted",
+        entityType: "shipment_claim",
+        entityId: claim.id,
+        requestId: req.requestId,
+        afterData: {
+          shipmentId: req.params.shipmentId,
+          claimType: claim.claimType,
+          requestedAmount: claim.requestedAmount,
+          eligibleAmount: claim.eligibleAmount,
+        },
+      });
+      return res
+        .status(201)
+        .json({ ok: true, requestId: req.requestId, claim });
+    } catch (error) {
+      return fail(
+        res,
+        error.code === "23505" ? 409 : error.status || 500,
+        error.code === "23505"
+          ? "Ya existe un siniestro para este envío"
+          : error.message,
+      );
+    }
+  },
+);
+app.post(
+  "/api/shipment-claims/:claimId/evidence",
+  deliveryProofLimiter,
+  requireAuth,
+  requireAnyRole("customer", "support", "admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(shipmentClaimEvidenceSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const evidence = await addPostgresShipmentClaimEvidence({
+        claimPublicId: req.params.claimId,
+        actorPublicId: req.auth.userId,
+        ...parsed.data,
+        includeAll: isAdmin(req) || req.auth.roles.includes("support"),
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "shipment.claim_evidence_added",
+        entityType: "shipment_claim",
+        entityId: req.params.claimId,
+        requestId: req.requestId,
+        afterData: {
+          evidenceId: evidence.id,
+          mimeType: evidence.mimeType,
+          sha256: evidence.sha256,
+          sizeBytes: evidence.sizeBytes,
+        },
+      });
+      return res
+        .status(201)
+        .json({ ok: true, requestId: req.requestId, evidence });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo adjuntar la evidencia",
+      );
+    }
+  },
+);
+app.get(
+  "/api/shipment-claim-evidence/:evidenceId/content",
+  deliveryProofLimiter,
+  requireAuth,
+  requireAnyRole("customer", "support", "admin"),
+  async (req, res) => {
+    try {
+      return ok(
+        res,
+        await getPostgresShipmentClaimEvidenceContent({
+          evidencePublicId: req.params.evidenceId,
+          actorPublicId: req.auth.userId,
+          includeAll: isAdmin(req) || req.auth.roles.includes("support"),
+        }),
+      );
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo abrir la evidencia",
+      );
+    }
+  },
+);
+app.patch(
+  "/api/shipment-claims/:claimId",
+  requireAuth,
+  requireAnyRole("support", "admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(shipmentClaimUpdateSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const claim = await updatePostgresShipmentClaim({
+        claimPublicId: req.params.claimId,
+        actorPublicId: req.auth.userId,
+        ...parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "shipment.claim_updated",
+        entityType: "shipment_claim",
+        entityId: claim.id,
+        requestId: req.requestId,
+        afterData: {
+          status: claim.status,
+          approvedAmount: claim.approvedAmount,
+        },
+      });
+      return ok(res, { claim });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo actualizar el siniestro",
+      );
+    }
+  },
+);
+
+app.patch(
+  "/api/shipments/:shipmentId/status",
+  requireAuth,
+  async (req, res) => {
+    if (
+      req.body?.status !== "cancelled" ||
+      !shipmentStatuses.includes(req.body.status)
+    )
+      return fail(res, 400, "Solo se permite cancelar el envio");
+    const cancellation = parseOrFail(cancellationSchema, req.body || {});
+    if (!cancellation.ok) return fail(res, 400, cancellation.message);
+    const db = usesPostgresCommerce() ? {} : readDb();
+    if (usesPostgresCommerce()) db.shipments = await getPostgresShipments();
+    const shipment = db.shipments.find(
+      (entry) => entry.id === req.params.shipmentId,
+    );
+    if (!shipment) return fail(res, 404, "Envio no encontrado");
+    if (
+      !isAdmin(req) &&
+      !canActAsCustomer(req, shipment.customerId) &&
+      !canActAsDriver(req, shipment.driverId)
+    )
+      return fail(res, 403, "No puedes cancelar este envio");
+    if (usesPostgresCommerce()) {
+      const cancellationResult = await cancelMobilityJobAndRefundWallet({
+        publicId: shipment.id,
+        kind: "delivery",
+        actorPublicId: req.auth.userId,
+        reason: cancellation.data.reason,
+        reasonDetail: cancellation.data.reasonDetail,
+      });
+      Object.assign(
+        shipment,
+        (await getPostgresShipments()).find(
+          (entry) => entry.id === shipment.id,
+        ),
+        { cancellation: cancellationResult },
+      );
+    } else {
+      shipment.status = "cancelled";
+      shipment.timeline.push({ status: "cancelled", at: getTimestamp() });
+    }
+    await auditRuntime(db, req, "shipment", shipment.id, "shipment.cancelled");
+    return ok(res, { shipment });
+  },
+);
+
+app.post(
+  "/api/rides/:rideId/accept",
+  requireAuth,
+  requireAnyRole("driver", "admin"),
+  async (req, res) => {
+    const { driverId } = req.body || {};
+    const db = usesPostgresCommerce() ? {} : readDb();
+    if (usesPostgresCommerce())
+      [db.rides, db.drivers] = await Promise.all([
+        getPostgresRides(),
+        getPostgresDrivers(),
+      ]);
+    const index = db.rides.findIndex((entry) => entry.id === req.params.rideId);
+    const driver = db.drivers.find((entry) => entry.id === driverId);
+    if (index < 0) return fail(res, 404, "Viaje no encontrado");
+    if (!canActAsDriver(req, driverId))
+      return fail(res, 403, "No puedes aceptar viajes con otro conductor");
+    if (!driver || !driver.online || !driver.serviceModes.includes("ride")) {
+      return fail(res, 409, "Conductor no disponible");
+    }
+    if (db.rides[index].driverId)
+      return fail(res, 409, "El viaje ya tiene conductor");
+    db.rides[index] = usesPostgresCommerce()
+      ? await setPostgresRideStatus(
+          db.rides[index].id,
+          "driver_assigned",
+          req.auth.userId,
+          driverId,
+        )
+      : addTimeline({ ...db.rides[index], driverId }, "driver_assigned");
+    await auditRuntime(db, req, "ride", db.rides[index].id, "ride.accepted", {
+      driverId,
+    });
+    await publishRealtimeEvent({
+      req,
+      type: "ride.updated",
+      entityType: "ride",
+      entityId: db.rides[index].id,
+      action: "ride.accepted",
+    });
+    return ok(res, {
+      ride: db.rides[index],
+      label: rideLabels[db.rides[index].status],
+    });
+  },
+);
+
+app.post(
+  "/api/rides/:rideId/advance",
+  requireAuth,
+  requireAnyRole("driver", "admin"),
+  async (req, res) => {
+    const db = usesPostgresCommerce() ? {} : readDb();
+    if (usesPostgresCommerce())
+      [db.rides, db.drivers] = await Promise.all([
+        getPostgresRides(),
+        getPostgresDrivers(),
+      ]);
+    const index = db.rides.findIndex((entry) => entry.id === req.params.rideId);
+    if (index < 0) return fail(res, 404, "Viaje no encontrado");
+    if (!canAdvanceRide(req, db.rides[index]))
+      return fail(res, 403, "No puedes avanzar este viaje");
+    const next = nextRideStatus(db.rides[index]);
+    if (!next)
+      return fail(res, 409, "El viaje no puede avanzar desde este estado");
+    db.rides[index] = usesPostgresCommerce()
+      ? await setPostgresRideStatus(db.rides[index].id, next, req.auth.userId)
+      : addTimeline(db.rides[index], next);
+    if (next === "completed") {
+      db.rides[index].etaMin = 0;
+      await creditDriverEarningsRuntime(
+        db,
+        db.rides[index].driverId,
+        Math.round(db.rides[index].fare * 0.8),
+        `viaje-${db.rides[index].id}`,
+      );
+    }
+    await auditRuntime(
+      db,
+      req,
+      "ride",
+      db.rides[index].id,
+      "ride.status_advanced",
+      { status: next },
+    );
+    await publishRealtimeEvent({
+      req,
+      type: "ride.updated",
+      entityType: "ride",
+      entityId: db.rides[index].id,
+      action: "ride.status_advanced",
+    });
+    return ok(res, { ride: db.rides[index], label: rideLabels[next] });
+  },
+);
+
+app.patch("/api/rides/:rideId/status", requireAuth, async (req, res) => {
   const { status } = req.body || {};
-  if (!rideStatuses.includes(status)) return fail(res, 400, "Estado de viaje invalido");
-  const db = readDb();
+  if (!rideStatuses.includes(status))
+    return fail(res, 400, "Estado de viaje invalido");
+  const cancellation =
+    status === "cancelled"
+      ? parseOrFail(cancellationSchema, req.body || {})
+      : null;
+  if (cancellation && !cancellation.ok)
+    return fail(res, 400, cancellation.message);
+  const db = usesPostgresCommerce() ? {} : readDb();
+  if (usesPostgresCommerce()) db.rides = await getPostgresRides();
   const index = db.rides.findIndex((entry) => entry.id === req.params.rideId);
   if (index < 0) return fail(res, 404, "Viaje no encontrado");
   if (!canMutateRideStatus(req, db.rides[index], status)) {
     return fail(res, 403, "No puedes cambiar este estado de viaje");
   }
-  db.rides[index] = addTimeline(db.rides[index], status);
-  audit(db, req, "ride", db.rides[index].id, "ride.status_set", { status });
-  writeDb(db);
-  publishRealtimeEvent({ req, type: "ride.updated", entityType: "ride", entityId: db.rides[index].id, action: "ride.status_set" });
+  if (usesPostgresCommerce()) {
+    if (status === "cancelled") {
+      const cancellationResult = await cancelMobilityJobAndRefundWallet({
+        publicId: db.rides[index].id,
+        kind: "ride",
+        actorPublicId: req.auth.userId,
+        reason: cancellation.data.reason,
+        reasonDetail: cancellation.data.reasonDetail,
+      });
+      db.rides[index] = (await getPostgresRides()).find(
+        (entry) => entry.id === db.rides[index].id,
+      );
+      db.rides[index].cancellation = cancellationResult;
+    } else
+      db.rides[index] = await setPostgresRideStatus(
+        db.rides[index].id,
+        status,
+        req.auth.userId,
+      );
+  } else db.rides[index] = addTimeline(db.rides[index], status);
+  await auditRuntime(db, req, "ride", db.rides[index].id, "ride.status_set", {
+    status,
+  });
+  await publishRealtimeEvent({
+    req,
+    type: "ride.updated",
+    entityType: "ride",
+    entityId: db.rides[index].id,
+    action: "ride.status_set",
+  });
   return ok(res, { ride: db.rides[index], label: rideLabels[status] });
 });
 
-app.patch("/api/drivers/:driverId/availability", requireAuth, requireAnyRole("driver", "admin"), (req, res) => {
-  const db = readDb();
-  const driver = db.drivers.find((entry) => entry.id === req.params.driverId);
-  if (!driver) return fail(res, 404, "Conductor no encontrado");
-  if (!canActAsDriver(req, driver.id)) return fail(res, 403, "No puedes gestionar otro conductor");
-  const body = req.body || {};
-  if (typeof body.online === "boolean") driver.online = body.online;
-  if (driver.serviceModes.includes(body.activeService)) driver.activeService = body.activeService;
-  audit(db, req, "driver", driver.id, "driver.availability_updated", {
-    online: driver.online,
-    activeService: driver.activeService
-  });
-  writeDb(db);
-  publishRealtimeEvent({ req, type: "driver.updated", entityType: "driver", entityId: driver.id, action: "driver.availability_updated" });
-  return ok(res, { driver });
-});
+app.patch(
+  "/api/drivers/:driverId/availability",
+  requireAuth,
+  requireAnyRole("driver", "admin"),
+  async (req, res) => {
+    const db = usesPostgresCommerce() ? {} : readDb();
+    let driver = usesPostgresCommerce()
+      ? (await getPostgresDrivers()).find(
+          (entry) => entry.id === req.params.driverId,
+        )
+      : db.drivers.find((entry) => entry.id === req.params.driverId);
+    if (!driver) return fail(res, 404, "Conductor no encontrado");
+    if (!canActAsDriver(req, driver.id))
+      return fail(res, 403, "No puedes gestionar otro conductor");
+    const body = req.body || {};
+    if (usesPostgresCommerce()) {
+      if (body.online === true || (driver.online && body.activeService && body.activeService!==driver.activeService))
+        try {
+          await assertDriverCanGoOnline(driver.id,body.activeService||driver.activeService);
+        } catch (error) {
+          return fail(res, error.status || 409, error.message);
+        }
+      driver = await updatePostgresDriver(driver.id, body);
+    } else {
+      if (typeof body.online === "boolean") driver.online = body.online;
+      if (driver.serviceModes.includes(body.activeService))
+        driver.activeService = body.activeService;
+    }
+    await auditRuntime(
+      db,
+      req,
+      "driver",
+      driver.id,
+      "driver.availability_updated",
+      {
+        online: driver.online,
+        activeService: driver.activeService,
+      },
+    );
+    await publishRealtimeEvent({
+      req,
+      type: "driver.updated",
+      entityType: "driver",
+      entityId: driver.id,
+      action: "driver.availability_updated",
+    });
+    return ok(res, { driver });
+  },
+);
 
-app.patch("/api/drivers/:driverId/location", requireAuth, requireAnyRole("driver", "admin"), (req, res) => {
-  const parsed = parseOrFail(driverLocationSchema, req.body || {});
-  if (!parsed.ok) return fail(res, 400, parsed.message);
-  const db = readDb();
-  const driver = db.drivers.find((entry) => entry.id === req.params.driverId);
-  if (!driver) return fail(res, 404, "Conductor no encontrado");
-  if (!canActAsDriver(req, driver.id)) return fail(res, 403, "No puedes actualizar otro conductor");
-  const { lat, lng, label } = parsed.data;
-  driver.location = {
-    lat,
-    lng,
-    label: label || driver.location.label || "Ubicacion GPS",
-    updatedAt: getTimestamp()
-  };
-  audit(db, req, "driver", driver.id, "driver.location_updated", {
-    lat,
-    lng,
-    label: driver.location.label
-  });
-  writeDb(db);
-  publishRealtimeEvent({ req, type: "driver.location.updated", entityType: "driver", entityId: driver.id, action: "driver.location_updated" });
-  return ok(res, { driver });
-});
+app.get(
+  "/api/drivers/:driverId/vehicles",
+  requireAuth,
+  requireAnyRole("driver", "support", "admin"),
+  async (req,res)=>{try{return ok(res,{vehicles:await getDriverVehicles({driverPublicId:req.params.driverId,actorPublicId:req.auth.userId,roles:req.auth.roles,includeRetired:req.query.includeRetired==="true"})});}catch(error){return fail(res,error.status||500,error.message||"No se pudieron cargar los vehículos");}},
+);
+app.post(
+  "/api/drivers/:driverId/vehicles",
+  requireAuth,
+  requireAnyRole("driver", "admin"),
+  async (req,res)=>{const parsed=parseOrFail(driverVehicleSchema,req.body||{});if(!parsed.ok)return fail(res,400,parsed.message);try{const vehicle=await createDriverVehicle({driverPublicId:req.params.driverId,actorPublicId:req.auth.userId,roles:req.auth.roles,...parsed.data});await recordPostgresAudit({actorPublicId:req.auth.userId,roles:req.auth.roles,action:"driver_vehicle.created",entityType:"driver_vehicle",entityId:vehicle.id,requestId:req.requestId,afterData:{driverId:vehicle.driverId,kind:vehicle.kind,serviceModes:vehicle.serviceModes,status:vehicle.status}});return res.status(201).json({ok:true,requestId:req.requestId,vehicle});}catch(error){return fail(res,error.status||500,error.message||"No se pudo registrar el vehículo");}},
+);
+app.patch(
+  "/api/driver-vehicles/:vehicleId",
+  requireAuth,
+  requireAnyRole("driver", "admin"),
+  async (req,res)=>{const parsed=parseOrFail(driverVehicleUpdateSchema,req.body||{});if(!parsed.ok)return fail(res,400,parsed.message);try{const vehicle=await updateDriverVehicle({vehiclePublicId:req.params.vehicleId,actorPublicId:req.auth.userId,roles:req.auth.roles,changes:parsed.data});await recordPostgresAudit({actorPublicId:req.auth.userId,roles:req.auth.roles,action:"driver_vehicle.updated",entityType:"driver_vehicle",entityId:vehicle.id,requestId:req.requestId,afterData:{kind:vehicle.kind,serviceModes:vehicle.serviceModes,status:vehicle.status}});return ok(res,{vehicle});}catch(error){return fail(res,error.status||500,error.message||"No se pudo actualizar el vehículo");}},
+);
+app.post(
+  "/api/driver-vehicles/:vehicleId/activate",
+  requireAuth,
+  requireAnyRole("driver", "admin"),
+  async (req,res)=>{try{const vehicle=await activateDriverVehicle({vehiclePublicId:req.params.vehicleId,actorPublicId:req.auth.userId,roles:req.auth.roles});await recordPostgresAudit({actorPublicId:req.auth.userId,roles:req.auth.roles,action:"driver_vehicle.activated",entityType:"driver_vehicle",entityId:vehicle.id,requestId:req.requestId,afterData:{driverId:vehicle.driverId,active:true}});return ok(res,{vehicle});}catch(error){return fail(res,error.status||500,error.message||"No se pudo activar el vehículo");}},
+);
+app.delete(
+  "/api/driver-vehicles/:vehicleId",
+  requireAuth,
+  requireAnyRole("driver", "admin"),
+  async (req,res)=>{try{const vehicle=await retireDriverVehicle({vehiclePublicId:req.params.vehicleId,actorPublicId:req.auth.userId,roles:req.auth.roles});await recordPostgresAudit({actorPublicId:req.auth.userId,roles:req.auth.roles,action:"driver_vehicle.retired",entityType:"driver_vehicle",entityId:vehicle.id,requestId:req.requestId,afterData:{driverId:vehicle.driverId,retiredAt:vehicle.retiredAt}});return ok(res,{vehicle});}catch(error){return fail(res,error.status||500,error.message||"No se pudo retirar el vehículo");}},
+);
+app.patch(
+  "/api/admin/driver-vehicles/:vehicleId/review",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (req,res)=>{const parsed=parseOrFail(driverVehicleReviewSchema,req.body||{});if(!parsed.ok)return fail(res,400,parsed.message);try{const vehicle=await reviewDriverVehicle({vehiclePublicId:req.params.vehicleId,actorPublicId:req.auth.userId,roles:req.auth.roles,...parsed.data});await recordPostgresAudit({actorPublicId:req.auth.userId,roles:req.auth.roles,action:`driver_vehicle.${parsed.data.status}`,entityType:"driver_vehicle",entityId:vehicle.id,requestId:req.requestId,afterData:{driverId:vehicle.driverId,status:vehicle.status,rejectionReason:vehicle.rejectionReason}});return ok(res,{vehicle});}catch(error){return fail(res,error.status||500,error.message||"No se pudo revisar el vehículo");}},
+);
 
-app.post("/api/reset", requireAuth, requireAnyRole("admin"), (req, res) => {
-  ok(res, { state: resetDb() });
-  publishRealtimeEvent({ req, type: "platform.reset", action: "platform.reset" });
-});
+app.get(
+  "/api/drivers/:driverId/compliance",
+  requireAuth,
+  requireAnyRole("driver", "support", "admin"),
+  async (req, res) => {
+    try {
+      return ok(res, {
+        compliance: await getDriverCompliance({
+          actorPublicId: req.auth.userId,
+          roles: req.auth.roles,
+          driverPublicId: req.params.driverId,
+        }),
+      });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo cargar el legajo",
+      );
+    }
+  },
+);
+app.post(
+  "/api/drivers/:driverId/documents",
+  requireAuth,
+  requireAnyRole("driver", "admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(driverDocumentSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const document = await submitDriverDocument({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        driverPublicId: req.params.driverId,
+        ...parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "driver_document.submitted",
+        entityType: "driver_document",
+        entityId: document.id,
+        requestId: req.requestId,
+        afterData: {
+          driverId: req.params.driverId,
+          type: document.type,
+          mimeType: document.mimeType,
+          sha256: document.sha256,
+          sizeBytes: document.sizeBytes,
+          expiresAt: document.expiresAt,
+        },
+      });
+      return res
+        .status(201)
+        .json({ ok: true, requestId: req.requestId, document });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo enviar el documento",
+      );
+    }
+  },
+);
+app.get(
+  "/api/driver-documents/:documentId/content",
+  requireAuth,
+  requireAnyRole("driver", "support", "admin"),
+  async (req, res) => {
+    try {
+      const result = await getDriverDocumentContent({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        documentPublicId: req.params.documentId,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "driver_document.viewed",
+        entityType: "driver_document",
+        entityId: req.params.documentId,
+        requestId: req.requestId,
+        afterData: {
+          mimeType: result.document.mimeType,
+          sizeBytes: result.document.sizeBytes,
+        },
+      });
+      return ok(res, result);
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo leer el documento",
+      );
+    }
+  },
+);
+app.patch(
+  "/api/admin/driver-documents/:documentId/review",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(driverDocumentReviewSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const compliance = await reviewDriverDocument({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        documentPublicId: req.params.documentId,
+        ...parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: `driver_document.${parsed.data.status}`,
+        entityType: "driver_document",
+        entityId: req.params.documentId,
+        requestId: req.requestId,
+        afterData: {
+          driverId: compliance.driverId,
+          status: parsed.data.status,
+          rejectionReason: parsed.data.rejectionReason || null,
+        },
+      });
+      return ok(res, { compliance });
+    } catch (error) {
+      return fail(
+        res,
+        error.status || 500,
+        error.message || "No se pudo revisar el documento",
+      );
+    }
+  },
+);
+
+app.patch(
+  "/api/drivers/:driverId/location",
+  requireAuth,
+  requireAnyRole("driver", "admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(driverLocationSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    const db = usesPostgresCommerce() ? {} : readDb();
+    let driver = usesPostgresCommerce()
+      ? (await getPostgresDrivers()).find(
+          (entry) => entry.id === req.params.driverId,
+        )
+      : db.drivers.find((entry) => entry.id === req.params.driverId);
+    if (!driver) return fail(res, 404, "Conductor no encontrado");
+    if (!canActAsDriver(req, driver.id))
+      return fail(res, 403, "No puedes actualizar otro conductor");
+    const { lat, lng, label,source,accuracyM } = parsed.data;
+    if (usesPostgresCommerce()) {
+      driver = await updatePostgresDriver(driver.id, {
+        lat,
+        lng,
+        label: label || driver.location.label || "Ubicacion GPS",
+        source:source||"foreground",
+        accuracyM,
+      });
+    } else {
+      driver.location = {
+        lat,
+        lng,
+        label: label || driver.location.label || "Ubicacion GPS",
+        updatedAt: getTimestamp(),
+        source:source||"foreground",
+        accuracyM:accuracyM??null,
+      };
+    }
+    await publishRealtimeEvent({
+      req,
+      type: "driver.location.updated",
+      entityType: "driver",
+      entityId: driver.id,
+      action: "driver.location_updated",
+    });
+    return ok(res, { driver });
+  },
+);
+
+app.post(
+  "/api/reset",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (req, res) => {
+    if (config.databaseUrl)
+      return fail(
+        res,
+        409,
+        "Reset deshabilitado mientras PostgreSQL es la fuente real",
+      );
+    await publishRealtimeEvent({
+      req,
+      type: "platform.reset",
+      action: "platform.reset",
+    });
+    ok(res, { state: resetDb() });
+  },
+);
 
 if (fs.existsSync(distDir)) {
   app.use(express.static(distDir));
@@ -1155,14 +8750,14 @@ app.use((error, req, res, _next) => {
         method: req.method,
         path: req.originalUrl,
         status,
-        message: error.message
-      })
+        message: error.message,
+      }),
     );
   }
   return fail(
     res,
     status >= 400 && status < 600 ? status : 500,
-    status >= 500 ? "Error interno del servidor" : error.message
+    status >= 500 ? "Error interno del servidor" : error.message,
   );
 });
 
@@ -1177,7 +8772,8 @@ server.on("error", (error) => {
 
 function shutdown(signal) {
   console.log(`Received ${signal}. Closing Flash API.`);
-  server.close(() => {
+  server.close(async () => {
+    await stopRealtimeListener?.();
     process.exit(0);
   });
   setTimeout(() => process.exit(1), 10000).unref();

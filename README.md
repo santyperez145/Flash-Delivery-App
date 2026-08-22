@@ -2,6 +2,20 @@
 
 MVP fullstack para operar comida, delivery y viajes tipo taxi/conductor en una sola plataforma.
 
+Los tres verticales comparten ahora chat operacional real por servicio: mensajes, confirmaciones y adjuntos persistidos en PostgreSQL, con contenido AES-256-GCM y acceso exclusivo para cliente, conductor asignado y comercio participante. Detalles y garantías en `docs/service-chat.md`.
+
+Los envíos protegidos incluyen apertura y seguimiento de siniestros, cálculo de franquicia, evidencia JPEG/PNG/PDF cifrada y cola operativa auditable. La liquidación externa no se simula: queda en `settlement_pending` hasta integrar un proveedor habilitado. Ver `docs/shipment-protection-claims.md`.
+
+Flash Admin incorpora conciliación persistente de intentos, capturas, reintegros y webhooks, con excepciones idempotentes y resolución auditada. Ver `docs/payment-reconciliation.md`.
+
+Comidas, viajes y envíos pasan por scoring transaccional persistente antes del cobro; el riesgo crítico bloquea la operación y la cola administrativa conserva revisión explicable. Ver `docs/transaction-risk.md`.
+
+Los retiros de comercios requieren revisión administrativa independiente; rechazar libera la reserva mediante ledger balanceado y aprobar sólo avanza a procesamiento. Ver `docs/payout-review.md`.
+
+Las propinas tienen correcciones operativas reales con cuatro ojos: solicitud fundada, aprobación independiente, límite concurrente contra el importe original y transferencia balanceada conductor→cliente. Ver `docs/service-tips.md`.
+
+Soporte distribuye casos por especialidad y capacidad, conserva el historial de responsables y escala incumplimientos SLA mediante un worker idempotente. Ver `docs/support-sla.md`.
+
 En escritorio se muestra solo la consola de superadministrador. La experiencia de cliente, comercio y conductor/repartidor queda como app mobile/PWA.
 
 ## Levantar la app
@@ -15,7 +29,7 @@ npm run dev
 - Backend: http://127.0.0.1:4000/api/health
 - Readiness: http://127.0.0.1:4000/api/ready
 - Realtime: http://127.0.0.1:4000/api/events (requiere JWT en Authorization)
-- Base SQLite: `server/data/flash.sqlite`
+- PostgreSQL/PostGIS local: `127.0.0.1:55432/flash`
 
 Produccion local con Docker:
 
@@ -25,15 +39,83 @@ docker compose up --build
 
 Luego abrir http://127.0.0.1:4000/
 
+El compose incluye PostgreSQL 17 + PostGIS, espera su healthcheck y ejecuta las
+migraciones versionadas antes de iniciar la API. Para validar una instancia
+configurada manualmente:
+
+```bash
+npm run db:migrate
+npm run db:check
+npm run db:seed:auth
+npm run db:seed:commerce
+npm run db:seed:orders
+```
+
+`DATABASE_URL` y `DATABASE_SSL` se documentan en `.env.example`. El esquema
+productivo vive en `database/migrations` e incluye identidad, catalogo
+multivertical, jobs de delivery/viajes/compras, dispatch, ledger, outbox e
+idempotencia. SQLite se conserva temporalmente como fallback del demo local
+mientras se completa el cambio de repositorios del runtime.
+
+La instancia nativa de desarrollo configurada en Windows se inicia y valida con:
+
+```bash
+npm run db:start
+npm run db:migrate
+npm run db:check
+```
+
+Los binarios y datos viven fuera del repositorio en
+`%LOCALAPPDATA%\FlashDelivery`; `.env.local` contiene únicamente credenciales
+locales y está ignorado por Git. La instalación reproducible y las limitaciones
+actuales están en `docs/local-database.md`.
+
 ## Verificacion
 
 ```bash
 npm run build
 npm run test:security
+npm run test:postgres
+npm run test:rls
+npm run test:sensitive-data
+npm run test:mfa
+npm run test:performance
 npm run check
+npm run db:backup
+npm run db:backup:verify
+npm run db:restore:drill
 ```
 
-`test:security` levanta una API aislada en otro puerto, prueba JWT/RBAC/ownership y reinicia los datos demo al terminar.
+`test:security` levanta una API aislada en otro puerto y prueba JWT/RBAC/ownership.
+`test:postgres` valida la API activa contra PostgreSQL: auth, catálogo, agregación
+de estado, carrito e idempotencia de pedidos, viajes y envíos. Las tres verticales
+capturan Flash Wallet dentro de la transacción de creación, rechazan fondos
+insuficientes sin residuos y reintegran cancelaciones con ledger balanceado.
+También prueba webhooks HMAC deduplicados, verifica que el PIN de entrega sólo
+se persista como hash bcrypt y recorre soporte/notificaciones con aislamiento
+entre usuarios, notas internas de operaciones y limpieza de datos temporales.
+También cubre reservas de viaje persistentes, tarifa firmada con coordenadas,
+recordatorios, ventana previa de dispatch y cancelación de ofertas. El contrato
+operativo está en `docs/scheduled-rides.md`.
+También valida redención promocional transaccional, administración RBAC de campañas
+y zonas PostGIS cuyos multiplicadores afectan las cotizaciones reales. El smoke
+calcula una huella del estado SQLite y falla si el runtime PostgreSQL intenta
+escribir allí. Además consulta el diagnóstico de readiness al inicio y al final
+para garantizar cero lecturas del fallback SQLite durante la suite integral;
+también cubre favoritos, ratings y auditoría operacional.
+`test:rls` conecta con un rol auditor sin ownership ni `BYPASSRLS`, comprueba
+denegación sin contexto y aislamiento de usuarios, jobs, tickets y notificaciones.
+También demuestra que una nota interna de soporte no es visible al cliente.
+`test:mfa` verifica el enrolamiento TOTP administrativo, cifrado/hashing en reposo,
+step-up de sesión, bloqueo del token previo y recuperación de un solo uso. El diseño
+y las variables operativas se documentan en `docs/admin-mfa.md`.
+La moderación de cuentas está documentada en `docs/account-moderation.md`: suspensión
+transaccional, revocación de sesiones, desconexión de conductores, retiro de ofertas,
+auditoría y reactivación segura desde el superadmin.
+El ranking de dispatch incorpora historial real de aceptación y respuesta, conserva
+el desglose que explica cada score y está documentado en `docs/dispatch-ranking.md`.
+El checkout de comida usa direcciones propias geocodificadas, persiste el dropoff
+PostGIS real y se documenta en `docs/food-delivery-geospatial.md`.
 
 ## Ver las apps mobile
 
@@ -69,17 +151,23 @@ Copiar `.env.example` como referencia para ambientes reales. Variables principal
 - `NODE_ENV`: `development`, `test` o `production`.
 - `HOST` y `PORT`: direccion y puerto del backend.
 - `JWT_SECRET`: obligatorio y fuerte para produccion.
+- `MFA_ENCRYPTION_KEY`: clave independiente obligatoria para cifrar secretos TOTP en producción.
 - `CORS_ORIGIN`: allowlist separada por comas.
 - `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX`, `AUTH_RATE_LIMIT_MAX`: limites de abuso.
 
 El backend responde con `requestId`, aplica headers de seguridad, CORS controlado y rate limiting. En produccion no arranca con el secreto JWT demo.
 
-## Cuentas demo
+## Cuentas bootstrap de desarrollo
 
 - Cliente: `cliente@flash.app` / `demo123`
 - Comercio: `comercio@flash.app` / `demo123`
 - Conductor/repartidor: `conductor@flash.app` / `demo123`
 - Operaciones: `ops@flash.app` / `demo123`
+
+Estas cuentas se cargan sólo mediante `npm run db:seed:auth` para desarrollo.
+La web ya no inicia sesión automáticamente: muestra login, persiste refresh
+tokens rotatorios y recupera la sesión desde PostgreSQL. No ejecutar seeds ni
+reutilizar estas contraseñas en un ambiente desplegado.
 
 ## Flujos funcionales
 
@@ -88,13 +176,41 @@ El backend responde con `requestId`, aplica headers de seguridad, CORS controlad
 - Conductor/repartidor: activar disponibilidad, cambiar modo delivery/taxi, aceptar pedidos/viajes y avanzar estados.
 - Operaciones: metricas en vivo, mapa operativo, pedidos/viajes activos, tickets y reinicio de demo.
 - Realtime: las superficies autenticadas reciben eventos SSE de pedidos, viajes, comercios y drivers, con reconexion automatica.
-- Geolocalizacion: origen de taxi por GPS del dispositivo, cotizacion por coordenadas y posicion foreground del driver.
+- Geolocalización: origen de taxi por GPS y tracking foreground/background del conductor con source, precisión, corte por frescura y permisos nativos explícitos.
+- Notificaciones: registro/revocación automática de tokens inválidos, outbox PostgreSQL, dead-letter y replay administrativo auditable con `npm run worker:notifications`.
+- Dispatch: ofertas privadas PostGIS, aceptación atómica, expiración y reasignación por oleadas con `npm run worker:dispatch`.
+- Soporte: routing multiagente y escalamiento de SLA con `npm run worker:support`.
+- App conductor: bandeja privada responsive con countdown, tarifa, ruta, distancia y acciones reales de aceptar/rechazar.
+- Flota del conductor: registro PostgreSQL de hasta cinco vehículos, revisión independiente, activación única y elegibilidad real de dispatch por modo.
+- Referidos: atribución PostgreSQL única, recompensa Wallet diferida hasta el primer servicio pagado, ledger balanceado e idempotencia real. Ver `docs/referrals.md`.
+- Bootstrap por audiencia: web y mobile consumen `/api/bootstrap/customer|merchant|driver|operations`; el servidor valida que la sesión posea el rol solicitado. El antiguo `/api/state` fue retirado y responde `410 Gone`.
+- Actividad paginada: `/api/me/activity` usa cursor opaco y participación SQL para no descargar el estado global. Ver `docs/audience-resources.md`.
+- Perfil Driver aislado: `/api/driver/me` deriva el conductor desde la sesión; el bootstrap del conductor ya no expone ni descarga la flota global.
+- Cocina aislada: `/api/merchant/me` devuelve exclusivamente los comercios del propietario autenticado; Negocios ya no descarga restaurantes desde el bootstrap.
+- Tracking con datos mínimos: `/api/me/assigned-drivers` entrega sólo la ficha pública de conductores vinculados a trabajos propios y excluye identidad interna, disponibilidad, modos y ganancias.
+- Operaciones paginadas: `/api/operations/restaurants` y `/api/operations/drivers` sustituyen los agregados de comercios y flota del bootstrap administrativo, con búsqueda, cursor, RBAC/MFA y caché privada.
+- Usuarios operativos: `/api/operations/users` pagina cuentas sin exponer hashes, UUID internos ni controles internos de bloqueo; el bootstrap administrativo ya no transporta usuarios.
+- Soporte operativo: `/api/operations/support-tickets` pagina la mesa de ayuda por última actualización con mensajes, SLA, asignaciones y escalaciones, fuera del bootstrap global.
+- Auditoría y configuración: `/api/operations/audit-events` pagina eventos con RBAC/MFA; zonas y promociones se componen desde recursos independientes cacheables.
+- Contexto de cuenta: `/api/me` entrega wallet, direcciones, pagos tokenizados, ratings, favoritos, tips y soporte estrictamente propios; web/mobile ya no obtienen esos agregados del bootstrap.
+- CI bloquea secretos conocidos y vulnerabilidades críticas de runtime. Ver `docs/ci-security-gates.md`.
+- Finanzas de negocios: split contable al completar, saldo PostgreSQL, movimientos y retiros reservados idempotentes.
+- Pricing de comida: cotización PostGIS por distancia/zona, plan versionado y bloqueo firmado de cinco minutos antes del cobro.
+- Postventa de comida: incidencias persistidas, resolución operacional y reintegros parciales con reversión contable del split.
+- Sustituciones: propuesta del comercio, consentimiento del cliente y devolución automática de diferencias antes de avanzar el pedido.
+- Sucursales: ubicación PostGIS, apertura, ETA e inventario independiente utilizados realmente por cotización y checkout.
 
-Los datos se persisten en SQLite. Las rutas sensibles usan JWT, RBAC y validacion de propiedad por cliente, comercio y driver. Para volver al estado inicial desde la UI, entrar a `Ops` o al superadmin desktop y usar `Reiniciar demo`.
+El esquema real y sus migraciones se persisten en PostgreSQL/PostGIS. El runtime
+principal usa PostgreSQL para identidad, catálogo, carrito, pedidos, movilidad,
+wallet, pagos, soporte, promociones, zonas, auditoría y feedback. SQLite queda
+limitado al fallback aislado de tests; `npm run test:postgres` verifica que el
+recorrido runtime no lo modifica. Las rutas sensibles usan JWT, RBAC, RLS y
+validación de propiedad por cliente, comercio y driver.
 
 ## Documentacion de producto
 
 - Roadmap ejecutivo: `ROADMAP.MD`
+- Matriz completa Figma/API/dominio: `docs/figma-screen-matrix.md`
 - Apps nativas base: `apps/mobile/README.md`
 - Investigacion competitiva: `docs/investigacion-competitiva.md`
 - Investor readiness: `docs/investor-readiness.md`
@@ -104,3 +220,14 @@ Los datos se persisten en SQLite. Las rutas sensibles usan JWT, RBAC y validacio
 - Roadmap: `docs/roadmap.md`
 - Progreso: `docs/progreso.md`
 - Checklist de despliegue: `docs/deployment-checklist.md`
+- Base local PostgreSQL/PostGIS: `docs/local-database.md`
+- Operación, métricas y backups: `docs/operations.md`
+- Libreta PostgreSQL/PostGIS de cliente: `docs/address-book.md`
+- Destinos privados y recientes de viajes: `docs/ride-destination-history.md`
+- Contactos de confianza cifrados: `docs/ride-trusted-contacts.md`
+- Seguimiento mobile de viajes: `docs/ride-live-tracking.md`
+- PIN seguro de retiro de pasajeros: `docs/ride-pickup-verification.md`
+- Cotización versionada de comida: `docs/food-pricing.md`
+- Incidencias y reintegros parciales: `docs/order-issues.md`
+- Sustituciones de productos: `docs/order-substitutions.md`
+- Sucursales e inventario localizado: `docs/merchant-branches.md`

@@ -1,0 +1,17 @@
+import crypto from "node:crypto";
+import { postgresPool } from "./postgres.js";
+const ratingId=()=>`RATE-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
+
+export async function getPostgresFavoriteMerchantIds(userPublicId){const result=await postgresPool.query(`SELECT m.public_id FROM favorites f JOIN users u ON u.id=f.user_id JOIN merchants m ON m.id=f.merchant_id WHERE u.public_id=$1 ORDER BY f.created_at DESC`,[userPublicId]);return result.rows.map(row=>row.public_id);}
+export async function setPostgresFavorite({userPublicId,merchantPublicId,favorite}){const user=(await postgresPool.query("SELECT id FROM users WHERE public_id=$1",[userPublicId])).rows[0],merchant=(await postgresPool.query("SELECT id FROM merchants WHERE public_id=$1 AND status='active'",[merchantPublicId])).rows[0];if(!user||!merchant)throw Object.assign(new Error("Usuario o comercio no encontrado"),{status:404});if(favorite)await postgresPool.query("INSERT INTO favorites(user_id,merchant_id) VALUES($1,$2) ON CONFLICT DO NOTHING",[user.id,merchant.id]);else await postgresPool.query("DELETE FROM favorites WHERE user_id=$1 AND merchant_id=$2",[user.id,merchant.id]);return getPostgresFavoriteMerchantIds(userPublicId);}
+
+export async function createPostgresRating({jobPublicId,authorPublicId,subjectType,score,tags,comment}){const client=await postgresPool.connect();try{await client.query("BEGIN");const author=(await client.query("SELECT id FROM users WHERE public_id=$1",[authorPublicId])).rows[0];
+  const job=(await client.query(`SELECT j.*,d.user_id driver_user_id FROM jobs j LEFT JOIN drivers d ON d.id=j.driver_id WHERE j.public_id=$1 AND j.status='completed' FOR SHARE OF j`,[jobPublicId])).rows[0];if(!author||!job)throw Object.assign(new Error("Sólo puedes calificar un servicio completado"),{status:409});let subjectId;
+  if(author.id===job.customer_id&&subjectType==="merchant"&&job.merchant_id)subjectId=job.merchant_id;
+  else if(author.id===job.customer_id&&subjectType==="driver"&&job.driver_id)subjectId=job.driver_id;
+  else if(author.id===job.driver_user_id&&subjectType==="customer")subjectId=job.customer_id;
+  else throw Object.assign(new Error("No puedes calificar ese participante"),{status:403});
+  const publicId=ratingId();const row=(await client.query(`INSERT INTO ratings(public_id,job_id,author_id,subject_type,subject_id,score,tags,comment) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING created_at`,[publicId,job.id,author.id,subjectType,subjectId,score,tags,comment||null])).rows[0];await client.query("COMMIT");return{id:publicId,jobId:jobPublicId,userId:authorPublicId,subjectType,score,tags,comment:comment||"",createdAt:new Date(row.created_at).toISOString()};
+ }catch(error){await client.query("ROLLBACK");if(error.code==="23505")throw Object.assign(new Error("Ya calificaste este participante"),{status:409});throw error;}finally{client.release();}}
+
+export async function getPostgresRatings({userPublicId,includeAll=false}){const result=await postgresPool.query(`SELECT r.public_id,j.public_id job_id,u.public_id user_id,r.subject_type,r.score,r.tags,r.comment,r.created_at FROM ratings r JOIN jobs j ON j.id=r.job_id JOIN users u ON u.id=r.author_id WHERE($2::boolean OR u.public_id=$1) ORDER BY r.created_at DESC`,[userPublicId,includeAll]);return result.rows.map(row=>({id:row.public_id,jobId:row.job_id,userId:row.user_id,subjectType:row.subject_type,score:row.score,tags:row.tags,comment:row.comment||"",createdAt:new Date(row.created_at).toISOString()}));}

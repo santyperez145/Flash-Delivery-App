@@ -1,0 +1,22 @@
+# Finanzas de comercios
+
+Al completar un pedido pagado y capturado, la misma transacción que cambia el job a `completed` crea un asiento `merchant_settlement`. El débito total contra `cash_clearing` se distribuye exactamente entre:
+
+- cuenta `merchant/payable`: venta neta de descuento menos comisión configurada en basis points;
+- wallet del conductor: tarifa de entrega;
+- cuenta `platform/revenue`: comisión, service fee y cualquier remanente.
+
+La vista `ledger_transaction_balances` exige suma cero y las pruebas verifican al menos tres entradas por liquidación. Reintentar el cambio de estado no duplica el asiento porque usa `settlement-<jobId>` como idempotency key.
+
+## API
+
+- `GET /api/merchant/finance?merchantId=...`: saldo, movimientos y retiros del comercio propietario.
+- `POST /api/merchant/payouts`: reserva fondos mediante `Idempotency-Key`, debitando `payable` y acreditando `payout_pending`.
+
+El retiro permanece `pending`; no se declara transferencia bancaria hasta recibir confirmación de un PSP. RLS oculta payouts a clientes y a otros comercios. El portal desktop muestra el saldo real, movimientos y formulario de retiro.
+
+## Pendiente productivo
+
+- Conector Mercado Pago/Stripe/banco para ejecutar y conciliar payouts.
+- Webhooks de payout con reintentos, estados fallidos y liberación de reservas.
+- KYC/KYB, retenciones impositivas, CBU/CVU tokenizado y aprobación dual para ajustes.
