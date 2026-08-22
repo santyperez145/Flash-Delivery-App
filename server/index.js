@@ -18,6 +18,7 @@ import { openApiDocument } from "./openapi.js";
 import { closePostgres, postgresPool, postgresReadiness } from "./postgres.js";
 import { stopTelemetry } from "./telemetry.js";
 import { createGracefulShutdown } from "./graceful-shutdown.js";
+import { beginMerchantPaymentOAuth, completeMerchantPaymentOAuth, getMerchantPaymentConnection } from "./payment-oauth-repository.js";
 import { confirmPhoneVerification, requestPhoneVerification } from "./phone-verification-repository.js";
 import { observeHttpRequest, observeProviderCall, renderPrometheus } from "./observability.js";
 import { ProviderCircuit } from "./provider-resilience.js";
@@ -370,7 +371,7 @@ function requestLogger(req, res, next) {
           level: res.statusCode >= 500 ? "error" : "info",
           requestId: req.requestId,
           method: req.method,
-          path: req.originalUrl,
+          path: route,
           status: res.statusCode,
           durationMs,
         }),
@@ -7125,6 +7126,9 @@ app.post(
     }catch(error){return fail(res,error.status||500,error.message||"No se pudo autorizar el retiro");}
   },
 );
+app.get("/api/merchant/payment-provider",requireAuth,requireAnyRole("merchant"),async(req,res)=>{const merchantId=String(req.query.merchantId||req.auth.user.restaurantId||"");if(!merchantId)return fail(res,400,"Falta el comercio");try{return ok(res,{connection:await getMerchantPaymentConnection({merchantPublicId:merchantId,userPublicId:req.auth.userId}),configured:config.paymentMarketplace.provider!=="disabled"});}catch(error){return fail(res,error.status||500,error.message||"No se pudo consultar la vinculación");}});
+app.post("/api/merchant/payment-provider/connect",requireAuth,requireAnyRole("merchant"),async(req,res)=>{const merchantId=String(req.body?.merchantId||req.auth.user.restaurantId||"");if(!merchantId)return fail(res,400,"Falta el comercio");try{return ok(res,await beginMerchantPaymentOAuth({merchantPublicId:merchantId,userPublicId:req.auth.userId}));}catch(error){return fail(res,error.status||500,error.message||"No se pudo iniciar la vinculación");}});
+app.get("/api/payment-provider/mercadopago/callback",async(req,res)=>{res.set("Cache-Control","no-store, private");res.set("Pragma","no-cache");const destination=new URL(config.paymentMarketplace.returnUrl);try{const state=String(req.query.state||""),code=String(req.query.code||"");if(req.query.error||state.length<20||code.length<3)throw Object.assign(new Error("Callback OAuth rechazado"),{status:400});await completeMerchantPaymentOAuth({state,code});destination.searchParams.set("payment_connection","connected");return res.redirect(303,destination.toString());}catch(error){destination.searchParams.set("payment_connection","error");destination.searchParams.set("reason",error.status===400?"invalid_state":"provider_unavailable");return res.redirect(303,destination.toString());}});
 app.post(
   "/api/merchant/payouts",
   requireAuth,
@@ -8986,7 +8990,7 @@ app.use((error, req, res, _next) => {
         level: "error",
         requestId: req.requestId,
         method: req.method,
-        path: req.originalUrl,
+        path: req.originalUrl.split("?",1)[0],
         status,
         message: error.message,
       }),

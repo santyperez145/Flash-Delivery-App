@@ -36,6 +36,20 @@ procedimiento de incidentes estén conectados y ensayados.
 5. Refund proporcional, saldos insuficientes y runbook de discrepancias.
 6. Pruebas con cuentas de test y luego transacción física controlada.
 
+## Implementación disponible
+
+El backend ya crea 256 bits de `state`, persiste sólo SHA-256 con diez minutos de
+vigencia y lo consume exactamente una vez antes de intercambiar el `code`. El
+intercambio ocurre server-to-server con timeout de cinco segundos. Access y
+refresh tokens se guardan como envelopes AES-256-GCM con clave independiente;
+RLS y privilegios de columna impiden que el rol auditor los lea. El callback no
+se cachea, no refleja códigos en la redirección y el logger elimina todo query
+string para que `code` y `state` no terminen en logs.
+
+El portal de negocios sólo recibe estado, modo test/live, últimos cuatro del ID
+externo y vencimiento. Las credenciales nunca se serializan. Con el proveedor
+deshabilitado, la UI muestra el gate real en lugar de simular una conexión.
+
 ## Fuentes primarias
 
 - Mercado Pago Split 1:1, disponibilidad Argentina y alcance marketplace:
