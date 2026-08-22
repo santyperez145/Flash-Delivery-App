@@ -11,6 +11,10 @@ Se publican contadores y duración HTTP con rutas normalizadas, estado del pool
 PostgreSQL, jobs activos por vertical, tickets abiertos, payment intents y notificaciones por
 estado. No se incluyen emails, direcciones, IDs de clientes ni cuerpos privados.
 
+Las alertas de proveedores están aisladas por etiqueta: mapas sólo considera
+OpenStreetMap/OSRM y pagos sólo Mercado Pago. La alerta PSP además exige diez
+llamadas en la ventana para no paginar por un único OAuth o reintegro aislado.
+
 ## Renovación OAuth de comercios
 
 ```bash
