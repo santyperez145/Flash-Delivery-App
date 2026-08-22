@@ -15,7 +15,9 @@ import { SpanStatusCode, trace } from "@opentelemetry/api";
 import { config } from "./config.js";
 import { closeRedis, redisClient, redisReadiness } from "./redis.js";
 import { openApiDocument } from "./openapi.js";
-import { postgresPool, postgresReadiness } from "./postgres.js";
+import { closePostgres, postgresPool, postgresReadiness } from "./postgres.js";
+import { stopTelemetry } from "./telemetry.js";
+import { createGracefulShutdown } from "./graceful-shutdown.js";
 import { observeHttpRequest, observeProviderCall, renderPrometheus } from "./observability.js";
 import { ProviderCircuit } from "./provider-resilience.js";
 import {
@@ -300,6 +302,7 @@ const realtimeClients = new Map();
 const processStartedAt = Date.now();
 const mapProviderCircuit = new ProviderCircuit(config.mapProvider);
 let sqliteRuntimeReads = 0;
+let draining = false;
 function readDb() {
   sqliteRuntimeReads += 1;
   return readFallbackDb();
@@ -2537,6 +2540,7 @@ app.get("/api/openapi.json", (_req, res) => {
 
 app.get("/api/ready", async (_req, res) => {
   try {
+    if (draining) return fail(res, 503, "La instancia está drenando conexiones");
     const db = config.databaseUrl ? null : readDb();
     const postgres = await postgresReadiness();
     const redis = await redisReadiness();
@@ -8864,15 +8868,23 @@ server.on("error", (error) => {
   process.exitCode = 1;
 });
 
-function shutdown(signal) {
-  console.log(`Received ${signal}. Closing Flash API.`);
-  server.close(async () => {
-    await stopRealtimeListener?.();
-    await closeRedis();
-    process.exit(0);
-  });
-  setTimeout(() => process.exit(1), 10000).unref();
-}
+const shutdown = createGracefulShutdown({
+  server,
+  realtimeClients,
+  stopRealtimeListener,
+  closePostgres,
+  closeRedis,
+  stopTelemetry,
+  graceMs: config.shutdownGraceMs,
+  onDrain: () => { draining = true; },
+});
 
-process.on("SIGTERM", () => shutdown("SIGTERM"));
-process.on("SIGINT", () => shutdown("SIGINT"));
+for (const signal of ["SIGTERM", "SIGINT"])
+  process.once(signal, () => {
+    shutdown(signal)
+      .then(() => process.exit(0))
+      .catch((error) => {
+        console.error(JSON.stringify({ level: "error", event: "shutdown.failed", message: error.message }));
+        process.exit(1);
+      });
+  });
