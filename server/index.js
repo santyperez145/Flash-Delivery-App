@@ -3445,16 +3445,20 @@ app.post(
   async (req, res) => {
     if (!usesPostgresCommerce())
       return fail(res, 503, "Soporte real requiere PostgreSQL");
+    const idempotencyKey=String(req.get("idempotency-key")||"");
+    if(!/^[a-zA-Z0-9._:-]{16,128}$/.test(idempotencyKey))return fail(res,400,"Idempotency-Key válido es obligatorio");
     const parsed = parseOrFail(supportMessageSchema, req.body || {});
     if (!parsed.ok) return fail(res, 400, parsed.message);
     try {
-      const ticket = await addPostgresSupportMessage({
+      const created = await addPostgresSupportMessage({
         ticketPublicId: req.params.ticketId,
         senderPublicId: req.auth.userId,
         roles: req.auth.roles,
+        idempotencyKey,
         ...parsed.data,
       });
-      await recordPostgresAudit({
+      const ticket=created.ticket;
+      if(!created.replayed)await recordPostgresAudit({
         actorPublicId: req.auth.userId,
         roles: req.auth.roles,
         action: parsed.data.internal
@@ -3465,7 +3469,7 @@ app.post(
         requestId: req.requestId,
         afterData: { internal: parsed.data.internal },
       });
-      await publishRealtimeEvent({
+      if(!created.replayed)await publishRealtimeEvent({
         req,
         type: "support.updated",
         entityType: "support_ticket",

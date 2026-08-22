@@ -3081,6 +3081,7 @@ try {
   );
   const supportCreated = await request("/support/tickets", {
     method: "POST",
+    headers: { "Idempotency-Key": `runtime-support-${crypto.randomUUID()}` },
     body: JSON.stringify({
       category: "payment",
       priority: "high",
@@ -3127,6 +3128,7 @@ try {
     `/support/tickets/${supportTicketId}/messages`,
     {
       method: "POST",
+      headers: { "Idempotency-Key": `runtime-support-foreign-${crypto.randomUUID()}` },
       body: JSON.stringify({ body: "No debería poder responder" }),
     },
   );
@@ -3656,6 +3658,7 @@ try {
     `/support/tickets/${supportTicketId}/messages`,
     {
       method: "POST",
+      headers: { "Idempotency-Key": `runtime-support-internal-${crypto.randomUUID()}` },
       body: JSON.stringify({ body: "Nota interna runtime", internal: true }),
     },
   );

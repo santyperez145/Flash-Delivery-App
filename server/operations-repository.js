@@ -197,6 +197,7 @@ export async function addPostgresSupportMessage({
   roles,
   body,
   internal = false,
+  idempotencyKey,
 }) {
   const client = await postgresPool.connect();
   try {
@@ -206,6 +207,7 @@ export async function addPostgresSupportMessage({
         senderPublicId,
       ])
     ).rows[0];
+    if(!sender)throw Object.assign(new Error("Usuario no encontrado"),{status:404});
     const ticket = (
       await client.query(
         `SELECT t.id,t.user_id,u.public_id user_public_id FROM support_tickets t JOIN users u ON u.id=t.user_id WHERE t.public_id=$1 FOR UPDATE`,
@@ -224,6 +226,8 @@ export async function addPostgresSupportMessage({
         new Error("Las notas internas requieren rol de soporte"),
         { status: 403 },
       );
+    const requestHash=crypto.createHash("sha256").update(JSON.stringify({ticketPublicId,senderPublicId,body,internal})).digest("hex"),claim=(await client.query("INSERT INTO idempotency_keys(key,user_id,request_hash,expires_at) VALUES($1,$2,$3,now()+interval '24 hours') ON CONFLICT DO NOTHING RETURNING key",[idempotencyKey,sender.id,requestHash])).rows[0];
+    if(!claim){const existing=(await client.query("SELECT user_id,request_hash,response_body FROM idempotency_keys WHERE key=$1",[idempotencyKey])).rows[0];if(String(existing?.user_id)!==String(sender.id)||existing?.request_hash!==requestHash)throw Object.assign(new Error("Clave de idempotencia reutilizada con otro mensaje"),{status:409});if(existing?.response_body?.ticketId){await client.query("ROLLBACK");return{ticket:(await getPostgresSupportTickets({userPublicId:senderPublicId,roles})).find(entry=>entry.id===ticketPublicId),replayed:true};}throw Object.assign(new Error("Mensaje de soporte en proceso"),{status:409});}
     await client.query(
       "INSERT INTO support_messages(ticket_id,sender_id,body,internal) VALUES($1,$2,$3,$4)",
       [ticket.id, sender?.id || null, body, internal],
@@ -243,10 +247,11 @@ export async function addPostgresSupportMessage({
           `support-reply-${ticketPublicId}-${crypto.randomUUID()}`,
         ],
       );
+    await client.query("UPDATE idempotency_keys SET response_status=200,response_body=$2 WHERE key=$1",[idempotencyKey,{ticketId:ticketPublicId}]);
     await client.query("COMMIT");
-    return (
+    return {ticket:(
       await getPostgresSupportTickets({ userPublicId: senderPublicId, roles })
-    ).find((entry) => entry.id === ticketPublicId);
+    ).find((entry) => entry.id === ticketPublicId),replayed:false};
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
