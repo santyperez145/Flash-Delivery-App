@@ -40,7 +40,7 @@ export async function confirmPhoneVerification({ userPublicId, code }) {
     const valid = row.provider === "sandbox" ? Boolean(row.code_hash && bcrypt.compareSync(code,row.code_hash)) : await checkPhoneVerification(row.phone,code);
     if (!valid) {
       const attempts = Math.min(5, Number(row.failed_attempts) + 1);
-      await client.query("UPDATE phone_verification_challenges SET failed_attempts=$2,consumed_at=CASE WHEN $2>=5 THEN now() ELSE consumed_at END WHERE id=$1", [row.id,attempts]);
+      await client.query("UPDATE phone_verification_challenges SET failed_attempts=$2::smallint,consumed_at=CASE WHEN $2::smallint>=5 THEN now() ELSE consumed_at END WHERE id=$1", [row.id,attempts]);
       await client.query("COMMIT"); transactionOpen = false;
       throw Object.assign(new Error("Código incorrecto o vencido"), { status: 400 });
     }

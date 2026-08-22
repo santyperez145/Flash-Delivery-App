@@ -1,4 +1,6 @@
-ALTER TABLE users ADD COLUMN phone_verified_at timestamptz;
+-- La columna existe desde 003_commerce_finance; IF NOT EXISTS mantiene esta
+-- migración aplicable sobre instalaciones anteriores y bases reconstruidas.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified_at timestamptz;
 
 CREATE UNIQUE INDEX users_verified_phone_unique ON users(phone) WHERE phone_verified_at IS NOT NULL AND phone IS NOT NULL;
 
