@@ -58,6 +58,7 @@
     "test:email-verification": "node --env-file-if-exists=.env.local scripts/email-verification-smoke.mjs",
     "test:phone-verification": "node --env-file-if-exists=.env.local scripts/phone-verification-smoke.mjs",
     "test:payment-oauth": "node scripts/payment-oauth-security-smoke.mjs",
+    "test:mercadopago-webhook": "node scripts/mercadopago-webhook-smoke.mjs",
     "test:referrals": "node --env-file-if-exists=.env.local scripts/referrals-smoke.mjs",
     "test:audience-bootstrap": "node --env-file-if-exists=.env.local scripts/audience-bootstrap-smoke.mjs",
     "test:activity-pagination": "node --env-file-if-exists=.env.local scripts/activity-pagination-smoke.mjs",
