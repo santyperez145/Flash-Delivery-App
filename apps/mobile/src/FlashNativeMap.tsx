@@ -14,6 +14,7 @@ type FlashNativeMapProps = {
   detail: string;
   routeColor?: string;
   driverIcon?: "car-sport" | "bicycle";
+  originRole?: "point" | "driver";
   height?: number;
   accessibilityLabel?: string;
 };
@@ -71,6 +72,7 @@ export default function FlashNativeMap({
   detail,
   routeColor = "#7c3cff",
   driverIcon = "car-sport",
+  originRole = "point",
   height = 260,
   accessibilityLabel = "Mapa interactivo del recorrido",
 }: FlashNativeMapProps) {
@@ -156,7 +158,11 @@ export default function FlashNativeMap({
           </>
         )}
         <Marker coordinate={coordinate(origin)} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
-          <View style={styles.originMarker}><View style={styles.originCore} /></View>
+          {originRole === "driver" ? (
+            <View style={styles.driverMarker}><Ionicons name={driverIcon} size={20} color="#fff" /></View>
+          ) : (
+            <View style={styles.originMarker}><View style={styles.originCore} /></View>
+          )}
         </Marker>
         <Marker coordinate={coordinate(destination)} anchor={{ x: 0.5, y: 0.84 }} tracksViewChanges={false}>
           <View style={styles.destinationMarker}><Ionicons name="flag" size={16} color="#fff" /></View>

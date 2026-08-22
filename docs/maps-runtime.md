@@ -33,6 +33,8 @@ Las tres variantes Expo usan `react-native-maps` `1.27.2`, versión instalada po
 
 El mapa visual y el proveedor de geocoding/routing son límites distintos. Las direcciones y rutas continúan pasando por el backend y pueden migrar a un proveedor con SLA sin cambiar el renderer nativo. Un build firmado y una prueba física prolongada siguen siendo condición de lanzamiento; el bundle local no se presenta como validación de tiles, GPS ni cuotas productivas.
 
+Flash Driver usa el mismo renderer con un marcador de vehículo en su última posición foreground/background autorizada y el próximo hito real del job asignado. Cada cambio de fase invalida la ruta anterior antes de recalcularla. La tarjeta muestra la primera maniobra normalizada, distancia y duración; el botón **Navegar** entrega el destino a Apple Maps (`daddr`, `dirflg=d`) en iOS conducción o a la URL universal de Google Maps (`api=1`, `destination`, `travelmode`, `dir_action=navigate`) en Android/bicicleta. Omitir el origen hace que el proveedor use la posición actual y evita pasar una coordenada ya envejecida como inicio de navegación.
+
 Referencias técnicas primarias:
 
 - [MapLibre GL JS](https://maplibre.org/maplibre-gl-js/docs/)
@@ -40,3 +42,5 @@ Referencias técnicas primarias:
 - [Raster sources del Style Spec](https://maplibre.org/maplibre-style-spec/sources/)
 - [react-native-maps: instalación y compatibilidad](https://github.com/react-native-maps/react-native-maps)
 - [Expo Maps](https://docs.expo.dev/versions/latest/sdk/maps/)
+- [Google Maps URLs](https://developers.google.com/maps/documentation/urls/get-started)
+- [Apple Map Links](https://developer.apple.com/library/archive/featuredarticles/iPhoneURLScheme_Reference/MapLinks/MapLinks.html)

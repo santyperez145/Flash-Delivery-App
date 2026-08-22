@@ -15,6 +15,14 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [x] `react-native-maps` quedó fijado en la versión compatible instalada por Expo SDK 57; TypeScript, Expo Doctor 21/21, exports Metro Android/iOS/web, auditoría y contratos mobile están verdes.
 - [~] Faltan registrar y restringir una clave Google Maps productiva, crear builds firmados EAS y verificar cartografía/GPS prolongadamente en dispositivos Android/iOS reales.
 
+## Avance 22 de agosto de 2026 — navegación visual de Flash Driver
+
+- [x] La app de conductor muestra un mapa nativo del GPS vigente al próximo pickup/destino para comida, viajes o envíos, con ruta vial, color por vertical y reencuadre.
+- [x] Cambiar de trabajo o fase elimina inmediatamente la geometría anterior; una falla de routing se informa y nunca deja visible una ruta obsoleta.
+- [x] El botón Navegar delega giro a giro a Apple Maps para conducción iOS o a Google Maps mediante URL universal para Android, bicicleta y fallback web, sin requerir otra clave.
+- [x] La URL omite el origen para que el proveedor use la ubicación actual del dispositivo, y sólo se habilita desde un job real con destino geográfico.
+- [~] La guía interna conserva maniobras/ETA del adaptador actual; tráfico, desvíos en vivo y ensayo físico en movimiento requieren proveedor productivo, build firmado y prueba vial controlada.
+
 ## Corrección 22 de agosto de 2026 — sesión web sin tormenta de refresh
 
 - [x] Las respuestas `401` concurrentes comparten una única rotación de refresh; una respuesta tardía que usó el access token anterior reutiliza la credencial ya rotada.

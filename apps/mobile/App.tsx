@@ -14,8 +14,10 @@ import {
   Alert,
   Image,
   ImageBackground,
+  Linking,
   Modal,
   PanResponder,
+  Platform,
   Pressable,
   RefreshControl,
   SafeAreaView,
@@ -29,6 +31,7 @@ import {
 import { api } from "./src/api";
 import { configureAnalytics, track } from "./src/analytics";
 import FlashNativeMap from "./src/FlashNativeMap";
+import { buildExternalNavigationUrl } from "./src/navigation-links";
 import {getBackgroundLocationState,startDriverBackgroundLocation,stopDriverBackgroundLocation,type BackgroundLocationState} from "./src/background-location";
 import type {
   AppState,
@@ -2832,6 +2835,7 @@ function DriverScreen({
     driver.location || null,
   );
   const [driverRoute, setDriverRoute] = useState<RoadRoute | null>(null);
+  const [driverRouteError, setDriverRouteError] = useState("");
   const [offers, setOffers] = useState<DispatchOffer[]>([]);
   const [offersLoading, setOffersLoading] = useState(false);
   const [offerBusy, setOfferBusy] = useState<string | null>(null);
@@ -2950,19 +2954,25 @@ function DriverScreen({
       : offer.kind === "delivery",
   );
   const navigationTarget=useMemo(()=>{const ride=activeRides[0];if(ride){const toPickup=ride.status!=="in_progress";return{id:ride.id,kind:"Viaje",phase:toPickup?"Buscar pasajero":"Llevar pasajero",point:toPickup?ride.pickupLocation:ride.destinationLocation,address:toPickup?ride.pickup:ride.destination};}const order=activeOrders[0];if(order){const toPickup=!['picked_up','delivering'].includes(order.status);return{id:order.id,kind:"Comida",phase:toPickup?"Ir al comercio":"Entregar pedido",point:toPickup?order.pickupLocation:order.deliveryLocation,address:toPickup?"Punto de retiro":order.deliveryAddress};}const shipment=activeShipments[0];if(shipment){const toPickup=!['picked_up','delivering'].includes(shipment.status);return{id:shipment.id,kind:"Envío",phase:toPickup?"Retirar paquete":"Entregar paquete",point:toPickup?shipment.pickupLocation:shipment.destinationLocation,address:toPickup?shipment.pickup:shipment.destination};}return null;},[activeRides,activeOrders,activeShipments]);
+  const activeVehicle=vehicles.find(vehicle=>vehicle.active&&vehicle.status==="approved")||null;
+  const navigationTravelMode=activeVehicle?.kind==="bicycle"?"bicycling":"driving";
+  const openExternalNavigation=async()=>{const point=navigationTarget?.point;if(!point)return;const url=buildExternalNavigationUrl(Platform.OS,point,navigationTravelMode);if(!url)return;try{await Linking.openURL(url);}catch(_error){Alert.alert("Navegación no disponible","No pudimos abrir la aplicación de mapas de este dispositivo.");}};
 
   useEffect(() => {
     if (!driverPoint || !navigationTarget?.point) {
       setDriverRoute(null);
+      setDriverRouteError("");
       return;
     }
     let cancelled = false;
+    setDriverRoute(null);
+    setDriverRouteError("");
     void api
       .route(driverPoint, navigationTarget.point)
       .then((response) => {
         if (!cancelled) setDriverRoute(response.route);
       })
-      .catch(() => undefined);
+      .catch(() => {if(!cancelled)setDriverRouteError("No pudimos actualizar la ruta. Conservá el destino y reintentá con conexión.");});
     return () => {
       cancelled = true;
     };
@@ -3033,6 +3043,24 @@ function DriverScreen({
         />
       </View>
       <Text style={styles.sectionTitle}>Activos</Text>
+      {navigationTarget ? (
+        driverPoint && navigationTarget.point ? (
+          <FlashNativeMap
+            origin={driverPoint}
+            destination={navigationTarget.point}
+            route={driverRoute?.coordinates || []}
+            originRole="driver"
+            driverIcon={activeVehicle?.kind === "bicycle" ? "bicycle" : "car-sport"}
+            routeColor={navigationTarget.kind === "Comida" ? "#ff6a21" : navigationTarget.kind === "Envío" ? "#087a50" : "#7c3cff"}
+            caption={`${navigationTarget.kind} · ${navigationTarget.phase}`}
+            detail={driverRoute ? `${driverRoute.distanceKm} km · ${driverRoute.durationMin} min` : driverRouteError || "Calculando recorrido vial…"}
+            height={270}
+            accessibilityLabel="Mapa interactivo de navegación del conductor"
+          />
+        ) : (
+          <NativeMapUnavailable message={driverPoint ? "El servicio todavía no tiene un punto geográfico verificable." : "Activá el GPS para calcular el recorrido al próximo punto."} height={270} />
+        )
+      ) : null}
       {driverRoute?.steps[0] && (
         <View style={styles.driverNavigation}>
           <View style={styles.navigationTurn}>
@@ -3061,8 +3089,13 @@ function DriverScreen({
             </Text>
             <Text style={styles.helperText} numberOfLines={1}>{navigationTarget?.address}</Text>
           </View>
+          <Pressable style={styles.proofCameraButton} onPress={()=>void openExternalNavigation()} accessibilityRole="button" accessibilityLabel="Abrir navegación giro a giro">
+            <Ionicons name="navigate" size={19} color="#fff" />
+            <Text style={styles.primaryButtonText}>Navegar</Text>
+          </Pressable>
         </View>
       )}
+      {driverRouteError ? <Text style={styles.complianceRejection}>{driverRouteError}</Text> : null}
       {activeOrders.map((order) => (
         <View key={order.id} style={styles.stack}><OrderCard
           order={order}
