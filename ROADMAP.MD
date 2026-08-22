@@ -442,7 +442,7 @@ La implementacion se sigue por flujos completos y no por pantallas aisladas. Cad
 - [x] Viajes web/PWA: Actividad abre tracking con ruta OSRM, vehículo/placa/rating, PIN de retiro, enlace temporal, vista pública móvil y reporte de incidente autenticado.
 - [~] Viajes: flujo de destino, mapa, selector, confirmación, matching y viaje activo está operativo; falta paridad final con el Figma Lyft y habilitación de emergencias locales.
 - [x] Envios web/PWA: Actividad abre tracking autenticado con ruta OSRM, destinatario, repartidor, ETA/timeline, PIN de entrega, prueba de entrega y fallback honesto.
-- [~] Envios web/PWA: falta trasladar a la superficie web el alta y la cotización firmada; el flujo completo de creación ya está operativo en la app móvil.
+- [x] Envios web/PWA: cotización y solicitud reales con geocodificación, categorías/SLA configurables, protección, firma, términos, token firmado e idempotencia; esta superficie cobra sólo con Flash Wallet.
 - [ ] Actividad, wallet, perfil, soporte y notificaciones como navegacion compartida.
 - [ ] Paridad de estados vacios, errores, carga, offline y accesibilidad en todos los flujos.
 

@@ -1,6 +1,6 @@
 export type Mode = "customer" | "merchant" | "driver" | "ops";
 export type UserRole = "customer" | "merchant" | "driver" | "admin";
-export type Service = "food" | "ride";
+export type Service = "food" | "ride" | "shipment";
 export type DriverService = "delivery" | "ride";
 export type CustomerTab = "home" | "activity" | "wallet" | "profile";
 export type OrderStatus =
@@ -580,6 +580,27 @@ export type RideQuote = Pick<
   expiresAt: string;
   pricingVersion?: string;
   breakdown?: Record<string, number>;
+};
+
+export type ShipmentQuote = {
+  packageSize: Shipment["packageSize"];
+  distanceKm: number;
+  etaMin: number;
+  fare: number;
+  declaredValue?: number;
+  protection?: Shipment["protection"];
+  protectionPremium?: number;
+  deductible?: number;
+  itemCategory?: Shipment["itemCategory"];
+  itemCategoryName?: string;
+  handlingInstructions?: string;
+  serviceLevel?: Shipment["serviceLevel"];
+  serviceLevelName?: string;
+  estimated: boolean;
+  routingMode: "coordinates" | "text-estimate";
+  quoteId?: string;
+  quoteToken?: string;
+  expiresAt?: string;
 };
 
 export type RealtimeEvent = {
