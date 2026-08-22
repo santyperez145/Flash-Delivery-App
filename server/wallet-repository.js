@@ -99,7 +99,7 @@ export async function getDriverEarnings(userPublicId) {
     )
   ).rows[0];
   const observedAt = new Date();
-  const [availabilityRows, jobRows] = await Promise.all([
+  const [availabilityRows, jobRows, dayBounds] = await Promise.all([
     postgresPool.query(
       `SELECT started_at,ended_at FROM driver_availability_sessions
        WHERE driver_id=$1 AND started_at<$3 AND COALESCE(ended_at,$4)>$2
@@ -111,6 +111,18 @@ export async function getDriverEarnings(userPublicId) {
        WHERE driver_id=$1 AND started_at<$3 AND COALESCE(ended_at,$4)>$2
        ORDER BY started_at`,
       [identity.driver_id, periodBounds.week_start, periodBounds.week_end, observedAt],
+    ),
+    postgresPool.query(
+      `SELECT to_char(day.local_day,'YYYY-MM-DD') date,
+         (day.local_day AT TIME ZONE $1) day_start,
+         ((day.local_day+interval '1 day') AT TIME ZONE $1) day_end
+       FROM generate_series(
+         date_trunc('week',now() AT TIME ZONE $1),
+         date_trunc('day',now() AT TIME ZONE $1),
+         interval '1 day'
+       ) AS day(local_day)
+       ORDER BY day.local_day`,
+      [timezone],
     ),
   ]);
   const operationalTime = (start, end) => ({
@@ -136,13 +148,14 @@ export async function getDriverEarnings(userPublicId) {
       walletBalance: 0,
       today: emptyPeriod(periodBounds.today_start, periodBounds.today_end),
       week: emptyPeriod(periodBounds.week_start, periodBounds.week_end),
+      days: dayBounds.rows.map((day) => ({date:day.date,amount:0,serviceEarnings:0,tips:0,adjustments:0,services:0,...operationalTime(day.day_start,day.day_end)})),
       recent: [],
       timeTracking: { status: "available", source: "postgres-operational-sessions", observedAt: observedAt.toISOString() },
       cashout: { status: "not_configured", reason: "external_payout_provider_required" },
     };
   }
-  const summary = (
-    await postgresPool.query(
+  const [summaryResult,recentResult,dailyResult] = await Promise.all([
+    postgresPool.query(
       `WITH scoped AS (
          SELECT t.kind,t.created_at,e.reference_id,
            CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END signed_cents
@@ -163,10 +176,8 @@ export async function getDriverEarnings(userPublicId) {
          count(DISTINCT reference_id) FILTER(WHERE kind IN('driver_earning','merchant_settlement') AND signed_cents>0 AND created_at >= $5 AND created_at < $6)::int week_count
        FROM scoped`,
       [account.id, driverEarningKinds, periodBounds.today_start, periodBounds.today_end, periodBounds.week_start, periodBounds.week_end],
-    )
-  ).rows[0];
-  const recentRows = (
-    await postgresPool.query(
+    ),
+    postgresPool.query(
       `SELECT t.id::text,t.kind,t.description,t.created_at,e.direction,e.amount_cents,
          j.kind job_kind,j.metadata->>'subtype' job_subtype,
          COALESCE(j.public_id,t.metadata->>'jobId',t.metadata->>'publicId',e.metadata->>'jobPublicId') reference_public_id
@@ -175,9 +186,28 @@ export async function getDriverEarnings(userPublicId) {
        WHERE e.account_id=$1 AND t.status='posted' AND t.kind=ANY($2)
        ORDER BY t.created_at DESC,t.id DESC LIMIT 100`,
       [account.id, driverEarningKinds],
-    )
-  ).rows;
+    ),
+    postgresPool.query(
+      `WITH scoped AS (
+         SELECT t.kind,t.created_at,e.reference_id,
+           CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END signed_cents
+         FROM ledger_entries e JOIN ledger_transactions t ON t.id=e.transaction_id
+         WHERE e.account_id=$1 AND t.status='posted' AND t.kind=ANY($2)
+           AND t.created_at>=$4 AND t.created_at<$5
+       )
+       SELECT to_char(created_at AT TIME ZONE $3,'YYYY-MM-DD') date,
+         COALESCE(sum(signed_cents),0)::bigint amount,
+         COALESCE(sum(signed_cents) FILTER(WHERE kind IN('driver_earning','merchant_settlement')),0)::bigint services_amount,
+         COALESCE(sum(signed_cents) FILTER(WHERE kind='tip'),0)::bigint tips,
+         COALESCE(sum(signed_cents) FILTER(WHERE kind='tip_adjustment'),0)::bigint adjustments,
+         count(DISTINCT reference_id) FILTER(WHERE kind IN('driver_earning','merchant_settlement') AND signed_cents>0)::int services
+       FROM scoped GROUP BY 1 ORDER BY 1`,
+      [account.id,driverEarningKinds,timezone,periodBounds.week_start,periodBounds.week_end],
+    ),
+  ]);
+  const summary=summaryResult.rows[0],recentRows=recentResult.rows;
   const amount = (value) => Number(value || 0) / 100;
+  const dailyByDate=new Map(dailyResult.rows.map((row)=>[row.date,row]));
   const period = (prefix, start, end) => ({
     amount: amount(summary[`${prefix}_amount`]),
     serviceEarnings: amount(summary[`${prefix}_services`]),
@@ -196,6 +226,7 @@ export async function getDriverEarnings(userPublicId) {
     walletBalance: amount(summary.wallet_balance),
     today: period("today", periodBounds.today_start, periodBounds.today_end),
     week: period("week", periodBounds.week_start, periodBounds.week_end),
+    days: dayBounds.rows.map((day)=>{const row=dailyByDate.get(day.date)||{};return{date:day.date,amount:amount(row.amount),serviceEarnings:amount(row.services_amount),tips:amount(row.tips),adjustments:amount(row.adjustments),services:Number(row.services||0),...operationalTime(day.day_start,day.day_end)};}),
     recent: recentRows.map((row) => ({
       id: row.id,
       category: earningCategory(row),

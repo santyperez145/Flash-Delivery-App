@@ -20,6 +20,7 @@ Investigación verificada el 22 de agosto de 2026. Se comparan contratos y estad
 ## Contrato y privacidad
 
 - `GET /api/driver/earnings` deriva la identidad de la sesión y devuelve `onlineSeconds`, `activeSeconds`, fuente y momento de observación para hoy y la semana local del Driver.
+- La serie de la semana se materializa por día local desde el ledger y las sesiones; no se rellena con proyecciones y cada total diario reconcilia con el corte semanal.
 - PostgreSQL es obligatorio. El fallback SQLite devuelve `null` y `timeTracking.status=unavailable`; nunca inventa horas.
 - RLS expone los intervalos sólo al Driver propietario y a roles operativos autorizados. El rol auditor tiene metadatos de sólo lectura y no puede alterar duración ni atribución.
 - La respuesta es privada y `no-store`. Los cálculos recortan cada intervalo al período y al momento de observación.

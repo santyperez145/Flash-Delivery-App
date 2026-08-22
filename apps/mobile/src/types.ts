@@ -112,6 +112,10 @@ export type DriverEarningsPeriod = {
   periodEnd: string;
 };
 
+export type DriverEarningsDay = Omit<DriverEarningsPeriod, "periodStart" | "periodEnd"> & {
+  date: string;
+};
+
 export type DriverEarnings = {
   driverId: string;
   currency: "ARS";
@@ -120,6 +124,7 @@ export type DriverEarnings = {
   walletBalance: number;
   today: DriverEarningsPeriod;
   week: DriverEarningsPeriod;
+  days: DriverEarningsDay[];
   recent: Array<{
     id: string;
     category: "food" | "ride" | "shipment" | "tip" | "adjustment";
