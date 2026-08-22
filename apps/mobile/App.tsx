@@ -75,6 +75,16 @@ const money = new Intl.NumberFormat("es-AR", {
   maximumFractionDigits: 0,
 });
 
+function operationalDuration(seconds: number | null | undefined) {
+  if (seconds == null) return "No disponible";
+  const minutes = Math.floor(Math.max(0, seconds) / 60);
+  if (minutes < 1) return "< 1 min";
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return remainder ? `${hours} h ${remainder} min` : `${hours} h`;
+}
+
 type RoadStep = {
   type: string;
   modifier: string;
@@ -2911,7 +2921,7 @@ function DriverScreen({
   useEffect(()=>{driverScrollRef.current?.scrollTo({y:0,animated:false});},[driverView]);
 
   const loadDriverEarnings=useCallback(async()=>{setDriverEarningsLoading(true);setDriverEarningsError("");try{setDriverEarnings((await api.getDriverEarnings()).earnings);}catch(error){setDriverEarningsError(error instanceof Error?error.message:"No se pudieron cargar las ganancias");}finally{setDriverEarningsLoading(false);}},[driver.id]);
-  useEffect(()=>{void loadDriverEarnings();},[loadDriverEarnings]);
+  useEffect(()=>{if(driverView!=="earnings")return;void loadDriverEarnings();const poll=setInterval(()=>void loadDriverEarnings(),60000);return()=>clearInterval(poll);},[driverView,loadDriverEarnings]);
 
   const loadDriverDemand=useCallback(async()=>{setDriverDemandLoading(true);setDriverDemandError("");try{setDriverDemand((await api.getDriverDemand()).demand);}catch(error){setDriverDemandError(error instanceof Error?error.message:"No se pudo cargar la actividad por zonas");}finally{setDriverDemandLoading(false);}},[driver.id,driver.activeService]);
   useEffect(()=>{if(driverView!=="home")return;void loadDriverDemand();const poll=setInterval(()=>void loadDriverDemand(),60000);return()=>clearInterval(poll);},[driverView,loadDriverDemand]);
@@ -3045,6 +3055,11 @@ function DriverScreen({
     };
   }, [driverPoint?.lat, driverPoint?.lng, navigationTarget?.id,navigationTarget?.phase]);
 
+  const onlineToday=driverEarnings?.today.onlineSeconds;
+  const activeToday=driverEarnings?.today.activeSeconds;
+  const operationalRatio=onlineToday!=null&&activeToday!=null&&onlineToday>0&&activeToday<=onlineToday?Math.round(activeToday/onlineToday*100):null;
+  const operationalAnomaly=onlineToday!=null&&activeToday!=null&&activeToday>onlineToday;
+
   return (
     <View style={styles.driverShell}>
       <SignatureCaptureModal visible={Boolean(signatureShipmentId)} onClose={()=>{if(!deliveryEvidenceUploading)setSignatureShipmentId(null);}} onSave={saveDeliverySignature} busy={Boolean(deliveryEvidenceUploading)}/>
@@ -3065,9 +3080,20 @@ function DriverScreen({
           <View style={styles.driverPeriodCard}><Text style={styles.driverPeriodLabel}>ESTA SEMANA</Text><Text style={styles.driverPeriodValue}>{money.format(driverEarnings?.week.amount??0)}</Text><Text style={styles.driverPeriodMeta}>{driverEarnings?.week.services??0} servicios</Text></View>
           <View style={styles.driverPeriodCard}><Text style={styles.driverPeriodLabel}>SALDO WALLET</Text><Text style={styles.driverPeriodValue}>{money.format(driverEarnings?.walletBalance??0)}</Text><Text style={styles.driverPeriodMeta}>retiro aún no habilitado</Text></View>
         </View>
+        {driverEarnings?.timeTracking.status==="available"?<View style={styles.driverTimeCard}>
+          <View style={styles.driverSectionHeading}><View><Text style={styles.driverSectionEyebrow}>JORNADA OBSERVADA</Text><Text style={styles.driverTimeTitle}>Tu tiempo de hoy</Text></View><View style={styles.driverTimeClock}><Ionicons name="time-outline" size={22} color="#7c3cff"/></View></View>
+          <View style={styles.driverTimeGrid}>
+            <View style={styles.driverTimeMetric}><View style={styles.driverTimeMetricTop}><View style={[styles.driverTimeDot,{backgroundColor:"#7c3cff"}]}/><Text style={styles.driverTimeLabel}>CONECTADO</Text></View><Text style={styles.driverTimeValue}>{operationalDuration(onlineToday)}</Text><Text style={styles.driverTimeMeta}>incluye espera online</Text></View>
+            <View style={styles.driverTimeMetric}><View style={styles.driverTimeMetricTop}><View style={[styles.driverTimeDot,{backgroundColor:"#087a50"}]}/><Text style={styles.driverTimeLabel}>EN SERVICIO</Text></View><Text style={styles.driverTimeValue}>{operationalDuration(activeToday)}</Text><Text style={styles.driverTimeMeta}>asignación a cierre</Text></View>
+          </View>
+          {operationalRatio!=null?<View style={styles.driverTimeRatio}><View style={styles.driverTimeTrack}><View style={[styles.driverTimeFill,{width:`${operationalRatio}%`}]}/></View><Text style={styles.driverTimeRatioText}>{operationalRatio}% de la jornada conectada estuvo en servicio</Text></View>:null}
+          {operationalAnomaly?<View style={styles.driverTimeWarning}><Ionicons name="alert-circle-outline" size={18} color="#9b5b00"/><Text style={styles.driverTimeWarningText}>Hay tiempo asignado fuera de una sesión online. El registro se conserva para revisión operativa.</Text></View>:null}
+          <View style={styles.driverTimeWeek}><Text style={styles.driverTimeWeekLabel}>SEMANA</Text><Text style={styles.driverTimeWeekValue}>{operationalDuration(driverEarnings.week.onlineSeconds)} conectado</Text><View style={styles.driverTimeWeekDivider}/><Text style={styles.driverTimeWeekValue}>{operationalDuration(driverEarnings.week.activeSeconds)} en servicio</Text></View>
+          <Text style={styles.driverTimeSource}>PostgreSQL · actualizado {new Date(driverEarnings.timeTracking.observedAt).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})} · los solapamientos cuentan una sola vez</Text>
+        </View>:driverEarnings?<View style={styles.driverTimeUnavailable}><Ionicons name="cloud-offline-outline" size={21} color="#a33939"/><View style={styles.itemCopy}><Text style={styles.sectionTitle}>Jornada no disponible</Text><Text style={styles.cardText}>Este runtime no tiene sesiones PostgreSQL. No mostramos horas aproximadas.</Text></View></View>:null}
         <KpiRow items={[["Servicios",driverEarnings?.today.services??0],["Propinas",money.format(driverEarnings?.today.tips??0)],["Ajustes",money.format(driverEarnings?.today.adjustments??0)],["Rating",driver.rating]]}/>
         <View style={styles.complianceCard}><View style={styles.driverSectionHeading}><View><Text style={styles.driverSectionEyebrow}>MOVIMIENTOS CONTABLES</Text><Text style={styles.sectionTitle}>Detalle reciente</Text></View><Pressable onPress={()=>void loadDriverEarnings()} accessibilityRole="button" accessibilityLabel="Actualizar ganancias"><Ionicons name="refresh-outline" size={21} color="#7c3cff"/></Pressable></View>{driverEarnings?.recent.length?driverEarnings.recent.map(entry=><View key={entry.id} style={styles.driverEarningRow}><View style={[styles.driverInboxIcon,entry.amount<0&&styles.driverEarningAdjustment]}><Ionicons name={entry.category==="tip"?"heart-outline":entry.category==="adjustment"?"remove-circle-outline":entry.category==="ride"?"car-sport-outline":entry.category==="shipment"?"cube-outline":"bag-handle-outline"} size={20} color={entry.amount<0?"#a33939":"#7c3cff"}/></View><View style={styles.itemCopy}><Text style={styles.sectionTitle}>{entry.description}</Text><Text style={styles.cardText}>{entry.jobId||"Movimiento de cuenta"} · {new Date(entry.createdAt).toLocaleString("es-AR")}</Text></View><Text style={[styles.driverEarningAmount,entry.amount<0&&styles.driverEarningAmountNegative]}>{entry.amount>0?"+":""}{money.format(entry.amount)}</Text></View>):<View style={styles.driverEmptyState}><Ionicons name="receipt-outline" size={34} color="#7c3cff"/><Text style={styles.sectionTitle}>Sin movimientos todavía</Text><Text style={styles.cardText}>Los servicios completados, propinas y ajustes aparecerán al postearse en el ledger.</Text></View>}</View>
-        <View style={styles.driverTransparencyCard}><Ionicons name="shield-checkmark-outline" size={22} color="#087a50"/><View style={styles.itemCopy}><Text style={styles.sectionTitle}>Saldo honesto</Text><Text style={styles.cardText}>No mostramos metas, promociones, horas ni retiros hasta que exista un contrato productivo para cada dato.</Text></View></View>
+        <View style={styles.driverTransparencyCard}><Ionicons name="shield-checkmark-outline" size={22} color="#087a50"/><View style={styles.itemCopy}><Text style={styles.sectionTitle}>Datos honestos</Text><Text style={styles.cardText}>Ingresos y jornada provienen del ledger y de sesiones operativas. Metas, promociones y retiros siguen ocultos hasta tener contratos productivos.</Text></View></View>
       </>}
       {driverView==="inbox"&&<>
         <View style={styles.driverSectionHeading}><View><Text style={styles.driverSectionEyebrow}>COMUNICACIONES</Text><Text style={styles.driverSectionTitle}>Inbox</Text></View><View style={styles.driverUnreadBadge}><Text style={styles.driverUnreadText}>{driverNotifications.filter(item=>!item.readAt).length}</Text></View></View>
@@ -4644,6 +4670,28 @@ const styles = StyleSheet.create({
   driverPeriodLabel: { color: "#7c3cff", fontSize: 9, fontWeight: "900", letterSpacing: 1.1 },
   driverPeriodValue: { color: "#17131c", fontSize: 21, fontWeight: "900", marginTop: 8 },
   driverPeriodMeta: { color: "#77707b", fontSize: 10, fontWeight: "700", marginTop: 5 },
+  driverTimeCard: { borderRadius: 25, padding: 18, gap: 15, backgroundColor: "#fff", borderWidth: 1, borderColor: "#e9e3ed", shadowColor: "#2b1738", shadowOpacity: .06, shadowRadius: 16, shadowOffset: {width:0,height:7}, elevation: 2 },
+  driverTimeTitle: { color: "#17131c", fontSize: 22, fontWeight: "900", marginTop: 3 },
+  driverTimeClock: { width: 44, height: 44, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: "#f0e7ff" },
+  driverTimeGrid: { flexDirection: "row", gap: 10 },
+  driverTimeMetric: { flex: 1, minWidth: 0, minHeight: 105, padding: 14, borderRadius: 19, backgroundColor: "#f8f6fa" },
+  driverTimeMetricTop: { flexDirection: "row", alignItems: "center", gap: 7 },
+  driverTimeDot: { width: 8, height: 8, borderRadius: 4 },
+  driverTimeLabel: { color: "#6f6874", fontSize: 9, fontWeight: "900", letterSpacing: .8 },
+  driverTimeValue: { color: "#17131c", fontSize: 22, fontWeight: "900", marginTop: 12, fontVariant: ["tabular-nums"] },
+  driverTimeMeta: { color: "#77707b", fontSize: 10, fontWeight: "600", marginTop: 5 },
+  driverTimeRatio: { gap: 7 },
+  driverTimeTrack: { height: 7, borderRadius: 4, overflow: "hidden", backgroundColor: "#e9e3ed" },
+  driverTimeFill: { height: "100%", minWidth: 3, borderRadius: 4, backgroundColor: "#087a50" },
+  driverTimeRatioText: { color: "#5e5663", fontSize: 10, fontWeight: "700" },
+  driverTimeWarning: { flexDirection: "row", alignItems: "flex-start", gap: 8, padding: 11, borderRadius: 14, backgroundColor: "#fff6e8" },
+  driverTimeWarningText: { flex: 1, color: "#80500b", fontSize: 11, lineHeight: 16, fontWeight: "600" },
+  driverTimeWeek: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8, paddingTop: 2 },
+  driverTimeWeekLabel: { color: "#7c3cff", fontSize: 9, fontWeight: "900", letterSpacing: 1 },
+  driverTimeWeekValue: { color: "#3e3742", fontSize: 11, fontWeight: "800" },
+  driverTimeWeekDivider: { width: 3, height: 3, borderRadius: 2, backgroundColor: "#aaa1af" },
+  driverTimeSource: { color: "#89818d", fontSize: 9, lineHeight: 14, fontWeight: "600" },
+  driverTimeUnavailable: { flexDirection: "row", alignItems: "flex-start", gap: 11, padding: 15, borderRadius: 20, backgroundColor: "#fff0ef", borderWidth: 1, borderColor: "#f1cfcc" },
   driverEarningRow: { minHeight: 72, flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#eee9f1" },
   driverEarningAdjustment: { backgroundColor: "#fff0ef" },
   driverEarningAmount: { color: "#087a50", fontSize: 14, fontWeight: "900", fontVariant: ["tabular-nums"] },
