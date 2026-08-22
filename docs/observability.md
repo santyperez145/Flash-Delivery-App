@@ -21,4 +21,4 @@ Ventana móvil de 28 días:
 - Tracking: 99 % de eventos persistidos disponibles para reanudación antes de 5 s.
 - Pagos: cero desbalance de ledger; conciliaciones pendientes por más de 15 minutos generan incidente.
 
-El presupuesto de error de disponibilidad es 0,1 % mensual. Al consumir 50 % antes de la mitad de la ventana se congelan cambios no esenciales; al consumir 100 % sólo se permiten correcciones de confiabilidad. Faltan conectar reglas y paging a un entorno administrado para considerar `OBS-001` completo.
+El presupuesto de error de disponibilidad es 0,1 % mensual. Al consumir 50 % antes de la mitad de la ventana se congelan cambios no esenciales; al consumir 100 % sólo se permiten correcciones de confiabilidad. `observability/prometheus-rules.yml` implementa burn rate rápido/sostenido, latencia, pool PostgreSQL y dead-letter; cada alerta tiene severidad, espera y runbook versionado. Falta conectar Prometheus/Alertmanager y paging a un entorno administrado para considerar `OBS-001` completo.
