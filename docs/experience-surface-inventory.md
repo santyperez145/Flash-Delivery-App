@@ -65,7 +65,7 @@ Flash adopta jerarquía y estados comparables, no texto, activos, colores ni ide
 ### Home / mapa
 
 - [~] estado Offline/Online dominante y GPS/background explícito.
-- [ ] mapa de demanda/zonas con datos agregados reales; no inventar heatmap.
+- [x] mapa de demanda/zonas con trabajos y oferta elegible agregados por PostGIS; reemplaza el mapa libre por ruta al aceptar y nunca inventa hotspots, forecast o surge.
 - [x] selector de vertical compatible con vehículo aprobado.
 - [x] ofertas exclusivas con expiración, pago, pickup, destino, distancia y duración.
 - [ ] Trip Radar/múltiples ofertas sólo cuando dispatch soporte matching no exclusivo.

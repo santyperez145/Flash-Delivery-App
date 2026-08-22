@@ -40,7 +40,9 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [x] La oferta excluye GPS con más de 5 minutos o peor a 100 m, compliance/vehículo no aprobados y conductores sin capacidad; nunca se exponen puntos de trabajos u otros conductores.
 - [x] OpenAPI y smoke físico verifican roles, `no-store`, conteos contra SQL, geometría agregada y bandas deterministas.
 - [x] La investigación competitiva y la metodología quedan registradas en `docs/competitive-research/driver-demand-zones.md`; el contrato declara que no pronostica ofertas/ganancias ni altera precios.
-- [~] Falta conectar el snapshot a polígonos nativos y estados mobile; forecast, surge y recomendación de posicionamiento permanecen bloqueados hasta disponer de datos/modelo, monitoreo de sesgos y operación real.
+- [x] Home Driver muestra primero el mapa operativo: libre renderiza polígonos nativos y tarjetas con loading/empty/error/stale/refresh; con trabajo activo reemplaza demanda por ruta y cockpit sin mezclar contextos.
+- [x] Android/iOS compilan el renderer `react-native-maps`; web mobile degrada explícitamente sin evaluar el SDK nativo y conserva los conteos verificables. Typecheck, Expo Doctor 21/21, exports Android/iOS/web y prueba visual real están verdes.
+- [~] Forecast, surge y recomendación de posicionamiento permanecen bloqueados hasta disponer de datos/modelo, monitoreo de sesgos y operación real; la cartografía nativa productiva aún requiere clave restringida, builds firmados y prueba física.
 
 ## Avance 22 de agosto de 2026 — mapas nativos mobile
 
