@@ -29,6 +29,7 @@
     "worker:payment-oauth": "node --env-file-if-exists=.env.local scripts/payment-oauth-refresh-worker.mjs",
     "worker:support": "node --env-file-if-exists=.env.local scripts/support-worker.mjs",
     "realtime:prune": "node --env-file-if-exists=.env.local scripts/realtime-prune.mjs",
+    "idempotency:prune": "node --env-file-if-exists=.env.local scripts/idempotency-prune.mjs",
     "mobile:start": "npm --prefix apps/mobile run start",
     "mobile:typecheck": "npm --prefix apps/mobile run typecheck",
     "preview": "vite preview --host 127.0.0.1",
@@ -85,7 +86,8 @@
     "test:web-bundle-budget": "node scripts/web-bundle-budget.mjs",
     "test:web-delivery": "node scripts/web-delivery-smoke.mjs",
     "test:openapi-contract": "node scripts/openapi-contract-smoke.mjs",
-    "test:graceful-shutdown": "node scripts/graceful-shutdown-smoke.mjs"
+    "test:graceful-shutdown": "node scripts/graceful-shutdown-smoke.mjs",
+    "test:idempotency-prune": "node scripts/idempotency-prune-smoke.mjs"
   },
   "dependencies": {
     "@mercadopago/sdk-react": "^1.0.7",
