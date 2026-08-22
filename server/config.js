@@ -54,6 +54,7 @@ const envSchema = z.object({
   ,FEATURE_FLAG_SALT: z.string().min(32).default("local-feature-flag-salt-change-before-prod")
   ,REDIS_URL: z.string().url().optional()
   ,REDIS_REQUIRED: booleanFromEnv.default(false)
+  ,SHUTDOWN_GRACE_MS: z.coerce.number().int().min(1000).max(60000).default(10000)
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -134,4 +135,5 @@ export const config = {
   }
   ,featureFlagSalt: env.FEATURE_FLAG_SALT
   ,redis: { url: env.REDIS_URL, required: env.REDIS_REQUIRED }
+  ,shutdownGraceMs: env.SHUTDOWN_GRACE_MS
 };

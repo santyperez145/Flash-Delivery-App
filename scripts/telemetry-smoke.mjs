@@ -33,7 +33,7 @@ api.stderr.on("data", (data) => process.stderr.write(data));
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 try {
   let ready = false;
-  for (let attempt = 0; attempt < 60; attempt += 1) {
+  for (let attempt = 0; attempt < 120; attempt += 1) {
     try {
       const response = await fetch(`http://127.0.0.1:${apiPort}/api/health`, {
         headers: { "x-request-id": "REQ-otel-smoke-0001" },

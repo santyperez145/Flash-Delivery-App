@@ -38,6 +38,7 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [~] Autorización ampliamente probada; OpenAPI 3.1 y contratos runtime cubren plataforma, geografía, auth, sesiones y cotización/creación idempotente de comida, viajes y envíos. Faltan tracking, dispatch, pagos, soporte y operaciones; OpenTelemetry HTTP/PostgreSQL ya exporta por OTLP.
 - [~] Redis con readiness obligatorio, rate limiting compartido y ensayo real de dos réplicas en CI; falta migrar presencia realtime y validar un servicio administrado con failover.
 - [x] El entorno Docker separa owner/migrador, runtime y auditor; readiness productivo rechaza roles con `BYPASSRLS` o propietarios del esquema y CI impide volver a credenciales compartidas.
+- [x] Despliegues drenan readiness y SSE, dejan finalizar HTTP, aplican un límite configurable y cierran listener realtime, PostgreSQL, Redis y OpenTelemetry en orden; Docker concede 20 segundos antes de matar el contenedor.
 
 #### Fase 2 — delivery beta-ready
 

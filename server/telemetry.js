@@ -2,6 +2,13 @@ import { config } from "./config.js";
 
 let sdk;
 
+export async function stopTelemetry() {
+  if (!sdk) return;
+  const activeSdk = sdk;
+  sdk = undefined;
+  await activeSdk.shutdown();
+}
+
 export async function startTelemetry() {
   if (!config.telemetry.enabled) return false;
 
@@ -39,14 +46,5 @@ export async function startTelemetry() {
   });
 
   sdk.start();
-  const shutdown = async () => {
-    try {
-      await sdk?.shutdown();
-    } catch (error) {
-      console.error(JSON.stringify({ level: "error", event: "telemetry.shutdown_failed", message: error.message }));
-    }
-  };
-  process.once("SIGTERM", shutdown);
-  process.once("SIGINT", shutdown);
   return true;
 }

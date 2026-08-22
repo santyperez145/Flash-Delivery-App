@@ -46,6 +46,9 @@ jobs:
       - name: OpenAPI core contract
         run: npm run test:openapi-contract
 
+      - name: Graceful shutdown contract
+        run: npm run test:graceful-shutdown
+
       - name: Secret scan
         run: npm run test:secrets
 
