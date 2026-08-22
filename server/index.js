@@ -254,6 +254,7 @@ import {
   getDriverPreferences,
   updateDriverPreferences,
 } from "./driver-preference-repository.js";
+import { getDriverDemandZones } from "./driver-demand-repository.js";
 import {
   createRideSafetyIncident,
   createRideTrackingLink,
@@ -2892,6 +2893,18 @@ app.get("/api/driver/earnings", requireAuth, requireAnyRole("driver"), async (re
     res.set("Cache-Control","no-store, private");return ok(res,{earnings});
   } catch(error) {
     return fail(res,error.status||500,error.message||"No se pudieron cargar las ganancias");
+  }
+});
+
+app.get("/api/driver/demand-zones", requireAuth, requireAnyRole("driver"), async (req,res)=>{
+  if(!usesPostgresCommerce())return fail(res,503,"La demanda por zonas requiere PostgreSQL/PostGIS");
+  try {
+    const demand=await getDriverDemandZones(req.auth.userId);
+    if(!demand)return fail(res,404,"Perfil de conductor no encontrado");
+    res.set("Cache-Control","no-store, private");
+    return ok(res,{demand});
+  } catch(error) {
+    return fail(res,error.status||500,error.message||"No se pudo calcular la demanda por zonas");
   }
 });
 
