@@ -458,7 +458,22 @@ app.use(requestContext);
 app.use(requestLogger);
 app.use(
   helmet({
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        baseUri: ["'self'"],
+        connectSrc: ["'self'", ...config.corsOrigins.filter((origin) => origin !== "*")],
+        fontSrc: ["'self'", "data:"],
+        formAction: ["'self'"],
+        frameAncestors: ["'none'"],
+        imgSrc: ["'self'", "data:", "blob:", "https:"],
+        objectSrc: ["'none'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        workerSrc: ["'self'", "blob:"],
+        upgradeInsecureRequests: config.isProduction ? [] : null,
+      },
+    },
     crossOriginEmbedderPolicy: false,
     strictTransportSecurity: config.isProduction ? undefined : false,
   }),

@@ -34,6 +34,7 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [~] Monolito modular por repositorios; falta migrar Express y frontend principal a TypeScript modular.
 - [~] Bundle web con React e iconos en chunks cacheables y presupuesto CI: entry propio reducido de 718 KiB a 327 KiB; falta extraer Customer, Negocios y Operaciones del `App.tsx` monolítico y medir Core Web Vitals con tráfico real.
 - [x] Entrega web productiva con gzip dinámico, assets versionados inmutables por un año, HTML revalidable y SSE excluido de compresión para evitar buffering; contrato HTTP bloqueante en CI.
+- [x] CSP activa por defecto: scripts same-origin, sin `unsafe-eval`, objetos/iframes bloqueados y allowlist explícita para API, mapas, imágenes, workers y estilos necesarios; contrato bloqueante sobre el HTML real.
 - [x] Viajes exige cotización JWT vigente en PostgreSQL igual que comida/envíos; desktop consume opciones firmadas, invalida tarifa al cambiar ruta/categoría y bloquea confirmación sin recotizar. El endpoint legacy también firma su respuesta.
 - [x] PostgreSQL/PostGIS, 91 migraciones, idempotencia, locks, auth, MFA, outbox, métricas, backup y restore.
 - [~] Autorización ampliamente probada; OpenAPI 3.1 y contratos runtime cubren plataforma, geografía, auth, sesiones y cotización/creación idempotente de comida, viajes y envíos. Faltan tracking, dispatch, pagos, soporte y operaciones; OpenTelemetry HTTP/PostgreSQL ya exporta por OTLP.

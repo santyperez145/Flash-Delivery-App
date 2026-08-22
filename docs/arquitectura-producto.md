@@ -22,7 +22,11 @@ Flash Delivery Mobility esta organizada como una plataforma multirol:
 - Base de datos principal: PostgreSQL 17 + PostGIS, migraciones SQL versionadas y RLS. SQLite queda aislado como fallback de pruebas sin `DATABASE_URL`.
 - Auth: bcrypt, access/refresh tokens rotativos, sesiones revocables, bloqueo por intentos y MFA administrativo.
 - Validacion: `zod` en endpoints criticos.
-- Seguridad HTTP: Helmet, CORS con allowlist y rate limiting.
+- Seguridad HTTP: Helmet, CORS con allowlist, rate limiting y CSP activa. CSP
+  restringe scripts y conexiones a orígenes declarados, bloquea objetos,
+  framing y `unsafe-eval`, y permite HTTPS para imágenes/mapas. Los estilos
+  inline siguen permitidos por la UI React actual; migrarlos a clases o nonces
+  permitiría retirar `unsafe-inline` en una fase posterior.
 - Operacion: request IDs, logs estructurados, health y readiness.
 
 ## Diagrama de dominio
