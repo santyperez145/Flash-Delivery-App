@@ -14,6 +14,8 @@ import type {
   Ride,
   RideQuote,
   RideForm,
+  Shipment,
+  DeliveryEvidence,
   User,
 } from "./types";
 
@@ -222,9 +224,9 @@ export const api = {
     });
   },
   async state() {
-    const[bootstrap,activity,catalog,driverContext,merchantContext,assignedDrivers,operationsRestaurants,operationsDrivers,operationsUsers,operationsSupport,configuration,operationsAudit,accountContext]=await Promise.all([request<{state:Omit<AppState,"orders"|"rides">&{restaurants?:Restaurant[];drivers?:Driver[];users?:User[];supportTickets?:import("./types").SupportTicket[];zones?:AppState["zones"];promotions?:AppState["promotions"];auditEvents?:AppState["auditEvents"]};audience:string}>(`/bootstrap/${activeAudience}`),this.getActivity(undefined,50),["customer","driver"].includes(activeAudience)?this.getCatalog(undefined,50):Promise.resolve(null),activeAudience==="driver"?this.getCurrentDriver():Promise.resolve(null),activeAudience==="merchant"?this.getCurrentMerchant():Promise.resolve(null),["customer","merchant"].includes(activeAudience)?this.getAssignedDrivers():Promise.resolve(null),activeAudience==="operations"?this.getOperationsRestaurants(undefined,100):Promise.resolve(null),activeAudience==="operations"?this.getOperationsDrivers(undefined,100):Promise.resolve(null),activeAudience==="operations"?this.getOperationsUsers(undefined,100):Promise.resolve(null),activeAudience==="operations"?this.getOperationsSupportTickets(undefined,100):Promise.resolve(null),this.getRuntimeConfiguration(),activeAudience==="operations"?this.getOperationsAuditEvents(undefined,100):Promise.resolve(null),this.getAccountContext()]);
+    const[bootstrap,activity,catalog,driverContext,merchantContext,assignedDrivers,operationsRestaurants,operationsDrivers,operationsUsers,operationsSupport,configuration,operationsAudit,accountContext]=await Promise.all([request<{state:Omit<AppState,"orders"|"rides"|"shipments">&{restaurants?:Restaurant[];drivers?:Driver[];users?:User[];supportTickets?:import("./types").SupportTicket[];zones?:AppState["zones"];promotions?:AppState["promotions"];auditEvents?:AppState["auditEvents"]};audience:string}>(`/bootstrap/${activeAudience}`),this.getActivity(undefined,50),["customer","driver"].includes(activeAudience)?this.getCatalog(undefined,50):Promise.resolve(null),activeAudience==="driver"?this.getCurrentDriver():Promise.resolve(null),activeAudience==="merchant"?this.getCurrentMerchant():Promise.resolve(null),["customer","merchant"].includes(activeAudience)?this.getAssignedDrivers():Promise.resolve(null),activeAudience==="operations"?this.getOperationsRestaurants(undefined,100):Promise.resolve(null),activeAudience==="operations"?this.getOperationsDrivers(undefined,100):Promise.resolve(null),activeAudience==="operations"?this.getOperationsUsers(undefined,100):Promise.resolve(null),activeAudience==="operations"?this.getOperationsSupportTickets(undefined,100):Promise.resolve(null),this.getRuntimeConfiguration(),activeAudience==="operations"?this.getOperationsAuditEvents(undefined,100):Promise.resolve(null),this.getAccountContext()]);
     const account=accountContext.account;
-    return{...bootstrap,state:{...bootstrap.state,addresses:account.addresses,paymentMethods:account.paymentMethods,walletTransactions:account.walletTransactions,ratings:account.ratings,favoriteRestaurantIds:account.favoriteRestaurantIds||[],tips:account.tips||[],zones:configuration.zones,promotions:configuration.promotions,auditEvents:operationsAudit?.events||bootstrap.state.auditEvents||[],users:operationsUsers?.users||bootstrap.state.users||[],supportTickets:operationsSupport?.tickets||account.supportTickets||[],restaurants:operationsRestaurants?.restaurants||merchantContext?.restaurants||catalog?.restaurants||bootstrap.state.restaurants||[],drivers:operationsDrivers?.drivers||(driverContext?[driverContext.driver]:(assignedDrivers?.drivers||bootstrap.state.drivers||[])),orders:activity.items.filter(item=>item.kind==="order").map(item=>item.resource) as AppState["orders"],rides:activity.items.filter(item=>item.kind==="ride").map(item=>item.resource) as AppState["rides"]} as AppState};
+    return{...bootstrap,state:{...bootstrap.state,addresses:account.addresses,paymentMethods:account.paymentMethods,walletTransactions:account.walletTransactions,ratings:account.ratings,favoriteRestaurantIds:account.favoriteRestaurantIds||[],tips:account.tips||[],zones:configuration.zones,promotions:configuration.promotions,auditEvents:operationsAudit?.events||bootstrap.state.auditEvents||[],users:operationsUsers?.users||bootstrap.state.users||[],supportTickets:operationsSupport?.tickets||account.supportTickets||[],restaurants:operationsRestaurants?.restaurants||merchantContext?.restaurants||catalog?.restaurants||bootstrap.state.restaurants||[],drivers:operationsDrivers?.drivers||(driverContext?[driverContext.driver]:(assignedDrivers?.drivers||bootstrap.state.drivers||[])),orders:activity.items.filter(item=>item.kind==="order").map(item=>item.resource) as AppState["orders"],rides:activity.items.filter(item=>item.kind==="ride").map(item=>item.resource) as AppState["rides"],shipments:activity.items.filter(item=>item.kind==="shipment").map(item=>item.resource) as AppState["shipments"]} as AppState};
   },
   async getCurrentDriver(){return request<{driver:Driver}>("/driver/me");},
   async getCurrentMerchant(){return request<{restaurants:Restaurant[]}>("/merchant/me");},
@@ -760,10 +762,33 @@ export const api = {
   },
 
   async acceptShipment(shipmentId: string, driverId: string) {
-    return request<{ shipment: unknown }>(`/shipments/${shipmentId}/accept`, {
+    return request<{ shipment: Shipment }>(`/shipments/${shipmentId}/accept`, {
       method: "POST",
       body: JSON.stringify({ driverId }),
     });
+  },
+
+  async setShipmentStatus(
+    shipmentId: string,
+    status: "cancelled",
+    reason = "changed_mind",
+  ) {
+    return request<{ shipment: Shipment }>(`/shipments/${shipmentId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status, reason }),
+    });
+  },
+
+  async getShipmentDeliveryCode(shipmentId: string) {
+    return request<{ deliveryCode: string }>(
+      `/shipments/${shipmentId}/delivery-code`,
+    );
+  },
+
+  async getShipmentDeliveryEvidence(shipmentId: string) {
+    return request<{ evidence: DeliveryEvidence[] }>(
+      `/shipments/${shipmentId}/delivery-evidence`,
+    );
   },
 
   async advanceRide(rideId: string) {

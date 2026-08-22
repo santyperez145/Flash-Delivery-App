@@ -1,6 +1,6 @@
 # Seguimiento visual de envíos
 
-Actividad abre un panel dedicado para cada envío activo. No anima posiciones ficticias: consume origen/destino PostGIS del job, ruta vial de `/api/maps/route`, estado/timeline PostgreSQL y última ubicación persistida del conductor asignado.
+Actividad web/PWA y mobile abren un panel dedicado para cada envío activo. No anima posiciones ficticias: consume origen/destino PostGIS del job, ruta vial de `/api/maps/route`, estado/timeline PostgreSQL y última ubicación persistida del conductor asignado.
 
 ## Mapa adaptable
 
@@ -17,7 +17,11 @@ Si Routes no responde, el panel conserva el estado operativo y muestra un error 
 - Estado de logística inversa cuando existe una devolución.
 - PIN obtenido bajo demanda por el propietario; el backend lo deniega después del cierre.
 
-La tarjeta de Actividad es ahora interactiva y abre este seguimiento. El mismo encuadre adaptativo también se aplica al tracking de comida para reducir roturas en trayectos fuera del centro habitual.
+La PWA comparte el estado descriptivo por Web Share o portapapeles; no crea un enlace público sin un contrato de privacidad equivalente al de viajes.
+
+La tarjeta de Actividad web es interactiva y abre este seguimiento. El mismo encuadre adaptativo también se aplica al tracking de comida para reducir roturas en trayectos fuera del centro habitual.
+
+La creación del envío, la cotización firmada, la devolución y los reclamos siguen siendo acciones de la app mobile en esta entrega. La web no muestra un botón de alta que no tenga todavía un formulario de cotización y términos equivalentes.
 
 ## Verificación
 

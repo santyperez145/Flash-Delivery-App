@@ -248,6 +248,59 @@ export type Ride = {
   timeline: TimelineEntry<RideStatus>[];
 };
 
+export type Shipment = {
+  id: string;
+  customerId: string;
+  driverId: string | null;
+  status:
+    | "requested"
+    | "driver_assigned"
+    | "arriving"
+    | "picked_up"
+    | "delivering"
+    | "delivered"
+    | "cancelled";
+  pickup: string;
+  destination: string;
+  pickupLocation?: GeoPoint | null;
+  destinationLocation?: GeoPoint | null;
+  recipientName: string;
+  recipientPhone: string;
+  packageSize: "small" | "medium" | "large";
+  description: string;
+  weightKg: number;
+  deliveryNotes: string;
+  declaredValue?: number;
+  protection?: "none" | "standard";
+  protectionPremium?: number;
+  signatureRequired?: boolean;
+  itemCategory?: "documents" | "standard" | "fragile" | "electronics";
+  serviceLevel?: "economy" | "standard" | "priority" | "express";
+  handlingInstructions?: string;
+  distanceKm: number;
+  etaMin: number;
+  fare: number;
+  deliveryPin?: string;
+  deliveryEvidenceCount?: number;
+  deliveryVerifiedAt?: string | null;
+  timeline?: Array<{ status: string; at: string }>;
+};
+
+export type DeliveryEvidence = {
+  id: string;
+  shipmentId: string;
+  type: "photo" | "signature";
+  mimeType: "image/jpeg" | "image/png" | "image/webp";
+  sha256: string;
+  sizeBytes: number;
+  capturedLocation: GeoPoint | null;
+  capturedAt: string;
+  createdAt: string;
+  signerName?: string | null;
+  signerRelationship?: "recipient" | "authorized_person" | null;
+  consentVersion?: string | null;
+};
+
 export type Promotion = {
   id: string;
   code?: string;
@@ -497,6 +550,7 @@ export type AppState = {
   drivers: Driver[];
   orders: Order[];
   rides: Ride[];
+  shipments: Shipment[];
   promotions: Promotion[];
   favoriteRestaurantIds?: string[];
   supportTickets: SupportTicket[];
