@@ -21,10 +21,12 @@ llamadas en la ventana para no paginar por un único OAuth o reintegro aislado.
 npm run idempotency:prune
 ```
 
-Programar el comando periódicamente después de la ventana máxima de retry. Borra
-como máximo `IDEMPOTENCY_PRUNE_BATCH` claves ya vencidas (límite duro 10.000) y
-usa `FOR UPDATE SKIP LOCKED`, por lo que varias réplicas no eliminan el mismo lote
-ni bloquean escrituras activas. Nunca elimina una clave antes de `expires_at`.
+Programar el comando periódicamente después de la ventana máxima de retry. Cada
+lote borra como máximo `IDEMPOTENCY_PRUNE_BATCH` claves ya vencidas (límite duro
+10.000) y el proceso drena hasta `IDEMPOTENCY_PRUNE_MAX_BATCHES` lotes (10 por
+defecto, límite duro 100). Se detiene al encontrar un lote parcial. Usa
+`FOR UPDATE SKIP LOCKED`, por lo que varias réplicas no eliminan el mismo lote ni
+bloquean escrituras activas. Nunca elimina una clave antes de `expires_at`.
 
 ## Renovación OAuth de comercios
 
