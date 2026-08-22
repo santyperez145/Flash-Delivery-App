@@ -21,7 +21,9 @@ La PWA comparte el estado descriptivo por Web Share o portapapeles; no crea un e
 
 La tarjeta de Actividad web es interactiva y abre este seguimiento. El mismo encuadre adaptativo también se aplica al tracking de comida para reducir roturas en trayectos fuera del centro habitual.
 
-La creación del envío, la cotización firmada, la devolución y los reclamos siguen siendo acciones de la app mobile en esta entrega. La web no muestra un botón de alta que no tenga todavía un formulario de cotización y términos equivalentes.
+La web ya incorpora cotización y solicitud del envío: geocodifica origen y destino, carga categorías y niveles desde `GET /api/shipment-options`, exige datos del destinatario, restricciones, términos y un `quoteToken` vigente antes de crear. La mutación usa `Idempotency-Key` y sólo ofrece Flash Wallet; tarjetas y otros medios no se presentan como cobrables hasta conectar un proveedor de pagos equivalente al checkout de comida.
+
+La devolución y los reclamos siguen disponibles desde la app mobile y la consola operativa. Esta separación es intencional: la PWA no muestra botones de excepción que todavía no tengan el mismo contrato de ownership, evidencia y auditoría.
 
 ## Verificación
 

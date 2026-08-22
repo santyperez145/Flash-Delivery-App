@@ -710,7 +710,7 @@ img {
 
 .service-toggle {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin: 16px 0;
   padding: 5px;
@@ -740,6 +740,300 @@ img {
 
 .compact-toggle {
   margin: 12px 0;
+}
+
+.shipment-home {
+  display: grid;
+  gap: 12px;
+}
+
+.shipment-hero {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 16px;
+  color: var(--ink);
+  background: #eaf8f0;
+  border: 1px solid #ccebd8;
+  border-radius: 14px;
+}
+
+.shipment-hero-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  place-items: center;
+  color: #fff;
+  background: #087a50;
+  border-radius: 12px;
+}
+
+.shipment-hero h1,
+.shipment-hero p {
+  margin: 0;
+}
+
+.shipment-hero h1 {
+  margin-top: 3px;
+  font-size: 1.15rem;
+}
+
+.shipment-hero p {
+  margin-top: 5px;
+  color: #466354;
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+
+.shipment-form-card,
+.shipment-confirm-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 9px 24px rgba(39, 28, 46, 0.05);
+}
+
+.shipment-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.shipment-section-heading.compact {
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+
+.shipment-section-heading h2 {
+  margin: 3px 0 0;
+  color: var(--ink);
+  font-size: 0.96rem;
+}
+
+.shipment-live-chip,
+.shipment-quote-eta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 8px;
+  color: #087a50;
+  background: #eaf8f0;
+  border-radius: 999px;
+  font-size: 0.63rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.shipment-address-grid,
+.shipment-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.shipment-form-card label,
+.shipment-form-card > label,
+.shipment-confirm-card label {
+  display: grid;
+  gap: 5px;
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.shipment-form-card input,
+.shipment-form-card select,
+.shipment-form-card textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 10px;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid #dcd4e1;
+  border-radius: 9px;
+  font: inherit;
+  font-size: 0.78rem;
+}
+
+.shipment-form-card textarea {
+  min-height: 68px;
+  resize: vertical;
+}
+
+.shipment-size-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.shipment-size-grid button {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  min-height: 80px;
+  padding: 10px;
+  color: var(--ink-soft);
+  text-align: left;
+  background: var(--paper-soft);
+  border: 1px solid transparent;
+  border-radius: 10px;
+}
+
+.shipment-size-grid button svg {
+  color: #087a50;
+}
+
+.shipment-size-grid button strong {
+  color: var(--ink);
+  font-size: 0.74rem;
+}
+
+.shipment-size-grid button small {
+  color: var(--muted);
+  font-size: 0.64rem;
+}
+
+.shipment-size-grid button.active {
+  background: #eaf8f0;
+  border-color: #70bd92;
+  box-shadow: 0 0 0 2px rgba(8, 122, 80, 0.08);
+}
+
+.shipment-check-row {
+  display: flex !important;
+  grid-template-columns: none;
+  align-items: flex-start;
+  gap: 8px !important;
+  padding: 10px;
+  color: var(--ink) !important;
+  background: var(--paper-soft);
+  border-radius: 10px;
+}
+
+.shipment-check-row input {
+  width: 16px;
+  min-height: 16px;
+  margin-top: 2px;
+  accent-color: #087a50;
+}
+
+.shipment-check-row span {
+  display: grid;
+  gap: 3px;
+}
+
+.shipment-check-row strong {
+  font-size: 0.74rem;
+}
+
+.shipment-check-row small,
+.shipment-check-row.terms span {
+  color: var(--ink-soft);
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.shipment-rule-note,
+.form-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 0;
+  padding: 9px 10px;
+  border-radius: 9px;
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+
+.shipment-rule-note {
+  color: #476c57;
+  background: #f0faf4;
+}
+
+.form-error {
+  color: #9a302b;
+  background: #fff0ed;
+}
+
+.shipment-quote-button {
+  background: #087a50;
+}
+
+.shipment-quote-card {
+  display: grid;
+  gap: 9px;
+  padding: 14px;
+  color: var(--ink);
+  background: #f4fbf7;
+  border: 1px solid #bfe3cc;
+  border-radius: 14px;
+}
+
+.shipment-quote-topline,
+.shipment-payment-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.shipment-quote-topline > div,
+.shipment-payment-row > div {
+  display: grid;
+  gap: 3px;
+}
+
+.shipment-quote-topline strong {
+  color: #087a50;
+  font-size: 1.35rem;
+}
+
+.shipment-quote-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.shipment-quote-details span {
+  padding: 5px 7px;
+  color: #476c57;
+  background: #e6f5ec;
+  border-radius: 999px;
+  font-size: 0.64rem;
+  font-weight: 800;
+}
+
+.shipment-quote-card > small,
+.shipment-payment-row small {
+  color: #627468;
+  font-size: 0.68rem;
+  line-height: 1.4;
+}
+
+.shipment-payment-row > svg {
+  color: #087a50;
+}
+
+@media (max-width: 620px) {
+  .service-toggle button {
+    gap: 4px;
+    font-size: 0.72rem;
+  }
+
+  .shipment-address-grid,
+  .shipment-fields-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .shipment-section-heading {
+    flex-direction: column;
+  }
 }
 
 .promo-card {

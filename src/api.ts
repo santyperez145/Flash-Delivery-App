@@ -14,6 +14,7 @@ import type {
   Ride,
   RideQuote,
   RideForm,
+  ShipmentQuote,
   Shipment,
   DeliveryEvidence,
   User,
@@ -251,6 +252,13 @@ export const api = {
     return request<{ route: RoadRoute; provider: string }>(
       `/maps/route?${params.toString()}`,
     );
+  },
+
+  async geocode(query: string) {
+    return request<{
+      results: Array<{ label: string; point: GeoPoint; type: string }>;
+      provider: string;
+    }>(`/maps/geocode?q=${encodeURIComponent(query)}`);
   },
 
   async updateProfile(payload: {
@@ -735,6 +743,53 @@ export const api = {
     const quote = response.options.find((option) => option.service === payload.service);
     if (!quote?.quoteToken) throw new Error("No hay una cotización vigente para esa categoría");
     return { quote };
+  },
+
+  async quoteShipment(payload: {
+    pickup: string;
+    destination: string;
+    packageSize: Shipment["packageSize"];
+    weightKg: number;
+    declaredValue?: number;
+    protection?: Shipment["protection"];
+    signatureRequired?: boolean;
+    itemCategory?: Shipment["itemCategory"];
+    serviceLevel?: Shipment["serviceLevel"];
+    pickupCoords?: GeoPoint | null;
+    destinationCoords?: GeoPoint | null;
+  }) {
+    return request<{ quote: ShipmentQuote }>("/shipments/quote", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+
+  async createShipment(payload: {
+    customerId: string;
+    pickup: string;
+    destination: string;
+    recipientName: string;
+    recipientPhone: string;
+    packageSize: Shipment["packageSize"];
+    description: string;
+    weightKg: number;
+    declaredValue?: number;
+    protection?: Shipment["protection"];
+    signatureRequired?: boolean;
+    itemCategory?: Shipment["itemCategory"];
+    serviceLevel?: Shipment["serviceLevel"];
+    deliveryNotes: string;
+    paymentMethod: string;
+    termsAccepted: true;
+    pickupCoords?: GeoPoint | null;
+    destinationCoords?: GeoPoint | null;
+    quoteToken: string;
+  }) {
+    return request<{ shipment: Shipment }>("/shipments", {
+      method: "POST",
+      headers: { "Idempotency-Key": crypto.randomUUID() },
+      body: JSON.stringify(payload),
+    });
   },
 
   async createRide(payload: {
