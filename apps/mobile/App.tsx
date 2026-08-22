@@ -8,7 +8,7 @@ import * as Sharing from "expo-sharing";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { captureRef } from "react-native-view-shot";
-import Svg, { Path, Polyline } from "react-native-svg";
+import Svg, { Path } from "react-native-svg";
 import {
   ActivityIndicator,
   Alert,
@@ -28,6 +28,7 @@ import {
 } from "react-native";
 import { api } from "./src/api";
 import { configureAnalytics, track } from "./src/analytics";
+import FlashNativeMap from "./src/FlashNativeMap";
 import {getBackgroundLocationState,startDriverBackgroundLocation,stopDriverBackgroundLocation,type BackgroundLocationState} from "./src/background-location";
 import type {
   AppState,
@@ -81,7 +82,9 @@ type RoadRoute = {
   steps: RoadStep[];
 };
 
-function buildTrackingMap(origin:GeoPoint,destination:GeoPoint,routeCoordinates:GeoPoint[]=[],driverPoint:GeoPoint|null=null){const points=[origin,destination,...routeCoordinates,...(driverPoint?[driverPoint]:[])],world=(point:GeoPoint,zoom:number)=>{const scale=2**zoom,lat=Math.max(-85.0511,Math.min(85.0511,point.lat)),latRad=lat*Math.PI/180;return{x:(point.lng+180)/360*scale,y:(1-Math.asinh(Math.tan(latRad))/Math.PI)/2*scale};};let zoom=15;for(;zoom>8;zoom--){const projected=points.map(point=>world(point,zoom)),xs=projected.map(point=>point.x),ys=projected.map(point=>point.y);if(Math.max(...xs)-Math.min(...xs)<=2.35&&Math.max(...ys)-Math.min(...ys)<=1.45)break;}const projected=points.map(point=>world(point,zoom)),centerX=(Math.min(...projected.map(point=>point.x))+Math.max(...projected.map(point=>point.x)))/2,centerY=(Math.min(...projected.map(point=>point.y))+Math.max(...projected.map(point=>point.y)))/2,baseX=Math.floor(centerX)-1,baseY=Math.floor(centerY)-1,project=(point:GeoPoint)=>{const value=world(point,zoom);return{x:(value.x-baseX)*100,y:(value.y-baseY)*100};};return{zoom,tiles:Array.from({length:6},(_,index)=>({key:`${zoom}-${baseX+index%3}-${baseY+Math.floor(index/3)}`,uri:`https://tile.openstreetmap.org/${zoom}/${baseX+index%3}/${baseY+Math.floor(index/3)}.png`,column:index%3,row:Math.floor(index/3)})),points:routeCoordinates.map(point=>{const value=project(point);return`${value.x},${value.y}`;}).join(" "),pickup:project(origin),dropoff:project(destination),driver:driverPoint?project(driverPoint):null};}
+function NativeMapUnavailable({message,height=260}:{message:string;height?:number}){
+  return <View style={[styles.trackingMap,styles.nativeMapEmpty,{height}]}><Ionicons name="map-outline" size={30} color="#7c3cff"/><Text style={styles.nativeMapEmptyTitle}>Mapa pendiente de coordenadas</Text><Text style={styles.nativeMapEmptyText}>{message}</Text></View>;
+}
 
 function navigationInstruction(step: RoadStep) {
   const action =
@@ -100,18 +103,18 @@ function navigationInstruction(step: RoadStep) {
 function OrderTrackingSheet({order,driver,onClose}:{order:Order|null;driver:Driver|null;onClose:()=>void}){
   const[route,setRoute]=useState<RoadRoute|null>(null),[routeError,setRouteError]=useState("");
   useEffect(()=>{if(!order?.pickupLocation||!order.deliveryLocation){setRoute(null);return;}let cancelled=false;setRouteError("");void api.route(order.pickupLocation,order.deliveryLocation).then(result=>{if(!cancelled)setRoute(result.route);}).catch(()=>{if(!cancelled)setRouteError("No pudimos cargar la ruta; el estado del pedido sigue actualizado.");});return()=>{cancelled=true;};},[order?.id,order?.pickupLocation?.lat,order?.pickupLocation?.lng,order?.deliveryLocation?.lat,order?.deliveryLocation?.lng]);
-  const map=useMemo(()=>order?.pickupLocation&&order.deliveryLocation?buildTrackingMap(order.pickupLocation,order.deliveryLocation,route?.coordinates||[],driver?.location||null):null,[order,route,driver?.location]);
+  const hasMap=Boolean(order?.pickupLocation&&order.deliveryLocation);
   if(!order)return null;const stages=["accepted","preparing","ready_for_pickup","courier_assigned","picked_up","delivering","delivered"],current=Math.max(0,stages.indexOf(order.status)),labels=["Confirmado","Preparando","Listo","Repartidor asignado","Retirado","En camino","Entregado"];
-  return <Modal visible transparent animationType="slide" onRequestClose={onClose}><View style={styles.trackingBackdrop}><View style={styles.trackingSheet}><View style={styles.trackingHeader}><View><Text style={styles.orderConfirmationEyebrow}>SEGUIMIENTO EN VIVO</Text><Text style={styles.foodRestaurantTitle}>Pedido {order.id}</Text></View><Pressable style={styles.foodBack} onPress={onClose}><Ionicons name="close" size={21} color="#222"/></Pressable></View><View style={styles.trackingMap}>{map?.tiles.map(tile=><Image key={tile.key} source={{uri:tile.uri}} style={[styles.osmTile,{left:`${tile.column*33.33}%`,top:`${tile.row*50}%`}]}/>)}{map?.points?<Svg viewBox="0 0 300 200" style={styles.routeSvg}><Polyline points={map.points} fill="none" stroke="rgba(255,255,255,.96)" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round"/><Polyline points={map.points} fill="none" stroke="#ff6a21" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/></Svg>:null}{map&&<><View style={[styles.trackingPoint,{left:map.pickup.x-15,top:map.pickup.y-15}]}><Ionicons name="storefront" size={16} color="#fff"/></View><View style={[styles.trackingPoint,styles.trackingDropoff,{left:map.dropoff.x-15,top:map.dropoff.y-15}]}><Ionicons name="home" size={16} color="#fff"/></View>{map.driver&&<View style={[styles.trackingDriver,{left:map.driver.x-18,top:map.driver.y-18}]}><Ionicons name="bicycle" size={19} color="#fff"/></View>}</>}<View style={styles.trackingMapCaption}><Text style={styles.trackingMapCaptionTitle}>{route?`${route.distanceKm} km · ${route.durationMin} min de recorrido`:routeError||"Calculando ruta…"}</Text><Text style={styles.trackingMapCaptionText}>{driver?`${driver.name} · ${driver.vehicle}`:"Buscando repartidor disponible"}</Text></View></View><View style={styles.trackingStatus}><Text style={styles.foodRestaurantTitle}>{labels[current]}</Text><Text style={styles.cardText}>{order.status==="delivered"?"Tu pedido fue entregado.":`ETA publicada: ${order.etaMin} min`}</Text><View style={styles.trackingProgress}>{labels.map((label,index)=><View style={styles.trackingStage} key={label}><View style={[styles.trackingStageDot,index<=current&&styles.trackingStageDotActive]}>{index<current?<Ionicons name="checkmark" size={11} color="#fff"/>:null}</View><Text style={[styles.trackingStageText,index===current&&styles.trackingStageTextActive]}>{label}</Text></View>)}</View></View><Pressable style={styles.orderConfirmationAction} onPress={()=>Share.share({title:"Pedido Flash",message:`Mi pedido ${order.id} está ${labels[current].toLowerCase()}.`})}><Ionicons name="share-social-outline" size={18} color="#fff"/><Text style={styles.orderConfirmationActionText}>Compartir estado</Text></Pressable></View></View></Modal>;
+  return <Modal visible transparent animationType="slide" onRequestClose={onClose}><View style={styles.trackingBackdrop}><View style={styles.trackingSheet}><View style={styles.trackingHeader}><View><Text style={styles.orderConfirmationEyebrow}>SEGUIMIENTO EN VIVO</Text><Text style={styles.foodRestaurantTitle}>Pedido {order.id}</Text></View><Pressable style={styles.foodBack} onPress={onClose}><Ionicons name="close" size={21} color="#222"/></Pressable></View>{hasMap?<FlashNativeMap origin={order.pickupLocation!} destination={order.deliveryLocation!} route={route?.coordinates||[]} driver={driver?.location||null} routeColor="#ff6a21" driverIcon="bicycle" caption={route?`${route.distanceKm} km · ${route.durationMin} min de recorrido`:routeError||"Calculando ruta…"} detail={driver?`${driver.name} · ${driver.vehicle}`:"Buscando repartidor disponible"} accessibilityLabel="Mapa interactivo del pedido"/>:<NativeMapUnavailable message={routeError||"El comercio o la entrega todavía no tienen coordenadas verificadas."}/>}<View style={styles.trackingStatus}><Text style={styles.foodRestaurantTitle}>{labels[current]}</Text><Text style={styles.cardText}>{order.status==="delivered"?"Tu pedido fue entregado.":`ETA publicada: ${order.etaMin} min`}</Text><View style={styles.trackingProgress}>{labels.map((label,index)=><View style={styles.trackingStage} key={label}><View style={[styles.trackingStageDot,index<=current&&styles.trackingStageDotActive]}>{index<current?<Ionicons name="checkmark" size={11} color="#fff"/>:null}</View><Text style={[styles.trackingStageText,index===current&&styles.trackingStageTextActive]}>{label}</Text></View>)}</View></View><Pressable style={styles.orderConfirmationAction} onPress={()=>Share.share({title:"Pedido Flash",message:`Mi pedido ${order.id} está ${labels[current].toLowerCase()}.`})}><Ionicons name="share-social-outline" size={18} color="#fff"/><Text style={styles.orderConfirmationActionText}>Compartir estado</Text></Pressable></View></View></Modal>;
 }
 
 function RideTrackingSheet({ride,driver,contacts,pickupCode,onRevealCode,onShare,onSos,onCancel,onClose}:{ride:Ride|null;driver:Driver|null;contacts:RideTrustedContact[];pickupCode:string|null;onRevealCode:()=>Promise<void>;onShare:(contact?:RideTrustedContact)=>void;onSos:()=>void;onCancel:()=>void;onClose:()=>void}){
   const[route,setRoute]=useState<RoadRoute|null>(null),[routeError,setRouteError]=useState("");
   useEffect(()=>{if(!ride?.pickupLocation||!ride.destinationLocation){setRoute(null);return;}let cancelled=false;setRouteError("");void api.route(ride.pickupLocation,ride.destinationLocation).then(result=>{if(!cancelled)setRoute(result.route);}).catch(()=>{if(!cancelled)setRouteError("La ruta no está disponible; el estado del viaje sigue actualizado.");});return()=>{cancelled=true;};},[ride?.id,ride?.pickupLocation?.lat,ride?.pickupLocation?.lng,ride?.destinationLocation?.lat,ride?.destinationLocation?.lng]);
-  const map=useMemo(()=>ride?.pickupLocation&&ride.destinationLocation?buildTrackingMap(ride.pickupLocation,ride.destinationLocation,route?.coordinates||[],driver?.location||null):null,[ride,route,driver?.location]);
+  const hasMap=Boolean(ride?.pickupLocation&&ride.destinationLocation);
   if(!ride)return null;
   const stages:Ride["status"][]=["requested","driver_assigned","arriving","in_progress","completed"],labels=["Buscando conductor","Conductor asignado","Llegando a buscarte","Viaje en curso","Llegaste"],current=Math.max(0,stages.indexOf(ride.status)),headline=labels[current]||ride.status.replaceAll("_"," "),nextStep=route?.steps[0]?navigationInstruction(route.steps[0]):null;
-  return <Modal visible transparent animationType="slide" onRequestClose={onClose}><View style={styles.trackingBackdrop}><View style={styles.trackingSheet}><View style={styles.trackingHeader}><View><Text style={styles.orderConfirmationEyebrow}>VIAJE EN VIVO</Text><Text style={styles.foodRestaurantTitle}>{headline}</Text></View><Pressable style={styles.foodBack} onPress={onClose}><Ionicons name="close" size={21} color="#222"/></Pressable></View><View style={styles.trackingMap}>{map?.tiles.map(tile=><Image key={tile.key} source={{uri:tile.uri}} style={[styles.osmTile,{left:`${tile.column*33.33}%`,top:`${tile.row*50}%`}]}/>)}{map?.points?<Svg viewBox="0 0 300 200" style={styles.routeSvg}><Polyline points={map.points} fill="none" stroke="rgba(255,255,255,.96)" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round"/><Polyline points={map.points} fill="none" stroke="#7c3cff" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/></Svg>:null}{map&&<><View style={[styles.trackingPoint,{left:map.pickup.x-15,top:map.pickup.y-15}]}><Ionicons name="person" size={16} color="#fff"/></View><View style={[styles.trackingPoint,styles.trackingDropoff,{left:map.dropoff.x-15,top:map.dropoff.y-15}]}><Ionicons name="flag" size={16} color="#fff"/></View>{map.driver&&<View style={[styles.trackingDriver,{left:map.driver.x-18,top:map.driver.y-18}]}><Ionicons name="car-sport" size={19} color="#fff"/></View>}</>}<View style={styles.trackingMapCaption}><Text style={styles.trackingMapCaptionTitle}>{route?`${route.distanceKm} km · ${route.durationMin} min`:routeError||"Calculando ruta real…"}</Text><Text style={styles.trackingMapCaptionText}>{driver?`${driver.name} · ${driver.vehicle}`:"Buscando un conductor disponible"}</Text></View></View><ScrollView showsVerticalScrollIndicator={false}><View style={styles.trackingStatus}><Text style={styles.foodRestaurantTitle}>{headline}</Text><Text style={styles.cardText}>{ride.pickup} → {ride.destination}</Text>{nextStep&&ride.status==="in_progress"?<View style={styles.returnStatusCard}><Ionicons name="navigate" size={18} color="#7c3cff"/><Text style={styles.cardText}>{nextStep}</Text></View>:null}<View style={styles.trackingProgress}>{labels.map((label,index)=><View style={styles.trackingStage} key={label}><View style={[styles.trackingStageDot,index<=current&&styles.trackingStageDotActive]}>{index<current?<Ionicons name="checkmark" size={11} color="#fff"/>:null}</View><Text style={[styles.trackingStageText,index===current&&styles.trackingStageTextActive]}>{label}</Text></View>)}</View></View>{driver?<View style={styles.shipmentTrackingSummary}><View><Text style={styles.orderConfirmationEyebrow}>TU CONDUCTOR</Text><Text style={styles.sectionTitle}>{driver.name}</Text><Text style={styles.cardText}>{driver.vehicle} · ★ {driver.rating.toFixed(1)}</Text></View><View style={styles.shipmentTrackingBadge}><Ionicons name="car-sport" size={20} color="#fff"/></View></View>:null}{["driver_assigned","arriving"].includes(ride.status)?<View style={styles.shipmentPinCard}><Text style={styles.orderConfirmationEyebrow}>PIN PARA INICIAR</Text>{pickupCode?<><Text style={styles.shipmentPin}>{pickupCode}</Text><Text style={styles.helperText}>Decíselo al conductor sólo cuando estés junto al vehículo correcto.</Text></>:<Pressable style={styles.orderConfirmationAction} onPress={()=>void onRevealCode()}><Ionicons name="key-outline" size={18} color="#fff"/><Text style={styles.orderConfirmationActionText}>Mostrar PIN seguro</Text></Pressable>}</View>:null}<View style={styles.safetyStrip}><View style={styles.safetyIcon}><Ionicons name="shield-checkmark" size={21} color="#087a4b"/></View><View style={styles.itemCopy}><Text style={styles.safetyTitle}>Centro de seguridad</Text><Text style={styles.helperText}>Compartí tu ruta o enviá una alerta vinculada a este viaje.</Text></View></View><Pressable style={styles.orderConfirmationAction} onPress={()=>onShare()}><Ionicons name="share-social-outline" size={18} color="#fff"/><Text style={styles.orderConfirmationActionText}>Compartir seguimiento seguro</Text></Pressable>{contacts.length>0?<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.paymentBrandRail}>{contacts.map(contact=><Pressable key={contact.id} style={styles.issueCategoryPill} onPress={()=>onShare(contact)}><Ionicons name="person-outline" size={15} color="#7c3cff"/><Text style={styles.issueCategoryText}>{contact.name}</Text></Pressable>)}</ScrollView>:null}<Pressable style={[styles.shareAction,{backgroundColor:"#fff0f0"}]} onPress={onSos}><Ionicons name="warning" size={18} color="#c92626"/><Text style={[styles.shareActionText,{color:"#c92626"}]}>Seguridad Flash · SOS</Text></Pressable><Pressable style={styles.reportIssueButton} onPress={onCancel}><Ionicons name="close-circle-outline" size={18} color="#8f3840"/><Text style={styles.reportIssueText}>Cancelar viaje</Text><Ionicons name="chevron-forward" size={17} color="#a29aa5"/></Pressable></ScrollView></View></View></Modal>;
+  return <Modal visible transparent animationType="slide" onRequestClose={onClose}><View style={styles.trackingBackdrop}><View style={styles.trackingSheet}><View style={styles.trackingHeader}><View><Text style={styles.orderConfirmationEyebrow}>VIAJE EN VIVO</Text><Text style={styles.foodRestaurantTitle}>{headline}</Text></View><Pressable style={styles.foodBack} onPress={onClose}><Ionicons name="close" size={21} color="#222"/></Pressable></View>{hasMap?<FlashNativeMap origin={ride.pickupLocation!} destination={ride.destinationLocation!} route={route?.coordinates||[]} driver={driver?.location||null} routeColor="#7c3cff" caption={route?`${route.distanceKm} km · ${route.durationMin} min`:routeError||"Calculando ruta real…"} detail={driver?`${driver.name} · ${driver.vehicle}`:"Buscando un conductor disponible"} accessibilityLabel="Mapa interactivo del viaje"/>:<NativeMapUnavailable message={routeError||"El origen o el destino todavía no tienen coordenadas verificadas."}/>}<ScrollView showsVerticalScrollIndicator={false}><View style={styles.trackingStatus}><Text style={styles.foodRestaurantTitle}>{headline}</Text><Text style={styles.cardText}>{ride.pickup} → {ride.destination}</Text>{nextStep&&ride.status==="in_progress"?<View style={styles.returnStatusCard}><Ionicons name="navigate" size={18} color="#7c3cff"/><Text style={styles.cardText}>{nextStep}</Text></View>:null}<View style={styles.trackingProgress}>{labels.map((label,index)=><View style={styles.trackingStage} key={label}><View style={[styles.trackingStageDot,index<=current&&styles.trackingStageDotActive]}>{index<current?<Ionicons name="checkmark" size={11} color="#fff"/>:null}</View><Text style={[styles.trackingStageText,index===current&&styles.trackingStageTextActive]}>{label}</Text></View>)}</View></View>{driver?<View style={styles.shipmentTrackingSummary}><View><Text style={styles.orderConfirmationEyebrow}>TU CONDUCTOR</Text><Text style={styles.sectionTitle}>{driver.name}</Text><Text style={styles.cardText}>{driver.vehicle} · ★ {driver.rating.toFixed(1)}</Text></View><View style={styles.shipmentTrackingBadge}><Ionicons name="car-sport" size={20} color="#fff"/></View></View>:null}{["driver_assigned","arriving"].includes(ride.status)?<View style={styles.shipmentPinCard}><Text style={styles.orderConfirmationEyebrow}>PIN PARA INICIAR</Text>{pickupCode?<><Text style={styles.shipmentPin}>{pickupCode}</Text><Text style={styles.helperText}>Decíselo al conductor sólo cuando estés junto al vehículo correcto.</Text></>:<Pressable style={styles.orderConfirmationAction} onPress={()=>void onRevealCode()}><Ionicons name="key-outline" size={18} color="#fff"/><Text style={styles.orderConfirmationActionText}>Mostrar PIN seguro</Text></Pressable>}</View>:null}<View style={styles.safetyStrip}><View style={styles.safetyIcon}><Ionicons name="shield-checkmark" size={21} color="#087a4b"/></View><View style={styles.itemCopy}><Text style={styles.safetyTitle}>Centro de seguridad</Text><Text style={styles.helperText}>Compartí tu ruta o enviá una alerta vinculada a este viaje.</Text></View></View><Pressable style={styles.orderConfirmationAction} onPress={()=>onShare()}><Ionicons name="share-social-outline" size={18} color="#fff"/><Text style={styles.orderConfirmationActionText}>Compartir seguimiento seguro</Text></Pressable>{contacts.length>0?<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.paymentBrandRail}>{contacts.map(contact=><Pressable key={contact.id} style={styles.issueCategoryPill} onPress={()=>onShare(contact)}><Ionicons name="person-outline" size={15} color="#7c3cff"/><Text style={styles.issueCategoryText}>{contact.name}</Text></Pressable>)}</ScrollView>:null}<Pressable style={[styles.shareAction,{backgroundColor:"#fff0f0"}]} onPress={onSos}><Ionicons name="warning" size={18} color="#c92626"/><Text style={[styles.shareActionText,{color:"#c92626"}]}>Seguridad Flash · SOS</Text></Pressable><Pressable style={styles.reportIssueButton} onPress={onCancel}><Ionicons name="close-circle-outline" size={18} color="#8f3840"/><Text style={styles.reportIssueText}>Cancelar viaje</Text><Ionicons name="chevron-forward" size={17} color="#a29aa5"/></Pressable></ScrollView></View></View></Modal>;
 }
 
 function ServiceChatModal({jobId,currentUserId,onClose}:{jobId:string|null;currentUserId:string;onClose:()=>void}){
@@ -130,9 +133,9 @@ function ServiceChatModal({jobId,currentUserId,onClose}:{jobId:string|null;curre
 function ShipmentTrackingSheet({shipment,driver,shipmentReturn,pin,onRevealPin,onClose}:{shipment:Shipment|null;driver:Driver|null;shipmentReturn:ShipmentReturn|null;pin:string|null;onRevealPin:()=>Promise<void>;onClose:()=>void}){
   const[route,setRoute]=useState<RoadRoute|null>(null),[routeError,setRouteError]=useState(""),[evidence,setEvidence]=useState<import("./src/types").DeliveryEvidence[]>([]),[pinBusy,setPinBusy]=useState(false);
   useEffect(()=>{if(!shipment?.pickupLocation||!shipment.destinationLocation){setRoute(null);return;}let cancelled=false;setRouteError("");void Promise.all([api.route(shipment.pickupLocation,shipment.destinationLocation),api.getShipmentDeliveryEvidence(shipment.id).catch(()=>({evidence:[]}))]).then(([routeResult,evidenceResult])=>{if(!cancelled){setRoute(routeResult.route);setEvidence(evidenceResult.evidence);}}).catch(()=>{if(!cancelled)setRouteError("No pudimos cargar la ruta; el estado operativo sigue actualizado.");});return()=>{cancelled=true;};},[shipment?.id,shipment?.pickupLocation?.lat,shipment?.pickupLocation?.lng,shipment?.destinationLocation?.lat,shipment?.destinationLocation?.lng,shipment?.deliveryEvidenceCount]);
-  const map=useMemo(()=>shipment?.pickupLocation&&shipment.destinationLocation?buildTrackingMap(shipment.pickupLocation,shipment.destinationLocation,route?.coordinates||[],driver?.location||null):null,[shipment,route,driver?.location]);
+  const hasMap=Boolean(shipment?.pickupLocation&&shipment.destinationLocation);
   if(!shipment)return null;const stages=["requested","driver_assigned","arriving","picked_up","delivering","delivered"],labels=["Solicitado","Conductor asignado","Retirando","Paquete retirado","En camino","Entregado"],current=Math.max(0,stages.indexOf(shipment.status)),photo=evidence.find(entry=>entry.type==="photo"),signature=evidence.find(entry=>entry.type==="signature");
-  return <Modal visible transparent animationType="slide" onRequestClose={onClose}><View style={styles.trackingBackdrop}><View style={styles.trackingSheet}><View style={styles.trackingHeader}><View><Text style={styles.orderConfirmationEyebrow}>ENVÍO EN VIVO</Text><Text style={styles.foodRestaurantTitle}>{shipment.id}</Text></View><Pressable style={styles.foodBack} onPress={onClose}><Ionicons name="close" size={21} color="#222"/></Pressable></View><View style={styles.trackingMap}>{map?.tiles.map(tile=><Image key={tile.key} source={{uri:tile.uri}} style={[styles.osmTile,{left:`${tile.column*33.33}%`,top:`${tile.row*50}%`}]}/>)}{map?.points?<Svg viewBox="0 0 300 200" style={styles.routeSvg}><Polyline points={map.points} fill="none" stroke="rgba(255,255,255,.96)" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round"/><Polyline points={map.points} fill="none" stroke="#7c3cff" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/></Svg>:null}{map&&<><View style={[styles.trackingPoint,{left:map.pickup.x-15,top:map.pickup.y-15}]}><Ionicons name="cube" size={16} color="#fff"/></View><View style={[styles.trackingPoint,styles.trackingDropoff,{left:map.dropoff.x-15,top:map.dropoff.y-15}]}><Ionicons name="flag" size={16} color="#fff"/></View>{map.driver&&<View style={[styles.trackingDriver,{left:map.driver.x-18,top:map.driver.y-18}]}><Ionicons name="bicycle" size={19} color="#fff"/></View>}</>}<View style={styles.trackingMapCaption}><Text style={styles.trackingMapCaptionTitle}>{route?`${route.distanceKm} km · ${route.durationMin} min de recorrido`:routeError||"Calculando ruta real…"}</Text><Text style={styles.trackingMapCaptionText}>{driver?`${driver.name} · ${driver.vehicle}`:"Buscando conductor disponible"}</Text></View></View><ScrollView showsVerticalScrollIndicator={false}><View style={styles.trackingStatus}><Text style={styles.foodRestaurantTitle}>{labels[current]}</Text><Text style={styles.cardText}>{shipment.pickup} → {shipment.destination}</Text><View style={styles.trackingProgress}>{labels.map((label,index)=><View style={styles.trackingStage} key={label}><View style={[styles.trackingStageDot,index<=current&&styles.trackingStageDotActive]}>{index<current?<Ionicons name="checkmark" size={11} color="#fff"/>:null}</View><Text style={[styles.trackingStageText,index===current&&styles.trackingStageTextActive]}>{label}</Text></View>)}</View></View><View style={styles.shipmentTrackingSummary}><View><Text style={styles.orderConfirmationEyebrow}>{shipment.serviceLevel?.toUpperCase()} · {shipment.itemCategory?.toUpperCase()}</Text><Text style={styles.sectionTitle}>{shipment.weightKg} kg · {money.format(shipment.fare)}</Text><Text style={styles.cardText}>{shipment.handlingInstructions}</Text></View><View style={styles.shipmentTrackingBadge}><Ionicons name={shipment.protection==="standard"?"shield-checkmark":"cube"} size={20} color="#fff"/></View></View><View style={styles.deliveryProofCard}><View style={styles.deliveryProofIcon}><Ionicons name="finger-print" size={21} color="#fff"/></View><View style={styles.itemCopy}><Text style={styles.sectionTitle}>Prueba de entrega</Text><Text style={styles.cardText}>{photo?"Foto recibida":"Foto pendiente"}{shipment.signatureRequired?` · ${signature?`Firmó ${signature.signerName||"receptor"}`:"firma pendiente"}`:""}</Text></View></View>{shipmentReturn?<View style={styles.returnStatusCard}><Ionicons name="return-down-back" size={18} color="#7c3cff"/><Text style={styles.cardText}>Devolución · {shipmentReturn.status.replaceAll("_"," ")}</Text></View>:null}{!['delivered','cancelled'].includes(shipment.status)&&(pin?<View style={styles.shipmentPinCard}><Text style={styles.orderConfirmationEyebrow}>PIN DE ENTREGA</Text><Text style={styles.shipmentPin}>{pin}</Text><Text style={styles.helperText}>Compartilo únicamente cuando recibas el paquete.</Text></View>:<Pressable style={styles.orderConfirmationAction} disabled={pinBusy} onPress={async()=>{setPinBusy(true);try{await onRevealPin();}catch(error){Alert.alert("Flash",error instanceof Error?error.message:"No se pudo consultar el PIN");}finally{setPinBusy(false);}}}><Ionicons name="key-outline" size={18} color="#fff"/><Text style={styles.orderConfirmationActionText}>{pinBusy?"Consultando…":"Ver PIN de entrega"}</Text></Pressable>)}</ScrollView></View></View></Modal>;
+  return <Modal visible transparent animationType="slide" onRequestClose={onClose}><View style={styles.trackingBackdrop}><View style={styles.trackingSheet}><View style={styles.trackingHeader}><View><Text style={styles.orderConfirmationEyebrow}>ENVÍO EN VIVO</Text><Text style={styles.foodRestaurantTitle}>{shipment.id}</Text></View><Pressable style={styles.foodBack} onPress={onClose}><Ionicons name="close" size={21} color="#222"/></Pressable></View>{hasMap?<FlashNativeMap origin={shipment.pickupLocation!} destination={shipment.destinationLocation!} route={route?.coordinates||[]} driver={driver?.location||null} routeColor="#087a50" driverIcon="bicycle" caption={route?`${route.distanceKm} km · ${route.durationMin} min de recorrido`:routeError||"Calculando ruta real…"} detail={driver?`${driver.name} · ${driver.vehicle}`:"Buscando conductor disponible"} accessibilityLabel="Mapa interactivo del envío"/>:<NativeMapUnavailable message={routeError||"El retiro o la entrega todavía no tienen coordenadas verificadas."}/>}<ScrollView showsVerticalScrollIndicator={false}><View style={styles.trackingStatus}><Text style={styles.foodRestaurantTitle}>{labels[current]}</Text><Text style={styles.cardText}>{shipment.pickup} → {shipment.destination}</Text><View style={styles.trackingProgress}>{labels.map((label,index)=><View style={styles.trackingStage} key={label}><View style={[styles.trackingStageDot,index<=current&&styles.trackingStageDotActive]}>{index<current?<Ionicons name="checkmark" size={11} color="#fff"/>:null}</View><Text style={[styles.trackingStageText,index===current&&styles.trackingStageTextActive]}>{label}</Text></View>)}</View></View><View style={styles.shipmentTrackingSummary}><View><Text style={styles.orderConfirmationEyebrow}>{shipment.serviceLevel?.toUpperCase()} · {shipment.itemCategory?.toUpperCase()}</Text><Text style={styles.sectionTitle}>{shipment.weightKg} kg · {money.format(shipment.fare)}</Text><Text style={styles.cardText}>{shipment.handlingInstructions}</Text></View><View style={styles.shipmentTrackingBadge}><Ionicons name={shipment.protection==="standard"?"shield-checkmark":"cube"} size={20} color="#fff"/></View></View><View style={styles.deliveryProofCard}><View style={styles.deliveryProofIcon}><Ionicons name="finger-print" size={21} color="#fff"/></View><View style={styles.itemCopy}><Text style={styles.sectionTitle}>Prueba de entrega</Text><Text style={styles.cardText}>{photo?"Foto recibida":"Foto pendiente"}{shipment.signatureRequired?` · ${signature?`Firmó ${signature.signerName||"receptor"}`:"firma pendiente"}`:""}</Text></View></View>{shipmentReturn?<View style={styles.returnStatusCard}><Ionicons name="return-down-back" size={18} color="#7c3cff"/><Text style={styles.cardText}>Devolución · {shipmentReturn.status.replaceAll("_"," ")}</Text></View>:null}{!['delivered','cancelled'].includes(shipment.status)&&(pin?<View style={styles.shipmentPinCard}><Text style={styles.orderConfirmationEyebrow}>PIN DE ENTREGA</Text><Text style={styles.shipmentPin}>{pin}</Text><Text style={styles.helperText}>Compartilo únicamente cuando recibas el paquete.</Text></View>:<Pressable style={styles.orderConfirmationAction} disabled={pinBusy} onPress={async()=>{setPinBusy(true);try{await onRevealPin();}catch(error){Alert.alert("Flash",error instanceof Error?error.message:"No se pudo consultar el PIN");}finally{setPinBusy(false);}}}><Ionicons name="key-outline" size={18} color="#fff"/><Text style={styles.orderConfirmationActionText}>{pinBusy?"Consultando…":"Ver PIN de entrega"}</Text></Pressable>)}</ScrollView></View></View></Modal>;
 }
 
 function SignatureCaptureModal({visible,onClose,onSave,busy}:{visible:boolean;onClose:()=>void;onSave:(input:{contentBase64:string;signerName:string;signerRelationship:"recipient"|"authorized_person"})=>Promise<void>;busy:boolean}){
@@ -521,7 +524,7 @@ function CustomerScreen({
     user.defaultAddress || "",
   );
   const [shipmentDestination, setShipmentDestination] = useState(
-    "Av. Santa Fe 1800, Recoleta",
+    "",
   );
   const [recipientName, setRecipientName] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
@@ -530,7 +533,7 @@ function CustomerScreen({
     "small",
   );
   const [packageWeight, setPackageWeight] = useState("1");
-  const[declaredValue,setDeclaredValue]=useState("0"),[shipmentProtection,setShipmentProtection]=useState<"none"|"standard">("none"),[shipmentSignatureRequired,setShipmentSignatureRequired]=useState(false),[shipmentItemCategory,setShipmentItemCategory]=useState<NonNullable<Shipment["itemCategory"]>>("standard"),[shipmentServiceLevel,setShipmentServiceLevel]=useState<NonNullable<Shipment["serviceLevel"]>>("standard"),[shipmentPickupCoords,setShipmentPickupCoords]=useState<GeoPoint|null>(null),[shipmentDestinationCoords,setShipmentDestinationCoords]=useState<GeoPoint|null>(null);
+  const[declaredValue,setDeclaredValue]=useState("0"),[shipmentProtection,setShipmentProtection]=useState<"none"|"standard">("none"),[shipmentSignatureRequired,setShipmentSignatureRequired]=useState(false),[shipmentItemCategory,setShipmentItemCategory]=useState<NonNullable<Shipment["itemCategory"]>>("standard"),[shipmentServiceLevel,setShipmentServiceLevel]=useState<NonNullable<Shipment["serviceLevel"]>>("standard"),[shipmentPickupCoords,setShipmentPickupCoords]=useState<GeoPoint|null>(null),[shipmentDestinationCoords,setShipmentDestinationCoords]=useState<GeoPoint|null>(null),[shipmentRoadRoute,setShipmentRoadRoute]=useState<RoadRoute|null>(null);
   const [shipmentQuote, setShipmentQuote] = useState<ShipmentQuote | null>(
     null,
   );
@@ -687,60 +690,6 @@ function CustomerScreen({
         { text: "Volver", style: "cancel" },
       ],
     );
-  const osmTiles = useMemo(() => {
-    if (!pickupCoords || !destinationCoords) return [];
-    const zoom = 13;
-    const scale = 2 ** zoom;
-    const lat = (pickupCoords.lat + destinationCoords.lat) / 2;
-    const lng = (pickupCoords.lng + destinationCoords.lng) / 2;
-    const centerX = Math.floor(((lng + 180) / 360) * scale);
-    const latitudeRadians = (lat * Math.PI) / 180;
-    const centerY = Math.floor(
-      ((1 - Math.asinh(Math.tan(latitudeRadians)) / Math.PI) / 2) * scale,
-    );
-    return Array.from({ length: 6 }, (_, index) => {
-      const column = index % 3;
-      const row = Math.floor(index / 3);
-      return {
-        key: `${centerX + column - 1}-${centerY + row}`,
-        uri: `https://tile.openstreetmap.org/${zoom}/${centerX + column - 1}/${centerY + row}.png`,
-        column,
-        row,
-      };
-    });
-  }, [pickupCoords, destinationCoords]);
-  const routeOverlay = useMemo(() => {
-    if (!pickupCoords || !destinationCoords || !roadRoute?.coordinates.length)
-      return null;
-    const zoom = 13;
-    const scale = 2 ** zoom;
-    const centerLat = (pickupCoords.lat + destinationCoords.lat) / 2;
-    const centerLng = (pickupCoords.lng + destinationCoords.lng) / 2;
-    const centerX = Math.floor(((centerLng + 180) / 360) * scale);
-    const centerLatRadians = (centerLat * Math.PI) / 180;
-    const centerY = Math.floor(
-      ((1 - Math.asinh(Math.tan(centerLatRadians)) / Math.PI) / 2) * scale,
-    );
-    const project = (point: GeoPoint) => {
-      const x = ((point.lng + 180) / 360) * scale;
-      const latRadians = (point.lat * Math.PI) / 180;
-      const y = ((1 - Math.asinh(Math.tan(latRadians)) / Math.PI) / 2) * scale;
-      return { x: (x - (centerX - 1)) * 100, y: (y - centerY) * 100 };
-    };
-    const start = project(pickupCoords);
-    const end = project(destinationCoords);
-    return {
-      points: roadRoute.coordinates
-        .map((point) => {
-          const projected = project(point);
-          return `${projected.x},${projected.y}`;
-        })
-        .join(" "),
-      start,
-      end,
-    };
-  }, [pickupCoords, destinationCoords, roadRoute]);
-
   const addItem = (
     restaurant: Restaurant,
     item: Restaurant["menu"][number],
@@ -992,14 +941,15 @@ function CustomerScreen({
       return;
     }
     runAction(async () => {
-      const[pickupResult,destinationResult]=await Promise.all([api.geocode(shipmentPickup.trim()),api.geocode(shipmentDestination.trim())]);const pickupPoint=pickupResult.results[0]?.point,destinationPoint=destinationResult.results[0]?.point;if(!pickupPoint||!destinationPoint)throw new Error("No pudimos ubicar una de las direcciones");setShipmentPickupCoords(pickupPoint);setShipmentDestinationCoords(destinationPoint);const response = await api.quoteShipment({
+      const[pickupResult,destinationResult]=await Promise.all([api.geocode(shipmentPickup.trim()),api.geocode(shipmentDestination.trim())]);const pickupPoint=pickupResult.results[0]?.point,destinationPoint=destinationResult.results[0]?.point;if(!pickupPoint||!destinationPoint)throw new Error("No pudimos ubicar una de las direcciones");setShipmentPickupCoords(pickupPoint);setShipmentDestinationCoords(destinationPoint);const[response,routed]=await Promise.all([api.quoteShipment({
         pickup: shipmentPickup.trim(),
         destination: shipmentDestination.trim(),
         packageSize,
         weightKg: Number(packageWeight),
         declaredValue:Number(declaredValue)||0,protection:shipmentProtection,signatureRequired:shipmentSignatureRequired,itemCategory:shipmentItemCategory,serviceLevel:shipmentServiceLevel,pickupCoords:pickupPoint,
         destinationCoords:destinationPoint,
-      });
+      }),api.route(pickupPoint,destinationPoint).catch(()=>null)]);
+      setShipmentRoadRoute(routed?.route||null);
       setShipmentQuote(response.quote);
       track("quote_received", "customer_app", { service: "shipment" });
     }, "Envio cotizado");
@@ -1042,6 +992,9 @@ function CustomerScreen({
       });
       track("job_created", "customer_app", { service: "shipment" });
       setShipmentQuote(null);
+      setShipmentPickupCoords(null);
+      setShipmentDestinationCoords(null);
+      setShipmentRoadRoute(null);
       setRecipientName("");
       setRecipientPhone("");
       setPackageDescription("");
@@ -1634,66 +1587,23 @@ function CustomerScreen({
               ))}
               {rideQuickPlaces.length===0&&<View style={styles.quickPlaceEmpty}><Ionicons name="time-outline" size={18} color="#7c3cff"/><Text style={styles.quickPlaceAddress}>Tus destinos recientes aparecerán acá.</Text></View>}
             </ScrollView>
-            <View style={styles.mapSurface}>
-              {osmTiles.map((tile) => (
-                <Image
-                  key={tile.key}
-                  source={{ uri: tile.uri }}
-                  style={[
-                    styles.osmTile,
-                    {
-                      left: `${tile.column * 33.33}%`,
-                      top: `${tile.row * 50}%`,
-                    },
-                  ]}
-                />
-              ))}
-              {routeOverlay && (
-                <Svg viewBox="0 0 300 200" style={styles.routeSvg}>
-                  <Polyline
-                    points={routeOverlay.points}
-                    fill="none"
-                    stroke="rgba(255,255,255,.96)"
-                    strokeWidth="10"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <Polyline
-                    points={routeOverlay.points}
-                    fill="none"
-                    stroke="#7c3cff"
-                    strokeWidth="5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </Svg>
-              )}
-              {osmTiles.length === 0 && (
-                <>
-                  <View style={[styles.mapBlock, { top: 16, left: 18 }]} />
-                  <View style={[styles.mapBlock, { top: 94, right: 12 }]} />
-                  <View style={[styles.mapRoad, styles.mapRoadOne]} />
-                  <View style={[styles.mapRoad, styles.mapRoadTwo]} />
-                  <View style={styles.routeLine} />
-                </>
-              )}
-              <View style={[styles.mapPin, styles.pickupPin]}>
-                <Ionicons name="navigate" size={19} color="#7c3cff" />
-              </View>
-              <View style={[styles.mapPin, styles.destinationPin]}>
-                <Ionicons name="flag" size={18} color="#7c3cff" />
-              </View>
-              <View style={styles.mapCar}>
-                <Ionicons name="car-sport" size={21} color="#fff" />
-              </View>
-              <Text style={styles.mapCaption}>
-                {roadRoute
-                  ? `Ruta real · ${roadRoute.distanceKm} km · ${roadRoute.durationMin} min`
-                  : pickupCoords
-                    ? "Origen GPS confirmado"
-                    : "Confirma el origen para calcular cercania real"}
-              </Text>
-            </View>
+            {pickupCoords && destinationCoords ? (
+              <FlashNativeMap
+                origin={pickupCoords}
+                destination={destinationCoords}
+                route={roadRoute?.coordinates || []}
+                caption={roadRoute ? `Ruta real · ${roadRoute.distanceKm} km · ${roadRoute.durationMin} min` : "Origen y destino confirmados"}
+                detail={roadRoute ? "Arrastrá para explorar · tocá el control para reencuadrar" : "Cotizá para calcular el recorrido vial"}
+                routeColor="#7c3cff"
+                height={210}
+                accessibilityLabel="Mapa interactivo de la cotización del viaje"
+              />
+            ) : (
+              <NativeMapUnavailable
+                height={210}
+                message={!pickupCoords ? "Usá GPS o elegí un origen para comenzar." : "Elegí un destino para mostrar el recorrido."}
+              />
+            )}
             {roadRoute?.steps.length ? (
               <View style={styles.navigationCard}>
                 <View style={styles.navigationTurn}>
@@ -2001,23 +1911,15 @@ function CustomerScreen({
                 <Text style={styles.shipmentBenefit}>✓ PIN de entrega</Text>
               </View>
             </View>
-            <View style={styles.mapSurface}>
-              <View style={[styles.mapRoad, styles.mapRoadOne]} />
-              <View style={[styles.mapRoad, styles.mapRoadTwo]} />
-              <View style={styles.routeLine} />
-              <View style={[styles.mapPin, styles.pickupPin]}>
-                <Text style={styles.pinText}>A</Text>
-              </View>
-              <View style={[styles.mapPin, styles.destinationPin]}>
-                <Text style={styles.pinText}>B</Text>
-              </View>
-            </View>
+            {shipmentPickupCoords&&shipmentDestinationCoords?<FlashNativeMap origin={shipmentPickupCoords} destination={shipmentDestinationCoords} route={shipmentRoadRoute?.coordinates||[]} caption={shipmentRoadRoute?`${shipmentRoadRoute.distanceKm} km · ${shipmentRoadRoute.durationMin} min de recorrido`:"Retiro y entrega confirmados"} detail={shipmentQuote?"Cotización vigente · recorrido real":"Cotizá para validar cobertura y recorrido"} routeColor="#087a50" driverIcon="bicycle" height={210} accessibilityLabel="Mapa interactivo de la cotización del envío"/>:<NativeMapUnavailable height={210} message="Ingresá direcciones y cotizá para validar el recorrido real."/>}
             <View style={styles.rideSheet}>
               <TextInput
                 value={shipmentPickup}
                 onChangeText={(value) => {
                   setShipmentPickup(value);
                   setShipmentQuote(null);
+                  setShipmentPickupCoords(null);
+                  setShipmentRoadRoute(null);
                 }}
                 placeholder="Retirar en"
                 style={styles.input}
@@ -2027,6 +1929,8 @@ function CustomerScreen({
                 onChangeText={(value) => {
                   setShipmentDestination(value);
                   setShipmentQuote(null);
+                  setShipmentDestinationCoords(null);
+                  setShipmentRoadRoute(null);
                 }}
                 placeholder="Entregar en"
                 style={styles.input}
@@ -2461,10 +2365,10 @@ function CustomerScreen({
               <View style={styles.addressBookHeading}><View><Text style={styles.foodRestaurantTitle}>Direcciones guardadas</Text><Text style={styles.cardText}>Se comparten entre comidas, viajes y envíos.</Text></View><Ionicons name="map-outline" size={24} color="#7c3cff"/></View>
               {state.addresses.filter(item=>item.userId===user.id).map(item=><View style={styles.savedAddressRow} key={item.id}>
                 <View style={[styles.savedAddressIcon,item.isDefault&&styles.savedAddressIconDefault]}><Ionicons name={item.label.toLowerCase().includes("trab")?"business-outline":"home-outline"} size={19} color={item.isDefault?"#fff":"#7c3cff"}/></View>
-                <Pressable style={styles.savedAddressCopy} onPress={()=>{setDeliveryAddress(item.address);setPickup(item.address);setShipmentPickup(item.address);if(item.lat!==null&&item.lng!==null){const point={lat:item.lat,lng:item.lng};setPickupCoords(point);}}}><View style={styles.savedAddressTitle}><Text style={styles.sectionTitle}>{item.label}</Text>{item.isDefault&&<Text style={styles.defaultAddressBadge}>Principal</Text>}</View><Text style={styles.cardText}>{item.address}</Text></Pressable>
+                <Pressable style={styles.savedAddressCopy} onPress={()=>{setDeliveryAddress(item.address);setPickup(item.address);setShipmentPickup(item.address);setShipmentQuote(null);setShipmentRoadRoute(null);if(item.lat!==null&&item.lng!==null){const point={lat:item.lat,lng:item.lng};setPickupCoords(point);setShipmentPickupCoords(point);}}}><View style={styles.savedAddressTitle}><Text style={styles.sectionTitle}>{item.label}</Text>{item.isDefault&&<Text style={styles.defaultAddressBadge}>Principal</Text>}</View><Text style={styles.cardText}>{item.address}</Text></Pressable>
                 {!item.id.startsWith("profile-")&&<View style={styles.savedAddressActions}>{!item.isDefault&&<Pressable disabled={busy} onPress={()=>runAction(()=>api.setDefaultAddress(item.id),"Dirección principal actualizada")}><Ionicons name="star-outline" size={20} color="#7c3cff"/></Pressable>}<Pressable disabled={busy} onPress={()=>Alert.alert("Eliminar dirección",`¿Eliminar ${item.label}?`,[{text:"Cancelar",style:"cancel"},{text:"Eliminar",style:"destructive",onPress:()=>runAction(()=>api.deleteAddress(item.id),"Dirección eliminada")}])}><Ionicons name="trash-outline" size={20} color="#d74a43"/></Pressable></View>}
               </View>)}
-              <View style={styles.newAddressForm}><Text style={styles.sectionTitle}>Agregar dirección</Text><View style={styles.newAddressFields}><TextInput style={[styles.input,styles.addressLabelInput]} value={newAddressLabel} onChangeText={setNewAddressLabel} placeholder="Etiqueta"/><TextInput style={[styles.input,styles.addressTextInput]} value={newAddressText} onChangeText={setNewAddressText} placeholder="Calle, número y ciudad"/></View><Pressable style={[styles.primaryButton,(!newAddressLabel.trim()||newAddressText.trim().length<3||busy)&&styles.disabledButton]} disabled={!newAddressLabel.trim()||newAddressText.trim().length<3||busy} onPress={()=>runAction(async()=>{const result=await api.geocode(newAddressText.trim());const match=result.results[0];if(!match)throw new Error("No encontramos esa dirección");await api.createAddress({label:newAddressLabel.trim(),address:match.label,lat:match.point.lat,lng:match.point.lng,isDefault:!state.addresses.some(item=>item.userId===user.id&&!item.id.startsWith("profile-"))});setDeliveryAddress(match.label);setPickup(match.label);setPickupCoords(match.point);setNewAddressText("");},"Dirección guardada con coordenadas reales")}><Ionicons name="add-circle-outline" size={19} color="#fff"/><Text style={styles.primaryButtonText}>Guardar dirección</Text></Pressable></View>
+              <View style={styles.newAddressForm}><Text style={styles.sectionTitle}>Agregar dirección</Text><View style={styles.newAddressFields}><TextInput style={[styles.input,styles.addressLabelInput]} value={newAddressLabel} onChangeText={setNewAddressLabel} placeholder="Etiqueta"/><TextInput style={[styles.input,styles.addressTextInput]} value={newAddressText} onChangeText={setNewAddressText} placeholder="Calle, número y ciudad"/></View><Pressable style={[styles.primaryButton,(!newAddressLabel.trim()||newAddressText.trim().length<3||busy)&&styles.disabledButton]} disabled={!newAddressLabel.trim()||newAddressText.trim().length<3||busy} onPress={()=>runAction(async()=>{const result=await api.geocode(newAddressText.trim());const match=result.results[0];if(!match)throw new Error("No encontramos esa dirección");await api.createAddress({label:newAddressLabel.trim(),address:match.label,lat:match.point.lat,lng:match.point.lng,isDefault:!state.addresses.some(item=>item.userId===user.id&&!item.id.startsWith("profile-"))});setDeliveryAddress(match.label);setPickup(match.label);setPickupCoords(match.point);setShipmentPickup(match.label);setShipmentPickupCoords(match.point);setShipmentQuote(null);setShipmentRoadRoute(null);setNewAddressText("");},"Dirección guardada con coordenadas reales")}><Ionicons name="add-circle-outline" size={19} color="#fff"/><Text style={styles.primaryButtonText}>Guardar dirección</Text></Pressable></View>
             </View>
             <View style={styles.addressBookCard}>
               <View style={styles.addressBookHeading}><View><Text style={styles.foodRestaurantTitle}>Métodos de pago</Text><Text style={styles.cardText}>Sólo guardamos tokens y datos enmascarados.</Text></View><Ionicons name="card-outline" size={24} color="#7c3cff"/></View>
@@ -4170,9 +4074,9 @@ const styles = StyleSheet.create({
   trackingSheet:{maxHeight:"92%",backgroundColor:"#fff",borderTopLeftRadius:28,borderTopRightRadius:28,padding:18,gap:15},
   trackingHeader:{flexDirection:"row",alignItems:"center",justifyContent:"space-between"},
   trackingMap:{height:260,borderRadius:20,overflow:"hidden",backgroundColor:"#e8e4ed"},
-  trackingPoint:{position:"absolute",width:30,height:30,borderRadius:15,backgroundColor:"#211c24",alignItems:"center",justifyContent:"center",borderWidth:3,borderColor:"#fff"},
-  trackingDropoff:{backgroundColor:"#7c3cff"},
-  trackingDriver:{position:"absolute",width:36,height:36,borderRadius:18,backgroundColor:"#ff6a21",alignItems:"center",justifyContent:"center",borderWidth:3,borderColor:"#fff",shadowColor:"#000",shadowOpacity:.2,shadowRadius:8},
+  nativeMapEmpty:{alignItems:"center",justifyContent:"center",gap:7,paddingHorizontal:26,borderWidth:1,borderColor:"#ded9e3"},
+  nativeMapEmptyTitle:{color:"#17131c",fontSize:14,fontWeight:"900",textAlign:"center"},
+  nativeMapEmptyText:{color:"#716a76",fontSize:11,fontWeight:"600",lineHeight:16,textAlign:"center"},
   trackingMapCaption:{position:"absolute",left:10,right:10,bottom:10,backgroundColor:"rgba(255,255,255,.94)",borderRadius:13,padding:10},
   trackingMapCaptionTitle:{fontSize:13,fontWeight:"900",color:"#252128"},
   trackingMapCaptionText:{fontSize:11,color:"#68616c",marginTop:2},
@@ -4555,16 +4459,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "900",
   },
-  mapSurface: {
-    height: 210,
-    borderRadius: 24,
-    overflow: "hidden",
-    backgroundColor: "#e9e7ed",
-    position: "relative",
-  },
-  realMapImage: { borderRadius: 24, opacity: 0.92 },
-  osmTile: { position: "absolute", width: "33.5%", height: "50.5%" },
-  routeSvg: { position: "absolute", left: 0, top: 0, right: 0, bottom: 0 },
   navigationCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -4692,77 +4586,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   acceptOfferText: { fontWeight: "900", color: "#fff" },
-  mapBlock: {
-    position: "absolute",
-    width: 92,
-    height: 62,
-    borderRadius: 12,
-    backgroundColor: "#d9d6df",
-    opacity: 0.72,
-  },
-  mapRoad: {
-    position: "absolute",
-    width: "84%",
-    height: 24,
-    backgroundColor: "#fff",
-    borderColor: "#d9d5df",
-    borderWidth: 1,
-    borderRadius: 12,
-  },
-  mapRoadOne: { top: 48, left: -55, transform: [{ rotate: "18deg" }] },
-  mapRoadTwo: { top: 118, left: 55, transform: [{ rotate: "-28deg" }] },
-  routeLine: {
-    position: "absolute",
-    top: 48,
-    left: 142,
-    width: 5,
-    height: 112,
-    borderRadius: 4,
-    backgroundColor: "#7c3cff",
-    transform: [{ rotate: "31deg" }],
-  },
-  mapCar: {
-    position: "absolute",
-    left: 176,
-    top: 89,
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: "#7c3cff",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#390085",
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  mapPin: {
-    position: "absolute",
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: "#fff",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
-  },
-  pickupPin: { left: 98, top: 40 },
-  destinationPin: { right: 62, top: 128 },
-  pinText: { color: "#7c3cff", fontSize: 18, fontWeight: "900" },
-  mapCaption: {
-    position: "absolute",
-    left: 12,
-    bottom: 12,
-    backgroundColor: "rgba(21,19,26,0.86)",
-    color: "#fff",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    fontSize: 11,
-    fontWeight: "800",
-    maxWidth: "90%",
-  },
   quickPlacesRail: { gap: 9, paddingBottom: 2 },
   quickPlace: {
     width: 180,

@@ -11,3 +11,5 @@
 Sólo Flash Driver declara `ACCESS_BACKGROUND_LOCATION`, foreground service y background mode iOS. Customer conserva ubicación foreground para origen/destino; Merchant no obtiene privilegios de conductor. El superadmin permanece exclusivamente web.
 
 Los perfiles están listos para configuración, pero no se presentan como builds publicables hasta asociar proyecto EAS, credenciales Apple/Google, API productiva y ejecutar pruebas físicas.
+
+Los tres builds incluyen el renderer nativo de mapas. Android exige `GOOGLE_MAPS_ANDROID_API_KEY` al ejecutar `eas build`; la clave debe configurarse como variable sensible del entorno EAS y restringirse en Google Cloud a cada package y certificado de firma. La app sólo publica en `extra` el booleano de readiness, nunca el valor. iOS usa Apple MapKit y no incorpora una clave Google.
