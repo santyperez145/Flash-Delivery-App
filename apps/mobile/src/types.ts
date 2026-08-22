@@ -100,6 +100,35 @@ export type Ride = {
   cancellation?: ServiceCancellation | null;
 };
 
+export type DriverEarningsPeriod = {
+  amount: number;
+  serviceEarnings: number;
+  tips: number;
+  adjustments: number;
+  services: number;
+  periodStart: string;
+  periodEnd: string;
+};
+
+export type DriverEarnings = {
+  driverId: string;
+  currency: "ARS";
+  timezone: string;
+  source: "postgres-ledger" | "sqlite-test-fallback";
+  walletBalance: number;
+  today: DriverEarningsPeriod;
+  week: DriverEarningsPeriod;
+  recent: Array<{
+    id: string;
+    category: "food" | "ride" | "shipment" | "tip" | "adjustment";
+    jobId: string | null;
+    description: string;
+    amount: number;
+    createdAt: string;
+  }>;
+  cashout: { status: "not_configured"; reason: "external_payout_provider_required" };
+};
+
 export type DriverVehicle={id:string;driverId:string;kind:"bicycle"|"motorcycle"|"car"|"van";model:string;plate:string;color:string|null;seats:number|null;serviceModes:ServiceMode[];active:boolean;status:"pending"|"approved"|"rejected";rejectionReason:string|null;reviewedAt:string|null;retiredAt:string|null;createdAt:string;updatedAt:string};
 export type OrderIssue={id:string;orderId:string;category:"missing_item"|"wrong_item"|"damaged_item"|"quality"|"late"|"other";description:string;status:"open"|"approved"|"rejected";requestedRefund:number;approvedRefund:number;resolutionNote:string|null;createdAt:string;resolvedAt:string|null};
 export type OrderSubstitution={id:string;orderId:string;status:"pending"|"accepted"|"rejected"|"cancelled";quantity:number;reason:string;original:{id:string;name:string;unitPrice:number};replacement:{id:string;name:string;unitPrice:number};refundAmount:number;createdAt:string;decidedAt:string|null};

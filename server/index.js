@@ -116,6 +116,7 @@ import {
   cancelOrderAndRefundWallet,
   creditWallet,
   getPostgresWalletTransactions,
+  getDriverEarnings,
   getWallet,
   getWalletBalances,
   settleMobilityWalletPayment,
@@ -2865,6 +2866,27 @@ app.get("/api/driver/me", requireAuth, requireAnyRole("driver"), async (req,res)
     return ok(res,{driver});
   } catch(error) {
     return fail(res,error.status||500,error.message||"No se pudo cargar el perfil del conductor");
+  }
+});
+
+app.get("/api/driver/earnings", requireAuth, requireAnyRole("driver"), async (req,res)=>{
+  try {
+    if (!usesPostgresCommerce()) {
+      const db=readDb(),driver=db.drivers.find((entry)=>entry.userId===req.auth.userId);
+      if(!driver)return fail(res,404,"Perfil de conductor no encontrado");
+      const user=db.users.find((entry)=>entry.id===driver.userId),now=new Date(),dayStart=new Date(now);
+      dayStart.setHours(0,0,0,0);
+      const weekStart=new Date(dayStart);weekStart.setDate(dayStart.getDate()-((dayStart.getDay()+6)%7));
+      const entries=(db.walletTransactions||[]).filter((entry)=>entry.userId===driver.userId&&/^(Ganancia|Propina|Ajuste de propina)\b/i.test(entry.description||"")).map((entry)=>({id:entry.id,category:/^Propina/i.test(entry.description)?"tip":/^Ajuste/i.test(entry.description)?"adjustment":/viaje/i.test(entry.description)?"ride":/envio/i.test(entry.description)?"shipment":"food",jobId:null,description:entry.description,amount:entry.kind==="debit"?-Number(entry.amount):Number(entry.amount),createdAt:entry.createdAt}));
+      const summarize=(start,end)=>{const scoped=entries.filter((entry)=>new Date(entry.createdAt)>=start&&new Date(entry.createdAt)<end);return{amount:scoped.reduce((sum,entry)=>sum+entry.amount,0),serviceEarnings:scoped.filter((entry)=>!["tip","adjustment"].includes(entry.category)).reduce((sum,entry)=>sum+entry.amount,0),tips:scoped.filter((entry)=>entry.category==="tip").reduce((sum,entry)=>sum+entry.amount,0),adjustments:scoped.filter((entry)=>entry.category==="adjustment").reduce((sum,entry)=>sum+entry.amount,0),services:scoped.filter((entry)=>!["tip","adjustment"].includes(entry.category)).length,periodStart:start.toISOString(),periodEnd:end.toISOString()};};
+      const dayEnd=new Date(dayStart);dayEnd.setDate(dayEnd.getDate()+1);const weekEnd=new Date(weekStart);weekEnd.setDate(weekEnd.getDate()+7);
+      res.set("Cache-Control","no-store, private");return ok(res,{earnings:{driverId:driver.id,currency:"ARS",timezone:"America/Argentina/Buenos_Aires",source:"sqlite-test-fallback",walletBalance:Number(user?.wallet||0),today:summarize(dayStart,dayEnd),week:summarize(weekStart,weekEnd),recent:entries.slice(0,100),cashout:{status:"not_configured",reason:"external_payout_provider_required"}}});
+    }
+    const earnings=await getDriverEarnings(req.auth.userId);
+    if(!earnings)return fail(res,404,"Perfil de conductor no encontrado");
+    res.set("Cache-Control","no-store, private");return ok(res,{earnings});
+  } catch(error) {
+    return fail(res,error.status||500,error.message||"No se pudieron cargar las ganancias");
   }
 });
 

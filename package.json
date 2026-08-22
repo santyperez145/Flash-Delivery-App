@@ -53,6 +53,7 @@
     "test:support-routing": "node --env-file-if-exists=.env.local scripts/support-routing-smoke.mjs",
     "test:driver-kyc": "node --env-file-if-exists=.env.local scripts/driver-kyc-smoke.mjs",
     "test:driver-vehicles": "node --env-file-if-exists=.env.local scripts/driver-vehicles-smoke.mjs",
+    "test:driver-earnings": "node --env-file-if-exists=.env.local scripts/driver-earnings-smoke.mjs",
     "test:mobile-native-runtime": "node scripts/mobile-native-runtime-smoke.mjs",
     "test:mobile-maps": "node scripts/mobile-map-ui-smoke.mjs",
     "test:ride-safety": "node --env-file-if-exists=.env.local scripts/ride-safety-smoke.mjs",

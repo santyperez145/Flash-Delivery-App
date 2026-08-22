@@ -523,7 +523,13 @@ export async function getPostgresDrivers({ userPublicId = null, publicIds = null
   const result = await postgresPool.query(`
     SELECT d.*, u.public_id AS user_public_id,(SELECT round(avg(r.score),2) FROM ratings r WHERE r.subject_type='driver' AND r.subject_id=d.id) AS feedback_rating,
       v.model vehicle_model,v.plate vehicle_plate,v.kind vehicle_kind,v.status vehicle_status,
-      ST_Y(d.current_location::geometry) AS lat, ST_X(d.current_location::geometry) AS lng
+      ST_Y(d.current_location::geometry) AS lat, ST_X(d.current_location::geometry) AS lng,
+      (SELECT COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint
+       FROM ledger_accounts a JOIN ledger_entries e ON e.account_id=a.id JOIN ledger_transactions t ON t.id=e.transaction_id
+       WHERE a.owner_type='user' AND a.owner_id=d.user_id AND a.currency='ARS' AND a.account_type='wallet'
+         AND t.status='posted' AND t.kind IN('driver_earning','merchant_settlement','tip','tip_adjustment')
+         AND t.created_at >= (date_trunc('day',now() AT TIME ZONE u.timezone) AT TIME ZONE u.timezone)
+         AND t.created_at < ((date_trunc('day',now() AT TIME ZONE u.timezone)+interval '1 day') AT TIME ZONE u.timezone)) earnings_today_cents
     FROM drivers d JOIN users u ON u.id = d.user_id
     LEFT JOIN vehicles v ON v.driver_id=d.id AND v.active AND v.retired_at IS NULL
     WHERE ($1::text IS NULL OR u.public_id = $1)
@@ -547,7 +553,7 @@ export async function getPostgresDrivers({ userPublicId = null, publicIds = null
     vehicleStatus: row.vehicle_status || null,
     rating: Number(row.feedback_rating??row.rating),
     location: { lat: Number(row.lat), lng: Number(row.lng), label: row.metadata?.locationLabel || "GPS", updatedAt: row.location_updated_at, source:row.location_source||null, accuracyM:row.location_accuracy_m==null?null:Number(row.location_accuracy_m) },
-    earningsToday: Number(row.metadata?.earningsToday || 0)
+    earningsToday: Number(row.earnings_today_cents || 0) / 100
     });
   });
 }
