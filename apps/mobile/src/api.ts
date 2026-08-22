@@ -165,6 +165,7 @@ export const api = {
   async getCurrentDriver(){return request<{driver:Driver}>("/driver/me");},
   async getCurrentMerchant(){return request<{restaurants:Restaurant[]}>("/merchant/me");},
   async getMerchantDashboard(merchantId:string){return request<{dashboard:import("./types").MerchantOperationsDashboard}>(`/merchant/dashboard?restaurantId=${encodeURIComponent(merchantId)}`);},
+  async getMerchantActiveOrders(merchantId:string,limit=100){return request<{generatedAt:string;source:"postgres-live-operations"|"sqlite-test-fallback";orders:Order[];hasMore:boolean}>(`/merchant/orders/active?restaurantId=${encodeURIComponent(merchantId)}&limit=${limit}`);},
   async getAssignedDrivers(){return request<{drivers:Driver[]}>("/me/assigned-drivers");},
   async getAccountContext(){return request<{account:{user:import("./types").User;addresses:import("./types").UserAddress[];paymentMethods:import("./types").PaymentMethod[];supportTickets:import("./types").SupportTicket[];tips:import("./types").ServiceTip[]}}>("/me");},
   async getPaymentClientConfiguration(merchantId?:string){return request<{provider:"mercadopago"|"disabled";publicKey:string|null;merchantReady:boolean;cardDataHandling:"provider_tokenization_only"}>(`/payment-provider/client-configuration${merchantId?`?merchantId=${encodeURIComponent(merchantId)}`:""}`);},

@@ -739,6 +739,9 @@ export const api = {
       `/merchant/dashboard?restaurantId=${encodeURIComponent(merchantId)}`,
     );
   },
+  async getMerchantActiveOrders(merchantId:string,limit=100){
+    return request<{generatedAt:string;source:"postgres-live-operations"|"sqlite-test-fallback";orders:AppState["orders"];hasMore:boolean}>(`/merchant/orders/active?restaurantId=${encodeURIComponent(merchantId)}&limit=${limit}`);
+  },
 
   async quoteFoodCheckout(payload: {
     customerId: string;

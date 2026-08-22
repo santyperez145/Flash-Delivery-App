@@ -31,6 +31,9 @@ try{
 
   assert((await call("/merchant/dashboard")).status===401,"anonymous cannot inspect merchant operations");
   assert((await call("/merchant/dashboard",{token:customerToken})).status===403,"customer cannot inspect merchant operations");
+  assert((await call("/merchant/orders/active?restaurantId=rest_roja")).status===401,"anonymous cannot inspect the merchant order queue");
+  assert((await call("/merchant/orders/active?restaurantId=rest_roja",{token:customerToken})).status===403,"customer cannot inspect the merchant order queue");
+  assert((await call("/merchant/orders/active",{token:merchantToken})).status===400,"merchant queue requires explicit commerce selection");
   const response=await call("/merchant/dashboard?restaurantId=rest_roja",{token:merchantToken}),dashboard=response.body.dashboard;
   assert(response.status===200,`owner receives the operations snapshot (HTTP ${response.status}${response.body.message?`: ${response.body.message}`:""})`);
   assert(response.headers.get("cache-control")?.includes("no-store"),"owner snapshot is private no-store");
@@ -41,6 +44,10 @@ try{
   assert(dashboard.metrics.completedToday===Number(baseline.completed)+1&&dashboard.metrics.grossSalesToday===Number(baseline.sales)/100+3200,"today sales count only terminal events inside the local day");
   assert(dashboard.metrics.lateOrders>=1&&dashboard.metrics.needsAction>=1&&dashboard.metrics.activeOrders>=1,"live queue exposes actionable and overdue preparation from persisted deadlines");
   assert(Number.isInteger(dashboard.metrics.untrackedPrepOrders)&&dashboard.metrics.untrackedPrepOrders>=0,"legacy prep gaps remain explicit rather than guessed");
+  const activeQueue=await call("/merchant/orders/active?restaurantId=rest_roja&limit=100",{token:merchantToken}),activeIds=activeQueue.body.orders?.map(order=>order.id)||[];
+  assert(activeQueue.status===200&&activeQueue.headers.get("cache-control")?.includes("no-store")&&activeQueue.body.source==="postgres-live-operations"&&typeof activeQueue.body.hasMore==="boolean","merchant receives a private bounded PostgreSQL active queue");
+  assert(activeIds.includes(`${prefix}-LATE`)&&!activeIds.includes(`${prefix}-DONE`)&&!activeIds.includes(`${prefix}-CANCEL`),"active queue includes actionable work and excludes terminal history");
+  assert((await call("/merchant/orders/active?restaurantId=rest_ajeno",{token:merchantToken})).status===404,"active queue never fabricates an unknown commerce");
   originalMerchantState={open:dashboard.branch.manualOpen,etaMin:dashboard.branch.etaMin};
   const targetOpen=!originalMerchantState.open,targetEta=originalMerchantState.etaMin+5;
   const update=await call("/restaurants/rest_roja",{token:merchantToken,method:"PATCH",body:JSON.stringify({open:targetOpen,etaMin:targetEta})});

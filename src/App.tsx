@@ -1836,6 +1836,8 @@ function MerchantDesktopConsole({
   >("kitchen");
   const [finance, setFinance] = useState<MerchantFinance | null>(null);
   const [operations, setOperations] = useState<MerchantOperationsDashboard | null>(null);
+  const [merchantActiveOrders,setMerchantActiveOrders]=useState<Order[]>([]);
+  const [merchantActiveOrdersHasMore,setMerchantActiveOrdersHasMore]=useState(false);
   const [operationsLoading, setOperationsLoading] = useState(true);
   const [operationsError, setOperationsError] = useState("");
   const [financeLoading, setFinanceLoading] = useState(false);
@@ -1858,8 +1860,10 @@ function MerchantDesktopConsole({
   const loadOperations = useCallback(async () => {
     setOperationsLoading(true);
     try {
-      const result = await api.getMerchantDashboard(restaurant.id);
+      const [result,queue]=await Promise.all([api.getMerchantDashboard(restaurant.id),api.getMerchantActiveOrders(restaurant.id)]);
       setOperations(result.dashboard);
+      setMerchantActiveOrders(queue.orders);
+      setMerchantActiveOrdersHasMore(queue.hasMore);
       setOperationsError("");
     } catch (error) {
       setOperationsError(error instanceof Error ? error.message : "No se pudo actualizar la operación");
@@ -1873,9 +1877,7 @@ function MerchantDesktopConsole({
   const orders = state.orders.filter(
     (order) => order.restaurantId === restaurant.id,
   );
-  const activeOrders = orders.filter(
-    (order) => !["delivered", "cancelled"].includes(order.status),
-  );
+  const activeOrders=merchantActiveOrders;
   const orderStatusSignature = orders.map((order) => `${order.id}:${order.status}`).join("|");
   const stockSignature = restaurant.menu.map((item) => `${item.id}:${item.stock}`).join("|");
   useEffect(() => {
@@ -2046,6 +2048,7 @@ function MerchantDesktopConsole({
                 action={`${activeOrders.length} activas`}
               />
               <div className="activity-stack">
+                {merchantActiveOrdersHasMore && <div className="merchant-queue-limit"><TriangleAlert size={16}/><span>Hay más de 100 pedidos activos. Priorizá la cola visible y contactá Operaciones.</span></div>}
                 {activeOrders.map((order) => (
                   <OrderOpsCard
                     key={order.id}
@@ -2060,10 +2063,11 @@ function MerchantDesktopConsole({
                         "Pedido avanzado",
                       )
                     }
+                    canAdvance={["accepted","preparing"].includes(order.status)}
                     busy={busy}
                   />
                 ))}
-                {!activeOrders.length && <p>No hay pedidos pendientes.</p>}
+                {operationsLoading && !activeOrders.length ? <p>Sincronizando comandas…</p> : !activeOrders.length && <p>No hay pedidos pendientes.</p>}
               </div>
             </section>
             <section className="admin-card">
@@ -9606,17 +9610,17 @@ function OrderOpsCard({
   restaurant,
   driver,
   onAdvance,
+  canAdvance,
   busy,
 }: {
   order: Order;
   restaurant?: Restaurant;
   driver?: Driver;
   onAdvance: () => void;
+  canAdvance?:boolean;
   busy: boolean;
 }) {
-  const canAdvance = !["ready_for_pickup", "delivered", "cancelled"].includes(
-    order.status,
-  );
+  const showAdvance = canAdvance ?? !["ready_for_pickup", "delivered", "cancelled"].includes(order.status);
   return (
     <article className="work-card">
       <div className="work-card-top">
@@ -9631,7 +9635,7 @@ function OrderOpsCard({
         <span>{money.format(order.total)}</span>
         <span>{driver?.name || "Sin repartidor"}</span>
       </div>
-      {canAdvance && (
+      {showAdvance && (
         <button type="button" onClick={onAdvance} disabled={busy}>
           <PackageCheck size={15} /> Avanzar
         </button>

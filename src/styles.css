@@ -4433,6 +4433,7 @@ textarea {
 .merchant-capacity-facts small,.merchant-capacity-facts strong { display: block; }
 .merchant-capacity-facts small { min-height: 30px; color: var(--ink-soft); font-size: .68rem; font-weight: 800; }
 .merchant-capacity-facts strong { margin-top: 7px; font-size: 1.05rem; }
+.merchant-queue-limit { display: flex; align-items: flex-start; gap: 8px; padding: 11px 12px; color: #983624; background: #fff1ed; border-radius: 11px; font-size: .78rem; font-weight: 800; }
 
 @media (max-width: 1100px) { .merchant-pulse-stages { grid-template-columns: repeat(3,minmax(0,1fr)); } }
 @media (max-width: 720px) { .merchant-operations-status { grid-template-columns: auto minmax(0,1fr); } .merchant-operations-status button,.merchant-operations-spinner { grid-column: 2; justify-self: start; } .merchant-pulse-stages { grid-template-columns: repeat(2,minmax(0,1fr)); } .merchant-capacity-facts { grid-template-columns: 1fr; } }
