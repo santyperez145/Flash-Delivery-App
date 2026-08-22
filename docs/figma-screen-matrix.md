@@ -44,9 +44,9 @@ Estados: `[x]` funcional y visible, `[~]` base funcional con paridad visual pend
 | Estado | Pantalla/estado Figma | Dominio/API requerido |
 |---|---|---|
 | [~] | Onboarding y permiso de ubicacion | permisos reales; paridad visual pendiente |
-| [x] | Mapa y origen GPS | Expo Location, OSM |
+| [x] | Mapa y origen GPS | mobile y web usan GPS/dirección propia, OSM y estado vacío; no precargan una ruta ficticia |
 | [x] | Buscar destino y lugares frecuentes | direcciones guardadas y recientes reales por usuario, coordenadas PostGIS, geocoding, deduplicación y borrado privado |
-| [x] | Ruta previa | OSRM, polyline SVG, ETA |
+| [x] | Ruta previa | OSRM, teselas OSM, polyline SVG, ETA y fallback explícito en mobile y web |
 | [x] | Selector de modalidad | disponibilidad, capacidad, pickup ETA |
 | [x] | Precio adelantado | breakdown, demanda, token firmado, vencimiento |
 | [x] | Solicitar y asignar conductor | jobs/rides, dispatch por cercania |

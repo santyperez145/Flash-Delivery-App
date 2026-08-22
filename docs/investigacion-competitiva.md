@@ -178,3 +178,19 @@ oficial de Mercado Pago y nunca entra PAN/CVV al backend de Flash.
 
 - [Uber Eats: cambiar método de pago antes de confirmar](https://help.uber.com/ubereats/restaurants/article/node?nodeId=44c3136d-1dd4-431a-b44a-ceabf5e1e1f3)
 - [Uber Eats: impacto de cambiar dirección](https://help.uber.com/en/ubereats/restaurants/article/%E6%9B%B4%E6%94%B9%E6%88%91%E7%9A%84%E5%9C%B0%E5%9D%80?nodeId=f2e3c07a-09dd-4c63-aa57-8a13789cbb7e)
+
+### Decisión 22 de agosto de 2026 — inicio de Viajes web
+
+Uber y Lyft documentan el mismo orden: proponer el punto de retiro desde GPS,
+permitir corregirlo, elegir un destino real y recién entonces comparar modalidad
+y precio. Flash eliminó la ruta precargada de demostración en desktop/PWA. Al
+entrar, usa una sola vez la dirección principal geocodificada de la cuenta si
+existe; de lo contrario presenta un estado vacío y la acción de GPS.
+
+Los destinos guardados conservan sus coordenadas, la vista previa solicita la
+ruta vial a la API y dibuja teselas OpenStreetMap con atribución. Escribir texto
+libre invalida las coordenadas anteriores y toda variación invalida el precio
+firmado. No se anima un vehículo ni una ruta inexistentes.
+
+- [Uber: cómo solicitar un viaje](https://help.uber.com/riders/article/how-to-request-a-ride-?nodeId=e9862b49-81c6-4c6a-a9d3-3c05bf42e82e)
+- [Lyft: cómo solicitar un viaje](https://help.lyft.com/hc/en-us/all/articles/115013079988-How-to-request-a-ride.3)
