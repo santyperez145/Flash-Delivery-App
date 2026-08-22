@@ -41,6 +41,16 @@ export async function createMercadoPagoPayment({accessToken,idempotencyKey,cardT
   return{id:String(body.id),status,statusDetail:body.status_detail?String(body.status_detail):null,externalReference:body.external_reference?String(body.external_reference):String(externalReference),transactionAmount:Number(body.transaction_amount||amount),currency:String(body.currency_id||"ARS"),applicationFee:Number(body.application_fee??fee),collectorId:body.collector_id?String(body.collector_id):null,dateApproved:body.date_approved||null};
 }
 
+export async function refundMercadoPagoPayment({accessToken,paymentId,idempotencyKey,amount=null,fetchImpl=fetch}){
+  if(config.paymentMarketplace.provider!=="mercadopago")throw Object.assign(new Error("Mercado Pago Marketplace no está habilitado"),{status:503});
+  if(!/^\d{4,32}$/.test(String(paymentId||"")))throw Object.assign(new Error("Identificador de pago inválido"),{status:400});
+  if(!/^[A-Za-z0-9._:-]{8,64}$/.test(String(idempotencyKey||"")))throw Object.assign(new Error("Clave de idempotencia inválida"),{status:400});
+  if(amount!==null&&(!Number.isFinite(Number(amount))||Number(amount)<=0))throw Object.assign(new Error("Importe de reembolso inválido"),{status:400});
+  const response=await fetchImpl(`https://api.mercadopago.com/v1/payments/${encodeURIComponent(paymentId)}/refunds`,{method:"POST",headers:{accept:"application/json","content-type":"application/json",authorization:`Bearer ${accessToken}`,"x-idempotency-key":String(idempotencyKey)},body:JSON.stringify(amount===null?{}:{amount:Number(Number(amount).toFixed(2))}),signal:AbortSignal.timeout(5000)}),body=await response.json().catch(()=>({}));
+  if(!response.ok||!body.id)throw Object.assign(new Error(response.status===429?"Mercado Pago limitó temporalmente los reintegros":"Mercado Pago no pudo completar el reintegro"),{status:response.status===429?429:502,providerStatus:response.status,providerCode:body.cause?.[0]?.code||body.code||null});
+  return{id:String(body.id),paymentId:String(body.payment_id||paymentId),amount:Number(body.amount||amount||0),status:String(body.status||"processed"),dateCreated:body.date_created||null};
+}
+
 export async function fetchMercadoPagoResource({topic,resourceId,accessToken}){
   const resource=topic==="payment"?`payments/${encodeURIComponent(resourceId)}`:["order","orders"].includes(topic)?`orders/${encodeURIComponent(resourceId)}`:null;
   if(!resource)throw Object.assign(new Error("Tópico sin recurso conciliable"),{status:422});
