@@ -19,6 +19,7 @@ de documentación; no contiene tokens, credenciales ni ejemplos personales.
 - Ofertas privadas de dispatch y rechazo antes del TTL.
 - Tickets de soporte, conversación visible y actualización exclusiva de agentes.
 - Inventarios operativos paginados, feature flags, métricas y readiness de zona.
+- Perfil alimentario privado y declaraciones normalizadas de productos.
 - Bearer JWT, respuestas de error, límites básicos y códigos HTTP relevantes.
 
 La cobertura es incremental. Una ruta ausente todavía no tiene contrato público
