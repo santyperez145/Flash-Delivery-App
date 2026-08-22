@@ -39,6 +39,9 @@ jobs:
       - name: Prometheus alert contracts
         run: npm run test:observability-rules
 
+      - name: Provider resilience contracts
+        run: npm run test:provider-resilience
+
   mobile-typecheck:
     runs-on: ubuntu-latest
     timeout-minutes: 15

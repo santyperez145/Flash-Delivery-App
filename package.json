@@ -67,6 +67,7 @@
     "test:telemetry": "node scripts/telemetry-smoke.mjs",
     "test:city-isolation": "node --env-file-if-exists=.env.local scripts/city-isolation-smoke.mjs",
     "test:observability-rules": "node scripts/observability-rules-smoke.mjs"
+    ,"test:provider-resilience": "node scripts/provider-resilience-smoke.mjs"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",

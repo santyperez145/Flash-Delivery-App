@@ -12,7 +12,8 @@ import { z } from "zod";
 import { SpanStatusCode, trace } from "@opentelemetry/api";
 import { config } from "./config.js";
 import { postgresPool, postgresReadiness } from "./postgres.js";
-import { observeHttpRequest, renderPrometheus } from "./observability.js";
+import { observeHttpRequest, observeProviderCall, renderPrometheus } from "./observability.js";
+import { ProviderCircuit } from "./provider-resilience.js";
 import {
   createPostgresSession,
   createPostgresAddress,
@@ -211,6 +212,7 @@ import {
 import {
   createMapCacheKey,
   getCachedMapResponse,
+  getStaleCachedMapResponse,
   putCachedMapResponse,
 } from "./map-cache-repository.js";
 import {
@@ -286,6 +288,7 @@ const __dirname = path.dirname(__filename);
 const distDir = path.resolve(__dirname, "..", "dist");
 const realtimeClients = new Map();
 const processStartedAt = Date.now();
+const mapProviderCircuit = new ProviderCircuit(config.mapProvider);
 let sqliteRuntimeReads = 0;
 function readDb() {
   sqliteRuntimeReads += 1;
@@ -7070,12 +7073,13 @@ app.get("/api/maps/geocode", requireAuth, async (req, res) => {
   const query = String(req.query.q || "").trim();
   if (query.length < 3 || query.length > 180)
     return fail(res, 400, "La direccion debe tener entre 3 y 180 caracteres");
+  let cacheKey;
   try {
     const normalizedQuery = query
       .normalize("NFKC")
       .toLocaleLowerCase("es-AR")
       .replace(/\s+/g, " ");
-    const cacheKey = createMapCacheKey(
+    cacheKey = createMapCacheKey(
       `${config.geocodingUrl}|${normalizedQuery}`,
     );
     const cached = await getCachedMapResponse({
@@ -7094,11 +7098,13 @@ app.get("/api/maps/geocode", requireAuth, async (req, res) => {
     url.searchParams.set("limit", "5");
     url.searchParams.set("addressdetails", "1");
     url.searchParams.set("countrycodes", "ar");
-    const response = await fetch(url, {
-      headers: { "User-Agent": "FlashDeliveryApp/0.1 (local-development)" },
-      signal: AbortSignal.timeout(7000),
+    const { response } = await mapProviderCircuit.execute({
+      provider: "openstreetmap",
+      operation: "geocode",
+      timeoutMs: config.mapProvider.timeoutMs,
+      call: (signal) => fetch(url, { headers: { "User-Agent": "FlashDeliveryApp/0.1 (operations@flash.local)" }, signal }),
     });
-    if (!response.ok) throw new Error(`Geocoder ${response.status}`);
+    observeProviderCall({ provider: "openstreetmap", operation: "geocode", outcome: "success" });
     const payload = await response.json();
     const results = payload
       .map((entry) => ({
@@ -7119,6 +7125,9 @@ app.get("/api/maps/geocode", requireAuth, async (req, res) => {
     });
     return ok(res, { results, provider: "openstreetmap", cache: "miss" });
   } catch (error) {
+    observeProviderCall({ provider: "openstreetmap", operation: "geocode", outcome: error.code || "failure" });
+    const stale = cacheKey ? await getStaleCachedMapResponse({ kind: "geocode", key: cacheKey, maxStaleSeconds: config.mapProvider.staleCacheSeconds }) : null;
+    if (stale) return ok(res, { results: stale.payload.results, provider: stale.provider, cache: "stale", degraded: true });
     return fail(res, 503, "El servicio de geocodificacion no esta disponible");
   }
 });
@@ -7137,11 +7146,12 @@ app.get("/api/maps/route", requireAuth, async (req, res) => {
     Math.abs(toLng) > 180
   )
     return fail(res, 400, "Coordenadas fuera de rango");
+  let cacheKey;
   try {
     const routeIdentity = [fromLat, fromLng, toLat, toLng]
       .map((value) => value.toFixed(5))
       .join(",");
-    const cacheKey = createMapCacheKey(
+    cacheKey = createMapCacheKey(
       `${config.routingUrl}|driving|${routeIdentity}`,
     );
     const cached = await getCachedMapResponse({ kind: "route", key: cacheKey });
@@ -7158,8 +7168,13 @@ app.get("/api/maps/route", requireAuth, async (req, res) => {
     url.searchParams.set("overview", "full");
     url.searchParams.set("geometries", "geojson");
     url.searchParams.set("steps", "true");
-    const response = await fetch(url, { signal: AbortSignal.timeout(7000) });
-    if (!response.ok) throw new Error(`Router ${response.status}`);
+    const { response } = await mapProviderCircuit.execute({
+      provider: "osrm",
+      operation: "route",
+      timeoutMs: config.mapProvider.timeoutMs,
+      call: (signal) => fetch(url, { signal }),
+    });
+    observeProviderCall({ provider: "osrm", operation: "route", outcome: "success" });
     const payload = await response.json();
     const route = payload.routes?.[0];
     if (!route) return fail(res, 404, "No se encontro una ruta transitable");
@@ -7193,6 +7208,9 @@ app.get("/api/maps/route", requireAuth, async (req, res) => {
     });
     return ok(res, { route: normalizedRoute, provider: "osrm", cache: "miss" });
   } catch (error) {
+    observeProviderCall({ provider: "osrm", operation: "route", outcome: error.code || "failure" });
+    const stale = cacheKey ? await getStaleCachedMapResponse({ kind: "route", key: cacheKey, maxStaleSeconds: config.mapProvider.staleCacheSeconds }) : null;
+    if (stale) return ok(res, { route: stale.payload.route, provider: stale.provider, cache: "stale", degraded: true });
     return fail(res, 503, "El servicio de rutas no esta disponible");
   }
 });

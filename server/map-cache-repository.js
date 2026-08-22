@@ -11,6 +11,14 @@ export async function getCachedMapResponse({kind,key}){
   return row?{provider:row.provider,payload:row.payload,expiresAt:new Date(row.expires_at).toISOString()}:null;
 }
 
+export async function getStaleCachedMapResponse({kind,key,maxStaleSeconds}){
+  if(!postgresPool)return null;
+  const result=await postgresPool.query(`SELECT provider,payload,expires_at FROM map_provider_cache
+    WHERE cache_key=$1 AND kind=$2 AND expires_at>now()-$3*interval '1 second'`,[key,kind,maxStaleSeconds]);
+  const row=result.rows[0];
+  return row?{provider:row.provider,payload:row.payload,expiresAt:new Date(row.expires_at).toISOString()}:null;
+}
+
 export async function putCachedMapResponse({kind,key,provider,payload,ttlSeconds}){
   if(!postgresPool)return;
   await postgresPool.query(`INSERT INTO map_provider_cache(cache_key,kind,provider,payload,expires_at)
