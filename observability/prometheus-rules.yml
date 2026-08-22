@@ -41,3 +41,8 @@ groups:
         for: 10m
         labels: { severity: ticket }
         annotations: { summary: "Proveedor de mapas degradado o con circuito abierto", runbook: "docs/runbooks/map-provider.md" }
+      - alert: FlashMerchantPaymentOAuthReconnectRequired
+        expr: flash_merchant_payment_oauth_connections{status="reconnect_required"} > 0
+        for: 15m
+        labels: { severity: page }
+        annotations: { summary: "Hay comercios cuya autorización de cobro debe reconectarse", runbook: "docs/runbooks/merchant-payment-oauth.md" }
