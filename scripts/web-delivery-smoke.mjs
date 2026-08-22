@@ -21,6 +21,8 @@ try {
   const indexResponse = await fetch(origin, { headers: { "Accept-Encoding": "gzip" } });
   const html = await indexResponse.text();
   assert(indexResponse.ok && indexResponse.headers.get("cache-control") === "no-cache", "index.html siempre revalida despliegues");
+  const csp = indexResponse.headers.get("content-security-policy") || "";
+  assert(csp.includes("default-src 'self'") && csp.includes("object-src 'none'") && csp.includes("frame-ancestors 'none'") && !csp.includes("unsafe-eval"), "CSP bloquea ejecución, objetos y framing no autorizados");
   const assetPath = html.match(/<script[^>]+src="([^"]+\.js)"/)?.[1];
   assert(assetPath, "index.html referencia el entry versionado");
   const assetResponse = await fetch(new URL(assetPath, origin), { headers: { "Accept-Encoding": "gzip" } });
