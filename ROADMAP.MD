@@ -437,7 +437,8 @@ La implementacion se sigue por flujos completos y no por pantallas aisladas. Cad
 - [x] Comidas: menu, agregado de productos, cantidades, carrito, direccion y creacion real del pedido.
 - [x] Comidas: checkout exige una dirección propia geocodificada y persiste pickup/dropoff PostGIS, distancia y ETA sin reutilizar la ubicación del comercio.
 - [x] Comidas: pedidos activos y cancelacion autorizada.
-- [~] Comidas: onboarding real, favoritos persistentes, cupones y checkout con Wallet funcionan; falta tracking dedicado en mapa.
+- [~] Comidas: onboarding real, favoritos persistentes, cupones y checkout con Wallet funcionan; falta paridad visual fina de confirmación.
+- [x] Comidas web/PWA: Actividad abre tracking dedicado con ruta OSRM real, mosaicos OSM, repartidor asignado, ETA/timeline, compartir estado y degradación honesta.
 - [ ] Viajes: replicar el flujo completo del Figma Lyft (destino, mapa, selector, confirmacion, matching y viaje activo).
 - [ ] Envios: adaptar el mismo sistema visual con paquete, destinatario, cotizacion, PIN y tracking ya operativos.
 - [ ] Actividad, wallet, perfil, soporte y notificaciones como navegacion compartida.

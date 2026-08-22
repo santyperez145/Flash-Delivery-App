@@ -67,6 +67,7 @@ Flash Delivery Mobility ya es una app fullstack local con cuatro superficies: cl
 - Comercio mobile gestiona cocina, ETA, stock y alta de productos con persistencia.
 - Wallet sandbox registra cargas auditables y Perfil actualiza nombre, telefono y direccion principal.
 - Perfil web/PWA incorpora la libreta de direcciones persistente: destinos Casa/Trabajo/Otro con alta, edición, selección de principal, eliminación y captura GPS para que checkout reutilice coordenadas reales.
+- Actividad web/PWA incorpora tracking dedicado de pedidos: ruta vial OSRM sobre mosaicos OSM, repartidor y posición cuando existen, ETA/timeline persistidos, compartir estado y fallback explícito ante coordenadas o mapas no disponibles.
 
 ## Reglas estrictas implementadas
 

@@ -84,6 +84,17 @@ export type GeoPoint = {
   lng: number;
 };
 
+export type RoadRoute = {
+  distanceKm: number;
+  durationMin: number;
+  coordinates: GeoPoint[];
+  steps: Array<{
+    instruction: string;
+    distanceM: number;
+    durationSec: number;
+  }>;
+};
+
 export type RideForm = {
   pickup: string;
   destination: string;

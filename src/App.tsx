@@ -59,6 +59,7 @@ import type {
   Mode,
   Order,
   OrderStatus,
+  RoadRoute,
   Restaurant,
   Ride,
   RideQuote,
@@ -6345,6 +6346,8 @@ function CustomerActivity({
 }) {
   const orders = state.orders.filter((order) => order.customerId === user?.id);
   const rides = state.rides.filter((ride) => ride.customerId === user?.id);
+  const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
+  const trackingOrder = orders.find((order) => order.id === trackingOrderId) || null;
   return (
     <div className="activity-stack">
       <SectionTitle title="Pedidos" />
@@ -6356,6 +6359,7 @@ function CustomerActivity({
           (entry) =>
             entry.jobId === order.id && entry.subjectType === "merchant",
         );
+        const active = !["delivered", "cancelled"].includes(order.status);
         return (
           <StatusCard
             key={order.id}
@@ -6365,22 +6369,33 @@ function CustomerActivity({
             amount={order.total}
             status={order.status}
             actionLabel={
-              order.status === "delivered"
+              active
+                ? "Seguir pedido"
+                : order.status === "delivered"
                 ? rated
                   ? undefined
                   : "Calificar 5★"
-                : "Cancelar"
+                : undefined
             }
             onAction={() =>
-              order.status === "delivered"
+              active
+                ? setTrackingOrderId(order.id)
+                : order.status === "delivered"
                 ? runAction(
                     () => api.createRating(order.id, "merchant", 5),
                     "Gracias por tu calificación",
                   )
-                : runAction(
-                    () => api.setOrderStatus(order.id, "cancelled"),
-                    "Pedido cancelado",
-                  )
+                : undefined
+            }
+            secondaryActionLabel={active ? "Cancelar" : undefined}
+            onSecondaryAction={
+              active
+                ? () =>
+                    runAction(
+                      () => api.setOrderStatus(order.id, "cancelled"),
+                      "Pedido cancelado",
+                    )
+                : undefined
             }
             disabled={busy}
           />
@@ -6424,6 +6439,281 @@ function CustomerActivity({
           />
         );
       })}
+      {trackingOrder && (
+        <OrderTrackingSheet
+          order={trackingOrder}
+          driver={
+            state.drivers.find(
+              (driver) => driver.id === trackingOrder.courierId,
+            ) || null
+          }
+          onClose={() => setTrackingOrderId(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+type ProjectedMapPoint = { x: number; y: number };
+
+function buildWebTrackingMap(
+  origin: GeoPoint,
+  destination: GeoPoint,
+  routeCoordinates: GeoPoint[] = [],
+  driverPoint: GeoPoint | null = null,
+) {
+  const points = [origin, destination, ...routeCoordinates, ...(driverPoint ? [driverPoint] : [])];
+  const world = (point: GeoPoint, zoom: number) => {
+    const scale = 2 ** zoom;
+    const latitude = Math.max(-85.0511, Math.min(85.0511, point.lat));
+    const latitudeRadians = (latitude * Math.PI) / 180;
+    return {
+      x: ((point.lng + 180) / 360) * scale,
+      y: ((1 - Math.asinh(Math.tan(latitudeRadians)) / Math.PI) / 2) * scale,
+    };
+  };
+
+  let zoom = 15;
+  for (; zoom > 8; zoom -= 1) {
+    const projected = points.map((point) => world(point, zoom));
+    const xs = projected.map((point) => point.x);
+    const ys = projected.map((point) => point.y);
+    if (
+      Math.max(...xs) - Math.min(...xs) <= 2.35 &&
+      Math.max(...ys) - Math.min(...ys) <= 2.35
+    )
+      break;
+  }
+
+  const projected = points.map((point) => world(point, zoom));
+  const centerX =
+    (Math.min(...projected.map((point) => point.x)) +
+      Math.max(...projected.map((point) => point.x))) /
+    2;
+  const centerY =
+    (Math.min(...projected.map((point) => point.y)) +
+      Math.max(...projected.map((point) => point.y))) /
+    2;
+  const baseX = Math.floor(centerX) - 1;
+  const baseY = Math.floor(centerY) - 1;
+  const project = (point: GeoPoint): ProjectedMapPoint => {
+    const value = world(point, zoom);
+    return { x: (value.x - baseX) * 100, y: (value.y - baseY) * 100 };
+  };
+
+  return {
+    zoom,
+    tiles: Array.from({ length: 9 }, (_, index) => {
+      const column = index % 3;
+      const row = Math.floor(index / 3);
+      const scale = 2 ** zoom;
+      const tileX = ((baseX + column) % scale + scale) % scale;
+      const tileY = Math.max(0, Math.min(scale - 1, baseY + row));
+      return {
+        key: `${zoom}-${tileX}-${tileY}`,
+        uri: `https://tile.openstreetmap.org/${zoom}/${tileX}/${tileY}.png`,
+        column,
+        row,
+      };
+    }),
+    route: routeCoordinates.map((point) => project(point)),
+    pickup: project(origin),
+    dropoff: project(destination),
+    driver: driverPoint ? project(driverPoint) : null,
+  };
+}
+
+function OrderTrackingSheet({
+  order,
+  driver,
+  onClose,
+}: {
+  order: Order;
+  driver: Driver | null;
+  onClose: () => void;
+}) {
+  const [route, setRoute] = useState<RoadRoute | null>(null);
+  const [routeError, setRouteError] = useState<string | null>(null);
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [shareLabel, setShareLabel] = useState("Compartir estado");
+
+  useEffect(() => {
+    let cancelled = false;
+    const origin = order.pickupLocation;
+    const destination = order.deliveryLocation;
+    setRoute(null);
+    setRouteError(null);
+    if (!origin || !destination) {
+      setRouteError("Mapa no disponible: faltan coordenadas del pedido.");
+      return () => {
+        cancelled = true;
+      };
+    }
+    setRouteLoading(true);
+    void api
+      .route(origin, destination)
+      .then((response) => {
+        if (!cancelled) setRoute(response.route);
+      })
+      .catch((error) => {
+        if (!cancelled)
+          setRouteError(
+            error instanceof Error
+              ? error.message
+              : "La ruta vial no está disponible ahora.",
+          );
+      })
+      .finally(() => {
+        if (!cancelled) setRouteLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    order.id,
+    order.pickupLocation?.lat,
+    order.pickupLocation?.lng,
+    order.deliveryLocation?.lat,
+    order.deliveryLocation?.lng,
+  ]);
+
+  const map =
+    order.pickupLocation && order.deliveryLocation
+      ? buildWebTrackingMap(
+          order.pickupLocation,
+          order.deliveryLocation,
+          route?.coordinates || [],
+          driver?.location || null,
+        )
+      : null;
+  const currentIndex = Math.max(orderSteps.indexOf(order.status), 0);
+  const share = async () => {
+    const text = `Mi pedido ${order.id} está ${orderStatusLabel[order.status].toLowerCase()}. ETA publicada: ${order.etaMin} min.`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "Seguimiento Flash", text });
+      } else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(text);
+        setShareLabel("Estado copiado");
+        window.setTimeout(() => setShareLabel("Compartir estado"), 2200);
+      }
+    } catch (_error) {
+      // El usuario puede cerrar el diálogo nativo sin cambiar el pedido.
+    }
+  };
+
+  return (
+    <div className="sheet-backdrop tracking-backdrop" role="presentation">
+      <section
+        className="item-sheet order-tracking-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="order-tracking-title"
+      >
+        <button className="sheet-close" type="button" onClick={onClose} aria-label="Cerrar seguimiento">
+          <X size={18} />
+        </button>
+        <div className="tracking-sheet-heading">
+          <div>
+            <span className="muted-label">Seguimiento en vivo</span>
+            <h2 id="order-tracking-title">Pedido {order.id}</h2>
+            <p>{orderStatusLabel[order.status]} · ETA publicada {order.etaMin} min</p>
+          </div>
+          <button className="tracking-share-button" type="button" onClick={() => void share()}>
+            <Copy size={15} /> {shareLabel}
+          </button>
+        </div>
+        {map ? (
+          <div className="order-tracking-map" aria-label="Mapa de seguimiento del pedido">
+            {map.tiles.map((tile) => (
+              <img
+                key={tile.key}
+                className="order-map-tile"
+                src={tile.uri}
+                alt=""
+                aria-hidden="true"
+                style={{
+                  left: `${tile.column * 33.333}%`,
+                  top: `${tile.row * 33.333}%`,
+                }}
+              />
+            ))}
+            {map.route.length > 1 && (
+              <svg className="order-map-route" viewBox="0 0 300 300" preserveAspectRatio="none" aria-hidden="true">
+                <polyline
+                  points={map.route.map((point) => `${point.x},${point.y}`).join(" ")}
+                  fill="none"
+                  stroke="rgba(255,255,255,.96)"
+                  strokeWidth="11"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <polyline
+                  points={map.route.map((point) => `${point.x},${point.y}`).join(" ")}
+                  fill="none"
+                  stroke="#f4511e"
+                  strokeWidth="5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            )}
+            <span className="order-map-marker pickup" style={{ left: `${map.pickup.x / 3}%`, top: `${map.pickup.y / 3}%` }} title="Comercio">
+              <Store size={14} />
+            </span>
+            <span className="order-map-marker dropoff" style={{ left: `${map.dropoff.x / 3}%`, top: `${map.dropoff.y / 3}%` }} title="Entrega">
+              <Home size={14} />
+            </span>
+            {map.driver && (
+              <span className="order-map-marker driver" style={{ left: `${map.driver.x / 3}%`, top: `${map.driver.y / 3}%` }} title="Repartidor">
+                <Bike size={14} />
+              </span>
+            )}
+            <div className="tracking-map-caption">
+              <strong>
+                {route
+                  ? `${route.distanceKm} km · ${route.durationMin} min de recorrido`
+                  : routeLoading
+                    ? "Calculando ruta real…"
+                    : routeError || "Ruta vial no disponible"}
+              </strong>
+              <span>{driver ? `${driver.name} · ${driver.vehicle}` : "Buscando repartidor disponible"}</span>
+            </div>
+            <small className="map-attribution">© OpenStreetMap contributors</small>
+          </div>
+        ) : (
+          <div className="tracking-map-empty">
+            <MapPin size={20} />
+            <strong>El mapa se activará al recibir coordenadas</strong>
+            <span>{routeError}</span>
+          </div>
+        )}
+        <div className="tracking-status-panel">
+          <div className="tracking-status-copy">
+            <div>
+              <span className="muted-label">Estado actual</span>
+              <h3>{orderStatusLabel[order.status]}</h3>
+            </div>
+            {driver && (
+              <div className="tracking-driver-summary">
+                <span className="avatar">{initials(driver.name)}</span>
+                <span><strong>{driver.name}</strong><small>{driver.vehicle} · ★ {driver.rating.toFixed(1)}</small></span>
+              </div>
+            )}
+          </div>
+          <div className="stepper tracking-stepper">
+            {orderSteps.map((step, index) => (
+              <div className={index <= currentIndex ? "step active" : "step"} key={step}>
+                <span>{index < currentIndex ? <Check size={12} /> : index + 1}</span>
+                <small>{orderStatusLabel[step]}</small>
+              </div>
+            ))}
+          </div>
+        </div>
+        <p className="tracking-integrity-note">
+          La ubicación del repartidor aparece únicamente cuando el backend recibe una actualización válida. El timeline y la ETA siguen disponibles durante una degradación de mapas.
+        </p>
+      </section>
     </div>
   );
 }
@@ -8320,6 +8610,8 @@ function StatusCard({
   status,
   actionLabel,
   onAction,
+  secondaryActionLabel,
+  onSecondaryAction,
   disabled,
 }: {
   icon: LucideIcon;
@@ -8329,6 +8621,8 @@ function StatusCard({
   status: string;
   actionLabel?: string;
   onAction?: () => void;
+  secondaryActionLabel?: string;
+  onSecondaryAction?: () => void;
   disabled: boolean;
 }) {
   return (
@@ -8343,10 +8637,24 @@ function StatusCard({
           {status} · {money.format(amount)}
         </small>
       </div>
-      {actionLabel && (
-        <button type="button" onClick={onAction} disabled={disabled}>
-          {actionLabel}
-        </button>
+      {(actionLabel || secondaryActionLabel) && (
+        <div className="status-card-actions">
+          {secondaryActionLabel && (
+            <button
+              className="secondary"
+              type="button"
+              onClick={onSecondaryAction}
+              disabled={disabled}
+            >
+              {secondaryActionLabel}
+            </button>
+          )}
+          {actionLabel && (
+            <button type="button" onClick={onAction} disabled={disabled}>
+              {actionLabel}
+            </button>
+          )}
+        </div>
       )}
     </article>
   );
