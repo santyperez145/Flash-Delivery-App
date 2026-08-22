@@ -9143,6 +9143,9 @@ if (fs.existsSync(distDir)) {
         res.setHeader("Cache-Control", "no-cache");
     },
   }));
+  app.get(/^\/assets\/.+/, (_req, res) => {
+    fail(res, 404, "Asset no encontrado");
+  });
   app.get(/^\/(?!api).*/, (_req, res) => {
     res.setHeader("Cache-Control", "no-cache");
     res.sendFile(path.join(distDir, "index.html"));

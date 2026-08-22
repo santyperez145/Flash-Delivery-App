@@ -29,6 +29,13 @@ try {
   await assetResponse.arrayBuffer();
   assert(assetResponse.headers.get("content-encoding") === "gzip", "JavaScript productivo se entrega comprimido");
   assert(assetResponse.headers.get("cache-control")?.includes("immutable"), "assets con hash usan cache inmutable anual");
+  const stylesheetPath = html.match(/<link[^>]+href="([^"]+\.css)"/)?.[1];
+  assert(stylesheetPath, "index.html referencia la hoja de estilos versionada");
+  const stylesheetResponse = await fetch(new URL(stylesheetPath, origin));
+  await stylesheetResponse.arrayBuffer();
+  assert(stylesheetResponse.ok && stylesheetResponse.headers.get("content-type")?.includes("text/css"), "CSS productivo conserva su MIME correcto");
+  const staleAssetResponse = await fetch(`${origin}/assets/flash-missing-asset.css`);
+  assert(staleAssetResponse.status === 404 && staleAssetResponse.headers.get("content-type")?.includes("application/json"), "assets obsoletos no reciben el shell HTML");
   const invalidMediaResponse = await fetch(`${origin}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "text/plain" },
