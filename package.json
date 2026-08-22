@@ -98,7 +98,7 @@
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "12.4.1",
     "compression": "^1.8.1",
-    "concurrently": "^10.0.4",
+    "concurrently": "^10.0.5",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "express-rate-limit": "^8.6.2",
@@ -116,7 +116,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/pg": "^8.21.0",
+    "@types/pg": "^8.23.1",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.1.10",
     "@types/react-dom": "^19.1.7",
