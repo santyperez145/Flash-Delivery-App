@@ -42,6 +42,14 @@ export const shipmentStatuses = [
 
 const now = () => new Date().toISOString();
 
+export const notificationPreferenceCategories = [
+  "service_updates",
+  "promotions",
+  "support",
+  "wallet",
+  "account"
+];
+
 export const createId = (prefix) =>
   `${prefix}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
 
@@ -292,6 +300,29 @@ function execSchema() {
       created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS auth_sessions_user_idx ON auth_sessions(user_id, expires_at);
+
+    CREATE TABLE IF NOT EXISTS notifications (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      channel TEXT NOT NULL,
+      template TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      status TEXT NOT NULL,
+      read_at TEXT,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS notifications_user_created_idx ON notifications(user_id, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS notification_preferences (
+      user_id TEXT NOT NULL,
+      category TEXT NOT NULL,
+      push_enabled INTEGER NOT NULL DEFAULT 1,
+      email_enabled INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT,
+      PRIMARY KEY (user_id, category),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
 
     CREATE TABLE IF NOT EXISTS shipments (
       id TEXT PRIMARY KEY,
@@ -881,6 +912,35 @@ function createSeed() {
         priority: "high"
       }
     ],
+    notifications: [
+      {
+        id: "NTF-DEMO-ORDER",
+        userId: "usr_customer",
+        channel: "in_app",
+        template: "order_status",
+        payload: { orderId: "ORD-7301", status: "delivering", etaMin: 18 },
+        status: "sent",
+        readAt: null,
+        createdAt
+      },
+      {
+        id: "NTF-DEMO-RIDE",
+        userId: "usr_customer",
+        channel: "in_app",
+        template: "ride_status",
+        payload: { rideId: "RIDE-2201", status: "arriving", etaMin: 6 },
+        status: "sent",
+        readAt: createdAt,
+        createdAt
+      }
+    ],
+    notificationPreferences: notificationPreferenceCategories.map((category) => ({
+      userId: "usr_customer",
+      category,
+      pushEnabled: category !== "promotions",
+      emailEnabled: false,
+      updatedAt: null
+    })),
     ratings: [
       {
         id: "rate_roja",
@@ -959,6 +1019,8 @@ function setMeta(meta) {
 function clearAll() {
   database.exec(`
     DELETE FROM audit_events;
+    DELETE FROM notifications;
+    DELETE FROM notification_preferences;
     DELETE FROM zones;
     DELETE FROM ratings;
     DELETE FROM support_tickets;
@@ -1293,6 +1355,31 @@ const replaceTransaction = database.transaction((state) => {
       payloadJson: JSON.stringify(event.payload || {})
     });
   }
+
+  const insertNotification = database.prepare(`
+    INSERT INTO notifications (id, user_id, channel, template, payload_json, status, read_at, created_at)
+    VALUES (@id, @userId, @channel, @template, @payloadJson, @status, @readAt, @createdAt)
+  `);
+  for (const notification of state.notifications || []) {
+    insertNotification.run({
+      ...notification,
+      payloadJson: JSON.stringify(notification.payload || {}),
+      readAt: notification.readAt || null
+    });
+  }
+
+  const insertNotificationPreference = database.prepare(`
+    INSERT INTO notification_preferences (user_id, category, push_enabled, email_enabled, updated_at)
+    VALUES (@userId, @category, @pushEnabled, @emailEnabled, @updatedAt)
+  `);
+  for (const preference of state.notificationPreferences || []) {
+    insertNotificationPreference.run({
+      ...preference,
+      pushEnabled: boolToInt(preference.pushEnabled),
+      emailEnabled: boolToInt(preference.emailEnabled),
+      updatedAt: preference.updatedAt || null
+    });
+  }
 });
 
 function seedIfNeeded() {
@@ -1301,6 +1388,30 @@ function seedIfNeeded() {
   const count = database.prepare("SELECT COUNT(*) AS total FROM users").get().total;
   if (count === 0) {
     replaceTransaction(createSeed());
+  }
+  ensureLocalNotificationData();
+}
+
+function ensureLocalNotificationData() {
+  const customer = database.prepare("SELECT id FROM users WHERE id = ?").get("usr_customer");
+  if (customer && database.prepare("SELECT COUNT(*) AS total FROM notifications").get().total === 0) {
+    const seed = createSeed();
+    const insert = database.prepare(`
+      INSERT OR IGNORE INTO notifications (id, user_id, channel, template, payload_json, status, read_at, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    for (const notification of seed.notifications || []) {
+      insert.run(
+        notification.id,
+        notification.userId,
+        notification.channel,
+        notification.template,
+        JSON.stringify(notification.payload || {}),
+        notification.status,
+        notification.readAt || null,
+        notification.createdAt
+      );
+    }
   }
 }
 
@@ -1549,6 +1660,23 @@ export function readDb() {
       title: row.title,
       priority: row.priority
     })),
+    notifications: database.prepare("SELECT * FROM notifications ORDER BY created_at DESC, rowid DESC").all().map((row) => ({
+      id: row.id,
+      userId: row.user_id,
+      channel: row.channel,
+      template: row.template,
+      payload: JSON.parse(row.payload_json || "{}"),
+      status: row.status,
+      readAt: row.read_at,
+      createdAt: row.created_at
+    })),
+    notificationPreferences: database.prepare("SELECT * FROM notification_preferences ORDER BY user_id, category").all().map((row) => ({
+      userId: row.user_id,
+      category: row.category,
+      pushEnabled: rowBool(row.push_enabled),
+      emailEnabled: rowBool(row.email_enabled),
+      updatedAt: row.updated_at
+    })),
     ratings: database.prepare("SELECT * FROM ratings ORDER BY created_at DESC").all().map((row) => ({
       id: row.id,
       targetType: row.target_type,
@@ -1609,6 +1737,95 @@ export function getTimestamp() {
 
 export function getDatabasePath() {
   return sqlitePath;
+}
+
+function ensureLocalNotificationPreferences(userId) {
+  const insert = database.prepare(`
+    INSERT OR IGNORE INTO notification_preferences (user_id, category, push_enabled, email_enabled, updated_at)
+    VALUES (?, ?, ?, 0, NULL)
+  `);
+  for (const category of notificationPreferenceCategories) {
+    insert.run(userId, category, category === "promotions" ? 0 : 1);
+  }
+}
+
+function mapLocalNotification(row) {
+  return {
+    id: row.id,
+    channel: row.channel,
+    template: row.template,
+    payload: JSON.parse(row.payload_json || "{}"),
+    status: row.status,
+    createdAt: row.created_at,
+    readAt: row.read_at ? new Date(row.read_at).toISOString() : null
+  };
+}
+
+export function getLocalNotifications(userId) {
+  return database.prepare(`
+    SELECT id, channel, template, payload_json, status, created_at, read_at
+    FROM notifications
+    WHERE user_id = ?
+    ORDER BY created_at DESC, rowid DESC
+    LIMIT 100
+  `).all(userId).map(mapLocalNotification);
+}
+
+export function markLocalNotificationRead({ userId, notificationId }) {
+  const result = database.prepare(`
+    UPDATE notifications
+    SET status = 'read', read_at = COALESCE(read_at, ?)
+    WHERE id = ? AND user_id = ?
+  `).run(now(), notificationId, userId);
+  if (result.changes === 0) {
+    throw Object.assign(new Error("Notificación no encontrada"), { status: 404 });
+  }
+  return getLocalNotifications(userId);
+}
+
+export function getLocalNotificationPreferences(userId) {
+  ensureLocalNotificationPreferences(userId);
+  return database.prepare(`
+    SELECT category, push_enabled, email_enabled, updated_at
+    FROM notification_preferences
+    WHERE user_id = ?
+    ORDER BY category
+  `).all(userId).map((row) => ({
+    category: row.category,
+    pushEnabled: rowBool(row.push_enabled),
+    emailEnabled: rowBool(row.email_enabled),
+    updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : null
+  }));
+}
+
+export function updateLocalNotificationPreference({ userId, category, pushEnabled, emailEnabled }) {
+  ensureLocalNotificationPreferences(userId);
+  database.prepare(`
+    UPDATE notification_preferences
+    SET push_enabled = ?, email_enabled = ?, updated_at = ?
+    WHERE user_id = ? AND category = ?
+  `).run(boolToInt(pushEnabled), boolToInt(emailEnabled), now(), userId, category);
+  return getLocalNotificationPreferences(userId);
+}
+
+export function createLocalNotification({
+  userId,
+  channel = "in_app",
+  template,
+  payload = {},
+  status = "sent",
+  deduplicationKey
+}) {
+  if (deduplicationKey) {
+    const existing = database.prepare("SELECT id FROM notifications WHERE user_id = ? AND template = ? AND payload_json = ? LIMIT 1").get(userId, template, JSON.stringify(payload));
+    if (existing) return existing.id;
+  }
+  const id = createId("NTF");
+  database.prepare(`
+    INSERT INTO notifications (id, user_id, channel, template, payload_json, status, read_at, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, NULL, ?)
+  `).run(id, userId, channel, template, JSON.stringify(payload), status, now());
+  return id;
 }
 
 const hashRefreshToken = (token) => crypto.createHash("sha256").update(token).digest("hex");

@@ -287,14 +287,19 @@ import {
   consumeAuthSession,
   createAuthSession,
   createId,
+  createLocalNotification,
+  getLocalNotificationPreferences,
+  getLocalNotifications,
   getPublicState,
   getDatabasePath,
   getTimestamp,
   orderStatuses,
   readDb as readFallbackDb,
+  markLocalNotificationRead,
   revokeAuthSession,
   resetDb,
   rideStatuses,
+  updateLocalNotificationPreference,
   shipmentStatuses,
   writeDb,
 } from "./store.js";
@@ -3625,7 +3630,7 @@ app.post(
   },
 );
 app.get("/api/notifications", requireAuth, async (req, res) => {
-  if (!usesPostgresCommerce()) return ok(res, { notifications: [] });
+  if (!usesPostgresCommerce()) return ok(res, { notifications: getLocalNotifications(req.auth.userId) });
   try {
     return ok(res, {
       notifications: await getPostgresNotifications(req.auth.userId),
@@ -3638,8 +3643,18 @@ app.patch(
   "/api/notifications/:notificationId/read",
   requireAuth,
   async (req, res) => {
-    if (!usesPostgresCommerce())
-      return fail(res, 503, "Notificaciones reales requieren PostgreSQL");
+    if (!usesPostgresCommerce()) {
+      try {
+        return ok(res, {
+          notifications: markLocalNotificationRead({
+            userId: req.auth.userId,
+            notificationId: req.params.notificationId
+          })
+        });
+      } catch (error) {
+        return fail(res, error.status || 500, error.message || "No se pudo marcar la notificación");
+      }
+    }
     try {
       return ok(res, {
         notifications: await markPostgresNotificationRead({
@@ -3657,6 +3672,8 @@ app.patch(
   },
 );
 app.get("/api/notification-preferences", requireAuth, async (req, res) => {
+  if (!usesPostgresCommerce())
+    return ok(res, { preferences: getLocalNotificationPreferences(req.auth.userId) });
   try {
     return ok(res, {
       preferences: await getPostgresNotificationPreferences(req.auth.userId),
@@ -3682,6 +3699,24 @@ app.patch(
       return fail(res, 400, "Categoría inválida");
     const parsed = parseOrFail(notificationPreferenceSchema, req.body || {});
     if (!parsed.ok) return fail(res, 400, parsed.message);
+    if (!usesPostgresCommerce()) {
+      const preferences = updateLocalNotificationPreference({
+        userId: req.auth.userId,
+        category,
+        ...parsed.data
+      });
+      await auditRuntime(
+        readDb(),
+        req,
+        "notification_preference",
+        category,
+        "notification_preference.updated",
+        parsed.data
+      );
+      return ok(res, {
+        preferences
+      });
+    }
     try {
       const preferences = await updatePostgresNotificationPreference({
         userPublicId: req.auth.userId,
@@ -7005,6 +7040,12 @@ app.post(
       total: order.total,
       itemCount: order.items.length,
     });
+    if (!usesPostgresCommerce())
+      createLocalNotification({
+        userId: order.customerId,
+        template: "order_status",
+        payload: { orderId: order.id, status: order.status, etaMin: order.etaMin }
+      });
     await publishRealtimeEvent({
       req,
       type: "order.created",
@@ -7115,6 +7156,12 @@ app.post(
       "order.status_advanced",
       { status: next },
     );
+    if (!usesPostgresCommerce())
+      createLocalNotification({
+        userId: db.orders[index].customerId,
+        template: "order_status",
+        payload: { orderId: db.orders[index].id, status: next, etaMin: db.orders[index].etaMin }
+      });
     await publishRealtimeEvent({
       req,
       type: "order.updated",
@@ -7798,6 +7845,12 @@ app.post(
       driverId: ride.driverId,
       scheduledFor: ride.scheduledFor,
     });
+    if (!usesPostgresCommerce())
+      createLocalNotification({
+        userId: ride.customerId,
+        template: "ride_status",
+        payload: { rideId: ride.id, status: ride.status, etaMin: ride.etaMin }
+      });
     await publishRealtimeEvent({
       req,
       type: "ride.created",
@@ -8125,6 +8178,12 @@ app.post(
       fare: shipment.fare,
       packageSize: shipment.packageSize,
     });
+    if (!usesPostgresCommerce())
+      createLocalNotification({
+        userId: shipment.customerId,
+        template: "shipment_status",
+        payload: { shipmentId: shipment.id, status: shipment.status, etaMin: shipment.etaMin }
+      });
     await publishRealtimeEvent({
       req,
       type: "shipment.created",
@@ -8811,6 +8870,12 @@ app.post(
       "ride.status_advanced",
       { status: next },
     );
+    if (!usesPostgresCommerce())
+      createLocalNotification({
+        userId: db.rides[index].customerId,
+        template: "ride_status",
+        payload: { rideId: db.rides[index].id, status: next, etaMin: db.rides[index].etaMin }
+      });
     await publishRealtimeEvent({
       req,
       type: "ride.updated",
