@@ -189,6 +189,7 @@ reutilizar estas contraseñas en un ambiente desplegado.
 - Actividad paginada: `/api/me/activity` usa cursor opaco y participación SQL para no descargar el estado global. Ver `docs/audience-resources.md`.
 - Perfil Driver aislado: `/api/driver/me` deriva el conductor desde la sesión; el bootstrap del conductor ya no expone ni descarga la flota global.
 - Cocina aislada: `/api/merchant/me` devuelve exclusivamente los comercios del propietario autenticado; Negocios ya no descarga restaurantes desde el bootstrap.
+- Operación de Negocios: `/api/merchant/dashboard` calcula en PostgreSQL cola, preparación, atrasos, stock y ventas del día local; los plazos históricos ausentes se exponen como no observados, nunca se estiman.
 - Tracking con datos mínimos: `/api/me/assigned-drivers` entrega sólo la ficha pública de conductores vinculados a trabajos propios y excluye identidad interna, disponibilidad, modos y ganancias.
 - Operaciones paginadas: `/api/operations/restaurants` y `/api/operations/drivers` sustituyen los agregados de comercios y flota del bootstrap administrativo, con búsqueda, cursor, RBAC/MFA y caché privada.
 - Usuarios operativos: `/api/operations/users` pagina cuentas sin exponer hashes, UUID internos ni controles internos de bloqueo; el bootstrap administrativo ya no transporta usuarios.

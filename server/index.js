@@ -16,6 +16,7 @@ import { config } from "./config.js";
 import { closeRedis, redisClient, redisReadiness } from "./redis.js";
 import { openApiDocument } from "./openapi.js";
 import { closePostgres, postgresPool, postgresReadiness } from "./postgres.js";
+import { getPostgresMerchantDashboard } from "./merchant-dashboard-repository.js";
 import { stopTelemetry } from "./telemetry.js";
 import { createGracefulShutdown } from "./graceful-shutdown.js";
 import { beginMerchantPaymentOAuth, completeMerchantPaymentOAuth, getMerchantPaymentConnection, revokeMerchantPaymentConnection } from "./payment-oauth-repository.js";
@@ -672,13 +673,14 @@ function canManageRestaurant(req, restaurant) {
   );
 }
 
-function canAdvanceOrder(req, db, order) {
+function canAdvanceOrder(req, db, order, nextStatus) {
+  if (isAdmin(req)) return true;
   const restaurant = findRestaurant(db, order.restaurantId);
-  return (
-    isAdmin(req) ||
-    (restaurant && canManageRestaurant(req, restaurant)) ||
-    (order.courierId && canActAsDriver(req, order.courierId))
-  );
+  if (["preparing", "ready_for_pickup"].includes(nextStatus))
+    return Boolean(restaurant && canManageRestaurant(req, restaurant));
+  if (["picked_up", "delivering", "delivered"].includes(nextStatus))
+    return Boolean(order.courierId && canActAsDriver(req, order.courierId));
+  return false;
 }
 
 function canMutateOrderStatus(req, db, order, status) {
@@ -7174,6 +7176,8 @@ app.post(
       return fail(res, 409, "Repartidor no disponible");
     }
     if (order.courierId) return fail(res, 409, "El pedido ya tiene repartidor");
+    if (order.status !== "ready_for_pickup")
+      return fail(res, 409, "El comercio todavía no marcó el pedido como listo");
     if (["delivered", "cancelled"].includes(order.status)) {
       return fail(res, 409, "El pedido ya no esta disponible");
     }
@@ -7221,11 +7225,11 @@ app.post(
       (entry) => entry.id === req.params.orderId,
     );
     if (index < 0) return fail(res, 404, "Pedido no encontrado");
-    if (!canAdvanceOrder(req, db, db.orders[index]))
-      return fail(res, 403, "No puedes avanzar este pedido");
     const next = nextOrderStatus(db.orders[index]);
     if (!next)
       return fail(res, 409, "El pedido no puede avanzar desde este estado");
+    if (!canAdvanceOrder(req, db, db.orders[index], next))
+      return fail(res, 403, "Esta etapa corresponde a otro participante del pedido");
     db.orders[index] = usesPostgresCommerce()
       ? await setPostgresOrderStatus(db.orders[index].id, next, req.auth.userId)
       : addTimeline(db.orders[index], next);
@@ -7363,13 +7367,21 @@ app.get(
   requireAuth,
   requireAnyRole("merchant", "admin"),
   async (req, res) => {
-    const db = usesPostgresCommerce() ? {} : readDb();
+    res.set("Cache-Control", "no-store, private");
     if (usesPostgresCommerce()) {
-      [db.restaurants, db.orders] = await Promise.all([
-        getPostgresRestaurants(),
-        getPostgresOrders(),
-      ]);
+      try {
+        const dashboard = await getPostgresMerchantDashboard({
+          actorPublicId: req.auth.userId,
+          merchantPublicId: isAdmin(req) ? String(req.query.restaurantId || "") : null,
+          admin: isAdmin(req),
+        });
+        const restaurant = (await getPostgresRestaurants({ publicIds: [dashboard.restaurantId] }))[0];
+        return ok(res, { dashboard: { ...dashboard, restaurant } });
+      } catch (error) {
+        return fail(res, error.status || 500, error.message || "No se pudo cargar la operación del comercio");
+      }
     }
+    const db = usesPostgresCommerce() ? {} : readDb();
     const restaurant = isAdmin(req)
       ? db.restaurants.find((entry) => entry.id === req.query.restaurantId)
       : db.restaurants.find((entry) => entry.ownerId === req.auth.userId);
@@ -7377,35 +7389,46 @@ app.get(
     const orders = db.orders.filter(
       (order) => order.restaurantId === restaurant.id,
     );
-    const activeOrders = orders.filter(
-      (order) => !["delivered", "cancelled"].includes(order.status),
+    const timezone = "America/Argentina/Buenos_Aires";
+    const dateKey = (value) => new Intl.DateTimeFormat("en-CA", {
+      timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit",
+    }).format(new Date(value));
+    const todayKey = dateKey(getTimestamp());
+    const terminalToday = (order, status) => (order.timeline || []).some(
+      (event) => event.status === status && dateKey(event.at) === todayKey,
     );
-    const completedOrders = orders.filter(
-      (order) => order.status === "delivered",
+    const activeOrders = orders.filter((order) =>
+      ["accepted", "preparing", "ready_for_pickup", "courier_assigned", "picked_up", "delivering"].includes(order.status),
     );
-    const cancelledOrders = orders.filter(
-      (order) => order.status === "cancelled",
-    );
-    const grossSales = completedOrders.reduce(
-      (sum, order) => sum + order.total,
-      0,
-    );
+    const completedOrders = orders.filter((order) => order.status === "delivered" && terminalToday(order, "delivered"));
+    const cancelledOrders = orders.filter((order) => order.status === "cancelled" && terminalToday(order, "cancelled"));
+    const grossSales = completedOrders.reduce((sum, order) => sum + order.total, 0);
     return ok(res, {
       dashboard: {
         generatedAt: getTimestamp(),
+        source: "sqlite-test-fallback",
+        timezone,
+        restaurantId: restaurant.id,
+        branch: null,
         restaurant,
         orders,
         metrics: {
           activeOrders: activeOrders.length,
-          completedOrders: completedOrders.length,
-          cancelledOrders: cancelledOrders.length,
-          grossSales,
-          averageTicket: completedOrders.length
+          needsAction: activeOrders.filter((order) => order.status === "accepted").length,
+          preparing: activeOrders.filter((order) => order.status === "preparing").length,
+          readyForPickup: activeOrders.filter((order) => order.status === "ready_for_pickup").length,
+          courierFlow: activeOrders.filter((order) => ["courier_assigned", "picked_up", "delivering"].includes(order.status)).length,
+          lateOrders: 0,
+          untrackedPrepOrders: activeOrders.filter((order) => ["accepted", "preparing"].includes(order.status)).length,
+          oldestActiveMinutes: Math.max(0, ...activeOrders.map((order) => Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 60000)).filter(Number.isFinite)),
+          completedToday: completedOrders.length,
+          cancelledToday: cancelledOrders.length,
+          grossSalesToday: grossSales,
+          averageTicketToday: completedOrders.length
             ? Math.round(grossSales / completedOrders.length)
             : 0,
           unavailableItems: restaurant.menu.filter((item) => !item.stock)
             .length,
-          etaMin: restaurant.etaMin,
         },
       },
     });
