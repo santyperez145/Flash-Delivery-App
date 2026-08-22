@@ -356,8 +356,8 @@ Leyenda: `[x]` terminado y verificado, `[~]` operativo con deuda identificada, `
 - [x] Inventario trazable en `docs/figma-screen-matrix.md`.
 - [~] Comidas: discovery, detalle personalizable, carrito persistente, checkout visual, actividad y restricciones alimentarias estructuradas con perfil privado/filtro web+mobile funcionales; falta paridad visual fina de confirmación.
 - [~] Comidas: total firmado, pago Wallet, promociones, OTP de email, soporte y comprobante de servicio funcionales; faltan factura fiscal, PSP externo y completar tracking visual.
-- [~] Viajes: mapa, ruta, modalidades, precio, solicitud, asignacion y guia funcionales.
-- [~] Viajes: matching, estados, rating, reservas, propina y comprobante funcionan; falta seguridad dedicada.
+- [~] Viajes: mapa, ruta, modalidades, precio, solicitud, asignacion y guia funcionales; falta paridad final de confirmación y navegación.
+- [~] Viajes: matching, estados, rating, reservas, propina, comprobante y seguridad base funcionan; faltan seguros/habilitación y operaciones de emergencia reales.
 - [x] Envios: cotización, solicitud, asignación, mapa/ruta, PIN y tracking visual funcionales.
 - [~] Envios: SLA/categorías, PIN + foto/firma cifradas, cancelación/reintegro, valor declarado, protección y devoluciones auditables; faltan siniestros con proveedor regulado y paridad visual fina.
 
@@ -439,7 +439,8 @@ La implementacion se sigue por flujos completos y no por pantallas aisladas. Cad
 - [x] Comidas: pedidos activos y cancelacion autorizada.
 - [~] Comidas: onboarding real, favoritos persistentes, cupones y checkout con Wallet funcionan; falta paridad visual fina de confirmación.
 - [x] Comidas web/PWA: Actividad abre tracking dedicado con ruta OSRM real, mosaicos OSM, repartidor asignado, ETA/timeline, compartir estado y degradación honesta.
-- [ ] Viajes: replicar el flujo completo del Figma Lyft (destino, mapa, selector, confirmacion, matching y viaje activo).
+- [x] Viajes web/PWA: Actividad abre tracking con ruta OSRM, vehículo/placa/rating, PIN de retiro, enlace temporal y reporte de incidente autenticado.
+- [~] Viajes: flujo de destino, mapa, selector, confirmación, matching y viaje activo está operativo; falta paridad final con el Figma Lyft y habilitación de emergencias locales.
 - [ ] Envios: adaptar el mismo sistema visual con paquete, destinatario, cotizacion, PIN y tracking ya operativos.
 - [ ] Actividad, wallet, perfil, soporte y notificaciones como navegacion compartida.
 - [ ] Paridad de estados vacios, errores, carga, offline y accesibilidad en todos los flujos.

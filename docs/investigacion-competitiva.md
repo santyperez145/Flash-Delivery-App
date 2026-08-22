@@ -126,6 +126,8 @@ Fuentes oficiales adicionales:
 - [Pedidos grupales de Uber Eats](https://www.uber.com/us/en/business/solutions/eats/group-ordering/)
 - [Pedidos multi-comercio de Uber Eats](https://www.uber.com/us/en/newsroom/multi-store-ordering/)
 - [Seguridad de Uber](https://www.uber.com/us/en/safety/)
+- [Seguridad para pasajeros de Uber](https://www.uber.com/us/en/ride/safety/tips/)
+- [Safety Toolkit de Uber](https://www.uber.com/us/en/newsroom/ubers-new-safety-toolkit/)
 - [Modalidades de viaje de Lyft](https://help.lyft.com/hc/en-ca/all/articles/115012927427-Lyft-ride-modes-overview)
 - [Live Order Tracking FAQ de Uber Eats](https://help.uber.com/en/merchants-and-restaurants/article/live-order-tracking---faq?nodeId=d006582e-113f-4423-9d33-e938de34b3a2)
 - [Support de Uber Eats](https://help.uber.com/merchants-and-restaurants/article/support?nodeId=a467254f-b6b2-4e11-a88b-d96653ca1f81)
@@ -139,6 +141,10 @@ La navegacion separa dos responsabilidades, como recomiendan los proveedores de 
 ### Decisión 22 de agosto de 2026 — tracking web de pedidos
 
 La referencia oficial de Uber Eats confirma que el cliente espera progreso y ubicación del repartidor durante la entrega, pero que esa visibilidad depende de señales reales del comercio/repartidor; también ubica la ayuda dentro de la ventana de tracking o del historial. Por eso la PWA web de Flash ahora abre un seguimiento dedicado desde Actividad, consume la ruta autenticada existente, muestra el repartidor sólo cuando el backend lo asignó y conserva timeline/ETA cuando el proveedor de mapas no responde. No se agregó una posición interpolada ni un enlace público ficticio.
+
+### Decisión 22 de agosto de 2026 — viaje activo y seguridad
+
+Uber concentra en el viaje activo compartir ubicación, verificación por PIN, acceso a ayuda y reporte de incidentes. Flash lleva ese patrón a la PWA con contratos ya persistidos: la persona autenticada puede solicitar un PIN, crear un enlace temporal revocable y registrar un incidente con tipo, detalle y ubicación disponible. No se implementan llamadas automáticas a emergencias ni SMS como si estuvieran habilitados: esas funciones requieren jurisdicción, proveedor, procedimiento operativo y prueba física antes de pasar a producción.
 
 - [Precio adelantado de Uber](https://www.uber.com/us/en/ride/how-it-works/upfront-pricing/)
 - [Google Routes: matriz de distancia y duracion](https://developers.google.com/maps/documentation/routes/compute_route_matrix)

@@ -6347,7 +6347,9 @@ function CustomerActivity({
   const orders = state.orders.filter((order) => order.customerId === user?.id);
   const rides = state.rides.filter((ride) => ride.customerId === user?.id);
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
+  const [trackingRideId, setTrackingRideId] = useState<string | null>(null);
   const trackingOrder = orders.find((order) => order.id === trackingOrderId) || null;
+  const trackingRide = rides.find((ride) => ride.id === trackingRideId) || null;
   return (
     <div className="activity-stack">
       <SectionTitle title="Pedidos" />
@@ -6409,6 +6411,7 @@ function CustomerActivity({
         const rated = state.ratings.some(
           (entry) => entry.jobId === ride.id && entry.subjectType === "driver",
         );
+        const active = !["completed", "cancelled"].includes(ride.status);
         return (
           <StatusCard
             key={ride.id}
@@ -6418,22 +6421,33 @@ function CustomerActivity({
             amount={ride.fare}
             status={ride.status}
             actionLabel={
-              ride.status === "completed"
+              active
+                ? "Seguir viaje"
+                : ride.status === "completed"
                 ? rated
                   ? undefined
                   : "Calificar 5★"
-                : "Cancelar"
+                : undefined
             }
             onAction={() =>
-              ride.status === "completed"
+              active
+                ? setTrackingRideId(ride.id)
+                : ride.status === "completed"
                 ? runAction(
                     () => api.createRating(ride.id, "driver", 5),
                     "Gracias por tu calificación",
                   )
-                : runAction(
-                    () => api.setRideStatus(ride.id, "cancelled"),
-                    "Viaje cancelado",
-                  )
+                : undefined
+            }
+            secondaryActionLabel={active ? "Cancelar" : undefined}
+            onSecondaryAction={
+              active
+                ? () =>
+                    runAction(
+                      () => api.setRideStatus(ride.id, "cancelled"),
+                      "Viaje cancelado",
+                    )
+                : undefined
             }
             disabled={busy}
           />
@@ -6448,6 +6462,16 @@ function CustomerActivity({
             ) || null
           }
           onClose={() => setTrackingOrderId(null)}
+        />
+      )}
+      {trackingRide && (
+        <RideTrackingSheet
+          ride={trackingRide}
+          driver={
+            state.drivers.find((driver) => driver.id === trackingRide.driverId) ||
+            null
+          }
+          onClose={() => setTrackingRideId(null)}
         />
       )}
     </div>
@@ -6712,6 +6736,324 @@ function OrderTrackingSheet({
         </div>
         <p className="tracking-integrity-note">
           La ubicación del repartidor aparece únicamente cuando el backend recibe una actualización válida. El timeline y la ETA siguen disponibles durante una degradación de mapas.
+        </p>
+      </section>
+    </div>
+  );
+}
+
+const rideSafetyOptions = [
+  ["sos", "Necesito ayuda urgente"],
+  ["unsafe_driving", "Conducción insegura"],
+  ["medical", "Emergencia médica"],
+  ["harassment", "Acoso o amenaza"],
+  ["crash", "Choque o incidente vial"],
+  ["other", "Otro problema"],
+] as const;
+
+function RideTrackingSheet({
+  ride,
+  driver,
+  onClose,
+}: {
+  ride: Ride;
+  driver: Driver | null;
+  onClose: () => void;
+}) {
+  const [route, setRoute] = useState<RoadRoute | null>(null);
+  const [routeError, setRouteError] = useState<string | null>(null);
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [pickupCode, setPickupCode] = useState<string | null>(null);
+  const [pickupBusy, setPickupBusy] = useState(false);
+  const [trackingUrl, setTrackingUrl] = useState<string | null>(null);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareNotice, setShareNotice] = useState<string | null>(null);
+  const [safetyOpen, setSafetyOpen] = useState(false);
+  const [safetyType, setSafetyType] = useState<(typeof rideSafetyOptions)[number][0]>("sos");
+  const [safetyDetails, setSafetyDetails] = useState("");
+  const [safetyBusy, setSafetyBusy] = useState(false);
+  const [safetyNotice, setSafetyNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const origin = ride.pickupLocation;
+    const destination = ride.destinationLocation;
+    setRoute(null);
+    setRouteError(null);
+    if (!origin || !destination) {
+      setRouteError("Mapa no disponible: faltan coordenadas del viaje.");
+      return () => {
+        cancelled = true;
+      };
+    }
+    setRouteLoading(true);
+    void api
+      .route(origin, destination)
+      .then((response) => {
+        if (!cancelled) setRoute(response.route);
+      })
+      .catch((error) => {
+        if (!cancelled)
+          setRouteError(
+            error instanceof Error
+              ? error.message
+              : "La ruta vial no está disponible ahora.",
+          );
+      })
+      .finally(() => {
+        if (!cancelled) setRouteLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    ride.id,
+    ride.pickupLocation?.lat,
+    ride.pickupLocation?.lng,
+    ride.destinationLocation?.lat,
+    ride.destinationLocation?.lng,
+  ]);
+
+  const map =
+    ride.pickupLocation && ride.destinationLocation
+      ? buildWebTrackingMap(
+          ride.pickupLocation,
+          ride.destinationLocation,
+          route?.coordinates || [],
+          driver?.location || null,
+        )
+      : null;
+  const currentIndex = Math.max(rideSteps.indexOf(ride.status), 0);
+  const nextStep = route?.steps[0]?.instruction || null;
+
+  const revealPickupCode = async () => {
+    setPickupBusy(true);
+    try {
+      const response = await api.getRidePickupCode(ride.id);
+      setPickupCode(response.pickupCode);
+    } catch (error) {
+      setShareNotice(
+        error instanceof Error ? error.message : "No se pudo consultar el PIN.",
+      );
+    } finally {
+      setPickupBusy(false);
+    }
+  };
+
+  const shareRide = async () => {
+    setShareBusy(true);
+    setShareNotice(null);
+    try {
+      const response = await api.createRideTrackingLink(ride.id, 180);
+      const url = response.link.trackingUrl;
+      setTrackingUrl(url);
+      const text = `Seguimiento de mi viaje Flash. Conductor: ${driver?.name || "asignando"}. Vence: ${new Date(response.link.expiresAt).toLocaleString("es-AR")}. ${url}`;
+      if (navigator.share) {
+        await navigator.share({ title: "Viaje Flash", text, url });
+        setShareNotice("Seguimiento compartido");
+      } else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(text);
+        setShareNotice("Enlace temporal copiado");
+      } else {
+        setShareNotice("Enlace temporal creado");
+      }
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === "AbortError"))
+        setShareNotice(
+          error instanceof Error
+            ? error.message
+            : "No se pudo compartir el viaje.",
+        );
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
+  const submitSafetyIncident = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSafetyBusy(true);
+    setSafetyNotice(null);
+    try {
+      await api.createRideSafetyIncident(ride.id, {
+        type: safetyType,
+        details: safetyDetails.trim() || undefined,
+        location: driver?.location || ride.pickupLocation || undefined,
+      });
+      setSafetyNotice("Incidente registrado. Seguridad Flash ya recibió el caso.");
+      setSafetyDetails("");
+      setSafetyOpen(false);
+    } catch (error) {
+      setSafetyNotice(
+        error instanceof Error
+          ? error.message
+          : "No se pudo registrar el incidente.",
+      );
+    } finally {
+      setSafetyBusy(false);
+    }
+  };
+
+  return (
+    <div className="sheet-backdrop tracking-backdrop" role="presentation">
+      <section
+        className="item-sheet order-tracking-sheet ride-tracking-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="ride-tracking-title"
+      >
+        <button className="sheet-close" type="button" onClick={onClose} aria-label="Cerrar seguimiento">
+          <X size={18} />
+        </button>
+        <div className="tracking-sheet-heading">
+          <div>
+            <span className="muted-label">Viaje en vivo</span>
+            <h2 id="ride-tracking-title">{rideStatusLabel[ride.status]}</h2>
+            <p>{ride.pickup} → {ride.destination} · {money.format(ride.fare)}</p>
+          </div>
+          <span className="ride-service-badge"><Car size={14} /> {ride.service}</span>
+        </div>
+        {map ? (
+          <div className="order-tracking-map" aria-label="Mapa de seguimiento del viaje">
+            {map.tiles.map((tile) => (
+              <img
+                key={tile.key}
+                className="order-map-tile"
+                src={tile.uri}
+                alt=""
+                aria-hidden="true"
+                style={{
+                  left: `${tile.column * 33.333}%`,
+                  top: `${tile.row * 33.333}%`,
+                }}
+              />
+            ))}
+            {map.route.length > 1 && (
+              <svg className="order-map-route" viewBox="0 0 300 300" preserveAspectRatio="none" aria-hidden="true">
+                <polyline
+                  points={map.route.map((point) => `${point.x},${point.y}`).join(" ")}
+                  fill="none"
+                  stroke="rgba(255,255,255,.96)"
+                  strokeWidth="11"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <polyline
+                  points={map.route.map((point) => `${point.x},${point.y}`).join(" ")}
+                  fill="none"
+                  stroke="#7c3cff"
+                  strokeWidth="5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            )}
+            <span className="order-map-marker pickup" style={{ left: `${map.pickup.x / 3}%`, top: `${map.pickup.y / 3}%` }} title="Origen">
+              <MapPin size={14} />
+            </span>
+            <span className="order-map-marker dropoff" style={{ left: `${map.dropoff.x / 3}%`, top: `${map.dropoff.y / 3}%` }} title="Destino">
+              <Home size={14} />
+            </span>
+            {map.driver && (
+              <span className="order-map-marker driver ride-driver-marker" style={{ left: `${map.driver.x / 3}%`, top: `${map.driver.y / 3}%` }} title="Conductor">
+                <Car size={14} />
+              </span>
+            )}
+            <div className="tracking-map-caption">
+              <strong>
+                {route
+                  ? `${route.distanceKm} km · ${route.durationMin} min de recorrido`
+                  : routeLoading
+                    ? "Calculando ruta real…"
+                    : routeError || "Ruta vial no disponible"}
+              </strong>
+              <span>{driver ? `${driver.name} · ${driver.vehicle} · ${driver.plate}` : "Buscando un conductor disponible"}</span>
+            </div>
+            <small className="map-attribution">© OpenStreetMap contributors</small>
+          </div>
+        ) : (
+          <div className="tracking-map-empty">
+            <MapPin size={20} />
+            <strong>El mapa se activará al recibir coordenadas</strong>
+            <span>{routeError}</span>
+          </div>
+        )}
+        <div className="tracking-status-panel">
+          <div className="tracking-status-copy">
+            <div>
+              <span className="muted-label">Estado actual</span>
+              <h3>{rideStatusLabel[ride.status]}</h3>
+            </div>
+            {driver && (
+              <div className="tracking-driver-summary">
+                <span className="avatar">{initials(driver.name)}</span>
+                <span><strong>{driver.name}</strong><small>{driver.vehicle} · {driver.plate} · ★ {driver.rating.toFixed(1)}</small></span>
+              </div>
+            )}
+          </div>
+          <div className="stepper tracking-stepper ride-tracking-stepper">
+            {rideSteps.map((step, index) => (
+              <div className={index <= currentIndex ? "step active" : "step"} key={step}>
+                <span>{index < currentIndex ? <Check size={12} /> : index + 1}</span>
+                <small>{rideStatusLabel[step]}</small>
+              </div>
+            ))}
+          </div>
+          {nextStep && ride.status === "in_progress" && (
+            <div className="next-route-step">
+              <MapPin size={15} /> <span>{nextStep}</span>
+            </div>
+          )}
+        </div>
+        {driver && ["driver_assigned", "arriving"].includes(ride.status) && (
+          <section className="ride-pin-card">
+            <div>
+              <span className="muted-label">PIN para iniciar</span>
+              <strong>{pickupCode || "••••"}</strong>
+              <small>Compartilo sólo cuando confirmes que estás junto al vehículo correcto.</small>
+            </div>
+            {!pickupCode && (
+              <button type="button" onClick={() => void revealPickupCode()} disabled={pickupBusy}>
+                <KeyRound size={15} /> {pickupBusy ? "Consultando…" : "Mostrar PIN"}
+              </button>
+            )}
+          </section>
+        )}
+        <section className="ride-safety-actions">
+          <div className="ride-safety-heading">
+            <span className="safety-icon"><ShieldCheck size={18} /></span>
+            <div><strong>Centro de seguridad</strong><small>Acciones vinculadas a este viaje</small></div>
+          </div>
+          <div className="ride-action-grid">
+            <button type="button" onClick={() => void shareRide()} disabled={shareBusy}>
+              <Copy size={15} /> {shareBusy ? "Creando enlace…" : "Compartir viaje"}
+            </button>
+            <button type="button" className="danger" onClick={() => setSafetyOpen((open) => !open)}>
+              <TriangleAlert size={15} /> Reportar incidente
+            </button>
+          </div>
+          {shareNotice && <small className="tracking-action-notice">{shareNotice}</small>}
+          {trackingUrl && <a className="tracking-link-preview" href={trackingUrl} target="_blank" rel="noreferrer">Abrir enlace temporal</a>}
+          {safetyNotice && <small className="tracking-action-notice safety-notice">{safetyNotice}</small>}
+          {safetyOpen && (
+            <form className="ride-safety-form" onSubmit={(event) => void submitSafetyIncident(event)}>
+              <label>
+                <span>Tipo de incidente</span>
+                <select value={safetyType} onChange={(event) => setSafetyType(event.target.value as typeof safetyType)}>
+                  {rideSafetyOptions.map(([value, label]) => <option value={value} key={value}>{label}</option>)}
+                </select>
+              </label>
+              <label>
+                <span>Detalle opcional</span>
+                <textarea value={safetyDetails} onChange={(event) => setSafetyDetails(event.target.value)} maxLength={1000} placeholder="Contanos qué ocurrió" />
+              </label>
+              <button className="danger-button" type="submit" disabled={safetyBusy}>
+                <TriangleAlert size={15} /> {safetyBusy ? "Registrando…" : "Enviar a Seguridad Flash"}
+              </button>
+            </form>
+          )}
+        </section>
+        <p className="tracking-integrity-note">
+          La ubicación y los estados provienen del backend autenticado. Si una señal o el proveedor de mapas falla, Flash conserva el viaje y sus acciones de seguridad sin inventar movimiento.
         </p>
       </section>
     </div>
