@@ -11,7 +11,7 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [x] **P0-01 / SEC-001 — aislamiento.** Ownership, serializers por rol, RLS físico y tests cross-tenant funcionan. Web, mobile y suites migraron a bootstrap y recursos segmentados; `/api/state` responde permanentemente `410 Gone`.
 - [x] **P0-02 / DAT-001 — PostgreSQL/PostGIS.** Runtime principal, migraciones, índices, transacciones por operación, auditoría append-only, backup y restore drill operativos; SQLite está aislado como fallback de tests.
 - [~] **P0-03 / IAM-001 — identidad.** Access/refresh rotativo, refresh web en cookie HttpOnly con defensa de origen, respuestas autenticadas `no-store`, sesiones remotas, recuperación, email OTP, MFA admin y suspensión funcionan. Teléfono E.164 tiene OTP y adaptador Twilio; payouts exigen step-up WYSIWYS de un solo uso ligado a comercio/importe. Falta ejecutar las migraciones/pruebas PostgreSQL tras reiniciar Docker y prueba física SMS.
-- [~] **P0-04 / PAY-001 — dinero.** Payment intents, Wallet sandbox, refunds, split, ledger, payouts, webhooks, conciliación y riesgo existen. Falta PSP/banco real; Wallet no se presenta como dinero productivo.
+- [~] **P0-04 / PAY-001 — dinero.** Payment intents, Wallet sandbox, refunds, ledger, reservas, webhooks, conciliación y riesgo existen. ADR selecciona Mercado Pago Split 1:1 para Argentina (seller KYC 6 + OAuth); falta alta comercial, tokens cifrados, cobro/webhook real y prueba física. Wallet y reservas no se presentan como dinero productivo.
 - [x] **P0-05 / IDEM-001 — concurrencia.** Idempotencia, constraints, locks, ofertas privadas, TTL, aceptación atómica y dedupe cubiertos por integración.
 - [x] **P0-05b / API-001 — contratos de escritura.** Las mutaciones con cuerpo exigen JSON, rechazan media types ambiguos con `415` y validan payloads tipados antes de escribir.
 - [~] **P0-06 / GEO-001 — mapas.** Geocoding, PostGIS, zonas, OSRM, polylines, caché, quotes firmados, circuit breaker, stale controlado, presupuesto y métricas funcionan. Faltan tráfico/Route Matrix productivo y cuota distribuida.
@@ -563,7 +563,7 @@ Trabajo:
 - [x] Saldo comercial y reserva idempotente de retiros.
 - [x] Cotización de comida PostgreSQL/PostGIS por distancia y zona, plan versionado y price lock firmado verificable.
 - [x] Checkout de comida exige consentimiento sobre el total final firmado y revalida ownership del método, carrito, inventario, sucursal, promo y todos los importes antes de la captura Wallet.
-- [~] Reserva, aprobación independiente, rechazo y liberación contable de payouts listos; falta conectar worker bancario y conciliación de transferencias.
+- [~] Reserva, step-up transaccional, aprobación independiente, rechazo y liberación contable listos. No se conectará un worker bancario propio: el siguiente gate es Mercado Pago Split 1:1 con OAuth seller y conciliación, sujeto a alta comercial/KYC.
 - [x] Propinas post-servicio y ajustes operativos parciales/totales con Wallet, ledger, RLS, idempotencia, límite concurrente y aprobación dual.
 - Antifraude inicial por usuario, dispositivo, tarjeta, zona y promo.
 
