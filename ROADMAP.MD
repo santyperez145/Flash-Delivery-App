@@ -11,7 +11,7 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [x] Se creó `docs/experience-surface-inventory.md` como inventario rector de pantallas, hojas, modales y estados para Cliente, Driver, Comercio y Operaciones.
 - [x] La segmentación se contrastó con documentación oficial vigente de Uber Driver, Lyft Driver y DoorDash Dasher; se adoptan jerarquía y estados, nunca activos ni identidad propietaria.
 - [x] La guía giro a giro queda exclusivamente en Flash Driver. El cliente conserva mapa, ubicación, ETA y progreso, pero no instrucciones de conducción.
-- [~] Flash Driver debe separar Home/Mapa, Ganancias, Inbox y Cuenta; hoy la lógica es real pero todavía comparte un scroll operativo demasiado largo.
+- [x] Flash Driver separa Home/Mapa, Ganancias, Inbox y Cuenta con barra inferior fija; legajo/flota salen del flujo de conducción y cada cambio de sección vuelve al inicio de su contenido.
 - [ ] Heatmap, voz, tráfico, reportes viales, waiting fees, llamadas anonimizadas y CarPlay/Android Auto permanecen bloqueados hasta tener contratos, proveedor, operación y prueba física.
 
 ## Avance 22 de agosto de 2026 — mapas nativos mobile
@@ -26,6 +26,8 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 ## Avance 22 de agosto de 2026 — navegación visual de Flash Driver
 
 - [x] La app de conductor muestra un mapa nativo del GPS vigente al próximo pickup/destino para comida, viajes o envíos, con ruta vial, color por vertical y reencuadre.
+- [x] La guía interna vive sólo en Driver y abre un cockpit dedicado con maniobra dominante, distancia a la maniobra, ETA, tres pasos próximos, etapa, destino, chat y traspaso a la guía completa del dispositivo.
+- [x] El tracking del pasajero conserva ruta, ETA, conductor y seguridad, pero dejó de mostrar instrucciones viales destinadas a quien conduce.
 - [x] Viajes y envíos precargan como origen la dirección predeterminada sólo cuando posee coordenadas persistidas; el usuario ve contexto cartográfico desde el primer destino sin geocodificar ni inventar una ubicación nuevamente.
 - [x] Cambiar de trabajo o fase elimina inmediatamente la geometría anterior; una falla de routing se informa y nunca deja visible una ruta obsoleta.
 - [x] El botón Navegar delega giro a giro a Apple Maps para conducción iOS o a Google Maps mediante URL universal para Android, bicicleta y fallback web, sin requerir otra clave.
