@@ -537,6 +537,24 @@ function CustomerScreen({
   );
   const [packageWeight, setPackageWeight] = useState("1");
   const[declaredValue,setDeclaredValue]=useState("0"),[shipmentProtection,setShipmentProtection]=useState<"none"|"standard">("none"),[shipmentSignatureRequired,setShipmentSignatureRequired]=useState(false),[shipmentItemCategory,setShipmentItemCategory]=useState<NonNullable<Shipment["itemCategory"]>>("standard"),[shipmentServiceLevel,setShipmentServiceLevel]=useState<NonNullable<Shipment["serviceLevel"]>>("standard"),[shipmentPickupCoords,setShipmentPickupCoords]=useState<GeoPoint|null>(null),[shipmentDestinationCoords,setShipmentDestinationCoords]=useState<GeoPoint|null>(null),[shipmentRoadRoute,setShipmentRoadRoute]=useState<RoadRoute|null>(null);
+  const defaultLocationSeededForUser=useRef("");
+  useEffect(()=>{
+    if(defaultLocationSeededForUser.current===user.id)return;
+    const locatedAddresses=state.addresses.filter(item=>item.userId===user.id&&item.lat!==null&&item.lng!==null);
+    const normalizedDefaultAddress=user.defaultAddress?.trim().toLowerCase();
+    const primaryAddress=locatedAddresses.find(item=>item.isDefault)||locatedAddresses.find(item=>normalizedDefaultAddress&&item.address.trim().toLowerCase()===normalizedDefaultAddress);
+    if(!primaryAddress)return;
+    defaultLocationSeededForUser.current=user.id;
+    const point={lat:primaryAddress.lat!,lng:primaryAddress.lng!};
+    if(!pickupCoords&&(!pickup.trim()||pickup===user.defaultAddress||pickup==="Ubicacion actual")){
+      setPickup(primaryAddress.address);
+      setPickupCoords(point);
+    }
+    if(!shipmentPickupCoords&&(!shipmentPickup.trim()||shipmentPickup===user.defaultAddress)){
+      setShipmentPickup(primaryAddress.address);
+      setShipmentPickupCoords(point);
+    }
+  },[pickup,pickupCoords,shipmentPickup,shipmentPickupCoords,state.addresses,user.defaultAddress,user.id]);
   const [shipmentQuote, setShipmentQuote] = useState<ShipmentQuote | null>(
     null,
   );
