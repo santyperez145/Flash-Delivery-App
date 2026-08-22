@@ -32,7 +32,7 @@ try {
 
   const operations = Object.values(spec.paths).flatMap((path) => Object.values(path)).filter((operation) => operation?.operationId);
   const operationIds = operations.map((operation) => operation.operationId);
-  assert(operationIds.length === new Set(operationIds).size && operationIds.length >= 25, "operationId es único en los dominios documentados");
+  assert(operationIds.length === new Set(operationIds).size && operationIds.length >= 30, "operationId es único en los dominios documentados");
   const refs = collectRefs(spec);
   const unresolvedRefs = refs.filter((ref) => !ref.startsWith("#/components/schemas/") || !spec.components.schemas[ref.split("/").at(-1)]);
   assert(unresolvedRefs.length === 0, `${new Set(refs).size} referencias internas están resueltas`);
@@ -64,6 +64,10 @@ try {
   const anonymousTrackingLink = await fetch(`${origin}/api/rides/RIDE-CONTRACT/tracking-links`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ttlMinutes: 120 }) });
   assert(anonymousTrackingLink.status === 401 && spec.paths["/api/rides/{rideId}/tracking-links"].post.security, "crear enlaces de seguimiento exige identidad");
   assert(spec.components.schemas.MerchantPaymentConnection.properties.status.enum.includes("reconnect_required"), "contrato publica el estado operativo de reconexión PSP");
+  const anonymousOffers=await fetch(`${origin}/api/driver/offers`),anonymousTickets=await fetch(`${origin}/api/support/tickets`);
+  assert(anonymousOffers.status===401&&spec.paths["/api/driver/offers"].get.security,"ofertas privadas exigen identidad driver");
+  assert(anonymousTickets.status===401&&spec.paths["/api/support/tickets"].get.security,"soporte exige identidad antes de resolver visibilidad");
+  assert(spec.components.schemas.SupportMessageRequest.properties.internal.description.includes("support/admin"),"contrato distingue notas internas por rol");
   const serializedSpec=JSON.stringify(spec).toLowerCase();
   assert(!serializedSpec.includes('"pan"')&&!serializedSpec.includes('"cvv"')&&!serializedSpec.includes('access_token_ciphertext')&&!serializedSpec.includes('refresh_token_ciphertext'), "contrato no modela datos de tarjeta ni credenciales seller");
 } finally {
