@@ -188,6 +188,7 @@ function rowsToOrders(rows) {
         id: row.public_id,
         customerId: row.customer_public_id,
         restaurantId: row.merchant_public_id,
+        branchId: row.branch_public_id || null,
         courierId: row.driver_public_id || null,
         status: apiStatus(row.status),
         deliveryAddress: row.dropoff_address,
@@ -228,7 +229,8 @@ export async function getPostgresOrders({publicIds=null}={}) {
     SELECT j.*, j.metadata AS job_metadata, customer.public_id AS customer_public_id,
       ST_Y(j.pickup_location::geometry) pickup_lat,ST_X(j.pickup_location::geometry) pickup_lng,
       ST_Y(j.dropoff_location::geometry) dropoff_lat,ST_X(j.dropoff_location::geometry) dropoff_lng,
-      merchant.public_id AS merchant_public_id, driver.public_id AS driver_public_id,
+      merchant.public_id AS merchant_public_id, branch.public_id AS branch_public_id,
+      driver.public_id AS driver_public_id,
       ji.id AS item_id, ji.name AS item_name, ji.quantity, ji.unit_price_cents,
       ji.customer_note, ji.metadata AS item_metadata, catalog.public_id AS catalog_public_id,
       (SELECT jsonb_build_object('id',c.public_id,'reason',c.reason_code,'refundAmount',c.refund_amount_cents/100.0,'fee',c.cancellation_fee_cents/100.0,'createdAt',c.created_at) FROM job_cancellations c WHERE c.job_id=j.id) cancellation,
@@ -239,6 +241,7 @@ export async function getPostgresOrders({publicIds=null}={}) {
     FROM jobs j
     JOIN users customer ON customer.id = j.customer_id
     JOIN merchants merchant ON merchant.id = j.merchant_id
+    LEFT JOIN merchant_branches branch ON branch.id = j.branch_id
     LEFT JOIN drivers driver ON driver.id = j.driver_id
     LEFT JOIN job_items ji ON ji.job_id = j.id
     LEFT JOIN catalog_items catalog ON catalog.id = ji.catalog_item_id

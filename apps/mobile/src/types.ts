@@ -69,6 +69,7 @@ export type Order = {
   id: string;
   customerId: string;
   restaurantId: string;
+  branchId?: string | null;
   courierId: string | null;
   status: "requested" | "accepted" | "preparing" | "ready_for_pickup" | "courier_assigned" | "picked_up" | "delivering" | "delivered" | "cancelled";
   deliveryAddress: string;
@@ -78,7 +79,14 @@ export type Order = {
   total: number;
   etaMin: number;
   createdAt?: string;
-  items: Array<{ name: string; quantity: number }>;
+  items: Array<{
+    menuItemId?: string;
+    name: string;
+    quantity: number;
+    unitPrice?: number;
+    extras?: string[];
+    note?: string;
+  }>;
   cancellation?: ServiceCancellation | null;
 };
 

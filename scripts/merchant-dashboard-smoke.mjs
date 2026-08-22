@@ -16,7 +16,7 @@ try{
   let ready=false;for(let attempt=0;attempt<60;attempt++){try{if((await fetch(`${base}/health`)).ok){ready=true;break;}}catch{}await sleep(200);}assert(ready,"isolated API starts with PostgreSQL");
   const merchantToken=await login("comercio@flash.app"),customerToken=await login("cliente@flash.app"),adminToken=await login("ops@flash.app");
   assert(Boolean(merchantToken&&customerToken&&adminToken),"merchant, customer and admin fixtures authenticate");
-  const context=(await pool.query(`SELECT m.id merchant_id,b.id branch_id,b.eta_min,u.id customer_id
+  const context=(await pool.query(`SELECT m.id merchant_id,b.id branch_id,b.public_id branch_public_id,b.eta_min,u.id customer_id
     FROM merchants m JOIN merchant_branches b ON b.merchant_id=m.id AND b.is_primary
     CROSS JOIN users u WHERE m.public_id='rest_roja' AND u.public_id='usr_customer'`)).rows[0];
   const baseline=(await pool.query(`SELECT
@@ -47,6 +47,7 @@ try{
   const activeQueue=await call("/merchant/orders/active?restaurantId=rest_roja&limit=100",{token:merchantToken}),activeIds=activeQueue.body.orders?.map(order=>order.id)||[];
   assert(activeQueue.status===200&&activeQueue.headers.get("cache-control")?.includes("no-store")&&activeQueue.body.source==="postgres-live-operations"&&typeof activeQueue.body.hasMore==="boolean","merchant receives a private bounded PostgreSQL active queue");
   assert(activeIds.includes(`${prefix}-LATE`)&&!activeIds.includes(`${prefix}-DONE`)&&!activeIds.includes(`${prefix}-CANCEL`),"active queue includes actionable work and excludes terminal history");
+  assert(activeQueue.body.orders.find(order=>order.id===`${prefix}-LATE`)?.branchId===context.branch_public_id,"active queue identifies the persisted order branch for scoped inventory actions");
   assert((await call("/merchant/orders/active?restaurantId=rest_ajeno",{token:merchantToken})).status===404,"active queue never fabricates an unknown commerce");
   originalMerchantState={open:dashboard.branch.manualOpen,etaMin:dashboard.branch.etaMin};
   const targetOpen=!originalMerchantState.open,targetEta=originalMerchantState.etaMin+5;

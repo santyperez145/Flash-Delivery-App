@@ -1389,6 +1389,8 @@ try {
     }),
   });
   settlementOrderId = settlementOrder.body.order?.id;
+  if (settlementOrder.status !== 200 || !settlementOrderId)
+    console.error("settlement order diagnostic", settlementOrder);
   assert(
     settlementOrder.status === 200 && settlementOrderId,
     "captured food order is ready for settlement",
@@ -1684,6 +1686,37 @@ try {
     method: "PATCH",
     body: JSON.stringify({ stock: false }),
   });
+  const unavailableReplacement = await request(
+    "/restaurants/rest_roja/branches/branch_rest_roja/inventory/item_papas_trufa",
+    {
+      method: "PATCH",
+      body: JSON.stringify({ available: false, stockQuantity: 0 }),
+    },
+  );
+  const rejectedUnavailableReplacement = await request(
+    `/orders/${settlementOrderId}/substitutions`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        originalMenuItemId: "item_burger_brava",
+        replacementMenuItemId: "item_papas_trufa",
+        reason: "Burger sin stock durante preparación",
+      }),
+    },
+  );
+  const restoredReplacement = await request(
+    "/restaurants/rest_roja/branches/branch_rest_roja/inventory/item_papas_trufa",
+    {
+      method: "PATCH",
+      body: JSON.stringify({ available: true }),
+    },
+  );
+  assert(
+    unavailableReplacement.status === 200 &&
+      rejectedUnavailableReplacement.status === 409 &&
+      restoredReplacement.status === 200,
+    "merchant cannot propose a replacement without sufficient stock in the order branch",
+  );
   const proposedSubstitution = await request(
     `/orders/${settlementOrderId}/substitutions`,
     {
@@ -3897,23 +3930,29 @@ try {
         );
       }
     }
-    if (substitutionId) {
+    const cleanupSubstitutions = (
+      await pool.query(
+        "SELECT s.public_id FROM order_item_substitutions s JOIN jobs j ON j.id=s.job_id WHERE j.public_id=$1",
+        [settlementOrderId],
+      )
+    ).rows.map((row) => row.public_id);
+    for (const cleanupSubstitutionId of cleanupSubstitutions) {
       await pool.query("DELETE FROM refunds WHERE provider_refund_id=$1", [
-        substitutionId,
+        cleanupSubstitutionId,
       ]);
       await pool.query(
-        "DELETE FROM order_item_substitutions WHERE public_id=$1",
-        [substitutionId],
-      );
-      await pool.query(
         "DELETE FROM ledger_entries WHERE transaction_id=(SELECT id FROM ledger_transactions WHERE idempotency_key=$1)",
-        [`substitution-refund-${substitutionId}`],
+        [`substitution-refund-${cleanupSubstitutionId}`],
       );
       await pool.query(
         "DELETE FROM ledger_transactions WHERE idempotency_key=$1",
-        [`substitution-refund-${substitutionId}`],
+        [`substitution-refund-${cleanupSubstitutionId}`],
       );
     }
+    await pool.query(
+      "DELETE FROM order_item_substitutions WHERE job_id=(SELECT id FROM jobs WHERE public_id=$1)",
+      [settlementOrderId],
+    );
     await pool.query(
       "DELETE FROM payment_intents WHERE job_id=(SELECT id FROM jobs WHERE public_id=$1)",
       [settlementOrderId],

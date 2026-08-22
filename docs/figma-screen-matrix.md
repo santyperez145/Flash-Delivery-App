@@ -74,7 +74,7 @@ Estados: `[x]` funcional y visible, `[~]` base funcional con paridad visual pend
 ## Apps operativas
 
 - [x] Portal desktop del comercio: cocina, catálogo, stock por sucursal, pausa manual, horarios semanales, excepciones, zona horaria y ETA.
-- [~] Flash Negocios mobile: shell fijo Hoy/Pedidos/Catálogo/Cuenta, pulso PostgreSQL, cola activa priorizada, chat, stock, alta y sucursales; composición web verificada, build físico/safe areas/teclado pendientes.
+- [~] Flash Negocios mobile: shell fijo Hoy/Pedidos/Catálogo/Cuenta, pulso PostgreSQL, cola priorizada y comanda en hoja operativa con notas, extras, chat y sustitución por sucursal; stock, alta y sucursales reales; composición web verificada, build físico/safe areas/teclado pendientes.
 - [~] App conductor: shell Mapa/Ganancias/Inbox/Cuenta, disponibilidad, GPS foreground/background, ofertas, cockpit de ruta, chat, ganancias honestas, avance y registro/revisión/activación real de vehículos; falta ensayo prolongado en dispositivos físicos, tráfico/voz y paridad visual fina de estados secundarios.
 - [x] Navegación OSRM con recálculo GPS y destino por etapa para comidas, viajes y envíos, más traspaso giro a giro a Apple/Google Maps.
 - [x] Documentos/KYC cifrados, vencimientos, revisión manual y bloqueo operativo del conductor.
