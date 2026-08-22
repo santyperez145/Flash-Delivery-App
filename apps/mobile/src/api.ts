@@ -130,6 +130,7 @@ export const api = {
   async getCurrentMerchant(){return request<{restaurants:Restaurant[]}>("/merchant/me");},
   async getAssignedDrivers(){return request<{drivers:Driver[]}>("/me/assigned-drivers");},
   async getAccountContext(){return request<{account:{user:import("./types").User;addresses:import("./types").UserAddress[];paymentMethods:import("./types").PaymentMethod[];supportTickets:import("./types").SupportTicket[];tips:import("./types").ServiceTip[]}}>("/me");},
+  async getPaymentClientConfiguration(){return request<{provider:"mercadopago"|"disabled";publicKey:string|null;cardDataHandling:"provider_tokenization_only"}>("/payment-provider/client-configuration");},
   async getActivity(cursor?:string,limit=20){const params=new URLSearchParams({limit:String(limit),...(cursor?{cursor}:{})});return request<{items:Array<{id:string;kind:"order"|"ride"|"shipment";createdAt:string;resource:Order|Ride|Shipment}>;nextCursor:string|null}>(`/me/activity?${params}`);},
   async getCatalog(cursor?:string,limit=20,query=""){const params=new URLSearchParams({limit:String(limit),...(cursor?{cursor}:{}),...(query?{q:query}:{})});return request<{restaurants:Restaurant[];nextCursor:string|null}>(`/catalog/restaurants?${params}`);},
   async createSandboxPaymentMethod(input:{providerToken:string;brand:"visa"|"mastercard"|"amex"|"cabal";last4:string;expiryMonth:number;expiryYear:number;isDefault?:boolean}){return request<{paymentMethod:import("./types").PaymentMethod}>("/payment-methods/sandbox",{method:"POST",body:JSON.stringify(input)});},
