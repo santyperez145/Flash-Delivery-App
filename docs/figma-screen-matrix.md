@@ -74,8 +74,8 @@ Estados: `[x]` funcional y visible, `[~]` base funcional con paridad visual pend
 ## Apps operativas
 
 - [x] Portal desktop del comercio: cocina, catálogo, stock por sucursal, pausa manual, horarios semanales, excepciones, zona horaria y ETA.
-- [~] App conductor: disponibilidad, GPS foreground/background, ofertas, activos, ganancias, avance y registro/revisión/activación real de vehículos; falta paridad visual fina y ensayo prolongado en dispositivos físicos.
-- [x] Navegación OSRM con recálculo GPS y destino por etapa para comidas, viajes y envíos.
+- [~] App conductor: disponibilidad, GPS foreground/background, ofertas, mapa nativo de activos, ganancias, avance y registro/revisión/activación real de vehículos; falta paridad visual fina y ensayo prolongado en dispositivos físicos.
+- [x] Navegación OSRM con recálculo GPS y destino por etapa para comidas, viajes y envíos, más traspaso giro a giro a Apple/Google Maps.
 - [x] Documentos/KYC cifrados, vencimientos, revisión manual y bloqueo operativo del conductor.
 - [x] Superadmin: metricas, actividad, zonas y auditoria base.
 - [~] Consola de pagos, conciliación y riesgo transaccional explicable con excepciones, bloqueos, refunds y soporte reales; falta PSP y señales antifraude externas productivas.
