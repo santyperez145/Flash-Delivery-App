@@ -16,11 +16,13 @@ de documentación; no contiene tokens, credenciales ni ejemplos personales.
 - Configuración pública de tokenización, conexión OAuth seller y webhook firmado.
 - Comprobantes no fiscales de servicios propios finalizados.
 - Creación, revocación y consulta pública minimizada de enlaces temporales de viaje.
+- Ofertas privadas de dispatch y rechazo antes del TTL.
+- Tickets de soporte, conversación visible y actualización exclusiva de agentes.
 - Bearer JWT, respuestas de error, límites básicos y códigos HTTP relevantes.
 
 La cobertura es incremental. Una ruta ausente todavía no tiene contrato público
-y no debe integrarse por inferencia. Dispatch, soporte y operaciones se
-incorporarán por dominios junto con pruebas de
+y no debe integrarse por inferencia. Operaciones se incorporará por dominios
+junto con pruebas de
 respuestas reales.
 
 `npm run test:openapi-contract` inicia la API, comprueba referencias y
