@@ -1,6 +1,6 @@
 # Seguimiento de pedidos de comida
 
-Los pedidos activos de Actividad abren una hoja de seguimiento independiente tanto en la PWA web como en la app nativa. El mapa usa las coordenadas PostGIS persistidas en el job y solicita la ruta vial comercio→cliente al adaptador de mapas existente. La geometría se dibuja sobre mosaicos OSM y muestra distancia y duración devueltas por el proveedor.
+Los pedidos activos de Actividad abren una hoja de seguimiento independiente tanto en la PWA web como en la app nativa. El mapa usa las coordenadas PostGIS persistidas en el job y solicita la ruta vial comercio→cliente al adaptador de mapas existente. En web, la geometría se dibuja como capa GeoJSON naranja sobre el viewport MapLibre interactivo con pan, zoom y reencuadre; distancia y duración siguen viniendo del proveedor de rutas.
 
 La progresión visual corresponde a los estados reales: confirmado, preparando, listo, repartidor asignado, retirado, en camino y entregado. Si existe `courierId`, la posición proviene del conductor cargado desde PostgreSQL; antes de la asignación se informa que Flash sigue buscando disponibilidad.
 

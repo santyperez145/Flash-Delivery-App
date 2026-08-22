@@ -1894,7 +1894,7 @@ textarea {
   margin-top: 14px;
 }
 
-.ride-preview-map{background:#e8edf3}.ride-preview-map .order-map-tile{width:33.34%;height:33.34%}.ride-preview-route{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.ride-preview-map .order-map-marker{z-index:4;transform:translate(-50%,-50%)}.ride-preview-map .tracking-map-caption{z-index:5}.ride-preview-map .map-attribution{z-index:5}.ride-map-empty{display:grid;place-items:center;background:radial-gradient(circle at 70% 25%,#f0e9ff 0 12%,transparent 13%),linear-gradient(145deg,#f8f6fb,#eef2f5)}.ride-map-empty-copy{display:grid;max-width:240px;justify-items:center;gap:6px;padding:22px;text-align:center;color:var(--ink-soft)}.ride-map-empty-copy svg{color:var(--accent)}.ride-map-empty-copy strong{color:var(--ink);font-size:.9rem}.ride-map-empty-copy span{font-size:.72rem;line-height:1.4}
+.ride-preview-map{background:#e8edf3}.ride-preview-map .tracking-map-caption{z-index:5}.ride-map-empty{display:grid;place-items:center;background:radial-gradient(circle at 70% 25%,#f0e9ff 0 12%,transparent 13%),linear-gradient(145deg,#f8f6fb,#eef2f5)}.ride-map-empty-copy{display:grid;max-width:240px;justify-items:center;gap:6px;padding:22px;text-align:center;color:var(--ink-soft)}.ride-map-empty-copy svg{color:var(--accent)}.ride-map-empty-copy strong{color:var(--ink);font-size:.9rem}.ride-map-empty-copy span{font-size:.72rem;line-height:1.4}
 
 .flash-map-shell {
   position: relative;
@@ -2553,54 +2553,6 @@ textarea {
   border-radius: 14px;
 }
 
-.order-map-tile,
-.order-map-route,
-.order-map-marker {
-  position: absolute;
-}
-
-.order-map-tile {
-  z-index: 0;
-  width: 33.333%;
-  height: 33.333%;
-  object-fit: cover;
-}
-
-.order-map-route {
-  z-index: 1;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.order-map-marker {
-  z-index: 2;
-  display: grid;
-  width: 30px;
-  height: 30px;
-  place-items: center;
-  color: #fff;
-  border: 2px solid #fff;
-  border-radius: 50%;
-  box-shadow: 0 4px 12px rgba(19, 28, 38, 0.28);
-  transform: translate(-50%, -50%);
-}
-
-.order-map-marker.pickup {
-  background: var(--dark);
-}
-
-.order-map-marker.dropoff {
-  background: var(--teal);
-}
-
-.order-map-marker.driver {
-  width: 34px;
-  height: 34px;
-  background: var(--accent);
-  animation: tracking-pulse 1.8s ease-out infinite;
-}
-
 .tracking-map-caption {
   position: absolute;
   right: 10px;
@@ -2624,17 +2576,6 @@ textarea {
 .tracking-map-caption span {
   color: var(--ink-soft);
   font-size: 0.68rem;
-}
-
-.map-attribution {
-  position: absolute;
-  right: 6px;
-  bottom: 4px;
-  z-index: 4;
-  padding: 2px 4px;
-  color: #53605a;
-  background: rgba(255, 255, 255, 0.72);
-  font-size: 0.56rem;
 }
 
 .tracking-map-empty {
@@ -2730,10 +2671,6 @@ textarea {
   line-height: 1.4;
 }
 
-.ride-driver-marker {
-  background: #7c3cff;
-}
-
 .next-route-step {
   display: flex;
   align-items: flex-start;
@@ -2790,10 +2727,6 @@ textarea {
   color: #654b14;
   background: #f7df99;
   white-space: nowrap;
-}
-
-.shipment-driver-marker {
-  background: #087a50;
 }
 
 .shipment-tracking-summary {

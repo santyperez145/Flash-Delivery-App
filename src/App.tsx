@@ -110,6 +110,7 @@ type FoodCheckoutSelection = {
 };
 const NotificationCenter = lazy(() => import("./NotificationCenter"));
 const RideHome = lazy(() => import("./RideHome"));
+const FlashMap = lazy(() => import("./maps/FlashMap"));
 
 const orderStatusLabel: Record<OrderStatus, string> = {
   requested: "Validando pago",
@@ -224,18 +225,6 @@ function PublicRideTrackingPage({ token }: { token: string }) {
     };
   }, [token]);
 
-  const map = useMemo(
-    () =>
-      tracking
-        ? buildWebTrackingMap(
-            tracking.pickupLocation,
-            tracking.destinationLocation,
-            [],
-            tracking.driver?.location || null,
-          )
-        : null,
-    [tracking],
-  );
   const currentIndex = tracking
     ? Math.max(rideSteps.indexOf(tracking.status), 0)
     : 0;
@@ -268,28 +257,17 @@ function PublicRideTrackingPage({ token }: { token: string }) {
             <h1>{rideStatusLabel[tracking.status]}</h1>
             <p>{tracking.pickup} → {tracking.destination}</p>
           </section>
-          {map && (
-            <section className="public-tracking-map" aria-label="Mapa público del viaje">
-              {map.tiles.map((tile) => (
-                <img
-                  key={tile.key}
-                  className="order-map-tile"
-                  src={tile.uri}
-                  alt=""
-                  aria-hidden="true"
-                  style={{ left: `${tile.column * 33.333}%`, top: `${tile.row * 33.333}%` }}
-                />
-              ))}
-              <span className="order-map-marker pickup" style={{ left: `${map.pickup.x / 3}%`, top: `${map.pickup.y / 3}%` }} title="Origen"><MapPin size={14} /></span>
-              <span className="order-map-marker dropoff" style={{ left: `${map.dropoff.x / 3}%`, top: `${map.dropoff.y / 3}%` }} title="Destino"><Home size={14} /></span>
-              {map.driver && <span className="order-map-marker driver ride-driver-marker" style={{ left: `${map.driver.x / 3}%`, top: `${map.driver.y / 3}%` }} title="Conductor"><Car size={14} /></span>}
-              <div className="tracking-map-caption">
-                <strong>{tracking.driver?.location ? "Ubicación del conductor actualizada" : "Conductor sin posición compartida"}</strong>
-                <span>ETA publicada: {tracking.etaMin} min</span>
-              </div>
-              <small className="map-attribution">© OpenStreetMap contributors</small>
-            </section>
-          )}
+          <Suspense fallback={<section className="public-tracking-map flash-map-loading"><span>Cargando mapa…</span></section>}>
+            <FlashMap
+              origin={tracking.pickupLocation}
+              destination={tracking.destinationLocation}
+              driver={tracking.driver?.location || null}
+              className="public-tracking-map"
+              ariaLabel="Mapa público interactivo del viaje"
+              caption={tracking.driver?.location ? "Ubicación del conductor actualizada" : "Conductor sin posición compartida"}
+              detail={`ETA publicada: ${tracking.etaMin} min`}
+            />
+          </Suspense>
           <section className="public-tracking-summary">
             <div>
               <span className="muted-label">Conductor</span>
@@ -7144,75 +7122,6 @@ function CustomerActivity({
   );
 }
 
-type ProjectedMapPoint = { x: number; y: number };
-
-function buildWebTrackingMap(
-  origin: GeoPoint,
-  destination: GeoPoint,
-  routeCoordinates: GeoPoint[] = [],
-  driverPoint: GeoPoint | null = null,
-) {
-  const points = [origin, destination, ...routeCoordinates, ...(driverPoint ? [driverPoint] : [])];
-  const world = (point: GeoPoint, zoom: number) => {
-    const scale = 2 ** zoom;
-    const latitude = Math.max(-85.0511, Math.min(85.0511, point.lat));
-    const latitudeRadians = (latitude * Math.PI) / 180;
-    return {
-      x: ((point.lng + 180) / 360) * scale,
-      y: ((1 - Math.asinh(Math.tan(latitudeRadians)) / Math.PI) / 2) * scale,
-    };
-  };
-
-  let zoom = 15;
-  for (; zoom > 8; zoom -= 1) {
-    const projected = points.map((point) => world(point, zoom));
-    const xs = projected.map((point) => point.x);
-    const ys = projected.map((point) => point.y);
-    if (
-      Math.max(...xs) - Math.min(...xs) <= 2.35 &&
-      Math.max(...ys) - Math.min(...ys) <= 2.35
-    )
-      break;
-  }
-
-  const projected = points.map((point) => world(point, zoom));
-  const centerX =
-    (Math.min(...projected.map((point) => point.x)) +
-      Math.max(...projected.map((point) => point.x))) /
-    2;
-  const centerY =
-    (Math.min(...projected.map((point) => point.y)) +
-      Math.max(...projected.map((point) => point.y))) /
-    2;
-  const baseX = Math.floor(centerX) - 1;
-  const baseY = Math.floor(centerY) - 1;
-  const project = (point: GeoPoint): ProjectedMapPoint => {
-    const value = world(point, zoom);
-    return { x: (value.x - baseX) * 100, y: (value.y - baseY) * 100 };
-  };
-
-  return {
-    zoom,
-    tiles: Array.from({ length: 9 }, (_, index) => {
-      const column = index % 3;
-      const row = Math.floor(index / 3);
-      const scale = 2 ** zoom;
-      const tileX = ((baseX + column) % scale + scale) % scale;
-      const tileY = Math.max(0, Math.min(scale - 1, baseY + row));
-      return {
-        key: `${zoom}-${tileX}-${tileY}`,
-        uri: `https://tile.openstreetmap.org/${zoom}/${tileX}/${tileY}.png`,
-        column,
-        row,
-      };
-    }),
-    route: routeCoordinates.map((point) => project(point)),
-    pickup: project(origin),
-    dropoff: project(destination),
-    driver: driverPoint ? project(driverPoint) : null,
-  };
-}
-
 function OrderTrackingSheet({
   order,
   driver,
@@ -7267,15 +7176,7 @@ function OrderTrackingSheet({
     order.deliveryLocation?.lng,
   ]);
 
-  const map =
-    order.pickupLocation && order.deliveryLocation
-      ? buildWebTrackingMap(
-          order.pickupLocation,
-          order.deliveryLocation,
-          route?.coordinates || [],
-          driver?.location || null,
-        )
-      : null;
+  const hasMap = Boolean(order.pickupLocation && order.deliveryLocation);
   const currentIndex = Math.max(orderSteps.indexOf(order.status), 0);
   const share = async () => {
     const text = `Mi pedido ${order.id} está ${orderStatusLabel[order.status].toLowerCase()}. ETA publicada: ${order.etaMin} min.`;
@@ -7313,64 +7214,19 @@ function OrderTrackingSheet({
             <Copy size={15} /> {shareLabel}
           </button>
         </div>
-        {map ? (
-          <div className="order-tracking-map" aria-label="Mapa de seguimiento del pedido">
-            {map.tiles.map((tile) => (
-              <img
-                key={tile.key}
-                className="order-map-tile"
-                src={tile.uri}
-                alt=""
-                aria-hidden="true"
-                style={{
-                  left: `${tile.column * 33.333}%`,
-                  top: `${tile.row * 33.333}%`,
-                }}
-              />
-            ))}
-            {map.route.length > 1 && (
-              <svg className="order-map-route" viewBox="0 0 300 300" preserveAspectRatio="none" aria-hidden="true">
-                <polyline
-                  points={map.route.map((point) => `${point.x},${point.y}`).join(" ")}
-                  fill="none"
-                  stroke="rgba(255,255,255,.96)"
-                  strokeWidth="11"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <polyline
-                  points={map.route.map((point) => `${point.x},${point.y}`).join(" ")}
-                  fill="none"
-                  stroke="#f4511e"
-                  strokeWidth="5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            )}
-            <span className="order-map-marker pickup" style={{ left: `${map.pickup.x / 3}%`, top: `${map.pickup.y / 3}%` }} title="Comercio">
-              <Store size={14} />
-            </span>
-            <span className="order-map-marker dropoff" style={{ left: `${map.dropoff.x / 3}%`, top: `${map.dropoff.y / 3}%` }} title="Entrega">
-              <Home size={14} />
-            </span>
-            {map.driver && (
-              <span className="order-map-marker driver" style={{ left: `${map.driver.x / 3}%`, top: `${map.driver.y / 3}%` }} title="Repartidor">
-                <Bike size={14} />
-              </span>
-            )}
-            <div className="tracking-map-caption">
-              <strong>
-                {route
-                  ? `${route.distanceKm} km · ${route.durationMin} min de recorrido`
-                  : routeLoading
-                    ? "Calculando ruta real…"
-                    : routeError || "Ruta vial no disponible"}
-              </strong>
-              <span>{driver ? `${driver.name} · ${driver.vehicle}` : "Buscando repartidor disponible"}</span>
-            </div>
-            <small className="map-attribution">© OpenStreetMap contributors</small>
-          </div>
+        {hasMap ? (
+          <Suspense fallback={<div className="order-tracking-map flash-map-loading"><span>Cargando mapa…</span></div>}>
+            <FlashMap
+              origin={order.pickupLocation!}
+              destination={order.deliveryLocation!}
+              route={route?.coordinates || []}
+              driver={driver?.location || null}
+              routeColor="#f4511e"
+              ariaLabel="Mapa interactivo de seguimiento del pedido"
+              caption={route ? `${route.distanceKm} km · ${route.durationMin} min de recorrido` : routeLoading ? "Calculando ruta real…" : routeError || "Ruta vial no disponible"}
+              detail={driver ? `${driver.name} · ${driver.vehicle}` : "Buscando repartidor disponible"}
+            />
+          </Suspense>
         ) : (
           <div className="tracking-map-empty">
             <MapPin size={20} />
@@ -7480,15 +7336,7 @@ function RideTrackingSheet({
     ride.destinationLocation?.lng,
   ]);
 
-  const map =
-    ride.pickupLocation && ride.destinationLocation
-      ? buildWebTrackingMap(
-          ride.pickupLocation,
-          ride.destinationLocation,
-          route?.coordinates || [],
-          driver?.location || null,
-        )
-      : null;
+  const hasMap = Boolean(ride.pickupLocation && ride.destinationLocation);
   const currentIndex = Math.max(rideSteps.indexOf(ride.status), 0);
   const nextStep = route?.steps[0]?.instruction || null;
 
@@ -7583,64 +7431,19 @@ function RideTrackingSheet({
           </div>
           <span className="ride-service-badge"><Car size={14} /> {ride.service}</span>
         </div>
-        {map ? (
-          <div className="order-tracking-map" aria-label="Mapa de seguimiento del viaje">
-            {map.tiles.map((tile) => (
-              <img
-                key={tile.key}
-                className="order-map-tile"
-                src={tile.uri}
-                alt=""
-                aria-hidden="true"
-                style={{
-                  left: `${tile.column * 33.333}%`,
-                  top: `${tile.row * 33.333}%`,
-                }}
-              />
-            ))}
-            {map.route.length > 1 && (
-              <svg className="order-map-route" viewBox="0 0 300 300" preserveAspectRatio="none" aria-hidden="true">
-                <polyline
-                  points={map.route.map((point) => `${point.x},${point.y}`).join(" ")}
-                  fill="none"
-                  stroke="rgba(255,255,255,.96)"
-                  strokeWidth="11"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <polyline
-                  points={map.route.map((point) => `${point.x},${point.y}`).join(" ")}
-                  fill="none"
-                  stroke="#7c3cff"
-                  strokeWidth="5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            )}
-            <span className="order-map-marker pickup" style={{ left: `${map.pickup.x / 3}%`, top: `${map.pickup.y / 3}%` }} title="Origen">
-              <MapPin size={14} />
-            </span>
-            <span className="order-map-marker dropoff" style={{ left: `${map.dropoff.x / 3}%`, top: `${map.dropoff.y / 3}%` }} title="Destino">
-              <Home size={14} />
-            </span>
-            {map.driver && (
-              <span className="order-map-marker driver ride-driver-marker" style={{ left: `${map.driver.x / 3}%`, top: `${map.driver.y / 3}%` }} title="Conductor">
-                <Car size={14} />
-              </span>
-            )}
-            <div className="tracking-map-caption">
-              <strong>
-                {route
-                  ? `${route.distanceKm} km · ${route.durationMin} min de recorrido`
-                  : routeLoading
-                    ? "Calculando ruta real…"
-                    : routeError || "Ruta vial no disponible"}
-              </strong>
-              <span>{driver ? `${driver.name} · ${driver.vehicle} · ${driver.plate}` : "Buscando un conductor disponible"}</span>
-            </div>
-            <small className="map-attribution">© OpenStreetMap contributors</small>
-          </div>
+        {hasMap ? (
+          <Suspense fallback={<div className="order-tracking-map flash-map-loading"><span>Cargando mapa…</span></div>}>
+            <FlashMap
+              origin={ride.pickupLocation!}
+              destination={ride.destinationLocation!}
+              route={route?.coordinates || []}
+              driver={driver?.location || null}
+              routeColor="#7c3cff"
+              ariaLabel="Mapa interactivo de seguimiento del viaje"
+              caption={route ? `${route.distanceKm} km · ${route.durationMin} min de recorrido` : routeLoading ? "Calculando ruta real…" : routeError || "Ruta vial no disponible"}
+              detail={driver ? `${driver.name} · ${driver.vehicle} · ${driver.plate}` : "Buscando un conductor disponible"}
+            />
+          </Suspense>
         ) : (
           <div className="tracking-map-empty">
             <MapPin size={20} />
@@ -7796,15 +7599,7 @@ function ShipmentTrackingSheet({
     shipment.destinationLocation?.lng,
   ]);
 
-  const map =
-    shipment.pickupLocation && shipment.destinationLocation
-      ? buildWebTrackingMap(
-          shipment.pickupLocation,
-          shipment.destinationLocation,
-          route?.coordinates || [],
-          driver?.location || null,
-        )
-      : null;
+  const hasMap = Boolean(shipment.pickupLocation && shipment.destinationLocation);
   const currentIndex = Math.max(shipmentSteps.indexOf(shipment.status), 0);
   const nextStep = route?.steps[0]?.instruction || null;
   const proofCount = Math.max(
@@ -7881,85 +7676,19 @@ function ShipmentTrackingSheet({
             <Copy size={15} /> Compartir estado
           </button>
         </div>
-        {map ? (
-          <div className="order-tracking-map" aria-label="Mapa de seguimiento del envío">
-            {map.tiles.map((tile) => (
-              <img
-                key={tile.key}
-                className="order-map-tile"
-                src={tile.uri}
-                alt=""
-                aria-hidden="true"
-                style={{
-                  left: `${tile.column * 33.333}%`,
-                  top: `${tile.row * 33.333}%`,
-                }}
-              />
-            ))}
-            {map.route.length > 1 && (
-              <svg
-                className="order-map-route"
-                viewBox="0 0 300 300"
-                preserveAspectRatio="none"
-                aria-hidden="true"
-              >
-                <polyline
-                  points={map.route.map((point) => `${point.x},${point.y}`).join(" ")}
-                  fill="none"
-                  stroke="rgba(255,255,255,.96)"
-                  strokeWidth="11"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <polyline
-                  points={map.route.map((point) => `${point.x},${point.y}`).join(" ")}
-                  fill="none"
-                  stroke="#087a50"
-                  strokeWidth="5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            )}
-            <span
-              className="order-map-marker pickup"
-              style={{ left: `${map.pickup.x / 3}%`, top: `${map.pickup.y / 3}%` }}
-              title="Origen"
-            >
-              <Store size={14} />
-            </span>
-            <span
-              className="order-map-marker dropoff"
-              style={{ left: `${map.dropoff.x / 3}%`, top: `${map.dropoff.y / 3}%` }}
-              title="Destino"
-            >
-              <Home size={14} />
-            </span>
-            {map.driver && (
-              <span
-                className="order-map-marker driver shipment-driver-marker"
-                style={{ left: `${map.driver.x / 3}%`, top: `${map.driver.y / 3}%` }}
-                title="Repartidor"
-              >
-                <Truck size={14} />
-              </span>
-            )}
-            <div className="tracking-map-caption">
-              <strong>
-                {route
-                  ? `${route.distanceKm} km · ${route.durationMin} min de recorrido`
-                  : routeLoading
-                    ? "Calculando ruta real…"
-                    : routeError || "Ruta vial no disponible"}
-              </strong>
-              <span>
-                {driver
-                  ? `${driver.name} · ${driver.vehicle}`
-                  : "Buscando un repartidor disponible"}
-              </span>
-            </div>
-            <small className="map-attribution">© OpenStreetMap contributors</small>
-          </div>
+        {hasMap ? (
+          <Suspense fallback={<div className="order-tracking-map flash-map-loading"><span>Cargando mapa…</span></div>}>
+            <FlashMap
+              origin={shipment.pickupLocation!}
+              destination={shipment.destinationLocation!}
+              route={route?.coordinates || []}
+              driver={driver?.location || null}
+              routeColor="#087a50"
+              ariaLabel="Mapa interactivo de seguimiento del envío"
+              caption={route ? `${route.distanceKm} km · ${route.durationMin} min de recorrido` : routeLoading ? "Calculando ruta real…" : routeError || "Ruta vial no disponible"}
+              detail={driver ? `${driver.name} · ${driver.vehicle}` : "Buscando un repartidor disponible"}
+            />
+          </Suspense>
         ) : (
           <div className="tracking-map-empty">
             <MapPin size={20} />

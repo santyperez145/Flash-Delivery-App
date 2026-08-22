@@ -10,11 +10,11 @@ El viaje activo tiene una superficie dedicada y compartida entre Inicio y Activi
 - Ruta, distancia, duración y maniobras: endpoint de Routes con caché PostgreSQL.
 - Seguridad: tracking link temporal, contactos cifrados, PIN de retiro e incidente SOS.
 
-Mientras la hoja nativa está abierta, mobile actualiza el estado cada cinco segundos. En web, SSE actualiza la actividad autenticada y la hoja vuelve a consultar la ruta cuando cambian las coordenadas persistidas. Cada cambio de posición vuelve a proyectar el conductor sobre el mapa; los cambios operativos publicados por la API reemplazan inmediatamente la etapa visible.
+Mientras la hoja nativa está abierta, mobile actualiza el estado cada cinco segundos. En web, SSE actualiza la actividad autenticada y la hoja vuelve a consultar la ruta cuando cambian las coordenadas persistidas. MapLibre actualiza la fuente GeoJSON y el marcador del conductor, reencuadrando los puntos vigentes sin recrear teselas HTML; los cambios operativos publicados por la API reemplazan inmediatamente la etapa visible.
 
 La PWA también permite consultar el PIN de retiro mientras el viaje está `driver_assigned` o `arriving`, crear un enlace temporal de seguimiento de 180 minutos y registrar un incidente tipificado con ubicación vigente. El enlace sólo se crea para el propietario autenticado y la API registra la acción; no se exponen teléfonos ni se afirma que se haya enviado un SMS.
 
-El enlace abre `/track/:token`, una vista web pública móvil que consulta el snapshot mínimo de `/api/public/rides/track/:token` cada diez segundos. Esa vista muestra estado, ETA, origen/destino, conductor y posición sólo cuando existe; nunca recibe sesión, pago, email, teléfono ni el PIN de retiro.
+El enlace abre `/track/:token`, una vista web pública móvil que consulta el snapshot mínimo de `/api/public/rides/track/:token` cada diez segundos. Esa vista usa el mismo mapa interactivo, muestra estado, ETA, origen/destino, conductor y posición sólo cuando existe; nunca recibe sesión, pago, email, teléfono ni el PIN de retiro. Como el snapshot público no expone geometría vial, no inventa una línea de ruta.
 
 Estados presentados: `requested`, `driver_assigned`, `arriving`, `in_progress` y `completed`. La cancelación sigue el endpoint transaccional existente, exige motivo normalizado y conserva el resultado de reintegro.
 
