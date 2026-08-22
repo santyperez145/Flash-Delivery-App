@@ -52,6 +52,9 @@ jobs:
       - name: Provider resilience contracts
         run: npm run test:provider-resilience
 
+      - name: Container least-privilege contract
+        run: npm run test:container-security
+
       - name: Distributed Redis rate limit
         run: npm run test:redis-rate-limit
 

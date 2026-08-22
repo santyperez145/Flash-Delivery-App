@@ -2530,6 +2530,8 @@ app.get("/api/ready", async (_req, res) => {
     const redis = await redisReadiness();
     if (config.databaseUrl && !postgres.ready)
       return fail(res, 503, "PostgreSQL/PostGIS no disponible");
+    if (config.isProduction && config.databaseUrl && !postgres.least_privilege)
+      return fail(res, 503, "El rol PostgreSQL del runtime tiene privilegios incompatibles con producción");
     if (config.redis.required && !redis.ready)
       return fail(res, 503, "Redis distribuido no disponible");
     const runtimeCounts = usesPostgresCommerce()

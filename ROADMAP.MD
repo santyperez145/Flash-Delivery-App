@@ -35,6 +35,7 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [x] PostgreSQL/PostGIS, 91 migraciones, idempotencia, locks, auth, MFA, outbox, métricas, backup y restore.
 - [~] Autorización ampliamente probada; faltan OpenAPI, contratos y trazas OpenTelemetry.
 - [~] Redis con readiness obligatorio, rate limiting compartido y ensayo real de dos réplicas en CI; falta migrar presencia realtime y validar un servicio administrado con failover.
+- [x] El entorno Docker separa owner/migrador, runtime y auditor; readiness productivo rechaza roles con `BYPASSRLS` o propietarios del esquema y CI impide volver a credenciales compartidas.
 
 #### Fase 2 — delivery beta-ready
 

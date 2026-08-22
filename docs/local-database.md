@@ -27,12 +27,23 @@ npm run dev
 su readiness. `db:migrate` aplica archivos nuevos de `database/migrations` una
 sola vez mediante `schema_migrations`.
 
+Como alternativa reproducible, `docker compose up --build` levanta PostGIS,
+Redis y la API. Compose crea tres roles separados: `flash_app` migra,
+`flash_runtime` atiende tráfico sin ser propietario ni tener `BYPASSRLS`, y
+`flash_rls_audit` ejecuta pruebas de aislamiento. Los valores por defecto son
+sólo para una máquina local; definir `MIGRATION_DATABASE_PASSWORD`,
+`RUNTIME_DATABASE_PASSWORD` y `AUDIT_DATABASE_PASSWORD` antes de compartir el
+entorno o exponer puertos. Un volumen creado con el esquema anterior debe
+migrarse deliberadamente o recrearse sólo si sus datos locales son descartables.
+
 ## Produccion
 
 Esta instancia es exclusivamente de desarrollo. Produccion requiere PostgreSQL
 administrado con PostGIS, TLS obligatorio, secretos en un secret manager,
 backups con recuperacion punto en el tiempo, replicas/HA y monitoreo. La API ya
-rechaza el arranque productivo sin `DATABASE_URL` y un `JWT_SECRET` propio.
+rechaza el arranque productivo sin `DATABASE_URL`, un `JWT_SECRET` propio o
+cuando detecta que su conexión PostgreSQL tiene `BYPASSRLS` o es propietaria
+del esquema.
 El restore local completo se ensaya con `npm run db:restore:drill`; la evidencia
 administrada/PITR sigue siendo un requisito de despliegue.
 

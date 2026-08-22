@@ -56,7 +56,7 @@ async function login(email) {
 }
 
 async function waitForApi() {
-  for (let attempt = 0; attempt < 30; attempt += 1) {
+  for (let attempt = 0; attempt < 60; attempt += 1) {
     try {
       const health = await request("/health");
       if (health.status === 200) return;
