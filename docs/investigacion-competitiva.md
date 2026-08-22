@@ -160,3 +160,21 @@ Las referencias oficiales de Uber Courier y Uber Connect consolidan tres expecta
 Antes de esta entrega la creación web quedó deliberadamente separada: primero había que trasladar el cotizador firmado, restricciones de categoría, protección/valor declarado, términos e idempotencia a un flujo equivalente al mobile. Esto evitó habilitar una pantalla visualmente completa con un contrato de precio incompleto.
 
 La decisión se actualizó después de implementar el flujo web: Flash ahora sí traslada la cotización y solicitud porque el formulario usa los mismos controles del backend, geocodificación, token firmado, términos e idempotencia. El alcance de pago queda limitado a Flash Wallet hasta disponer de captura externa y conciliación para envíos.
+
+### Decisión 22 de agosto de 2026 — revisión y pago web de comida
+
+La ayuda oficial de Uber Eats permite seleccionar la forma de pago antes de
+confirmar y deja claro que cambiar la dirección puede modificar tarifa o incluso
+dejar el comercio fuera de cobertura. Flash adopta esa expectativa sin copiar su
+interfaz: el checkout web muestra únicamente direcciones geocodificadas de la
+cuenta, permite elegir Wallet o el proveedor externo realmente habilitado y
+recalcula en servidor ante cualquier cambio de dirección, pago, cupón o carrito.
+
+El total visible incluye distancia, ETA, versión tarifaria y vencimiento; el
+pedido reutiliza exactamente el JWT cotizado en vez de generar silenciosamente
+otro total al confirmar. Una cotización vencida, fallida o sin dirección bloquea
+la compra con un estado explícito. La tarjeta continúa tokenizándose en el Brick
+oficial de Mercado Pago y nunca entra PAN/CVV al backend de Flash.
+
+- [Uber Eats: cambiar método de pago antes de confirmar](https://help.uber.com/ubereats/restaurants/article/node?nodeId=44c3136d-1dd4-431a-b44a-ceabf5e1e1f3)
+- [Uber Eats: impacto de cambiar dirección](https://help.uber.com/en/ubereats/restaurants/article/%E6%9B%B4%E6%94%B9%E6%88%91%E7%9A%84%E5%9C%B0%E5%9D%80?nodeId=f2e3c07a-09dd-4c63-aa57-8a13789cbb7e)

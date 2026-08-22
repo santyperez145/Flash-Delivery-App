@@ -689,36 +689,47 @@ export const api = {
     paymentMethodId?:string;
     providerPayment?:{cardToken:string;paymentMethodId:string;installments:number};
     promotionCode?: string;
+    quoteToken?: string;
     items: Array<
       Pick<CartLine, "quantity" | "extras" | "note"> & { menuItemId: string }
     >;
   }) {
     if (!payload.deliveryAddressId)
       throw new Error("Selecciona una dirección guardada antes de confirmar");
-    const { quote } = await request<{ quote: { quoteToken: string } }>(
-      "/orders/quote",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          customerId: payload.customerId,
-          restaurantId: payload.restaurantId,
-          deliveryAddressId: payload.deliveryAddressId,
-          branchId: payload.branchId,
-          paymentMethod:payload.paymentMethod,
-          paymentMethodId:payload.paymentMethodId,
-          promotionCode:payload.promotionCode,
-          items:payload.items,
-        }),
-      },
-    );
+    const quoteToken = payload.quoteToken || (await this.quoteFoodCheckout({
+      customerId: payload.customerId,
+      restaurantId: payload.restaurantId,
+      deliveryAddressId: payload.deliveryAddressId,
+      branchId: payload.branchId,
+      paymentMethod: payload.paymentMethod,
+      paymentMethodId: payload.paymentMethodId,
+      promotionCode: payload.promotionCode,
+      items: payload.items,
+    })).quote.quoteToken;
     return request<{ order: AppState["orders"][number]; label: string }>(
       "/orders",
       {
         method: "POST",
         headers: { "Idempotency-Key": crypto.randomUUID() },
-        body: JSON.stringify({ ...payload, quoteToken: quote.quoteToken }),
+        body: JSON.stringify({ ...payload, quoteToken }),
       },
     );
+  },
+
+  async quoteFoodCheckout(payload: {
+    customerId: string;
+    restaurantId: string;
+    deliveryAddressId: string;
+    branchId?: string;
+    paymentMethod: string;
+    paymentMethodId?: string;
+    promotionCode?: string;
+    items: Array<Pick<CartLine, "quantity" | "extras" | "note"> & { menuItemId: string }>;
+  }) {
+    return request<{ quote: import("./types").FoodCheckoutQuote }>("/orders/quote", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
 
   async cart() {

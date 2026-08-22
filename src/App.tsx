@@ -43,9 +43,9 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ComponentType, CSSProperties } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, subscribeToEvents } from "./api";
-import { configureAnalytics, track } from "./analytics";
+import { configureAnalytics, track } from "./analytics-client";
 import type {
   AppState,
   AdminDashboard,
@@ -55,6 +55,7 @@ import type {
   Driver,
   DispatchOffer,
   DietaryPreferences,
+  FoodCheckoutQuote,
   GeoPoint,
   MenuItem,
   MerchantFinance,
@@ -99,6 +100,15 @@ const money = new Intl.NumberFormat("es-AR", {
 const dietOptions=[{code:"vegetarian",name:"Vegetariano"},{code:"vegan",name:"Vegano"},{code:"gluten_free",name:"Sin gluten"},{code:"halal",name:"Halal"},{code:"kosher",name:"Kosher"}];
 const allergenOptions=[{code:"gluten",name:"Gluten"},{code:"milk",name:"Leche"},{code:"eggs",name:"Huevo"},{code:"peanuts",name:"Maní"},{code:"tree_nuts",name:"Frutos secos"},{code:"soy",name:"Soja"},{code:"fish",name:"Pescado"},{code:"shellfish",name:"Crustáceos"},{code:"sesame",name:"Sésamo"}];
 const itemMatchesDietary=(item:MenuItem,preferences:DietaryPreferences)=>{const diets=new Set((item.dietaryLabels||[]).map(entry=>entry.code)),allergens=new Set((item.allergens||[]).map(entry=>entry.code));return preferences.dietaryLabels.every(entry=>diets.has(entry.code))&&!preferences.avoidedAllergens.some(entry=>allergens.has(entry.code));};
+
+type FoodCheckoutSelection = {
+  deliveryAddressId: string;
+  deliveryAddress: string;
+  paymentMethod: string;
+  paymentMethodId?: string;
+  quoteToken: string;
+};
+const NotificationCenter = lazy(() => import("./NotificationCenter"));
 
 const orderStatusLabel: Record<OrderStatus, string> = {
   requested: "Validando pago",
@@ -780,29 +790,20 @@ function App() {
     setToast("Producto agregado al carrito");
   };
 
-  const createOrder = async (providerPayment?:{cardToken:string;paymentMethodId:string;installments:number}) => {
+  const createOrder = async (checkout:FoodCheckoutSelection,providerPayment?:{cardToken:string;paymentMethodId:string;installments:number}) => {
     if (!activeUser || !cartRestaurant || !cart.length) return;
-    const deliveryAddress = state?.addresses.find(
-      (address) =>
-        address.userId === activeUser.id &&
-        address.isDefault &&
-        !address.id.startsWith("profile-") &&
-        address.lat !== null &&
-        address.lng !== null,
-    );
     setBusy(true);setError(null);
     try{
       await api.createOrder({
         customerId: activeUser.id,
         restaurantId: cartRestaurant.id,
-        deliveryAddressId: deliveryAddress?.id,
-        deliveryAddress:
-          deliveryAddress?.address ||
-          activeUser.defaultAddress ||
-          "Dirección pendiente de confirmar",
-        paymentMethod: providerPayment?"Mercado Pago":"Flash Wallet",
+        deliveryAddressId: checkout.deliveryAddressId,
+        deliveryAddress: checkout.deliveryAddress,
+        paymentMethod: checkout.paymentMethod,
+        paymentMethodId: checkout.paymentMethodId,
         providerPayment,
         promotionCode: promotionCode.trim() || undefined,
+        quoteToken: checkout.quoteToken,
         items: cart.map((line) => ({
           menuItemId: line.item.id,
           quantity: line.quantity,
@@ -6114,7 +6115,7 @@ function CustomerApp(props: {
   setPromotionCode: (code: string) => void;
   cartRestaurant: Restaurant | null;
   openItem: (restaurant: Restaurant, item: MenuItem) => void;
-  createOrder: (providerPayment?:{cardToken:string;paymentMethodId:string;installments:number}) => Promise<void>;
+  createOrder: (checkout:FoodCheckoutSelection,providerPayment?:{cardToken:string;paymentMethodId:string;installments:number}) => Promise<void>;
   rideForm: RideForm;
   setRideForm: React.Dispatch<React.SetStateAction<RideForm>>;
   quote: RideQuote | null;
@@ -6244,6 +6245,8 @@ function CustomerApp(props: {
           setCheckoutOpen(false);
         }}
         onCreateOrder={createOrder}
+        addresses={addresses}
+        paymentMethods={state.paymentMethods.filter((entry) => entry.userId === user?.id)}
         customerEmail={user?.email||""}
         busy={busy}
       />
@@ -6334,7 +6337,9 @@ function CustomerApp(props: {
         />
       )}
       {tab === "notifications" && (
-        <NotificationCenter state={state} runAction={runAction} busy={busy} />
+        <Suspense fallback={<div className="notification-empty" role="status"><RefreshCw size={16}/>Cargando notificaciones…</div>}>
+          <NotificationCenter state={state} runAction={runAction} busy={busy} />
+        </Suspense>
       )}
       {tab === "wallet" && (
         <WalletScreen
@@ -7115,109 +7120,6 @@ function ShipmentHome({
         <button className="primary-button" type="button" onClick={() => void submitShipment()} disabled={busy || !quote?.quoteToken || quoteExpired || !termsAccepted}>
           <Truck size={17} /> {busy ? "Solicitando…" : "Solicitar envío"}
         </button>
-      </section>
-    </div>
-  );
-}
-
-function NotificationCenter({
-  state,
-  runAction,
-  busy,
-}: {
-  state: AppState;
-  runAction: (action: () => Promise<unknown>, success: string) => void;
-  busy: boolean;
-}) {
-  const notificationTitle: Record<string, string> = {
-    order_status: "Actualización del pedido",
-    ride_status: "Actualización del viaje",
-    shipment_status: "Actualización del envío",
-    support_reply: "Nueva respuesta de soporte",
-    support_ticket_created: "Caso de soporte creado",
-    promotion_available: "Nueva promoción disponible",
-  };
-  const categoryLabel: Record<string, string> = {
-    service_updates: "Servicios",
-    promotions: "Promociones",
-    support: "Soporte",
-    wallet: "Wallet",
-    account: "Cuenta",
-  };
-  const unread = state.notifications.filter((notification) => !notification.readAt).length;
-
-  return (
-    <div className="activity-stack">
-      <section className="address-book-card notification-center-header">
-        <div className="address-book-heading">
-          <div>
-            <span className="muted-label">Centro de actividad</span>
-            <h2>Notificaciones</h2>
-            <p>{unread ? `${unread} sin leer` : "Estás al día"}. Las actualizaciones transaccionales permanecen disponibles.</p>
-          </div>
-          <Bell size={22} aria-hidden="true" />
-        </div>
-      </section>
-
-      <section className="address-book-card">
-        <div className="notification-list">
-          {state.notifications.map((notification) => {
-            const status = typeof notification.payload.status === "string" ? notification.payload.status : "Revisá la actividad de tu cuenta";
-            return (
-              <button
-                className={notification.readAt ? "notification-row" : "notification-row unread"}
-                disabled={busy || Boolean(notification.readAt)}
-                key={notification.id}
-                onClick={() => runAction(() => api.markNotificationRead(notification.id), "Notificación marcada como leída")}
-                type="button"
-              >
-                <span className="notification-dot" aria-hidden="true" />
-                <span className="notification-copy">
-                  <strong>{notificationTitle[notification.template] || "Novedad de Flash"}</strong>
-                  <span>{status.replaceAll("_", " ")}</span>
-                  <small>{new Date(notification.createdAt).toLocaleString("es-AR")}{notification.channel === "in_app" ? " · Dentro de la app" : ` · ${notification.channel}`}</small>
-                </span>
-                {!notification.readAt && <span className="notification-new">NUEVA</span>}
-              </button>
-            );
-          })}
-          {!state.notifications.length && (
-            <div className="notification-empty">
-              <Check size={18} />
-              <span>Las novedades reales de pedidos, viajes, envíos y soporte aparecerán acá.</span>
-            </div>
-          )}
-        </div>
-      </section>
-
-      <section className="address-book-card">
-        <div className="address-book-heading">
-          <div>
-            <h3>Preferencias de contacto</h3>
-            <p>Push y email se guardan por categoría. Los proveedores externos se habilitan cuando la cuenta productiva esté configurada.</p>
-          </div>
-          <Settings size={20} aria-hidden="true" />
-        </div>
-        <div className="notification-preferences">
-          {state.notificationPreferences.map((preference) => (
-            <div className="notification-preference" key={preference.category}>
-              <div>
-                <strong>{categoryLabel[preference.category] || preference.category}</strong>
-                <span>{preference.pushEnabled ? "Push habilitado" : "Sólo dentro de la app"}{preference.emailEnabled ? " · Email habilitado" : ""}</span>
-              </div>
-              <button
-                aria-checked={preference.pushEnabled}
-                className={preference.pushEnabled ? "preference-toggle active" : "preference-toggle"}
-                disabled={busy}
-                onClick={() => runAction(() => api.updateNotificationPreference(preference.category, { pushEnabled: !preference.pushEnabled, emailEnabled: preference.emailEnabled }), "Preferencia actualizada")}
-                role="switch"
-                type="button"
-              >
-                <span />
-              </button>
-            </div>
-          ))}
-        </div>
       </section>
     </div>
   );
@@ -8792,6 +8694,8 @@ function CartScreen({
   setCheckoutOpen,
   onBack,
   onCreateOrder,
+  addresses,
+  paymentMethods,
   customerEmail,
   busy,
 }: {
@@ -8811,13 +8715,51 @@ function CartScreen({
   checkoutOpen: boolean;
   setCheckoutOpen: (open: boolean) => void;
   onBack: () => void;
-  onCreateOrder: (providerPayment?:{cardToken:string;paymentMethodId:string;installments:number}) => Promise<void>;
+  onCreateOrder: (checkout:FoodCheckoutSelection,providerPayment?:{cardToken:string;paymentMethodId:string;installments:number}) => Promise<void>;
+  addresses: UserAddress[];
+  paymentMethods: AppState["paymentMethods"];
   customerEmail:string;
   busy: boolean;
 }) {
   const[paymentMode,setPaymentMode]=useState<"wallet"|"mercadopago">("wallet"),[paymentConfiguration,setPaymentConfiguration]=useState<{provider:"mercadopago"|"disabled";publicKey:string|null;merchantReady:boolean}|null>(null),[paymentConfigurationError,setPaymentConfigurationError]=useState("");
+  const geocodedAddresses=addresses.filter(entry=>!entry.id.startsWith("profile-")&&entry.lat!==null&&entry.lng!==null);
+  const walletMethod=paymentMethods.find(entry=>entry.type==="wallet"&&entry.isDefault)||paymentMethods.find(entry=>entry.type==="wallet");
+  const[selectedAddressId,setSelectedAddressId]=useState(()=>geocodedAddresses.find(entry=>entry.isDefault)?.id||geocodedAddresses[0]?.id||"");
+  const[checkoutQuote,setCheckoutQuote]=useState<FoodCheckoutQuote|null>(null),[quoteBusy,setQuoteBusy]=useState(false),[quoteError,setQuoteError]=useState(""),[quoteRevision,setQuoteRevision]=useState(0),[quoteClock,setQuoteClock]=useState(Date.now());
+  const selectedAddress=geocodedAddresses.find(entry=>entry.id===selectedAddressId)||null;
   useEffect(()=>{if(!checkoutOpen||!restaurant){setPaymentMode("wallet");setPaymentConfiguration(null);return;}let active=true;setPaymentConfigurationError("");api.getPaymentClientConfiguration(restaurant.id).then(configuration=>{if(active)setPaymentConfiguration(configuration);}).catch(error=>{if(active)setPaymentConfigurationError(error instanceof Error?error.message:"No se pudo consultar Mercado Pago");});return()=>{active=false};},[checkoutOpen,restaurant]);
+  useEffect(()=>{setSelectedAddressId(current=>geocodedAddresses.some(entry=>entry.id===current)?current:geocodedAddresses.find(entry=>entry.isDefault)?.id||geocodedAddresses[0]?.id||"");},[addresses]);
+  useEffect(()=>{if(!checkoutQuote)return;setQuoteClock(Date.now());const timer=window.setInterval(()=>setQuoteClock(Date.now()),1000);return()=>window.clearInterval(timer);},[checkoutQuote]);
   const mercadoPagoReady=paymentConfiguration?.provider==="mercadopago"&&paymentConfiguration.merchantReady&&Boolean(paymentConfiguration.publicKey);
+  useEffect(()=>{
+    if(!checkoutOpen){setCheckoutQuote(null);setQuoteError("");setQuoteBusy(false);return;}
+    if(!restaurant||!selectedAddress){setCheckoutQuote(null);setQuoteError("Agregá una dirección con ubicación verificada desde Cuenta para continuar.");setQuoteBusy(false);return;}
+    if(paymentMode==="wallet"&&!walletMethod){setCheckoutQuote(null);setQuoteError("Tu cuenta no tiene una Wallet habilitada.");setQuoteBusy(false);return;}
+    let active=true;
+    setCheckoutQuote(null);setQuoteError("");setQuoteBusy(true);
+    const timer=window.setTimeout(()=>{
+      api.quoteFoodCheckout({
+        customerId:selectedAddress.userId,
+        restaurantId:restaurant.id,
+        branchId:restaurant.branches?.find(branch=>branch.isPrimary)?.id,
+        deliveryAddressId:selectedAddress.id,
+        paymentMethod:paymentMode==="wallet"?(walletMethod?.label||"Flash Wallet"):"Mercado Pago",
+        paymentMethodId:paymentMode==="wallet"?walletMethod?.id:undefined,
+        promotionCode:promotionCode.trim().toUpperCase()||undefined,
+        items:cart.map(line=>({menuItemId:line.item.id,quantity:line.quantity,extras:line.extras,note:line.note})),
+      }).then(result=>{if(active){setCheckoutQuote(result.quote);setQuoteClock(Date.now());}}).catch(error=>{if(active)setQuoteError(error instanceof Error?error.message:"No se pudo actualizar el precio final");}).finally(()=>{if(active)setQuoteBusy(false);});
+    },350);
+    return()=>{active=false;window.clearTimeout(timer);};
+  },[cart,checkoutOpen,paymentMode,promotionCode,quoteRevision,restaurant,selectedAddress,walletMethod]);
+  const quoteExpired=Boolean(checkoutQuote&&new Date(checkoutQuote.expiresAt).getTime()<=quoteClock);
+  const checkoutSelection:FoodCheckoutSelection|null=checkoutQuote&&selectedAddress?{
+    deliveryAddressId:selectedAddress.id,
+    deliveryAddress:checkoutQuote.deliveryAddress,
+    paymentMethod:checkoutQuote.paymentMethod,
+    paymentMethodId:checkoutQuote.paymentMethodId||undefined,
+    quoteToken:checkoutQuote.quoteToken,
+  }:null;
+  const displayedTotals=checkoutOpen&&checkoutQuote?checkoutQuote:totals;
   return (
     <div className="screen">
       <TopBar
@@ -8876,20 +8818,24 @@ function CartScreen({
           </div>
           {checkoutOpen && (
             <section className="checkout-card">
-              <div className="checkout-line">
-                <MapPin size={18} />
-                <div>
-                  <strong>Casa</strong>
-                  <span>Defensa 982, San Telmo</span>
-                </div>
-                <ChevronRight size={17} />
+              <div className="checkout-section-heading">
+                <div><span className="muted-label">Entrega</span><strong>Elegí dónde recibir</strong></div>
+                <MapPin size={18}/>
               </div>
+              <div className="checkout-address-list" role="radiogroup" aria-label="Dirección de entrega">
+                {geocodedAddresses.map(entry=><button key={entry.id} type="button" role="radio" aria-checked={entry.id===selectedAddressId} className={entry.id===selectedAddressId?"checkout-address active":"checkout-address"} onClick={()=>setSelectedAddressId(entry.id)}><span className="saved-address-icon"><MapPin size={16}/></span><span><strong>{entry.label}</strong><small>{entry.address}</small></span>{entry.id===selectedAddressId?<Check size={17}/>:null}</button>)}
+                {!geocodedAddresses.length&&<div className="checkout-missing-state"><TriangleAlert size={17}/><span>Necesitás una dirección guardada con coordenadas GPS. Cerrá el carrito y agregala desde Cuenta.</span></div>}
+              </div>
+              <div className="checkout-section-heading"><div><span className="muted-label">Pago</span><strong>Elegí cómo pagar</strong></div><CreditCard size={18}/></div>
               <div className="payment-choice" role="radiogroup" aria-label="Método de pago">
-                <button type="button" role="radio" aria-checked={paymentMode==="wallet"} className={paymentMode==="wallet"?"active":""} onClick={()=>setPaymentMode("wallet")}><WalletCards size={18}/><span><strong>Flash Wallet</strong><small>Saldo disponible al instante</small></span></button>
+                <button type="button" role="radio" aria-checked={paymentMode==="wallet"} className={paymentMode==="wallet"?"active":""} disabled={!walletMethod} onClick={()=>setPaymentMode("wallet")}><WalletCards size={18}/><span><strong>{walletMethod?.label||"Flash Wallet"}</strong><small>{walletMethod?`Saldo ${money.format(walletMethod.balance)}`:"No disponible"}</small></span></button>
                 <button type="button" role="radio" aria-checked={paymentMode==="mercadopago"} className={paymentMode==="mercadopago"?"active":""} disabled={!mercadoPagoReady} onClick={()=>setPaymentMode("mercadopago")}><CreditCard size={18}/><span><strong>Tarjeta</strong><small>{mercadoPagoReady?"Tokenización segura con Mercado Pago":paymentConfiguration?"No disponible para este comercio":"Consultando disponibilidad…"}</small></span></button>
               </div>
               {paymentConfigurationError&&<small className="payment-provider-error">{paymentConfigurationError}</small>}
-              {paymentMode==="mercadopago"&&mercadoPagoReady&&paymentConfiguration?.publicKey&&<MercadoPagoCardCheckout publicKey={paymentConfiguration.publicKey} amount={totals.total} email={customerEmail} busy={busy} onSubmit={onCreateOrder} onError={setPaymentConfigurationError}/>}
+              {quoteBusy&&<div className="checkout-quote-status" role="status"><RefreshCw size={16}/>Recalculando precio y disponibilidad…</div>}
+              {quoteError&&<div className="checkout-quote-error" role="alert"><TriangleAlert size={16}/><span>{quoteError}</span><button type="button" onClick={()=>setQuoteRevision(value=>value+1)}>Reintentar</button></div>}
+              {checkoutQuote&&!quoteBusy&&<div className={quoteExpired?"checkout-quote-proof expired":"checkout-quote-proof"}><ShieldCheck size={17}/><span><strong>{quoteExpired?"Cotización vencida":"Precio verificado por Flash"}</strong><small>{checkoutQuote.distanceKm} km · llega en aproximadamente {checkoutQuote.etaMin} min · {checkoutQuote.pricingVersion}</small></span>{quoteExpired?<button type="button" onClick={()=>setQuoteRevision(value=>value+1)}>Actualizar</button>:<small>Vence {new Date(checkoutQuote.expiresAt).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}</small>}</div>}
+              {paymentMode==="mercadopago"&&mercadoPagoReady&&paymentConfiguration?.publicKey&&checkoutQuote&&!quoteExpired&&checkoutSelection&&<MercadoPagoCardCheckout publicKey={paymentConfiguration.publicKey} amount={checkoutQuote.total} email={customerEmail} busy={busy||quoteBusy} onSubmit={(providerPayment)=>onCreateOrder(checkoutSelection,providerPayment)} onError={setPaymentConfigurationError}/>}
               <label className="checkout-line">
                 <TicketPercent size={18} />
                 <div>
@@ -8921,17 +8867,17 @@ function CartScreen({
               </label>
             </section>
           )}
-          <SummaryBlock totals={totals} />
+          <SummaryBlock totals={displayedTotals} />
           {paymentMode==="wallet"&&<button
             className="primary-button sticky-action"
             type="button"
             onClick={() =>
-              checkoutOpen ? void onCreateOrder() : setCheckoutOpen(true)
+              checkoutOpen&&checkoutSelection ? void onCreateOrder(checkoutSelection) : setCheckoutOpen(true)
             }
-            disabled={busy}
+            disabled={busy||(checkoutOpen&&(quoteBusy||!checkoutSelection||quoteExpired||Boolean(quoteError)))}
           >
             <ReceiptText size={17} />
-            {checkoutOpen ? "Confirmar pedido" : "Ir a pagar"}
+            {checkoutOpen ? quoteBusy?"Verificando total…":quoteExpired?"Actualizá el precio":"Confirmar pedido" : "Ir a pagar"}
           </button>}
           {paymentMode==="mercadopago"&&!checkoutOpen&&<button className="primary-button sticky-action" type="button" onClick={()=>setCheckoutOpen(true)}><ReceiptText size={17}/>Ir a pagar</button>}
         </>
