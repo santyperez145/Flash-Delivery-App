@@ -11,6 +11,20 @@ Se publican contadores y duración HTTP con rutas normalizadas, estado del pool
 PostgreSQL, jobs activos por vertical, tickets abiertos, payment intents y notificaciones por
 estado. No se incluyen emails, direcciones, IDs de clientes ni cuerpos privados.
 
+## Renovación OAuth de comercios
+
+```bash
+npm run worker:payment-oauth
+```
+
+El proceso renueva conexiones Mercado Pago que vencen dentro de treinta días y
+rota access y refresh token cifrados. Usa locks por lote para permitir varias
+réplicas, recupera trabajos abandonados a los diez minutos y deja de reintentar
+automáticamente después de cinco fallos. Debe ejecutarse como worker continuo o
+job programado, con alerta sobre `refresh_failures`; el portal indica al comercio
+que debe reconectar cuando se agota el presupuesto. Ni tokens ni respuestas del
+proveedor se escriben en logs.
+
 También se exponen `flash_realtime_connections` por instancia y
 `flash_realtime_events_retained`. La limpieza del event log se programa con
 `npm run realtime:prune`; sus límites están en `REALTIME_RETENTION_DAYS` y
