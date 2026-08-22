@@ -484,6 +484,11 @@ export type RideQuote = Pick<
 > & {
   estimated: boolean;
   routingMode: "coordinates" | "text-estimate";
+  quoteId: string;
+  quoteToken: string;
+  expiresAt: string;
+  pricingVersion?: string;
+  breakdown?: Record<string, number>;
 };
 
 export type RealtimeEvent = {

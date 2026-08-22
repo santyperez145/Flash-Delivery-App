@@ -45,7 +45,7 @@ En simulador local puede funcionar `http://127.0.0.1:4000/api`. En telefono fisi
 La app Expo consume endpoints autenticados del mismo backend Express, no fixtures locales:
 
 - `POST /orders` para confirmar comida con validacion de stock y totales en servidor.
-- `POST /rides/quote` y `POST /rides` para cotizar y solicitar taxi.
+- `POST /rides/options` y `POST /rides` para cotizar categorías con token firmado y solicitar taxi de forma idempotente.
 - `PATCH /orders/:id/status` y `PATCH /rides/:id/status` para cancelaciones del cliente.
 - `PATCH /restaurants/:id`, `PATCH /restaurants/:id/menu/:itemId` y `POST /restaurants/:id/menu` para comercio.
 - `PATCH /drivers/:id/availability`, `PATCH /drivers/:id/location` y endpoints de aceptacion/avance para driver.

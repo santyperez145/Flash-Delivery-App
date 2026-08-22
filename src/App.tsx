@@ -197,6 +197,18 @@ function App() {
     "admin",
   );
 
+  useEffect(() => {
+    setQuote(null);
+  }, [
+    rideForm.pickup,
+    rideForm.destination,
+    rideForm.service,
+    rideForm.pickupCoords?.lat,
+    rideForm.pickupCoords?.lng,
+    rideForm.destinationCoords?.lat,
+    rideForm.destinationCoords?.lng,
+  ]);
+
   const refresh = useCallback(async () => {
     const response = await api.state();
     setState(response.state);
@@ -582,6 +594,8 @@ function App() {
   const requestRide = () => {
     if (!activeUser) return;
     runAction(async () => {
+      if (!quote?.quoteToken)
+        throw new Error("Cotizá nuevamente antes de pedir el viaje");
       await api.createRide({
         customerId: activeUser.id,
         pickup: rideForm.pickup,
@@ -590,6 +604,7 @@ function App() {
         pickupCoords: rideForm.pickupCoords,
         destinationCoords: rideForm.destinationCoords,
         paymentMethod: "Flash Wallet",
+        quoteToken: quote.quoteToken,
       });
       setTab("activity");
     }, "Viaje solicitado");
@@ -6124,7 +6139,7 @@ function RideHome({
             className="primary-button"
             onClick={requestRide}
             type="button"
-            disabled={busy}
+            disabled={busy || !quote?.quoteToken}
           >
             <Car size={16} /> Pedir taxi
           </button>
