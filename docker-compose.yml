@@ -1,4 +1,17 @@
 services:
+  redis:
+    image: redis:8.2-alpine
+    container_name: flash-redis
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - flash-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
   postgres:
     image: postgis/postgis:17-3.5
     container_name: flash-postgres
@@ -30,6 +43,8 @@ services:
       AUTH_RATE_LIMIT_MAX: ${AUTH_RATE_LIMIT_MAX:-40}
       DATABASE_URL: postgresql://flash:${POSTGRES_PASSWORD:-flash_local_password}@postgres:5432/flash
       DATABASE_SSL: "false"
+      REDIS_URL: redis://redis:6379/0
+      REDIS_REQUIRED: "true"
     ports:
       - "4000:4000"
     volumes:
@@ -37,9 +52,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     command: ["sh", "-c", "npm run db:migrate && node server/start.js"]
     restart: unless-stopped
 
 volumes:
   flash-data:
   flash-postgres-data:
+  flash-redis-data:

@@ -34,7 +34,7 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [~] Monolito modular por repositorios; falta migrar Express y frontend principal a TypeScript modular.
 - [x] PostgreSQL/PostGIS, 91 migraciones, idempotencia, locks, auth, MFA, outbox, métricas, backup y restore.
 - [~] Autorización ampliamente probada; faltan OpenAPI, contratos y trazas OpenTelemetry.
-- [ ] Redis para presencia/rate limiting distribuido y ensayo multirréplica.
+- [~] Redis con readiness obligatorio, rate limiting compartido y ensayo real de dos réplicas en CI; falta migrar presencia realtime y validar un servicio administrado con failover.
 
 #### Fase 2 — delivery beta-ready
 

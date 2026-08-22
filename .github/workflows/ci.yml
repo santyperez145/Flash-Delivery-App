@@ -10,6 +10,16 @@ jobs:
   build-and-security:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      redis:
+        image: redis:8.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
 
     steps:
       - name: Checkout
@@ -41,6 +51,9 @@ jobs:
 
       - name: Provider resilience contracts
         run: npm run test:provider-resilience
+
+      - name: Distributed Redis rate limit
+        run: npm run test:redis-rate-limit
 
   mobile-typecheck:
     runs-on: ubuntu-latest

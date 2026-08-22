@@ -6,11 +6,13 @@ import cors from "cors";
 import bcrypt from "bcryptjs";
 import express from "express";
 import rateLimit from "express-rate-limit";
+import { RedisStore } from "rate-limit-redis";
 import helmet from "helmet";
 import jwt from "jsonwebtoken";
 import { z } from "zod";
 import { SpanStatusCode, trace } from "@opentelemetry/api";
 import { config } from "./config.js";
+import { closeRedis, redisClient, redisReadiness } from "./redis.js";
 import { postgresPool, postgresReadiness } from "./postgres.js";
 import { observeHttpRequest, observeProviderCall, renderPrometheus } from "./observability.js";
 import { ProviderCircuit } from "./provider-resilience.js";
@@ -435,7 +437,7 @@ function corsOrigin(origin, callback) {
   return callback(error);
 }
 
-function createLimiter({ max, message }) {
+function createLimiter({ max, message, prefix }) {
   return rateLimit({
     windowMs: config.rateLimit.windowMs,
     limit: max,
@@ -443,6 +445,7 @@ function createLimiter({ max, message }) {
     legacyHeaders: false,
     skip: (req) => ["/health", "/ready"].includes(req.path),
     handler: (_req, res) => fail(res, 429, message),
+    ...(redisClient ? { store: new RedisStore({ sendCommand: (...args) => redisClient.sendCommand(args), prefix: `flash:rate:${prefix}:` }) } : {}),
   });
 }
 
@@ -460,6 +463,7 @@ app.use(
   "/api",
   createLimiter({
     max: config.rateLimit.max,
+    prefix: "api",
     message: "Demasiadas solicitudes. Intenta nuevamente en unos segundos.",
   }),
 );
@@ -467,6 +471,7 @@ app.use(
   "/api/auth",
   createLimiter({
     max: config.rateLimit.authMax,
+    prefix: "auth",
     message: "Demasiados intentos de autenticacion. Intenta mas tarde.",
   }),
 );
@@ -616,10 +621,12 @@ function audit(db, req, entityType, entityId, action, payload = {}) {
 // wider edge budget also covers authorized photo upload/download operations.
 const deliveryProofLimiter = createLimiter({
   max: 30,
+  prefix: "delivery-proof",
   message: "Demasiadas operaciones de prueba de entrega. Intenta más tarde.",
 });
 const serviceChatLimiter = createLimiter({
   max: 60,
+  prefix: "service-chat",
   message: "Demasiados mensajes. Espera antes de continuar.",
 });
 
@@ -2520,8 +2527,11 @@ app.get("/api/ready", async (_req, res) => {
   try {
     const db = config.databaseUrl ? null : readDb();
     const postgres = await postgresReadiness();
+    const redis = await redisReadiness();
     if (config.databaseUrl && !postgres.ready)
       return fail(res, 503, "PostgreSQL/PostGIS no disponible");
+    if (config.redis.required && !redis.ready)
+      return fail(res, 503, "Redis distribuido no disponible");
     const runtimeCounts = usesPostgresCommerce()
       ? await Promise.all([
           getPostgresUsers(),
@@ -2532,6 +2542,7 @@ app.get("/api/ready", async (_req, res) => {
     return ok(res, {
       service: "flash-fullstack-api",
       database: postgres,
+      redis,
       runtimeStore: config.databaseUrl ? "postgres-primary" : "sqlite-demo",
       fallbackDiagnostics: { sqliteReads: sqliteRuntimeReads },
       authStore: usesPostgresAuth() ? "postgres" : "sqlite-test-fallback",
@@ -8835,6 +8846,7 @@ function shutdown(signal) {
   console.log(`Received ${signal}. Closing Flash API.`);
   server.close(async () => {
     await stopRealtimeListener?.();
+    await closeRedis();
     process.exit(0);
   });
   setTimeout(() => process.exit(1), 10000).unref();
