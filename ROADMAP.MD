@@ -13,6 +13,18 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [x] `test:operations-resources` cubre aislamiento por rol y paginación de las cinco superficies.
 - [~] El fallback SQLite sólo sirve para desarrollo/demo local; staging y producción deben usar PostgreSQL/PostGIS y sus migraciones.
 
+## Avance 22 de agosto de 2026 — centro de notificaciones web y SQLite
+
+- [x] El modo local usa tablas SQLite persistentes para `notifications` y `notification_preferences`, con migración idempotente al iniciar sin borrar datos existentes.
+- [x] `GET /api/notifications`, lectura por ownership y preferencias por categoría tienen el mismo contrato funcional que PostgreSQL; otra cuenta recibe `404` al intentar leer una notificación ajena.
+- [x] Pedidos, viajes y envíos locales emiten eventos in-app persistentes al crearse y al avanzar de estado; el historial no depende de datos estáticos del frontend.
+- [x] Web/PWA incorpora centro de notificaciones desde la campana, contador de no leídas, estado vacío, canal visible y switches de preferencias push por categoría.
+- [x] Mobile ya consume la misma bandeja y preferencias, por lo que el fallback local deja de responder vacío/500 en desarrollo.
+- [x] `test:notification-local` cubre persistencia, preferencias, lectura propia y aislamiento entre cuentas; `test:security`, `test:web-delivery`, `test:operations-resources` y `mobile:typecheck` siguen verdes.
+- [~] Push, email y SMS productivos siguen condicionados a registrar proveedores, dispositivos y credenciales reales; en local se declara explícitamente que el canal activo es in-app.
+
+Decisión competitiva: se adopta una bandeja transaccional persistente y preferencias separadas de marketing, siguiendo el comportamiento documentado por [Uber sobre preferencias de notificación](https://help.uber.com/driving-and-delivering/article/change-notification-settings?nodeId=dd318478-7ac5-4017-9936-db431dd8194d) y [Uber Eats sobre avisos de progreso y llegada](https://help.uber.com/en/ubereats/restaurants/article/tips-to-receive-your-order-smoothly?nodeId=92f776cc-5893-4448-867f-09dfcddd3a52). No se presenta un proveedor externo como activo hasta completar su habilitación.
+
 ### Estado ejecutivo de bloqueadores
 
 - [x] **P0-01 / SEC-001 — aislamiento.** Ownership, serializers por rol, RLS físico y tests cross-tenant funcionan. Web, mobile y suites migraron a bootstrap y recursos segmentados; `/api/state` responde permanentemente `410 Gone`.
@@ -450,7 +462,7 @@ La implementacion se sigue por flujos completos y no por pantallas aisladas. Cad
 - [~] Viajes: flujo de destino, mapa, selector, confirmación, matching y viaje activo está operativo; falta paridad final con el Figma Lyft y habilitación de emergencias locales.
 - [x] Envios web/PWA: Actividad abre tracking autenticado con ruta OSRM, destinatario, repartidor, ETA/timeline, PIN de entrega, prueba de entrega y fallback honesto.
 - [x] Envios web/PWA: cotización y solicitud reales con geocodificación, categorías/SLA configurables, protección, firma, términos, token firmado e idempotencia; esta superficie cobra sólo con Flash Wallet.
-- [ ] Actividad, wallet, perfil, soporte y notificaciones como navegacion compartida.
+- [x] Actividad, wallet, perfil, soporte y notificaciones como navegacion compartida.
 - [ ] Paridad de estados vacios, errores, carga, offline y accesibilidad en todos los flujos.
 
 ## Principios tecnicos

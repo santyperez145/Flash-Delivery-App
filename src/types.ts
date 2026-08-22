@@ -2,7 +2,7 @@ export type Mode = "customer" | "merchant" | "driver" | "ops";
 export type UserRole = "customer" | "merchant" | "driver" | "admin";
 export type Service = "food" | "ride" | "shipment";
 export type DriverService = "delivery" | "ride";
-export type CustomerTab = "home" | "activity" | "wallet" | "profile";
+export type CustomerTab = "home" | "activity" | "wallet" | "profile" | "notifications";
 export type OrderStatus =
   | "requested"
   | "accepted"
@@ -351,6 +351,21 @@ export type SupportTicket = {
     createdAt: string;
   }>;
 };
+export type AppNotification = {
+  id: string;
+  channel: "push" | "email" | "sms" | "in_app";
+  template: string;
+  payload: Record<string, unknown>;
+  status: string;
+  createdAt: string;
+  readAt: string | null;
+};
+export type NotificationPreference = {
+  category: "service_updates" | "promotions" | "support" | "wallet" | "account";
+  pushEnabled: boolean;
+  emailEnabled: boolean;
+  updatedAt: string | null;
+};
 export type SupportAgent = {
   userId: string;
   name: string;
@@ -554,6 +569,8 @@ export type AppState = {
   promotions: Promotion[];
   favoriteRestaurantIds?: string[];
   supportTickets: SupportTicket[];
+  notifications: AppNotification[];
+  notificationPreferences: NotificationPreference[];
   ratings: Rating[];
   tips?: ServiceTip[];
   zones: Zone[];
