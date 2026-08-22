@@ -39,6 +39,19 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [x] Ownership RLS, auditoría de sólo lectura, `401/403`, `no-store`, atribución de razones y cálculo con trabajos concurrentes quedan cubiertos por smokes dedicados.
 - [x] La semántica competitiva y las fronteras de producto se documentan en `docs/competitive-research/driver-operational-time.md`.
 
+## Avance 22 de agosto de 2026 — operación real de Flash Negocios
+
+- [x] `GET /api/merchant/dashboard` dejó de sumar el historial descargado por el cliente: deriva ownership de la sesión y calcula en PostgreSQL la cola viva y las métricas del día de la sucursal.
+- [x] Las ventas diarias exigen un evento terminal `completed` dentro del día local; cancelaciones, ticket promedio y stock usan la misma fuente autoritativa.
+- [x] Los pedidos nuevos persisten tiempo de preparación y plazo de listo como snapshots por pedido. El reloj empieza al aceptar el pago y no se modifica si luego cambia el ETA general del local.
+- [x] Acción requerida, preparando, listo para retirar, courier en flujo, atrasos, pedido activo más antiguo y faltantes tienen conteos separados; los pedidos heredados sin snapshot quedan como `untrackedPrepOrders` y nunca se estiman.
+- [x] El recurso es privado `no-store`, limita selección cruzada a administración, tiene contrato OpenAPI y smoke PostgreSQL dedicado.
+- [x] La máquina de estados impone ownership: Comercio prepara y marca listo; sólo entonces dispatch publica ofertas y Driver puede retirar/entregar. Demanda Driver cuenta únicamente trabajos despachables.
+- [x] La decisión se contrastó con DoorDash Merchant y Uber Eats Manager y queda registrada en `docs/competitive-research/merchant-live-operations.md`.
+- [x] Desktop y Merchant App consumen el contrato privado: venta/ticket del día, cola, SLA y stock nunca se reconstruyen desde el historial parcial. Ambas superficies distinguen loading, error y última lectura conservada, refrescan por evento/poll acotado y muestran procedencia/horario.
+- [x] La selección multi-comercio es explícita y revalida ownership; apertura y ETA actualizan comercio + sucursal principal en una única transacción. La app móvil sólo ofrece las transiciones de cocina que pertenecen al comercio.
+- [~] La composición amplia de desktop y la superficie mobile/web se verificaron visualmente con datos PostgreSQL. Falta prueba física en build nativo, teclado/safe areas y red degradada; el pre-dispatch antes de “listo” requiere separar estados de cocina/logística y medir esperas reales.
+
 ## Avance 22 de agosto de 2026 — preferencia de navegación Driver
 
 - [x] La migración `106_driver_preferences.sql` persiste un único proveedor de handoff por conductor (`system`, `google_maps`, `apple_maps`) con constraint, ownership RLS y visibilidad auditora de sólo lectura.

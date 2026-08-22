@@ -21,7 +21,8 @@ export async function getPostgresMerchantDashboard({
          LIMIT 1
        ) b ON true
        WHERE m.status='active'
-         AND (($3::boolean AND m.public_id=$2) OR (NOT $3::boolean AND owner.public_id=$1))
+         AND (($3::boolean AND m.public_id=$2) OR (NOT $3::boolean AND owner.public_id=$1 AND ($2::text IS NULL OR m.public_id=$2)))
+       ORDER BY m.created_at, m.id
        LIMIT 1
      ), terminal_events AS (
        SELECT DISTINCT ON (events.job_id, events.status)

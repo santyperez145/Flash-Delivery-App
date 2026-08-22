@@ -4,6 +4,7 @@ import pg from "pg";
 const port=4223,base=`http://127.0.0.1:${port}/api`,stamp=Date.now(),prefix=`MERCHANT-DASH-${stamp}`;
 const pool=new pg.Pool({connectionString:process.env.MIGRATION_DATABASE_URL||process.env.DATABASE_URL,ssl:false});
 const requestIds=[];
+let originalMerchantState=null;
 const server=spawn(process.execPath,["server/start.js"],{cwd:process.cwd(),env:{...process.env,NODE_ENV:"test",LOG_LEVEL:"silent",PORT:String(port)},stdio:["ignore","ignore","pipe"]});
 server.stderr.on("data",data=>process.stderr.write(data));
 const sleep=milliseconds=>new Promise(resolve=>setTimeout(resolve,milliseconds));
@@ -30,18 +31,32 @@ try{
 
   assert((await call("/merchant/dashboard")).status===401,"anonymous cannot inspect merchant operations");
   assert((await call("/merchant/dashboard",{token:customerToken})).status===403,"customer cannot inspect merchant operations");
-  const response=await call("/merchant/dashboard",{token:merchantToken}),dashboard=response.body.dashboard;
-  assert(response.status===200&&response.headers.get("cache-control")?.includes("no-store")&&dashboard?.source==="postgres-live-operations"&&dashboard.restaurantId==="rest_roja","owner receives a private PostgreSQL operations snapshot");
+  const response=await call("/merchant/dashboard?restaurantId=rest_roja",{token:merchantToken}),dashboard=response.body.dashboard;
+  assert(response.status===200,`owner receives the operations snapshot (HTTP ${response.status}${response.body.message?`: ${response.body.message}`:""})`);
+  assert(response.headers.get("cache-control")?.includes("no-store"),"owner snapshot is private no-store");
+  assert(dashboard?.source==="postgres-live-operations",`owner snapshot is PostgreSQL-backed (${dashboard?.source||"missing"})`);
+  assert(dashboard.restaurantId==="rest_roja",`owner snapshot is ownership scoped (${dashboard.restaurantId})`);
+  assert((await call("/merchant/dashboard?restaurantId=rest_ajeno",{token:merchantToken})).status===404,"merchant selection never fabricates an unknown operation");
   assert(dashboard.timezone==="America/Argentina/Buenos_Aires"&&dashboard.branch.timezone===dashboard.timezone,"daily cutoff and branch expose the authoritative local timezone");
   assert(dashboard.metrics.completedToday===Number(baseline.completed)+1&&dashboard.metrics.grossSalesToday===Number(baseline.sales)/100+3200,"today sales count only terminal events inside the local day");
   assert(dashboard.metrics.lateOrders>=1&&dashboard.metrics.needsAction>=1&&dashboard.metrics.activeOrders>=1,"live queue exposes actionable and overdue preparation from persisted deadlines");
   assert(Number.isInteger(dashboard.metrics.untrackedPrepOrders)&&dashboard.metrics.untrackedPrepOrders>=0,"legacy prep gaps remain explicit rather than guessed");
+  originalMerchantState={open:dashboard.branch.manualOpen,etaMin:dashboard.branch.etaMin};
+  const targetOpen=!originalMerchantState.open,targetEta=originalMerchantState.etaMin+5;
+  const update=await call("/restaurants/rest_roja",{token:merchantToken,method:"PATCH",body:JSON.stringify({open:targetOpen,etaMin:targetEta})});
+  const refreshed=(await call("/merchant/dashboard?restaurantId=rest_roja",{token:merchantToken})).body.dashboard;
+  const primaryBranch=update.body.restaurant?.branches?.find(branch=>branch.isPrimary);
+  assert(update.status===200,"merchant owner can update aggregate availability and ETA");
+  assert(primaryBranch?.manualOpen===targetOpen&&Number(primaryBranch?.etaMin)===targetEta,"aggregate mutation returns the updated primary branch");
+  assert(refreshed.branch.manualOpen===targetOpen&&refreshed.branch.etaMin===targetEta,"availability and ETA reach the authoritative dashboard atomically");
+  await call("/restaurants/rest_roja",{token:merchantToken,method:"PATCH",body:JSON.stringify(originalMerchantState)});
   const admin=await call("/merchant/dashboard?restaurantId=rest_roja",{token:adminToken});
   assert(admin.status===200&&admin.body.dashboard.restaurantId==="rest_roja","admin selection is explicit and authorized");
   const missing=await call("/merchant/dashboard?restaurantId=missing",{token:adminToken});
   assert(missing.status===404,"admin cannot receive a fabricated dashboard for an unknown merchant");
 }finally{
   server.kill("SIGTERM");
+  if(originalMerchantState){await pool.query("UPDATE merchants SET open=$2,eta_min=$3 WHERE public_id=$1",["rest_roja",originalMerchantState.open,originalMerchantState.etaMin]);await pool.query("UPDATE merchant_branches b SET open=$2,eta_min=$3,updated_at=now() FROM merchants m WHERE b.merchant_id=m.id AND b.is_primary AND m.public_id=$1",["rest_roja",originalMerchantState.open,originalMerchantState.etaMin]);}
   await pool.query("SELECT set_config('app.audit_maintenance','on',false)");
   await pool.query("DELETE FROM jobs WHERE public_id LIKE $1",[`${prefix}%`]);
   if(requestIds.length)await pool.query("DELETE FROM audit_events WHERE request_id=ANY($1)",[requestIds]);

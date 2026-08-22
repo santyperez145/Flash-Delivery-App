@@ -13,12 +13,16 @@ Fecha de contraste: 22 de agosto de 2026.
 
 ## Decisión Flash
 
-`GET /api/merchant/dashboard` deriva el comercio de la sesión —o exige selección explícita a administración— y consulta PostgreSQL. El contrato separa:
+`GET /api/merchant/dashboard` deriva el conjunto autorizado de la sesión, acepta una selección explícita dentro de ese ownership —obligatoria para administración— y consulta PostgreSQL. El contrato separa:
 
 - cola operativa: acción requerida, preparando, listo para retirar y flujo del courier;
 - riesgo operativo: plazos vencidos, pedido activo más antiguo y productos no disponibles en la sucursal principal;
 - resultado del día local: completados, cancelados, venta bruta y ticket promedio;
 - procedencia: instante de observación, zona horaria, sucursal y fuente PostgreSQL.
+
+En cuentas con más de un comercio, desktop y Merchant App envían una selección explícita que el servidor cruza nuevamente con el propietario autenticado. Nunca se confía en el identificador aislado del cliente. Las superficies actualizan cada 30 segundos y ante cambios de workflow; si el refresco falla, conservan la última lectura sólo bajo una etiqueta visible de dato retenido.
+
+El home adopta la jerarquía observada en las referencias: estado operativo y vigencia, KPIs de hoy, pulso por etapa, alertas SLA y luego comandas/capacidad. No reproduce identidad visual ni textos de terceros. La acción global de apertura y ETA modifica comercio y sucursal principal dentro de una misma transacción, de modo que discovery, cotización y tablero no observen valores intermedios distintos.
 
 Cada pedido nuevo conserva `merchant_prep_minutes` como snapshot inmutable de la sucursal. `merchant_ready_due_at` empieza cuando el pago se acepta, para que una espera del PSP no consuma preparación antes de que el comercio reciba la orden. Los pedidos heredados no se rellenan: `untrackedPrepOrders` comunica la brecha.
 
@@ -36,4 +40,4 @@ La máquina actual mantiene una frontera segura y verificable: el comercio es el
 
 ## Verificación
 
-`npm run test:merchant-dashboard` cubre autenticación, roles, ownership, respuesta privada, selección admin, corte de día local, venta por evento terminal, pedido vencido y ausencia explícita de snapshots históricos. `npm run test:openapi-contract` bloquea la desaparición del contrato y su semántica de brechas observadas.
+`npm run test:merchant-dashboard` cubre autenticación, roles, ownership, respuesta privada, selección explícita, corte de día local, venta por evento terminal, pedido vencido, ausencia de snapshots históricos y mutación atómica de apertura/ETA. `npm run test:merchant-operations-ui` evita que desktop o mobile vuelvan a sumar actividad parcial, exige estados loading/error/retained y restringe los CTA de cocina a transiciones propias. `npm run test:openapi-contract` bloquea la desaparición del contrato y su semántica de brechas observadas. La composición desktop amplia y mobile/web fue inspeccionada en navegador con datos PostgreSQL; la prueba nativa física continúa pendiente.

@@ -59,6 +59,7 @@ import type {
   GeoPoint,
   MenuItem,
   MerchantFinance,
+  MerchantOperationsDashboard,
   Mode,
   Order,
   OrderStatus,
@@ -97,6 +98,14 @@ const money = new Intl.NumberFormat("es-AR", {
   currency: "ARS",
   maximumFractionDigits: 0,
 });
+function compactMinutes(totalMinutes:number){
+  const minutes=Math.max(0,Math.round(totalMinutes));
+  if(minutes<60)return `${minutes} min`;
+  const hours=Math.floor(minutes/60),remainingMinutes=minutes%60;
+  if(hours<24)return remainingMinutes?`${hours} h ${remainingMinutes} min`:`${hours} h`;
+  const days=Math.floor(hours/24),remainingHours=hours%24;
+  return remainingHours?`${days} d ${remainingHours} h`:`${days} d`;
+}
 const dietOptions=[{code:"vegetarian",name:"Vegetariano"},{code:"vegan",name:"Vegano"},{code:"gluten_free",name:"Sin gluten"},{code:"halal",name:"Halal"},{code:"kosher",name:"Kosher"}];
 const allergenOptions=[{code:"gluten",name:"Gluten"},{code:"milk",name:"Leche"},{code:"eggs",name:"Huevo"},{code:"peanuts",name:"Maní"},{code:"tree_nuts",name:"Frutos secos"},{code:"soy",name:"Soja"},{code:"fish",name:"Pescado"},{code:"shellfish",name:"Crustáceos"},{code:"sesame",name:"Sésamo"}];
 const itemMatchesDietary=(item:MenuItem,preferences:DietaryPreferences)=>{const diets=new Set((item.dietaryLabels||[]).map(entry=>entry.code)),allergens=new Set((item.allergens||[]).map(entry=>entry.code));return preferences.dietaryLabels.every(entry=>diets.has(entry.code))&&!preferences.avoidedAllergens.some(entry=>allergens.has(entry.code));};
@@ -1826,6 +1835,9 @@ function MerchantDesktopConsole({
     "kitchen" | "catalog" | "branches" | "analytics" | "finance"
   >("kitchen");
   const [finance, setFinance] = useState<MerchantFinance | null>(null);
+  const [operations, setOperations] = useState<MerchantOperationsDashboard | null>(null);
+  const [operationsLoading, setOperationsLoading] = useState(true);
+  const [operationsError, setOperationsError] = useState("");
   const [financeLoading, setFinanceLoading] = useState(false);
   const [payoutAmount, setPayoutAmount] = useState("");
   const [payoutPassword, setPayoutPassword] = useState("");
@@ -1843,6 +1855,18 @@ function MerchantDesktopConsole({
       setFinanceLoading(false);
     }
   }, [restaurant.id]);
+  const loadOperations = useCallback(async () => {
+    setOperationsLoading(true);
+    try {
+      const result = await api.getMerchantDashboard(restaurant.id);
+      setOperations(result.dashboard);
+      setOperationsError("");
+    } catch (error) {
+      setOperationsError(error instanceof Error ? error.message : "No se pudo actualizar la operación");
+    } finally {
+      setOperationsLoading(false);
+    }
+  }, [restaurant.id]);
   useEffect(() => {
     if (section === "finance") void loadFinance();
   }, [section, loadFinance]);
@@ -1852,14 +1876,17 @@ function MerchantDesktopConsole({
   const activeOrders = orders.filter(
     (order) => !["delivered", "cancelled"].includes(order.status),
   );
-  const deliveredOrders = orders.filter(
-    (order) => order.status === "delivered",
-  );
-  const revenue = deliveredOrders.reduce((sum, order) => sum + order.total, 0);
-  const averageTicket = deliveredOrders.length
-    ? Math.round(revenue / deliveredOrders.length)
-    : 0;
-  const unavailable = restaurant.menu.filter((item) => !item.stock).length;
+  const orderStatusSignature = orders.map((order) => `${order.id}:${order.status}`).join("|");
+  const stockSignature = restaurant.menu.map((item) => `${item.id}:${item.stock}`).join("|");
+  useEffect(() => {
+    void loadOperations();
+    const timer = window.setInterval(() => void loadOperations(), 30_000);
+    return () => window.clearInterval(timer);
+  }, [loadOperations, orderStatusSignature, restaurant.etaMin, restaurant.manualOpen, stockSignature]);
+  const metrics = operations?.metrics;
+  const operationsUpdatedAt = operations
+    ? new Intl.DateTimeFormat("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: operations.timezone }).format(new Date(operations.generatedAt))
+    : null;
   return (
     <main className="merchant-desktop-shell">
       <aside className="merchant-desktop-sidebar">
@@ -1960,35 +1987,57 @@ function MerchantDesktopConsole({
               <span />
               {realtimeStatus}
             </small>
-            <b>{restaurant.etaMin} min ETA</b>
+            <b>{operations?.branch ? `${operations.branch.etaMin} min ETA` : "ETA sin sincronizar"}</b>
           </div>
         </header>
+        <section className={`merchant-operations-status ${operationsError ? "error" : operations?.source === "postgres-live-operations" ? "live" : "fallback"}`}>
+          <span className="merchant-operations-dot" />
+          <div>
+            <strong>{operationsError ? operations ? "Última lectura conservada" : "Operación sin actualizar" : operations?.source === "postgres-live-operations" ? "Operación conectada a PostgreSQL" : operations ? "Modo local explícito" : "Conectando operación"}</strong>
+            <small>{operationsError ? `${operationsError}${operationsUpdatedAt ? ` · Último dato ${operationsUpdatedAt}` : ""}` : operationsUpdatedAt ? `Actualizado ${operationsUpdatedAt} · ${operations?.branch?.name || restaurant.name}` : "Consultando la fuente autoritativa"}</small>
+          </div>
+          {operationsLoading ? <RefreshCw className="merchant-operations-spinner" size={18} /> : <button type="button" onClick={() => void loadOperations()}><RefreshCw size={16} /> Actualizar</button>}
+        </section>
         <div className="admin-kpis">
           <AdminKpi
             label="Pedidos activos"
-            value={activeOrders.length}
-            detail="cola actual"
+            value={metrics?.activeOrders ?? "—"}
+            detail={metrics ? `${compactMinutes(metrics.oldestActiveMinutes)} el más antiguo` : "cola sin sincronizar"}
             tone="orange"
           />
           <AdminKpi
-            label="Ventas entregadas"
-            value={money.format(revenue)}
-            detail={`${deliveredOrders.length} pedidos`}
+            label="Ventas de hoy"
+            value={metrics ? money.format(metrics.grossSalesToday) : "—"}
+            detail={metrics ? `${metrics.completedToday} completados hoy` : "día local del comercio"}
             tone="green"
           />
           <AdminKpi
-            label="Ticket promedio"
-            value={money.format(averageTicket)}
-            detail="pedidos completados"
+            label="Ticket de hoy"
+            value={metrics ? money.format(metrics.averageTicketToday) : "—"}
+            detail={metrics ? `${metrics.cancelledToday} cancelados hoy` : "sin estimaciones"}
             tone="blue"
           />
           <AdminKpi
-            label="Sin stock"
-            value={unavailable}
-            detail={`${restaurant.menu.length} productos`}
+            label="Requieren atención"
+            value={metrics ? metrics.needsAction + metrics.lateOrders : "—"}
+            detail={metrics ? `${metrics.lateOrders} fuera de plazo` : "SLA sin sincronizar"}
             tone="dark"
           />
         </div>
+        <section className="merchant-pulse" aria-label="Pulso operativo de cocina">
+          <div className="merchant-pulse-heading">
+            <div><small>Ahora</small><h2>Pulso de cocina</h2></div>
+            <span>{metrics ? `${metrics.activeOrders} pedidos en flujo` : "Esperando datos reales"}</span>
+          </div>
+          <div className="merchant-pulse-stages">
+            <article className={metrics?.needsAction ? "attention" : ""}><span>Por aceptar</span><strong>{metrics?.needsAction ?? "—"}</strong><small>acción del local</small></article>
+            <article><span>Preparando</span><strong>{metrics?.preparing ?? "—"}</strong><small>en cocina</small></article>
+            <article><span>Listos</span><strong>{metrics?.readyForPickup ?? "—"}</strong><small>esperan retiro</small></article>
+            <article><span>Con courier</span><strong>{metrics?.courierFlow ?? "—"}</strong><small>última milla</small></article>
+            <article className={metrics?.unavailableItems ? "stock" : ""}><span>Sin stock</span><strong>{metrics?.unavailableItems ?? "—"}</strong><small>productos</small></article>
+          </div>
+          {metrics && (metrics.lateOrders > 0 || metrics.untrackedPrepOrders > 0) && <div className="merchant-pulse-alert"><TriangleAlert size={17} /><span>{metrics.lateOrders > 0 ? `${metrics.lateOrders} pedido${metrics.lateOrders === 1 ? "" : "s"} fuera del plazo de preparación.` : ""}{metrics.lateOrders > 0 && metrics.untrackedPrepOrders > 0 ? " " : ""}{metrics.untrackedPrepOrders > 0 ? `${metrics.untrackedPrepOrders} pedido${metrics.untrackedPrepOrders === 1 ? "" : "s"} heredado${metrics.untrackedPrepOrders === 1 ? "" : "s"} sin SLA observado.` : ""}</span></div>}
+        </section>
         {section === "kitchen" && (
           <div className="merchant-kitchen-grid">
             <section className="admin-card">
@@ -2053,6 +2102,11 @@ function MerchantDesktopConsole({
                 >
                   +5 min
                 </button>
+              </div>
+              <div className="merchant-capacity-facts">
+                <article><small>Fuera de plazo</small><strong>{metrics?.lateOrders ?? "—"}</strong></article>
+                <article><small>Más antiguo</small><strong>{metrics ? compactMinutes(metrics.oldestActiveMinutes) : "—"}</strong></article>
+                <article><small>Sin SLA observado</small><strong>{metrics?.untrackedPrepOrders ?? "—"}</strong></article>
               </div>
             </section>
           </div>
@@ -2341,32 +2395,26 @@ function MerchantDesktopConsole({
               />
               <div className="admin-table">
                 <article className="admin-row compact">
-                  <strong>Pedidos recibidos</strong>
-                  <b>{orders.length}</b>
+                  <strong>Pedidos activos ahora</strong>
+                  <b>{metrics?.activeOrders ?? "—"}</b>
                 </article>
                 <article className="admin-row compact">
-                  <strong>Entregados</strong>
-                  <b>{deliveredOrders.length}</b>
+                  <strong>Entregados hoy</strong>
+                  <b>{metrics?.completedToday ?? "—"}</b>
                 </article>
                 <article className="admin-row compact">
-                  <strong>Cancelados</strong>
-                  <b>
-                    {
-                      orders.filter((order) => order.status === "cancelled")
-                        .length
-                    }
-                  </b>
+                  <strong>Cancelados hoy</strong>
+                  <b>{metrics?.cancelledToday ?? "—"}</b>
                 </article>
               </div>
             </section>
             <section className="admin-card">
               <AdminSectionHeader title="Salud del catalogo" action="En vivo" />
               <p>
-                {restaurant.menu.length - unavailable} productos disponibles y{" "}
-                {unavailable} pausados.
+                {metrics ? `${Math.max(0, restaurant.menu.length - metrics.unavailableItems)} productos disponibles y ${metrics.unavailableItems} pausados.` : "Esperando el inventario autoritativo de la sucursal."}
               </p>
-              <p>ETA publicado: {restaurant.etaMin} minutos.</p>
-              <p>Facturacion entregada: {money.format(revenue)}.</p>
+              <p>ETA publicado: {operations?.branch ? `${operations.branch.etaMin} minutos.` : "sin sincronizar."}</p>
+              <p>Facturación de hoy: {metrics ? `${money.format(metrics.grossSalesToday)}.` : "sin sincronizar."}</p>
             </section>
           </div>
         )}

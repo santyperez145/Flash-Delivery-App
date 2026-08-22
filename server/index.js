@@ -7372,7 +7372,7 @@ app.get(
       try {
         const dashboard = await getPostgresMerchantDashboard({
           actorPublicId: req.auth.userId,
-          merchantPublicId: isAdmin(req) ? String(req.query.restaurantId || "") : null,
+          merchantPublicId: String(req.query.restaurantId || "") || null,
           admin: isAdmin(req),
         });
         const restaurant = (await getPostgresRestaurants({ publicIds: [dashboard.restaurantId] }))[0];
