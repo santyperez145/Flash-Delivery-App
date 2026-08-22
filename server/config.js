@@ -65,6 +65,7 @@ const envSchema = z.object({
   ,MERCADOPAGO_CLIENT_SECRET: z.string().min(16).optional()
   ,MERCADOPAGO_REDIRECT_URI: z.string().url().default("http://127.0.0.1:4000/api/payment-provider/mercadopago/callback")
   ,PAYMENT_OAUTH_RETURN_URL: z.string().url().default("http://127.0.0.1:5173")
+  ,MERCADOPAGO_WEBHOOK_SECRET: z.string().min(32).optional()
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -98,7 +99,7 @@ if(env.NODE_ENV==="production"&&(env.EMAIL_PROVIDER!=="smtp"||!env.SMTP_HOST||!e
 if(env.NODE_ENV==="production"&&!env.REQUIRE_ADMIN_MFA)throw new Error("REQUIRE_ADMIN_MFA must be true in production");
 if(env.NODE_ENV==="production"&&env.FEATURE_FLAG_SALT==="local-feature-flag-salt-change-before-prod")throw new Error("FEATURE_FLAG_SALT must be configured before running in production");
 if(env.NODE_ENV==="production"&&(env.PHONE_VERIFY_PROVIDER!=="twilio"||!env.TWILIO_ACCOUNT_SID||!env.TWILIO_AUTH_TOKEN||!env.TWILIO_VERIFY_SERVICE_SID))throw new Error("Twilio Verify credentials are required for production phone verification");
-if(env.NODE_ENV==="production"&&env.PAYMENT_MARKETPLACE_PROVIDER==="mercadopago"&&(env.PAYMENT_OAUTH_ENCRYPTION_KEY==="local-payment-oauth-key-change-before-production"||!env.MERCADOPAGO_CLIENT_ID||!env.MERCADOPAGO_CLIENT_SECRET))throw new Error("Mercado Pago OAuth credentials and independent encryption key are required");
+if(env.NODE_ENV==="production"&&env.PAYMENT_MARKETPLACE_PROVIDER==="mercadopago"&&(env.PAYMENT_OAUTH_ENCRYPTION_KEY==="local-payment-oauth-key-change-before-production"||!env.MERCADOPAGO_CLIENT_ID||!env.MERCADOPAGO_CLIENT_SECRET||!env.MERCADOPAGO_WEBHOOK_SECRET))throw new Error("Mercado Pago OAuth, webhook credentials and independent encryption key are required");
 
 export const config = {
   env: env.NODE_ENV,
@@ -149,5 +150,5 @@ export const config = {
   ,redis: { url: env.REDIS_URL, required: env.REDIS_REQUIRED }
   ,shutdownGraceMs: env.SHUTDOWN_GRACE_MS
   ,phoneVerification: {provider:env.PHONE_VERIFY_PROVIDER,accountSid:env.TWILIO_ACCOUNT_SID,authToken:env.TWILIO_AUTH_TOKEN,serviceSid:env.TWILIO_VERIFY_SERVICE_SID}
-  ,paymentMarketplace:{provider:env.PAYMENT_MARKETPLACE_PROVIDER,encryptionKey:env.PAYMENT_OAUTH_ENCRYPTION_KEY,clientId:env.MERCADOPAGO_CLIENT_ID,clientSecret:env.MERCADOPAGO_CLIENT_SECRET,redirectUri:env.MERCADOPAGO_REDIRECT_URI,returnUrl:env.PAYMENT_OAUTH_RETURN_URL}
+  ,paymentMarketplace:{provider:env.PAYMENT_MARKETPLACE_PROVIDER,encryptionKey:env.PAYMENT_OAUTH_ENCRYPTION_KEY,clientId:env.MERCADOPAGO_CLIENT_ID,clientSecret:env.MERCADOPAGO_CLIENT_SECRET,redirectUri:env.MERCADOPAGO_REDIRECT_URI,returnUrl:env.PAYMENT_OAUTH_RETURN_URL,webhookSecret:env.MERCADOPAGO_WEBHOOK_SECRET}
 };

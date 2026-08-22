@@ -55,6 +55,15 @@ contraseña actual. La revocación es transaccional y reemplaza inmediatamente
 access/refresh ciphertexts por `NULL`; sólo conserva proveedor, cuenta externa,
 fechas y auditoría. Reconectar requiere un OAuth completo con un `state` nuevo.
 
+El webhook productivo implementa el manifest oficial
+`id:<data.id>;request-id:<x-request-id>;ts:<ts>;`, normaliza IDs alfanuméricos,
+calcula HMAC-SHA256 y compara en tiempo constante. Firma, recurso del query y
+payload deben coincidir; firmas fuera de diez minutos se rechazan. Después de
+validar, el request sólo inserta un evento normalizado en un inbox PostgreSQL con
+`notification_id` único y responde 200/201. No consulta al proveedor ni muta
+órdenes dentro de los 22 segundos del callback; un worker posterior hará fetch,
+conciliación e idempotencia de dominio.
+
 ## Fuentes primarias
 
 - Mercado Pago Split 1:1, disponibilidad Argentina y alcance marketplace:
@@ -65,3 +74,5 @@ fechas y auditoría. Reconectar requiere un OAuth completo con un `state` nuevo.
   https://www.mercadopago.com.ar/developers/es/docs/split-payments/split-1-1/integration-configuration/create-configuration
 - Stripe Connect como alternativa de cuentas conectadas:
   https://docs.stripe.com/connect/how-connect-works
+- Firma, ACK y política de reintentos de webhooks Mercado Pago:
+  https://www.mercadopago.com.ar/developers/en/docs/your-integrations/notifications/webhooks
