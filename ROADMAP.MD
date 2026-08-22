@@ -10,7 +10,7 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 
 - [x] **P0-01 / SEC-001 — aislamiento.** Ownership, serializers por rol, RLS físico y tests cross-tenant funcionan. Web, mobile y suites migraron a bootstrap y recursos segmentados; `/api/state` responde permanentemente `410 Gone`.
 - [x] **P0-02 / DAT-001 — PostgreSQL/PostGIS.** Runtime principal, migraciones, índices, transacciones por operación, auditoría append-only, backup y restore drill operativos; SQLite está aislado como fallback de tests.
-- [~] **P0-03 / IAM-001 — identidad.** Access/refresh rotativo, refresh web en cookie HttpOnly, inventario y cierre remoto visible en mobile, SecureStore, recuperación, email OTP, MFA admin y suspensión funcionan. Faltan teléfono verificado y step-up bancario.
+- [~] **P0-03 / IAM-001 — identidad.** Access/refresh rotativo, refresh web en cookie HttpOnly con defensa de origen, respuestas autenticadas `no-store`, inventario y cierre remoto visible en mobile, SecureStore, recuperación, email OTP, MFA admin y suspensión funcionan. Faltan teléfono verificado y step-up bancario.
 - [~] **P0-04 / PAY-001 — dinero.** Payment intents, Wallet sandbox, refunds, split, ledger, payouts, webhooks, conciliación y riesgo existen. Falta PSP/banco real; Wallet no se presenta como dinero productivo.
 - [x] **P0-05 / IDEM-001 — concurrencia.** Idempotencia, constraints, locks, ofertas privadas, TTL, aceptación atómica y dedupe cubiertos por integración.
 - [~] **P0-06 / GEO-001 — mapas.** Geocoding, PostGIS, zonas, OSRM, polylines, caché, quotes firmados, circuit breaker, stale controlado, presupuesto y métricas funcionan. Faltan tráfico/Route Matrix productivo y cuota distribuida.

@@ -10,7 +10,9 @@ Web no persiste access ni refresh tokens nuevos en `localStorage`. El refresh se
 entrega como cookie HttpOnly `SameSite=Strict`; en producción usa el prefijo
 `__Host-`, `Secure` y `Path=/`. Las llamadas de rotación/logout requieren además
 `X-Flash-Client: web`, por lo que una petición cross-site simple no puede usar la
-cookie. El cliente migra una credencial antigua una sola vez y elimina ambas
+cookie. La API también valida `Origin` y `Sec-Fetch-Site` antes de leer o rotar
+una cookie, y rechaza explícitamente contexto `cross-site`. El cliente migra una
+credencial antigua una sola vez y elimina ambas
 claves de almacenamiento al recibir la cookie. Las apps nativas mantienen el
 contrato JSON porque una cookie HttpOnly no ofrece el mismo aislamiento dentro
 de React Native; allí SecureStore protege la credencial.
