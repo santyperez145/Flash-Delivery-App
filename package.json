@@ -25,6 +25,7 @@
     "devices:encrypt": "node --env-file-if-exists=.env.local scripts/encrypt-device-tokens.mjs",
     "worker:dispatch": "node --env-file-if-exists=.env.local scripts/dispatch-worker.mjs",
     "worker:pricing": "node --env-file-if-exists=.env.local scripts/pricing-worker.mjs",
+    "worker:mercadopago": "node --env-file-if-exists=.env.local scripts/mercadopago-webhook-worker.mjs",
     "worker:support": "node --env-file-if-exists=.env.local scripts/support-worker.mjs",
     "realtime:prune": "node --env-file-if-exists=.env.local scripts/realtime-prune.mjs",
     "mobile:start": "npm --prefix apps/mobile run start",
