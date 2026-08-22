@@ -39,3 +39,7 @@ Crear un ticket exige `Idempotency-Key`. La clave queda ligada durante 24 horas 
 usuario y al hash del payload: repetirla devuelve el mismo ticket; reutilizarla
 con otro contenido responde `409`. Esto evita casos duplicados por doble toque,
 refresh de sesión o pérdida de la respuesta móvil.
+
+Los mensajes usan el mismo patrón: el retry devuelve la conversación vigente sin
+duplicar mensaje, notificación, auditoría ni evento realtime. Una nota interna
+continúa exigiendo rol `support` o `admin` antes de reclamar la clave.
