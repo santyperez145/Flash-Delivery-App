@@ -14,3 +14,8 @@ cookie. El cliente migra una credencial antigua una sola vez y elimina ambas
 claves de almacenamiento al recibir la cookie. Las apps nativas mantienen el
 contrato JSON porque una cookie HttpOnly no ofrece el mismo aislamiento dentro
 de React Native; allí SecureStore protege la credencial.
+
+Todas las respuestas de autenticación y toda ruta que valida un bearer token se
+entregan con `Cache-Control: no-store, private` y `Pragma: no-cache`. Esto evita
+que credenciales, datos de cuenta o sesiones terminen en la caché del navegador,
+un proxy compartido o un CDN; los catálogos públicos conservan su caché explícita.

@@ -36,6 +36,11 @@ try {
   });
   const { token, refreshToken } = await loginResponse.json();
   assert(loginResponse.ok && token, "la prueba obtuvo una sesión efímera");
+  assert(loginResponse.headers.get("cache-control") === "no-store, private", "login nativo no puede almacenarse en caches");
+  const accountResponse = await fetch(`${origin}/api/me`, { headers: { Authorization: `Bearer ${token}` } });
+  assert(accountResponse.ok && accountResponse.headers.get("cache-control") === "no-store, private", "respuestas autenticadas son privadas y no almacenables");
+  const citiesResponse = await fetch(`${origin}/api/cities`);
+  assert(citiesResponse.ok && citiesResponse.headers.get("cache-control")?.startsWith("public"), "catálogo público conserva su política de cache independiente");
   const streamController = new AbortController();
   const streamResponse = await fetch(`${origin}/api/events`, {
     headers: { Authorization: `Bearer ${token}`, "Accept-Encoding": "gzip" },
@@ -57,6 +62,7 @@ try {
     firstSetCookie = webLoginResponse.headers.get("set-cookie") || "",
     firstCookie = firstSetCookie.split(";")[0];
   assert(webLoginResponse.ok && webLogin.token && !webLogin.refreshToken && firstSetCookie.includes("HttpOnly") && firstSetCookie.includes("SameSite=Strict"), "web recibe refresh token sólo en cookie HttpOnly SameSite");
+  assert(webLoginResponse.headers.get("cache-control") === "no-store, private", "login web con cookie no puede almacenarse en caches");
   const webRefreshResponse = await fetch(`${origin}/api/auth/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Flash-Client": "web", Cookie: firstCookie },
@@ -66,6 +72,7 @@ try {
     rotatedSetCookie = webRefreshResponse.headers.get("set-cookie") || "",
     rotatedCookie = rotatedSetCookie.split(";")[0];
   assert(webRefreshResponse.ok && webRefresh.token && !webRefresh.refreshToken && rotatedCookie && rotatedCookie !== firstCookie, "cookie web rota sin exponer credencial en JSON");
+  assert(webRefreshResponse.headers.get("cache-control") === "no-store, private", "rotación web nunca queda en cache");
   const replayResponse = await fetch(`${origin}/api/auth/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Flash-Client": "web", Cookie: firstCookie },
