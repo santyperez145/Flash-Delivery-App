@@ -21,7 +21,13 @@ export async function postgresReadiness() {
       postgis_version() AS postgis_version, current_user AS database_role,
       (SELECT rolbypassrls FROM pg_roles WHERE rolname=current_user) AS bypass_rls,
       (SELECT tableowner FROM pg_tables WHERE schemaname='public' AND tablename='users') AS schema_owner`);
-    return { configured: true, ready: true, ...result.rows[0] };
+    const row = result.rows[0];
+    return {
+      configured: true,
+      ready: true,
+      ...row,
+      least_privilege: !row.bypass_rls && row.database_role !== row.schema_owner,
+    };
   } catch (error) {
     return { configured: true, ready: false, reason: error instanceof Error ? error.message : "database unavailable" };
   }
