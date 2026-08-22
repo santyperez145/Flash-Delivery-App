@@ -17,6 +17,17 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 
 Decisión técnica: se usa el módulo oficial [Expo Network](https://docs.expo.dev/versions/latest/sdk/network/) para observar conectividad en la app nativa y se mantiene `fetch` con `AbortController` para el transporte, evitando introducir un cliente HTTP adicional en esta etapa. La resiliencia sólo suaviza fallas de lectura; la autoridad de pedidos, pagos y estados sigue siendo el backend.
 
+## Avance 22 de agosto de 2026 — analytics first-party web, mobile y fallback local
+
+- [x] Web, Customer App, Driver App y Merchant App envían un vocabulario cerrado de eventos de producto: home, búsqueda iniciada, comercio visto, carrito, checkout, cotización, job creado y actividad.
+- [x] La cola cliente genera IDs UUID, agrupa hasta veinte eventos, limita memoria a cien eventos y reintenta espaciado sin bloquear pedidos, viajes, envíos ni pagos cuando el transporte falla.
+- [x] El cliente filtra claves sensibles antes de transmitir y el backend vuelve a validar que no entren email, teléfono, dirección, coordenadas, tokens, nombres, notas, búsquedas ni texto libre.
+- [x] PostgreSQL conserva la migración, deduplicación por `public_id`, retención de 90 días y métricas agregadas de embudo; SQLite demo implementa el mismo contrato, RBAC y métricas sin consultar un pool nulo.
+- [x] `test:product-analytics-local` verifica lote válido, deduplicación, rechazo de PII, aislamiento de métricas y funnel; `analytics:prune` funciona tanto con PostgreSQL como con el fallback local.
+- [~] La base de instrumentación está lista, pero el prep-time predictivo, cohortes, dashboards productivos y consentimiento legal por jurisdicción siguen pendientes antes de una beta abierta.
+
+Decisión competitiva: [Uber describe una plataforma de experimentación con métricas administradas para rider, driver, Eats y otras superficies](https://www.uber.com/us/en/blog/xp/), y [su modelo de sessionización combina eventos de rider, driver y backend](https://www.uber.com/us/en/blog/sessionizing-data/). Flash adopta la disciplina de métricas y embudo, pero mantiene un contrato first-party pequeño, eventos pseudónimos y agregados operativos, sin SDK publicitario, fingerprinting ni copiar activos o código propietario. Los cambios de producto se validarán por pilotos controlados, coherente con el enfoque de [Uber para nuevos pilotos de marketplace](https://www.uber.com/us/en/marketplace/open-marketplace/new-product-pilots/).
+
 ## Corrección 22 de agosto de 2026 — preferencias alimentarias en demo local
 
 - [x] El bootstrap de cliente ya no intenta usar `postgresPool.query` cuando se ejecuta sin `DATABASE_URL`: las preferencias alimentarias tienen tabla SQLite persistente, migración idempotente y ownership por usuario.
@@ -97,7 +108,7 @@ Decisión competitiva: se adopta una bandeja transaccional persistente y prefere
 
 - [x] Sustituciones, refunds, cancelaciones, ratings, suspensiones, promociones, soporte y métricas financieras de ledger.
 - [~] Payout/conciliación interna; falta adaptador bancario/PSP.
-- [~] Feature flags, analytics first-party y go/no-go de zona basado en supply/comercios/volumen/cancelaciones/soporte listos; faltan instrumentar todas las pantallas y prep-time predictivo.
+- [~] Feature flags, analytics first-party y go/no-go de zona basado en supply/comercios/volumen/cancelaciones/soporte listos; la instrumentación base web/mobile y el funnel agregado ya están operativos, pero faltan prep-time predictivo, cohortes, dashboards productivos y consentimiento legal.
 
 #### Fase 4 — piloto de movilidad
 

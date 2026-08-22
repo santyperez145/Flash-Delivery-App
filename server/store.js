@@ -415,6 +415,20 @@ function execSchema() {
       payload_json TEXT NOT NULL,
       created_at TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS product_events (
+      public_id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      surface TEXT NOT NULL,
+      session_id TEXT NOT NULL,
+      properties_json TEXT NOT NULL,
+      occurred_at TEXT NOT NULL,
+      received_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS product_events_occurred_idx
+      ON product_events(occurred_at, name);
   `);
 }
 
@@ -1027,6 +1041,7 @@ function setMeta(meta) {
 
 function clearAll() {
   database.exec(`
+    DELETE FROM product_events;
     DELETE FROM audit_events;
     DELETE FROM notifications;
     DELETE FROM notification_preferences;
@@ -1872,6 +1887,79 @@ export function replaceLocalDietaryPreferences({ userId, dietaryLabels, avoidedA
     now()
   );
   return getLocalDietaryPreferences(userId);
+}
+
+export function createLocalProductEvents({ userId, events }) {
+  const insert = database.prepare(`
+    INSERT OR IGNORE INTO product_events (
+      public_id, user_id, name, surface, session_id, properties_json, occurred_at, received_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const insertMany = database.transaction((batch) => {
+    let accepted = 0;
+    for (const event of batch) {
+      accepted += insert.run(
+        event.id,
+        userId,
+        event.name,
+        event.surface,
+        event.sessionId,
+        JSON.stringify(event.properties || {}),
+        event.occurredAt,
+        now()
+      ).changes;
+    }
+    return accepted;
+  });
+  const accepted = insertMany(events);
+  return { accepted, duplicates: events.length - accepted };
+}
+
+export function getLocalProductMetrics({ days = 7 } = {}) {
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  const rows = database.prepare(`
+    SELECT name, user_id
+    FROM product_events
+    WHERE occurred_at >= ?
+  `).all(since);
+  const byName = {};
+  for (const row of rows) {
+    const metric = byName[row.name] || { events: 0, users: new Set() };
+    metric.events += 1;
+    metric.users.add(row.user_id);
+    byName[row.name] = metric;
+  }
+  const events = Object.fromEntries(Object.entries(byName).map(([name, metric]) => [
+    name,
+    { events: metric.events, users: metric.users.size }
+  ]));
+  const usersFor = (name) => events[name]?.users || 0;
+  const homeUsers = usersFor("home_viewed");
+  const checkoutUsers = usersFor("checkout_started");
+  const createdUsers = usersFor("job_created");
+  return {
+    windowDays: days,
+    events,
+    funnel: {
+      homeUsers,
+      checkoutUsers,
+      createdUsers,
+      homeToCheckoutPercent: homeUsers ? Math.round((checkoutUsers / homeUsers) * 1000) / 10 : 0,
+      checkoutToCreatedPercent: checkoutUsers ? Math.round((createdUsers / checkoutUsers) * 1000) / 10 : 0
+    }
+  };
+}
+
+export function deleteLocalProductEvents(ids) {
+  if (!ids.length) return 0;
+  const placeholders = ids.map(() => "?").join(",");
+  return database.prepare(`DELETE FROM product_events WHERE public_id IN (${placeholders})`).run(...ids).changes;
+}
+
+export function pruneLocalProductEvents({ retentionDays = 90 } = {}) {
+  const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
+  const result = database.prepare("DELETE FROM product_events WHERE received_at < ?").run(cutoff);
+  return { deleted: result.changes, retentionDays };
 }
 
 export function createLocalNotification({
