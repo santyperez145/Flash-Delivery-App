@@ -1,4 +1,5 @@
 import type { AppState, DeliveryEvidence, DispatchOffer, Driver, FoodCheckoutQuote, GeoPoint, Order, Restaurant, Ride, RideQuote, RideService, ServiceMode, Shipment, ShipmentQuote, UserAddress } from "./types";
+import type { AnalyticsEvent } from "./analytics";
 import { loadMobileSession,mobileSessionStorage,saveMobileSession } from "./session-storage";
 import Constants from "expo-constants";
 
@@ -175,6 +176,12 @@ export const api = {
   async getNotificationPreferences(){return request<{preferences:import("./types").NotificationPreference[]}>("/notification-preferences");},
   async updateNotificationPreference(category:import("./types").NotificationPreference["category"],input:{pushEnabled:boolean;emailEnabled:boolean}){return request<{preferences:import("./types").NotificationPreference[]}>(`/notification-preferences/${category}`,{method:"PATCH",body:JSON.stringify(input)});},
   async getDietaryPreferences(){return request<{preferences:import("./types").DietaryPreferences}>("/dietary-preferences");},
+  async sendAnalyticsEvents(events: AnalyticsEvent[]) {
+    return request<{ accepted: number; duplicates: number }>("/analytics/events", {
+      method: "POST",
+      body: JSON.stringify({ events }),
+    });
+  },
   async updateDietaryPreferences(input:{dietaryLabels:string[];avoidedAllergens:string[];hideIncompatible:boolean}){return request<{preferences:import("./types").DietaryPreferences}>("/dietary-preferences",{method:"PUT",body:JSON.stringify(input)});},
   async getReferralSummary(){return request<{referral:import("./types").ReferralSummary}>("/referrals/me");},
   async claimReferral(code:string){return request<{referral:import("./types").ReferralSummary}>("/referrals/claim",{method:"POST",body:JSON.stringify({code})});},

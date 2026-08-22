@@ -45,6 +45,7 @@ import type { LucideIcon } from "lucide-react";
 import type { ComponentType, CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, subscribeToEvents } from "./api";
+import { configureAnalytics, track } from "./analytics";
 import type {
   AppState,
   AdminDashboard,
@@ -381,6 +382,8 @@ function App() {
     "admin",
   );
 
+  useEffect(() => configureAnalytics((events) => api.sendAnalyticsEvents(events)), []);
+
   useEffect(() => {
     setQuote(null);
   }, [
@@ -564,6 +567,56 @@ function App() {
     if (!state) return null;
     return state.users.find((user) => user.id === sessionUserId) || null;
   }, [sessionUserId, state]);
+
+  const lastHomeAnalyticsKey = useRef("");
+  const lastActivityAnalyticsKey = useRef("");
+  const previousSearchQuery = useRef("");
+  const previousCartCount = useRef<number | null>(null);
+  const previousCheckoutOpen = useRef(false);
+
+  useEffect(() => {
+    if (!state || !sessionUserId) return;
+    const key = `${mode}:${service}`;
+    if (lastHomeAnalyticsKey.current === key) return;
+    lastHomeAnalyticsKey.current = key;
+    track("home_viewed", "web", { mode, service });
+  }, [mode, service, sessionUserId, state]);
+
+  useEffect(() => {
+    if (!sessionUserId || tab !== "activity") return;
+    const key = `${sessionUserId}:${service}`;
+    if (lastActivityAnalyticsKey.current === key) return;
+    lastActivityAnalyticsKey.current = key;
+    track("activity_viewed", "web", { service });
+  }, [service, sessionUserId, tab]);
+
+  useEffect(() => {
+    const trimmedQuery = query.trim();
+    if (trimmedQuery && !previousSearchQuery.current.trim()) {
+      track("search_started", "web", { service });
+    }
+    previousSearchQuery.current = query;
+  }, [query, service]);
+
+  useEffect(() => {
+    if (selectedRestaurantId) track("merchant_viewed", "web", { merchant_id: selectedRestaurantId });
+  }, [selectedRestaurantId]);
+
+  useEffect(() => {
+    if (!sessionUserId) return;
+    const itemCount = cart.reduce((total, line) => total + line.quantity, 0);
+    if (previousCartCount.current !== null && previousCartCount.current !== itemCount) {
+      track("cart_updated", "web", { item_count: itemCount });
+    }
+    previousCartCount.current = itemCount;
+  }, [cart, sessionUserId]);
+
+  useEffect(() => {
+    if (checkoutOpen && !previousCheckoutOpen.current) {
+      track("checkout_started", "web", { service: "food" });
+    }
+    previousCheckoutOpen.current = checkoutOpen;
+  }, [checkoutOpen]);
 
   const selectedRestaurant = useMemo(() => {
     if (!state || !selectedRestaurantId) return null;
@@ -764,6 +817,7 @@ function App() {
       setCartOpen(false);
       setTab("activity");
       await refresh();setToast("Pedido creado y enviado al comercio");window.setTimeout(()=>setToast(null),2600);
+      track("job_created", "web", { service: "food" });
     }catch(requestError){const message=requestError instanceof Error?requestError.message:"No se pudo crear el pedido";setToast(message);throw requestError;}finally{setBusy(false);}
   };
 
@@ -771,6 +825,7 @@ function App() {
     runAction(async () => {
       const response = await api.quoteRide(rideForm);
       setQuote(response.quote);
+      track("quote_received", "web", { service: "ride" });
     }, "Tarifa calculada");
 
   const locatePickup = useCallback(() => {
@@ -820,6 +875,7 @@ function App() {
         quoteToken: quote.quoteToken,
       });
       setTab("activity");
+      track("job_created", "web", { service: "ride" });
     }, "Viaje solicitado");
   };
 
@@ -835,6 +891,7 @@ function App() {
       await refresh();
       setService("shipment");
       setTab("activity");
+      track("job_created", "web", { service: "shipment" });
       setToast("Envío solicitado y enviado a dispatch");
       window.setTimeout(() => setToast(null), 2600);
     } catch (requestError) {

@@ -19,6 +19,7 @@ import type {
   DeliveryEvidence,
   User,
 } from "./types";
+import type { AnalyticsEvent } from "./analytics";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:4000/api";
 const TOKEN_KEY = "flash_platform_token";
@@ -1034,6 +1035,12 @@ export const api = {
   },
   async getDietaryPreferences(){return request<{preferences:import("./types").DietaryPreferences}>("/dietary-preferences");},
   async updateDietaryPreferences(input:{dietaryLabels:string[];avoidedAllergens:string[];hideIncompatible:boolean}){return request<{preferences:import("./types").DietaryPreferences}>("/dietary-preferences",{method:"PUT",body:JSON.stringify(input)});},
+  async sendAnalyticsEvents(events: AnalyticsEvent[]) {
+    return request<{ accepted: number; duplicates: number }>("/analytics/events", {
+      method: "POST",
+      body: JSON.stringify({ events }),
+    });
+  },
   async getDriverCompliance(driverId: string) {
     return request<{ compliance: DriverCompliance }>(
       `/drivers/${driverId}/compliance`,

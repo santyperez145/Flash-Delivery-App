@@ -27,6 +27,7 @@ import {
   View,
 } from "react-native";
 import { api } from "./src/api";
+import { configureAnalytics, track } from "./src/analytics";
 import {getBackgroundLocationState,startDriverBackgroundLocation,stopDriverBackgroundLocation,type BackgroundLocationState} from "./src/background-location";
 import type {
   AppState,
@@ -170,6 +171,18 @@ export default function App() {
   const networkOnline =
     networkState.isConnected !== false && networkState.isInternetReachable !== false;
   const previousNetwork = useRef(networkOnline);
+  const lastAppHomeAnalyticsKey = useRef("");
+
+  useEffect(() => configureAnalytics((events) => api.sendAnalyticsEvents(events)), []);
+
+  useEffect(() => {
+    if (!sessionUser) return;
+    const surface = mode === "driver" ? "driver_app" : mode === "merchant" ? "merchant_app" : "customer_app";
+    const key = `${sessionUser.id}:${surface}`;
+    if (lastAppHomeAnalyticsKey.current === key) return;
+    lastAppHomeAnalyticsKey.current = key;
+    track("home_viewed", surface, { mode });
+  }, [mode, sessionUser]);
 
   const refresh = useCallback(async () => {
     const response = await api.state();
@@ -389,6 +402,9 @@ function CustomerScreen({
   const [selectedRestaurantId, setSelectedRestaurantId] = useState<
     string | null
   >(null);
+  const lastActivityAnalyticsKey = useRef("");
+  const previousFoodQuery = useRef("");
+  const previousCartCount = useRef<number | null>(null);
   const [foodOfferVisible, setFoodOfferVisible] = useState(true);
   useEffect(() => {
     customerScrollRef.current?.scrollTo({ y: 0, animated: false });
@@ -421,6 +437,36 @@ function CustomerScreen({
   const [customizingNote,setCustomizingNote]=useState("");
   useEffect(()=>{let cancelled=false;setCartHydrated(false);void api.cart().then(result=>{if(cancelled)return;setCart(result.cart.map(line=>({lineId:`${line.item.id}:${line.extras.slice().sort().join(",")}:${line.note}`,restaurantId:line.restaurantId,menuItemId:line.item.id,name:line.item.name,unitPrice:line.item.price,quantity:line.quantity,extras:line.extras,note:line.note})));setCartHydrated(true);}).catch(()=>{if(!cancelled)setCartHydrated(true);});return()=>{cancelled=true;};},[user.id]);
   useEffect(()=>{if(!cartHydrated)return;const timer=setTimeout(()=>{void api.saveMobileCart(cart[0]?.restaurantId,cart.map(line=>({menuItemId:line.menuItemId,quantity:line.quantity,extras:line.extras,note:line.note}))).catch(()=>undefined);},250);return()=>clearTimeout(timer);},[cart,cartHydrated]);
+  useEffect(() => {
+    if (sharedView !== "activity") return;
+    const key = `${user.id}:${customerWindow}`;
+    if (lastActivityAnalyticsKey.current === key) return;
+    lastActivityAnalyticsKey.current = key;
+    track("activity_viewed", "customer_app", { service: customerWindow });
+  }, [customerWindow, sharedView, user.id]);
+  useEffect(() => {
+    const trimmedQuery = foodQuery.trim();
+    if (trimmedQuery && !previousFoodQuery.current.trim()) {
+      track("search_started", "customer_app", { service: "food" });
+    }
+    previousFoodQuery.current = foodQuery;
+  }, [foodQuery]);
+  useEffect(() => {
+    if (selectedRestaurantId) {
+      track("merchant_viewed", "customer_app", { merchant_id: selectedRestaurantId });
+    }
+  }, [selectedRestaurantId]);
+  useEffect(() => {
+    if (!cartHydrated) return;
+    const itemCount = cart.reduce((total, line) => total + line.quantity, 0);
+    if (previousCartCount.current !== null && previousCartCount.current !== itemCount) {
+      track("cart_updated", "customer_app", { item_count: itemCount });
+    }
+    previousCartCount.current = itemCount;
+  }, [cart, cartHydrated]);
+  useEffect(() => {
+    if (foodScreen === "checkout") track("checkout_started", "customer_app", { service: "food" });
+  }, [foodScreen]);
   const [deliveryAddress, setDeliveryAddress] = useState(
     user.defaultAddress || "",
   );
@@ -836,6 +882,7 @@ function CustomerScreen({
       setFoodCheckoutQuote(null);
       setFoodPromotionCode("");
       setFoodScreen("orders");
+      track("job_created", "customer_app", { service: "food" });
     }, "Pedido enviado al comercio");
   };
 
@@ -892,6 +939,7 @@ function CustomerScreen({
         response.options.find((option) => option.service === rideService) ||
           response.options[0],
       );
+      track("quote_received", "customer_app", { service: "ride" });
       const recorded=await api.recordRideDestination({label:(destinationMatch?.label||destination.trim()).split(",")[0],address:destinationMatch?.label||destination.trim(),lat:resolvedDestination.lat,lng:resolvedDestination.lng}).catch(()=>null);
       if(recorded)setRideDestinations(recorded.destinations);
     }, "Cotizacion actualizada");
@@ -913,8 +961,8 @@ function CustomerScreen({
           ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
           : undefined;
     runAction(
-      () =>
-        api.createRide({
+      async () => {
+        await api.createRide({
           customerId: user.id,
           pickup: pickup.trim(),
           destination: destination.trim(),
@@ -924,7 +972,9 @@ function CustomerScreen({
           paymentMethod: "Flash Wallet",
           quoteToken,
           scheduledFor,
-        }),
+        });
+        track("job_created", "customer_app", { service: "ride" });
+      },
       scheduledFor ? "Viaje reservado" : "Viaje solicitado",
     );
   };
@@ -951,6 +1001,7 @@ function CustomerScreen({
         destinationCoords:destinationPoint,
       });
       setShipmentQuote(response.quote);
+      track("quote_received", "customer_app", { service: "shipment" });
     }, "Envio cotizado");
   };
 
@@ -989,6 +1040,7 @@ function CustomerScreen({
         destinationCoords: shipmentDestinationCoords,
         quoteToken: shipmentQuote.quoteToken,
       });
+      track("job_created", "customer_app", { service: "shipment" });
       setShipmentQuote(null);
       setRecipientName("");
       setRecipientPhone("");

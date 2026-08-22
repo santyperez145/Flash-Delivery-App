@@ -82,6 +82,7 @@
     "test:feature-flags": "node --env-file-if-exists=.env.local scripts/feature-flags-smoke.mjs",
     "analytics:prune": "node --env-file-if-exists=.env.local scripts/analytics-prune.mjs",
     "test:product-analytics": "node --env-file-if-exists=.env.local scripts/product-analytics-smoke.mjs",
+    "test:product-analytics-local": "node scripts/product-analytics-local-smoke.mjs",
     "test:zone-readiness": "node --env-file-if-exists=.env.local scripts/zone-readiness-smoke.mjs",
     "test:remote-sessions": "node --env-file-if-exists=.env.local scripts/remote-sessions-smoke.mjs",
     "test:redis-rate-limit": "node scripts/redis-rate-limit-smoke.mjs",
