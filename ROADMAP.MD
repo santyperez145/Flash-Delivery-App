@@ -34,6 +34,14 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [x] El cockpit usa la preferencia persistida al construir la URL oficial y conserva el destino/trabajo dentro de Flash; cambiar proveedor no altera la ruta autoritativa ni el estado del servicio.
 - [x] Smoke API/PostgreSQL, contrato OpenAPI, RLS, URLs iOS/Android, build/typecheck y prueba visual real en navegador están verdes.
 
+## Avance 22 de agosto de 2026 — demanda zonal real de Flash Driver
+
+- [x] `GET /api/driver/demand-zones` deriva ciudad y modo desde la sesión Driver y calcula en una transacción consistente trabajos abiertos y oferta elegible por polígono PostGIS.
+- [x] La oferta excluye GPS con más de 5 minutos o peor a 100 m, compliance/vehículo no aprobados y conductores sin capacidad; nunca se exponen puntos de trabajos u otros conductores.
+- [x] OpenAPI y smoke físico verifican roles, `no-store`, conteos contra SQL, geometría agregada y bandas deterministas.
+- [x] La investigación competitiva y la metodología quedan registradas en `docs/competitive-research/driver-demand-zones.md`; el contrato declara que no pronostica ofertas/ganancias ni altera precios.
+- [~] Falta conectar el snapshot a polígonos nativos y estados mobile; forecast, surge y recomendación de posicionamiento permanecen bloqueados hasta disponer de datos/modelo, monitoreo de sesgos y operación real.
+
 ## Avance 22 de agosto de 2026 — mapas nativos mobile
 
 - [x] Comida, Viajes y Envíos reemplazan teselas HTML, proyección Mercator y líneas SVG por un único `MapView` nativo interactivo con pan, zoom, reencuadre y marcadores accesibles.

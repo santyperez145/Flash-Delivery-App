@@ -54,6 +54,7 @@
     "test:driver-kyc": "node --env-file-if-exists=.env.local scripts/driver-kyc-smoke.mjs",
     "test:driver-vehicles": "node --env-file-if-exists=.env.local scripts/driver-vehicles-smoke.mjs",
     "test:driver-earnings": "node --env-file-if-exists=.env.local scripts/driver-earnings-smoke.mjs",
+    "test:driver-demand": "node --env-file-if-exists=.env.local scripts/driver-demand-smoke.mjs",
     "test:driver-preferences": "node --env-file-if-exists=.env.local scripts/driver-preferences-smoke.mjs",
     "test:mobile-native-runtime": "node scripts/mobile-native-runtime-smoke.mjs",
     "test:mobile-maps": "node scripts/mobile-map-ui-smoke.mjs",
