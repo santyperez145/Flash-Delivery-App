@@ -106,6 +106,7 @@ import {
 } from "./wallet-repository.js";
 import { claimReferral, getReferralSummary } from "./referral-repository.js";
 import { decodeActivityCursor, getActivityPage, getAssignedDriverProjections } from "./activity-repository.js";
+import { findPublicCity, getPublicCities } from "./city-repository.js";
 import {
   getPaymentReconciliation,
   recordPaymentWebhook,
@@ -3880,11 +3881,27 @@ app.patch(
     }
   },
 );
-app.get("/api/zones", async (_req, res) => {
+app.get("/api/cities", async (_req, res) => {
   try {
+    res.set("Cache-Control", "public, max-age=300, stale-while-revalidate=900");
+    return ok(res, {
+      cities: usesPostgresCommerce()
+        ? await getPublicCities()
+        : [{ id: "CITY-BA", slug: "buenos-aires", name: "Buenos Aires", countryCode: "AR", currency: "ARS", timezone: "America/Argentina/Buenos_Aires", status: "beta", enabledServices: ["delivery", "shopping"], center: { lat: -34.6037, lng: -58.3816 } }],
+    });
+  } catch (_error) {
+    return fail(res, 500, "No se pudieron cargar las ciudades");
+  }
+});
+app.get("/api/zones", async (req, res) => {
+  try {
+    const citySlug = String(req.query.city || "buenos-aires");
+    if (!/^[a-z0-9-]{2,40}$/.test(citySlug)) return fail(res, 400, "Ciudad inválida");
+    if (usesPostgresCommerce() && !(await findPublicCity(citySlug))) return fail(res, 404, "Ciudad no habilitada");
     res.set("Cache-Control","public, max-age=30, stale-while-revalidate=120");
     return ok(res, {
-      zones: usesPostgresCommerce() ? await getPostgresZones() : readDb().zones,
+      city: citySlug,
+      zones: usesPostgresCommerce() ? await getPostgresZones({ citySlug }) : citySlug === "buenos-aires" ? readDb().zones : [],
     });
   } catch (_error) {
     return fail(res, 500, "No se pudieron cargar las zonas");
