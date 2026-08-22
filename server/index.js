@@ -108,6 +108,7 @@ import {
 import { claimReferral, getReferralSummary } from "./referral-repository.js";
 import { decodeActivityCursor, getActivityPage, getAssignedDriverProjections } from "./activity-repository.js";
 import { findPublicCity, getPublicCities } from "./city-repository.js";
+import { evaluateFeatureFlags, getFeatureFlags, updateFeatureFlag } from "./feature-flag-repository.js";
 import {
   getPaymentReconciliation,
   recordPaymentWebhook,
@@ -1199,6 +1200,14 @@ const userStatusSchema = z.object({
   status: z.enum(["active", "suspended"]),
   reason: z.string().trim().min(5).max(240),
 });
+const featureFlagUpdateSchema = z.object({
+  enabled: z.boolean().optional(),
+  rolloutPercentage: z.coerce.number().int().min(0).max(100).optional(),
+  allowedRoles: z.array(z.enum(["customer","merchant","driver","admin","support"])).max(5).optional(),
+  startsAt: z.string().datetime().nullable().optional(),
+  endsAt: z.string().datetime().nullable().optional(),
+  variant: z.record(z.string(),z.union([z.string(),z.number(),z.boolean(),z.null()])).optional(),
+}).refine((value)=>Object.keys(value).length>0,"Indicá al menos un cambio").refine((value)=>!value.startsAt||!value.endsAt||new Date(value.endsAt)>new Date(value.startsAt),"La fecha final debe ser posterior al inicio");
 const tipSchema = z.object({
   amount: z.coerce.number().int().min(100).max(100000),
 });
@@ -2724,6 +2733,9 @@ app.get("/api/operations/drivers",requireAuth,requireAnyRole("admin"),async(req,
 app.get("/api/operations/users",requireAuth,requireAnyRole("admin"),async(req,res)=>{const limit=Math.min(100,Math.max(1,Number(req.query.limit)||50)),cursor=parseOperationsCursor(req.query.cursor),query=String(req.query.q||"").slice(0,100);if(cursor===false)return fail(res,400,"Cursor operativo inválido");try{const page=await getPostgresOperationsUserPage({limit,cursor,query}),balances=await getWalletBalances();page.users=page.users.map(user=>({...user,wallet:balances.get(user.id)||0}));res.set("Cache-Control","no-store, private");return ok(res,page);}catch(error){return fail(res,error.status||500,error.message||"No se pudieron cargar los usuarios operativos");}});
 app.get("/api/operations/support-tickets",requireAuth,requireAnyRole("admin"),async(req,res)=>{const limit=Math.min(100,Math.max(1,Number(req.query.limit)||50)),query=String(req.query.q||"").slice(0,100);let cursor=null;if(req.query.cursor){try{cursor=JSON.parse(Buffer.from(String(req.query.cursor),"base64url").toString("utf8"));if(typeof cursor.id!=="string"||!/^[0-9]{4}-/.test(cursor.updatedAt))throw new Error();}catch{return fail(res,400,"Cursor operativo inválido");}}try{res.set("Cache-Control","no-store, private");return ok(res,await getPostgresOperationsSupportTicketPage({limit,cursor,query}));}catch(error){return fail(res,error.status||500,error.message||"No se pudo cargar la mesa de ayuda");}});
 app.get("/api/operations/audit-events",requireAuth,requireAnyRole("admin"),async(req,res)=>{const limit=Math.min(100,Math.max(1,Number(req.query.limit)||50)),query=String(req.query.q||"").slice(0,100);let cursor=null;if(req.query.cursor){try{cursor=JSON.parse(Buffer.from(String(req.query.cursor),"base64url").toString("utf8"));if(!/^\d+$/.test(cursor.id)||!/^[0-9]{4}-/.test(cursor.occurredAt))throw new Error();}catch{return fail(res,400,"Cursor operativo inválido");}}try{res.set("Cache-Control","no-store, private");return ok(res,await getPostgresAuditEventPage({limit,cursor,query}));}catch(error){return fail(res,error.status||500,error.message||"No se pudo cargar la auditoría");}});
+app.get("/api/features",requireAuth,async(req,res)=>{try{res.set("Cache-Control","no-store, private");return ok(res,{features:usesPostgresAuth()?await evaluateFeatureFlags({userId:req.auth.userId,roles:req.auth.roles}):{delivery_beta:{active:true,variant:{phase:"local_demo"}},shipment_beta:{active:true,variant:{phase:"local_demo"}},public_rides:{active:false,variant:{}}}});}catch(_error){return ok(res,{features:{},degraded:true});}});
+app.get("/api/operations/feature-flags",requireAuth,requireAnyRole("admin"),async(_req,res)=>{try{res.set("Cache-Control","no-store, private");return ok(res,{flags:await getFeatureFlags()});}catch(error){return fail(res,error.status||500,error.message||"No se pudieron cargar los feature flags");}});
+app.patch("/api/operations/feature-flags/:flagId",requireAuth,requireAnyRole("admin"),async(req,res)=>{const parsed=parseOrFail(featureFlagUpdateSchema,req.body||{});if(!parsed.ok)return fail(res,400,parsed.message);try{const before=(await getFeatureFlags()).find((flag)=>flag.id===req.params.flagId);if(!before)return fail(res,404,"Feature flag no encontrado");const flag=await updateFeatureFlag({publicId:req.params.flagId,changes:parsed.data});await recordPostgresAudit({actorPublicId:req.auth.userId,roles:req.auth.roles,action:"feature_flag.updated",entityType:"feature_flag",entityId:flag.id,requestId:req.requestId,beforeData:before,afterData:flag});return ok(res,{flag});}catch(error){return fail(res,error.status||500,error.message||"No se pudo actualizar el feature flag");}});
 
 app.get("/api/state", requireAuth, (_req,res) => {
   res.set("Cache-Control","no-store");
