@@ -2,6 +2,8 @@
 
 MVP fullstack para operar comida, delivery y viajes tipo taxi/conductor en una sola plataforma.
 
+Cada entrega se rige por [`docs/product-execution-guidelines.md`](docs/product-execution-guidelines.md): investigación competitiva verificable, backend autoritativo, cero capacidades productivas hardcodeadas, experiencia visual completa y checks honestos en el roadmap.
+
 Los tres verticales comparten ahora chat operacional real por servicio: mensajes, confirmaciones y adjuntos persistidos en PostgreSQL, con contenido AES-256-GCM y acceso exclusivo para cliente, conductor asignado y comercio participante. Detalles y garantías en `docs/service-chat.md`.
 
 Los envíos protegidos incluyen apertura y seguimiento de siniestros, cálculo de franquicia, evidencia JPEG/PNG/PDF cifrada y cola operativa auditable. La liquidación externa no se simula: queda en `settlement_pending` hasta integrar un proveedor habilitado. Ver `docs/shipment-protection-claims.md`.
