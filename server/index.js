@@ -58,6 +58,7 @@ import {
 import {
   assignPostgresOrderDriver,
   createPostgresOrder,
+  processPostgresOrderMarketplacePayment,
   createPostgresMenuItem,
   getPostgresOrders,
   getPostgresFoodDeliveryQuote,
@@ -770,6 +771,11 @@ const orderSchema = z.object({
   paymentMethodId: z.string().uuid().optional(),
   promotionCode: z.string().trim().min(3).max(40).optional(),
   quoteToken: z.string().min(20).optional(),
+  providerPayment: z.object({
+    cardToken:z.string().regex(/^[A-Za-z0-9._-]{8,256}$/).refine(value=>!/^\d{13,19}$/.test(value),"Debes enviar un token del proveedor, no el número de tarjeta"),
+    paymentMethodId:z.string().regex(/^[A-Za-z0-9_-]{2,64}$/),
+    installments:z.coerce.number().int().min(1).max(48).default(1),
+  }).optional(),
   items: z
     .array(
       z.object({
@@ -6671,6 +6677,7 @@ app.post(
       deliveryAddress,
       paymentMethod,
       paymentMethodId,
+      providerPayment,
       promotionCode,
       quoteToken,
     } = parsed.data;
@@ -6793,12 +6800,14 @@ app.post(
           deliveryAddress: order.deliveryAddress,
           paymentMethod: order.paymentMethod,
           paymentMethodId,
+          providerPayment,
           promotionCode,
           items,
           serviceFee: lockedQuote?.serviceFee ?? serviceFee,
           lockedQuote,
           idempotencyKey,
         });
+        if(providerPayment&&!String(order.paymentMethod).toLowerCase().includes("wallet"))order=await processPostgresOrderMarketplacePayment({orderPublicId:order.id,customerPublicId:customerId,idempotencyKey,cardToken:providerPayment.cardToken,paymentMethodId:providerPayment.paymentMethodId,installments:providerPayment.installments});
         if (riskAssessment)
           await setRiskEntity({
             assessmentPublicId: riskAssessment.id,

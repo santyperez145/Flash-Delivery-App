@@ -167,6 +167,7 @@ export const api = {
     deliveryAddress: string;
     paymentMethod: string;
     paymentMethodId?:string;
+    providerPayment?:{cardToken:string;paymentMethodId:string;installments:number};
     promotionCode?:string;
     quoteToken:string;
     items: Array<{ menuItemId: string; quantity: number; extras: string[]; note: string }>;
