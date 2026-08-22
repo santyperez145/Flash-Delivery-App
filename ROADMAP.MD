@@ -6,6 +6,14 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Auditoría 22 de agosto de 2026 — arquitectura completa de pantallas
+
+- [x] Se creó `docs/experience-surface-inventory.md` como inventario rector de pantallas, hojas, modales y estados para Cliente, Driver, Comercio y Operaciones.
+- [x] La segmentación se contrastó con documentación oficial vigente de Uber Driver, Lyft Driver y DoorDash Dasher; se adoptan jerarquía y estados, nunca activos ni identidad propietaria.
+- [x] La guía giro a giro queda exclusivamente en Flash Driver. El cliente conserva mapa, ubicación, ETA y progreso, pero no instrucciones de conducción.
+- [~] Flash Driver debe separar Home/Mapa, Ganancias, Inbox y Cuenta; hoy la lógica es real pero todavía comparte un scroll operativo demasiado largo.
+- [ ] Heatmap, voz, tráfico, reportes viales, waiting fees, llamadas anonimizadas y CarPlay/Android Auto permanecen bloqueados hasta tener contratos, proveedor, operación y prueba física.
+
 ## Avance 22 de agosto de 2026 — mapas nativos mobile
 
 - [x] Comida, Viajes y Envíos reemplazan teselas HTML, proyección Mercator y líneas SVG por un único `MapView` nativo interactivo con pan, zoom, reencuadre y marcadores accesibles.
