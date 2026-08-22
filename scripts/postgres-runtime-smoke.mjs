@@ -143,6 +143,7 @@ try {
       metricsText.includes("flash_merchant_payable_cents") &&
       metricsText.includes("flash_service_tips_total") &&
       metricsText.includes("flash_merchant_payment_oauth_connections") &&
+      metricsText.includes("flash_idempotency_keys") &&
       !metricsText.includes("cliente@flash.app") &&
       !metricsText.includes("Defensa 982"),
     "protected Prometheus metrics expose non-PII technical, latency, dispatch, realtime and finance signals",
