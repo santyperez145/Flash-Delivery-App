@@ -21,6 +21,7 @@ import { createGracefulShutdown } from "./graceful-shutdown.js";
 import { beginMerchantPaymentOAuth, completeMerchantPaymentOAuth, getMerchantPaymentConnection, revokeMerchantPaymentConnection } from "./payment-oauth-repository.js";
 import {verifyMercadoPagoWebhook} from "./mercadopago-webhook.js";
 import {enqueueMercadoPagoWebhook} from "./mercadopago-webhook-repository.js";
+import {cancelMarketplaceOrderAndRefund} from "./marketplace-refund-repository.js";
 import { confirmPhoneVerification, requestPhoneVerification } from "./phone-verification-repository.js";
 import { observeHttpRequest, observeProviderCall, renderPrometheus } from "./observability.js";
 import { ProviderCircuit } from "./provider-resilience.js";
@@ -6971,7 +6972,12 @@ app.patch("/api/orders/:orderId/status", requireAuth, async (req, res) => {
     return fail(res, 403, "No puedes cambiar este estado de pedido");
   }
   if (usesPostgresCommerce() && status === "cancelled") {
-    const cancellationResult = await cancelOrderAndRefundWallet({
+    const cancellationResult = await cancelMarketplaceOrderAndRefund({
+      orderPublicId: db.orders[index].id,
+      actorPublicId: req.auth.userId,
+      reason: cancellation.data.reason,
+      reasonDetail: cancellation.data.reasonDetail,
+    })||await cancelOrderAndRefundWallet({
       orderPublicId: db.orders[index].id,
       actorPublicId: req.auth.userId,
       reason: cancellation.data.reason,
