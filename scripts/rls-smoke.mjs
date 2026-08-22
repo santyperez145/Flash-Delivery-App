@@ -22,6 +22,8 @@ let fixtureReceiptId;
 let fixtureCancellationId;
 let fixturePaymentMethodId;
 let fixturePreferencePrevious;
+let fixtureDriverPreferencePrevious;
+let fixtureDriverId;
 let fixtureDietaryPreference;
 let fixtureRideDestinationId;
 let fixtureTrustedContactId;
@@ -268,6 +270,8 @@ try {
   );
   const vehiclePrivileges=(await client.query(`SELECT has_column_privilege(current_user,'vehicles','status','SELECT') posture,has_column_privilege(current_user,'vehicles','plate','SELECT') plate,has_column_privilege(current_user,'vehicles','model','SELECT') model,has_column_privilege(current_user,'vehicles','color','SELECT') color,has_table_privilege(current_user,'vehicles','UPDATE') can_update`)).rows[0];
   assert(vehiclePrivileges.posture&&!vehiclePrivileges.plate&&!vehiclePrivileges.model&&!vehiclePrivileges.color&&!vehiclePrivileges.can_update,"audit role inspects vehicle approval posture without identity attributes or write access");
+  const driverPreferencePrivileges=(await client.query(`SELECT has_column_privilege(current_user,'driver_preferences','navigation_provider','SELECT') can_read,has_table_privilege(current_user,'driver_preferences','UPDATE') can_update`)).rows[0];
+  assert(driverPreferencePrivileges.can_read&&!driverPreferencePrivileges.can_update,"audit role inspects navigator posture but cannot change driver preference");
   const deliveryEvidencePrivileges = (
     await client.query(
       `SELECT has_column_privilege(current_user,'shipment_delivery_evidence','content_sha256','SELECT') metadata,has_column_privilege(current_user,'shipment_delivery_evidence','content_ciphertext','SELECT') content,has_column_privilege(current_user,'shipment_delivery_evidence','signer_name','SELECT') signer_identity,has_column_privilege(current_user,'shipment_delivery_evidence','consent_version','SELECT') consent_posture`,
@@ -515,6 +519,9 @@ try {
       driverUser.id,
     ])
   ).rows[0];
+  fixtureDriverId=driver.id;
+  fixtureDriverPreferencePrevious=(await owner.query("SELECT navigation_provider FROM driver_preferences WHERE driver_id=$1",[driver.id])).rows[0]||null;
+  await owner.query("INSERT INTO driver_preferences(driver_id,navigation_provider) VALUES($1,'system') ON CONFLICT(driver_id) DO UPDATE SET navigation_provider='system'",[driver.id]);
   fixtureTipTransactionId = (
     await owner.query(
       `INSERT INTO ledger_transactions(idempotency_key,kind,actor_id,description) VALUES($1,'tip',$2,'RLS tip fixture') RETURNING id`,
@@ -805,6 +812,11 @@ try {
       .rows[0].count === 1,
     "RLS exposes only the driver's own compliance posture",
   );
+  assert(
+    (await client.query("SELECT count(*)::int count FROM driver_preferences"))
+      .rows[0].count === 1,
+    "RLS exposes only the driver's own navigation preference",
+  );
   await client.query(
     "SELECT set_config('app.user_id',$1,false),set_config('app.roles','customer',false)",
     [admin.id],
@@ -888,6 +900,11 @@ try {
       )
     ).rows[0].count === 0,
     "RLS hides another customer's devices",
+  );
+  assert(
+    (await client.query("SELECT count(*)::int count FROM driver_preferences"))
+      .rows[0].count === 0,
+    "RLS hides driver navigation preference from unrelated users",
   );
   const otherRatings = await client.query(
       "SELECT count(*)::int count FROM ratings WHERE id=$1",
@@ -977,6 +994,7 @@ try {
     await owner.query("DELETE FROM payment_methods WHERE id=$1", [
       fixturePaymentMethodId,
     ]);
+  if(owner&&fixtureDriverId){if(fixtureDriverPreferencePrevious)await owner.query("UPDATE driver_preferences SET navigation_provider=$2,updated_at=now() WHERE driver_id=$1",[fixtureDriverId,fixtureDriverPreferencePrevious.navigation_provider]);else await owner.query("DELETE FROM driver_preferences WHERE driver_id=$1",[fixtureDriverId]);}
   if (owner) {
     if (fixtureServiceMessageId)
       await owner.query("DELETE FROM service_messages WHERE id=$1", [

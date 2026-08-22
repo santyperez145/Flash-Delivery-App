@@ -218,3 +218,7 @@ Decisión derivada: Flash Driver se segmenta como producto propio. Home concentr
 ### Decisión 22 de agosto de 2026 — ganancias Driver sin proyecciones
 
 La guía oficial de [Uber sobre ganancias de conductores](https://www.uber.com/us/en/drive/how-much-drivers-make/) organiza los importes por viaje, día/semana, propinas y promociones, y distingue lo ganado de mecanismos de retiro. Flash adopta esa jerarquía pero no su terminología ni activos: hoy/semana, servicios, propinas, ajustes y movimientos se calculan desde el ledger de doble partida y la zona horaria de la identidad autenticada. Metas, horas, promociones y retiro no aparecen como disponibles hasta existir campañas, telemetría laboral y proveedor habilitado verificables.
+
+### Decisión 22 de agosto de 2026 — proveedor de navegación elegido por Driver
+
+[Lyft Driver](https://help.lyft.com/hc/en-us/all/articles/115012926147) y [DoorDash In-App Navigation](https://help.doordash.com/dashers/s/article/In-app-Navigation) documentan selección o cambio del navegador desde la experiencia del conductor. Flash incorpora esa decisión en Cuenta, no en el cliente: `system`, Google Maps o Apple Maps se persisten por conductor y sólo modifican el handoff del botón de guía completa. La ruta, próximo hito y trabajo siguen siendo autoritativos en Flash; Apple sólo aparece en iOS y no se declara voz/tráfico propio.

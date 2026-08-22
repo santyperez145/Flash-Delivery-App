@@ -39,6 +39,8 @@ El mapa visual y el proveedor de geocoding/routing son límites distintos. Las d
 
 Flash Driver usa el mismo renderer con un marcador de vehículo en su última posición foreground/background autorizada y el próximo hito real del job asignado. Cada cambio de fase invalida la ruta anterior antes de recalcularla. La tarjeta muestra la primera maniobra normalizada, distancia y duración; el botón **Navegar** entrega el destino a Apple Maps (`daddr`, `dirflg=d`) en iOS conducción o a la URL universal de Google Maps (`api=1`, `destination`, `travelmode`, `dir_action=navigate`) en Android/bicicleta. Omitir el origen hace que el proveedor use la posición actual y evita pasar una coordenada ya envejecida como inicio de navegación.
 
+Cuenta Driver permite conservar `system`, Google Maps o Apple Maps como proveedor externo. La preferencia vive en PostgreSQL bajo ownership del conductor y sólo interviene al construir el enlace: `system` usa Apple Maps para conducción iOS y Google Maps en el resto; Apple no se ofrece en Android/web y una bicicleta conserva Google Maps porque el enlace Apple usado no expresa ese modo. La selección nunca cambia coordenadas, geometría OSRM ni fase del job.
+
 La guía ya no aparece en la superficie del cliente. Flash Driver abre un cockpit modal de pantalla completa que prioriza la próxima maniobra, metros, ETA, tres pasos, etapa y destino sobre el mapa nativo; desde allí se accede al chat autorizado o a la navegación completa del sistema. La pantalla de cliente conserva seguimiento, ETA y controles de seguridad sin distraer con instrucciones viales que no debe ejecutar.
 
 Referencias técnicas primarias:

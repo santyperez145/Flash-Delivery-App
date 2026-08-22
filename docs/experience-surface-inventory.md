@@ -94,7 +94,7 @@ Flash adopta jerarquía y estados comparables, no texto, activos, colores ni ide
 
 - [x] legajo, documentos, vencimientos, revisión y rechazo.
 - [x] flota, compatibilidad, aprobación y vehículo activo.
-- [~] preferencias de navegación, accesibilidad, privacidad, seguridad y ayuda requieren subsecciones.
+- [~] proveedor de navegación externa ya es una preferencia persistida y funcional; accesibilidad, privacidad, seguridad y ayuda todavía requieren subsecciones propias.
 - [ ] CarPlay/Android Auto no se declara hasta tener build, entitlement y prueba vehicular.
 
 ## Comercio desktop
