@@ -73,6 +73,7 @@ Flash Delivery Mobility ya es una app fullstack local con cuatro superficies: cl
 - Viajes previo, tracking público y Actividad de comida/viajes/envíos comparten el mismo renderer web GPU con pan, zoom, reencuadre, atribución, colores por vertical y carga asíncrona.
 - Mobile reemplazó mapas estáticos por Google Maps/Apple MapKit interactivos en cotización y tracking de comida, viajes y envíos; conserva rutas reales, estado de proveedor explícito y conductor sólo con GPS persistido.
 - Flash Driver suma mapa del próximo tramo, descarte de rutas obsoletas y traspaso seguro a Apple/Google para navegación giro a giro según plataforma y vehículo.
+- Expo mobile web separa el renderer `.native` de su fallback `.web`, por lo que 8081 sigue operativo sin intentar ejecutar componentes Fabric de mapas nativos.
 - Web coordina la rotación de refresh entre recursos concurrentes y detiene polling/SSE al perder sesión; el login anónimo ya no agota el rate limit de autenticación.
 - Cliente web/PWA incorpora solicitud de envíos: geocodificación de origen/destino, categorías y SLA desde backend, protección, firma, destinatario, términos, cotización firmada e idempotencia; el pago está limitado a Flash Wallet.
 

@@ -23,6 +23,13 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [x] La URL omite el origen para que el proveedor use la ubicación actual del dispositivo, y sólo se habilita desde un job real con destino geográfico.
 - [~] La guía interna conserva maniobras/ETA del adaptador actual; tráfico, desvíos en vivo y ensayo físico en movimiento requieren proveedor productivo, build firmado y prueba vial controlada.
 
+## Corrección 22 de agosto de 2026 — aislamiento del SDK cartográfico por plataforma
+
+- [x] Expo web dejó de evaluar `react-native-maps`, que sólo existe en Android/iOS y rompía el runtime aunque el export Metro terminara correctamente.
+- [x] La resolución `.native.tsx` conserva Google Maps/MapKit y `.web.tsx` entrega un estado visual explícito; el fallback TypeScript nunca importa el módulo nativo.
+- [x] `test:mobile-maps` bloquea regresiones verificando que la implementación web no dependa del SDK nativo.
+- [x] TypeScript, export web y ejecución real en `http://127.0.0.1:8081/` quedaron verdes; se inspeccionaron Home y Viajes sin error de runtime.
+
 ## Corrección 22 de agosto de 2026 — sesión web sin tormenta de refresh
 
 - [x] Las respuestas `401` concurrentes comparten una única rotación de refresh; una respuesta tardía que usó el access token anterior reutiliza la credencial ya rotada.

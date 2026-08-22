@@ -3,7 +3,8 @@ import nodeAssert from "node:assert/strict";
 import { buildExternalNavigationUrl } from "../apps/mobile/src/navigation-links.ts";
 
 const app = fs.readFileSync("apps/mobile/App.tsx", "utf8");
-const map = fs.readFileSync("apps/mobile/src/FlashNativeMap.tsx", "utf8");
+const map = fs.readFileSync("apps/mobile/src/FlashNativeMap.native.tsx", "utf8");
+const webMap = fs.readFileSync("apps/mobile/src/FlashNativeMap.web.tsx", "utf8");
 const config = fs.readFileSync("apps/mobile/app.config.js", "utf8");
 const manifest = JSON.parse(fs.readFileSync("apps/mobile/app.base.json", "utf8"));
 const pkg = JSON.parse(fs.readFileSync("apps/mobile/package.json", "utf8"));
@@ -13,6 +14,7 @@ const assert = (condition, label) => {
 };
 
 assert(pkg.dependencies["react-native-maps"] === "1.27.2" && manifest.expo.plugins.includes("react-native-maps"), "Expo-compatible native map runtime and config plugin are pinned");
+assert(!webMap.includes("react-native-maps") && webMap.includes("no simula el SDK nativo"), "Expo web never evaluates native map code and degrades explicitly");
 assert((app.match(/<FlashNativeMap\b/g) || []).length === 6, "customer quotes/tracking and driver navigation share the native map");
 assert(map.includes("fitToCoordinates") && map.includes("Polyline") && map.includes("validRoute.length > 1"), "map supports pan, zoom, recenter and draws only a real routed polyline");
 assert(map.includes('mapType={Platform.OS === "ios" ? "mutedStandard" : "standard"}') && map.includes('customMapStyle={Platform.OS === "android" ? flashGoogleMapStyle : undefined}'), "Android and iOS use their native base-map provider with an explicit visual treatment");
