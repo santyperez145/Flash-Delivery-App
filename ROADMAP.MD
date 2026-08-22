@@ -35,7 +35,7 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [~] Bundle web con React e iconos en chunks cacheables y presupuesto CI: entry propio reducido de 718 KiB a 327 KiB; falta extraer Customer, Negocios y Operaciones del `App.tsx` monolítico y medir Core Web Vitals con tráfico real.
 - [x] Entrega web productiva con gzip dinámico, assets versionados inmutables por un año, HTML revalidable y SSE excluido de compresión para evitar buffering; contrato HTTP bloqueante en CI.
 - [x] PostgreSQL/PostGIS, 91 migraciones, idempotencia, locks, auth, MFA, outbox, métricas, backup y restore.
-- [~] Autorización ampliamente probada; OpenAPI 3.1 y contratos runtime cubren plataforma, geografía, auth y sesiones. Faltan extenderlos a comercio, dispatch, tracking, soporte y operaciones; OpenTelemetry HTTP/PostgreSQL ya exporta por OTLP.
+- [~] Autorización ampliamente probada; OpenAPI 3.1 y contratos runtime cubren plataforma, geografía, auth, sesiones y cotización/creación idempotente de comida, viajes y envíos. Faltan tracking, dispatch, pagos, soporte y operaciones; OpenTelemetry HTTP/PostgreSQL ya exporta por OTLP.
 - [~] Redis con readiness obligatorio, rate limiting compartido y ensayo real de dos réplicas en CI; falta migrar presencia realtime y validar un servicio administrado con failover.
 - [x] El entorno Docker separa owner/migrador, runtime y auditor; readiness productivo rechaza roles con `BYPASSRLS` o propietarios del esquema y CI impide volver a credenciales compartidas.
 
