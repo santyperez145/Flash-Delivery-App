@@ -66,13 +66,14 @@
     "test:operations-resources": "node --env-file-if-exists=.env.local scripts/operations-resources-smoke.mjs",
     "test:telemetry": "node scripts/telemetry-smoke.mjs",
     "test:city-isolation": "node --env-file-if-exists=.env.local scripts/city-isolation-smoke.mjs",
-    "test:observability-rules": "node scripts/observability-rules-smoke.mjs"
-    ,"test:provider-resilience": "node scripts/provider-resilience-smoke.mjs"
-    ,"test:feature-flags": "node --env-file-if-exists=.env.local scripts/feature-flags-smoke.mjs"
-    ,"analytics:prune": "node --env-file-if-exists=.env.local scripts/analytics-prune.mjs"
-    ,"test:product-analytics": "node --env-file-if-exists=.env.local scripts/product-analytics-smoke.mjs"
-    ,"test:zone-readiness": "node --env-file-if-exists=.env.local scripts/zone-readiness-smoke.mjs"
-    ,"test:remote-sessions": "node --env-file-if-exists=.env.local scripts/remote-sessions-smoke.mjs"
+    "test:observability-rules": "node scripts/observability-rules-smoke.mjs",
+    "test:provider-resilience": "node scripts/provider-resilience-smoke.mjs",
+    "test:feature-flags": "node --env-file-if-exists=.env.local scripts/feature-flags-smoke.mjs",
+    "analytics:prune": "node --env-file-if-exists=.env.local scripts/analytics-prune.mjs",
+    "test:product-analytics": "node --env-file-if-exists=.env.local scripts/product-analytics-smoke.mjs",
+    "test:zone-readiness": "node --env-file-if-exists=.env.local scripts/zone-readiness-smoke.mjs",
+    "test:remote-sessions": "node --env-file-if-exists=.env.local scripts/remote-sessions-smoke.mjs",
+    "test:redis-rate-limit": "node scripts/redis-rate-limit-smoke.mjs"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",
@@ -94,8 +95,10 @@
     "otplib": "^12.0.1",
     "pg": "^8.23.0",
     "qrcode": "^1.5.4",
+    "rate-limit-redis": "^6.0.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "redis": "^6.2.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {

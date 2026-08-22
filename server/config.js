@@ -52,6 +52,8 @@ const envSchema = z.object({
   ,MAP_PROVIDER_DAILY_BUDGET: z.coerce.number().int().min(1).max(10000000).default(10000)
   ,MAP_STALE_CACHE_SECONDS: z.coerce.number().int().min(60).max(2592000).default(86400)
   ,FEATURE_FLAG_SALT: z.string().min(32).default("local-feature-flag-salt-change-before-prod")
+  ,REDIS_URL: z.string().url().optional()
+  ,REDIS_REQUIRED: booleanFromEnv.default(false)
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -131,4 +133,5 @@ export const config = {
     staleCacheSeconds: env.MAP_STALE_CACHE_SECONDS
   }
   ,featureFlagSalt: env.FEATURE_FLAG_SALT
+  ,redis: { url: env.REDIS_URL, required: env.REDIS_REQUIRED }
 };
