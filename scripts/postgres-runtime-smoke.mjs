@@ -787,17 +787,28 @@ try {
   );
   token = registeredToken;
   registeredRideKey = `registered-ride-${crypto.randomUUID()}`;
-  const registeredRide = await request("/rides", {
-    method: "POST",
-    headers: { "Idempotency-Key": registeredRideKey },
-    body: JSON.stringify({
-      customerId: registeredUserId,
+  const registeredRideInput = {
       pickup: "Av. Corrientes 1234, Buenos Aires",
       destination: "Obelisco, Buenos Aires",
       service: "economy",
       pickupCoords: { lat: -34.6037, lng: -58.3938 },
       destinationCoords: { lat: -34.6037, lng: -58.3816 },
+    },
+    registeredRideOptions = await request("/rides/options", {
+      method: "POST",
+      body: JSON.stringify(registeredRideInput),
+    }),
+    registeredRideQuote = registeredRideOptions.body.options?.find(
+      (entry) => entry.service === "economy",
+    );
+  const registeredRide = await request("/rides", {
+    method: "POST",
+    headers: { "Idempotency-Key": registeredRideKey },
+    body: JSON.stringify({
+      customerId: registeredUserId,
+      ...registeredRideInput,
       paymentMethod: "Efectivo",
+      quoteToken: registeredRideQuote?.quoteToken,
     }),
   });
   registeredRideId = registeredRide.body.ride?.id;
@@ -1242,6 +1253,15 @@ try {
     "ride rejects missing idempotency key",
   );
   rideKey = `ride-${crypto.randomUUID()}`;
+  const rideWithoutQuote = await request("/rides", {
+    method: "POST",
+    headers: { "Idempotency-Key": `ride-unquoted-${crypto.randomUUID()}` },
+    body: JSON.stringify({ ...ridePayload, quoteToken: undefined }),
+  });
+  assert(
+    rideWithoutQuote.status === 400,
+    "PostgreSQL ride rejects creation without a signed quote",
+  );
   const rideFirst = await request("/rides", {
     method: "POST",
     headers: { "Idempotency-Key": rideKey },

@@ -6893,8 +6893,7 @@ app.post("/api/rides/quote", async (req, res) => {
         getPostgresPricingPlan("ride"),
       ])
     : [{ rideMultiplier: 1, zoneId: null }, fallbackRidePricing];
-  return ok(res, {
-    quote: {
+  const quote = {
       ...calculateRideQuote(
         {
           pickup,
@@ -6908,7 +6907,10 @@ app.post("/api/rides/quote", async (req, res) => {
       ),
       zoneId: zone.zoneId,
     },
-  });
+    quoteId = createId("QUOTE"),
+    expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+    quoteToken = jwt.sign({ kind: "ride_quote", quoteId, service: quote.service, fare: quote.fare, breakdown: quote.breakdown, pricingVersion: quote.pricingVersion, pickup, destination, pickupCoords: pickupCoords || null, destinationCoords: destinationCoords || null }, jwtSecret, { expiresIn: "5m" });
+  return ok(res, { quote: { ...quote, quoteId, quoteToken, expiresAt } });
 });
 
 app.get(
@@ -7317,6 +7319,8 @@ app.post(
         "Idempotency-Key válido es obligatorio para solicitar viajes",
       );
     }
+    if (usesPostgresCommerce() && !quoteToken)
+      return fail(res, 400, "Debes cotizar el viaje antes de solicitarlo");
     const [rideZone, ridePricing] = usesPostgresCommerce()
       ? await Promise.all([
           getPostgresZonePricing(pickupCoords),

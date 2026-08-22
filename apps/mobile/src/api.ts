@@ -254,7 +254,7 @@ export const api = {
     destinationCoords?: GeoPoint | null;
     paymentMethod: string;
     promotionCode?: string;
-    quoteToken?: string;
+    quoteToken: string;
     scheduledFor?: string;
   }) {
     return request<{ ride: Ride }>("/rides", {

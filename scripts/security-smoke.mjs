@@ -194,8 +194,8 @@ async function run() {
     })
   });
   assert(
-    coordinateQuote.status === 200 && coordinateQuote.body?.quote?.routingMode === "coordinates",
-    "ride quote uses coordinates",
+    coordinateQuote.status === 200 && coordinateQuote.body?.quote?.routingMode === "coordinates" && coordinateQuote.body.quote.quoteToken && coordinateQuote.body.quote.expiresAt,
+    "ride quote uses coordinates and returns a signed expiring token",
     coordinateQuote.text
   );
 

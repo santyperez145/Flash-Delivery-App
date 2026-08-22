@@ -863,13 +863,14 @@ function CustomerScreen({
   };
 
   const requestRide = () => {
-    if (!rideQuote) {
+    if (!rideQuote?.quoteToken) {
       Alert.alert(
         "Cotiza primero",
         "La tarifa debe confirmarse antes de solicitar el viaje.",
       );
       return;
     }
+    const quoteToken = rideQuote.quoteToken;
     const scheduledFor =
       rideSchedule === "hour"
         ? new Date(Date.now() + 60 * 60 * 1000).toISOString()
@@ -886,7 +887,7 @@ function CustomerScreen({
           pickupCoords,
           destinationCoords,
           paymentMethod: "Flash Wallet",
-          quoteToken: rideQuote.quoteToken,
+          quoteToken,
           scheduledFor,
         }),
       scheduledFor ? "Viaje reservado" : "Viaje solicitado",

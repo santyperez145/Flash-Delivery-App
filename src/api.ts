@@ -704,10 +704,13 @@ export const api = {
       | "destinationCoords"
     >,
   ) {
-    return request<{ quote: RideQuote }>("/rides/quote", {
+    const response = await request<{ options: RideQuote[] }>("/rides/options", {
       method: "POST",
       body: JSON.stringify(payload),
     });
+    const quote = response.options.find((option) => option.service === payload.service);
+    if (!quote?.quoteToken) throw new Error("No hay una cotización vigente para esa categoría");
+    return { quote };
   },
 
   async createRide(payload: {
@@ -718,6 +721,7 @@ export const api = {
     pickupCoords?: GeoPoint | null;
     destinationCoords?: GeoPoint | null;
     paymentMethod: string;
+    quoteToken: string;
   }) {
     return request<{ ride: Ride; label: string }>("/rides", {
       method: "POST",
