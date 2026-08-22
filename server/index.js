@@ -483,6 +483,11 @@ app.use(compression({
   threshold: 1024,
   filter: (req, res) => req.path !== "/api/events" && compression.filter(req, res),
 }));
+app.use("/api/auth", (_req, res, next) => {
+  res.set("Cache-Control", "no-store, private");
+  res.set("Pragma", "no-cache");
+  next();
+});
 app.use(
   "/api",
   createLimiter({
@@ -534,6 +539,8 @@ async function requireAuth(req, res, next) {
           ? await getAdminMfaStatus(user.id)
           : { enabled: false },
     };
+    res.set("Cache-Control", "no-store, private");
+    res.set("Pragma", "no-cache");
     return next();
   } catch (_error) {
     return fail(res, 401, "Token invalido o expirado");
