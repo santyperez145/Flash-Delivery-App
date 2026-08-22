@@ -26,6 +26,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { api } from "./src/api";
@@ -84,6 +85,13 @@ type RoadRoute = {
   coordinates: GeoPoint[];
   steps: RoadStep[];
 };
+type DriverNavigationTarget = {
+  id: string;
+  kind: "Viaje" | "Comida" | "Envío";
+  phase: string;
+  point: GeoPoint | null | undefined;
+  address: string;
+};
 
 function NativeMapUnavailable({message,height=260}:{message:string;height?:number}){
   return <View style={[styles.trackingMap,styles.nativeMapEmpty,{height}]}><Ionicons name="map-outline" size={30} color="#7c3cff"/><Text style={styles.nativeMapEmptyTitle}>Mapa pendiente de coordenadas</Text><Text style={styles.nativeMapEmptyText}>{message}</Text></View>;
@@ -103,6 +111,11 @@ function navigationInstruction(step: RoadStep) {
   return `${action} por ${step.street}`;
 }
 
+function DriverNavigationModal({visible,target,origin,route,routeError,vehicleIcon,onExternal,onChat,onClose}:{visible:boolean;target:DriverNavigationTarget|null;origin:GeoPoint|null;route:RoadRoute|null;routeError:string;vehicleIcon:"bicycle"|"car-sport";onExternal:()=>void;onChat:()=>void;onClose:()=>void}){
+  const{height}=useWindowDimensions(),mapHeight=Math.max(250,Math.min(420,height*.48)),step=route?.steps[0]||null,routeColor=target?.kind==="Comida"?"#ff6a21":target?.kind==="Envío"?"#087a50":"#7c3cff",turnIcon=step?.modifier.includes("left")?"arrow-back":step?.modifier.includes("right")?"arrow-forward":"arrow-up";
+  return <Modal visible={visible} animationType="slide" onRequestClose={onClose}><SafeAreaView style={styles.driverNavScreen}><View style={styles.driverNavTop}><Pressable style={styles.driverNavClose} onPress={onClose} accessibilityRole="button" accessibilityLabel="Cerrar guía"><Ionicons name="chevron-down" size={24} color="#fff"/></Pressable><View style={styles.driverNavTurn}><Ionicons name={turnIcon} size={30} color="#15121a"/></View><View style={styles.itemCopy}><Text style={styles.driverNavPhase}>{target?.kind.toUpperCase()} · {target?.phase.toUpperCase()}</Text><Text style={styles.driverNavInstruction}>{step?navigationInstruction(step):routeError||"Calculando la mejor ruta disponible…"}</Text>{step?<Text style={styles.driverNavDistance}>en {Math.max(10,Math.round(step.distanceM))} m</Text>:null}</View></View>{origin&&target?.point?<FlashNativeMap origin={origin} destination={target.point} route={route?.coordinates||[]} originRole="driver" driverIcon={vehicleIcon} routeColor={routeColor} caption={target.phase} detail={route?`${route.distanceKm} km · ${route.durationMin} min restantes`:routeError||"Actualizando recorrido vial…"} height={mapHeight} accessibilityLabel="Mapa de la guía operativa del conductor"/>:<NativeMapUnavailable height={mapHeight} message={origin?"El próximo punto todavía no tiene coordenadas verificadas.":"Activá el GPS para iniciar la guía."}/>}<ScrollView style={styles.driverNavSheet} contentContainerStyle={styles.driverNavSheetContent} showsVerticalScrollIndicator={false}><View style={styles.driverNavEtaRow}><View><Text style={styles.driverNavEta}>{route?`${route.durationMin} min`:"--"}</Text><Text style={styles.helperText}>{route?`${route.distanceKm} km restantes`:"Esperando ruta"}</Text></View><View style={[styles.driverNavKind,{backgroundColor:routeColor}]}><Ionicons name={target?.kind==="Comida"?"restaurant":target?.kind==="Envío"?"cube":"car-sport"} size={21} color="#fff"/></View></View><Text style={styles.driverNavDestinationLabel}>PRÓXIMO PUNTO</Text><Text style={styles.driverNavDestination}>{target?.address}</Text>{route?.steps.slice(0,3).map((item,index)=><View style={styles.driverNavStep} key={`${item.type}-${item.location.lat}-${item.location.lng}-${index}`}><View style={[styles.driverNavStepIndex,index===0&&{backgroundColor:routeColor}]}><Text style={styles.driverNavStepIndexText}>{index+1}</Text></View><View style={styles.itemCopy}><Text style={styles.driverNavStepText}>{navigationInstruction(item)}</Text><Text style={styles.helperText}>{Math.max(10,Math.round(item.distanceM))} m</Text></View></View>)}<View style={styles.driverNavActions}><Pressable style={styles.driverNavSecondary} onPress={onChat}><Ionicons name="chatbubble-ellipses-outline" size={20} color="#17131c"/><Text style={styles.driverNavSecondaryText}>Chat</Text></Pressable><Pressable style={styles.driverNavPrimary} disabled={!target?.point} onPress={onExternal}><Ionicons name="navigate" size={20} color="#fff"/><Text style={styles.primaryButtonText}>Abrir guía giro a giro</Text></Pressable></View><Text style={styles.driverNavDisclaimer}>Flash mantiene etapa, destino y recorrido. Google Maps o Apple Maps aporta la navegación completa mientras tráfico y voz propios no estén habilitados.</Text></ScrollView></SafeAreaView></Modal>;
+}
+
 function OrderTrackingSheet({order,driver,onClose}:{order:Order|null;driver:Driver|null;onClose:()=>void}){
   const[route,setRoute]=useState<RoadRoute|null>(null),[routeError,setRouteError]=useState("");
   useEffect(()=>{if(!order?.pickupLocation||!order.deliveryLocation){setRoute(null);return;}let cancelled=false;setRouteError("");void api.route(order.pickupLocation,order.deliveryLocation).then(result=>{if(!cancelled)setRoute(result.route);}).catch(()=>{if(!cancelled)setRouteError("No pudimos cargar la ruta; el estado del pedido sigue actualizado.");});return()=>{cancelled=true;};},[order?.id,order?.pickupLocation?.lat,order?.pickupLocation?.lng,order?.deliveryLocation?.lat,order?.deliveryLocation?.lng]);
@@ -116,8 +129,8 @@ function RideTrackingSheet({ride,driver,contacts,pickupCode,onRevealCode,onShare
   useEffect(()=>{if(!ride?.pickupLocation||!ride.destinationLocation){setRoute(null);return;}let cancelled=false;setRouteError("");void api.route(ride.pickupLocation,ride.destinationLocation).then(result=>{if(!cancelled)setRoute(result.route);}).catch(()=>{if(!cancelled)setRouteError("La ruta no está disponible; el estado del viaje sigue actualizado.");});return()=>{cancelled=true;};},[ride?.id,ride?.pickupLocation?.lat,ride?.pickupLocation?.lng,ride?.destinationLocation?.lat,ride?.destinationLocation?.lng]);
   const hasMap=Boolean(ride?.pickupLocation&&ride.destinationLocation);
   if(!ride)return null;
-  const stages:Ride["status"][]=["requested","driver_assigned","arriving","in_progress","completed"],labels=["Buscando conductor","Conductor asignado","Llegando a buscarte","Viaje en curso","Llegaste"],current=Math.max(0,stages.indexOf(ride.status)),headline=labels[current]||ride.status.replaceAll("_"," "),nextStep=route?.steps[0]?navigationInstruction(route.steps[0]):null;
-  return <Modal visible transparent animationType="slide" onRequestClose={onClose}><View style={styles.trackingBackdrop}><View style={styles.trackingSheet}><View style={styles.trackingHeader}><View><Text style={styles.orderConfirmationEyebrow}>VIAJE EN VIVO</Text><Text style={styles.foodRestaurantTitle}>{headline}</Text></View><Pressable style={styles.foodBack} onPress={onClose}><Ionicons name="close" size={21} color="#222"/></Pressable></View>{hasMap?<FlashNativeMap origin={ride.pickupLocation!} destination={ride.destinationLocation!} route={route?.coordinates||[]} driver={driver?.location||null} routeColor="#7c3cff" caption={route?`${route.distanceKm} km · ${route.durationMin} min`:routeError||"Calculando ruta real…"} detail={driver?`${driver.name} · ${driver.vehicle}`:"Buscando un conductor disponible"} accessibilityLabel="Mapa interactivo del viaje"/>:<NativeMapUnavailable message={routeError||"El origen o el destino todavía no tienen coordenadas verificadas."}/>}<ScrollView showsVerticalScrollIndicator={false}><View style={styles.trackingStatus}><Text style={styles.foodRestaurantTitle}>{headline}</Text><Text style={styles.cardText}>{ride.pickup} → {ride.destination}</Text>{nextStep&&ride.status==="in_progress"?<View style={styles.returnStatusCard}><Ionicons name="navigate" size={18} color="#7c3cff"/><Text style={styles.cardText}>{nextStep}</Text></View>:null}<View style={styles.trackingProgress}>{labels.map((label,index)=><View style={styles.trackingStage} key={label}><View style={[styles.trackingStageDot,index<=current&&styles.trackingStageDotActive]}>{index<current?<Ionicons name="checkmark" size={11} color="#fff"/>:null}</View><Text style={[styles.trackingStageText,index===current&&styles.trackingStageTextActive]}>{label}</Text></View>)}</View></View>{driver?<View style={styles.shipmentTrackingSummary}><View><Text style={styles.orderConfirmationEyebrow}>TU CONDUCTOR</Text><Text style={styles.sectionTitle}>{driver.name}</Text><Text style={styles.cardText}>{driver.vehicle} · ★ {driver.rating.toFixed(1)}</Text></View><View style={styles.shipmentTrackingBadge}><Ionicons name="car-sport" size={20} color="#fff"/></View></View>:null}{["driver_assigned","arriving"].includes(ride.status)?<View style={styles.shipmentPinCard}><Text style={styles.orderConfirmationEyebrow}>PIN PARA INICIAR</Text>{pickupCode?<><Text style={styles.shipmentPin}>{pickupCode}</Text><Text style={styles.helperText}>Decíselo al conductor sólo cuando estés junto al vehículo correcto.</Text></>:<Pressable style={styles.orderConfirmationAction} onPress={()=>void onRevealCode()}><Ionicons name="key-outline" size={18} color="#fff"/><Text style={styles.orderConfirmationActionText}>Mostrar PIN seguro</Text></Pressable>}</View>:null}<View style={styles.safetyStrip}><View style={styles.safetyIcon}><Ionicons name="shield-checkmark" size={21} color="#087a4b"/></View><View style={styles.itemCopy}><Text style={styles.safetyTitle}>Centro de seguridad</Text><Text style={styles.helperText}>Compartí tu ruta o enviá una alerta vinculada a este viaje.</Text></View></View><Pressable style={styles.orderConfirmationAction} onPress={()=>onShare()}><Ionicons name="share-social-outline" size={18} color="#fff"/><Text style={styles.orderConfirmationActionText}>Compartir seguimiento seguro</Text></Pressable>{contacts.length>0?<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.paymentBrandRail}>{contacts.map(contact=><Pressable key={contact.id} style={styles.issueCategoryPill} onPress={()=>onShare(contact)}><Ionicons name="person-outline" size={15} color="#7c3cff"/><Text style={styles.issueCategoryText}>{contact.name}</Text></Pressable>)}</ScrollView>:null}<Pressable style={[styles.shareAction,{backgroundColor:"#fff0f0"}]} onPress={onSos}><Ionicons name="warning" size={18} color="#c92626"/><Text style={[styles.shareActionText,{color:"#c92626"}]}>Seguridad Flash · SOS</Text></Pressable><Pressable style={styles.reportIssueButton} onPress={onCancel}><Ionicons name="close-circle-outline" size={18} color="#8f3840"/><Text style={styles.reportIssueText}>Cancelar viaje</Text><Ionicons name="chevron-forward" size={17} color="#a29aa5"/></Pressable></ScrollView></View></View></Modal>;
+  const stages:Ride["status"][]=["requested","driver_assigned","arriving","in_progress","completed"],labels=["Buscando conductor","Conductor asignado","Llegando a buscarte","Viaje en curso","Llegaste"],current=Math.max(0,stages.indexOf(ride.status)),headline=labels[current]||ride.status.replaceAll("_"," ");
+  return <Modal visible transparent animationType="slide" onRequestClose={onClose}><View style={styles.trackingBackdrop}><View style={styles.trackingSheet}><View style={styles.trackingHeader}><View><Text style={styles.orderConfirmationEyebrow}>VIAJE EN VIVO</Text><Text style={styles.foodRestaurantTitle}>{headline}</Text></View><Pressable style={styles.foodBack} onPress={onClose}><Ionicons name="close" size={21} color="#222"/></Pressable></View>{hasMap?<FlashNativeMap origin={ride.pickupLocation!} destination={ride.destinationLocation!} route={route?.coordinates||[]} driver={driver?.location||null} routeColor="#7c3cff" caption={route?`${route.distanceKm} km · ${route.durationMin} min`:routeError||"Calculando ruta real…"} detail={driver?`${driver.name} · ${driver.vehicle}`:"Buscando un conductor disponible"} accessibilityLabel="Mapa interactivo del viaje"/>:<NativeMapUnavailable message={routeError||"El origen o el destino todavía no tienen coordenadas verificadas."}/>}<ScrollView showsVerticalScrollIndicator={false}><View style={styles.trackingStatus}><Text style={styles.foodRestaurantTitle}>{headline}</Text><Text style={styles.cardText}>{ride.pickup} → {ride.destination}</Text><View style={styles.trackingProgress}>{labels.map((label,index)=><View style={styles.trackingStage} key={label}><View style={[styles.trackingStageDot,index<=current&&styles.trackingStageDotActive]}>{index<current?<Ionicons name="checkmark" size={11} color="#fff"/>:null}</View><Text style={[styles.trackingStageText,index===current&&styles.trackingStageTextActive]}>{label}</Text></View>)}</View></View>{driver?<View style={styles.shipmentTrackingSummary}><View><Text style={styles.orderConfirmationEyebrow}>TU CONDUCTOR</Text><Text style={styles.sectionTitle}>{driver.name}</Text><Text style={styles.cardText}>{driver.vehicle} · ★ {driver.rating.toFixed(1)}</Text></View><View style={styles.shipmentTrackingBadge}><Ionicons name="car-sport" size={20} color="#fff"/></View></View>:null}{["driver_assigned","arriving"].includes(ride.status)?<View style={styles.shipmentPinCard}><Text style={styles.orderConfirmationEyebrow}>PIN PARA INICIAR</Text>{pickupCode?<><Text style={styles.shipmentPin}>{pickupCode}</Text><Text style={styles.helperText}>Decíselo al conductor sólo cuando estés junto al vehículo correcto.</Text></>:<Pressable style={styles.orderConfirmationAction} onPress={()=>void onRevealCode()}><Ionicons name="key-outline" size={18} color="#fff"/><Text style={styles.orderConfirmationActionText}>Mostrar PIN seguro</Text></Pressable>}</View>:null}<View style={styles.safetyStrip}><View style={styles.safetyIcon}><Ionicons name="shield-checkmark" size={21} color="#087a4b"/></View><View style={styles.itemCopy}><Text style={styles.safetyTitle}>Centro de seguridad</Text><Text style={styles.helperText}>Compartí tu ruta o enviá una alerta vinculada a este viaje.</Text></View></View><Pressable style={styles.orderConfirmationAction} onPress={()=>onShare()}><Ionicons name="share-social-outline" size={18} color="#fff"/><Text style={styles.orderConfirmationActionText}>Compartir seguimiento seguro</Text></Pressable>{contacts.length>0?<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.paymentBrandRail}>{contacts.map(contact=><Pressable key={contact.id} style={styles.issueCategoryPill} onPress={()=>onShare(contact)}><Ionicons name="person-outline" size={15} color="#7c3cff"/><Text style={styles.issueCategoryText}>{contact.name}</Text></Pressable>)}</ScrollView>:null}<Pressable style={[styles.shareAction,{backgroundColor:"#fff0f0"}]} onPress={onSos}><Ionicons name="warning" size={18} color="#c92626"/><Text style={[styles.shareActionText,{color:"#c92626"}]}>Seguridad Flash · SOS</Text></Pressable><Pressable style={styles.reportIssueButton} onPress={onCancel}><Ionicons name="close-circle-outline" size={18} color="#8f3840"/><Text style={styles.reportIssueText}>Cancelar viaje</Text><Ionicons name="chevron-forward" size={17} color="#a29aa5"/></Pressable></ScrollView></View></View></Modal>;
 }
 
 function ServiceChatModal({jobId,currentUserId,onClose}:{jobId:string|null;currentUserId:string;onClose:()=>void}){
@@ -308,7 +321,7 @@ export default function App() {
       style={[styles.root, mode === "customer" && styles.customerRoot]}
     >
       <MobileNetworkStatus online={networkOnline} />
-      {mode !== "customer" && (
+      {mode === "merchant" && (
         <View style={styles.header}>
           <View>
             <Text style={styles.eyebrow}>Flash native</Text>
@@ -320,7 +333,7 @@ export default function App() {
         </View>
       )}
 
-      {mode !== "customer" && (
+      {mode === "merchant" && (
         <View style={styles.sessionBar}>
           <Text style={styles.sessionRole}>
             {mode === "merchant" ? "Comercio" : "Conductor"}
@@ -342,6 +355,15 @@ export default function App() {
           runAction={runAction}
           refresh={refresh}
         />
+      ) : mode === "driver" && activeDriver ? (
+        <DriverScreen
+          state={state}
+          driver={activeDriver}
+          busy={busy}
+          runAction={runAction}
+          onLogout={logout}
+          onRefresh={refresh}
+        />
       ) : (
         <ScrollView
           contentContainerStyle={styles.content}
@@ -353,14 +375,6 @@ export default function App() {
             <MerchantScreen
               restaurant={activeRestaurant}
               orders={state.orders}
-              busy={busy}
-              runAction={runAction}
-            />
-          )}
-          {mode === "driver" && activeDriver && (
-            <DriverScreen
-              state={state}
-              driver={activeDriver}
               busy={busy}
               runAction={runAction}
             />
@@ -2838,12 +2852,21 @@ function DriverScreen({
   driver,
   busy,
   runAction,
+  onLogout,
+  onRefresh,
 }: {
   state: AppState;
   driver: Driver;
   busy: boolean;
   runAction: (action: () => Promise<unknown>, success: string) => void;
+  onLogout: () => Promise<void>;
+  onRefresh: () => Promise<void>;
 }) {
+  const [driverView,setDriverView]=useState<"home"|"earnings"|"inbox"|"account">("home");
+  const driverScrollRef=useRef<ScrollView>(null);
+  const [navigationOpen,setNavigationOpen]=useState(false);
+  const [driverNotifications,setDriverNotifications]=useState<AppNotification[]>([]);
+  const [driverNotificationsLoading,setDriverNotificationsLoading]=useState(false);
   const [chatJobId,setChatJobId]=useState<string|null>(null);
   const [gpsStatus, setGpsStatus] = useState<
     "paused" | "requesting" | "live" | "denied"
@@ -2871,6 +2894,9 @@ function DriverScreen({
   const [vehicles,setVehicles]=useState<DriverVehicle[]>([]);
   const [vehicleBusy,setVehicleBusy]=useState(false);
   const [vehicleDraft,setVehicleDraft]=useState<{kind:DriverVehicle["kind"];model:string;plate:string;color:string;seats:string}>({kind:"car",model:"",plate:"",color:"",seats:"4"});
+
+  useEffect(()=>{if(driverView!=="inbox")return;let cancelled=false;setDriverNotificationsLoading(true);void api.getNotifications().then(result=>{if(!cancelled)setDriverNotifications(result.notifications);}).catch(()=>{if(!cancelled)setDriverNotifications([]);}).finally(()=>{if(!cancelled)setDriverNotificationsLoading(false);});return()=>{cancelled=true;};},[driverView,driver.id]);
+  useEffect(()=>{driverScrollRef.current?.scrollTo({y:0,animated:false});},[driverView]);
 
   const loadCompliance=useCallback(async()=>{try{setCompliance((await api.getDriverCompliance(driver.id)).compliance);}catch(_error){setCompliance(null);}},[driver.id]);
   const loadVehicles=useCallback(async()=>{try{setVehicles((await api.getDriverVehicles(driver.id)).vehicles);}catch(_error){setVehicles([]);}},[driver.id]);
@@ -2971,10 +2997,15 @@ function DriverScreen({
       ? offer.kind === "ride"
       : offer.kind === "delivery",
   );
-  const navigationTarget=useMemo(()=>{const ride=activeRides[0];if(ride){const toPickup=ride.status!=="in_progress";return{id:ride.id,kind:"Viaje",phase:toPickup?"Buscar pasajero":"Llevar pasajero",point:toPickup?ride.pickupLocation:ride.destinationLocation,address:toPickup?ride.pickup:ride.destination};}const order=activeOrders[0];if(order){const toPickup=!['picked_up','delivering'].includes(order.status);return{id:order.id,kind:"Comida",phase:toPickup?"Ir al comercio":"Entregar pedido",point:toPickup?order.pickupLocation:order.deliveryLocation,address:toPickup?"Punto de retiro":order.deliveryAddress};}const shipment=activeShipments[0];if(shipment){const toPickup=!['picked_up','delivering'].includes(shipment.status);return{id:shipment.id,kind:"Envío",phase:toPickup?"Retirar paquete":"Entregar paquete",point:toPickup?shipment.pickupLocation:shipment.destinationLocation,address:toPickup?shipment.pickup:shipment.destination};}return null;},[activeRides,activeOrders,activeShipments]);
+  const navigationTarget=useMemo<DriverNavigationTarget|null>(()=>{const ride=activeRides[0];if(ride){const toPickup=ride.status!=="in_progress";return{id:ride.id,kind:"Viaje",phase:toPickup?"Buscar pasajero":"Llevar pasajero",point:toPickup?ride.pickupLocation:ride.destinationLocation,address:toPickup?ride.pickup:ride.destination};}const order=activeOrders[0];if(order){const toPickup=!['picked_up','delivering'].includes(order.status);return{id:order.id,kind:"Comida",phase:toPickup?"Ir al comercio":"Entregar pedido",point:toPickup?order.pickupLocation:order.deliveryLocation,address:toPickup?"Punto de retiro":order.deliveryAddress};}const shipment=activeShipments[0];if(shipment){const toPickup=!['picked_up','delivering'].includes(shipment.status);return{id:shipment.id,kind:"Envío",phase:toPickup?"Retirar paquete":"Entregar paquete",point:toPickup?shipment.pickupLocation:shipment.destinationLocation,address:toPickup?shipment.pickup:shipment.destination};}return null;},[activeRides,activeOrders,activeShipments]);
   const activeVehicle=vehicles.find(vehicle=>vehicle.active&&vehicle.status==="approved")||null;
   const navigationTravelMode=activeVehicle?.kind==="bicycle"?"bicycling":"driving";
   const openExternalNavigation=async()=>{const point=navigationTarget?.point;if(!point)return;const url=buildExternalNavigationUrl(Platform.OS,point,navigationTravelMode);if(!url)return;try{await Linking.openURL(url);}catch(_error){Alert.alert("Navegación no disponible","No pudimos abrir la aplicación de mapas de este dispositivo.");}};
+  useEffect(()=>{if(!navigationTarget)setNavigationOpen(false);},[navigationTarget?.id]);
+
+  const completedOrders=state.orders.filter(order=>order.courierId===driver.id&&order.status==="delivered"),completedRides=state.rides.filter(ride=>ride.driverId===driver.id&&ride.status==="completed"),completedShipments=state.shipments.filter(shipment=>shipment.driverId===driver.id&&shipment.status==="delivered"),driverTips=(state.tips||[]).filter(tip=>tip.driverId===driver.id),completedCount=completedOrders.length+completedRides.length+completedShipments.length,tipTotal=driverTips.reduce((sum,tip)=>sum+tip.amount,0);
+  const notificationTitles:Record<string,string>={order_status:"Actualización de entrega",ride_status:"Actualización de viaje",shipment_status:"Actualización de envío",tip_received:"Recibiste una propina",support_reply:"Nueva respuesta de soporte",support_ticket_created:"Caso de soporte creado",driver_document_status:"Estado de documento",driver_vehicle_status:"Estado de vehículo"};
+  const activeChats=[...activeOrders.map(order=>({id:order.id,label:"Pedido de comida",detail:order.deliveryAddress,icon:"restaurant" as const})),...activeRides.map(ride=>({id:ride.id,label:"Viaje con pasajero",detail:ride.destination,icon:"car-sport" as const})),...activeShipments.map(shipment=>({id:shipment.id,label:"Envío activo",detail:shipment.destination,icon:"cube" as const}))];
 
   useEffect(() => {
     if (!driverPoint || !navigationTarget?.point) {
@@ -2997,9 +3028,13 @@ function DriverScreen({
   }, [driverPoint?.lat, driverPoint?.lng, navigationTarget?.id,navigationTarget?.phase]);
 
   return (
-    <View style={styles.stack}>
+    <View style={styles.driverShell}>
       <SignatureCaptureModal visible={Boolean(signatureShipmentId)} onClose={()=>{if(!deliveryEvidenceUploading)setSignatureShipmentId(null);}} onSave={saveDeliverySignature} busy={Boolean(deliveryEvidenceUploading)}/>
       <ServiceChatModal jobId={chatJobId} currentUserId={driver.userId} onClose={()=>setChatJobId(null)}/>
+      <DriverNavigationModal visible={navigationOpen} target={navigationTarget} origin={driverPoint} route={driverRoute} routeError={driverRouteError} vehicleIcon={activeVehicle?.kind==="bicycle"?"bicycle":"car-sport"} onExternal={()=>void openExternalNavigation()} onChat={()=>{setNavigationOpen(false);if(navigationTarget)setChatJobId(navigationTarget.id);}} onClose={()=>setNavigationOpen(false)}/>
+      <ScrollView ref={driverScrollRef} contentContainerStyle={styles.driverContent} refreshControl={<RefreshControl refreshing={busy} onRefresh={onRefresh}/>} showsVerticalScrollIndicator={false}>
+      <View style={styles.driverAppHeader}><View><Text style={styles.driverBrand}>FLASH DRIVER</Text><Text style={styles.driverGreeting}>{driverView==="home"?"Tu jornada":driverView==="earnings"?"Ganancias":driverView==="inbox"?"Inbox":"Cuenta"}</Text></View><Pressable style={styles.driverHeaderAction} onPress={()=>void onLogout()} accessibilityRole="button" accessibilityLabel="Cerrar sesión"><Ionicons name="log-out-outline" size={22} color="#17131c"/></Pressable></View>
+      {driverView==="home"&&<>
       <View style={styles.cardDark}>
         <Text style={styles.heroLabel}>
           {driver.online ? "Online" : "Offline"}
@@ -3030,8 +3065,23 @@ function DriverScreen({
           ["Modo", driver.activeService === "delivery" ? "Delivery" : "Taxi"],
         ]}
       />
+      </>}
+      {driverView==="account"&&<>
       <View style={styles.complianceCard}><View style={styles.complianceHeader}><View><Text style={styles.heroLabel}>LEGAJO Y SEGURIDAD</Text><Text style={styles.sectionTitle}>Verificación del conductor</Text></View><Text style={[styles.complianceBadge,compliance?.status==="approved"&&styles.complianceBadgeApproved,compliance?.status==="rejected"&&styles.complianceBadgeRejected]}>{(compliance?.status||"cargando").replaceAll("_"," ").toUpperCase()}</Text></View><Text style={styles.cardText}>Los archivos se cifran antes de persistir y sólo operaciones puede aprobarlos.</Text><View style={styles.complianceDocuments}>{compliance?.requiredTypes.map(type=>{const current=compliance.documents.find(document=>document.type===type&&!["superseded"].includes(document.status));const labels={identity:"Identidad",driver_license:"Licencia",vehicle_registration:"Cédula del vehículo",insurance:"Seguro",background_check:"Antecedentes"};return <View style={styles.complianceDocumentRow} key={type}><Ionicons name={current?.status==="approved"?"checkmark-circle":current?.status==="rejected"?"close-circle":"document-text-outline"} size={20} color={current?.status==="approved"?"#087a50":current?.status==="rejected"?"#c43d38":"#7c3cff"}/><View style={styles.itemCopy}><Text style={styles.sectionTitle}>{labels[type]}</Text><Text style={styles.cardText}>{current?current.status.replaceAll("_"," "):"Pendiente de envío"}{current?.expiresAt?` · vence ${current.expiresAt}`:""}</Text>{current?.rejectionReason&&<Text style={styles.complianceRejection}>{current.rejectionReason}</Text>}</View></View>})}</View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.paymentBrandRail}>{([['identity','Identidad'],['driver_license','Licencia'],['vehicle_registration','Cédula'],['insurance','Seguro'],['background_check','Antecedentes']] as const).map(([value,label])=><Pressable key={value} onPress={()=>setDocumentType(value)} style={[styles.issueCategoryPill,documentType===value&&styles.issueCategoryPillActive]}><Text style={[styles.issueCategoryText,documentType===value&&styles.issueCategoryTextActive]}>{label}</Text></Pressable>)}</ScrollView>{["driver_license","vehicle_registration","insurance"].includes(documentType)&&<TextInput style={styles.input} value={documentExpiry} onChangeText={setDocumentExpiry} placeholder="Vencimiento AAAA-MM-DD"/>}<Pressable disabled={documentUploading} style={[styles.primaryButton,documentUploading&&styles.disabledButton]} onPress={pickComplianceDocument}><Ionicons name="cloud-upload-outline" size={19} color="#fff"/><Text style={styles.primaryButtonText}>{documentUploading?"Cifrando y enviando…":"Elegir PDF o imagen"}</Text></Pressable></View>
       <View style={styles.complianceCard}><View style={styles.complianceHeader}><View><Text style={styles.heroLabel}>FLOTA PERSONAL</Text><Text style={styles.sectionTitle}>Vehículo operativo</Text></View><Text style={styles.complianceBadge}>{vehicles.length}/5</Text></View><Text style={styles.cardText}>Sólo el vehículo activo, aprobado y compatible recibe ofertas. Un cambio vuelve a revisión y te desconecta.</Text>{vehicles.map(vehicle=><View key={vehicle.id} style={styles.complianceDocumentRow}><Ionicons name={vehicle.kind==="bicycle"?"bicycle":vehicle.kind==="motorcycle"?"speedometer-outline":"car-sport-outline"} size={22} color={vehicle.active?"#7c3cff":"#777"}/><View style={styles.itemCopy}><Text style={styles.sectionTitle}>{vehicle.model} · {vehicle.plate}</Text><Text style={styles.cardText}>{vehicle.kind} · {vehicle.serviceModes.join(" + ")} · {vehicle.status}{vehicle.active?" · activo":""}</Text>{vehicle.rejectionReason&&<Text style={styles.complianceRejection}>{vehicle.rejectionReason}</Text>}</View>{!vehicle.active&&vehicle.status==="approved"?<Pressable disabled={vehicleBusy} onPress={()=>void runVehicleAction(()=>api.activateDriverVehicle(vehicle.id),"Vehículo activado; revisá tu disponibilidad.")}><Ionicons name="checkmark-circle-outline" size={25} color="#087a50"/></Pressable>:null}<Pressable disabled={vehicleBusy} onPress={()=>Alert.alert("Retirar vehículo",`¿Retirar ${vehicle.model}? La evidencia histórica se conservará.`,[{text:"Cancelar",style:"cancel"},{text:"Retirar",style:"destructive",onPress:()=>void runVehicleAction(()=>api.retireDriverVehicle(vehicle.id),"Vehículo retirado") }])}><Ionicons name="trash-outline" size={21} color="#a33939"/></Pressable></View>)}<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.paymentBrandRail}>{([['bicycle','Bici'],['motorcycle','Moto'],['car','Auto'],['van','Van']] as const).map(([value,label])=><Pressable key={value} onPress={()=>setVehicleDraft(current=>({...current,kind:value,seats:["car","van"].includes(value)?current.seats||"4":"1"}))} style={[styles.issueCategoryPill,vehicleDraft.kind===value&&styles.issueCategoryPillActive]}><Text style={[styles.issueCategoryText,vehicleDraft.kind===value&&styles.issueCategoryTextActive]}>{label}</Text></Pressable>)}</ScrollView><TextInput style={styles.input} value={vehicleDraft.model} onChangeText={model=>setVehicleDraft(current=>({...current,model}))} placeholder="Marca y modelo"/><TextInput style={styles.input} value={vehicleDraft.plate} onChangeText={plate=>setVehicleDraft(current=>({...current,plate:plate.toUpperCase()}))} autoCapitalize="characters" placeholder="Patente"/><TextInput style={styles.input} value={vehicleDraft.color} onChangeText={color=>setVehicleDraft(current=>({...current,color}))} placeholder="Color"/>{["car","van"].includes(vehicleDraft.kind)?<TextInput style={styles.input} value={vehicleDraft.seats} onChangeText={seats=>setVehicleDraft(current=>({...current,seats:seats.replace(/\D/g,"").slice(0,1)}))} keyboardType="numeric" placeholder="Asientos"/>:null}<Pressable disabled={vehicleBusy||!vehicleDraft.model.trim()||vehicleDraft.plate.trim().length<3} style={[styles.primaryButton,(vehicleBusy||!vehicleDraft.model.trim()||vehicleDraft.plate.trim().length<3)&&styles.disabledButton]} onPress={()=>void addVehicle()}><Ionicons name="add-circle-outline" size={19} color="#fff"/><Text style={styles.primaryButtonText}>{vehicleBusy?"Guardando…":"Registrar vehículo"}</Text></Pressable></View>
+      </>}
+      {driverView==="earnings"&&<>
+        <LinearGradient colors={["#21132f","#6f25d8"]} start={{x:0,y:0}} end={{x:1,y:1}} style={styles.driverEarningsHero}><Text style={styles.driverEarningsLabel}>INGRESOS REGISTRADOS HOY</Text><Text style={styles.driverEarningsValue}>{money.format(driver.earningsToday)}</Text><Text style={styles.driverEarningsCopy}>Este total proviene del backend. No incluye proyecciones ni promociones inexistentes.</Text></LinearGradient>
+        <KpiRow items={[["Activos",activeOrders.length+activeRides.length+activeShipments.length],["Propinas",money.format(tipTotal)],["Rating",driver.rating],["Estado",driver.online?"Online":"Offline"]]}/>
+        <View style={styles.driverInsightCard}><View style={styles.driverInsightIcon}><Ionicons name="receipt-outline" size={22} color="#7c3cff"/></View><View style={styles.itemCopy}><Text style={styles.sectionTitle}>Historial visible</Text><Text style={styles.cardText}>{completedCount} servicios cargados: {completedRides.length} viajes · {completedOrders.length} pedidos · {completedShipments.length} envíos.</Text></View></View>
+        <View style={styles.driverTransparencyCard}><Ionicons name="shield-checkmark-outline" size={22} color="#087a50"/><View style={styles.itemCopy}><Text style={styles.sectionTitle}>Sin gráficos inventados</Text><Text style={styles.cardText}>Resumen semanal, horas activas, ajustes y liquidaciones aparecerán cuando el ledger del conductor los exponga por API.</Text></View></View>
+      </>}
+      {driverView==="inbox"&&<>
+        <View style={styles.driverSectionHeading}><View><Text style={styles.driverSectionEyebrow}>COMUNICACIONES</Text><Text style={styles.driverSectionTitle}>Inbox</Text></View><View style={styles.driverUnreadBadge}><Text style={styles.driverUnreadText}>{driverNotifications.filter(item=>!item.readAt).length}</Text></View></View>
+        {activeChats.length>0?<View style={styles.complianceCard}><Text style={styles.sectionTitle}>Chats de trabajos activos</Text><Text style={styles.cardText}>El chat queda ligado al servicio y conserva participantes autorizados.</Text>{activeChats.map(chat=><Pressable key={chat.id} style={styles.driverInboxRow} onPress={()=>setChatJobId(chat.id)}><View style={styles.driverInboxIcon}><Ionicons name={chat.icon} size={20} color="#7c3cff"/></View><View style={styles.itemCopy}><Text style={styles.sectionTitle}>{chat.label}</Text><Text style={styles.cardText} numberOfLines={1}>{chat.detail}</Text></View><Ionicons name="chevron-forward" size={19} color="#968c9e"/></Pressable>)}</View>:null}
+        <View style={styles.complianceCard}><Text style={styles.sectionTitle}>Novedades de tu cuenta</Text>{driverNotificationsLoading?<ActivityIndicator color="#7c3cff"/>:driverNotifications.length===0?<View style={styles.driverEmptyState}><Ionicons name="mail-open-outline" size={34} color="#7c3cff"/><Text style={styles.sectionTitle}>Todo al día</Text><Text style={styles.cardText}>Los estados de servicios, documentos y soporte aparecerán acá.</Text></View>:driverNotifications.slice(0,20).map(item=><Pressable key={item.id} disabled={Boolean(item.readAt)} onPress={async()=>{const result=await api.markNotificationRead(item.id);setDriverNotifications(result.notifications);}} style={[styles.driverInboxRow,!item.readAt&&styles.driverInboxUnread]}><View style={styles.driverInboxIcon}><Ionicons name={item.readAt?"mail-open-outline":"mail-unread-outline"} size={20} color={item.readAt?"#777":"#7c3cff"}/></View><View style={styles.itemCopy}><Text style={styles.sectionTitle}>{notificationTitles[item.template]||"Novedad de Flash"}</Text><Text style={styles.cardText}>{String(item.payload.status||item.payload.kind||"Revisá el detalle de tu cuenta")}</Text><Text style={styles.notificationTime}>{new Date(item.createdAt).toLocaleString("es-AR")}</Text></View>{!item.readAt?<Text style={styles.notificationNew}>NUEVA</Text>:null}</Pressable>)}</View>
+      </>}
+      {driverView==="home"&&<>
       <View style={styles.actionRow}>
         <ActionButton
           label={driver.online ? "Pausar" : "Activar"}
@@ -3107,9 +3157,9 @@ function DriverScreen({
             </Text>
             <Text style={styles.helperText} numberOfLines={1}>{navigationTarget?.address}</Text>
           </View>
-          <Pressable style={styles.proofCameraButton} onPress={()=>void openExternalNavigation()} accessibilityRole="button" accessibilityLabel="Abrir navegación giro a giro">
+          <Pressable style={styles.proofCameraButton} onPress={()=>setNavigationOpen(true)} accessibilityRole="button" accessibilityLabel="Abrir guía operativa del conductor">
             <Ionicons name="navigate" size={19} color="#fff" />
-            <Text style={styles.primaryButtonText}>Navegar</Text>
+            <Text style={styles.primaryButtonText}>Ver guía</Text>
           </Pressable>
         </View>
       )}
@@ -3270,6 +3320,9 @@ function DriverScreen({
             : "Actívate para recibir ofertas."}
         </Text>
       )}
+      </>}
+      </ScrollView>
+      <View style={styles.driverBottomNav}>{([['home','map-outline','Mapa'],['earnings','wallet-outline','Ganancias'],['inbox','chatbox-ellipses-outline','Inbox'],['account','person-circle-outline','Cuenta']] as const).map(([value,icon,label])=><Pressable key={value} style={styles.driverBottomItem} onPress={()=>setDriverView(value)} accessibilityRole="tab" accessibilityState={{selected:driverView===value}}><View style={styles.driverBottomIconWrap}><Ionicons name={icon} size={22} color={driverView===value?"#7c3cff":"#8a828f"}/>{value==="inbox"&&driverNotifications.some(item=>!item.readAt)?<View style={styles.driverBottomDot}/>:null}</View><Text style={[styles.driverBottomLabel,driverView===value&&styles.driverBottomLabelActive]}>{label}</Text></Pressable>)}</View>
     </View>
   );
 }
@@ -4551,6 +4604,69 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  driverShell: {
+    flex: 1,
+    width: "100%",
+    maxWidth: 560,
+    alignSelf: "center",
+    backgroundColor: "#f7f6f9",
+  },
+  driverContent: { padding: 14, paddingBottom: 26, gap: 12 },
+  driverAppHeader: {
+    minHeight: 58,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 2,
+  },
+  driverBrand: { color: "#7c3cff", fontSize: 10, fontWeight: "900", letterSpacing: 1.5 },
+  driverGreeting: { color: "#17131c", fontSize: 25, fontWeight: "900", marginTop: 2 },
+  driverHeaderAction: { width: 42, height: 42, borderRadius: 15, backgroundColor: "#fff", alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#ebe5ef" },
+  driverBottomNav: { minHeight: 72, flexDirection: "row", alignItems: "center", justifyContent: "space-around", paddingHorizontal: 8, paddingTop: 7, backgroundColor: "#fff", borderTopWidth: 1, borderTopColor: "#e6e0e9", shadowColor: "#241331", shadowOpacity: .12, shadowRadius: 14, shadowOffset: {width:0,height:-4}, elevation: 16 },
+  driverBottomItem: { flex: 1, minHeight: 54, alignItems: "center", justifyContent: "center", gap: 3 },
+  driverBottomIconWrap: { position: "relative", minWidth: 25, alignItems: "center" },
+  driverBottomDot: { position: "absolute", right: -2, top: -2, width: 8, height: 8, borderRadius: 4, backgroundColor: "#ef3b57", borderWidth: 1.5, borderColor: "#fff" },
+  driverBottomLabel: { color: "#8a828f", fontSize: 10, fontWeight: "800" },
+  driverBottomLabelActive: { color: "#7c3cff" },
+  driverEarningsHero: { minHeight: 185, borderRadius: 28, padding: 22, justifyContent: "center", shadowColor: "#35115f", shadowOpacity: .2, shadowRadius: 18, shadowOffset: {width:0,height:8}, elevation: 6 },
+  driverEarningsLabel: { color: "rgba(255,255,255,.68)", fontSize: 10, fontWeight: "900", letterSpacing: 1.3 },
+  driverEarningsValue: { color: "#fff", fontSize: 38, fontWeight: "900", marginTop: 9 },
+  driverEarningsCopy: { color: "rgba(255,255,255,.78)", fontSize: 12, lineHeight: 18, marginTop: 10, maxWidth: 360 },
+  driverInsightCard: { flexDirection: "row", alignItems: "center", gap: 12, padding: 16, borderRadius: 21, backgroundColor: "#fff", borderWidth: 1, borderColor: "#e9e3ed" },
+  driverInsightIcon: { width: 46, height: 46, borderRadius: 16, backgroundColor: "#f0e7ff", alignItems: "center", justifyContent: "center" },
+  driverTransparencyCard: { flexDirection: "row", alignItems: "flex-start", gap: 12, padding: 16, borderRadius: 21, backgroundColor: "#eaf8f0", borderWidth: 1, borderColor: "#cdebd9" },
+  driverSectionHeading: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginVertical: 4 },
+  driverSectionEyebrow: { color: "#7c3cff", fontSize: 10, fontWeight: "900", letterSpacing: 1.3 },
+  driverSectionTitle: { color: "#17131c", fontSize: 28, fontWeight: "900", marginTop: 3 },
+  driverUnreadBadge: { minWidth: 36, height: 36, paddingHorizontal: 10, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: "#7c3cff" },
+  driverUnreadText: { color: "#fff", fontWeight: "900", fontVariant: ["tabular-nums"] },
+  driverInboxRow: { minHeight: 70, flexDirection: "row", alignItems: "center", gap: 11, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: "#eee9f1" },
+  driverInboxUnread: { backgroundColor: "#f7f1ff", marginHorizontal: -8, paddingHorizontal: 8, borderRadius: 14 },
+  driverInboxIcon: { width: 42, height: 42, borderRadius: 14, backgroundColor: "#f0e8ff", alignItems: "center", justifyContent: "center" },
+  driverEmptyState: { minHeight: 160, alignItems: "center", justifyContent: "center", gap: 7, padding: 20 },
+  driverNavScreen: { flex: 1, backgroundColor: "#15121a" },
+  driverNavTop: { minHeight: 108, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: "#15121a" },
+  driverNavClose: { width: 40, height: 40, borderRadius: 14, alignItems: "center", justifyContent: "center", backgroundColor: "rgba(255,255,255,.12)" },
+  driverNavTurn: { width: 58, height: 58, borderRadius: 19, alignItems: "center", justifyContent: "center", backgroundColor: "#caff3d" },
+  driverNavPhase: { color: "#caff3d", fontSize: 9, fontWeight: "900", letterSpacing: 1.1 },
+  driverNavInstruction: { color: "#fff", fontSize: 18, lineHeight: 22, fontWeight: "900", marginTop: 4 },
+  driverNavDistance: { color: "rgba(255,255,255,.7)", fontSize: 12, fontWeight: "800", marginTop: 3 },
+  driverNavSheet: { flex: 1, backgroundColor: "#fff", borderTopLeftRadius: 26, borderTopRightRadius: 26, marginTop: -22 },
+  driverNavSheetContent: { padding: 18, paddingTop: 22, paddingBottom: 34, gap: 12 },
+  driverNavEtaRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  driverNavEta: { color: "#17131c", fontSize: 31, fontWeight: "900" },
+  driverNavKind: { width: 48, height: 48, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  driverNavDestinationLabel: { color: "#7c3cff", fontSize: 9, fontWeight: "900", letterSpacing: 1.2, marginTop: 3 },
+  driverNavDestination: { color: "#17131c", fontSize: 17, lineHeight: 22, fontWeight: "900" },
+  driverNavStep: { flexDirection: "row", alignItems: "center", gap: 11, minHeight: 54, paddingVertical: 7, borderTopWidth: 1, borderTopColor: "#eee9f1" },
+  driverNavStepIndex: { width: 31, height: 31, borderRadius: 11, alignItems: "center", justifyContent: "center", backgroundColor: "#6f6874" },
+  driverNavStepIndexText: { color: "#fff", fontWeight: "900" },
+  driverNavStepText: { color: "#241f29", fontSize: 14, fontWeight: "800" },
+  driverNavActions: { flexDirection: "row", gap: 10, marginTop: 4 },
+  driverNavSecondary: { minHeight: 52, paddingHorizontal: 18, borderRadius: 17, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#f0edf2" },
+  driverNavSecondaryText: { color: "#17131c", fontWeight: "900" },
+  driverNavPrimary: { flex: 1, minHeight: 52, paddingHorizontal: 14, borderRadius: 17, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#17131c" },
+  driverNavDisclaimer: { color: "#766e7b", fontSize: 10, lineHeight: 15, textAlign: "center", marginTop: 2 },
   driverNavigation: {
     flexDirection: "row",
     alignItems: "center",

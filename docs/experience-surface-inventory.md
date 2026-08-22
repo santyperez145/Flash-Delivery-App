@@ -74,7 +74,7 @@ Flash adopta jerarquía y estados comparables, no texto, activos, colores ni ide
 ### Navegación y trabajo activo
 
 - [x] ruta desde GPS vigente al próximo pickup/destino y maniobras OSRM.
-- [~] cockpit dedicado del conductor: instrucción dominante, ETA/distancia, mapa, destino, chat y apertura de Google/Apple Maps.
+- [x] cockpit dedicado del conductor: instrucción dominante, ETA/distancia, mapa, destino, chat y apertura de Google/Apple Maps.
 - [ ] voz, tráfico, cierres, velocidad y reportes viales: proveedor/SLA/prueba física obligatorios.
 - [~] Viajes: pickup, llegada, espera, PIN, inicio, destino y cierre; falta no-show/waiting fee regulado.
 - [x] Comida: ir al comercio, retiro, ir al cliente, entrega y chat.
@@ -82,13 +82,13 @@ Flash adopta jerarquía y estados comparables, no texto, activos, colores ni ide
 
 ### Ganancias
 
-- [~] total real del día y servicios reales visibles.
+- [x] total real del día, rating, activos, propinas e historial disponible, sin proyectar datos ausentes.
 - [ ] sesión, semana, detalle por servicio, propinas, ajustes, saldo y liquidación requieren API/ledger dedicado al conductor.
 - [ ] objetivos/promociones sólo con campañas reales, elegibilidad y términos.
 
 ### Inbox
 
-- [~] chat por servicio y soporte existen; falta bandeja Driver segmentada para documentos, incidentes y comunicaciones.
+- [~] Inbox Driver segmenta chats activos y notificaciones privadas persistentes; falta clasificación específica de incidentes/documentos en backend.
 
 ### Cuenta / operación
 
