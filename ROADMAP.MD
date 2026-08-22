@@ -52,6 +52,10 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [x] La selección multi-comercio es explícita y revalida ownership; apertura y ETA actualizan comercio + sucursal principal en una única transacción. La app móvil sólo ofrece las transiciones de cocina que pertenecen al comercio.
 - [x] `GET /api/merchant/orders/active` reemplaza la lista derivada de actividad parcial: exige selección propia, prioriza acción/plazo/etapa en PostgreSQL, excluye terminales, limita 100 y declara `hasMore` en lugar de truncar silenciosamente.
 - [x] Merchant App dejó de ser una pantalla plana: Hoy, Pedidos, Catálogo y Cuenta tienen contenido propio y navegación inferior fija/accesible. Pedidos y desktop comparten la cola autoritativa; estados que pertenecen al courier ya no muestran CTA de comercio.
+- [x] Desktop y Merchant App abren una comanda real y responsive con sucursal, plazo, courier, destino, productos, extras, notas e historial de cambios; el chat conserva el contexto del pedido.
+- [x] La cola expone la sucursal autoritativa y el faltante sólo modifica su inventario. PostgreSQL rechaza reemplazos iguales, globalmente o localmente inactivos, sin stock suficiente o más caros que el original.
+- [x] Las propuestas quedan pendientes hasta decisión explícita del cliente y bloquean el avance del pedido. Aceptar un reemplazo más barato produce el reintegro exacto mediante el ledger Wallet balanceado.
+- [x] Contratos OpenAPI para consultar/proponer/decidir sustituciones y smokes de ownership, inventario, consentimiento y UI impiden volver a una gestión hardcodeada.
 - [~] La composición amplia de desktop y la superficie mobile/web se verificaron visualmente con datos PostgreSQL. Falta prueba física en build nativo, teclado/safe areas y red degradada; el pre-dispatch antes de “listo” requiere separar estados de cocina/logística y medir esperas reales.
 
 ## Avance 22 de agosto de 2026 — preferencia de navegación Driver

@@ -104,7 +104,7 @@ Flash adopta jerarquía y estados comparables, no texto, activos, colores ni ide
 |---|---|---|
 | Navegación mobile | Hoy, Pedidos, Catálogo y Cuenta con barra inferior fija | [~] funcional y verificada en web; falta build físico/safe areas/teclado |
 | Hoy | estado abierto/pausado, cola, SLA de preparación, atrasos, ventas del día e incidencias | [~] desktop y Merchant App conectados/verificados contra PostgreSQL; falta prueba física nativa, teclado y red degradada |
-| Pedidos | nuevos, aceptados, preparación, listos, sustituciones, detalle | [x] |
+| Pedidos | nuevos, aceptados, preparación, listos, comanda con notas/extras, chat y sustitución consentida por sucursal | [x] desktop y Merchant App consumen los mismos contratos PostgreSQL/OpenAPI |
 | Catálogo | categorías, productos, modificadores, dieta/alérgenos, stock por sucursal | [x] |
 | Operación | sucursales, horarios, excepciones, zonas, capacidad/ETA | [x] |
 | Clientes | incidencias y soporte ligado al pedido | [~] |

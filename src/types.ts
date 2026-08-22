@@ -210,6 +210,7 @@ export type Order = {
   id: string;
   customerId: string;
   restaurantId: string;
+  branchId?: string | null;
   courierId: string | null;
   status: OrderStatus;
   deliveryAddress: string;

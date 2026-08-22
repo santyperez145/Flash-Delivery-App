@@ -10,11 +10,27 @@ const select=`SELECT s.*,j.public_id job_public_id,j.customer_id,original.public
 
 export async function proposeOrderSubstitution({orderPublicId,merchantOwnerPublicId,originalMenuItemId,replacementMenuItemId,reason,admin=false}){
   const client=await postgresPool.connect();try{await client.query("BEGIN");
-    const row=(await client.query(`SELECT j.id job_id,j.customer_id,ji.id job_item_id,ji.quantity,ji.unit_price_cents original_price,ji.name original_name,original.id original_id,original.public_id original_public_id,original.available original_available,replacement.id replacement_id,replacement.public_id replacement_public_id,replacement.name replacement_name,replacement.unit_price_cents replacement_price
-      FROM jobs j JOIN merchants m ON m.id=j.merchant_id JOIN users owner ON owner.id=m.owner_id JOIN job_items ji ON ji.job_id=j.id JOIN catalog_items original ON original.id=ji.catalog_item_id JOIN catalog_items replacement ON replacement.merchant_id=m.id AND replacement.public_id=$4
-      WHERE j.public_id=$1 AND j.kind='delivery' AND j.metadata->>'subtype'='food_order' AND j.status IN('accepted','preparing') AND ($5::boolean OR owner.public_id=$2) AND original.public_id=$3 FOR UPDATE OF j,ji`,[orderPublicId,merchantOwnerPublicId,originalMenuItemId,replacementMenuItemId,admin])).rows[0];
+    const row=(await client.query(`SELECT j.id job_id,j.customer_id,ji.id job_item_id,ji.quantity,ji.unit_price_cents original_price,ji.name original_name,
+      original.id original_id,original.public_id original_public_id,original.available original_available,
+      original_inventory.available original_branch_available,original_inventory.stock_quantity original_branch_quantity,
+      replacement.id replacement_id,replacement.public_id replacement_public_id,replacement.name replacement_name,
+      replacement.unit_price_cents replacement_price,replacement.available replacement_available,
+      replacement_inventory.available replacement_branch_available,replacement_inventory.stock_quantity replacement_branch_quantity
+      FROM jobs j
+      JOIN merchants m ON m.id=j.merchant_id
+      JOIN users owner ON owner.id=m.owner_id
+      JOIN job_items ji ON ji.job_id=j.id
+      JOIN catalog_items original ON original.id=ji.catalog_item_id
+      JOIN catalog_branch_inventory original_inventory ON original_inventory.branch_id=j.branch_id AND original_inventory.catalog_item_id=original.id
+      JOIN catalog_items replacement ON replacement.merchant_id=m.id AND replacement.public_id=$4
+      JOIN catalog_branch_inventory replacement_inventory ON replacement_inventory.branch_id=j.branch_id AND replacement_inventory.catalog_item_id=replacement.id
+      WHERE j.public_id=$1 AND j.kind='delivery' AND j.metadata->>'subtype'='food_order' AND j.status IN('accepted','preparing') AND ($5::boolean OR owner.public_id=$2) AND original.public_id=$3
+      FOR UPDATE OF j,ji,original_inventory,replacement_inventory`,[orderPublicId,merchantOwnerPublicId,originalMenuItemId,replacementMenuItemId,admin])).rows[0];
     if(!row)throw Object.assign(new Error("Pedido, producto o comercio no disponible para sustituir"),{status:404});
-    if(row.original_available)throw Object.assign(new Error("Marca el producto original sin stock antes de sustituirlo"),{status:409});
+    const originalEffectivelyAvailable=row.original_available&&row.original_branch_available&&(row.original_branch_quantity===null||Number(row.original_branch_quantity)>=Number(row.quantity));
+    const replacementEffectivelyAvailable=row.replacement_available&&row.replacement_branch_available&&(row.replacement_branch_quantity===null||Number(row.replacement_branch_quantity)>=Number(row.quantity));
+    if(originalEffectivelyAvailable)throw Object.assign(new Error("Marca el producto original sin stock en la sucursal antes de sustituirlo"),{status:409});
+    if(!replacementEffectivelyAvailable)throw Object.assign(new Error("El reemplazo no tiene disponibilidad suficiente en la sucursal del pedido"),{status:409});
     if(row.original_id===row.replacement_id||Number(row.replacement_price)>Number(row.original_price))throw Object.assign(new Error("El reemplazo debe ser distinto y de precio igual o menor"),{status:409});
     const inserted=(await client.query(`INSERT INTO order_item_substitutions(public_id,job_id,job_item_id,original_catalog_item_id,replacement_catalog_item_id,proposed_by,quantity,original_unit_price_cents,replacement_unit_price_cents,reason,original_snapshot,replacement_snapshot)
       SELECT $1,$2,$3,$4,$5,u.id,$6,$7,$8,$9,$10,$11 FROM users u WHERE u.public_id=$12 RETURNING *`,[newId(),row.job_id,row.job_item_id,row.original_id,row.replacement_id,row.quantity,row.original_price,row.replacement_price,reason,{publicId:row.original_public_id,name:row.original_name},{publicId:row.replacement_public_id,name:row.replacement_name},merchantOwnerPublicId])).rows[0];

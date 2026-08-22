@@ -2711,6 +2711,7 @@ function MerchantScreen({
   const merchantScrollRef=useRef<ScrollView>(null);
   const [merchantView,setMerchantView]=useState<"today"|"orders"|"catalog"|"account">("today");
   const [chatJobId,setChatJobId]=useState<string|null>(null);
+  const [detailOrderId,setDetailOrderId]=useState<string|null>(null);
   const [operations,setOperations]=useState<MerchantOperationsDashboard|null>(null);
   const [activeOrders,setActiveOrders]=useState<Order[]>([]);
   const [activeOrdersHasMore,setActiveOrdersHasMore]=useState(false);
@@ -2749,9 +2750,11 @@ function MerchantScreen({
   const effectiveOpen=operations?.branch?.open??restaurant.open;
   const etaMin=operations?.branch?.etaMin??restaurant.etaMin;
   const updatedAt=operations?new Intl.DateTimeFormat("es-AR",{hour:"2-digit",minute:"2-digit",timeZone:operations.timezone}).format(new Date(operations.generatedAt)):null;
+  const detailOrder=activeOrders.find(order=>order.id===detailOrderId)||null;
   return (
     <View style={styles.merchantShell}>
       <ServiceChatModal jobId={chatJobId} currentUserId={restaurant.ownerId} onClose={()=>setChatJobId(null)}/>
+      <MerchantOrderDetailModal order={detailOrder} restaurant={restaurant} busy={busy} onClose={()=>setDetailOrderId(null)} onOpenChat={orderId=>{setDetailOrderId(null);setChatJobId(orderId);}} onChanged={async()=>{await onRefresh();await loadOperations();}}/>
       <ScrollView ref={merchantScrollRef} contentContainerStyle={styles.merchantContent} refreshControl={<RefreshControl refreshing={operationsLoading} onRefresh={async()=>{await onRefresh();await loadOperations();}}/>}>
       <View style={styles.stack}>
       {merchantView==="today"?<>
@@ -2816,7 +2819,7 @@ function MerchantScreen({
           onPress={["accepted","preparing"].includes(order.status) ? () =>
             runAction(() => api.advanceOrder(order.id), "Pedido avanzado")
           :undefined}
-        /><Pressable style={styles.shareAction} onPress={()=>setChatJobId(order.id)}><Ionicons name="chatbubbles-outline" size={18} color="#7c3cff"/><Text style={styles.shareActionText}>Chat del pedido</Text></Pressable></View>
+        /><View style={styles.merchantOrderActions}><Pressable style={styles.merchantOrderDetailAction} onPress={()=>setDetailOrderId(order.id)}><Ionicons name="receipt-outline" size={18} color="#9a3e12"/><Text style={styles.merchantOrderDetailActionText}>Ver comanda</Text></Pressable><Pressable style={styles.shareAction} onPress={()=>setChatJobId(order.id)}><Ionicons name="chatbubbles-outline" size={18} color="#7c3cff"/><Text style={styles.shareActionText}>Chat</Text></Pressable></View></View>
       ))}
       {activeOrders.length === 0 && (
         <View style={styles.merchantEmpty}><Ionicons name="checkmark-circle-outline" size={28} color="#1d9b63"/><Text style={styles.merchantEmptyTitle}>{operationsLoading?"Sincronizando la cola":"Cocina al día"}</Text><Text style={styles.merchantEmptyCopy}>{operationsLoading?"Consultando pedidos activos en PostgreSQL…":"No hay pedidos activos para gestionar."}</Text></View>
@@ -2914,6 +2917,85 @@ function MerchantScreen({
       <View style={styles.merchantBottomNav}>{([['today','home-outline','Hoy'],['orders','receipt-outline','Pedidos'],['catalog','restaurant-outline','Catálogo'],['account','person-circle-outline','Cuenta']] as const).map(([value,icon,label])=><Pressable key={value} style={[styles.merchantBottomItem,merchantView===value&&styles.merchantBottomItemActive]} onPress={()=>setMerchantView(value)} accessibilityRole="tab" accessibilityState={{selected:merchantView===value}}><View style={styles.merchantBottomIconWrap}><Ionicons name={icon} size={22} color={merchantView===value?"#ef641f":"#8b817b"}/>{value==="orders"&&Boolean(metrics?.needsAction||metrics?.lateOrders)?<View style={styles.merchantBottomDot}/>:null}</View><Text style={[styles.merchantBottomLabel,merchantView===value&&styles.merchantBottomLabelActive]}>{label}</Text></Pressable>)}</View>
     </View>
   );
+}
+
+function MerchantOrderDetailModal({
+  order,
+  restaurant,
+  busy,
+  onClose,
+  onOpenChat,
+  onChanged,
+}: {
+  order: Order | null;
+  restaurant: Restaurant;
+  busy: boolean;
+  onClose: () => void;
+  onOpenChat: (orderId: string) => void;
+  onChanged: () => Promise<void>;
+}) {
+  const [substitutions,setSubstitutions]=useState<OrderSubstitution[]>([]);
+  const [selectedItemId,setSelectedItemId]=useState("");
+  const [replacementId,setReplacementId]=useState("");
+  const [reason,setReason]=useState("");
+  const [loading,setLoading]=useState(false);
+  const [actionBusy,setActionBusy]=useState(false);
+  const [error,setError]=useState("");
+  const loadSubstitutions=useCallback(async(orderId:string)=>{
+    setLoading(true);
+    try{const result=await api.getOrderSubstitutions(orderId);setSubstitutions(result.substitutions);setError("");}
+    catch(loadError){setError(loadError instanceof Error?loadError.message:"No se pudieron cargar las sustituciones");}
+    finally{setLoading(false);}
+  },[]);
+  useEffect(()=>{
+    setSelectedItemId("");setReplacementId("");setReason("");setSubstitutions([]);setError("");
+    if(order)void loadSubstitutions(order.id);
+  },[order?.id,loadSubstitutions]);
+  if(!order)return null;
+  const selectedOrderItem=order.items.find(item=>item.menuItemId===selectedItemId)||null;
+  const selectedCatalogItem=restaurant.menu.find(item=>item.id===selectedItemId)||null;
+  const branch=restaurant.branches?.find(entry=>entry.id===order.branchId)||null;
+  const inventoryFor=(itemId:string)=>branch?.inventory?.[itemId];
+  const isAvailable=(item:Restaurant["menu"][number])=>{
+    const branchInventory=inventoryFor(item.id);
+    return item.stock&&(branchInventory?.available??true)&&(branchInventory?.stockQuantity==null||branchInventory.stockQuantity>=(selectedOrderItem?.quantity||1));
+  };
+  const originalPrice=selectedOrderItem?.unitPrice??selectedCatalogItem?.price??0;
+  const candidates=restaurant.menu.filter(item=>item.id!==selectedItemId&&isAvailable(item)&&item.price<=originalPrice).sort((left,right)=>Number(Boolean(selectedCatalogItem?.category)&&right.category===selectedCatalogItem?.category)-Number(Boolean(selectedCatalogItem?.category)&&left.category===selectedCatalogItem?.category)||left.price-right.price);
+  const canManage=["accepted","preparing"].includes(order.status);
+  const selectedPending=substitutions.some(entry=>entry.status==="pending"&&entry.original.id===selectedItemId);
+  const submitSubstitution=async()=>{
+    if(!order.branchId||!selectedOrderItem?.menuItemId||!replacementId||reason.trim().length<3)return;
+    setActionBusy(true);setError("");
+    try{
+      const branchInventory=inventoryFor(selectedOrderItem.menuItemId);
+      if(selectedCatalogItem?.stock&&(branchInventory?.available??true))await api.updateBranchInventory(restaurant.id,order.branchId,selectedOrderItem.menuItemId,{available:false,stockQuantity:branchInventory?.stockQuantity??null});
+      const result=await api.proposeOrderSubstitution(order.id,{originalMenuItemId:selectedOrderItem.menuItemId,replacementMenuItemId:replacementId,reason:reason.trim()});
+      setSubstitutions(current=>[result.substitution,...current]);
+      setSelectedItemId("");setReplacementId("");setReason("");
+      await onChanged();
+      Alert.alert("Propuesta enviada","El cliente debe aceptar o rechazar el cambio antes de que cocina pueda avanzar.");
+    }catch(substitutionError){setError(substitutionError instanceof Error?substitutionError.message:"No se pudo proponer la sustitución");}
+    finally{setActionBusy(false);}
+  };
+  const createdLabel=order.createdAt?new Date(order.createdAt).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"}):"Hora no disponible";
+  return <Modal transparent visible animationType="slide" onRequestClose={onClose} statusBarTranslucent>
+    <View style={styles.merchantDetailBackdrop}>
+      <View style={styles.merchantDetailSheet}>
+        <View style={styles.issueModalHandle}/>
+        <View style={styles.issueModalHeader}><View style={styles.merchantDetailHeading}><Text style={styles.merchantScreenEyebrow}>COMANDA {order.id}</Text><Text style={styles.merchantDetailTitle}>{mobileOrderStatusLabel[order.status]}</Text><Text style={styles.merchantDetailSubtitle}>{createdLabel} · {order.branchId?branch?.name||order.branchId:"Sucursal no registrada"}</Text></View><Pressable accessibilityRole="button" accessibilityLabel="Cerrar detalle" style={styles.issueModalClose} onPress={onClose}><Ionicons name="close" size={21} color="#403a43"/></Pressable></View>
+        <ScrollView style={styles.merchantDetailScroll} contentContainerStyle={styles.merchantDetailContent} keyboardShouldPersistTaps="handled">
+          <View style={styles.merchantDetailFacts}><View style={styles.merchantDetailFact}><Text style={styles.merchantDetailFactLabel}>Total</Text><Text style={styles.merchantDetailFactValue}>{money.format(order.total)}</Text></View><View style={styles.merchantDetailFact}><Text style={styles.merchantDetailFactLabel}>Entrega estimada</Text><Text style={styles.merchantDetailFactValue}>{order.etaMin} min</Text></View><View style={styles.merchantDetailFact}><Text style={styles.merchantDetailFactLabel}>Courier</Text><Text style={styles.merchantDetailFactValue}>{order.courierId?"Asignado":"Pendiente"}</Text></View></View>
+          <View style={styles.merchantDetailSection}><Text style={styles.sectionTitle}>Productos</Text>{order.items.map((item,index)=>{const menuId=item.menuItemId||"";const catalogItem=restaurant.menu.find(entry=>entry.id===menuId);const itemInventory=menuId?inventoryFor(menuId):undefined;const unavailable=Boolean(catalogItem&&!catalogItem.stock)||itemInventory?.available===false;const hasPending=substitutions.some(entry=>entry.status==="pending"&&entry.original.id===menuId);return <View key={`${menuId||item.name}-${index}`} style={[styles.merchantDetailItem,selectedItemId===menuId&&styles.merchantDetailItemSelected]}><View style={styles.merchantDetailQuantity}><Text style={styles.merchantDetailQuantityText}>{item.quantity}×</Text></View><View style={styles.merchantDetailItemCopy}><View style={styles.merchantDetailItemTitleRow}><Text style={styles.merchantDetailItemTitle}>{item.name}</Text>{unavailable?<Text style={styles.merchantUnavailableBadge}>SIN STOCK</Text>:null}</View>{typeof item.unitPrice==="number"?<Text style={styles.merchantDetailItemPrice}>{money.format(item.unitPrice)} c/u</Text>:null}{item.extras?.length?<Text style={styles.merchantDetailItemMeta}>Agregados: {item.extras.join(", ")}</Text>:null}{item.note?<View style={styles.merchantKitchenNote}><Ionicons name="create-outline" size={16} color="#9a3e12"/><Text style={styles.merchantKitchenNoteText}>{item.note}</Text></View>:null}{canManage&&menuId?<Pressable disabled={busy||actionBusy||hasPending} style={[styles.merchantSubstitutionTrigger,(busy||actionBusy||hasPending)&&styles.disabledButton]} onPress={()=>{setSelectedItemId(menuId);setReplacementId("");setReason("");}}><Ionicons name={hasPending?"hourglass-outline":"swap-horizontal-outline"} size={17} color="#9a3e12"/><Text style={styles.merchantSubstitutionTriggerText}>{hasPending?"Esperando respuesta":"Gestionar faltante"}</Text></Pressable>:null}</View></View>})}</View>
+          {selectedOrderItem&&selectedCatalogItem?<View style={styles.merchantSubstitutionComposer}><View><Text style={styles.merchantScreenEyebrow}>SUSTITUCIÓN</Text><Text style={styles.merchantDetailSectionTitle}>Reemplazar {selectedOrderItem.name}</Text><Text style={styles.cardText}>Se marcará sin stock sólo en {branch?.name||"la sucursal del pedido"}. El cliente recibirá una propuesta verificable.</Text></View>{!order.branchId?<View style={styles.merchantDetailError}><Ionicons name="alert-circle-outline" size={18} color="#a33b28"/><Text style={styles.merchantDetailErrorText}>El pedido no conserva una sucursal operable; no se permite modificar inventario.</Text></View>:null}{candidates.length?<><Text style={styles.issueFieldLabel}>Elegí un reemplazo disponible</Text><View style={styles.merchantReplacementList}>{candidates.map(item=><Pressable key={item.id} style={[styles.merchantReplacementOption,replacementId===item.id&&styles.merchantReplacementOptionActive]} onPress={()=>setReplacementId(item.id)}><View style={styles.merchantReplacementRadio}>{replacementId===item.id?<View style={styles.merchantReplacementRadioDot}/>:null}</View><View style={styles.merchantAccountCopy}><Text style={styles.itemName}>{item.name}</Text><Text style={styles.cardText}>{item.category||"Sin categoría"} · {money.format(item.price)}</Text></View>{selectedCatalogItem.category&&item.category===selectedCatalogItem.category?<Text style={styles.merchantRecommendedBadge}>MISMA CATEGORÍA</Text>:null}</Pressable>)}</View><TextInput value={reason} onChangeText={setReason} maxLength={500} multiline numberOfLines={3} placeholder="Motivo para el cliente" style={[styles.input,styles.issueDescriptionInput]}/><Pressable disabled={!order.branchId||!replacementId||reason.trim().length<3||busy||actionBusy||selectedPending} style={[styles.issueSubmitButton,(!order.branchId||!replacementId||reason.trim().length<3||busy||actionBusy||selectedPending)&&styles.disabledButton]} onPress={()=>void submitSubstitution()}>{actionBusy?<ActivityIndicator size="small" color="#fff"/>:<Ionicons name="paper-plane-outline" size={18} color="#fff"/>}<Text style={styles.issueSubmitText}>{actionBusy?"Validando inventario…":"Marcar agotado y proponer"}</Text></Pressable></>:<View style={styles.merchantDetailError}><Ionicons name="alert-circle-outline" size={18} color="#a33b28"/><Text style={styles.merchantDetailErrorText}>No hay otro producto disponible de precio igual o menor en esta sucursal.</Text></View>}</View>:null}
+          <View style={styles.merchantDetailSection}><View style={styles.merchantDetailSectionHeader}><Text style={styles.sectionTitle}>Cambios del pedido</Text>{loading?<ActivityIndicator size="small" color="#ef641f"/>:null}</View>{substitutions.map(entry=><View key={entry.id} style={styles.merchantSubstitutionHistory}><View style={[styles.merchantSubstitutionStatus,entry.status==="pending"?styles.merchantSubstitutionPending:entry.status==="accepted"?styles.merchantSubstitutionAccepted:styles.merchantSubstitutionRejected]}><Text style={styles.merchantSubstitutionStatusText}>{entry.status==="pending"?"PENDIENTE":entry.status==="accepted"?"ACEPTADO":"RECHAZADO"}</Text></View><Text style={styles.merchantDetailItemTitle}>{entry.original.name} → {entry.replacement.name}</Text><Text style={styles.cardText}>{entry.reason}</Text>{entry.refundAmount>0?<Text style={styles.merchantRefundText}>Reintegro aplicado: {money.format(entry.refundAmount)}</Text>:null}</View>)}{!loading&&!substitutions.length?<Text style={styles.muted}>Todavía no se propusieron cambios.</Text>:null}</View>
+          {error?<View style={styles.merchantDetailError}><Ionicons name="alert-circle-outline" size={18} color="#a33b28"/><Text style={styles.merchantDetailErrorText}>{error}</Text></View>:null}
+          <View style={styles.merchantDetailDelivery}><Ionicons name="location-outline" size={20} color="#7c3cff"/><View style={styles.merchantAccountCopy}><Text style={styles.merchantDetailItemTitle}>Destino de entrega</Text><Text style={styles.cardText}>{order.deliveryAddress}</Text></View></View>
+          <Pressable style={styles.merchantDetailChat} onPress={()=>onOpenChat(order.id)}><Ionicons name="chatbubbles-outline" size={19} color="#fff"/><Text style={styles.issueSubmitText}>Abrir chat del pedido</Text></Pressable>
+        </ScrollView>
+      </View>
+    </View>
+  </Modal>;
 }
 
 function DriverScreen({
@@ -4497,6 +4579,55 @@ const styles = StyleSheet.create({
   merchantEmpty:{minHeight:180,alignItems:"center",justifyContent:"center",gap:6,padding:20,borderRadius:22,backgroundColor:"#fff",borderWidth:1,borderColor:"#e7e1dc"},
   merchantEmptyTitle:{color:"#211c18",fontSize:18,fontWeight:"900"},
   merchantEmptyCopy:{color:"#756c65",fontSize:12,textAlign:"center"},
+  merchantOrderActions:{flexDirection:"row",gap:8},
+  merchantOrderDetailAction:{flex:1,minHeight:44,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:7,borderRadius:14,backgroundColor:"#fff0e7",borderWidth:1,borderColor:"#ffd4bc"},
+  merchantOrderDetailActionText:{color:"#9a3e12",fontSize:12,fontWeight:"900"},
+  merchantDetailBackdrop:{flex:1,alignItems:"center",justifyContent:"flex-end",backgroundColor:"rgba(24,16,12,.58)"},
+  merchantDetailSheet:{width:"100%",maxWidth:620,height:"94%",maxHeight:900,paddingHorizontal:18,paddingTop:9,paddingBottom:Math.max(18,Platform.OS==="ios"?26:18),borderTopLeftRadius:30,borderTopRightRadius:30,backgroundColor:"#f8f5f2"},
+  merchantDetailHeading:{flex:1,gap:2},
+  merchantDetailTitle:{color:"#211b17",fontSize:24,fontWeight:"900",letterSpacing:-.5},
+  merchantDetailSubtitle:{color:"#766d66",fontSize:11,fontWeight:"700"},
+  merchantDetailScroll:{flex:1},
+  merchantDetailContent:{gap:13,paddingTop:14,paddingBottom:18},
+  merchantDetailFacts:{flexDirection:"row",gap:8},
+  merchantDetailFact:{flex:1,minWidth:0,padding:10,borderRadius:14,backgroundColor:"#fff"},
+  merchantDetailFactLabel:{color:"#8a7f77",fontSize:9,fontWeight:"800",textTransform:"uppercase"},
+  merchantDetailFactValue:{marginTop:4,color:"#211b17",fontSize:14,fontWeight:"900"},
+  merchantDetailSection:{gap:9,padding:14,borderRadius:20,backgroundColor:"#fff",borderWidth:1,borderColor:"#ebe4df"},
+  merchantDetailSectionHeader:{flexDirection:"row",alignItems:"center",justifyContent:"space-between"},
+  merchantDetailSectionTitle:{color:"#211b17",fontSize:18,fontWeight:"900"},
+  merchantDetailItem:{flexDirection:"row",alignItems:"flex-start",gap:10,paddingVertical:11,borderTopWidth:1,borderTopColor:"#eee8e3"},
+  merchantDetailItemSelected:{marginHorizontal:-8,paddingHorizontal:8,borderRadius:14,backgroundColor:"#fff5ef",borderTopColor:"transparent"},
+  merchantDetailQuantity:{width:34,height:34,alignItems:"center",justifyContent:"center",borderRadius:11,backgroundColor:"#211813"},
+  merchantDetailQuantityText:{color:"#fff",fontSize:12,fontWeight:"900"},
+  merchantDetailItemCopy:{flex:1,gap:4},
+  merchantDetailItemTitleRow:{flexDirection:"row",alignItems:"center",gap:7},
+  merchantDetailItemTitle:{flex:1,color:"#251f1b",fontSize:14,fontWeight:"900"},
+  merchantDetailItemPrice:{color:"#ef641f",fontSize:11,fontWeight:"900"},
+  merchantDetailItemMeta:{color:"#766d66",fontSize:11,lineHeight:16},
+  merchantUnavailableBadge:{paddingHorizontal:7,paddingVertical:4,borderRadius:8,overflow:"hidden",color:"#a33b28",backgroundColor:"#ffe8e2",fontSize:8,fontWeight:"900"},
+  merchantKitchenNote:{flexDirection:"row",alignItems:"flex-start",gap:6,padding:9,borderRadius:11,backgroundColor:"#fff1e8"},
+  merchantKitchenNoteText:{flex:1,color:"#7c3c1c",fontSize:11,fontWeight:"700",lineHeight:16},
+  merchantSubstitutionTrigger:{alignSelf:"flex-start",minHeight:38,flexDirection:"row",alignItems:"center",gap:6,paddingHorizontal:11,borderRadius:12,backgroundColor:"#fff0e7",borderWidth:1,borderColor:"#ffd4bc"},
+  merchantSubstitutionTriggerText:{color:"#9a3e12",fontSize:11,fontWeight:"900"},
+  merchantSubstitutionComposer:{gap:11,padding:15,borderRadius:22,backgroundColor:"#fff",borderWidth:2,borderColor:"#ffcfb4"},
+  merchantReplacementList:{gap:7},
+  merchantReplacementOption:{minHeight:58,flexDirection:"row",alignItems:"center",gap:9,padding:10,borderRadius:15,backgroundColor:"#faf7f5",borderWidth:1,borderColor:"#e8e1dc"},
+  merchantReplacementOptionActive:{backgroundColor:"#fff0e7",borderColor:"#ef641f"},
+  merchantReplacementRadio:{width:18,height:18,alignItems:"center",justifyContent:"center",borderRadius:999,borderWidth:2,borderColor:"#ef641f"},
+  merchantReplacementRadioDot:{width:8,height:8,borderRadius:999,backgroundColor:"#ef641f"},
+  merchantRecommendedBadge:{paddingHorizontal:6,paddingVertical:4,borderRadius:8,overflow:"hidden",color:"#18704b",backgroundColor:"#e6f6ee",fontSize:7,fontWeight:"900"},
+  merchantSubstitutionHistory:{gap:5,padding:11,borderRadius:14,backgroundColor:"#f8f5f3"},
+  merchantSubstitutionStatus:{alignSelf:"flex-start",paddingHorizontal:7,paddingVertical:4,borderRadius:8},
+  merchantSubstitutionPending:{backgroundColor:"#fff0d9"},
+  merchantSubstitutionAccepted:{backgroundColor:"#dcf6e8"},
+  merchantSubstitutionRejected:{backgroundColor:"#f5e8e5"},
+  merchantSubstitutionStatusText:{color:"#493c35",fontSize:8,fontWeight:"900"},
+  merchantRefundText:{color:"#13744d",fontSize:11,fontWeight:"900"},
+  merchantDetailError:{flexDirection:"row",alignItems:"flex-start",gap:8,padding:11,borderRadius:13,backgroundColor:"#fff0ec"},
+  merchantDetailErrorText:{flex:1,color:"#8e3322",fontSize:11,fontWeight:"700",lineHeight:16},
+  merchantDetailDelivery:{flexDirection:"row",alignItems:"flex-start",gap:10,padding:14,borderRadius:18,backgroundColor:"#f1edff"},
+  merchantDetailChat:{minHeight:48,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:8,borderRadius:15,backgroundColor:"#7c3cff"},
   merchantAccountCard:{flexDirection:"row",alignItems:"center",gap:12,padding:16,borderRadius:20,backgroundColor:"#211813"},
   merchantAccountIcon:{width:46,height:46,borderRadius:15,alignItems:"center",justifyContent:"center",backgroundColor:"#ef641f"},
   merchantAccountCopy:{flex:1,gap:3},

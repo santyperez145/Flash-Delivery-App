@@ -245,6 +245,7 @@ export const api = {
   },
   async createOrderIssue(orderId:string,payload:{category:"missing_item"|"wrong_item"|"damaged_item"|"quality"|"late"|"other";description:string;requestedRefund:number}){return request<{issue:import("./types").OrderIssue}>(`/orders/${orderId}/issues`,{method:"POST",body:JSON.stringify(payload)});},
   async getOrderIssues(orderId:string){return request<{issues:import("./types").OrderIssue[]}>(`/orders/${orderId}/issues`);},
+  async proposeOrderSubstitution(orderId:string,payload:{originalMenuItemId:string;replacementMenuItemId:string;reason:string}){return request<{substitution:import("./types").OrderSubstitution}>(`/orders/${orderId}/substitutions`,{method:"POST",body:JSON.stringify(payload)});},
   async getOrderSubstitutions(orderId:string){return request<{substitutions:import("./types").OrderSubstitution[]}>(`/orders/${orderId}/substitutions`);},
   async decideOrderSubstitution(substitutionId:string,decision:"accepted"|"rejected"){return request<{substitution:import("./types").OrderSubstitution}>(`/order-substitutions/${substitutionId}`,{method:"PATCH",body:JSON.stringify({decision})});},
   async createAddress(payload:{label:string;address:string;lat:number;lng:number;isDefault:boolean}){return request<{address:UserAddress;addresses:UserAddress[]}>("/addresses",{method:"POST",body:JSON.stringify(payload)});},
@@ -377,6 +378,7 @@ export const api = {
       body: JSON.stringify({ stock })
     });
   },
+  async updateBranchInventory(restaurantId:string,branchId:string,itemId:string,input:{available:boolean;stockQuantity?:number|null}){return request<{restaurant:Restaurant}>(`/restaurants/${restaurantId}/branches/${branchId}/inventory/${itemId}`,{method:"PATCH",body:JSON.stringify(input)});},
   async addMenuItem(
     restaurantId: string,
     payload: { name: string; description: string; category: string; price: number }
