@@ -72,6 +72,7 @@
     ,"analytics:prune": "node --env-file-if-exists=.env.local scripts/analytics-prune.mjs"
     ,"test:product-analytics": "node --env-file-if-exists=.env.local scripts/product-analytics-smoke.mjs"
     ,"test:zone-readiness": "node --env-file-if-exists=.env.local scripts/zone-readiness-smoke.mjs"
+    ,"test:remote-sessions": "node --env-file-if-exists=.env.local scripts/remote-sessions-smoke.mjs"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",
