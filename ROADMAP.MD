@@ -19,7 +19,14 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [x] `097_phone_verification.sql` ya no falla al encontrar `users.phone_verified_at`, columna creada originalmente por la migración `003`; conserva compatibilidad con reconstrucciones y bases existentes.
 - [x] PostgreSQL 17.11/PostGIS 3.6 aplicó `097`–`105`; mapas y RLS físicos quedaron verdes.
 - [x] El contador OTP ahora tipa el parámetro como `smallint`, persiste cinco intentos fallidos y responde `400` en vez de filtrar un error SQL `500`; la suite sandbox completa quedó verde.
-- [~] Restore drill y SMS real continúan pendientes antes de cerrar el gate P0-03.
+- [~] Restore drill local quedó verde; SMS real y restore sobre infraestructura administrada continúan pendientes.
+
+## Verificación 22 de agosto de 2026 — recuperación física local
+
+- [x] Backup custom de 1.207.839 bytes con manifiesto SHA-256 verificado, ACL incluidas, tablas requeridas y esquema íntegramente legible.
+- [x] Restore sobre cluster PostgreSQL temporal aislado validó 105 migraciones, PostGIS 3.6.2, constraints, RLS, auditor append-only, cadena de auditoría y cero desbalances de ledger.
+- [x] El cluster temporal fue detenido y eliminado por el procedimiento después de la verificación; la base activa no fue restaurada ni modificada por el drill.
+- [~] Falta repetir el simulacro con PITR/HA en una cuenta administrada aislada; no se presenta el backup local como recuperación productiva.
 
 ## Avance 22 de agosto de 2026 — checkout web de comida sin datos simulados
 
@@ -115,7 +122,7 @@ Decisión competitiva: se adopta una bandeja transaccional persistente y prefere
 - [x] Entrega web productiva con gzip dinámico, assets versionados inmutables por un año, HTML revalidable y SSE excluido de compresión para evitar buffering; contrato HTTP bloqueante en CI.
 - [x] CSP activa por defecto: scripts same-origin, sin `unsafe-eval`, objetos/iframes bloqueados y allowlist explícita para API, mapas, imágenes, workers y estilos necesarios; contrato bloqueante sobre el HTML real.
 - [x] Viajes exige cotización JWT vigente en PostgreSQL igual que comida/envíos; desktop consume opciones firmadas, invalida tarifa al cambiar ruta/categoría y bloquea confirmación sin recotizar. El endpoint legacy también firma su respuesta.
-- [x] PostgreSQL/PostGIS, 91 migraciones, idempotencia, locks, auth, MFA, outbox, métricas, backup y restore.
+- [x] PostgreSQL/PostGIS, 105 migraciones, idempotencia, locks, auth, MFA, outbox, métricas, backup y restore local verificado.
 - [x] Autorización ampliamente probada; OpenAPI 3.1 y contratos runtime cubren plataforma, geografía, auth, sesiones, cotización/creación idempotente de comida/viajes/envíos, conexión PSP, comprobantes, tracking temporal, ofertas privadas, soporte y backoffice operativo. OpenTelemetry HTTP/PostgreSQL exporta por OTLP.
 - [~] Redis con readiness obligatorio, rate limiting compartido y ensayo real de dos réplicas en CI; falta migrar presencia realtime y validar un servicio administrado con failover.
 - [x] El entorno Docker separa owner/migrador, runtime y auditor; readiness productivo rechaza roles con `BYPASSRLS` o propietarios del esquema y CI impide volver a credenciales compartidas.
