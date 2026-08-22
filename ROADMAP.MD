@@ -6,6 +6,13 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Corrección 22 de agosto de 2026 — panel operativo local
+
+- [x] Comercios, conductores, usuarios, soporte y auditoría operativos seleccionan PostgreSQL cuando `DATABASE_URL` está configurado y el fallback SQLite local cuando se ejecuta el entorno demo.
+- [x] El fallback conserva autorización de administrador, filtros, límites, cursores opacos, respuestas privadas y serializadores sin credenciales.
+- [x] `test:operations-resources` cubre aislamiento por rol y paginación de las cinco superficies.
+- [~] El fallback SQLite sólo sirve para desarrollo/demo local; staging y producción deben usar PostgreSQL/PostGIS y sus migraciones.
+
 ### Estado ejecutivo de bloqueadores
 
 - [x] **P0-01 / SEC-001 — aislamiento.** Ownership, serializers por rol, RLS físico y tests cross-tenant funcionan. Web, mobile y suites migraron a bootstrap y recursos segmentados; `/api/state` responde permanentemente `410 Gone`.
