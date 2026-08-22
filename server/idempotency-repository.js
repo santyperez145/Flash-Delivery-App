@@ -13,3 +13,18 @@ export async function pruneExpiredIdempotencyKeys({limit=1000,pool=postgresPool}
     RETURNING target.key`,[batch]);
   return{deleted:result.rowCount||0,limit:batch};
 }
+
+export async function pruneExpiredIdempotencyKeyBatches({limit=1000,maxBatches=10,pool=postgresPool}={}){
+  const batches=Math.min(100,Math.max(1,Number(maxBatches)||10));
+  let deleted=0;
+  let executedBatches=0;
+  let batchLimit=0;
+  for(let index=0;index<batches;index+=1){
+    const result=await pruneExpiredIdempotencyKeys({limit,pool});
+    executedBatches+=1;
+    deleted+=result.deleted;
+    batchLimit=result.limit;
+    if(result.deleted<result.limit)break;
+  }
+  return{deleted,batches:executedBatches,batchLimit,maxBatches:batches,drained:executedBatches<batches};
+}
