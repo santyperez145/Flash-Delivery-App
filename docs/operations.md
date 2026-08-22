@@ -15,6 +15,17 @@ Las alertas de proveedores están aisladas por etiqueta: mapas sólo considera
 OpenStreetMap/OSRM y pagos sólo Mercado Pago. La alerta PSP además exige diez
 llamadas en la ventana para no paginar por un único OAuth o reintegro aislado.
 
+## Retención de idempotencia
+
+```bash
+npm run idempotency:prune
+```
+
+Programar el comando periódicamente después de la ventana máxima de retry. Borra
+como máximo `IDEMPOTENCY_PRUNE_BATCH` claves ya vencidas (límite duro 10.000) y
+usa `FOR UPDATE SKIP LOCKED`, por lo que varias réplicas no eliminan el mismo lote
+ni bloquean escrituras activas. Nunca elimina una clave antes de `expires_at`.
+
 ## Renovación OAuth de comercios
 
 ```bash
