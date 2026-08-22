@@ -403,6 +403,7 @@ function CustomerScreen({
   const [paymentLast4,setPaymentLast4]=useState("");
   const [paymentExpiry,setPaymentExpiry]=useState("");
   const [notifications,setNotifications]=useState<AppNotification[]>([]);
+  const [accountSessions,setAccountSessions]=useState<import("./src/types").AccountSession[]>([]);
   const [referral,setReferral]=useState<import("./src/types").ReferralSummary|null>(null);
   const [referralClaim,setReferralClaim]=useState("");
   const [notificationPreferences,setNotificationPreferences]=useState<NotificationPreference[]>([]);
@@ -412,7 +413,7 @@ function CustomerScreen({
   const [supportReplies,setSupportReplies]=useState<Record<string,string>>({});
   useEffect(()=>{let cancelled=false;api.getDietaryPreferences().then(result=>{if(!cancelled)setDietaryPreferences(result.preferences);}).catch(()=>{});return()=>{cancelled=true;};},[user.id]);
   useEffect(()=>{if(foodScreen!=="search")return;let cancelled=false;setCatalogSearchLoading(true);setCatalogSearchError("");const timer=setTimeout(()=>{void api.searchCatalog(foodQuery,0).then(result=>{if(!cancelled){setCatalogResults(result.results);setCatalogNextOffset(result.nextOffset);}}).catch(error=>{if(!cancelled){setCatalogResults([]);setCatalogSearchError(error instanceof Error?error.message:"No se pudo buscar");}}).finally(()=>{if(!cancelled)setCatalogSearchLoading(false);});},250);return()=>{cancelled=true;clearTimeout(timer);};},[foodScreen,foodQuery,dietaryPreferences.hideIncompatible,dietaryPreferences.dietaryLabels,dietaryPreferences.avoidedAllergens]);
-  useEffect(()=>{if(sharedView!=="account")return;let cancelled=false;Promise.all([api.getNotifications(),api.getNotificationPreferences(),api.getDietaryPreferences(),api.getReferralSummary()]).then(([inbox,settings,dietary,referrals])=>{if(!cancelled){setNotifications(inbox.notifications);setNotificationPreferences(settings.preferences);setDietaryPreferences(dietary.preferences);setReferral(referrals.referral);}}).catch(()=>{});return()=>{cancelled=true;};},[sharedView]);
+  useEffect(()=>{if(sharedView!=="account")return;let cancelled=false;Promise.all([api.getNotifications(),api.getNotificationPreferences(),api.getDietaryPreferences(),api.getReferralSummary(),api.getAccountSessions()]).then(([inbox,settings,dietary,referrals,sessions])=>{if(!cancelled){setNotifications(inbox.notifications);setNotificationPreferences(settings.preferences);setDietaryPreferences(dietary.preferences);setReferral(referrals.referral);setAccountSessions(sessions.sessions);}}).catch(()=>{});return()=>{cancelled=true;};},[sharedView]);
   const [pickup, setPickup] = useState(
     user.defaultAddress || "Ubicacion actual",
   );
@@ -2334,6 +2335,11 @@ function CustomerScreen({
                   Wallet {money.format(user.wallet)}
                 </Text>
               </View>
+            </View>
+            <View style={styles.addressBookCard}>
+              <View style={styles.addressBookHeading}><View style={styles.savedAddressCopy}><Text style={styles.foodRestaurantTitle}>Dispositivos y sesiones</Text><Text style={styles.cardText}>Cerrá accesos que no reconozcas. Flash nunca muestra tus credenciales.</Text></View><Ionicons name="shield-checkmark-outline" size={26} color="#087a50"/></View>
+              {accountSessions.length?accountSessions.map(session=><View key={session.id} style={styles.notificationRow}><View style={styles.notificationBell}><Ionicons name="phone-portrait-outline" size={20} color="#fff"/></View><View style={styles.savedAddressCopy}><Text style={styles.sectionTitle}>{session.deviceName}</Text><Text style={styles.notificationTime}>Iniciada {new Date(session.createdAt).toLocaleString("es-AR")} · vence {new Date(session.expiresAt).toLocaleDateString("es-AR")}</Text></View><Pressable disabled={busy} accessibilityLabel={`Cerrar sesión ${session.deviceName}`} onPress={()=>Alert.alert("Cerrar sesión",`¿Cerrar el acceso de ${session.deviceName}?`,[{text:"Cancelar",style:"cancel"},{text:"Cerrar",style:"destructive",onPress:()=>runAction(async()=>{await api.revokeAccountSession(session.id);setAccountSessions(current=>current.filter(item=>item.id!==session.id));},"Sesión cerrada")}])}><Ionicons name="log-out-outline" size={21} color="#c43b36"/></Pressable></View>):<Text style={styles.cardText}>No hay otras sesiones activas para mostrar.</Text>}
+              {accountSessions.length>1?<Pressable disabled={busy} style={styles.secondaryButton} onPress={()=>Alert.alert("Proteger cuenta","Se cerrarán todas las sesiones excepto la de este dispositivo.",[{text:"Cancelar",style:"cancel"},{text:"Cerrar las demás",style:"destructive",onPress:()=>runAction(async()=>{await api.revokeOtherAccountSessions();const result=await api.getAccountSessions();setAccountSessions(result.sessions);},"Las demás sesiones fueron cerradas")}])}><Ionicons name="lock-closed-outline" size={18} color="#7c3cff"/><Text style={styles.secondaryButtonText}>Cerrar las demás sesiones</Text></Pressable>:null}
             </View>
             {referral&&<View style={styles.addressBookCard}>
               <View style={styles.addressBookHeading}><View style={styles.savedAddressCopy}><Text style={styles.foodRestaurantTitle}>Invitá y ganá</Text><Text style={styles.cardText}>{referral.campaign?`Vos recibís ${money.format(referral.campaign.advocateReward)} y tu amistad ${money.format(referral.campaign.friendReward)} después de su primer servicio pagado.`:"No hay una campaña activa ahora."}</Text></View><Ionicons name="gift-outline" size={27} color="#7c3cff"/></View>

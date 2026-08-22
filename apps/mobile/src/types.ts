@@ -218,6 +218,7 @@ export type AppState = {
 
 export type PaymentMethod={id:string;userId:string;type:"card"|"bank_account"|"wallet"|"cash";label:string;brand:string|null;last4:string|null;expiryMonth:number|null;expiryYear:number|null;isDefault:boolean};
 export type AppNotification={id:string;channel:"push"|"email"|"sms"|"in_app";template:string;payload:Record<string,unknown>;status:string;createdAt:string;readAt:string|null};
+export type AccountSession={id:string;deviceName:string;createdAt:string;expiresAt:string};
 export type NotificationPreference={category:"service_updates"|"promotions"|"support"|"wallet"|"account";pushEnabled:boolean;emailEnabled:boolean;updatedAt:string|null};
 export type DietaryPreferences={dietaryLabels:Array<{code:string;name:string}>;avoidedAllergens:Array<{code:string;name:string}>;hideIncompatible:boolean};
 export type ReferralSummary={code:string;campaign:{name:string;advocateReward:number;friendReward:number;currency:string}|null;invited:number;rewarded:number;attribution:{status:"pending"|"rewarded"|"rejected";code:string;attributedAt:string;rewardedAt:string|null}|null};
