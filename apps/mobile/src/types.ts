@@ -135,6 +135,9 @@ export type DriverPreferences = {
   updatedAt: string | null;
 };
 
+export type DriverDemandZone={id:string;name:string;level:"low"|"medium"|"high";openJobs:number;eligibleDrivers:number;containsDriver:boolean;boundary:GeoPoint[]};
+export type DriverDemand={driverId:string;service:"delivery"|"ride"|"shopping";online:boolean;city:{id:string;slug:string;name:string;timezone:string};observedAt:string;source:"postgres-live-window";methodology:{openJobs:"unassigned_non_terminal";scheduledHorizonMinutes:15;supplyFreshnessMinutes:5;maximumLocationAccuracyM:100;forecast:false;pricingImpact:false};zones:DriverDemandZone[]};
+
 export type DriverVehicle={id:string;driverId:string;kind:"bicycle"|"motorcycle"|"car"|"van";model:string;plate:string;color:string|null;seats:number|null;serviceModes:ServiceMode[];active:boolean;status:"pending"|"approved"|"rejected";rejectionReason:string|null;reviewedAt:string|null;retiredAt:string|null;createdAt:string;updatedAt:string};
 export type OrderIssue={id:string;orderId:string;category:"missing_item"|"wrong_item"|"damaged_item"|"quality"|"late"|"other";description:string;status:"open"|"approved"|"rejected";requestedRefund:number;approvedRefund:number;resolutionNote:string|null;createdAt:string;resolvedAt:string|null};
 export type OrderSubstitution={id:string;orderId:string;status:"pending"|"accepted"|"rejected"|"cancelled";quantity:number;reason:string;original:{id:string;name:string;unitPrice:number};replacement:{id:string;name:string;unitPrice:number};refundAmount:number;createdAt:string;decidedAt:string|null};

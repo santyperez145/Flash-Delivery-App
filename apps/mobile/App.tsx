@@ -32,6 +32,7 @@ import {
 import { api } from "./src/api";
 import { configureAnalytics, track } from "./src/analytics";
 import FlashNativeMap from "./src/FlashNativeMap";
+import DriverDemandMap from "./src/DriverDemandMap";
 import { buildExternalNavigationUrl } from "./src/navigation-links";
 import {getBackgroundLocationState,startDriverBackgroundLocation,stopDriverBackgroundLocation,type BackgroundLocationState} from "./src/background-location";
 import type {
@@ -39,6 +40,7 @@ import type {
   DispatchOffer,
   Driver,
   DriverCompliance,
+  DriverDemand,
   DriverDocument,
   DriverEarnings,
   DriverPreferences,
@@ -2872,6 +2874,9 @@ function DriverScreen({
   const [driverEarnings,setDriverEarnings]=useState<DriverEarnings|null>(null);
   const [driverEarningsLoading,setDriverEarningsLoading]=useState(false);
   const [driverEarningsError,setDriverEarningsError]=useState("");
+  const [driverDemand,setDriverDemand]=useState<DriverDemand|null>(null);
+  const [driverDemandLoading,setDriverDemandLoading]=useState(false);
+  const [driverDemandError,setDriverDemandError]=useState("");
   const [chatJobId,setChatJobId]=useState<string|null>(null);
   const [gpsStatus, setGpsStatus] = useState<
     "paused" | "requesting" | "live" | "denied"
@@ -2907,6 +2912,9 @@ function DriverScreen({
 
   const loadDriverEarnings=useCallback(async()=>{setDriverEarningsLoading(true);setDriverEarningsError("");try{setDriverEarnings((await api.getDriverEarnings()).earnings);}catch(error){setDriverEarningsError(error instanceof Error?error.message:"No se pudieron cargar las ganancias");}finally{setDriverEarningsLoading(false);}},[driver.id]);
   useEffect(()=>{void loadDriverEarnings();},[loadDriverEarnings]);
+
+  const loadDriverDemand=useCallback(async()=>{setDriverDemandLoading(true);setDriverDemandError("");try{setDriverDemand((await api.getDriverDemand()).demand);}catch(error){setDriverDemandError(error instanceof Error?error.message:"No se pudo cargar la actividad por zonas");}finally{setDriverDemandLoading(false);}},[driver.id,driver.activeService]);
+  useEffect(()=>{if(driverView!=="home")return;void loadDriverDemand();const poll=setInterval(()=>void loadDriverDemand(),60000);return()=>clearInterval(poll);},[driverView,loadDriverDemand]);
 
   const loadCompliance=useCallback(async()=>{try{setCompliance((await api.getDriverCompliance(driver.id)).compliance);}catch(_error){setCompliance(null);}},[driver.id]);
   const loadVehicles=useCallback(async()=>{try{setVehicles((await api.getDriverVehicles(driver.id)).vehicles);}catch(_error){setVehicles([]);}},[driver.id]);
@@ -3042,40 +3050,8 @@ function DriverScreen({
       <SignatureCaptureModal visible={Boolean(signatureShipmentId)} onClose={()=>{if(!deliveryEvidenceUploading)setSignatureShipmentId(null);}} onSave={saveDeliverySignature} busy={Boolean(deliveryEvidenceUploading)}/>
       <ServiceChatModal jobId={chatJobId} currentUserId={driver.userId} onClose={()=>setChatJobId(null)}/>
       <DriverNavigationModal visible={navigationOpen} target={navigationTarget} origin={driverPoint} route={driverRoute} routeError={driverRouteError} vehicleIcon={activeVehicle?.kind==="bicycle"?"bicycle":"car-sport"} onExternal={()=>void openExternalNavigation()} onChat={()=>{setNavigationOpen(false);if(navigationTarget)setChatJobId(navigationTarget.id);}} onClose={()=>setNavigationOpen(false)}/>
-      <ScrollView ref={driverScrollRef} contentContainerStyle={styles.driverContent} refreshControl={<RefreshControl refreshing={busy} onRefresh={onRefresh}/>} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={driverScrollRef} contentContainerStyle={styles.driverContent} refreshControl={<RefreshControl refreshing={busy} onRefresh={async()=>{await Promise.all([onRefresh(),loadDriverDemand(),loadOffers()]);}}/>} showsVerticalScrollIndicator={false}>
       <View style={styles.driverAppHeader}><View><Text style={styles.driverBrand}>FLASH DRIVER</Text><Text style={styles.driverGreeting}>{driverView==="home"?"Tu jornada":driverView==="earnings"?"Ganancias":driverView==="inbox"?"Inbox":"Cuenta"}</Text></View><Pressable style={styles.driverHeaderAction} onPress={()=>void onLogout()} accessibilityRole="button" accessibilityLabel="Cerrar sesión"><Ionicons name="log-out-outline" size={22} color="#17131c"/></Pressable></View>
-      {driverView==="home"&&<>
-      <View style={styles.cardDark}>
-        <Text style={styles.heroLabel}>
-          {driver.online ? "Online" : "Offline"}
-        </Text>
-        <Text style={styles.heroTitle}>{driver.name}</Text>
-        <Text style={styles.heroCopy}>
-          {driver.vehicle} - {driver.plate} - rating {driver.rating}
-        </Text>
-        <Text style={styles.gpsText}>
-          {gpsStatus === "live"
-            ? "GPS activo"
-            : gpsStatus === "requesting"
-              ? "Solicitando GPS"
-              : gpsStatus === "denied"
-                ? "GPS no disponible"
-                : "GPS pausado"}
-        </Text>
-        <Text style={styles.gpsText}>{backgroundGps==="active"?"Segundo plano activo":backgroundGps==="foreground_only"?"Sólo mientras la app está abierta":backgroundGps==="denied"?"Permiso background rechazado":"Segundo plano detenido"} · sesión {api.sessionStorage==="native-keychain-keystore"?"protegida":"web"}</Text>
-      </View>
-      <KpiRow
-        items={[
-          ["Ganancias", driver.earningsToday],
-          [
-            "Activos",
-            activeOrders.length + activeRides.length + activeShipments.length,
-          ],
-          ["Ofertas", visibleOffers.length],
-          ["Modo", driver.activeService === "delivery" ? "Delivery" : "Taxi"],
-        ]}
-      />
-      </>}
       {driverView==="account"&&<>
       <View style={styles.complianceCard}><View style={styles.complianceHeader}><View><Text style={styles.heroLabel}>NAVEGACIÓN</Text><Text style={styles.sectionTitle}>Guía externa preferida</Text></View><View style={styles.driverInsightIcon}><Ionicons name="navigate-outline" size={22} color="#7c3cff"/></View></View><Text style={styles.cardText}>Flash conserva etapa y trabajo activo. Esta preferencia sólo decide qué app abre el botón de guía completa.</Text><View style={styles.driverPreferenceOptions}>{([['system','Predeterminada','Usa Apple Maps en iPhone y Google Maps en el resto'],['google_maps','Google Maps','Mantiene conducción o bicicleta según tu vehículo'],...(Platform.OS==='ios'?[['apple_maps','Apple Maps','Disponible para conducción en iPhone']]:[])] as Array<[DriverPreferences['navigationProvider'],string,string]>).map(([value,label,detail])=><Pressable key={value} disabled={driverPreferenceBusy} accessibilityRole="radio" accessibilityState={{checked:driverPreferences.navigationProvider===value}} onPress={async()=>{setDriverPreferenceBusy(true);try{setDriverPreferences((await api.updateDriverPreferences(value)).preferences);}catch(error){Alert.alert("Flash",error instanceof Error?error.message:"No se pudo guardar la preferencia");}finally{setDriverPreferenceBusy(false);}}} style={[styles.driverPreferenceOption,driverPreferences.navigationProvider===value&&styles.driverPreferenceOptionActive]}><View style={[styles.driverPreferenceRadio,driverPreferences.navigationProvider===value&&styles.driverPreferenceRadioActive]}>{driverPreferences.navigationProvider===value?<View style={styles.driverPreferenceDot}/>:null}</View><View style={styles.itemCopy}><Text style={styles.sectionTitle}>{label}</Text><Text style={styles.cardText}>{detail}</Text></View></Pressable>)}</View><Text style={styles.notificationTime}>{driverPreferences.updatedAt?`Guardado ${new Date(driverPreferences.updatedAt).toLocaleString("es-AR")}`:"Preferencia predeterminada"}</Text></View>
       <View style={styles.complianceCard}><View style={styles.complianceHeader}><View><Text style={styles.heroLabel}>LEGAJO Y SEGURIDAD</Text><Text style={styles.sectionTitle}>Verificación del conductor</Text></View><Text style={[styles.complianceBadge,compliance?.status==="approved"&&styles.complianceBadgeApproved,compliance?.status==="rejected"&&styles.complianceBadgeRejected]}>{(compliance?.status||"cargando").replaceAll("_"," ").toUpperCase()}</Text></View><Text style={styles.cardText}>Los archivos se cifran antes de persistir y sólo operaciones puede aprobarlos.</Text><View style={styles.complianceDocuments}>{compliance?.requiredTypes.map(type=>{const current=compliance.documents.find(document=>document.type===type&&!["superseded"].includes(document.status));const labels={identity:"Identidad",driver_license:"Licencia",vehicle_registration:"Cédula del vehículo",insurance:"Seguro",background_check:"Antecedentes"};return <View style={styles.complianceDocumentRow} key={type}><Ionicons name={current?.status==="approved"?"checkmark-circle":current?.status==="rejected"?"close-circle":"document-text-outline"} size={20} color={current?.status==="approved"?"#087a50":current?.status==="rejected"?"#c43d38":"#7c3cff"}/><View style={styles.itemCopy}><Text style={styles.sectionTitle}>{labels[type]}</Text><Text style={styles.cardText}>{current?current.status.replaceAll("_"," "):"Pendiente de envío"}{current?.expiresAt?` · vence ${current.expiresAt}`:""}</Text>{current?.rejectionReason&&<Text style={styles.complianceRejection}>{current.rejectionReason}</Text>}</View></View>})}</View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.paymentBrandRail}>{([['identity','Identidad'],['driver_license','Licencia'],['vehicle_registration','Cédula'],['insurance','Seguro'],['background_check','Antecedentes']] as const).map(([value,label])=><Pressable key={value} onPress={()=>setDocumentType(value)} style={[styles.issueCategoryPill,documentType===value&&styles.issueCategoryPillActive]}><Text style={[styles.issueCategoryText,documentType===value&&styles.issueCategoryTextActive]}>{label}</Text></Pressable>)}</ScrollView>{["driver_license","vehicle_registration","insurance"].includes(documentType)&&<TextInput style={styles.input} value={documentExpiry} onChangeText={setDocumentExpiry} placeholder="Vencimiento AAAA-MM-DD"/>}<Pressable disabled={documentUploading} style={[styles.primaryButton,documentUploading&&styles.disabledButton]} onPress={pickComplianceDocument}><Ionicons name="cloud-upload-outline" size={19} color="#fff"/><Text style={styles.primaryButtonText}>{documentUploading?"Cifrando y enviando…":"Elegir PDF o imagen"}</Text></Pressable></View>
@@ -3127,7 +3103,7 @@ function DriverScreen({
           }
         />
       </View>
-      <Text style={styles.sectionTitle}>Activos</Text>
+      <View style={styles.driverSectionHeading}><View><Text style={styles.driverSectionEyebrow}>{navigationTarget?"SERVICIO EN CURSO":"ACTIVIDAD OBSERVADA"}</Text><Text style={styles.sectionTitle}>{navigationTarget?"Trabajo activo":"Demanda por zonas"}</Text></View>{!navigationTarget?<Pressable onPress={()=>void loadDriverDemand()} disabled={driverDemandLoading} accessibilityRole="button" accessibilityLabel="Actualizar demanda por zonas"><Ionicons name="refresh-outline" size={21} color="#7c3cff"/></Pressable>:null}</View>
       {navigationTarget ? (
         driverPoint && navigationTarget.point ? (
           <FlashNativeMap
@@ -3145,7 +3121,12 @@ function DriverScreen({
         ) : (
           <NativeMapUnavailable message={driverPoint ? "El servicio todavía no tiene un punto geográfico verificable." : "Activá el GPS para calcular el recorrido al próximo punto."} height={270} />
         )
-      ) : null}
+      ) : driverDemandLoading&&!driverDemand ? <View style={styles.driverDemandLoading}><ActivityIndicator color="#7c3cff"/><Text style={styles.cardText}>Consultando trabajos y oferta elegible en PostgreSQL…</Text></View> : driverDemand?.zones.length ? <>
+        <DriverDemandMap zones={driverDemand.zones} driver={driverPoint} caption={`${driverDemand.city.name} · ${driver.activeService==="delivery"?"Delivery":"Viajes"}`} detail={`Observado ${new Date(driverDemand.observedAt).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}`} accessibilityLabel="Mapa nativo de demanda agregada para conductores"/>
+        {driverDemandError?<Pressable style={styles.driverDemandError} onPress={()=>void loadDriverDemand()}><Ionicons name="cloud-offline-outline" size={20} color="#a33939"/><View style={styles.itemCopy}><Text style={styles.sectionTitle}>Snapshot sin actualizar</Text><Text style={styles.cardText}>{driverDemandError} · Conservamos la hora visible del último dato.</Text></View></Pressable>:null}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.driverDemandRail}>{driverDemand.zones.map(zone=>{const color=zone.level==="high"?"#ce263b":zone.level==="medium"?"#e66d13":"#857b8b";return <View key={zone.id} style={[styles.driverDemandCard,zone.containsDriver&&styles.driverDemandCardCurrent]}><View style={styles.driverDemandCardTop}><View style={[styles.driverDemandLevelDot,{backgroundColor:color}]}/><Text style={[styles.driverDemandLevel,{color}]}>{zone.level==="high"?"ALTA":zone.level==="medium"?"MEDIA":"SIN PEDIDOS"}</Text>{zone.containsDriver?<Text style={styles.driverDemandHere}>ACÁ</Text>:null}</View><Text style={styles.driverDemandName}>{zone.name}</Text><Text style={styles.driverDemandJobs}>{zone.openJobs===0?"Sin trabajos abiertos":`${zone.openJobs} ${zone.openJobs===1?"trabajo":"trabajos"} sin asignar`}</Text><Text style={styles.driverDemandSupply}>{zone.eligibleDrivers} {zone.eligibleDrivers===1?"conductor elegible":"conductores elegibles"}</Text></View>})}</ScrollView>
+        <View style={styles.driverTransparencyCard}><Ionicons name="information-circle-outline" size={22} color="#087a50"/><View style={styles.itemCopy}><Text style={styles.sectionTitle}>Actividad, no promesa</Text><Text style={styles.cardText}>Es un conteo zonal actual: no garantiza una oferta o ganancia y no modifica la tarifa. Nunca muestra la ubicación de otras personas.</Text></View></View>
+      </> : <Pressable style={styles.driverDemandError} onPress={()=>void loadDriverDemand()}><Ionicons name={driverDemandError?"cloud-offline-outline":"map-outline"} size={22} color="#a33939"/><View style={styles.itemCopy}><Text style={styles.sectionTitle}>{driverDemandError?"No pudimos leer las zonas":"No hay zonas operativas"}</Text><Text style={styles.cardText}>{driverDemandError||"Operaciones todavía no publicó polígonos activos para esta ciudad."} · Tocá para reintentar.</Text></View></Pressable>}
       {driverRoute?.steps[0] && (
         <View style={styles.driverNavigation}>
           <View style={styles.navigationTurn}>
@@ -3181,6 +3162,14 @@ function DriverScreen({
         </View>
       )}
       {driverRouteError ? <Text style={styles.complianceRejection}>{driverRouteError}</Text> : null}
+      <View style={styles.cardDark}>
+        <Text style={styles.heroLabel}>{driver.online ? "Online" : "Offline"}</Text>
+        <Text style={styles.heroTitle}>{driver.name}</Text>
+        <Text style={styles.heroCopy}>{driver.vehicle} - {driver.plate} - rating {driver.rating}</Text>
+        <Text style={styles.gpsText}>{gpsStatus === "live"?"GPS activo":gpsStatus === "requesting"?"Solicitando GPS":gpsStatus === "denied"?"GPS no disponible":"GPS pausado"}</Text>
+        <Text style={styles.gpsText}>{backgroundGps==="active"?"Segundo plano activo":backgroundGps==="foreground_only"?"Sólo mientras la app está abierta":backgroundGps==="denied"?"Permiso background rechazado":"Segundo plano detenido"} · sesión {api.sessionStorage==="native-keychain-keystore"?"protegida":"web"}</Text>
+      </View>
+      <KpiRow items={[["Ganancias",driver.earningsToday],["Activos",activeOrders.length+activeRides.length+activeShipments.length],["Ofertas",visibleOffers.length],["Modo",driver.activeService==="delivery"?"Delivery":"Taxi"]]}/>
       {activeOrders.map((order) => (
         <View key={order.id} style={styles.stack}><OrderCard
           order={order}
@@ -4665,6 +4654,13 @@ const styles = StyleSheet.create({
   driverPreferenceRadio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: "#a39aa8", alignItems: "center", justifyContent: "center" },
   driverPreferenceRadioActive: { borderColor: "#7c3cff" },
   driverPreferenceDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: "#7c3cff" },
+  driverDemandLoading:{minHeight:120,alignItems:"center",justifyContent:"center",gap:10,padding:18,borderRadius:22,backgroundColor:"#fff",borderWidth:1,borderColor:"#e9e3ed"},
+  driverDemandError:{minHeight:76,flexDirection:"row",alignItems:"center",gap:11,padding:14,borderRadius:18,backgroundColor:"#fff5f2",borderWidth:1,borderColor:"#f0d6d0"},
+  driverDemandRail:{gap:10,paddingVertical:2,paddingRight:14},
+  driverDemandCard:{width:194,minHeight:132,gap:5,padding:14,borderRadius:20,backgroundColor:"#fff",borderWidth:1,borderColor:"#e8e1ec"},
+  driverDemandCardCurrent:{borderColor:"#7c3cff",borderWidth:2,backgroundColor:"#faf7ff"},
+  driverDemandCardTop:{minHeight:19,flexDirection:"row",alignItems:"center",gap:6},driverDemandLevelDot:{width:8,height:8,borderRadius:4},driverDemandLevel:{fontSize:9,fontWeight:"900",letterSpacing:1},driverDemandHere:{marginLeft:"auto",color:"#7c3cff",fontSize:8,fontWeight:"900",letterSpacing:.8},
+  driverDemandName:{color:"#17131c",fontSize:20,fontWeight:"900",marginTop:2},driverDemandJobs:{color:"#37303b",fontSize:12,fontWeight:"800",marginTop:3},driverDemandSupply:{color:"#77707b",fontSize:10,fontWeight:"700"},
   driverInsightCard: { flexDirection: "row", alignItems: "center", gap: 12, padding: 16, borderRadius: 21, backgroundColor: "#fff", borderWidth: 1, borderColor: "#e9e3ed" },
   driverInsightIcon: { width: 46, height: 46, borderRadius: 16, backgroundColor: "#f0e7ff", alignItems: "center", justifyContent: "center" },
   driverTransparencyCard: { flexDirection: "row", alignItems: "flex-start", gap: 12, padding: 16, borderRadius: 21, backgroundColor: "#eaf8f0", borderWidth: 1, borderColor: "#cdebd9" },

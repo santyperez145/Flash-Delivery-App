@@ -97,6 +97,7 @@ async function request<T>(path: string, init?: RequestInit, retry = true, transp
 
 export const api = {
   async getDriverOffers() { return request<{offers:DispatchOffer[]}>("/driver/offers"); },
+  async getDriverDemand() { return request<{demand:import("./types").DriverDemand}>("/driver/demand-zones"); },
   async getDriverEarnings() { return request<{earnings:import("./types").DriverEarnings}>("/driver/earnings"); },
   async getDriverPreferences() { return request<{preferences:import("./types").DriverPreferences}>("/driver/preferences"); },
   async updateDriverPreferences(navigationProvider:import("./types").DriverPreferences["navigationProvider"]) { return request<{preferences:import("./types").DriverPreferences}>("/driver/preferences",{method:"PATCH",body:JSON.stringify({navigationProvider})}); },
