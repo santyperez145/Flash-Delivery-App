@@ -64,8 +64,9 @@ try {
   const anonymousTrackingLink = await fetch(`${origin}/api/rides/RIDE-CONTRACT/tracking-links`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ttlMinutes: 120 }) });
   assert(anonymousTrackingLink.status === 401 && spec.paths["/api/rides/{rideId}/tracking-links"].post.security, "crear enlaces de seguimiento exige identidad");
   assert(spec.components.schemas.MerchantPaymentConnection.properties.status.enum.includes("reconnect_required"), "contrato publica el estado operativo de reconexión PSP");
-  const anonymousOffers=await fetch(`${origin}/api/driver/offers`),anonymousTickets=await fetch(`${origin}/api/support/tickets`);
+  const anonymousOffers=await fetch(`${origin}/api/driver/offers`),anonymousEarnings=await fetch(`${origin}/api/driver/earnings`),anonymousTickets=await fetch(`${origin}/api/support/tickets`);
   assert(anonymousOffers.status===401&&spec.paths["/api/driver/offers"].get.security,"ofertas privadas exigen identidad driver");
+  assert(anonymousEarnings.status===401&&spec.paths["/api/driver/earnings"].get.security&&spec.components.schemas.DriverEarnings.properties.cashout.properties.status.const==="not_configured","ganancias privadas exigen identidad y no prometen retiros sin proveedor");
   assert(anonymousTickets.status===401&&spec.paths["/api/support/tickets"].get.security,"soporte exige identidad antes de resolver visibilidad");
   assert(spec.components.schemas.SupportMessageRequest.properties.internal.description.includes("support/admin"),"contrato distingue notas internas por rol");
   const anonymousOperations=await fetch(`${origin}/api/operations/feature-flags`);

@@ -82,8 +82,8 @@ Flash adopta jerarquía y estados comparables, no texto, activos, colores ni ide
 
 ### Ganancias
 
-- [x] total real del día, rating, activos, propinas e historial disponible, sin proyectar datos ausentes.
-- [ ] sesión, semana, detalle por servicio, propinas, ajustes, saldo y liquidación requieren API/ledger dedicado al conductor.
+- [x] día, semana, detalle por servicio, propinas, ajustes, saldo Wallet y movimientos provienen del ledger dedicado, sin proyectar datos ausentes.
+- [~] sesión/horas y liquidación externa permanecen bloqueadas por telemetría, proveedor y habilitación productiva.
 - [ ] objetivos/promociones sólo con campañas reales, elegibilidad y términos.
 
 ### Inbox

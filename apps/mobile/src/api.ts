@@ -97,6 +97,7 @@ async function request<T>(path: string, init?: RequestInit, retry = true, transp
 
 export const api = {
   async getDriverOffers() { return request<{offers:DispatchOffer[]}>("/driver/offers"); },
+  async getDriverEarnings() { return request<{earnings:import("./types").DriverEarnings}>("/driver/earnings"); },
   async rejectDriverOffer(offerId:string) { return request<{rejected:boolean}>(`/driver/offers/${offerId}/reject`,{method:"POST",body:"{}"}); },
   async login(email: string, password: string) {
     const session = await request<{ token: string; refreshToken: string; user: import("./types").User }>("/auth/login", {
