@@ -1432,10 +1432,15 @@ function MerchantDesktopConsole({
   const [financeLoading, setFinanceLoading] = useState(false);
   const [payoutAmount, setPayoutAmount] = useState("");
   const [payoutPassword, setPayoutPassword] = useState("");
+  const [paymentConnection,setPaymentConnection]=useState<import("./types").MerchantPaymentConnection|null>(null);
+  const [paymentProviderConfigured,setPaymentProviderConfigured]=useState(false);
   const loadFinance = useCallback(async () => {
     setFinanceLoading(true);
     try {
-      setFinance((await api.getMerchantFinance(restaurant.id)).finance);
+      const [financeResult,connectionResult]=await Promise.all([api.getMerchantFinance(restaurant.id),api.getMerchantPaymentConnection(restaurant.id)]);
+      setFinance(financeResult.finance);
+      setPaymentConnection(connectionResult.connection);
+      setPaymentProviderConfigured(connectionResult.configured);
     } finally {
       setFinanceLoading(false);
     }
@@ -1969,6 +1974,10 @@ function MerchantDesktopConsole({
         )}
         {section === "finance" && (
           <div className="merchant-finance-grid">
+            <section className="admin-card merchant-payout-history">
+              <AdminSectionHeader title="Cobros del marketplace" action={paymentConnection?.status==="connected"?(paymentConnection.liveMode?"Cuenta real":"Cuenta de prueba"):"Sin vincular"}/>
+              {paymentConnection?<><p>Mercado Pago conectado · cuenta terminada en {paymentConnection.externalAccountId.slice(-4)}.</p><small>Conectado {new Date(paymentConnection.connectedAt).toLocaleString("es-AR")}. Flash nunca muestra ni guarda tokens sin cifrar.</small></>:<><p>Vinculá la cuenta seller para que Mercado Pago pueda dividir cobros entre el comercio y Flash.</p><button className="primary-button" disabled={busy||!paymentProviderConfigured} onClick={()=>runAction(async()=>{const result=await api.beginMerchantPaymentConnection(restaurant.id);window.location.assign(result.authorizationUrl);},"Redirigiendo a Mercado Pago")}>{paymentProviderConfigured?"Conectar Mercado Pago":"Integración pendiente de credenciales"}</button></>}
+            </section>
             <section className="admin-card">
               <AdminSectionHeader
                 title="Saldo liquidable"
