@@ -51,6 +51,7 @@ const envSchema = z.object({
   ,MAP_PROVIDER_RESET_MS: z.coerce.number().int().min(1000).max(600000).default(30000)
   ,MAP_PROVIDER_DAILY_BUDGET: z.coerce.number().int().min(1).max(10000000).default(10000)
   ,MAP_STALE_CACHE_SECONDS: z.coerce.number().int().min(60).max(2592000).default(86400)
+  ,FEATURE_FLAG_SALT: z.string().min(32).default("local-feature-flag-salt-change-before-prod")
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -82,6 +83,7 @@ if(env.NODE_ENV==="production"&&env.DELIVERY_PROOF_ENCRYPTION_KEY==="local-deliv
 if(env.NODE_ENV==="production"&&env.RECOVERY_TOKEN_ENCRYPTION_KEY==="local-recovery-token-key-change-before-production")throw new Error("RECOVERY_TOKEN_ENCRYPTION_KEY must be configured before running in production");
 if(env.NODE_ENV==="production"&&(env.EMAIL_PROVIDER!=="smtp"||!env.SMTP_HOST||!env.SMTP_USER||!env.SMTP_PASSWORD))throw new Error("EMAIL_PROVIDER smtp and SMTP credentials are required in production");
 if(env.NODE_ENV==="production"&&!env.REQUIRE_ADMIN_MFA)throw new Error("REQUIRE_ADMIN_MFA must be true in production");
+if(env.NODE_ENV==="production"&&env.FEATURE_FLAG_SALT==="local-feature-flag-salt-change-before-prod")throw new Error("FEATURE_FLAG_SALT must be configured before running in production");
 
 export const config = {
   env: env.NODE_ENV,
@@ -128,4 +130,5 @@ export const config = {
     dailyBudget: env.MAP_PROVIDER_DAILY_BUDGET,
     staleCacheSeconds: env.MAP_STALE_CACHE_SECONDS
   }
+  ,featureFlagSalt: env.FEATURE_FLAG_SALT
 };
