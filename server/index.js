@@ -436,6 +436,25 @@ const stopRealtimeListener = postgresPool
   ? await startPostgresRealtimeListener(fanoutRealtimeEvent)
   : null;
 
+function isSameOrigin(req, origin) {
+  if (!origin) return false;
+  try {
+    const parsed = new URL(origin);
+    return parsed.protocol === `${req.protocol}:` && parsed.host === req.get("host");
+  } catch {
+    return false;
+  }
+}
+
+function isAllowedOrigin(req, origin) {
+  return (
+    !origin ||
+    config.corsOrigins.includes("*") ||
+    config.corsOrigins.includes(origin) ||
+    isSameOrigin(req, origin)
+  );
+}
+
 function corsOrigin(origin, callback) {
   if (
     !origin ||
@@ -449,6 +468,12 @@ function corsOrigin(origin, callback) {
   return callback(error);
 }
 
+const apiCors = cors({ origin: corsOrigin, credentials: true });
+function apiCorsMiddleware(req, res, next) {
+  if (isSameOrigin(req, req.get("origin"))) return next();
+  return apiCors(req, res, next);
+}
+
 function requireTrustedWebOrigin(req, res, next) {
   if (req.get("x-flash-client") !== "web") return next();
   const origin = req.get("origin");
@@ -456,11 +481,7 @@ function requireTrustedWebOrigin(req, res, next) {
   if (fetchSite === "cross-site") {
     return fail(res, 403, "Solicitud web cross-site rechazada");
   }
-  if (
-    origin &&
-    !config.corsOrigins.includes("*") &&
-    !config.corsOrigins.includes(origin)
-  ) {
+  if (!isAllowedOrigin(req, origin)) {
     return fail(res, 403, "Origen web no permitido");
   }
   return next();
@@ -503,7 +524,7 @@ app.use(
     strictTransportSecurity: config.isProduction ? undefined : false,
   }),
 );
-app.use("/api", cors({ origin: corsOrigin, credentials: true }));
+app.use("/api", apiCorsMiddleware);
 app.use(compression({
   threshold: 1024,
   filter: (req, res) => req.path !== "/api/events" && compression.filter(req, res),

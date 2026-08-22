@@ -69,7 +69,7 @@ try {
   });
   const webLoginResponse = await fetch(`${origin}/api/auth/login`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Flash-Client": "web" },
+    headers: { "Content-Type": "application/json", "X-Flash-Client": "web", Origin: origin, "Sec-Fetch-Site": "same-origin" },
     body: JSON.stringify({ email: "cliente@flash.app", password: "demo123", deviceName: "web-cookie-smoke" }),
   });
   const webLogin = await webLoginResponse.json(),
@@ -79,13 +79,13 @@ try {
   assert(webLoginResponse.headers.get("cache-control") === "no-store, private", "login web con cookie no puede almacenarse en caches");
   const crossSiteRefreshResponse = await fetch(`${origin}/api/auth/refresh`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Flash-Client": "web", "Sec-Fetch-Site": "cross-site", Cookie: firstCookie },
+    headers: { "Content-Type": "application/json", "X-Flash-Client": "web", Origin: "https://evil.example", "Sec-Fetch-Site": "cross-site", Cookie: firstCookie },
     body: "{}",
   });
   assert(crossSiteRefreshResponse.status === 403, "refresh web rechaza navegación cross-site antes de usar la cookie");
   const webRefreshResponse = await fetch(`${origin}/api/auth/refresh`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Flash-Client": "web", Cookie: firstCookie },
+    headers: { "Content-Type": "application/json", "X-Flash-Client": "web", Origin: origin, "Sec-Fetch-Site": "same-origin", Cookie: firstCookie },
     body: JSON.stringify({ deviceName: "web-cookie-smoke" }),
   });
   const webRefresh = await webRefreshResponse.json(),
@@ -95,13 +95,13 @@ try {
   assert(webRefreshResponse.headers.get("cache-control") === "no-store, private", "rotación web nunca queda en cache");
   const replayResponse = await fetch(`${origin}/api/auth/refresh`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Flash-Client": "web", Cookie: firstCookie },
+    headers: { "Content-Type": "application/json", "X-Flash-Client": "web", Origin: origin, "Sec-Fetch-Site": "same-origin", Cookie: firstCookie },
     body: "{}",
   });
   assert(replayResponse.status === 401, "cookie rotada no puede reutilizarse");
   const webLogoutResponse = await fetch(`${origin}/api/auth/logout`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Flash-Client": "web", Cookie: rotatedCookie },
+    headers: { "Content-Type": "application/json", "X-Flash-Client": "web", Origin: origin, "Sec-Fetch-Site": "same-origin", Cookie: rotatedCookie },
     body: "{}",
   });
   assert(webLogoutResponse.ok && (webLogoutResponse.headers.get("set-cookie") || "").includes("Expires=Thu, 01 Jan 1970"), "logout web revoca sesión y elimina cookie");
