@@ -34,6 +34,7 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [x] La API entrega una serie diaria ordenada y acotada a la semana local; importes diarios reconcilian contra ledger semanal y los intervalos se cortan por medianoche local.
 - [x] La vista Ganancias presenta ingresos, jornada conectada/activa, proporción válida, resumen semanal, anomalía explícita, procedencia y refresco cada 60 segundos sin mezclar métricas con navegación.
 - [x] Ganancias grafica el neto diario real con escala relativa, cero explícito y correcciones negativas diferenciadas; no instala un charting SDK ni agrega puntos de muestra.
+- [x] Cada barra diaria es accesible y seleccionable; el detalle usa la misma respuesta para mostrar neto, servicios, propinas, conexión y tiempo activo sin otra fuente paralela.
 - [x] Sin PostgreSQL no hay horas simuladas: el contrato responde `null` y procedencia no disponible. La métrica no habilita salario horario, promociones, surge ni garantía de ingreso.
 - [x] Ownership RLS, auditoría de sólo lectura, `401/403`, `no-store`, atribución de razones y cálculo con trabajos concurrentes quedan cubiertos por smokes dedicados.
 - [x] La semántica competitiva y las fronteras de producto se documentan en `docs/competitive-research/driver-operational-time.md`.

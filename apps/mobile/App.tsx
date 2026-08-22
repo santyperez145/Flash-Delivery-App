@@ -77,7 +77,9 @@ const money = new Intl.NumberFormat("es-AR", {
 
 function operationalDuration(seconds: number | null | undefined) {
   if (seconds == null) return "No disponible";
-  const minutes = Math.floor(Math.max(0, seconds) / 60);
+  const safeSeconds=Math.max(0,seconds);
+  if(safeSeconds===0)return "0 min";
+  const minutes = Math.floor(safeSeconds / 60);
   if (minutes < 1) return "< 1 min";
   if (minutes < 60) return `${minutes} min`;
   const hours = Math.floor(minutes / 60);
@@ -2892,6 +2894,7 @@ function DriverScreen({
   const [driverEarnings,setDriverEarnings]=useState<DriverEarnings|null>(null);
   const [driverEarningsLoading,setDriverEarningsLoading]=useState(false);
   const [driverEarningsError,setDriverEarningsError]=useState("");
+  const [selectedDriverDay,setSelectedDriverDay]=useState<string|null>(null);
   const [driverDemand,setDriverDemand]=useState<DriverDemand|null>(null);
   const [driverDemandLoading,setDriverDemandLoading]=useState(false);
   const [driverDemandError,setDriverDemandError]=useState("");
@@ -3068,6 +3071,7 @@ function DriverScreen({
   const operationalRatio=onlineToday!=null&&activeToday!=null&&onlineToday>0&&activeToday<=onlineToday?Math.round(activeToday/onlineToday*100):null;
   const operationalAnomaly=onlineToday!=null&&activeToday!=null&&activeToday>onlineToday;
   const driverWeekMagnitude=Math.max(1,...(driverEarnings?.days||[]).map(day=>Math.abs(day.amount)));
+  const driverSelectedDay=driverEarnings?.days.find(day=>day.date===selectedDriverDay)||driverEarnings?.days.at(-1)||null;
 
   return (
     <View style={styles.driverShell}>
@@ -3092,8 +3096,9 @@ function DriverScreen({
         {driverEarnings?.days.length?<View style={styles.driverWeekChartCard}>
           <View style={styles.driverSectionHeading}><View><Text style={styles.driverSectionEyebrow}>SEMANA EN CURSO</Text><Text style={styles.driverTimeTitle}>Ingresos por día</Text></View><Text style={styles.driverWeekChartTotal}>{money.format(driverEarnings.week.amount)}</Text></View>
           <View style={styles.driverWeekChart} accessibilityRole="summary" accessibilityLabel={`Ingresos de la semana ${money.format(driverEarnings.week.amount)}`}>
-            {driverEarnings.days.map(day=>{const height=Math.max(day.amount===0?3:8,Math.round(Math.abs(day.amount)/driverWeekMagnitude*52));const weekday=new Date(`${day.date}T12:00:00`).toLocaleDateString("es-AR",{weekday:"short"}).replace(".","").toUpperCase();return <View key={day.date} style={styles.driverWeekColumn} accessibilityLabel={`${weekday}: ${money.format(day.amount)}, ${day.services} servicios`}><Text style={[styles.driverWeekAmount,day.amount<0&&styles.driverWeekAmountNegative]}>{compactMoney(day.amount)}</Text><View style={styles.driverWeekUpper}>{day.amount>=0?<View style={[styles.driverWeekBar,{height,backgroundColor:day.amount===0?"#d9d2dd":"#7c3cff"}]}/>:null}</View><View style={styles.driverWeekBaseline}/><View style={styles.driverWeekLower}>{day.amount<0?<View style={[styles.driverWeekBar,{height,backgroundColor:"#c44a45"}]}/>:null}</View><Text style={styles.driverWeekDay}>{weekday}</Text></View>})}
+            {driverEarnings.days.map(day=>{const height=Math.max(day.amount===0?3:8,Math.round(Math.abs(day.amount)/driverWeekMagnitude*52));const weekday=new Date(`${day.date}T12:00:00`).toLocaleDateString("es-AR",{weekday:"short"}).replace(".","").toUpperCase();const selected=driverSelectedDay?.date===day.date;return <Pressable key={day.date} onPress={()=>setSelectedDriverDay(day.date)} style={[styles.driverWeekColumn,selected&&styles.driverWeekColumnSelected]} accessibilityRole="button" accessibilityState={{selected}} accessibilityLabel={`${weekday}: ${money.format(day.amount)}, ${day.services} servicios`}><Text style={[styles.driverWeekAmount,day.amount<0&&styles.driverWeekAmountNegative]}>{compactMoney(day.amount)}</Text><View style={styles.driverWeekUpper}>{day.amount>=0?<View style={[styles.driverWeekBar,{height,backgroundColor:day.amount===0?"#d9d2dd":"#7c3cff"}]}/>:null}</View><View style={styles.driverWeekBaseline}/><View style={styles.driverWeekLower}>{day.amount<0?<View style={[styles.driverWeekBar,{height,backgroundColor:"#c44a45"}]}/>:null}</View><Text style={[styles.driverWeekDay,selected&&styles.driverWeekDaySelected]}>{weekday}</Text></Pressable>})}
           </View>
+          {driverSelectedDay?<View style={styles.driverWeekDetail}><View style={styles.driverWeekDetailHeader}><View><Text style={styles.driverTimeLabel}>DETALLE SELECCIONADO</Text><Text style={styles.driverWeekDetailDate}>{new Date(`${driverSelectedDay.date}T12:00:00`).toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long"})}</Text></View><Text style={[styles.driverWeekDetailAmount,driverSelectedDay.amount<0&&styles.driverWeekAmountNegative]}>{money.format(driverSelectedDay.amount)}</Text></View><View style={styles.driverWeekDetailGrid}><View style={styles.driverWeekDetailMetric}><Text style={styles.driverTimeMeta}>Servicios</Text><Text style={styles.driverWeekDetailValue}>{driverSelectedDay.services}</Text></View><View style={styles.driverWeekDetailMetric}><Text style={styles.driverTimeMeta}>Propinas</Text><Text style={styles.driverWeekDetailValue}>{money.format(driverSelectedDay.tips)}</Text></View><View style={styles.driverWeekDetailMetric}><Text style={styles.driverTimeMeta}>Conectado</Text><Text style={styles.driverWeekDetailValue}>{operationalDuration(driverSelectedDay.onlineSeconds)}</Text></View><View style={styles.driverWeekDetailMetric}><Text style={styles.driverTimeMeta}>En servicio</Text><Text style={styles.driverWeekDetailValue}>{operationalDuration(driverSelectedDay.activeSeconds)}</Text></View></View></View>:null}
           <Text style={styles.driverTimeSource}>Neto diario posteado: servicios, propinas y ajustes. Los días vacíos son cero, no una proyección.</Text>
         </View>:null}
         {driverEarnings?.timeTracking.status==="available"?<View style={styles.driverTimeCard}>
@@ -4690,6 +4695,7 @@ const styles = StyleSheet.create({
   driverWeekChartTotal: { color: "#17131c", fontSize: 16, fontWeight: "900", fontVariant: ["tabular-nums"] },
   driverWeekChart: { minHeight: 146, flexDirection: "row", alignItems: "flex-end", gap: 5 },
   driverWeekColumn: { flex: 1, minWidth: 0, alignItems: "center" },
+  driverWeekColumnSelected: { backgroundColor: "#f2eaff", borderRadius: 10 },
   driverWeekAmount: { color: "#5f5764", fontSize: 8, fontWeight: "800", marginBottom: 4, fontVariant: ["tabular-nums"] },
   driverWeekAmountNegative: { color: "#a33939" },
   driverWeekUpper: { width: "100%", height: 54, alignItems: "center", justifyContent: "flex-end" },
@@ -4697,6 +4703,14 @@ const styles = StyleSheet.create({
   driverWeekBar: { width: "58%", maxWidth: 24, minWidth: 7, borderTopLeftRadius: 7, borderTopRightRadius: 7 },
   driverWeekBaseline: { width: "100%", height: 1, backgroundColor: "#d8d1dc" },
   driverWeekDay: { color: "#817985", fontSize: 8, fontWeight: "900", marginTop: 5 },
+  driverWeekDaySelected: { color: "#7c3cff" },
+  driverWeekDetail: { gap: 11, padding: 13, borderRadius: 18, backgroundColor: "#f8f6fa" },
+  driverWeekDetailHeader: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 10 },
+  driverWeekDetailDate: { color: "#17131c", fontSize: 14, fontWeight: "900", marginTop: 3 },
+  driverWeekDetailAmount: { color: "#17131c", fontSize: 16, fontWeight: "900", fontVariant: ["tabular-nums"] },
+  driverWeekDetailGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  driverWeekDetailMetric: { width: "48%", minHeight: 54, padding: 9, borderRadius: 13, backgroundColor: "#fff" },
+  driverWeekDetailValue: { color: "#28222c", fontSize: 13, fontWeight: "900", marginTop: 5, fontVariant: ["tabular-nums"] },
   driverTimeCard: { borderRadius: 25, padding: 18, gap: 15, backgroundColor: "#fff", borderWidth: 1, borderColor: "#e9e3ed", shadowColor: "#2b1738", shadowOpacity: .06, shadowRadius: 16, shadowOffset: {width:0,height:7}, elevation: 2 },
   driverTimeTitle: { color: "#17131c", fontSize: 22, fontWeight: "900", marginTop: 3 },
   driverTimeClock: { width: 44, height: 44, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: "#f0e7ff" },
