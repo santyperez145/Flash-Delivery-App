@@ -11,7 +11,7 @@ Estados: `[x]` funcional y visible, `[~]` base funcional con paridad visual pend
 - [x] Selector Comidas / Viajes / Envios.
 - [x] Barra fija Inicio / Buscar / Actividad / Cuenta.
 - [x] Actividad agrega las tres verticales.
-- [~] Cuenta: identidad, direcciones, wallet, métodos tokenizados, notificaciones y soporte conversacional con SLA; faltan centralizar seguridad y favoritos en la misma vista.
+- [~] Cuenta: identidad, libreta de direcciones CRUD con GPS, wallet, métodos tokenizados, notificaciones y soporte conversacional con SLA; faltan centralizar seguridad y favoritos en la misma vista.
 - [x] Centro de notificaciones mobile, lectura persistente y preferencias push por categoría con fallback in-app.
 - [x] Flash Admin: sección Envíos para configuración visual y auditable de categorías y SLA que alimentan las pantallas mobile.
 - [x] Chat operacional común para comida, viajes y envíos, visible a cliente/conductor/comercio y cifrado en PostgreSQL.

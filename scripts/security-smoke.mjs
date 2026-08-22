@@ -152,6 +152,55 @@ async function run() {
     topUp.text
   );
 
+  const savedAddress = await request("/addresses", {
+    method: "POST",
+    headers: auth(customerToken),
+    body: JSON.stringify({
+      label: "Prueba",
+      address: "Av. Corrientes 1234",
+      lat: -34.6037,
+      lng: -58.3816,
+      isDefault: false
+    })
+  });
+  assert(savedAddress.status === 201 && savedAddress.body?.address?.userId === "usr_customer", "customer creates owned address", savedAddress.text);
+  const savedAddressId = savedAddress.body.address.id;
+  const foreignAddressUpdate = await request(`/addresses/${savedAddressId}`, {
+    method: "PUT",
+    headers: auth(merchantToken),
+    body: JSON.stringify({
+      label: "Intrusa",
+      address: "Av. Corrientes 1234",
+      lat: -34.6037,
+      lng: -58.3816,
+      isDefault: false
+    })
+  });
+  assert(foreignAddressUpdate.status === 404, "address ownership rejects foreign update", foreignAddressUpdate.text);
+  const updatedAddress = await request(`/addresses/${savedAddressId}`, {
+    method: "PUT",
+    headers: auth(customerToken),
+    body: JSON.stringify({
+      label: "Trabajo",
+      address: "Av. Corrientes 1234, CABA",
+      lat: -34.6037,
+      lng: -58.3816,
+      isDefault: false
+    })
+  });
+  assert(updatedAddress.status === 200 && updatedAddress.body?.address?.label === "Trabajo", "customer edits owned address", updatedAddress.text);
+  const defaultAddress = await request(`/addresses/${savedAddressId}/default`, {
+    method: "PATCH",
+    headers: auth(customerToken),
+    body: "{}"
+  });
+  assert(defaultAddress.status === 200 && defaultAddress.body?.addresses?.find((entry) => entry.id === savedAddressId)?.isDefault === true, "customer selects default address", defaultAddress.text);
+  const deletedAddress = await request(`/addresses/${savedAddressId}`, {
+    method: "DELETE",
+    headers: auth(customerToken)
+  });
+  assert(deletedAddress.status === 200 && deletedAddress.body?.deleted === true, "customer deletes owned address", deletedAddress.text);
+
   const state = await request("/bootstrap/customer", { headers: auth(customerToken) });
   const customerActivity=await request("/me/activity?limit=50",{headers:auth(customerToken)}),customerCatalog=await request("/catalog/restaurants?limit=50",{headers:auth(customerToken)});
   assert(

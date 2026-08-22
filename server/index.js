@@ -4546,15 +4546,55 @@ app.get("/api/me", requireAuth, async (req, res) => {
 });
 
 app.get("/api/addresses", requireAuth, async (req, res) => {
-  if (!usesPostgresAuth())
-    return fail(res, 503, "La libreta real requiere PostgreSQL");
+  if (!usesPostgresAuth()) {
+    const db = readDb();
+    return ok(res, {
+      addresses: (db.addresses || []).filter((entry) => entry.userId === req.auth.userId),
+    });
+  }
   return ok(res, { addresses: await getPostgresAddresses(req.auth.userId) });
 });
 app.post("/api/addresses", requireAuth, async (req, res) => {
-  if (!usesPostgresAuth())
-    return fail(res, 503, "La libreta real requiere PostgreSQL");
   const parsed = parseOrFail(addressSchema, req.body || {});
   if (!parsed.ok) return fail(res, 400, parsed.message);
+  if (!usesPostgresAuth()) {
+    const db = readDb();
+    const user = db.users.find((entry) => entry.id === req.auth.userId);
+    if (!user) return fail(res, 404, "Usuario no encontrado");
+    const owned = (db.addresses || []).filter((entry) => entry.userId === user.id);
+    if (owned.length >= 20) return fail(res, 409, "Alcanzaste el límite de direcciones guardadas");
+    const address = {
+      id: createId("ADDR"),
+      userId: user.id,
+      ...parsed.data,
+      isDefault: parsed.data.isDefault || owned.length === 0,
+    };
+    if (address.isDefault) {
+      (db.addresses || []).forEach((entry) => {
+        if (entry.userId === user.id) entry.isDefault = false;
+      });
+      user.defaultAddress = address.address;
+    }
+    db.addresses = [...(db.addresses || []), address];
+    audit(db, req, "address", address.id, "address.created", {
+      label: address.label,
+      isDefault: address.isDefault,
+    });
+    writeDb(db);
+    await publishRealtimeEvent({
+      req,
+      type: "user.updated",
+      entityType: "address",
+      entityId: address.id,
+      action: "address.created",
+    });
+    return res.status(201).json({
+      ok: true,
+      requestId: req.requestId,
+      address,
+      addresses: db.addresses.filter((entry) => entry.userId === user.id),
+    });
+  }
   try {
     const address = await createPostgresAddress({
       userPublicId: req.auth.userId,
@@ -4593,6 +4633,31 @@ app.post("/api/addresses", requireAuth, async (req, res) => {
 app.put("/api/addresses/:addressId", requireAuth, async (req, res) => {
   const parsed = parseOrFail(addressSchema, req.body || {});
   if (!parsed.ok) return fail(res, 400, parsed.message);
+  if (!usesPostgresAuth()) {
+    const db = readDb();
+    const address = (db.addresses || []).find(
+      (entry) => entry.id === req.params.addressId && entry.userId === req.auth.userId,
+    );
+    if (!address) return fail(res, 404, "Dirección no encontrada");
+    const nextIsDefault = parsed.data.isDefault || address.isDefault;
+    if (nextIsDefault) {
+      (db.addresses || []).forEach((entry) => {
+        if (entry.userId === req.auth.userId) entry.isDefault = false;
+      });
+      const user = db.users.find((entry) => entry.id === req.auth.userId);
+      if (user) user.defaultAddress = parsed.data.address;
+    }
+    Object.assign(address, { ...parsed.data, isDefault: nextIsDefault });
+    audit(db, req, "address", address.id, "address.updated", {
+      label: address.label,
+      isDefault: address.isDefault,
+    });
+    writeDb(db);
+    return ok(res, {
+      address,
+      addresses: db.addresses.filter((entry) => entry.userId === req.auth.userId),
+    });
+  }
   try {
     const address = await updatePostgresAddress({
       userPublicId: req.auth.userId,
@@ -4626,6 +4691,34 @@ app.patch(
   "/api/addresses/:addressId/default",
   requireAuth,
   async (req, res) => {
+    if (!usesPostgresAuth()) {
+      const db = readDb();
+      const address = (db.addresses || []).find(
+        (entry) => entry.id === req.params.addressId && entry.userId === req.auth.userId,
+      );
+      if (!address) return fail(res, 404, "Dirección no encontrada");
+      (db.addresses || []).forEach((entry) => {
+        if (entry.userId === req.auth.userId) entry.isDefault = false;
+      });
+      address.isDefault = true;
+      const user = db.users.find((entry) => entry.id === req.auth.userId);
+      if (user) user.defaultAddress = address.address;
+      audit(db, req, "address", address.id, "address.default_changed", {
+        isDefault: true,
+      });
+      writeDb(db);
+      await publishRealtimeEvent({
+        req,
+        type: "user.updated",
+        entityType: "address",
+        entityId: address.id,
+        action: "address.default_changed",
+      });
+      return ok(res, {
+        address,
+        addresses: db.addresses.filter((entry) => entry.userId === req.auth.userId),
+      });
+    }
     try {
       const address = await setPostgresDefaultAddress({
         userPublicId: req.auth.userId,
@@ -4663,6 +4756,37 @@ app.patch(
   },
 );
 app.delete("/api/addresses/:addressId", requireAuth, async (req, res) => {
+  if (!usesPostgresAuth()) {
+    const db = readDb();
+    const addressIndex = (db.addresses || []).findIndex(
+      (entry) => entry.id === req.params.addressId && entry.userId === req.auth.userId,
+    );
+    if (addressIndex < 0) return fail(res, 404, "Dirección no encontrada");
+    const [deletedAddress] = db.addresses.splice(addressIndex, 1);
+    if (deletedAddress.isDefault) {
+      const nextDefault = db.addresses.find((entry) => entry.userId === req.auth.userId);
+      const user = db.users.find((entry) => entry.id === req.auth.userId);
+      if (nextDefault) {
+        nextDefault.isDefault = true;
+        if (user) user.defaultAddress = nextDefault.address;
+      } else if (user) {
+        user.defaultAddress = "";
+      }
+    }
+    audit(db, req, "address", deletedAddress.id, "address.deleted", {});
+    writeDb(db);
+    await publishRealtimeEvent({
+      req,
+      type: "user.updated",
+      entityType: "address",
+      entityId: deletedAddress.id,
+      action: "address.deleted",
+    });
+    return ok(res, {
+      deleted: true,
+      addresses: db.addresses.filter((entry) => entry.userId === req.auth.userId),
+    });
+  }
   try {
     const addresses = await deletePostgresAddress({
       userPublicId: req.auth.userId,
