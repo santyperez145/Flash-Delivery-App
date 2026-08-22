@@ -10,7 +10,7 @@ El viaje activo tiene una superficie dedicada y compartida entre Inicio y Activi
 - Ruta, distancia, duración y maniobras: endpoint de Routes con caché PostgreSQL.
 - Seguridad: tracking link temporal, contactos cifrados, PIN de retiro e incidente SOS.
 
-Mientras la hoja nativa está abierta, mobile actualiza el estado cada cinco segundos. En web, SSE actualiza la actividad autenticada y la hoja vuelve a consultar la ruta cuando cambian las coordenadas persistidas. MapLibre actualiza la fuente GeoJSON y el marcador del conductor, reencuadrando los puntos vigentes sin recrear teselas HTML; los cambios operativos publicados por la API reemplazan inmediatamente la etapa visible.
+Mientras la hoja nativa está abierta, mobile actualiza el estado cada cinco segundos y el SDK nativo reemplaza polyline/marcadores y reencuadra los puntos vigentes sin recrear teselas HTML. En web, SSE actualiza la actividad autenticada y la hoja vuelve a consultar la ruta cuando cambian las coordenadas persistidas. MapLibre actualiza la fuente GeoJSON y el marcador del conductor; los cambios operativos publicados por la API reemplazan inmediatamente la etapa visible.
 
 La PWA también permite consultar el PIN de retiro mientras el viaje está `driver_assigned` o `arriving`, crear un enlace temporal de seguimiento de 180 minutos y registrar un incidente tipificado con ubicación vigente. El enlace sólo se crea para el propietario autenticado y la API registra la acción; no se exponen teléfonos ni se afirma que se haya enviado un SMS.
 

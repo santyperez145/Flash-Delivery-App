@@ -25,8 +25,18 @@ Vite excluye `maplibre-gl` del prebundle de desarrollo porque el paquete resuelv
 
 Si el estilo, una tesela o WebGL fallan, la interfaz no dibuja una línea directa falsa: mantiene estado, ETA/cotización y explica que la cartografía no está disponible. Geocodificación y routing continúan pasando por el backend, su circuit breaker, presupuesto, cache y observabilidad; los assets visuales quedan limitados por CSP al proveedor declarado.
 
+## Render cartográfico mobile
+
+Las tres variantes Expo usan `react-native-maps` `1.27.2`, versión instalada por `expo install` para SDK 57. Android renderiza Google Maps con una paleta Flash neutral; iOS usa Apple MapKit en modo `mutedStandard`. El componente compartido calcula el viewport de origen, destino, ruta y ubicación vigente del conductor, permite pan/zoom y ofrece un control de reencuadre. La polyline se dibuja con casing sólo cuando `/api/maps/route` devuelve al menos dos puntos: una caída del proveedor no se reemplaza por una diagonal inventada.
+
+`GOOGLE_MAPS_ANDROID_API_KEY` se lee únicamente durante el build y el config plugin la escribe en el manifest nativo. No se incluye el valor en `extra` ni debe guardarse en Git; en Google Cloud se debe restringir a Maps SDK for Android, a los packages `app.flash.customer`, `app.flash.driver` y `app.flash.merchant`, y a las huellas SHA-1/SHA-256 de cada credencial de firma. Sin esa configuración, Android muestra un estado de indisponibilidad explícito. MapKit no requiere una clave Google en iOS.
+
+El mapa visual y el proveedor de geocoding/routing son límites distintos. Las direcciones y rutas continúan pasando por el backend y pueden migrar a un proveedor con SLA sin cambiar el renderer nativo. Un build firmado y una prueba física prolongada siguen siendo condición de lanzamiento; el bundle local no se presenta como validación de tiles, GPS ni cuotas productivas.
+
 Referencias técnicas primarias:
 
 - [MapLibre GL JS](https://maplibre.org/maplibre-gl-js/docs/)
 - [MapLibre Style Specification](https://maplibre.org/maplibre-gl-js/docs/style-spec/)
 - [Raster sources del Style Spec](https://maplibre.org/maplibre-style-spec/sources/)
+- [react-native-maps: instalación y compatibilidad](https://github.com/react-native-maps/react-native-maps)
+- [Expo Maps](https://docs.expo.dev/versions/latest/sdk/maps/)

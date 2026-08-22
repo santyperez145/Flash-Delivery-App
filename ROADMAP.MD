@@ -6,13 +6,22 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 22 de agosto de 2026 — mapas nativos mobile
+
+- [x] Comida, Viajes y Envíos reemplazan teselas HTML, proyección Mercator y líneas SVG por un único `MapView` nativo interactivo con pan, zoom, reencuadre y marcadores accesibles.
+- [x] Android usa Google Maps con estilo Flash neutral y clave inyectada durante el build; iOS usa Apple MapKit `mutedStandard`. La app muestra un estado explícito en Android si la clave no fue configurada.
+- [x] Cotizaciones de viajes y envíos, más tracking de las tres verticales, dibujan exclusivamente geometría vial devuelta por `/api/maps/route`; el conductor sólo aparece con una ubicación persistida real.
+- [x] El cotizador de Envíos dejó de precargar un destino ficticio, invalida coordenadas/tarifa al editar y calcula ruta y cotización contra los mismos puntos geocodificados.
+- [x] `react-native-maps` quedó fijado en la versión compatible instalada por Expo SDK 57; TypeScript, Expo Doctor 21/21, exports Metro Android/iOS/web, auditoría y contratos mobile están verdes.
+- [~] Faltan registrar y restringir una clave Google Maps productiva, crear builds firmados EAS y verificar cartografía/GPS prolongadamente en dispositivos Android/iOS reales.
+
 ## Avance 22 de agosto de 2026 — mapa web interactivo de Viajes
 
 - [x] La vista previa de Viajes reemplaza la grilla fija 3×3 por MapLibre GL JS con pan, zoom, controles accesibles y reencuadre automático de todos los puntos reales.
 - [x] La geometría OSRM se dibuja como capa GeoJSON con casing; origen, destino y conductor usan jerarquía Flash y nunca aparece una línea directa cuando routing no responde.
 - [x] El renderer GPU y su CSS se cargan en un chunk asíncrono independiente, conservando el presupuesto del JavaScript inicial.
 - [x] El fallback OpenStreetMap conserva atribución y CSP autoriza sólo orígenes HTTPS enumerados; `VITE_MAP_STYLE_URL` habilita un estilo vectorial público sustituible sin exponer secretos privados.
-- [~] Falta contratar o autohospedar tiles/estilo vectorial con SLA y verificarlo en dispositivos; mobile todavía usa el renderer anterior y se migrará en el siguiente bloque.
+- [~] Falta contratar o autohospedar tiles/estilo vectorial web con SLA y verificarlo en dispositivos; la migración mobile se registra en el bloque posterior.
 
 ## Avance 22 de agosto de 2026 — mapas web unificados por vertical
 
@@ -21,7 +30,7 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [x] Las actualizaciones reemplazan GeoJSON y marcadores reales sin acumular capas; el enlace público no dibuja ruta porque su contrato mínimo no entrega esa geometría.
 - [x] Se retiraron la proyección Mercator manual, nueve `<img>` por mapa, polylines SVG y estilos legacy de tracking web.
 - [x] `test:web-tracking-maps`, build y bundle budget protegen reutilización, carga asíncrona y ausencia de movimiento inventado.
-- [~] Mapa mobile nativo y estilo vectorial productivo permanecen condicionados a compatibilidad, credenciales, build firmado y prueba física.
+- [~] El renderer mobile está integrado; estilo vectorial web productivo, credencial Android restringida, builds firmados y prueba física siguen pendientes.
 
 ## Avance 22 de agosto de 2026 — inicio real de Viajes web
 

@@ -6,9 +6,7 @@
     "orientation": "portrait",
     "scheme": "flash",
     "userInterfaceStyle": "automatic",
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "app.flash.delivery",
@@ -21,7 +19,7 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Si activás disponibilidad, Flash mantiene tu ubicación en segundo plano para asignaciones y seguimiento hasta que vuelvas a estar offline.",
+          "locationAlwaysAndWhenInUsePermission": "Si activás disponibilidad, Flash mantiene tu ubicación en segundo plano hasta que vuelvas a estar offline.",
           "isIosBackgroundLocationEnabled": true,
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
@@ -29,13 +27,12 @@
       ],
       "expo-sharing",
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      "react-native-maps"
     ],
     "android": {
       "package": "app.flash.delivery",
-      "adaptiveIcon": {
-        "backgroundColor": "#f4511e"
-      },
+      "adaptiveIcon": { "backgroundColor": "#f4511e" },
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
@@ -45,8 +42,6 @@
         "POST_NOTIFICATIONS"
       ]
     },
-    "extra": {
-      "apiUrl": "http://127.0.0.1:4000/api"
-    }
+    "extra": { "apiUrl": "http://127.0.0.1:4000/api" }
   }
 }

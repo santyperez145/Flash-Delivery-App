@@ -71,6 +71,7 @@ Flash Delivery Mobility ya es una app fullstack local con cuatro superficies: cl
 - Actividad web/PWA incorpora tracking dedicado de viajes: ruta OSRM, vehículo/placa/rating, PIN de retiro, enlace temporal con vista pública móvil y reporte de incidentes conectado a la API autenticada.
 - Actividad web/PWA incorpora tracking dedicado de envíos: ruta OSRM, destinatario, repartidor, ETA/timeline, PIN de entrega y metadatos de prueba de entrega desde endpoints autenticados.
 - Viajes previo, tracking público y Actividad de comida/viajes/envíos comparten el mismo renderer web GPU con pan, zoom, reencuadre, atribución, colores por vertical y carga asíncrona.
+- Mobile reemplazó mapas estáticos por Google Maps/Apple MapKit interactivos en cotización y tracking de comida, viajes y envíos; conserva rutas reales, estado de proveedor explícito y conductor sólo con GPS persistido.
 - Cliente web/PWA incorpora solicitud de envíos: geocodificación de origen/destino, categorías y SLA desde backend, protección, firma, destinatario, términos, cotización firmada e idempotencia; el pago está limitado a Flash Wallet.
 
 ## Reglas estrictas implementadas
