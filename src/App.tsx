@@ -81,6 +81,7 @@ import type {
   SupportAgent,
   SupportTicket,
   NotificationDeadLetter,
+  UserAddress,
   User,
 } from "./types";
 
@@ -633,6 +634,73 @@ function App() {
     defaultAddress: string;
   }) => runAction(() => api.updateProfile(payload), "Perfil actualizado");
 
+  const runAddressAction = async (
+    action: () => Promise<void>,
+    success: string,
+  ): Promise<boolean> => {
+    setBusy(true);
+    setError(null);
+    try {
+      await action();
+      await refresh();
+      setToast(success);
+      window.setTimeout(() => setToast(null), 2600);
+      return true;
+    } catch (requestError) {
+      setToast(
+        requestError instanceof Error
+          ? requestError.message
+          : "No se pudo completar",
+      );
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const createAddress = async (payload: {
+    label: string;
+    address: string;
+    lat: number;
+    lng: number;
+    isDefault: boolean;
+  }): Promise<boolean> => {
+    return runAddressAction(async () => {
+      const response = await api.createAddress(payload);
+      setState((current) => (current ? { ...current, addresses: response.addresses } : current));
+    }, "Direccion guardada");
+  };
+
+  const updateAddress = async (
+    addressId: string,
+    payload: {
+      label: string;
+      address: string;
+      lat: number;
+      lng: number;
+      isDefault: boolean;
+    },
+  ): Promise<boolean> => {
+    return runAddressAction(async () => {
+      const response = await api.updateAddress(addressId, payload);
+      setState((current) => (current ? { ...current, addresses: response.addresses } : current));
+    }, "Direccion actualizada");
+  };
+
+  const setDefaultAddress = async (addressId: string): Promise<boolean> => {
+    return runAddressAction(async () => {
+      const response = await api.setDefaultAddress(addressId);
+      setState((current) => (current ? { ...current, addresses: response.addresses } : current));
+    }, "Direccion predeterminada actualizada");
+  };
+
+  const deleteAddress = async (addressId: string): Promise<boolean> => {
+    return runAddressAction(async () => {
+      const response = await api.deleteAddress(addressId);
+      setState((current) => (current ? { ...current, addresses: response.addresses } : current));
+    }, "Direccion eliminada");
+  };
+
   if (loading) {
     return (
       <main className="app loading-app">
@@ -763,6 +831,11 @@ function App() {
                   locationMessage={locationMessage}
                   onTopUpWallet={topUpWallet}
                   onUpdateProfile={updateProfile}
+                  addresses={state.addresses.filter((entry) => entry.userId === activeUser?.id)}
+                  onCreateAddress={createAddress}
+                  onUpdateAddress={updateAddress}
+                  onSetDefaultAddress={setDefaultAddress}
+                  onDeleteAddress={deleteAddress}
                   busy={busy}
                   runAction={runAction}
                   dietaryPreferences={dietaryPreferences}
@@ -5709,6 +5782,26 @@ function CustomerApp(props: {
     phone: string;
     defaultAddress: string;
   }) => void;
+  addresses: UserAddress[];
+  onCreateAddress: (payload: {
+    label: string;
+    address: string;
+    lat: number;
+    lng: number;
+    isDefault: boolean;
+  }) => Promise<boolean>;
+  onUpdateAddress: (
+    addressId: string,
+    payload: {
+      label: string;
+      address: string;
+      lat: number;
+      lng: number;
+      isDefault: boolean;
+    },
+  ) => Promise<boolean>;
+  onSetDefaultAddress: (addressId: string) => Promise<boolean>;
+  onDeleteAddress: (addressId: string) => Promise<boolean>;
   busy: boolean;
   runAction: (action: () => Promise<unknown>, success: string) => void;
   dietaryPreferences:DietaryPreferences|null;
@@ -5753,6 +5846,11 @@ function CustomerApp(props: {
     locationMessage,
     onTopUpWallet,
     onUpdateProfile,
+    addresses,
+    onCreateAddress,
+    onUpdateAddress,
+    onSetDefaultAddress,
+    onDeleteAddress,
     busy,
     runAction,
     dietaryPreferences,
@@ -5900,6 +5998,11 @@ function CustomerApp(props: {
             (entry) => entry.userId === user?.id,
           )}
           onSave={onUpdateProfile}
+          addresses={addresses}
+          onCreateAddress={onCreateAddress}
+          onUpdateAddress={onUpdateAddress}
+          onSetDefaultAddress={onSetDefaultAddress}
+          onDeleteAddress={onDeleteAddress}
           dietaryPreferences={dietaryPreferences}
           onDietaryPreferencesChange={onDietaryPreferencesChange}
         />
@@ -6410,18 +6513,43 @@ function ProfileScreen({
   user,
   address,
   paymentMethods,
+  addresses,
   onSave,
+  onCreateAddress,
+  onUpdateAddress,
+  onSetDefaultAddress,
+  onDeleteAddress,
   dietaryPreferences,
   onDietaryPreferencesChange,
 }: {
   user: User | null;
   address?: string;
   paymentMethods: AppState["paymentMethods"];
+  addresses: UserAddress[];
   onSave: (payload: {
     name: string;
     phone: string;
     defaultAddress: string;
   }) => void;
+  onCreateAddress: (payload: {
+    label: string;
+    address: string;
+    lat: number;
+    lng: number;
+    isDefault: boolean;
+  }) => Promise<boolean>;
+  onUpdateAddress: (
+    addressId: string,
+    payload: {
+      label: string;
+      address: string;
+      lat: number;
+      lng: number;
+      isDefault: boolean;
+    },
+  ) => Promise<boolean>;
+  onSetDefaultAddress: (addressId: string) => Promise<boolean>;
+  onDeleteAddress: (addressId: string) => Promise<boolean>;
   dietaryPreferences:DietaryPreferences|null;
   onDietaryPreferencesChange:(preferences:DietaryPreferences)=>void;
 }) {
@@ -6431,6 +6559,16 @@ function ProfileScreen({
     address || user?.defaultAddress || "",
   );
   const [dietary,setDietary]=useState<DietaryPreferences|null>(dietaryPreferences),[dietaryBusy,setDietaryBusy]=useState(false),[dietaryError,setDietaryError]=useState("");
+  const [addressDraft, setAddressDraft] = useState({
+    label: "Casa",
+    address: "",
+    lat: null as number | null,
+    lng: null as number | null,
+    isDefault: addresses.length === 0,
+  });
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+  const [addressStatus, setAddressStatus] = useState("");
+  const [addressStatusTone, setAddressStatusTone] = useState<"ready" | "denied" | "">("");
   useEffect(() => {
     setName(user?.name || "");
     setPhone(user?.phone || "");
@@ -6440,6 +6578,75 @@ function ProfileScreen({
   const toggleDiet=(code:string)=>setDietary(current=>current?{...current,dietaryLabels:current.dietaryLabels.some(item=>item.code===code)?current.dietaryLabels.filter(item=>item.code!==code):[...current.dietaryLabels,{code,name:dietOptions.find(item=>item.code===code)?.name||code}]}:current);
   const toggleAllergen=(code:string)=>setDietary(current=>current?{...current,avoidedAllergens:current.avoidedAllergens.some(item=>item.code===code)?current.avoidedAllergens.filter(item=>item.code!==code):[...current.avoidedAllergens,{code,name:allergenOptions.find(item=>item.code===code)?.name||code}]}:current);
   const saveDietary=async()=>{if(!dietary)return;setDietaryBusy(true);setDietaryError("");try{const result=await api.updateDietaryPreferences({dietaryLabels:dietary.dietaryLabels.map(item=>item.code),avoidedAllergens:dietary.avoidedAllergens.map(item=>item.code),hideIncompatible:dietary.hideIncompatible});setDietary(result.preferences);onDietaryPreferencesChange(result.preferences);}catch(error){setDietaryError(error instanceof Error?error.message:"No se pudieron guardar tus preferencias");}finally{setDietaryBusy(false);}};
+  const resetAddressDraft = () => {
+    setEditingAddressId(null);
+    setAddressDraft({
+      label: "Casa",
+      address: "",
+      lat: null,
+      lng: null,
+      isDefault: addresses.length === 0,
+    });
+    setAddressStatus("");
+    setAddressStatusTone("");
+  };
+  const editAddress = (entry: UserAddress) => {
+    setEditingAddressId(entry.id);
+    setAddressDraft({
+      label: entry.label,
+      address: entry.address,
+      lat: entry.lat,
+      lng: entry.lng,
+      isDefault: entry.isDefault,
+    });
+    setAddressStatus("");
+    setAddressStatusTone("");
+  };
+  const locateAddress = () => {
+    if (!navigator.geolocation) {
+      setAddressStatus("Este dispositivo no permite geolocalizacion.");
+      setAddressStatusTone("denied");
+      return;
+    }
+    setAddressStatus("Obteniendo coordenadas actuales...");
+    setAddressStatusTone("");
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setAddressDraft((current) => ({
+          ...current,
+          lat: coords.latitude,
+          lng: coords.longitude,
+          address: current.address || "Ubicacion actual",
+        }));
+        setAddressStatus("Ubicacion lista. Confirma el nombre y la direccion.");
+        setAddressStatusTone("ready");
+      },
+      () => {
+        setAddressStatus("No pudimos acceder al GPS. Activa el permiso o escribe la direccion y usa otro dispositivo con ubicacion.");
+        setAddressStatusTone("denied");
+      },
+      { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 },
+    );
+  };
+  const saveAddress = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!addressDraft.address.trim() || addressDraft.lat === null || addressDraft.lng === null) {
+      setAddressStatus("Necesitamos la direccion y una ubicacion GPS para guardar este destino.");
+      setAddressStatusTone("denied");
+      return;
+    }
+    const payload = {
+      label: addressDraft.label.trim() || "Otro",
+      address: addressDraft.address.trim(),
+      lat: addressDraft.lat,
+      lng: addressDraft.lng,
+      isDefault: addressDraft.isDefault,
+    };
+    const saved = editingAddressId
+      ? await onUpdateAddress(editingAddressId, payload)
+      : await onCreateAddress(payload);
+    if (saved) resetAddressDraft();
+  };
   return (
     <div className="activity-stack">
       <section className="profile-hero">
@@ -6499,6 +6706,84 @@ function ProfileScreen({
           </div>
         </div>
       </div>
+      <section className="address-book-card" aria-labelledby="address-book-title">
+        <div className="address-book-heading">
+          <div>
+            <span className="muted-label">Checkout mas rapido</span>
+            <h3 id="address-book-title">Mis direcciones</h3>
+            <p>Guarda destinos frecuentes y usa coordenadas reales para entregar o pedir un viaje.</p>
+          </div>
+          <MapPin size={22} />
+        </div>
+        {addresses.length > 0 ? (
+          <div className="saved-address-list">
+            {addresses.map((entry) => (
+              <article className="saved-address-row" key={entry.id}>
+                <span className={entry.isDefault ? "saved-address-icon default" : "saved-address-icon"}>
+                  {entry.label.toLowerCase().includes("trab") ? <Store size={17} /> : <Home size={17} />}
+                </span>
+                <div className="saved-address-copy">
+                  <div>
+                    <strong>{entry.label}</strong>
+                    {entry.isDefault && <span className="default-address-badge">Predeterminada</span>}
+                  </div>
+                  <span>{entry.address}</span>
+                  <small>{entry.lat !== null && entry.lng !== null ? "Ubicacion verificada" : "Sin coordenadas"}</small>
+                </div>
+                <div className="saved-address-actions">
+                  {!entry.isDefault && (
+                    <button type="button" className="icon-button" title="Usar como predeterminada" aria-label={`Usar ${entry.label} como predeterminada`} onClick={() => void onSetDefaultAddress(entry.id)}>
+                      <Check size={15} />
+                    </button>
+                  )}
+                  <button type="button" className="icon-button" title="Editar direccion" aria-label={`Editar ${entry.label}`} onClick={() => editAddress(entry)}>
+                    <Settings size={15} />
+                  </button>
+                  <button type="button" className="icon-button danger" title="Eliminar direccion" aria-label={`Eliminar ${entry.label}`} onClick={() => void onDeleteAddress(entry.id)}>
+                    <X size={15} />
+                  </button>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <div className="address-empty">
+            <MapPin size={17} />
+            <span>Aun no tienes destinos guardados.</span>
+          </div>
+        )}
+        <form className="address-form" onSubmit={saveAddress}>
+          <div className="address-form-heading">
+            <strong>{editingAddressId ? "Editar destino" : "Nuevo destino"}</strong>
+            {editingAddressId && <button type="button" className="text-button" onClick={resetAddressDraft}>Cancelar</button>}
+          </div>
+          <div className="address-form-grid">
+            <label>
+              <span>Etiqueta</span>
+              <select value={addressDraft.label} onChange={(event) => setAddressDraft((current) => ({ ...current, label: event.target.value }))}>
+                <option>Casa</option>
+                <option>Trabajo</option>
+                <option>Otro</option>
+              </select>
+            </label>
+            <label className="address-form-wide">
+              <span>Direccion</span>
+              <input value={addressDraft.address} onChange={(event) => setAddressDraft((current) => ({ ...current, address: event.target.value }))} placeholder="Ej. Av. Corrientes 1234" />
+            </label>
+          </div>
+          <button type="button" className="location-action" onClick={locateAddress}>
+            <LocateFixed size={15} /> Usar mi ubicacion actual
+          </button>
+          {addressStatus && <small className={`location-message ${addressStatusTone}`}>{addressStatus}</small>}
+          <label className="address-default-toggle">
+            <input type="checkbox" checked={addressDraft.isDefault} onChange={(event) => setAddressDraft((current) => ({ ...current, isDefault: event.target.checked }))} />
+            <span>Usar para próximos pedidos y viajes</span>
+          </label>
+          <button type="submit" className="secondary-button" disabled={!addressDraft.address.trim() || addressDraft.lat === null || addressDraft.lng === null}>
+            <MapPin size={16} /> {editingAddressId ? "Actualizar direccion" : "Guardar direccion"}
+          </button>
+        </form>
+      </section>
       <section className="dietary-profile-card" aria-labelledby="dietary-profile-title">
         <div className="dietary-profile-heading"><span><Leaf size={19}/></span><div><h3 id="dietary-profile-title">Mi alimentación</h3><p>Personalizá el catálogo usando declaraciones verificables del comercio.</p></div></div>
         {!dietary&&!dietaryError&&<p className="dietary-loading" role="status"><RefreshCw size={15}/> Cargando preferencias…</p>}

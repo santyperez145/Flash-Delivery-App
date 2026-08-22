@@ -397,6 +397,7 @@ Leyenda: `[x]` terminado y verificado, `[~]` operativo con deuda identificada, `
 - [x] Cotizacion inicial por coordenadas y dispatch por cercania.
 - [x] Flujos mobile reales de comida, taxi, comercio y driver contra API autenticada.
 - [x] Wallet sandbox con transacciones persistentes y perfil/direccion editables.
+- [x] Cuenta web/PWA con libreta de direcciones real: Casa/Trabajo/Otro, alta, edición, principal única, eliminación y coordenadas capturadas desde geolocalización del dispositivo.
 - [x] Base PostgreSQL/PostGIS ejecutable con migraciones transaccionales y Docker Compose.
 - [x] Esquema productivo para catalogo multivertical, jobs, dispatch, ledger, outbox e idempotencia.
 - [x] Selector mobile de viajes con tarifas, ETA, capacidad y disponibilidad real de drivers.
@@ -624,4 +625,5 @@ Criterios de salida:
 - [x] Soporte conversacional con SLA, routing multiagente por skill/capacidad, ownership histórico y escalamiento automático idempotente.
 - [x] Reemplazar login demo por onboarding, refresh tokens, secure storage y sesiones revocables.
 - [x] Checkout Wallet real y ledger financiero de doble entrada; mantener explícita la frontera pendiente del PSP externo.
+- [x] Paridad de cuenta en frontend web/PWA: destinos frecuentes editables y reutilizables por checkout, con degradación explícita cuando el navegador no concede GPS.
 - Crear pitch demo mode con datos de crecimiento historico.
