@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import cors from "cors";
 import bcrypt from "bcryptjs";
+import compression from "compression";
 import express from "express";
 import rateLimit from "express-rate-limit";
 import { RedisStore } from "rate-limit-redis";
@@ -459,6 +460,10 @@ app.use(
   }),
 );
 app.use(cors({ origin: corsOrigin, credentials: true }));
+app.use(compression({
+  threshold: 1024,
+  filter: (req, res) => req.path !== "/api/events" && compression.filter(req, res),
+}));
 app.use(
   "/api",
   createLimiter({
@@ -8804,8 +8809,16 @@ app.post(
 );
 
 if (fs.existsSync(distDir)) {
-  app.use(express.static(distDir));
+  app.use(express.static(distDir, {
+    setHeaders: (res, filePath) => {
+      if (filePath.includes(`${path.sep}assets${path.sep}`))
+        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      else if (path.basename(filePath) === "index.html")
+        res.setHeader("Cache-Control", "no-cache");
+    },
+  }));
   app.get(/^\/(?!api).*/, (_req, res) => {
+    res.setHeader("Cache-Control", "no-cache");
     res.sendFile(path.join(distDir, "index.html"));
   });
 }
