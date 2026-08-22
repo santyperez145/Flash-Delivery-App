@@ -32,7 +32,7 @@ try {
 
   const operations = Object.values(spec.paths).flatMap((path) => Object.values(path)).filter((operation) => operation?.operationId);
   const operationIds = operations.map((operation) => operation.operationId);
-  assert(operationIds.length === new Set(operationIds).size && operationIds.length >= 15, "operationId es único en los dominios documentados");
+  assert(operationIds.length === new Set(operationIds).size && operationIds.length >= 25, "operationId es único en los dominios documentados");
   const refs = collectRefs(spec);
   const unresolvedRefs = refs.filter((ref) => !ref.startsWith("#/components/schemas/") || !spec.components.schemas[ref.split("/").at(-1)]);
   assert(unresolvedRefs.length === 0, `${new Set(refs).size} referencias internas están resueltas`);
@@ -59,6 +59,13 @@ try {
   assert(shipmentQuoteResponse.status === 200 && shipmentQuote.quote?.quoteId && shipmentQuote.quote?.quoteToken && shipmentQuote.quote?.expiresAt, "envíos entrega una cotización firmada documentada");
   const anonymousOrder = await fetch(`${origin}/api/orders`, { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": "contract-order-0001" }, body: "{}" });
   assert(anonymousOrder.status === 401 && spec.paths["/api/orders"].post.security, "creación de pedidos exige bearer antes de procesar payload");
+  const anonymousReceipt = await fetch(`${origin}/api/jobs/ORD-CONTRACT/receipt`);
+  assert(anonymousReceipt.status === 401 && spec.paths["/api/jobs/{jobId}/receipt"].get.security, "comprobantes exigen identidad antes de consultar ownership");
+  const anonymousTrackingLink = await fetch(`${origin}/api/rides/RIDE-CONTRACT/tracking-links`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ttlMinutes: 120 }) });
+  assert(anonymousTrackingLink.status === 401 && spec.paths["/api/rides/{rideId}/tracking-links"].post.security, "crear enlaces de seguimiento exige identidad");
+  assert(spec.components.schemas.MerchantPaymentConnection.properties.status.enum.includes("reconnect_required"), "contrato publica el estado operativo de reconexión PSP");
+  const serializedSpec=JSON.stringify(spec).toLowerCase();
+  assert(!serializedSpec.includes('"pan"')&&!serializedSpec.includes('"cvv"')&&!serializedSpec.includes('access_token_ciphertext')&&!serializedSpec.includes('refresh_token_ciphertext'), "contrato no modela datos de tarjeta ni credenciales seller");
 } finally {
   server.kill("SIGTERM");
 }
