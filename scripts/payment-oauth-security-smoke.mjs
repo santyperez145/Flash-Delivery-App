@@ -7,7 +7,7 @@ process.env.MERCADOPAGO_REDIRECT_URI="https://api.flash.test/api/payment-provide
 const assert=(condition,label)=>{if(!condition)throw new Error(`failed: ${label}`);console.log(`ok - ${label}`);};
 let captured=null;
 globalThis.fetch=async(url,init)=>{captured={url:String(url),init};return new Response(JSON.stringify({access_token:"APP_USR-access-secret",refresh_token:"TG-refresh-secret",user_id:12345,expires_in:3600,scope:"offline_access payments write",live_mode:false}),{status:200,headers:{"content-type":"application/json"}});};
-const {mercadoPagoAuthorizationUrl,exchangeMercadoPagoCode}=await import("../server/payment-marketplace-provider.js"),{encryptPaymentOAuthToken,decryptPaymentOAuthToken}=await import("../server/secret-envelope.js");
+const {mercadoPagoAuthorizationUrl,exchangeMercadoPagoCode,fetchMercadoPagoResource}=await import("../server/payment-marketplace-provider.js"),{encryptPaymentOAuthToken,decryptPaymentOAuthToken}=await import("../server/secret-envelope.js");
 const state="opaque-state-with-more-than-128-bits",authorization=new URL(mercadoPagoAuthorizationUrl(state));
 assert(authorization.origin==="https://auth.mercadopago.com.ar"&&authorization.searchParams.get("state")===state&&authorization.searchParams.get("redirect_uri")===process.env.MERCADOPAGO_REDIRECT_URI,"authorization URL binds opaque state and exact callback");
 const credential=await exchangeMercadoPagoCode("one-time-provider-code"),body=new URLSearchParams(captured.init.body);
@@ -15,3 +15,7 @@ assert(captured.url==="https://api.mercadopago.com/oauth/token"&&captured.init.m
 assert(credential.externalAccountId==="12345"&&!JSON.stringify(credential).includes("client-secret"),"provider response is normalized without integration credentials");
 const envelope=encryptPaymentOAuthToken(credential.accessToken);
 assert(envelope!==credential.accessToken&&!envelope.includes(credential.accessToken)&&decryptPaymentOAuthToken(envelope)===credential.accessToken,"seller access token uses authenticated AES-256-GCM envelope");
+globalThis.fetch=async(url,init)=>{captured={url:String(url),init};return new Response(JSON.stringify({id:"PAY-1",status:"approved",status_detail:"accredited",external_reference:"JOB-1",transaction_amount:1200,currency_id:"ARS",application_fee:120,collector_id:12345,payer:{email:"must-not-persist@example.test"},card:{last_four_digits:"1234"}}),{status:200,headers:{"content-type":"application/json"}});};
+const snapshot=await fetchMercadoPagoResource({topic:"payment",resourceId:"PAY-1",accessToken:credential.accessToken});
+assert(captured.init.headers.authorization===`Bearer ${credential.accessToken}`&&snapshot.status==="approved","worker fetches authoritative resource with seller bearer token");
+assert(!("payer" in snapshot)&&!("card" in snapshot)&&!JSON.stringify(snapshot).includes("example.test"),"normalized reconciliation snapshot excludes payer and card data");

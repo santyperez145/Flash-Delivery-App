@@ -62,7 +62,12 @@ payload deben coincidir; firmas fuera de diez minutos se rechazan. Después de
 validar, el request sólo inserta un evento normalizado en un inbox PostgreSQL con
 `notification_id` único y responde 200/201. No consulta al proveedor ni muta
 órdenes dentro de los 22 segundos del callback; un worker posterior hará fetch,
-conciliación e idempotencia de dominio.
+conciliación e idempotencia de dominio. Ese worker ya reclama lotes con
+`FOR UPDATE SKIP LOCKED`, recupera el recurso autoritativo usando el token seller,
+normaliza sólo importes/estado/referencia/comisión y descarta payer/tarjeta. Tiene
+cinco intentos, recuperación de locks abandonados y dead-letter explícito. Todavía
+no muta el ledger: eso se habilita junto con la creación real de pagos y matching
+de `external_reference`.
 
 ## Fuentes primarias
 
