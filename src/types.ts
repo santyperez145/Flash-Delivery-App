@@ -95,6 +95,25 @@ export type RoadRoute = {
   }>;
 };
 
+export type PublicRideTracking = {
+  rideId: string;
+  status: RideStatus;
+  pickup: string;
+  destination: string;
+  etaMin: number;
+  updatedAt: string;
+  expiresAt: string;
+  pickupLocation: GeoPoint;
+  destinationLocation: GeoPoint;
+  driver: {
+    firstName: string;
+    vehicle: string;
+    plate: string | null;
+    location: GeoPoint | null;
+    locationUpdatedAt: string | null;
+  } | null;
+};
+
 export type RideForm = {
   pickup: string;
   destination: string;

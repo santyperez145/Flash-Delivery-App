@@ -14,6 +14,8 @@ Mientras la hoja nativa está abierta, mobile actualiza el estado cada cinco seg
 
 La PWA también permite consultar el PIN de retiro mientras el viaje está `driver_assigned` o `arriving`, crear un enlace temporal de seguimiento de 180 minutos y registrar un incidente tipificado con ubicación vigente. El enlace sólo se crea para el propietario autenticado y la API registra la acción; no se exponen teléfonos ni se afirma que se haya enviado un SMS.
 
+El enlace abre `/track/:token`, una vista web pública móvil que consulta el snapshot mínimo de `/api/public/rides/track/:token` cada diez segundos. Esa vista muestra estado, ETA, origen/destino, conductor y posición sólo cuando existe; nunca recibe sesión, pago, email, teléfono ni el PIN de retiro.
+
 Estados presentados: `requested`, `driver_assigned`, `arriving`, `in_progress` y `completed`. La cancelación sigue el endpoint transaccional existente, exige motivo normalizado y conserva el resultado de reintegro.
 
 ## Degradación controlada

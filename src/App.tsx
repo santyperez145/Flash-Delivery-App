@@ -59,6 +59,7 @@ import type {
   Mode,
   Order,
   OrderStatus,
+  PublicRideTracking,
   RoadRoute,
   Restaurant,
   Ride,
@@ -145,6 +146,132 @@ const rideServices: Array<{
   { id: "moto", label: "Moto", icon: Bike },
   { id: "xl", label: "XL", icon: Truck },
 ];
+
+function PublicRideTrackingPage({ token }: { token: string }) {
+  const [tracking, setTracking] = useState<PublicRideTracking | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const response = await api.getPublicRideTracking(token);
+        if (!cancelled) {
+          setTracking(response.tracking);
+          setError(null);
+        }
+      } catch (requestError) {
+        if (!cancelled)
+          setError(
+            requestError instanceof Error
+              ? requestError.message
+              : "Este enlace no existe, venció o fue revocado.",
+          );
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    void load();
+    const interval = window.setInterval(() => void load(), 10000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [token]);
+
+  const map = useMemo(
+    () =>
+      tracking
+        ? buildWebTrackingMap(
+            tracking.pickupLocation,
+            tracking.destinationLocation,
+            [],
+            tracking.driver?.location || null,
+          )
+        : null,
+    [tracking],
+  );
+  const currentIndex = tracking
+    ? Math.max(rideSteps.indexOf(tracking.status), 0)
+    : 0;
+
+  return (
+    <main className="public-tracking-page">
+      <header className="public-tracking-header">
+        <a className="public-tracking-brand" href="/" aria-label="Abrir Flash">
+          <span className="brand-mark"><Flame size={20} /></span>
+          <strong>Flash</strong>
+        </a>
+        <span className="public-tracking-secure"><ShieldCheck size={14} /> Seguimiento seguro</span>
+      </header>
+      {loading && !tracking ? (
+        <section className="public-tracking-state" aria-live="polite">
+          <RefreshCw size={22} className="spin" />
+          <strong>Cargando seguimiento</strong>
+          <span>Consultando el estado vigente del viaje.</span>
+        </section>
+      ) : error && !tracking ? (
+        <section className="public-tracking-state error" role="alert">
+          <TriangleAlert size={22} />
+          <strong>Seguimiento no disponible</strong>
+          <span>{error}</span>
+        </section>
+      ) : tracking && (
+        <div className="public-tracking-content">
+          <section className="public-tracking-intro">
+            <span className="muted-label">Viaje Flash · {tracking.rideId}</span>
+            <h1>{rideStatusLabel[tracking.status]}</h1>
+            <p>{tracking.pickup} → {tracking.destination}</p>
+          </section>
+          {map && (
+            <section className="public-tracking-map" aria-label="Mapa público del viaje">
+              {map.tiles.map((tile) => (
+                <img
+                  key={tile.key}
+                  className="order-map-tile"
+                  src={tile.uri}
+                  alt=""
+                  aria-hidden="true"
+                  style={{ left: `${tile.column * 33.333}%`, top: `${tile.row * 33.333}%` }}
+                />
+              ))}
+              <span className="order-map-marker pickup" style={{ left: `${map.pickup.x / 3}%`, top: `${map.pickup.y / 3}%` }} title="Origen"><MapPin size={14} /></span>
+              <span className="order-map-marker dropoff" style={{ left: `${map.dropoff.x / 3}%`, top: `${map.dropoff.y / 3}%` }} title="Destino"><Home size={14} /></span>
+              {map.driver && <span className="order-map-marker driver ride-driver-marker" style={{ left: `${map.driver.x / 3}%`, top: `${map.driver.y / 3}%` }} title="Conductor"><Car size={14} /></span>}
+              <div className="tracking-map-caption">
+                <strong>{tracking.driver?.location ? "Ubicación del conductor actualizada" : "Conductor sin posición compartida"}</strong>
+                <span>ETA publicada: {tracking.etaMin} min</span>
+              </div>
+              <small className="map-attribution">© OpenStreetMap contributors</small>
+            </section>
+          )}
+          <section className="public-tracking-summary">
+            <div>
+              <span className="muted-label">Conductor</span>
+              <strong>{tracking.driver?.firstName || "Asignando conductor"}</strong>
+              <small>{tracking.driver ? `${tracking.driver.vehicle || "Vehículo Flash"} · ${tracking.driver.plate || "patente no disponible"}` : "Te avisaremos cuando haya asignación."}</small>
+            </div>
+            <div className="public-tracking-eta"><span>ETA</span><strong>{tracking.etaMin} min</strong></div>
+          </section>
+          <section className="public-tracking-progress">
+            <div className="stepper tracking-stepper ride-tracking-stepper">
+              {rideSteps.map((step, index) => (
+                <div className={index <= currentIndex ? "step active" : "step"} key={step}>
+                  <span>{index < currentIndex ? <Check size={12} /> : index + 1}</span>
+                  <small>{rideStatusLabel[step]}</small>
+                </div>
+              ))}
+            </div>
+          </section>
+          <p className="public-tracking-note">
+            Este enlace vence el {new Date(tracking.expiresAt).toLocaleString("es-AR")}. No muestra teléfono, email ni información de pago.
+          </p>
+        </div>
+      )}
+    </main>
+  );
+}
 
 function App() {
   const [state, setState] = useState<AppState | null>(null);
@@ -9244,5 +9371,7 @@ function initials(name: string) {
     .join("")
     .toUpperCase();
 }
+
+export { PublicRideTrackingPage };
 
 export default App;

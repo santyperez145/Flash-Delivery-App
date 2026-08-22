@@ -7,6 +7,7 @@ import type {
   DispatchOffer,
   MerchantFinance,
   GeoPoint,
+  PublicRideTracking,
   RealtimeEvent,
   Restaurant,
   RoadRoute,
@@ -808,6 +809,12 @@ export const api = {
 
   async getRidePickupCode(rideId: string) {
     return request<{ pickupCode: string }>(`/rides/${rideId}/pickup-code`);
+  },
+
+  async getPublicRideTracking(token: string) {
+    return request<{ tracking: PublicRideTracking }>(
+      `/public/rides/track/${encodeURIComponent(token)}`,
+    );
   },
 
   async updateDriver(

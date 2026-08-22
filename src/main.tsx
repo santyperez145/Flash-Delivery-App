@@ -1,11 +1,19 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import App from "./App";
+import App, { PublicRideTrackingPage } from "./App";
 import "./styles.css";
+
+const publicTrackingToken = window.location.pathname.match(
+  /^\/track\/([A-Za-z0-9_-]{40,64})$/,
+)?.[1];
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    {publicTrackingToken ? (
+      <PublicRideTrackingPage token={publicTrackingToken} />
+    ) : (
+      <App />
+    )}
   </StrictMode>
 );
 

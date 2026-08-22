@@ -58,6 +58,193 @@ img {
   padding: 28px;
 }
 
+.public-tracking-page {
+  min-height: 100vh;
+  padding: 18px;
+  background: #f6f7f9;
+}
+
+.public-tracking-header,
+.public-tracking-content {
+  width: min(100%, 680px);
+  margin: 0 auto;
+}
+
+.public-tracking-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 0 18px;
+}
+
+.public-tracking-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.public-tracking-brand .brand-mark {
+  width: 34px;
+  height: 34px;
+  color: #fff;
+  background: var(--accent);
+  border-radius: 10px;
+}
+
+.public-tracking-brand strong {
+  font-size: 1.05rem;
+}
+
+.public-tracking-secure {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #087a50;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.public-tracking-intro {
+  padding: 20px 0 14px;
+}
+
+.public-tracking-intro h1 {
+  margin: 5px 0 6px;
+  color: var(--ink);
+  font-size: clamp(1.65rem, 5vw, 2.35rem);
+  line-height: 1.05;
+}
+
+.public-tracking-intro p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.public-tracking-map {
+  position: relative;
+  height: 320px;
+  overflow: hidden;
+  isolation: isolate;
+  background: #dfe8e0;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 14px 30px rgba(19, 28, 38, 0.12);
+}
+
+.public-tracking-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 12px;
+  padding: 16px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.public-tracking-summary > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.public-tracking-summary strong {
+  color: var(--ink);
+  font-size: 0.98rem;
+}
+
+.public-tracking-summary small {
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+}
+
+.public-tracking-eta {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+
+.public-tracking-eta span {
+  color: var(--ink-soft);
+  font-size: 0.65rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.public-tracking-eta strong {
+  color: var(--accent);
+  font-size: 1.25rem;
+}
+
+.public-tracking-progress {
+  margin-top: 12px;
+  padding: 14px 10px 12px;
+  overflow-x: auto;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.public-tracking-progress .tracking-stepper {
+  min-width: 520px;
+  margin-top: 0;
+}
+
+.public-tracking-note {
+  margin: 12px 0 0;
+  padding: 10px;
+  color: var(--ink-soft);
+  background: #eef1f4;
+  border-radius: 9px;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.public-tracking-state {
+  display: grid;
+  min-height: 55vh;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  width: min(100%, 420px);
+  margin: 0 auto;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+.public-tracking-state svg {
+  color: var(--accent);
+}
+
+.public-tracking-state.error svg {
+  color: #bd3935;
+}
+
+.public-tracking-state strong {
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.public-tracking-state span {
+  max-width: 320px;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.spin {
+  animation: tracking-spin 1s linear infinite;
+}
+
+@keyframes tracking-spin {
+  to { transform: rotate(360deg); }
+}
+
 .loading-app {
   display: grid;
   place-items: center;
