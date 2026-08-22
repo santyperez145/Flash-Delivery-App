@@ -29,6 +29,7 @@ export async function getDriverDemandZones(actorPublicId) {
           FROM jobs j
           WHERE j.city_id=$1 AND j.kind=$2::job_kind AND j.driver_id IS NULL
             AND j.status NOT IN('completed','cancelled')
+            AND (COALESCE(j.metadata->>'subtype','')<>'food_order' OR j.status='ready_for_pickup')
             AND (j.scheduled_for IS NULL OR j.scheduled_for<=now()+interval '15 minutes')
             AND ST_Covers(z.boundary::geometry,j.pickup_location::geometry)
         ) open_jobs,
@@ -89,7 +90,7 @@ export async function getDriverDemandZones(actorPublicId) {
       observedAt: result.rows[0]?.observed_at?.toISOString() || new Date().toISOString(),
       source: "postgres-live-window",
       methodology: {
-        openJobs: "unassigned_non_terminal",
+        openJobs: "dispatchable_unassigned",
         scheduledHorizonMinutes: 15,
         supplyFreshnessMinutes: 5,
         maximumLocationAccuracyM: 100,

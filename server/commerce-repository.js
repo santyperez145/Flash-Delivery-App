@@ -339,15 +339,16 @@ export async function createPostgresOrder({ publicId, customerPublicId, merchant
     const job = await client.query(
       `INSERT INTO jobs(public_id, kind, customer_id, merchant_id, branch_id, status, pickup_address, pickup_location,
         dropoff_address, dropoff_location, service_level, quoted_amount_cents, final_amount_cents,
-        distance_m, estimated_duration_s, payment_method_label, metadata)
-       VALUES ($1, 'delivery', $2, $3, $4, $14, $5, $6, $7, $8, 'food', $9, $9, $10, $11, $12, $13)
+        distance_m, estimated_duration_s, payment_method_label, metadata, merchant_prep_minutes, merchant_ready_due_at)
+       VALUES ($1, 'delivery', $2, $3, $4, $14, $5, $6, $7, $8, 'food', $9, $9, $10, $11, $12, $13, $15::smallint,
+         CASE WHEN $14::job_status='accepted' THEN now()+make_interval(mins=>$15::integer) ELSE NULL END)
        RETURNING id,
          ST_Y(pickup_location::geometry) AS pickup_lat,
          ST_X(pickup_location::geometry) AS pickup_lng,
          ST_Y(dropoff_location::geometry) AS dropoff_lat,
          ST_X(dropoff_location::geometry) AS dropoff_lng`,
       [publicId, customer.rows[0].id, merchant.rows[0].id,merchant.rows[0].branch_id, merchant.rows[0].branch_address,
-        merchant.rows[0].branch_location, deliveryAddress,address.location,totalCents,Math.round(Number(address.distance_m)),metadata.etaMin * 60,paymentMethod,metadata,initialStatus]
+        merchant.rows[0].branch_location, deliveryAddress,address.location,totalCents,Math.round(Number(address.distance_m)),metadata.etaMin * 60,paymentMethod,metadata,initialStatus,Number(merchant.rows[0].branch_eta_min)]
     );
     for (const { entry, item,selection,unitPriceCents } of snapshots) {
       await client.query(
@@ -390,7 +391,7 @@ export async function createPostgresOrder({ publicId, customerPublicId, merchant
       paymentStatus="requires_confirmation";
     }
     await client.query("INSERT INTO job_events(job_id, actor_id, status) VALUES ($1, $2, $3)", [job.rows[0].id, customer.rows[0].id,initialStatus]);
-    if(walletPayment){await createDispatchOffers(client,{jobId:job.rows[0].id,mode:"delivery"});await enqueueNotificationForInternalUser(client,{userId:customer.rows[0].id,template:"order_status",payload:{kind:"food_order",jobId:publicId,status:"accepted"},deduplicationKey:`food_order:${publicId}:accepted`});}
+    if(walletPayment)await enqueueNotificationForInternalUser(client,{userId:customer.rows[0].id,template:"order_status",payload:{kind:"food_order",jobId:publicId,status:"accepted"},deduplicationKey:`food_order:${publicId}:accepted`});
     const responseOrder = {
       id: publicId, customerId: customerPublicId, restaurantId: merchantPublicId, courierId: null,
       status: initialStatus, deliveryAddress, paymentMethod,
@@ -419,7 +420,7 @@ export async function processPostgresOrderMarketplacePayment({orderPublicId,cust
   if(context.payment_status==="captured")return(await getPostgresOrders()).find(order=>order.id===orderPublicId);
   if(!context.access_token_ciphertext||context.revoked_at||(context.token_expires_at&&new Date(context.token_expires_at)<=new Date()))throw Object.assign(new Error("El comercio todavía no puede cobrar con Mercado Pago"),{status:409});
   const payment=await createMercadoPagoPayment({accessToken:decryptPaymentOAuthToken(context.access_token_ciphertext),idempotencyKey:marketplacePaymentKey(idempotencyKey),cardToken,transactionAmount:pesos(context.amount_cents),applicationFee:pesos(context.provider_payload.applicationFeeCents),paymentMethodId,installments,payerEmail:context.email,externalReference:orderPublicId,description:`Pedido ${orderPublicId}`});
-  const client=await postgresPool.connect();try{await client.query("BEGIN");const locked=(await client.query("SELECT status FROM payment_intents WHERE id=$1 FOR UPDATE",[context.payment_intent_id])).rows[0];if(locked.status==="captured"){await client.query("ROLLBACK");return(await getPostgresOrders()).find(order=>order.id===orderPublicId);}const decision=mercadoPagoFulfillmentDecision(payment.status);await client.query(`UPDATE payment_intents SET provider_intent_id=$2,status=$3,captured_amount_cents=$4,failure_code=$5,provider_payload=provider_payload||$6::jsonb,updated_at=now() WHERE id=$1`,[context.payment_intent_id,payment.id,decision.intentStatus,decision.fulfill?Number(context.amount_cents):0,decision.terminal&&!decision.fulfill?payment.statusDetail||payment.status:null,JSON.stringify({statusDetail:payment.statusDetail,applicationFee:payment.applicationFee,collectorId:payment.collectorId,dateApproved:payment.dateApproved})]);if(decision.fulfill)await recordMarketplaceCapture(client,{paymentIntentId:context.payment_intent_id,jobId:context.job_id,jobPublicId:orderPublicId,providerPaymentId:payment.id,amountCents:Number(context.amount_cents),applicationFeeCents:Number(context.provider_payload.applicationFeeCents),collectorId:payment.collectorId});if(decision.fulfill&&context.status==="requested"){await client.query("UPDATE jobs SET status='accepted',updated_at=now() WHERE id=$1",[context.job_id]);await client.query("INSERT INTO job_events(job_id,actor_id,status,metadata) VALUES($1,$2,'accepted',$3)",[context.job_id,context.customer_id,{paymentProvider:"mercadopago",providerPaymentId:payment.id}]);await createDispatchOffers(client,{jobId:context.job_id,mode:"delivery"});await enqueueNotificationForInternalUser(client,{userId:context.customer_id,template:"order_status",payload:{kind:"food_order",jobId:orderPublicId,status:"accepted"},deduplicationKey:`food_order:${orderPublicId}:accepted`});}else if(decision.terminal&&context.status==="requested"){await client.query("UPDATE jobs SET status='cancelled',cancellation_reason='payment_failed',updated_at=now() WHERE id=$1",[context.job_id]);await client.query("INSERT INTO job_events(job_id,actor_id,status,metadata) VALUES($1,$2,'cancelled',$3)",[context.job_id,context.customer_id,{reason:"payment_failed",providerStatus:payment.status}]);}await client.query("COMMIT");return{...(await getPostgresOrders()).find(order=>order.id===orderPublicId),paymentStatus:decision.intentStatus,paymentStatusDetail:payment.statusDetail};}catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
+  const client=await postgresPool.connect();try{await client.query("BEGIN");const locked=(await client.query("SELECT status FROM payment_intents WHERE id=$1 FOR UPDATE",[context.payment_intent_id])).rows[0];if(locked.status==="captured"){await client.query("ROLLBACK");return(await getPostgresOrders()).find(order=>order.id===orderPublicId);}const decision=mercadoPagoFulfillmentDecision(payment.status);await client.query(`UPDATE payment_intents SET provider_intent_id=$2,status=$3,captured_amount_cents=$4,failure_code=$5,provider_payload=provider_payload||$6::jsonb,updated_at=now() WHERE id=$1`,[context.payment_intent_id,payment.id,decision.intentStatus,decision.fulfill?Number(context.amount_cents):0,decision.terminal&&!decision.fulfill?payment.statusDetail||payment.status:null,JSON.stringify({statusDetail:payment.statusDetail,applicationFee:payment.applicationFee,collectorId:payment.collectorId,dateApproved:payment.dateApproved})]);if(decision.fulfill)await recordMarketplaceCapture(client,{paymentIntentId:context.payment_intent_id,jobId:context.job_id,jobPublicId:orderPublicId,providerPaymentId:payment.id,amountCents:Number(context.amount_cents),applicationFeeCents:Number(context.provider_payload.applicationFeeCents),collectorId:payment.collectorId});if(decision.fulfill&&context.status==="requested"){await client.query("UPDATE jobs SET status='accepted',merchant_ready_due_at=CASE WHEN merchant_prep_minutes IS NULL THEN NULL ELSE now()+make_interval(mins=>merchant_prep_minutes::integer) END,updated_at=now() WHERE id=$1",[context.job_id]);await client.query("INSERT INTO job_events(job_id,actor_id,status,metadata) VALUES($1,$2,'accepted',$3)",[context.job_id,context.customer_id,{paymentProvider:"mercadopago",providerPaymentId:payment.id}]);await enqueueNotificationForInternalUser(client,{userId:context.customer_id,template:"order_status",payload:{kind:"food_order",jobId:orderPublicId,status:"accepted"},deduplicationKey:`food_order:${orderPublicId}:accepted`});}else if(decision.terminal&&context.status==="requested"){await client.query("UPDATE jobs SET status='cancelled',cancellation_reason='payment_failed',updated_at=now() WHERE id=$1",[context.job_id]);await client.query("INSERT INTO job_events(job_id,actor_id,status,metadata) VALUES($1,$2,'cancelled',$3)",[context.job_id,context.customer_id,{reason:"payment_failed",providerStatus:payment.status}]);}await client.query("COMMIT");return{...(await getPostgresOrders()).find(order=>order.id===orderPublicId),paymentStatus:decision.intentStatus,paymentStatusDetail:payment.statusDetail};}catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
 }
 
 export async function assignPostgresOrderDriver(orderPublicId, driverPublicId, actorPublicId) {
@@ -441,19 +442,22 @@ export async function setPostgresOrderStatus(orderPublicId, status, actorPublicI
   const client=await postgresPool.connect();
   try{await client.query("BEGIN");
   const actor = await client.query("SELECT id FROM users WHERE public_id = $1", [actorPublicId]);
+  const databaseTarget=databaseStatus(status),expectedStatus={preparing:"accepted",ready_for_pickup:"preparing",picked_up:"driver_assigned",delivering:"picked_up",completed:"delivering"}[databaseTarget];
+  if(!expectedStatus)throw Object.assign(new Error("Transición de pedido no permitida"),{status:409});
   const result = await client.query(
     `WITH changed AS (
       UPDATE jobs SET status = $1, version = version + 1, updated_at = now(),
         metadata = CASE WHEN $1::job_status = 'completed' THEN jsonb_set(metadata, '{etaMin}', '0') ELSE metadata END
-      WHERE public_id = $2 AND kind = 'delivery' AND status NOT IN ('completed','cancelled')
+      WHERE public_id = $2 AND kind = 'delivery' AND status = $4::job_status
         AND NOT (metadata ? 'refundPending')
         AND NOT EXISTS(SELECT 1 FROM order_item_substitutions s WHERE s.job_id=jobs.id AND s.status='pending') RETURNING id,customer_id
     ) INSERT INTO job_events(job_id, actor_id, status) SELECT id, $3, $1 FROM changed RETURNING job_id`,
-    [databaseStatus(status), orderPublicId, actor.rows[0]?.id || null]
+    [databaseTarget, orderPublicId, actor.rows[0]?.id || null, expectedStatus]
   );
   if (!result.rows[0]) throw Object.assign(new Error("El pedido no puede cambiar de estado"), { status: 409 });
   const customer=(await client.query("SELECT customer_id FROM jobs WHERE public_id=$1",[orderPublicId])).rows[0];
-  if(databaseStatus(status)==="completed")await settleCapturedFoodOrder(client,{jobId:result.rows[0].job_id,actorId:actor.rows[0]?.id||null});
+  if(databaseTarget==="ready_for_pickup")await createDispatchOffers(client,{jobId:result.rows[0].job_id,mode:"delivery"});
+  if(databaseTarget==="completed")await settleCapturedFoodOrder(client,{jobId:result.rows[0].job_id,actorId:actor.rows[0]?.id||null});
   await enqueueNotificationForInternalUser(client,{userId:customer.customer_id,template:"order_status",payload:{kind:"food_order",jobId:orderPublicId,status},deduplicationKey:`food_order:${orderPublicId}:${status}`});
   await client.query("COMMIT");
   return (await getPostgresOrders()).find((order) => order.id === orderPublicId);

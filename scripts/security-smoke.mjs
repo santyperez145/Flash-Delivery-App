@@ -331,12 +331,22 @@ async function run() {
   assert(orderRealtimeFrame.includes("order.created"), "realtime publishes order mutation", orderRealtimeFrame);
   realtimeController.abort();
 
+  const prematureAcceptance = await request(`/orders/${order.body.order.id}/accept-delivery`, {
+    method: "POST",
+    headers: auth(driverToken),
+    body: JSON.stringify({ driverId: "drv_lautaro" })
+  });
+  assert(prematureAcceptance.status === 409, "driver waits for merchant readiness", prematureAcceptance.text);
+  const preparing = await request(`/orders/${order.body.order.id}/advance`, { method: "POST", headers: auth(merchantToken) });
+  const readyForPickup = await request(`/orders/${order.body.order.id}/advance`, { method: "POST", headers: auth(merchantToken) });
+  assert(preparing.status === 200 && preparing.body?.order?.status === "preparing" && readyForPickup.status === 200 && readyForPickup.body?.order?.status === "ready_for_pickup", "merchant owns preparation stages", readyForPickup.text);
+
   const accepted = await request(`/orders/${order.body.order.id}/accept-delivery`, {
     method: "POST",
     headers: auth(driverToken),
     body: JSON.stringify({ driverId: "drv_lautaro" })
   });
-  assert(accepted.status === 200, "driver accepts delivery", accepted.text);
+  assert(accepted.status === 200, "driver accepts ready delivery", accepted.text);
 
   const advanced = await request(`/orders/${order.body.order.id}/advance`, {
     method: "POST",

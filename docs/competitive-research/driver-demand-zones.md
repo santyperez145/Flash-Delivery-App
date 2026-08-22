@@ -12,7 +12,7 @@ Investigación verificada el 22 de agosto de 2026. Se comparan patrones funciona
 ## Decisión Flash
 
 - La primera versión muestra actividad **observada**, agregada por polígonos `service_zones` de PostGIS.
-- La demanda usa trabajos del modo activo sin conductor, no terminales y disponibles dentro de los próximos 15 minutos.
+- La demanda usa trabajos despachables del modo activo, sin conductor y disponibles dentro de los próximos 15 minutos. En comida, un pedido pagado sólo se vuelve despachable cuando el comercio lo marca `ready_for_pickup`; preparación no se presenta al conductor como oferta disponible.
 - La oferta usa sólo conductores online del mismo modo, GPS de hasta 5 minutos y 100 metros de precisión, compliance aprobado, vehículo aprobado y capacidad operativa libre.
 - `high` requiere al menos tres trabajos y más trabajos que conductores elegibles; `medium` requiere al menos uno; `low` significa que no hay trabajos abiertos observados.
 - Se devuelven conteos zonales y polígonos, nunca direcciones ni coordenadas de trabajos o de otros conductores.
@@ -24,4 +24,3 @@ Investigación verificada el 22 de agosto de 2026. Se comparan patrones funciona
 - La respuesta es privada, `no-store` y exige rol Driver.
 - Sin PostgreSQL/PostGIS responde `503`; no existe fallback simulado.
 - `observedAt` y `methodology` permiten a la app explicar vigencia y limitaciones.
-

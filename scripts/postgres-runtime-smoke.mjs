@@ -1393,6 +1393,11 @@ try {
     settlementOrder.status === 200 && settlementOrderId,
     "captured food order is ready for settlement",
   );
+  const preReadyDispatchOffers = Number((await pool.query(
+    "SELECT count(*)::int count FROM dispatch_offers offer JOIN jobs job ON job.id=offer.job_id WHERE job.public_id=$1",
+    [settlementOrderId],
+  )).rows[0].count);
+  assert(preReadyDispatchOffers === 0, "paid food remains out of dispatch until merchant readiness");
   const substitutionWalletBefore = (await request("/me")).body.account.user
     .wallet;
   const merchantSubLogin = await request("/auth/login", {
@@ -1741,6 +1746,20 @@ try {
   assert(
     substitutionOk,
     "customer accepts substitution, order snapshot changes and Wallet receives the exact balanced price difference",
+  );
+  token = merchantSubLogin.body.token;
+  const merchantPreparing = await request(`/orders/${settlementOrderId}/advance`, {
+      method: "POST",
+      body: "{}",
+    }),
+    merchantReady = await request(`/orders/${settlementOrderId}/advance`, {
+      method: "POST",
+      body: "{}",
+    });
+  assert(
+    merchantPreparing.body.order?.status === "preparing" &&
+      merchantReady.body.order?.status === "ready_for_pickup",
+    "merchant advances paid food through preparation before dispatch",
   );
   const driverLogin = await request("/auth/login", {
     method: "POST",
