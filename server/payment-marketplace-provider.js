@@ -19,7 +19,7 @@ const mercadoPagoPaymentStatus=new Set(["pending","approved","authorized","in_pr
 
 export function mercadoPagoFulfillmentDecision(status){
   if(status==="approved")return{intentStatus:"captured",fulfill:true,terminal:true};
-  if(["rejected","cancelled"].includes(status))return{intentStatus:"failed",fulfill:false,terminal:true};
+  if(["rejected","cancelled","refunded","charged_back"].includes(status))return{intentStatus:"failed",fulfill:false,terminal:true};
   return{intentStatus:"requires_confirmation",fulfill:false,terminal:false};
 }
 

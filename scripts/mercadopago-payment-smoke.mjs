@@ -18,6 +18,7 @@ assert.deepEqual(mercadoPagoFulfillmentDecision("approved"),{intentStatus:"captu
 assert.deepEqual(mercadoPagoFulfillmentDecision("pending"),{intentStatus:"requires_confirmation",fulfill:false,terminal:false});
 assert.deepEqual(mercadoPagoFulfillmentDecision("authorized"),{intentStatus:"requires_confirmation",fulfill:false,terminal:false});
 assert.deepEqual(mercadoPagoFulfillmentDecision("rejected"),{intentStatus:"failed",fulfill:false,terminal:true});
+assert.deepEqual(mercadoPagoFulfillmentDecision("refunded"),{intentStatus:"failed",fulfill:false,terminal:true});
 
 await assert.rejects(()=>createMercadoPagoPayment({accessToken:"secret",idempotencyKey:"payment-order-12345678",cardToken:"4111111111111111",transactionAmount:100,applicationFee:10,paymentMethodId:"visa",payerEmail:"buyer@example.com",externalReference:"ORDER-1",description:"test",fetchImpl:async()=>{throw new Error("must not call")}}),/Token de pago inválido/);
 await assert.rejects(()=>createMercadoPagoPayment({accessToken:"secret",idempotencyKey:"payment-order-12345678",cardToken:"card-token_12345678",transactionAmount:100,applicationFee:100,paymentMethodId:"visa",payerEmail:"buyer@example.com",externalReference:"ORDER-1",description:"test",fetchImpl:async()=>{throw new Error("must not call")}}),/Importes de pago inválidos/);
