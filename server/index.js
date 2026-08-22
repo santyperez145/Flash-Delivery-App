@@ -2912,7 +2912,7 @@ app.post(
         userPublicId: req.auth.userId,
         ttlMinutes: parsed.data.ttlMinutes,
       });
-      const trackingUrl = `${req.protocol}://${req.get("host")}/api/public/rides/track/${link.token}`;
+      const trackingUrl = `${config.appPublicUrl.replace(/\/$/, "")}/track/${link.token}`;
       await recordPostgresAudit({
         actorPublicId: req.auth.userId,
         roles: req.auth.roles,

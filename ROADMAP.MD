@@ -439,7 +439,7 @@ La implementacion se sigue por flujos completos y no por pantallas aisladas. Cad
 - [x] Comidas: pedidos activos y cancelacion autorizada.
 - [~] Comidas: onboarding real, favoritos persistentes, cupones y checkout con Wallet funcionan; falta paridad visual fina de confirmación.
 - [x] Comidas web/PWA: Actividad abre tracking dedicado con ruta OSRM real, mosaicos OSM, repartidor asignado, ETA/timeline, compartir estado y degradación honesta.
-- [x] Viajes web/PWA: Actividad abre tracking con ruta OSRM, vehículo/placa/rating, PIN de retiro, enlace temporal y reporte de incidente autenticado.
+- [x] Viajes web/PWA: Actividad abre tracking con ruta OSRM, vehículo/placa/rating, PIN de retiro, enlace temporal, vista pública móvil y reporte de incidente autenticado.
 - [~] Viajes: flujo de destino, mapa, selector, confirmación, matching y viaje activo está operativo; falta paridad final con el Figma Lyft y habilitación de emergencias locales.
 - [ ] Envios: adaptar el mismo sistema visual con paquete, destinatario, cotizacion, PIN y tracking ya operativos.
 - [ ] Actividad, wallet, perfil, soporte y notificaciones como navegacion compartida.

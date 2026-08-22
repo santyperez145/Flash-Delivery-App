@@ -144,7 +144,7 @@ La referencia oficial de Uber Eats confirma que el cliente espera progreso y ubi
 
 ### Decisión 22 de agosto de 2026 — viaje activo y seguridad
 
-Uber concentra en el viaje activo compartir ubicación, verificación por PIN, acceso a ayuda y reporte de incidentes. Flash lleva ese patrón a la PWA con contratos ya persistidos: la persona autenticada puede solicitar un PIN, crear un enlace temporal revocable y registrar un incidente con tipo, detalle y ubicación disponible. No se implementan llamadas automáticas a emergencias ni SMS como si estuvieran habilitados: esas funciones requieren jurisdicción, proveedor, procedimiento operativo y prueba física antes de pasar a producción.
+Uber concentra en el viaje activo compartir ubicación, verificación por PIN, acceso a ayuda y reporte de incidentes. Flash lleva ese patrón a la PWA con contratos ya persistidos: la persona autenticada puede solicitar un PIN, crear un enlace temporal revocable con vista pública móvil y registrar un incidente con tipo, detalle y ubicación disponible. No se implementan llamadas automáticas a emergencias ni SMS como si estuvieran habilitados: esas funciones requieren jurisdicción, proveedor, procedimiento operativo y prueba física antes de pasar a producción.
 
 - [Precio adelantado de Uber](https://www.uber.com/us/en/ride/how-it-works/upfront-pricing/)
 - [Google Routes: matriz de distancia y duracion](https://developers.google.com/maps/documentation/routes/compute_route_matrix)
