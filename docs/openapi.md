@@ -25,3 +25,7 @@ respuestas reales.
 ciudades, validación de login, autorización de sesiones, cotizaciones firmadas
 de viajes/envíos y protección de creación de pedidos. CI bloquea cambios que
 rompan este núcleo.
+
+Las mutaciones con cuerpo aceptan exclusivamente `application/json` (incluidos
+subtipos `application/*+json`). Cualquier cuerpo con otro `Content-Type` se
+rechaza con `415` antes de autenticación, validación de dominio o escritura.

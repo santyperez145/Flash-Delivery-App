@@ -506,6 +506,13 @@ app.use("/api/auth", (_req, res, next) => {
   next();
 });
 app.use("/api/auth", requireTrustedWebOrigin);
+app.use("/api", (req, res, next) => {
+  if (!new Set(["POST", "PUT", "PATCH", "DELETE"]).has(req.method)) return next();
+  const hasBody = Number(req.get("content-length") || 0) > 0 || Boolean(req.get("transfer-encoding"));
+  if (!hasBody) return next();
+  if (req.is("application/json") || req.is("application/*+json")) return next();
+  return fail(res, 415, "Content-Type debe ser application/json");
+});
 app.use(
   "/api",
   createLimiter({

@@ -29,6 +29,12 @@ try {
   await assetResponse.arrayBuffer();
   assert(assetResponse.headers.get("content-encoding") === "gzip", "JavaScript productivo se entrega comprimido");
   assert(assetResponse.headers.get("cache-control")?.includes("immutable"), "assets con hash usan cache inmutable anual");
+  const invalidMediaResponse = await fetch(`${origin}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain" },
+    body: JSON.stringify({ email: "cliente@flash.app", password: "demo123" }),
+  });
+  assert(invalidMediaResponse.status === 415, "mutaciones con payload rechazan tipos de contenido ambiguos");
   const loginResponse = await fetch(`${origin}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
