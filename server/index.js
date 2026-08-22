@@ -14,6 +14,7 @@ import { z } from "zod";
 import { SpanStatusCode, trace } from "@opentelemetry/api";
 import { config } from "./config.js";
 import { closeRedis, redisClient, redisReadiness } from "./redis.js";
+import { openApiDocument } from "./openapi.js";
 import { postgresPool, postgresReadiness } from "./postgres.js";
 import { observeHttpRequest, observeProviderCall, renderPrometheus } from "./observability.js";
 import { ProviderCircuit } from "./provider-resilience.js";
@@ -662,6 +663,7 @@ async function auditRuntime(
 const loginSchema = z.object({
   email: z.string().email("Email invalido"),
   password: z.string().min(4, "Password demasiado corto"),
+  deviceName: z.string().trim().max(160).optional(),
 });
 
 const registerSchema = z.object({
@@ -2526,6 +2528,11 @@ app.get("/api/health", (_req, res) => {
     storageMode: config.databaseUrl ? "postgres-primary" : "sqlite-demo",
     timestamp: getTimestamp(),
   });
+});
+
+app.get("/api/openapi.json", (_req, res) => {
+  res.set("Cache-Control", "public, max-age=300, stale-while-revalidate=900");
+  return res.json(openApiDocument);
 });
 
 app.get("/api/ready", async (_req, res) => {
@@ -5648,7 +5655,7 @@ app.post("/api/auth/login", async (req, res) => {
     user: usesPostgresAuth() ? sanitizeUser(user) : publicUser(db, user.id),
     ...(await issueSession(
       user,
-      req.body?.deviceName || req.get("user-agent") || "unknown",
+      parsed.data.deviceName || req.get("user-agent") || "unknown",
     )),
   });
 });

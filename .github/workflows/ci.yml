@@ -43,6 +43,9 @@ jobs:
       - name: Web compression and cache contract
         run: npm run test:web-delivery
 
+      - name: OpenAPI core contract
+        run: npm run test:openapi-contract
+
       - name: Secret scan
         run: npm run test:secrets
 

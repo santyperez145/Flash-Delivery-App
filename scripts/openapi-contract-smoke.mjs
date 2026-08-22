@@ -1,0 +1,55 @@
+import { spawn } from "node:child_process";
+
+const port = 4218;
+const origin = `http://127.0.0.1:${port}`;
+const server = spawn(process.execPath, ["server/start.js"], {
+  cwd: process.cwd(),
+  env: { ...process.env, NODE_ENV: "test", LOG_LEVEL: "silent", PORT: String(port) },
+  stdio: ["ignore", "ignore", "pipe"],
+});
+server.stderr.on("data", (data) => process.stderr.write(data));
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const assert = (condition, message) => { if (!condition) throw new Error(message); console.log(`ok - ${message}`); };
+
+function collectRefs(value, refs = []) {
+  if (!value || typeof value !== "object") return refs;
+  if (typeof value.$ref === "string") refs.push(value.$ref);
+  for (const nested of Object.values(value)) collectRefs(nested, refs);
+  return refs;
+}
+
+try {
+  let online = false;
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    try { if ((await fetch(`${origin}/api/health`)).ok) { online = true; break; } } catch {}
+    await sleep(200);
+  }
+  assert(online, "la API de contrato inició");
+  const specResponse = await fetch(`${origin}/api/openapi.json`);
+  const spec = await specResponse.json();
+  assert(specResponse.ok && spec.openapi === "3.1.0" && spec.info?.title === "Flash Platform API", "OpenAPI 3.1 está publicado y versionado");
+  assert(specResponse.headers.get("cache-control")?.includes("stale-while-revalidate"), "el contrato permite revalidación controlada");
+
+  const operations = Object.values(spec.paths).flatMap((path) => Object.values(path)).filter((operation) => operation?.operationId);
+  const operationIds = operations.map((operation) => operation.operationId);
+  assert(operationIds.length === new Set(operationIds).size && operationIds.length >= 9, "operationId es único en el núcleo documentado");
+  const refs = collectRefs(spec);
+  const unresolvedRefs = refs.filter((ref) => !ref.startsWith("#/components/schemas/") || !spec.components.schemas[ref.split("/").at(-1)]);
+  assert(unresolvedRefs.length === 0, `${new Set(refs).size} referencias internas están resueltas`);
+
+  const healthResponse = await fetch(`${origin}/api/health`);
+  const health = await healthResponse.json();
+  assert(healthResponse.status === 200 && health.ok === true && health.requestId && health.service === "flash-fullstack-api" && health.timestamp, "health cumple su respuesta documentada");
+  const citiesResponse = await fetch(`${origin}/api/cities`);
+  const cities = await citiesResponse.json();
+  assert(citiesResponse.status === 200 && cities.ok === true && cities.cities?.every((city) => city.id && city.slug && city.center && city.currency), "cities cumple su respuesta documentada");
+  const invalidLogin = await fetch(`${origin}/api/auth/login`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: "cliente@flash.app", password: "demo123", deviceName: "x".repeat(161) }),
+  });
+  assert(invalidLogin.status === 400 && spec.paths["/api/auth/login"].post.responses[400], "login valida el límite documentado de deviceName");
+  const anonymousSessions = await fetch(`${origin}/api/me/sessions`);
+  assert(anonymousSessions.status === 401 && spec.paths["/api/me/sessions"].get.responses[401], "sesiones exige el bearer documentado");
+} finally {
+  server.kill("SIGTERM");
+}
