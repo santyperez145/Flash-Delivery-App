@@ -6,6 +6,14 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 22 de agosto de 2026 — mapa web interactivo de Viajes
+
+- [x] La vista previa de Viajes reemplaza la grilla fija 3×3 por MapLibre GL JS con pan, zoom, controles accesibles y reencuadre automático de todos los puntos reales.
+- [x] La geometría OSRM se dibuja como capa GeoJSON con casing; origen, destino y conductor usan jerarquía Flash y nunca aparece una línea directa cuando routing no responde.
+- [x] El renderer GPU y su CSS se cargan en un chunk asíncrono independiente, conservando el presupuesto del JavaScript inicial.
+- [x] El fallback OpenStreetMap conserva atribución y CSP autoriza sólo orígenes HTTPS enumerados; `VITE_MAP_STYLE_URL` habilita un estilo vectorial público sustituible sin exponer secretos privados.
+- [~] Falta contratar o autohospedar tiles/estilo vectorial con SLA y verificarlo en dispositivos; tracking web de comida/viajes/envíos y mobile todavía usan el renderer anterior y se migrarán en los siguientes bloques.
+
 ## Avance 22 de agosto de 2026 — inicio real de Viajes web
 
 - [x] Desktop/PWA dejó de precargar Defensa→Aeroparque: toma una vez la dirección principal geocodificada del usuario o muestra un estado vacío honesto.

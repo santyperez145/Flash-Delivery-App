@@ -23,6 +23,7 @@ try {
   assert(indexResponse.ok && indexResponse.headers.get("cache-control") === "no-cache", "index.html siempre revalida despliegues");
   const csp = indexResponse.headers.get("content-security-policy") || "";
   assert(csp.includes("default-src 'self'") && csp.includes("object-src 'none'") && csp.includes("frame-ancestors 'none'") && !csp.includes("unsafe-eval"), "CSP bloquea ejecución, objetos y framing no autorizados");
+  assert(csp.includes("worker-src 'self' blob:") && csp.includes("https://tile.openstreetmap.org") && !csp.includes("connect-src 'self' https:"), "CSP habilita workers y orígenes cartográficos explícitos sin abrir todo HTTPS");
   const assetPath = html.match(/<script[^>]+src="([^"]+\.js)"/)?.[1];
   assert(assetPath, "index.html referencia el entry versionado");
   const browserHeaders = { "Accept-Encoding": "gzip", Origin: origin };

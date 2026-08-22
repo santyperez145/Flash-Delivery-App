@@ -517,7 +517,7 @@ app.use(
       directives: {
         defaultSrc: ["'self'"],
         baseUri: ["'self'"],
-        connectSrc: ["'self'", ...config.corsOrigins.filter((origin) => origin !== "*")],
+        connectSrc: ["'self'", ...config.corsOrigins.filter((origin) => origin !== "*"), ...config.webMapOrigins],
         fontSrc: ["'self'", "data:"],
         formAction: ["'self'"],
         frameAncestors: ["'none'"],
