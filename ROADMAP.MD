@@ -12,7 +12,16 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [x] La geometría OSRM se dibuja como capa GeoJSON con casing; origen, destino y conductor usan jerarquía Flash y nunca aparece una línea directa cuando routing no responde.
 - [x] El renderer GPU y su CSS se cargan en un chunk asíncrono independiente, conservando el presupuesto del JavaScript inicial.
 - [x] El fallback OpenStreetMap conserva atribución y CSP autoriza sólo orígenes HTTPS enumerados; `VITE_MAP_STYLE_URL` habilita un estilo vectorial público sustituible sin exponer secretos privados.
-- [~] Falta contratar o autohospedar tiles/estilo vectorial con SLA y verificarlo en dispositivos; tracking web de comida/viajes/envíos y mobile todavía usan el renderer anterior y se migrarán en los siguientes bloques.
+- [~] Falta contratar o autohospedar tiles/estilo vectorial con SLA y verificarlo en dispositivos; mobile todavía usa el renderer anterior y se migrará en el siguiente bloque.
+
+## Avance 22 de agosto de 2026 — mapas web unificados por vertical
+
+- [x] Tracking autenticado de comida, viajes y envíos, más el enlace público de viaje, reutilizan el mismo renderer MapLibre interactivo.
+- [x] Comida conserva ruta naranja, movilidad violeta y envíos verde; las cuatro superficies permiten pan, zoom y reencuadre sin deformar la geometría.
+- [x] Las actualizaciones reemplazan GeoJSON y marcadores reales sin acumular capas; el enlace público no dibuja ruta porque su contrato mínimo no entrega esa geometría.
+- [x] Se retiraron la proyección Mercator manual, nueve `<img>` por mapa, polylines SVG y estilos legacy de tracking web.
+- [x] `test:web-tracking-maps`, build y bundle budget protegen reutilización, carga asíncrona y ausencia de movimiento inventado.
+- [~] Mapa mobile nativo y estilo vectorial productivo permanecen condicionados a compatibilidad, credenciales, build firmado y prueba física.
 
 ## Avance 22 de agosto de 2026 — inicio real de Viajes web
 

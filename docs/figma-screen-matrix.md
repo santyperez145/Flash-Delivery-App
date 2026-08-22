@@ -33,7 +33,7 @@ Estados: `[x]` funcional y visible, `[~]` base funcional con paridad visual pend
 | [x] | Carrito y cantidades | carrito persistente PostgreSQL por cliente |
 | [x] | Checkout completo | mobile y web seleccionan dirección PostGIS propia y pago disponible, recotizan ante cambios, muestran ETA/desglose/expiración firmados y confirman el mismo token; PSP externo pendiente de producción |
 | [x] | Pedido confirmado | creación y cobro reales; confirmación visual con ID, ETA, total y seguimiento |
-| [x] | Tracking del pedido | modal dedicado, ruta vial OSM, ETA, timeline real, conductor y posición cuando está asignado |
+| [x] | Tracking del pedido | modal dedicado, mapa web MapLibre interactivo, ruta vial OSM, ETA, timeline real, conductor y posición cuando está asignado |
 | [x] | Actividad/pedidos activos | API autenticada |
 | [~] | Historial, recibo y pedir de nuevo | actividad, comprobante no fiscal y recompra revalidada listos; factura fiscal externa pendiente |
 | [x] | Favoritos | tabla, endpoints, ownership y RLS PostgreSQL |
@@ -44,9 +44,9 @@ Estados: `[x]` funcional y visible, `[~]` base funcional con paridad visual pend
 | Estado | Pantalla/estado Figma | Dominio/API requerido |
 |---|---|---|
 | [~] | Onboarding y permiso de ubicacion | permisos reales; paridad visual pendiente |
-| [x] | Mapa y origen GPS | mobile y web usan GPS/dirección propia, OSM y estado vacío; no precargan una ruta ficticia |
+| [x] | Mapa y origen GPS | mobile y web usan GPS/dirección propia, OSM y estado vacío; web permite pan/zoom/reencuadre MapLibre y no precarga una ruta ficticia |
 | [x] | Buscar destino y lugares frecuentes | direcciones guardadas y recientes reales por usuario, coordenadas PostGIS, geocoding, deduplicación y borrado privado |
-| [x] | Ruta previa | OSRM, teselas OSM, polyline SVG, ETA y fallback explícito en mobile y web |
+| [x] | Ruta previa | OSRM, GeoJSON MapLibre web, renderer mobile temporal, ETA y fallback explícito sin línea inventada |
 | [x] | Selector de modalidad | disponibilidad, capacidad, pickup ETA |
 | [x] | Precio adelantado | breakdown, demanda, token firmado, vencimiento |
 | [x] | Solicitar y asignar conductor | jobs/rides, dispatch por cercania |

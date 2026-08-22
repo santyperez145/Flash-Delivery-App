@@ -3,6 +3,10 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
+  optimizeDeps: {
+    // MapLibre bundles its own worker; prebundling can orphan that worker after HMR.
+    exclude: ["maplibre-gl"],
+  },
   build: {
     manifest: true,
     rollupOptions: {

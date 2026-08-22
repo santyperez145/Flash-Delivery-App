@@ -53,6 +53,7 @@ type FlashMapProps = {
   caption?: string;
   detail?: string;
   interactive?: boolean;
+  routeColor?: string;
 };
 
 function isGeoPoint(value: GeoPoint | null | undefined): value is GeoPoint {
@@ -113,6 +114,7 @@ export default function FlashMap({
   caption,
   detail,
   interactive = true,
+  routeColor = "#7c3cff",
 }: FlashMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -194,7 +196,7 @@ export default function FlashMap({
           type: "line",
           source: ROUTE_SOURCE_ID,
           layout: { "line-cap": "round", "line-join": "round" },
-          paint: { "line-color": "#7c3cff", "line-width": 5 },
+          paint: { "line-color": routeColor, "line-width": 5 },
         });
         setError("");
         setReady(true);
@@ -214,7 +216,7 @@ export default function FlashMap({
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [destination.lat, destination.lng, interactive, origin.lat, origin.lng]);
+  }, [destination.lat, destination.lng, interactive, origin.lat, origin.lng, routeColor]);
 
   useEffect(() => {
     const map = mapRef.current;

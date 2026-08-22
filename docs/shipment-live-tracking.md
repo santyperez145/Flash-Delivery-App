@@ -4,7 +4,7 @@ Actividad web/PWA y mobile abren un panel dedicado para cada envío activo. No a
 
 ## Mapa adaptable
 
-El cliente calcula el nivel de zoom entre 8 y 15 a partir de todos los puntos visibles —origen, destino, geometría de ruta y conductor— y selecciona el mosaico OSM correspondiente. Esto mantiene rutas urbanas cortas y recorridos largos dentro del panel sin estirar coordenadas ni usar una imagen estática.
+En web, MapLibre calcula el viewport a partir de todos los puntos visibles —origen, destino, geometría de ruta y conductor—, aplica padding para no taparlos con la ficha inferior y permite pan, zoom y reencuadre. La ruta verde es GeoJSON real. Esto mantiene rutas urbanas cortas y recorridos largos dentro del panel sin estirar coordenadas ni usar una grilla HTML estática. Mobile conserva temporalmente el renderer anterior hasta completar y verificar la integración nativa.
 
 Si Routes no responde, el panel conserva el estado operativo y muestra un error explícito; no reemplaza distancia o ETA con un número inventado.
 
