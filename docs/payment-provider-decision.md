@@ -31,7 +31,7 @@ procedimiento de incidentes estén conectados y ensayados.
 
 1. Alta comercial de la aplicación Marketplace y confirmación contractual.
 2. OAuth seller con `state` de un solo uso, callback exacto y tokens cifrados.
-3. [~] Saga idempotente con `application_fee`, token seller, captura en ledger, recuperación por webhook y refund previo a cancelación implementada sin PAN/CVV; falta el token generado por Bricks/Core Methods y la prueba sandbox física.
+3. [~] Saga idempotente con `application_fee`, token seller, Card Payment Brick web, captura en ledger, recuperación por webhook y refund previo a cancelación implementada sin PAN/CVV; falta Core Methods mobile y la prueba sandbox física.
 4. Webhooks firmados, inbox deduplicado y reconciliación contra ledger.
 5. Refund proporcional, saldos insuficientes y runbook de discrepancias.
 6. Pruebas con cuentas de test y luego transacción física controlada.
