@@ -18,6 +18,7 @@ import { openApiDocument } from "./openapi.js";
 import { closePostgres, postgresPool, postgresReadiness } from "./postgres.js";
 import { stopTelemetry } from "./telemetry.js";
 import { createGracefulShutdown } from "./graceful-shutdown.js";
+import { confirmPhoneVerification, requestPhoneVerification } from "./phone-verification-repository.js";
 import { observeHttpRequest, observeProviderCall, renderPrometheus } from "./observability.js";
 import { ProviderCircuit } from "./provider-resilience.js";
 import {
@@ -723,7 +724,7 @@ const registerSchema = z.object({
     .string()
     .min(8, "Password minimo 8 caracteres")
     .max(128, "Password demasiado largo"),
-  phone: z.string().trim().max(30).optional(),
+  phone: z.string().trim().regex(/^\+[1-9][0-9]{7,14}$/, "Usa formato internacional, por ejemplo +5491112345678").optional(),
   deviceName: z.string().trim().max(160).optional(),
 });
 const passwordRecoveryRequestSchema = z.object({
@@ -742,6 +743,7 @@ const emailVerificationRequestSchema = z.object({
 const emailVerificationConfirmSchema = emailVerificationRequestSchema.extend({
   code: z.string().regex(/^\d{6}$/, "Código inválido"),
 });
+const phoneVerificationConfirmSchema = z.object({ code: z.string().regex(/^\d{6}$/, "Código inválido") });
 const mfaCodeSchema = z.object({ code: z.string().trim().min(6).max(32) });
 const mfaCompleteSchema = mfaCodeSchema.extend({
   challenge: z.string().min(20),
@@ -949,7 +951,7 @@ const driverVehicleReviewSchema=z.object({status:z.enum(["approved","rejected"])
 
 const profileSchema = z.object({
   name: z.string().trim().min(2).max(120),
-  phone: z.string().trim().max(40).optional().default(""),
+  phone: z.string().trim().regex(/^\+[1-9][0-9]{7,14}$/, "Usa formato internacional, por ejemplo +5491112345678"),
   defaultAddress: z.string().trim().min(3).max(240),
 });
 
@@ -4819,6 +4821,20 @@ app.delete(
     }
   },
 );
+
+app.post("/api/me/phone-verification/request", requireAuth, async (req, res) => {
+  if (!usesPostgresAuth()) return fail(res, 503, "La verificación telefónica requiere PostgreSQL");
+  try { return ok(res, await requestPhoneVerification(req.auth.userId)); }
+  catch (error) { if (error.retryAfter) res.set("Retry-After", String(error.retryAfter)); return fail(res,error.status||500,error.message||"No se pudo enviar el código"); }
+});
+
+app.post("/api/me/phone-verification/confirm", requireAuth, async (req, res) => {
+  const parsed = parseOrFail(phoneVerificationConfirmSchema, req.body || {});
+  if (!parsed.ok) return fail(res,400,parsed.message);
+  if (!usesPostgresAuth()) return fail(res,503,"La verificación telefónica requiere PostgreSQL");
+  try { return ok(res, await confirmPhoneVerification({userPublicId:req.auth.userId,code:parsed.data.code})); }
+  catch (error) { return fail(res,error.status||500,error.message||"No se pudo verificar el teléfono"); }
+});
 
 app.patch("/api/me", requireAuth, async (req, res) => {
   const parsed = parseOrFail(profileSchema, req.body || {});

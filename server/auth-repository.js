@@ -52,6 +52,7 @@ function mapUser(row) {
     driverId: profile.driverId || undefined,
     status: row.status,
     emailVerifiedAt: row.email_verified_at ? new Date(row.email_verified_at).toISOString() : null,
+    phoneVerifiedAt: row.phone_verified_at ? new Date(row.phone_verified_at).toISOString() : null,
     loginLockedUntil: row.login_locked_until ? new Date(row.login_locked_until).toISOString() : null
   };
 }
@@ -276,7 +277,7 @@ export async function revokeOtherPostgresSessions({userPublicId,currentRefreshTo
 
 export async function updatePostgresAuthProfile(publicId, { name, phone, defaultAddress }) {
   await postgresPool.query(
-    `UPDATE users SET name = $2, phone = $3,
+    `UPDATE users SET name = $2, phone_verified_at=CASE WHEN phone IS NOT DISTINCT FROM $3 THEN phone_verified_at ELSE NULL END, phone = $3,
       profile = jsonb_set(profile, '{defaultAddress}', to_jsonb(COALESCE((SELECT formatted_address FROM addresses WHERE user_id=users.id AND is_default),$4)::text), true),
       updated_at = now()
      WHERE public_id = $1`,

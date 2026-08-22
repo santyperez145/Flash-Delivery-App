@@ -83,6 +83,19 @@ export const openApiDocument = {
         responses: { 200: success({ type: "object", required: ["ok", "requestId", "sessions"], properties: { ok: { const: true }, requestId: { type: "string" }, sessions: { type: "array", items: { $ref: "#/components/schemas/Session" } } } }), 401: errorResponses[401], 429: errorResponses[429] },
       },
     },
+    "/api/me/phone-verification/request": {
+      post: {
+        tags: ["Auth"], operationId: "requestPhoneVerification", summary: "Enviar OTP al teléfono guardado", security: [{ bearerAuth: [] }],
+        responses: { 200: success({ $ref: "#/components/schemas/PhoneVerificationRequestResponse" }), 401: errorResponses[401], 409: { description: "Teléfono ausente o ya verificado", content: json }, 429: errorResponses[429], 503: { description: "Proveedor no configurado", content: json } },
+      },
+    },
+    "/api/me/phone-verification/confirm": {
+      post: {
+        tags: ["Auth"], operationId: "confirmPhoneVerification", summary: "Confirmar posesión del teléfono", security: [{ bearerAuth: [] }],
+        requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["code"], properties: { code: { type: "string", pattern: "^[0-9]{6}$", writeOnly: true } } } } } },
+        responses: { 200: success({ type: "object", required: ["ok", "requestId", "verified", "phone"], properties: { ok: { const: true }, requestId: { type: "string" }, verified: { const: true }, phone: { type: "string" } } }), 400: errorResponses[400], 401: errorResponses[401], 429: errorResponses[429] },
+      },
+    },
     "/api/me/sessions/{sessionId}": {
       delete: {
         tags: ["Auth"], operationId: "revokeSession", summary: "Revocar una sesión propia", security: [{ bearerAuth: [] }],
@@ -101,7 +114,7 @@ export const openApiDocument = {
       City: { type: "object", required: ["id", "slug", "name", "countryCode", "currency", "timezone", "status", "enabledServices", "center"], properties: { id: { type: "string" }, slug: { type: "string" }, name: { type: "string" }, countryCode: { type: "string", minLength: 2, maxLength: 2 }, currency: { type: "string", minLength: 3, maxLength: 3 }, timezone: { type: "string" }, status: { enum: ["beta", "active"] }, enabledServices: { type: "array", items: { type: "string" } }, center: { $ref: "#/components/schemas/Coordinate" } } },
       CitiesResponse: { type: "object", required: ["ok", "requestId", "cities"], properties: { ok: { const: true }, requestId: { type: "string" }, cities: { type: "array", items: { $ref: "#/components/schemas/City" } } } },
       ZonesResponse: { type: "object", required: ["ok", "requestId", "city", "zones"], properties: { ok: { const: true }, requestId: { type: "string" }, city: { type: "string" }, zones: { type: "array", items: { type: "object" } } } },
-      User: { type: "object", required: ["id", "name", "email", "roles"], properties: { id: { type: "string" }, name: { type: "string" }, email: { type: "string", format: "email" }, roles: { type: "array", items: { enum: ["customer", "merchant", "driver", "admin", "support", "auditor"] } }, phone: { type: "string" } } },
+      User: { type: "object", required: ["id", "name", "email", "roles"], properties: { id: { type: "string" }, name: { type: "string" }, email: { type: "string", format: "email" }, roles: { type: "array", items: { enum: ["customer", "merchant", "driver", "admin", "support", "auditor"] } }, phone: { type: "string", pattern: "^\\+[1-9][0-9]{7,14}$" }, phoneVerifiedAt: { type: ["string","null"], format: "date-time" } } },
       LoginRequest: { type: "object", required: ["email", "password"], properties: { email: { type: "string", format: "email" }, password: { type: "string", minLength: 4 }, deviceName: { type: "string", maxLength: 160 } } },
       RegisterRequest: { type: "object", required: ["name", "email", "password"], properties: { name: { type: "string", minLength: 2 }, email: { type: "string", format: "email" }, password: { type: "string", minLength: 8, maxLength: 128, format: "password" }, phone: { type: "string", maxLength: 30 }, deviceName: { type: "string", maxLength: 160 } } },
       RefreshTokenRequest: { type: "object", required: ["refreshToken"], properties: { refreshToken: { type: "string", minLength: 32, writeOnly: true } } },
@@ -109,6 +122,7 @@ export const openApiDocument = {
       AuthResponse: { type: "object", required: ["ok", "requestId", "user"], properties: { ok: { const: true }, requestId: { type: "string" }, user: { $ref: "#/components/schemas/User" }, token: { type: "string", writeOnly: true }, refreshToken: { type: "string", writeOnly: true }, refreshExpiresAt: { type: "string", format: "date-time" }, mfaRequired: { type: "boolean" }, mfaChallenge: { type: "string", writeOnly: true } } },
       RegisterResponse: { type: "object", required: ["ok", "requestId", "user"], properties: { ok: { const: true }, requestId: { type: "string" }, user: { $ref: "#/components/schemas/User" }, verificationRequired: { type: "boolean" } } },
       Session: { type: "object", required: ["id", "deviceName", "createdAt", "expiresAt"], properties: { id: { type: "string" }, deviceName: { type: "string" }, createdAt: { type: "string", format: "date-time" }, expiresAt: { type: "string", format: "date-time" } } },
+      PhoneVerificationRequestResponse: { type: "object", required: ["ok", "requestId", "expiresAt", "retryAfterSeconds"], properties: { ok: { const: true }, requestId: { type: "string" }, expiresAt: { type: "string", format: "date-time" }, retryAfterSeconds: { type: "integer", minimum: 30 }, developmentCode: { type: "string", pattern: "^[0-9]{6}$", writeOnly: true, description: "Sólo sandbox fuera de producción." } } },
     },
   },
 };
