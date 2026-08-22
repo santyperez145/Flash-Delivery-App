@@ -73,6 +73,12 @@ export type MenuItem = {
   tags: string[];
 };
 
+export type DietaryPreferences={
+  dietaryLabels:Array<{code:string;name:string}>;
+  avoidedAllergens:Array<{code:string;name:string}>;
+  hideIncompatible:boolean;
+};
+
 export type GeoPoint = {
   lat: number;
   lng: number;
