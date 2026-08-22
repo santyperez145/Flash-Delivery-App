@@ -1987,6 +1987,44 @@ async function issueSession(user, deviceName, { mfaVerified = false } = {}) {
   };
 }
 
+const refreshCookieName = config.isProduction ? "__Host-flash_refresh" : "flash_refresh";
+function isWebSessionRequest(req) {
+  return req.get("x-flash-client") === "web";
+}
+function readRefreshCookie(req) {
+  if (!isWebSessionRequest(req)) return "";
+  const cookies = String(req.headers.cookie || "").split(";");
+  for (const cookie of cookies) {
+    const separator = cookie.indexOf("=");
+    if (separator < 0 || cookie.slice(0, separator).trim() !== refreshCookieName) continue;
+    try { return decodeURIComponent(cookie.slice(separator + 1).trim()); } catch { return ""; }
+  }
+  return "";
+}
+function setRefreshCookie(res, refreshToken, expiresAt) {
+  res.cookie(refreshCookieName, refreshToken, {
+    httpOnly: true,
+    sameSite: "strict",
+    secure: config.isProduction,
+    path: config.isProduction ? "/" : "/api",
+    expires: new Date(expiresAt),
+  });
+}
+function clearRefreshCookie(res) {
+  res.clearCookie(refreshCookieName, {
+    httpOnly: true,
+    sameSite: "strict",
+    secure: config.isProduction,
+    path: config.isProduction ? "/" : "/api",
+  });
+}
+function deliverSession(req, res, session) {
+  if (!isWebSessionRequest(req)) return session;
+  setRefreshCookie(res, session.refreshToken, session.refreshExpiresAt);
+  const { refreshToken: _refreshToken, ...publicSession } = session;
+  return publicSession;
+}
+
 function creditDriverEarnings(db, driverId, amount, reference) {
   const driver = db.drivers.find((entry) => entry.id === driverId);
   if (!driver || !Number.isFinite(amount) || amount <= 0) return;
@@ -5672,7 +5710,7 @@ app.post("/api/auth/login", async (req, res) => {
   }
   return ok(res, {
     user: usesPostgresAuth() ? sanitizeUser(user) : publicUser(db, user.id),
-    ...(await issueSession(
+    ...deliverSession(req, res, await issueSession(
       user,
       parsed.data.deviceName || req.get("user-agent") || "unknown",
     )),
@@ -5776,7 +5814,7 @@ app.post(
       });
       return ok(res, {
         mfa,
-        ...(await issueSession(
+        ...deliverSession(req, res, await issueSession(
           req.auth.user,
           req.body?.deviceName || req.get("user-agent") || "unknown",
           { mfaVerified: true },
@@ -5819,7 +5857,7 @@ app.post("/api/auth/mfa/complete", async (req, res) => {
     return ok(res, {
       user: sanitizeUser(user),
       verification,
-      ...(await issueSession(
+      ...deliverSession(req, res, await issueSession(
         user,
         parsed.data.deviceName || req.get("user-agent") || "unknown",
         { mfaVerified: true },
@@ -5999,7 +6037,10 @@ app.patch(
 );
 
 app.post("/api/auth/refresh", async (req, res) => {
-  const parsed = parseOrFail(refreshSchema, req.body || {});
+  const parsed = parseOrFail(refreshSchema, {
+    ...(req.body || {}),
+    refreshToken: req.body?.refreshToken || readRefreshCookie(req),
+  });
   if (!parsed.ok) return fail(res, 400, parsed.message);
   const rotated = usesPostgresAuth()
     ? await rotatePostgresSession(
@@ -6022,6 +6063,7 @@ app.post("/api/auth/refresh", async (req, res) => {
     (await getAdminMfaStatus(user.id)).enabled
   ) {
     await revokePostgresSession(rotated.refreshToken);
+    if (isWebSessionRequest(req)) clearRefreshCookie(res);
     return ok(res, {
       user: sanitizeUser(user),
       mfaRequired: true,
@@ -6031,24 +6073,27 @@ app.post("/api/auth/refresh", async (req, res) => {
   return ok(res, {
     user: usesPostgresAuth() ? sanitizeUser(user) : publicUser(db, user.id),
     token: issueAccessToken(user),
-    refreshToken: rotated.refreshToken,
-    refreshExpiresAt: rotated.expiresAt,
+    ...deliverSession(req, res, {
+      refreshToken: rotated.refreshToken,
+      refreshExpiresAt: rotated.expiresAt,
+    }),
   });
 });
 
 app.post("/api/auth/logout", async (req, res) => {
   const parsed = parseOrFail(
     refreshSchema.pick({ refreshToken: true }),
-    req.body || {},
+    { ...(req.body || {}), refreshToken: req.body?.refreshToken || readRefreshCookie(req) },
   );
   if (!parsed.ok) return fail(res, 400, parsed.message);
   if (usesPostgresAuth()) await revokePostgresSession(parsed.data.refreshToken);
   else revokeAuthSession(parsed.data.refreshToken);
+  if (isWebSessionRequest(req)) clearRefreshCookie(res);
   return ok(res, { loggedOut: true });
 });
 app.get("/api/me/sessions",requireAuth,async(req,res)=>{if(!usesPostgresAuth())return ok(res,{sessions:[]});try{res.set("Cache-Control","no-store, private");return ok(res,{sessions:await getPostgresUserSessions(req.auth.userId)});}catch(error){return fail(res,error.status||500,error.message||"No se pudieron cargar las sesiones");}});
 app.delete("/api/me/sessions/:sessionId",requireAuth,async(req,res)=>{if(!usesPostgresAuth())return fail(res,503,"El cierre remoto requiere PostgreSQL");try{const result=await revokeOwnedPostgresSession({userPublicId:req.auth.userId,sessionPublicId:req.params.sessionId});await recordPostgresAudit({actorPublicId:req.auth.userId,roles:req.auth.roles,action:"auth.session_revoked",entityType:"refresh_session",entityId:req.params.sessionId,requestId:req.requestId});return ok(res,result);}catch(error){return fail(res,error.status||500,error.message||"No se pudo cerrar la sesión");}});
-app.post("/api/me/sessions/revoke-others",requireAuth,async(req,res)=>{const parsed=parseOrFail(refreshSchema.pick({refreshToken:true}),req.body||{});if(!parsed.ok)return fail(res,400,parsed.message);if(!usesPostgresAuth())return fail(res,503,"El cierre remoto requiere PostgreSQL");try{const result=await revokeOtherPostgresSessions({userPublicId:req.auth.userId,currentRefreshToken:parsed.data.refreshToken});await recordPostgresAudit({actorPublicId:req.auth.userId,roles:req.auth.roles,action:"auth.other_sessions_revoked",entityType:"user",entityId:req.auth.userId,requestId:req.requestId,afterData:result});return ok(res,result);}catch(error){return fail(res,error.status||500,error.message||"No se pudieron cerrar las demás sesiones");}});
+app.post("/api/me/sessions/revoke-others",requireAuth,async(req,res)=>{const parsed=parseOrFail(refreshSchema.pick({refreshToken:true}),{...(req.body||{}),refreshToken:req.body?.refreshToken||readRefreshCookie(req)});if(!parsed.ok)return fail(res,400,parsed.message);if(!usesPostgresAuth())return fail(res,503,"El cierre remoto requiere PostgreSQL");try{const result=await revokeOtherPostgresSessions({userPublicId:req.auth.userId,currentRefreshToken:parsed.data.refreshToken});await recordPostgresAudit({actorPublicId:req.auth.userId,roles:req.auth.roles,action:"auth.other_sessions_revoked",entityType:"user",entityId:req.auth.userId,requestId:req.requestId,afterData:result});return ok(res,result);}catch(error){return fail(res,error.status||500,error.message||"No se pudieron cerrar las demás sesiones");}});
 
 app.post("/api/auth/password-recovery/request", async (req, res) => {
   const parsed = parseOrFail(passwordRecoveryRequestSchema, req.body || {});
@@ -6192,7 +6237,7 @@ app.post("/api/auth/register", async (req, res) => {
     });
   return ok(res, {
     user: publicUser(db, user.id),
-    ...(await issueSession(
+    ...deliverSession(req, res, await issueSession(
       user,
       req.body?.deviceName || req.get("user-agent") || "unknown",
     )),

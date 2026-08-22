@@ -20,12 +20,7 @@ const TOKEN_KEY = "flash_platform_token";
 const REFRESH_KEY = "flash_platform_refresh";
 const EVENT_CURSOR_KEY = "flash_platform_event_cursor";
 
-const storedToken = () =>
-  typeof window === "undefined"
-    ? ""
-    : window.localStorage.getItem(TOKEN_KEY) || "";
-
-let authToken = storedToken();
+let authToken = "";
 let activeAudience: "customer" | "merchant" | "driver" | "operations" = "customer";
 let refreshToken =
   typeof window === "undefined"
@@ -39,9 +34,7 @@ type ApiEnvelope<T> = T & {
 
 export function setAuthToken(token: string) {
   authToken = token;
-  if (typeof window !== "undefined") {
-    window.localStorage.setItem(TOKEN_KEY, token);
-  }
+  if (typeof window !== "undefined") window.localStorage.removeItem(TOKEN_KEY);
 }
 
 export function clearAuthToken() {
@@ -56,16 +49,15 @@ export function clearAuthToken() {
 
 function persistRefreshToken(token: string) {
   refreshToken = token;
-  if (typeof window !== "undefined")
-    window.localStorage.setItem(REFRESH_KEY, token);
+  if (typeof window !== "undefined") window.localStorage.removeItem(REFRESH_KEY);
 }
 
 async function refreshAccessToken() {
-  if (!refreshToken) return false;
   const response = await fetch(`${API_BASE}/auth/refresh`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refreshToken, deviceName: "Flash Web" }),
+    credentials: "include",
+    headers: { "Content-Type": "application/json", "X-Flash-Client": "web" },
+    body: JSON.stringify({ ...(refreshToken ? { refreshToken } : {}), deviceName: "Flash Web" }),
   });
   if (!response.ok) {
     clearAuthToken();
@@ -73,14 +65,14 @@ async function refreshAccessToken() {
   }
   const session = (await response.json()) as {
     token: string;
-    refreshToken: string;
+    refreshToken?: string;
   };
-  if (!session.token || !session.refreshToken) {
+  if (!session.token) {
     clearAuthToken();
     return false;
   }
   setAuthToken(session.token);
-  persistRefreshToken(session.refreshToken);
+  persistRefreshToken(session.refreshToken || "");
   return true;
 }
 
@@ -193,11 +185,13 @@ async function request<T>(
   if (!requestHeaders.has("Content-Type")) {
     requestHeaders.set("Content-Type", "application/json");
   }
+  requestHeaders.set("X-Flash-Client", "web");
   if (authToken && !requestHeaders.has("Authorization")) {
     requestHeaders.set("Authorization", `Bearer ${authToken}`);
   }
   const response = await fetch(`${API_BASE}${path}`, {
     ...requestInit,
+    credentials: "include",
     headers: requestHeaders,
   });
   if (
@@ -277,9 +271,9 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ email, password }),
     });
-    if (session.token && session.refreshToken) {
+    if (session.token) {
       setAuthToken(session.token);
-      persistRefreshToken(session.refreshToken);
+      persistRefreshToken(session.refreshToken || "");
     }
     return session;
   },
@@ -329,14 +323,14 @@ export const api = {
     const session = await request<{
       user: User;
       token: string;
-      refreshToken: string;
+      refreshToken?: string;
     }>("/auth/mfa/complete", {
       method: "POST",
       body: JSON.stringify({ challenge, code, deviceName: "Flash Web" }),
     });
     setAuthToken(session.token);
     activeAudience=session.user.roles.includes("admin")?"operations":session.user.roles.includes("merchant")?"merchant":session.user.roles.includes("driver")?"driver":"customer";
-    persistRefreshToken(session.refreshToken);
+    persistRefreshToken(session.refreshToken || "");
     return session;
   },
   async getMfaStatus() {
@@ -369,13 +363,13 @@ export const api = {
         recoveryCodesRemaining: number;
       };
       token: string;
-      refreshToken: string;
+      refreshToken?: string;
     }>("/auth/mfa/confirm", {
       method: "POST",
       body: JSON.stringify({ code, deviceName: "Flash Web" }),
     });
     setAuthToken(session.token);
-    persistRefreshToken(session.refreshToken);
+    persistRefreshToken(session.refreshToken || "");
     return session;
   },
   async getMerchantFinance(merchantId: string) {
@@ -592,15 +586,14 @@ export const api = {
   },
 
   async logout() {
-    const current = refreshToken;
+    const legacyToken = refreshToken;
     clearAuthToken();
-    if (current) {
-      await fetch(`${API_BASE}/auth/logout`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refreshToken: current }),
-      });
-    }
+    await fetch(`${API_BASE}/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", "X-Flash-Client": "web" },
+      body: JSON.stringify(legacyToken ? { refreshToken: legacyToken } : {}),
+    });
   },
 
   async createOrder(payload: {

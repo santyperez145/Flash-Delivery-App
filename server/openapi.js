@@ -64,15 +64,16 @@ export const openApiDocument = {
     },
     "/api/auth/refresh": {
       post: {
-        tags: ["Auth"], operationId: "refreshSession", summary: "Rotar refresh token",
-        requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/RefreshRequest" } } } },
+        tags: ["Auth"], operationId: "refreshSession", summary: "Rotar refresh token", security: [{ cookieAuth: [] }, {}],
+        description: "Web usa cookie HttpOnly y X-Flash-Client: web; clientes nativos envían refreshToken en JSON.",
+        requestBody: { required: false, content: { "application/json": { schema: { $ref: "#/components/schemas/RefreshRequest" } } } },
         responses: { 200: success({ $ref: "#/components/schemas/AuthResponse" }), 400: errorResponses[400], 401: errorResponses[401], 429: errorResponses[429] },
       },
     },
     "/api/auth/logout": {
       post: {
-        tags: ["Auth"], operationId: "logout", summary: "Revocar una sesión",
-        requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/RefreshTokenRequest" } } } },
+        tags: ["Auth"], operationId: "logout", summary: "Revocar una sesión", security: [{ cookieAuth: [] }, {}],
+        requestBody: { required: false, content: { "application/json": { schema: { $ref: "#/components/schemas/RefreshTokenRequest" } } } },
         responses: { 200: success({ type: "object", required: ["ok", "requestId", "loggedOut"], properties: { ok: { const: true }, requestId: { type: "string" }, loggedOut: { const: true } } }), 400: errorResponses[400], 429: errorResponses[429] },
       },
     },
@@ -91,7 +92,7 @@ export const openApiDocument = {
     },
   },
   components: {
-    securitySchemes: { bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "JWT" } },
+    securitySchemes: { bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "JWT" }, cookieAuth: { type: "apiKey", in: "cookie", name: "__Host-flash_refresh", description: "Cookie web productiva HttpOnly, Secure y SameSite=Strict." } },
     schemas: {
       Error: { type: "object", required: ["ok", "requestId", "message"], properties: { ok: { const: false }, requestId: { type: "string" }, message: { type: "string" } } },
       Coordinate: { type: "object", required: ["lat", "lng"], properties: { lat: { type: "number", minimum: -90, maximum: 90 }, lng: { type: "number", minimum: -180, maximum: 180 } } },
@@ -104,7 +105,7 @@ export const openApiDocument = {
       LoginRequest: { type: "object", required: ["email", "password"], properties: { email: { type: "string", format: "email" }, password: { type: "string", minLength: 4 }, deviceName: { type: "string", maxLength: 160 } } },
       RegisterRequest: { type: "object", required: ["name", "email", "password"], properties: { name: { type: "string", minLength: 2 }, email: { type: "string", format: "email" }, password: { type: "string", minLength: 8, maxLength: 128, format: "password" }, phone: { type: "string", maxLength: 30 }, deviceName: { type: "string", maxLength: 160 } } },
       RefreshTokenRequest: { type: "object", required: ["refreshToken"], properties: { refreshToken: { type: "string", minLength: 32, writeOnly: true } } },
-      RefreshRequest: { allOf: [{ $ref: "#/components/schemas/RefreshTokenRequest" }, { type: "object", properties: { deviceName: { type: "string", maxLength: 160 } } }] },
+      RefreshRequest: { type: "object", properties: { refreshToken: { type: "string", minLength: 32, writeOnly: true, description: "Sólo clientes nativos." }, deviceName: { type: "string", maxLength: 160 } } },
       AuthResponse: { type: "object", required: ["ok", "requestId", "user"], properties: { ok: { const: true }, requestId: { type: "string" }, user: { $ref: "#/components/schemas/User" }, token: { type: "string", writeOnly: true }, refreshToken: { type: "string", writeOnly: true }, refreshExpiresAt: { type: "string", format: "date-time" }, mfaRequired: { type: "boolean" }, mfaChallenge: { type: "string", writeOnly: true } } },
       RegisterResponse: { type: "object", required: ["ok", "requestId", "user"], properties: { ok: { const: true }, requestId: { type: "string" }, user: { $ref: "#/components/schemas/User" }, verificationRequired: { type: "boolean" } } },
       Session: { type: "object", required: ["id", "deviceName", "createdAt", "expiresAt"], properties: { id: { type: "string" }, deviceName: { type: "string" }, createdAt: { type: "string", format: "date-time" }, expiresAt: { type: "string", format: "date-time" } } },

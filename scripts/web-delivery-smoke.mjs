@@ -48,6 +48,36 @@ try {
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify({ refreshToken }),
   });
+  const webLoginResponse = await fetch(`${origin}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Flash-Client": "web" },
+    body: JSON.stringify({ email: "cliente@flash.app", password: "demo123", deviceName: "web-cookie-smoke" }),
+  });
+  const webLogin = await webLoginResponse.json(),
+    firstSetCookie = webLoginResponse.headers.get("set-cookie") || "",
+    firstCookie = firstSetCookie.split(";")[0];
+  assert(webLoginResponse.ok && webLogin.token && !webLogin.refreshToken && firstSetCookie.includes("HttpOnly") && firstSetCookie.includes("SameSite=Strict"), "web recibe refresh token sólo en cookie HttpOnly SameSite");
+  const webRefreshResponse = await fetch(`${origin}/api/auth/refresh`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Flash-Client": "web", Cookie: firstCookie },
+    body: JSON.stringify({ deviceName: "web-cookie-smoke" }),
+  });
+  const webRefresh = await webRefreshResponse.json(),
+    rotatedSetCookie = webRefreshResponse.headers.get("set-cookie") || "",
+    rotatedCookie = rotatedSetCookie.split(";")[0];
+  assert(webRefreshResponse.ok && webRefresh.token && !webRefresh.refreshToken && rotatedCookie && rotatedCookie !== firstCookie, "cookie web rota sin exponer credencial en JSON");
+  const replayResponse = await fetch(`${origin}/api/auth/refresh`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Flash-Client": "web", Cookie: firstCookie },
+    body: "{}",
+  });
+  assert(replayResponse.status === 401, "cookie rotada no puede reutilizarse");
+  const webLogoutResponse = await fetch(`${origin}/api/auth/logout`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Flash-Client": "web", Cookie: rotatedCookie },
+    body: "{}",
+  });
+  assert(webLogoutResponse.ok && (webLogoutResponse.headers.get("set-cookie") || "").includes("Expires=Thu, 01 Jan 1970"), "logout web revoca sesión y elimina cookie");
 } finally {
   server.kill("SIGTERM");
 }
