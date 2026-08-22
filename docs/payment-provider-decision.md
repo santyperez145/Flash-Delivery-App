@@ -64,6 +64,12 @@ no cambie antes de reemplazar los envelopes. Tras cinco fallos, el portal solici
 reconexión; un access token aún vigente no se inutiliza antes de tiempo. Producción
 debe programar este worker y alertar por fallos/reconexiones requeridas.
 
+Creación de pagos y reintegros conservan la misma clave idempotente en cada
+reintento lógico, aplican timeout de cinco segundos y convierten fallos de red,
+timeout, rate limit, HTTP e incoherencias del body en resultados sanitizados. La
+métrica `flash_provider_calls_total` distingue operación y resultado sin IDs,
+emails, importes ni credenciales.
+
 El webhook productivo implementa el manifest oficial
 `id:<data.id>;request-id:<x-request-id>;ts:<ts>;`, normaliza IDs alfanuméricos,
 calcula HMAC-SHA256 y compara en tiempo constante. Firma, recurso del query y
