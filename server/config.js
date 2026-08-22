@@ -55,6 +55,10 @@ const envSchema = z.object({
   ,REDIS_URL: z.string().url().optional()
   ,REDIS_REQUIRED: booleanFromEnv.default(false)
   ,SHUTDOWN_GRACE_MS: z.coerce.number().int().min(1000).max(60000).default(10000)
+  ,PHONE_VERIFY_PROVIDER: z.enum(["disabled","sandbox","twilio"]).default("sandbox")
+  ,TWILIO_ACCOUNT_SID: z.string().regex(/^AC[0-9a-fA-F]{32}$/).optional()
+  ,TWILIO_AUTH_TOKEN: z.string().min(20).optional()
+  ,TWILIO_VERIFY_SERVICE_SID: z.string().regex(/^VA[0-9a-fA-F]{32}$/).optional()
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -87,6 +91,7 @@ if(env.NODE_ENV==="production"&&env.RECOVERY_TOKEN_ENCRYPTION_KEY==="local-recov
 if(env.NODE_ENV==="production"&&(env.EMAIL_PROVIDER!=="smtp"||!env.SMTP_HOST||!env.SMTP_USER||!env.SMTP_PASSWORD))throw new Error("EMAIL_PROVIDER smtp and SMTP credentials are required in production");
 if(env.NODE_ENV==="production"&&!env.REQUIRE_ADMIN_MFA)throw new Error("REQUIRE_ADMIN_MFA must be true in production");
 if(env.NODE_ENV==="production"&&env.FEATURE_FLAG_SALT==="local-feature-flag-salt-change-before-prod")throw new Error("FEATURE_FLAG_SALT must be configured before running in production");
+if(env.NODE_ENV==="production"&&(env.PHONE_VERIFY_PROVIDER!=="twilio"||!env.TWILIO_ACCOUNT_SID||!env.TWILIO_AUTH_TOKEN||!env.TWILIO_VERIFY_SERVICE_SID))throw new Error("Twilio Verify credentials are required for production phone verification");
 
 export const config = {
   env: env.NODE_ENV,
@@ -136,4 +141,5 @@ export const config = {
   ,featureFlagSalt: env.FEATURE_FLAG_SALT
   ,redis: { url: env.REDIS_URL, required: env.REDIS_REQUIRED }
   ,shutdownGraceMs: env.SHUTDOWN_GRACE_MS
+  ,phoneVerification: {provider:env.PHONE_VERIFY_PROVIDER,accountSid:env.TWILIO_ACCOUNT_SID,authToken:env.TWILIO_AUTH_TOKEN,serviceSid:env.TWILIO_VERIFY_SERVICE_SID}
 };
