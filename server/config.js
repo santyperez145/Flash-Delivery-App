@@ -40,7 +40,8 @@ const envSchema = z.object({
   SMTP_FROM: z.string().default("Flash <noreply@flash.local>"),
   REQUIRE_ADMIN_MFA: booleanFromEnv.default(false),
   GEOCODING_URL: z.string().url().default("https://nominatim.openstreetmap.org"),
-  ROUTING_URL: z.string().url().default("https://router.project-osrm.org")
+  ROUTING_URL: z.string().url().default("https://router.project-osrm.org"),
+  WEB_MAP_ORIGINS: z.string().default("https://tile.openstreetmap.org")
   ,GEOCODING_CACHE_TTL_SECONDS: z.coerce.number().int().min(60).max(2592000).default(604800)
   ,ROUTING_CACHE_TTL_SECONDS: z.coerce.number().int().min(30).max(86400).default(900)
   ,OTEL_ENABLED: booleanFromEnv.default(false)
@@ -78,6 +79,11 @@ if (!parsed.success) {
 
 const env = parsed.data;
 const corsOrigins = env.CORS_ORIGIN.split(",").map((origin) => origin.trim()).filter(Boolean);
+const webMapOrigins = [...new Set(env.WEB_MAP_ORIGINS.split(",").map((value) => value.trim()).filter(Boolean).map((value) => {
+  const origin = new URL(value).origin;
+  if (!origin.startsWith("https://")) throw new Error("WEB_MAP_ORIGINS only accepts HTTPS origins");
+  return origin;
+}))];
 
 if (env.NODE_ENV === "production" && env.JWT_SECRET === defaultJwtSecret) {
   throw new Error("JWT_SECRET must be configured before running in production");
@@ -133,6 +139,7 @@ export const config = {
   requireAdminMfa:env.REQUIRE_ADMIN_MFA,
   geocodingUrl: env.GEOCODING_URL,
   routingUrl: env.ROUTING_URL
+  ,webMapOrigins
   ,geocodingCacheTtlSeconds: env.GEOCODING_CACHE_TTL_SECONDS
   ,routingCacheTtlSeconds: env.ROUTING_CACHE_TTL_SECONDS
   ,telemetry: {

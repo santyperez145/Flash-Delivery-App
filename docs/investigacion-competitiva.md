@@ -194,3 +194,11 @@ firmado. No se anima un vehículo ni una ruta inexistentes.
 
 - [Uber: cómo solicitar un viaje](https://help.uber.com/riders/article/how-to-request-a-ride-?nodeId=e9862b49-81c6-4c6a-a9d3-3c05bf42e82e)
 - [Lyft: cómo solicitar un viaje](https://help.lyft.com/hc/en-us/all/articles/115013079988-How-to-request-a-ride.3)
+
+### Decisión 22 de agosto de 2026 — interacción y jerarquía visual del mapa
+
+Las guías oficiales de [Uber para corregir el pickup](https://www.uber.com/us/en/ride/how-it-works/change-location/) y [seleccionar puntos de encuentro](https://www.uber.com/us/en/ride/how-it-works/pickup-spots/) confirman que el mapa no es una captura decorativa: permite arrastrar el pin, explorar un radio y confirmar una ubicación. Su explicación general también indica que el pasajero [sigue la llegada del conductor en el mapa](https://www.uber.com/us/en/ride/how-it-works/). Lyft documenta el mismo orden de decisión: GPS inicial, destino, categoría y confirmación o corrección del pickup en [How to request a ride](https://help.lyft.com/hc/en-us/all/articles/115013079988-How-to-request-a-ride). Para seguridad, Lyft comparte [ubicación aproximada, ruta e identidad del vehículo](https://help.lyft.com/hc/en/all/articles/360051084234-Sharing-your-ride-location-with-friends-and-family), siempre vinculadas a un viaje real.
+
+Decisión derivada: Flash migra desde teselas HTML fijas a un viewport GPU interactivo con pan/zoom, reencuadre, origen oscuro, destino verde, ruta violeta con casing y conductor naranja sólo cuando existe una coordenada persistida. Se preservan atribución y fallback. Todavía no se habilita edición libre del pickup tras solicitar, navegación giro a giro ni zonas prohibidas: requieren reglas operativas, routing/traffic con SLA y validación de seguridad. Tampoco se copian colores, íconos, texto o activos propietarios de Uber/Lyft.
+
+La selección técnica usa [MapLibre GL JS](https://maplibre.org/maplibre-gl-js/docs/) por su renderer TypeScript/WebGL, estilo abierto y sustituibilidad. La cartografía raster pública queda sólo como fallback local; un mapa de marca comparable en producción necesita estilo vectorial y tiles habilitados, configurados mediante URL/orígenes públicos explícitos.
