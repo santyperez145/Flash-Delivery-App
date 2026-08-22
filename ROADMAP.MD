@@ -23,6 +23,14 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [x] OpenAPI y smoke PostgreSQL verifican `401`, `403`, ownership, `no-store`, sumas del ledger, categorías, ausencia de movimientos inventados y paridad entre Home/Ganancias.
 - [~] El saldo Wallet es real, pero retiro/liquidación externa permanece visible como no configurado hasta seleccionar PSP bancario, completar KYC/habilitación y hacer prueba controlada; sesión/horas activas también requieren un contrato operativo propio.
 
+## Avance 22 de agosto de 2026 — preferencia de navegación Driver
+
+- [x] La migración `106_driver_preferences.sql` persiste un único proveedor de handoff por conductor (`system`, `google_maps`, `apple_maps`) con constraint, ownership RLS y visibilidad auditora de sólo lectura.
+- [x] `GET/PATCH /api/driver/preferences` deriva el conductor de la sesión, valida un enum cerrado, responde `no-store` y audita cada cambio sin registrar ubicación.
+- [x] Cuenta Driver presenta radios accesibles y estados guardando/error; Apple Maps sólo se ofrece visualmente en iOS, mientras Predeterminada y Google Maps respetan plataforma y tipo de vehículo.
+- [x] El cockpit usa la preferencia persistida al construir la URL oficial y conserva el destino/trabajo dentro de Flash; cambiar proveedor no altera la ruta autoritativa ni el estado del servicio.
+- [x] Smoke API/PostgreSQL, contrato OpenAPI, RLS, URLs iOS/Android, build/typecheck y prueba visual real en navegador están verdes.
+
 ## Avance 22 de agosto de 2026 — mapas nativos mobile
 
 - [x] Comida, Viajes y Envíos reemplazan teselas HTML, proyección Mercator y líneas SVG por un único `MapView` nativo interactivo con pan, zoom, reencuadre y marcadores accesibles.

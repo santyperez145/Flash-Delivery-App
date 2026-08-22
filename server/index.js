@@ -251,6 +251,10 @@ import {
   updateDriverVehicle,
 } from "./driver-vehicle-repository.js";
 import {
+  getDriverPreferences,
+  updateDriverPreferences,
+} from "./driver-preference-repository.js";
+import {
   createRideSafetyIncident,
   createRideTrackingLink,
   getPublicRideTracking,
@@ -994,6 +998,7 @@ const driverVehicleSchema=z.object(driverVehicleFields).superRefine((value,ctx)=
 });
 const driverVehicleUpdateSchema=z.object(Object.fromEntries(Object.entries(driverVehicleFields).map(([key,value])=>[key,value.optional()]))).refine(value=>Object.keys(value).length>0,"Indicá al menos un cambio");
 const driverVehicleReviewSchema=z.object({status:z.enum(["approved","rejected"]),rejectionReason:z.string().trim().max(500).nullable().optional()}).superRefine((value,ctx)=>{if(value.status==="rejected"&&(!value.rejectionReason||value.rejectionReason.length<5))ctx.addIssue({code:"custom",path:["rejectionReason"],message:"Explica el rechazo"});});
+const driverPreferenceSchema=z.object({navigationProvider:z.enum(["system","google_maps","apple_maps"])});
 
 const profileSchema = z.object({
   name: z.string().trim().min(2).max(120),
@@ -2888,6 +2893,28 @@ app.get("/api/driver/earnings", requireAuth, requireAnyRole("driver"), async (re
   } catch(error) {
     return fail(res,error.status||500,error.message||"No se pudieron cargar las ganancias");
   }
+});
+
+app.get("/api/driver/preferences", requireAuth, requireAnyRole("driver"), async (req,res)=>{
+  try {
+    const preferences=usesPostgresCommerce()
+      ? await getDriverPreferences(req.auth.userId)
+      : (()=>{const driver=readDb().drivers.find((entry)=>entry.userId===req.auth.userId);return driver?{driverId:driver.id,navigationProvider:driver.navigationProvider||"system",updatedAt:null}:null;})();
+    if(!preferences)return fail(res,404,"Perfil de conductor no encontrado");
+    res.set("Cache-Control","no-store, private");return ok(res,{preferences});
+  } catch(error) { return fail(res,error.status||500,error.message||"No se pudieron cargar las preferencias"); }
+});
+
+app.patch("/api/driver/preferences", requireAuth, requireAnyRole("driver"), async (req,res)=>{
+  const parsed=parseOrFail(driverPreferenceSchema,req.body||{});if(!parsed.ok)return fail(res,400,parsed.message);
+  try {
+    let preferences;
+    if(usesPostgresCommerce())preferences=await updateDriverPreferences({actorPublicId:req.auth.userId,...parsed.data});
+    else {const db=readDb(),driver=db.drivers.find((entry)=>entry.userId===req.auth.userId);if(driver){driver.navigationProvider=parsed.data.navigationProvider;writeDb(db);preferences={driverId:driver.id,navigationProvider:driver.navigationProvider,updatedAt:getTimestamp()};}}
+    if(!preferences)return fail(res,404,"Perfil de conductor no encontrado");
+    await auditRuntime(usesPostgresCommerce()?{}:readDb(),req,"driver",preferences.driverId,"driver.preferences_updated",{navigationProvider:preferences.navigationProvider});
+    res.set("Cache-Control","no-store, private");return ok(res,{preferences});
+  } catch(error) { return fail(res,error.status||500,error.message||"No se pudieron actualizar las preferencias"); }
 });
 
 app.get("/api/merchant/me", requireAuth, requireAnyRole("merchant"), async (req,res)=>{

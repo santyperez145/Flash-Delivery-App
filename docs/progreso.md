@@ -76,6 +76,7 @@ Flash Delivery Mobility ya es una app fullstack local con cuatro superficies: cl
 - Flash Driver suma mapa del próximo tramo, descarte de rutas obsoletas y traspaso seguro a Apple/Google para navegación giro a giro según plataforma y vehículo.
 - Flash Driver dejó el dashboard monolítico: Home/Mapa, Ganancias, Inbox y Cuenta usan barra fija; el cockpit exclusivo de ruta concentra maniobra, ETA, próximos pasos, chat y guía externa, mientras el cliente ya no ve instrucciones de conducción.
 - Flash Driver obtiene hoy, semana, servicios, propinas, ajustes, saldo Wallet y movimientos desde un endpoint propio ligado a la sesión y al ledger PostgreSQL; Home ya no muestra el `earningsToday` seed y el retiro externo queda explícitamente bloqueado.
+- Cuenta Driver guarda en PostgreSQL el navegador externo preferido y el cockpit respeta esa decisión con URLs oficiales; ownership/RLS impide que otra identidad la lea o cambie.
 - Expo mobile web separa el renderer `.native` de su fallback `.web`, por lo que 8081 sigue operativo sin intentar ejecutar componentes Fabric de mapas nativos.
 - Web coordina la rotación de refresh entre recursos concurrentes y detiene polling/SSE al perder sesión; el login anónimo ya no agota el rate limit de autenticación.
 - Cliente web/PWA incorpora solicitud de envíos: geocodificación de origen/destino, categorías y SLA desde backend, protección, firma, destinatario, términos, cotización firmada e idempotencia; el pago está limitado a Flash Wallet.

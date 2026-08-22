@@ -1,11 +1,13 @@
 import type { GeoPoint } from "./types";
 
 export type NavigationTravelMode = "driving" | "bicycling";
+export type NavigationProvider = "system" | "google_maps" | "apple_maps";
 
 export function buildExternalNavigationUrl(
   platform: string,
   destinationPoint: GeoPoint,
   travelMode: NavigationTravelMode,
+  provider: NavigationProvider = "system",
 ) {
   const { lat, lng } = destinationPoint;
   if (
@@ -18,7 +20,7 @@ export function buildExternalNavigationUrl(
   ) return null;
 
   const destination = encodeURIComponent(`${lat},${lng}`);
-  if (platform === "ios" && travelMode === "driving") {
+  if ((provider === "apple_maps" || provider === "system" && platform === "ios") && platform === "ios" && travelMode === "driving") {
     return `http://maps.apple.com/?daddr=${destination}&dirflg=d`;
   }
   return `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=${travelMode}&dir_action=navigate`;
