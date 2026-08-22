@@ -9,7 +9,11 @@ Flash Delivery Mobility esta organizada como una plataforma multirol:
 
 ## Stack actual
 
-- Frontend: React, Vite, TypeScript y CSS responsive.
+- Frontend: React, Vite, TypeScript y CSS responsive. React e iconografía se
+  publican como chunks cacheables separados; `test:web-bundle-budget` limita el
+  entry propio a 560 KiB y toda la carga JavaScript inicial a 850 KiB. El
+  presupuesto evita regresiones, pero no sustituye mediciones Core Web Vitals
+  sobre dispositivos y redes reales.
 - Backend: Express.
 - Base de datos principal: PostgreSQL 17 + PostGIS, migraciones SQL versionadas y RLS. SQLite queda aislado como fallback de pruebas sin `DATABASE_URL`.
 - Auth: bcrypt, access/refresh tokens rotativos, sesiones revocables, bloqueo por intentos y MFA administrativo.

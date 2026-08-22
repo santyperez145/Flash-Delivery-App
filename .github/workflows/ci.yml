@@ -37,6 +37,9 @@ jobs:
       - name: Check
         run: npm run check
 
+      - name: Web bundle budget
+        run: npm run test:web-bundle-budget
+
       - name: Secret scan
         run: npm run test:secrets
 
