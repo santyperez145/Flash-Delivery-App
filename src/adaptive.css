@@ -1,0 +1,157 @@
+/*
+ * Contrato adaptativo transversal.
+ * Se importa después de styles.css para que las reglas de composición sean
+ * la última autoridad sin duplicar la identidad visual de cada vertical.
+ */
+
+@media (max-width: 900px) {
+  .admin-shell,
+  .merchant-desktop-shell {
+    display: block;
+    min-height: 100dvh;
+  }
+
+  .admin-sidebar,
+  .merchant-desktop-sidebar {
+    position: sticky;
+    top: 0;
+    z-index: 90;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    align-content: center;
+    gap: 12px;
+    width: 100%;
+    height: auto;
+    min-height: calc(66px + var(--layout-safe-top));
+    padding: calc(10px + var(--layout-safe-top))
+      calc(12px + var(--layout-safe-right)) 10px
+      calc(12px + var(--layout-safe-left));
+    box-shadow: 0 10px 26px rgba(10, 14, 20, 0.18);
+  }
+
+  .admin-brand {
+    grid-template-columns: auto;
+  }
+
+  .admin-brand div,
+  .admin-note,
+  .merchant-open-control {
+    display: none;
+  }
+
+  .admin-brand > span {
+    width: 42px;
+    height: 42px;
+  }
+
+  .admin-nav {
+    display: flex;
+    gap: 7px;
+    min-width: 0;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+  }
+
+  .admin-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .admin-nav button,
+  .admin-nav button:not(.active) {
+    flex: 0 0 auto;
+    justify-content: center;
+    min-height: var(--layout-touch);
+    padding: 0 12px;
+    font-size: 0.72rem;
+    white-space: nowrap;
+  }
+
+  .admin-main,
+  .merchant-desktop-main {
+    gap: 16px;
+    padding: 18px var(--layout-gutter)
+      calc(42px + var(--layout-safe-bottom));
+  }
+
+  .admin-topbar {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    min-height: 0;
+  }
+
+  .admin-actions {
+    flex-wrap: wrap;
+  }
+
+  .merchant-kitchen-grid,
+  .merchant-catalog-grid,
+  .merchant-finance-grid,
+  .pricing-governance {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .merchant-finance-grid .merchant-payout-history {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 620px) {
+  .admin-main,
+  .merchant-desktop-main {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .admin-kpis,
+  .admin-grid.two,
+  .admin-live-grid,
+  .investor-pulse,
+  .investor-stats,
+  .unit-grid,
+  .risk-list,
+  .infra-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-topbar,
+  .admin-topbar > div,
+  .admin-actions,
+  .admin-actions button {
+    width: 100%;
+  }
+
+  .desktop-access-gate {
+    padding: 16px;
+  }
+
+  .desktop-access-gate section {
+    padding: 24px 20px;
+    border-radius: 22px;
+  }
+
+  .desktop-access-gate section > div {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .public-tracking-summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .public-tracking-eta {
+    justify-items: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

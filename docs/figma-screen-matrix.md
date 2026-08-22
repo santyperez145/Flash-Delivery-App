@@ -8,6 +8,7 @@ Estados: `[x]` funcional y visible, `[~]` base funcional con paridad visual pend
 
 ## Navegacion compartida
 
+- [x] Contrato adaptativo transversal obligatorio: safe areas, navegación estable, sheets acotadas, targets táctiles, breakpoints Compact/Medium/Expanded/Wide y validación anti-overflow según `docs/ui-layout-guidelines.md`.
 - [x] Selector Comidas / Viajes / Envios.
 - [x] Barra fija Inicio / Buscar / Actividad / Cuenta.
 - [x] Actividad agrega las tres verticales.
