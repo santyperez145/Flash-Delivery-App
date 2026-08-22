@@ -6972,7 +6972,12 @@ function RideTrackingSheet({
     setShareNotice(null);
     try {
       const response = await api.createRideTrackingLink(ride.id, 180);
-      const url = response.link.trackingUrl;
+      const configuredUrl = response.link.trackingUrl;
+      const token = configuredUrl.split("/track/")[1]?.split(/[?#]/)[0];
+      const url =
+        token && typeof window !== "undefined"
+          ? `${window.location.origin}/track/${token}`
+          : configuredUrl;
       setTrackingUrl(url);
       const text = `Seguimiento de mi viaje Flash. Conductor: ${driver?.name || "asignando"}. Vence: ${new Date(response.link.expiresAt).toLocaleString("es-AR")}. ${url}`;
       if (navigator.share) {
