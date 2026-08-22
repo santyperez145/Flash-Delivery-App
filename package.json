@@ -76,7 +76,8 @@
     "test:redis-rate-limit": "node scripts/redis-rate-limit-smoke.mjs",
     "test:container-security": "node scripts/container-security-smoke.mjs",
     "test:web-bundle-budget": "node scripts/web-bundle-budget.mjs",
-    "test:web-delivery": "node scripts/web-delivery-smoke.mjs"
+    "test:web-delivery": "node scripts/web-delivery-smoke.mjs",
+    "test:openapi-contract": "node scripts/openapi-contract-smoke.mjs"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",
