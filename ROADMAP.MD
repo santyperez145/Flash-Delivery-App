@@ -13,7 +13,7 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [~] **P0-03 / IAM-001 — identidad.** Access/refresh rotativo, revocación, SecureStore, recuperación, email OTP, MFA admin y suspensión funcionan. Faltan teléfono verificado, cierre remoto visible y step-up bancario.
 - [~] **P0-04 / PAY-001 — dinero.** Payment intents, Wallet sandbox, refunds, split, ledger, payouts, webhooks, conciliación y riesgo existen. Falta PSP/banco real; Wallet no se presenta como dinero productivo.
 - [x] **P0-05 / IDEM-001 — concurrencia.** Idempotencia, constraints, locks, ofertas privadas, TTL, aceptación atómica y dedupe cubiertos por integración.
-- [~] **P0-06 / GEO-001 — mapas.** Geocoding, PostGIS, zonas, OSRM, polylines, caché y quotes firmados/versionados funcionan. Faltan tráfico/Route Matrix productivo, circuit breaker y presupuesto.
+- [~] **P0-06 / GEO-001 — mapas.** Geocoding, PostGIS, zonas, OSRM, polylines, caché, quotes firmados, circuit breaker, stale controlado, presupuesto y métricas funcionan. Faltan tráfico/Route Matrix productivo y cuota distribuida.
 - [~] **P0-07 / RT-001/MOB-001 — ubicación y push.** Background nativo, stale-location gate, outbox, worker, reintentos y dead-letter operativos. Faltan FCM/APNs, builds firmados y ensayo físico.
 - [~] **P0-08 — safety/regulación.** KYC, vehículos, PIN, trusted contacts, share trip, SOS y soporte prioritario funcionan. Viajes públicos siguen bloqueados hasta seguros, habilitación, anomalías y procedimientos reales.
 

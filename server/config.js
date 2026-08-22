@@ -46,6 +46,11 @@ const envSchema = z.object({
   ,OTEL_ENABLED: booleanFromEnv.default(false)
   ,OTEL_SERVICE_NAME: z.string().min(1).max(128).default("flash-api")
   ,OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: z.string().url().default("http://127.0.0.1:4318/v1/traces")
+  ,MAP_PROVIDER_TIMEOUT_MS: z.coerce.number().int().min(500).max(30000).default(5000)
+  ,MAP_PROVIDER_FAILURE_THRESHOLD: z.coerce.number().int().min(1).max(20).default(5)
+  ,MAP_PROVIDER_RESET_MS: z.coerce.number().int().min(1000).max(600000).default(30000)
+  ,MAP_PROVIDER_DAILY_BUDGET: z.coerce.number().int().min(1).max(10000000).default(10000)
+  ,MAP_STALE_CACHE_SECONDS: z.coerce.number().int().min(60).max(2592000).default(86400)
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -115,5 +120,12 @@ export const config = {
     enabled: env.OTEL_ENABLED,
     serviceName: env.OTEL_SERVICE_NAME,
     tracesUrl: env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+  }
+  ,mapProvider: {
+    timeoutMs: env.MAP_PROVIDER_TIMEOUT_MS,
+    failureThreshold: env.MAP_PROVIDER_FAILURE_THRESHOLD,
+    resetMs: env.MAP_PROVIDER_RESET_MS,
+    dailyBudget: env.MAP_PROVIDER_DAILY_BUDGET,
+    staleCacheSeconds: env.MAP_STALE_CACHE_SECONDS
   }
 };
