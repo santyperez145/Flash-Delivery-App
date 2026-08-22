@@ -65,7 +65,7 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 2. [~] **TST-001:** escaneo CI de secretos y gate de dependencias críticas activos; faltan contratos y resiliencia de proveedores.
 3. [~] **MOB-001:** perfiles EAS Customer, Driver y Merchant, IDs/schemes separados, role gate y permisos mínimos por build listos; faltan credenciales, asociación EAS y builds físicos firmados.
 4. [~] **OBS-001:** OpenTelemetry OTLP instrumenta HTTP/Express/PostgreSQL, contrato de exportación corre en CI y SLO/error budget están definidos; faltan colector administrado, dashboards y paging productivo.
-5. [ ] **P1-09:** modelo de ciudad y aislamiento de zona piloto.
+5. [~] **P1-09:** entidad ciudad, asociaciones obligatorias, índices, Buenos Aires beta y contrato público/zonas aislado implementados; faltan RLS transversal por ciudad y playbook antes de habilitar una segunda ciudad.
 6. [ ] **Externos:** PSP, FCM/APNs, staging, seguros y habilitaciones; nunca simular su finalización.
 
 ## Avance 15 de agosto de 2026 — Tracking background nativo

@@ -65,6 +65,7 @@
     "test:catalog-pagination": "node --env-file-if-exists=.env.local scripts/catalog-pagination-smoke.mjs",
     "test:operations-resources": "node --env-file-if-exists=.env.local scripts/operations-resources-smoke.mjs"
     ,"test:telemetry": "node scripts/telemetry-smoke.mjs"
+    ,"test:city-isolation": "node --env-file-if-exists=.env.local scripts/city-isolation-smoke.mjs"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",
