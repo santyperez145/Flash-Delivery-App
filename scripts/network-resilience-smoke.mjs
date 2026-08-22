@@ -16,6 +16,10 @@ assert.match(webApi, /No hay conexión con Flash/);
 assert.match(webApp, /flash:network/);
 assert.match(webApp, /NetworkStatusBanner/);
 assert.match(webApp, /refreshedUser\?\.roles\.includes\("admin"\)/);
+assert.match(webApi, /createAuthRefreshCoordinator/);
+assert.match(webApi, /recoverUnauthorized\(tokenUsed\)/);
+assert.match(webApi, /flash:auth-required/);
+assert.match(webApp, /loading \|\| authRequired \|\| !sessionUserId/);
 
 assert.equal(mobilePackage.dependencies["expo-network"], "~57.0.1");
 assert.match(mobileApi, /const SAFE_READ_METHODS = new Set\(\["GET", "HEAD", "OPTIONS"\]\)/);

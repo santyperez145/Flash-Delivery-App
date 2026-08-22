@@ -20,6 +20,7 @@ import type {
   User,
 } from "./types";
 import type { AnalyticsEvent } from "./analytics";
+import { createAuthRefreshCoordinator } from "./auth-refresh-coordinator";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:4000/api";
 const TOKEN_KEY = "flash_platform_token";
@@ -50,6 +51,7 @@ export function clearAuthToken() {
     window.localStorage.removeItem(TOKEN_KEY);
     window.localStorage.removeItem(REFRESH_KEY);
     window.sessionStorage.removeItem(EVENT_CURSOR_KEY);
+    window.dispatchEvent(new Event("flash:auth-required"));
   }
 }
 
@@ -83,7 +85,7 @@ async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit) {
   }
 }
 
-async function refreshAccessToken() {
+async function performAccessTokenRefresh() {
   let response: Response;
   try {
     response = await fetchWithTimeout(`${API_BASE}/auth/refresh`, {
@@ -114,6 +116,15 @@ async function refreshAccessToken() {
   return true;
 }
 
+const refreshCoordinator = createAuthRefreshCoordinator(
+  performAccessTokenRefresh,
+  () => authToken,
+);
+
+async function refreshAccessToken() {
+  return refreshCoordinator.refresh();
+}
+
 export function subscribeToEvents(
   onEvent: (event: RealtimeEvent) => void,
   onStatus: (
@@ -133,15 +144,19 @@ export function subscribeToEvents(
   const connect = async () => {
     if (stopped || !authToken) return;
     onStatus("connecting");
+    const tokenUsed = authToken;
     try {
       const response = await fetch(`${API_BASE}/events`, {
         headers: {
-          Authorization: `Bearer ${authToken}`,
+          Authorization: `Bearer ${tokenUsed}`,
           ...(lastEventId ? { "Last-Event-ID": String(lastEventId) } : {}),
         },
         signal: controller.signal,
       });
-      if (response.status === 401 && (await refreshAccessToken())) {
+      if (
+        response.status === 401 &&
+        (await refreshCoordinator.recoverUnauthorized(tokenUsed))
+      ) {
         retryAttempt = 0;
         return connect();
       }
@@ -228,6 +243,9 @@ async function request<T>(
   if (authToken && !requestHeaders.has("Authorization")) {
     requestHeaders.set("Authorization", `Bearer ${authToken}`);
   }
+  const tokenUsed = requestHeaders
+    .get("Authorization")
+    ?.replace(/^Bearer\s+/i, "") || "";
   const method = (requestInit.method || "GET").toUpperCase();
   let response: Response;
   try {
@@ -249,7 +267,7 @@ async function request<T>(
     response.status === 401 &&
     retry &&
     path !== "/auth/login" &&
-    (await refreshAccessToken())
+    (await refreshCoordinator.recoverUnauthorized(tokenUsed))
   ) {
     return request<T>(path, init, false, transportRetry);
   }
