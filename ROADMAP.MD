@@ -15,6 +15,14 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [x] `react-native-maps` quedó fijado en la versión compatible instalada por Expo SDK 57; TypeScript, Expo Doctor 21/21, exports Metro Android/iOS/web, auditoría y contratos mobile están verdes.
 - [~] Faltan registrar y restringir una clave Google Maps productiva, crear builds firmados EAS y verificar cartografía/GPS prolongadamente en dispositivos Android/iOS reales.
 
+## Corrección 22 de agosto de 2026 — sesión web sin tormenta de refresh
+
+- [x] Las respuestas `401` concurrentes comparten una única rotación de refresh; una respuesta tardía que usó el access token anterior reutiliza la credencial ya rotada.
+- [x] Polling de estado y SSE sólo se inician con una sesión confirmada y se detienen al recibir el evento central de autenticación requerida.
+- [x] El bootstrap inicial se ejecuta una vez incluso bajo el doble montaje deliberado de React Strict Mode en desarrollo.
+- [x] Una prueba determinista cubre doce `401` simultáneos, recuperación tras falla y respuesta tardía; build y contratos de red están verdes.
+- [x] Prueba real aislada en navegador: el arranque anónimo hizo una sola comprobación de cookie y generó cero llamadas API durante el ciclo posterior de 18 segundos.
+
 ## Avance 22 de agosto de 2026 — mapa web interactivo de Viajes
 
 - [x] La vista previa de Viajes reemplaza la grilla fija 3×3 por MapLibre GL JS con pan, zoom, controles accesibles y reencuadre automático de todos los puntos reales.

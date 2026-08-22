@@ -329,6 +329,7 @@ function App() {
     destinationCoords: null,
   });
   const rideSeededUserId=useRef("");
+  const initialBootstrapStarted = useRef(false);
   const [quote, setQuote] = useState<RideQuote | null>(null);
   const [locationStatus, setLocationStatus] = useState<
     "idle" | "locating" | "ready" | "denied"
@@ -362,6 +363,19 @@ function App() {
   );
 
   useEffect(() => configureAnalytics((events) => api.sendAnalyticsEvents(events)), []);
+
+  useEffect(() => {
+    const requireAuthentication = () => {
+      setSessionUserId("");
+      setState(null);
+      setDietaryPreferences(null);
+      setAdminDashboard(null);
+      setAuthRequired(true);
+      setRealtimeStatus("offline");
+    };
+    window.addEventListener("flash:auth-required", requireAuthentication);
+    return () => window.removeEventListener("flash:auth-required", requireAuthentication);
+  }, []);
 
   useEffect(() => {
     setQuote(null);
@@ -421,6 +435,8 @@ function App() {
   }, [refresh]);
 
   useEffect(() => {
+    if (initialBootstrapStarted.current) return;
+    initialBootstrapStarted.current = true;
     setLoading(true);
     bootstrapSession()
       .catch((requestError) => setError(requestError.message))
@@ -507,21 +523,22 @@ function App() {
   }, []);
 
   useEffect(() => {
+    if (loading || authRequired || !sessionUserId) return;
     const timer = window.setInterval(() => {
       refresh().catch(() => undefined);
     }, 15000);
     return () => window.clearInterval(timer);
-  }, [refresh]);
+  }, [authRequired, loading, refresh, sessionUserId]);
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || authRequired || !sessionUserId) return;
     const stopRealtime = subscribeToEvents((event: RealtimeEvent) => {
       if (event.type !== "connected" && event.type !== "heartbeat") {
         refresh().catch(() => undefined);
       }
     }, setRealtimeStatus);
     return stopRealtime;
-  }, [loading, refresh]);
+  }, [authRequired, loading, refresh, sessionUserId]);
 
   const runAction = useCallback(
     async (action: () => Promise<unknown>, success: string) => {

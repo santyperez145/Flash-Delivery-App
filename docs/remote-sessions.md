@@ -21,3 +21,9 @@ Todas las respuestas de autenticación y toda ruta que valida un bearer token se
 entregan con `Cache-Control: no-store, private` y `Pragma: no-cache`. Esto evita
 que credenciales, datos de cuenta o sesiones terminen en la caché del navegador,
 un proxy compartido o un CDN; los catálogos públicos conservan su caché explícita.
+
+## Coordinación del refresh web
+
+El cliente serializa la rotación: si varios recursos reciben `401` con el mismo access token, todos esperan una única llamada a `/auth/refresh`. Si esa rotación ya terminó cuando llega otra respuesta del token anterior, la petición se reintenta con el token actual sin rotar nuevamente. Esto protege el token rotativo contra carreras y evita consumir innecesariamente el rate limit de autenticación.
+
+La pantalla de acceso no inicia bootstrap privado, polling ni SSE. Cuando una rotación deja de ser válida, la capa API borra credenciales, emite `flash:auth-required` y React desmonta las tareas autenticadas. React Strict Mode tampoco duplica el bootstrap inicial. `npm run test:web-auth-session` verifica concurrencia y gates; además se observó el runtime aislado durante más de un intervalo completo sin tráfico privado después de mostrar login.
