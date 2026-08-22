@@ -369,6 +369,9 @@ function App() {
   const [realtimeStatus, setRealtimeStatus] = useState<
     "connecting" | "live" | "reconnecting" | "offline"
   >("offline");
+  const [isOnline, setIsOnline] = useState(() =>
+    typeof navigator === "undefined" ? true : navigator.onLine,
+  );
   const [isDesktop, setIsDesktop] = useState(() =>
     typeof window === "undefined"
       ? false
@@ -492,6 +495,23 @@ function App() {
     onChange();
     media.addEventListener("change", onChange);
     return () => media.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
+    const setOnline = () => setIsOnline(true);
+    const setOffline = () => setIsOnline(false);
+    const onTransportStatus = (event: Event) => {
+      const online = (event as CustomEvent<{ online?: boolean }>).detail?.online;
+      if (typeof online === "boolean") setIsOnline(online);
+    };
+    window.addEventListener("online", setOnline);
+    window.addEventListener("offline", setOffline);
+    window.addEventListener("flash:network", onTransportStatus);
+    return () => {
+      window.removeEventListener("online", setOnline);
+      window.removeEventListener("offline", setOffline);
+      window.removeEventListener("flash:network", onTransportStatus);
+    };
   }, []);
 
   useEffect(() => {
@@ -928,7 +948,11 @@ function App() {
         <div className="loader-card error-card">
           <X size={28} />
           <strong>Backend no disponible</strong>
-          <span>{error || "No se pudo cargar el estado"}</span>
+          <span>
+            {!isOnline
+              ? "Sin conexión. Las acciones nuevas esperan hasta recuperar internet."
+              : error || "No se pudo cargar el estado"}
+          </span>
           <button type="button" onClick={() => window.location.reload()}>
             <RefreshCw size={16} /> Reintentar
           </button>
@@ -938,39 +962,57 @@ function App() {
   }
 
   if (isDesktop) {
+    const networkBanner = (
+      <NetworkStatusBanner
+        online={isOnline}
+        realtimeStatus={realtimeStatus}
+        onRetry={() => refresh().catch(() => undefined)}
+      />
+    );
     const canAdmin = Boolean(activeUser?.roles.includes("admin"));
     const canMerchant = Boolean(
       activeUser?.roles.includes("merchant") && merchantRestaurant,
     );
     if (!canAdmin && !canMerchant)
-      return <DesktopAccessGate user={activeUser} onLogout={logoutWeb} />;
+      return (
+        <>
+          {networkBanner}
+          <DesktopAccessGate user={activeUser} onLogout={logoutWeb} />
+        </>
+      );
     if (canMerchant && (!canAdmin || desktopPortal === "merchant")) {
       return (
-        <MerchantDesktopConsole
-          state={state}
-          restaurant={merchantRestaurant!}
-          newDish={newDish}
-          setNewDish={setNewDish}
-          busy={busy}
-          realtimeStatus={realtimeStatus}
-          runAction={runAction}
-          onSwitchPortal={() => setDesktopPortal("admin")}
-          canSwitchPortal={canAdmin}
-          onLogout={logoutWeb}
-        />
+        <>
+          {networkBanner}
+          <MerchantDesktopConsole
+            state={state}
+            restaurant={merchantRestaurant!}
+            newDish={newDish}
+            setNewDish={setNewDish}
+            busy={busy}
+            realtimeStatus={realtimeStatus}
+            runAction={runAction}
+            onSwitchPortal={() => setDesktopPortal("admin")}
+            canSwitchPortal={canAdmin}
+            onLogout={logoutWeb}
+          />
+        </>
       );
     }
     return (
-      <SuperAdminConsole
-        state={state}
-        currentUserId={activeUser!.id}
-        dashboard={adminDashboard}
-        busy={busy}
-        realtimeStatus={realtimeStatus}
-        runAction={runAction}
-        onSwitchPortal={() => setDesktopPortal("merchant")}
-        onLogout={logoutWeb}
-      />
+      <>
+        {networkBanner}
+        <SuperAdminConsole
+          state={state}
+          currentUserId={activeUser!.id}
+          dashboard={adminDashboard}
+          busy={busy}
+          realtimeStatus={realtimeStatus}
+          runAction={runAction}
+          onSwitchPortal={() => setDesktopPortal("merchant")}
+          onLogout={logoutWeb}
+        />
+      </>
     );
   }
 
@@ -985,9 +1027,14 @@ function App() {
         />
         <section className="phone-stage" aria-label="Aplicacion">
           <div className="phone">
-            <PhoneStatus />
+            <PhoneStatus online={isOnline} />
             <AppModeBar mode={mode} onModeChange={switchMode} />
             <div className="phone-content">
+              <NetworkStatusBanner
+                online={isOnline}
+                realtimeStatus={realtimeStatus}
+                onRetry={() => refresh().catch(() => undefined)}
+              />
               {mode === "customer" && (
                 <CustomerApp
                   state={state}
@@ -1125,7 +1172,7 @@ function DesktopAccessGate({
   );
 }
 
-function PhoneStatus() {
+function PhoneStatus({ online }: { online: boolean }) {
   const [time, setTime] = useState(() => new Date());
   useEffect(() => {
     const timer = window.setInterval(() => setTime(new Date()), 30000);
@@ -1140,7 +1187,7 @@ function PhoneStatus() {
         })}
       </span>
       <span className="dynamic-island" />
-      <span>{navigator.onLine ? "Live" : "Offline"}</span>
+      <span>{online ? "Live" : "Offline"}</span>
     </div>
   );
 }
@@ -5433,6 +5480,43 @@ function AdminSecurityPanel() {
         </p>
       )}
     </section>
+  );
+}
+
+function NetworkStatusBanner({
+  online,
+  realtimeStatus,
+  onRetry,
+}: {
+  online: boolean;
+  realtimeStatus: "connecting" | "live" | "reconnecting" | "offline";
+  onRetry: () => void;
+}) {
+  const realtimeDegraded =
+    online && (realtimeStatus === "connecting" || realtimeStatus === "reconnecting");
+  if (online && !realtimeDegraded) return null;
+  const isOffline = !online;
+  return (
+    <div
+      className={`network-status-banner ${isOffline ? "offline" : "reconnecting"}`}
+      role="status"
+      aria-live="polite"
+    >
+      <span className="network-status-icon">
+        {isOffline ? <TriangleAlert size={16} /> : <RefreshCw size={16} />}
+      </span>
+      <span>
+        <strong>{isOffline ? "Sin conexión" : "Actualizando Flash"}</strong>
+        <small>
+          {isOffline
+            ? "Las acciones nuevas esperan hasta recuperar internet."
+            : "El estado en vivo se está reconectando."}
+        </small>
+      </span>
+      <button type="button" onClick={onRetry} disabled={isOffline}>
+        <RefreshCw size={14} /> Reintentar
+      </button>
+    </div>
   );
 }
 

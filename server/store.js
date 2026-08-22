@@ -324,6 +324,15 @@ function execSchema() {
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS dietary_preferences (
+      user_id TEXT PRIMARY KEY,
+      dietary_labels_json TEXT NOT NULL DEFAULT '[]',
+      avoided_allergens_json TEXT NOT NULL DEFAULT '[]',
+      hide_incompatible INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS shipments (
       id TEXT PRIMARY KEY,
       customer_id TEXT NOT NULL,
@@ -1021,6 +1030,7 @@ function clearAll() {
     DELETE FROM audit_events;
     DELETE FROM notifications;
     DELETE FROM notification_preferences;
+    DELETE FROM dietary_preferences;
     DELETE FROM zones;
     DELETE FROM ratings;
     DELETE FROM support_tickets;
@@ -1380,6 +1390,21 @@ const replaceTransaction = database.transaction((state) => {
       updatedAt: preference.updatedAt || null
     });
   }
+
+  const insertDietaryPreference = database.prepare(`
+    INSERT INTO dietary_preferences (
+      user_id, dietary_labels_json, avoided_allergens_json, hide_incompatible, updated_at
+    ) VALUES (@userId, @dietaryLabelsJson, @avoidedAllergensJson, @hideIncompatible, @updatedAt)
+  `);
+  for (const preference of state.dietaryPreferences || []) {
+    insertDietaryPreference.run({
+      userId: preference.userId,
+      dietaryLabelsJson: JSON.stringify(preference.dietaryLabels || []),
+      avoidedAllergensJson: JSON.stringify(preference.avoidedAllergens || []),
+      hideIncompatible: boolToInt(preference.hideIncompatible),
+      updatedAt: preference.updatedAt || null
+    });
+  }
 });
 
 function seedIfNeeded() {
@@ -1677,6 +1702,13 @@ export function readDb() {
       emailEnabled: rowBool(row.email_enabled),
       updatedAt: row.updated_at
     })),
+    dietaryPreferences: database.prepare("SELECT * FROM dietary_preferences ORDER BY user_id").all().map((row) => ({
+      userId: row.user_id,
+      dietaryLabels: JSON.parse(row.dietary_labels_json || "[]"),
+      avoidedAllergens: JSON.parse(row.avoided_allergens_json || "[]"),
+      hideIncompatible: rowBool(row.hide_incompatible),
+      updatedAt: row.updated_at
+    })),
     ratings: database.prepare("SELECT * FROM ratings ORDER BY created_at DESC").all().map((row) => ({
       id: row.id,
       targetType: row.target_type,
@@ -1806,6 +1838,40 @@ export function updateLocalNotificationPreference({ userId, category, pushEnable
     WHERE user_id = ? AND category = ?
   `).run(boolToInt(pushEnabled), boolToInt(emailEnabled), now(), userId, category);
   return getLocalNotificationPreferences(userId);
+}
+
+export function getLocalDietaryPreferences(userId) {
+  const row = database.prepare(`
+    SELECT dietary_labels_json, avoided_allergens_json, hide_incompatible
+    FROM dietary_preferences
+    WHERE user_id = ?
+  `).get(userId);
+  if (!row) return { dietaryLabels: [], avoidedAllergens: [], hideIncompatible: false };
+  return {
+    dietaryLabels: JSON.parse(row.dietary_labels_json || "[]"),
+    avoidedAllergens: JSON.parse(row.avoided_allergens_json || "[]"),
+    hideIncompatible: rowBool(row.hide_incompatible)
+  };
+}
+
+export function replaceLocalDietaryPreferences({ userId, dietaryLabels, avoidedAllergens, hideIncompatible }) {
+  database.prepare(`
+    INSERT INTO dietary_preferences (
+      user_id, dietary_labels_json, avoided_allergens_json, hide_incompatible, updated_at
+    ) VALUES (?, ?, ?, ?, ?)
+    ON CONFLICT(user_id) DO UPDATE SET
+      dietary_labels_json = excluded.dietary_labels_json,
+      avoided_allergens_json = excluded.avoided_allergens_json,
+      hide_incompatible = excluded.hide_incompatible,
+      updated_at = excluded.updated_at
+  `).run(
+    userId,
+    JSON.stringify(dietaryLabels),
+    JSON.stringify(avoidedAllergens),
+    boolToInt(hideIncompatible),
+    now()
+  );
+  return getLocalDietaryPreferences(userId);
 }
 
 export function createLocalNotification({

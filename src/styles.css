@@ -3237,6 +3237,94 @@ textarea {
   font-weight: 900;
 }
 
+.network-status-banner {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  z-index: 120;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: min(520px, calc(100vw - 24px));
+  padding: 10px 12px;
+  color: #fff;
+  background: #252b33;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  box-shadow: 0 16px 36px rgba(12, 19, 28, 0.26);
+  transform: translateX(-50%);
+}
+
+.network-status-banner.offline {
+  background: #7e2f24;
+}
+
+.network-status-banner.reconnecting {
+  background: #6c4c16;
+}
+
+.network-status-icon {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+}
+
+.network-status-banner > span:nth-child(2) {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.network-status-banner strong {
+  font-size: 0.78rem;
+}
+
+.network-status-banner small {
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.68rem;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.network-status-banner button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 0 9px;
+  color: #252b33;
+  background: #fff;
+  border: 0;
+  border-radius: 7px;
+  font-size: 0.68rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.network-status-banner button:disabled {
+  color: rgba(37, 43, 51, 0.55);
+  background: rgba(255, 255, 255, 0.74);
+}
+
+@media (max-width: 520px) {
+  .network-status-banner {
+    top: 8px;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .network-status-banner button {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
 .admin-shell {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);

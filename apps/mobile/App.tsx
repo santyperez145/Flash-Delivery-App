@@ -3,6 +3,7 @@ import * as Location from "expo-location";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
+import * as Network from "expo-network";
 import * as Sharing from "expo-sharing";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -142,12 +143,33 @@ function SignatureCaptureModal({visible,onClose,onSave,busy}:{visible:boolean;on
   return <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}><View style={styles.signatureBackdrop}><View style={styles.signatureSheet}><View style={styles.trackingHeader}><View><Text style={styles.orderConfirmationEyebrow}>RECEPCIÓN VERIFICADA</Text><Text style={styles.foodRestaurantTitle}>Firma del receptor</Text></View><Pressable style={styles.foodBack} onPress={onClose}><Ionicons name="close" size={21} color="#222"/></Pressable></View><Text style={styles.cardText}>Declaro haber recibido el envío. La firma, identidad declarada, hora y ubicación se guardarán cifradas como evidencia.</Text><TextInput value={signerName} onChangeText={setSignerName} placeholder="Nombre y apellido" style={styles.input}/><View style={styles.signatureRelationshipRow}>{(["recipient","authorized_person"] as const).map(value=><Pressable key={value} style={[styles.signatureChoice,relationship===value&&styles.signatureChoiceActive]} onPress={()=>setRelationship(value)}><Text style={relationship===value?styles.signatureChoiceTextActive:styles.signatureChoiceText}>{value==="recipient"?"Destinatario":"Persona autorizada"}</Text></Pressable>)}</View><View ref={canvasRef} collapsable={false} style={styles.signatureCanvas} {...responder.panHandlers}><Svg style={StyleSheet.absoluteFill}>{paths.map((path,index)=><Path key={index} d={path} stroke="#17131c" strokeWidth={3} fill="none" strokeLinecap="round" strokeLinejoin="round"/>)}</Svg><Text pointerEvents="none" style={styles.signatureGuide}>{paths.length?"":"Firmar aquí"}</Text></View><View style={styles.signatureActions}><Pressable style={styles.secondaryButton} disabled={busy} onPress={()=>updatePaths([])}><Text style={styles.secondaryButtonText}>Limpiar</Text></Pressable><Pressable style={[styles.primaryButton,{flex:1},busy&&styles.disabledButton]} disabled={busy} onPress={()=>void save()}><Text style={styles.primaryButtonText}>{busy?"Cifrando…":"Guardar firma"}</Text></Pressable></View></View></View></Modal>;
 }
 
+function MobileNetworkStatus({ online }: { online: boolean }) {
+  if (online) return null;
+  return (
+    <View style={styles.networkStatusBanner} accessibilityRole="alert">
+      <View style={styles.networkStatusIcon}>
+        <Ionicons name="cloud-offline-outline" size={18} color="#fff" />
+      </View>
+      <View style={styles.networkStatusCopy}>
+        <Text style={styles.networkStatusTitle}>Sin conexión</Text>
+        <Text style={styles.networkStatusText}>
+          Las acciones nuevas esperan hasta recuperar internet.
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 export default function App() {
   const [mode, setMode] = useState<Mode>("customer");
   const [state, setState] = useState<AppState | null>(null);
   const [sessionUser, setSessionUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const networkState = Network.useNetworkState();
+  const networkOnline =
+    networkState.isConnected !== false && networkState.isInternetReachable !== false;
+  const previousNetwork = useRef(networkOnline);
 
   const refresh = useCallback(async () => {
     const response = await api.state();
@@ -182,6 +204,14 @@ export default function App() {
   useEffect(() => {
     bootstrap();
   }, [bootstrap]);
+
+  useEffect(() => {
+    const wasOnline = previousNetwork.current;
+    previousNetwork.current = networkOnline;
+    if (!wasOnline && networkOnline && sessionUser) {
+      void refresh().catch(() => undefined);
+    }
+  }, [networkOnline, refresh, sessionUser]);
 
   const runAction = useCallback(
     async (action: () => Promise<unknown>, success: string) => {
@@ -258,6 +288,7 @@ export default function App() {
     <SafeAreaView
       style={[styles.root, mode === "customer" && styles.customerRoot]}
     >
+      <MobileNetworkStatus online={networkOnline} />
       {mode !== "customer" && (
         <View style={styles.header}>
           <View>
@@ -3381,6 +3412,34 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f4f6f8",
   },
+  networkStatusBanner: {
+    position: "absolute",
+    top: 8,
+    left: 12,
+    right: 12,
+    zIndex: 50,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: "#7e2f24",
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  networkStatusIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,.16)",
+  },
+  networkStatusCopy: { flex: 1, minWidth: 0 },
+  networkStatusTitle: { color: "#fff", fontSize: 12, fontWeight: "900" },
+  networkStatusText: { color: "rgba(255,255,255,.82)", fontSize: 10, marginTop: 2 },
   customerRoot: { backgroundColor: "#eef0f3" },
   customerShell: {
     flex: 1,
