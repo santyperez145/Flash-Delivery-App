@@ -17,6 +17,12 @@ export async function exchangeMercadoPagoCode(code) {
 
 const mercadoPagoPaymentStatus=new Set(["pending","approved","authorized","in_process","in_mediation","rejected","cancelled","refunded","charged_back"]);
 
+export function mercadoPagoFulfillmentDecision(status){
+  if(status==="approved")return{intentStatus:"captured",fulfill:true,terminal:true};
+  if(["rejected","cancelled"].includes(status))return{intentStatus:"failed",fulfill:false,terminal:true};
+  return{intentStatus:"requires_confirmation",fulfill:false,terminal:false};
+}
+
 export async function createMercadoPagoPayment({accessToken,idempotencyKey,cardToken,transactionAmount,applicationFee,paymentMethodId,installments=1,payerEmail,externalReference,description,notificationUrl,fetchImpl=fetch}){
   if(config.paymentMarketplace.provider!=="mercadopago")throw Object.assign(new Error("Mercado Pago Marketplace no está habilitado"),{status:503});
   if(!/^[A-Za-z0-9._-]{8,256}$/.test(String(cardToken||""))||/^\d{13,19}$/.test(String(cardToken)))throw Object.assign(new Error("Token de pago inválido; tokeniza la tarjeta con Mercado Pago"),{status:400});

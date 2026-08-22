@@ -613,6 +613,8 @@ export const api = {
     branchId?: string;
     deliveryAddress: string;
     paymentMethod: string;
+    paymentMethodId?:string;
+    providerPayment?:{cardToken:string;paymentMethodId:string;installments:number};
     promotionCode?: string;
     items: Array<
       Pick<CartLine, "quantity" | "extras" | "note"> & { menuItemId: string }
@@ -629,6 +631,10 @@ export const api = {
           restaurantId: payload.restaurantId,
           deliveryAddressId: payload.deliveryAddressId,
           branchId: payload.branchId,
+          paymentMethod:payload.paymentMethod,
+          paymentMethodId:payload.paymentMethodId,
+          promotionCode:payload.promotionCode,
+          items:payload.items,
         }),
       },
     );

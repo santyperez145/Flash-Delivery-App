@@ -4,8 +4,11 @@ import { getPostgresPricingPlan } from "./configuration-repository.js";
 import { enqueueNotificationForInternalUser } from "./notification-repository.js";
 import { acceptDispatchOffer, createDispatchOffers } from "./dispatch-repository.js";
 import {settleCapturedFoodOrder} from "./merchant-finance-repository.js";
+import {decryptPaymentOAuthToken} from "./secret-envelope.js";
+import {createMercadoPagoPayment,mercadoPagoFulfillmentDecision} from "./payment-marketplace-provider.js";
 
 const pesos = (cents) => Number(cents || 0) / 100;
+const marketplacePaymentKey=value=>`mp-${crypto.createHash("sha256").update(String(value)).digest("hex")}`;
 
 export function usesPostgresCommerce() {
   return Boolean(postgresPool);
@@ -260,7 +263,7 @@ export async function getPostgresFoodCheckoutQuote({customerPublicId,merchantPub
   }finally{client.release();}
 }
 
-export async function createPostgresOrder({ publicId, customerPublicId, merchantPublicId, deliveryAddressId, deliveryAddress, paymentMethod,paymentMethodId, promotionCode, items, serviceFee, lockedQuote, idempotencyKey }) {
+export async function createPostgresOrder({ publicId, customerPublicId, merchantPublicId, deliveryAddressId, deliveryAddress, paymentMethod,paymentMethodId,providerPayment, promotionCode, items, serviceFee, lockedQuote, idempotencyKey }) {
   const client = await postgresPool.connect();
   try {
     await client.query("BEGIN");
@@ -275,7 +278,9 @@ export async function createPostgresOrder({ publicId, customerPublicId, merchant
     if(!address)throw Object.assign(new Error("La dirección de entrega no existe o no pertenece al cliente"),{status:404});
     deliveryAddress=address.formatted_address;
     if(!lockedQuote||Math.abs(Number(address.distance_m)/1000*Number(lockedQuote.roadFactor)-Number(lockedQuote.distanceKm))>.1)throw Object.assign(new Error("La ruta cambió; actualiza la cotización"),{status:409});
-    const requestHash = crypto.createHash("sha256").update(JSON.stringify({ customerPublicId, merchantPublicId, deliveryAddressId, deliveryAddress, paymentMethod,paymentMethodId:paymentMethodId||null, promotionCode:promotionCode||null, items,quoteId:lockedQuote.quoteId })).digest("hex");
+    const walletPayment=String(paymentMethod).toLowerCase().includes("wallet");
+    if(!walletPayment&&!providerPayment)throw Object.assign(new Error("El pago debe tokenizarse con Mercado Pago antes de confirmar"),{status:402});
+    const requestHash = crypto.createHash("sha256").update(JSON.stringify({ customerPublicId, merchantPublicId, deliveryAddressId, deliveryAddress, paymentMethod,paymentMethodId:paymentMethodId||null,providerPayment:providerPayment?{paymentMethodId:providerPayment.paymentMethodId,installments:providerPayment.installments}:null, promotionCode:promotionCode||null, items,quoteId:lockedQuote.quoteId })).digest("hex");
     const claimed = await client.query(
       `INSERT INTO idempotency_keys(key, user_id, request_hash, expires_at)
        VALUES ($1, $2, $3, now() + interval '24 hours')
@@ -330,18 +335,19 @@ export async function createPostgresOrder({ publicId, customerPublicId, merchant
       locationEstimated: false,deliveryAddressId:String(address.id),quoteId:lockedQuote.quoteId,pricingVersion:lockedQuote.pricingVersion,
       quotedDistanceKm:lockedQuote.distanceKm,zoneId:lockedQuote.zoneId,zoneMultiplier:lockedQuote.zoneMultiplier
     };
+    const initialStatus=walletPayment?"accepted":"requested";
     const job = await client.query(
       `INSERT INTO jobs(public_id, kind, customer_id, merchant_id, branch_id, status, pickup_address, pickup_location,
         dropoff_address, dropoff_location, service_level, quoted_amount_cents, final_amount_cents,
         distance_m, estimated_duration_s, payment_method_label, metadata)
-       VALUES ($1, 'delivery', $2, $3, $4, 'accepted', $5, $6, $7, $8, 'food', $9, $9, $10, $11, $12, $13)
+       VALUES ($1, 'delivery', $2, $3, $4, $14, $5, $6, $7, $8, 'food', $9, $9, $10, $11, $12, $13)
        RETURNING id,
          ST_Y(pickup_location::geometry) AS pickup_lat,
          ST_X(pickup_location::geometry) AS pickup_lng,
          ST_Y(dropoff_location::geometry) AS dropoff_lat,
          ST_X(dropoff_location::geometry) AS dropoff_lng`,
       [publicId, customer.rows[0].id, merchant.rows[0].id,merchant.rows[0].branch_id, merchant.rows[0].branch_address,
-        merchant.rows[0].branch_location, deliveryAddress,address.location,totalCents,Math.round(Number(address.distance_m)),metadata.etaMin * 60,paymentMethod,metadata]
+        merchant.rows[0].branch_location, deliveryAddress,address.location,totalCents,Math.round(Number(address.distance_m)),metadata.etaMin * 60,paymentMethod,metadata,initialStatus]
     );
     for (const { entry, item,selection,unitPriceCents } of snapshots) {
       await client.query(
@@ -353,7 +359,7 @@ export async function createPostgresOrder({ publicId, customerPublicId, merchant
     }
     if(promotion)await client.query(`INSERT INTO promotion_redemptions(promotion_id,user_id,job_id,discount_cents) VALUES($1,$2,$3,$4)`,[promotion.id,customer.rows[0].id,job.rows[0].id,discountCents]);
     let paymentStatus = "pending";
-    if (String(paymentMethod).toLowerCase().includes("wallet")) {
+    if (walletPayment) {
       const walletAccount = await client.query(
         `SELECT id FROM ledger_accounts WHERE owner_type='user' AND owner_id=$1 AND currency='ARS' AND account_type='wallet' FOR UPDATE`,
         [customer.rows[0].id]);
@@ -377,20 +383,24 @@ export async function createPostgresOrder({ publicId, customerPublicId, merchant
         VALUES($1,$2,'flash_wallet','captured',$3,$3,'ARS',$4,$5)`,
         [job.rows[0].id, customer.rows[0].id, totalCents, `payment-${idempotencyKey}`, { ledgerTransactionId: paymentTransaction.rows[0].id }]);
       paymentStatus = "captured";
+    }else{
+      const merchantCommissionCents=Math.round(Math.max(0,subtotalCents-discountCents)*Number(merchant.rows[0].commission_bps)/10000),applicationFeeCents=deliveryFeeCents+serviceFeeCents+merchantCommissionCents;
+      if(applicationFeeCents>=totalCents)throw Object.assign(new Error("La comisión configurada no permite procesar este pedido"),{status:409});
+      await client.query(`INSERT INTO payment_intents(job_id,customer_id,provider,status,amount_cents,captured_amount_cents,currency,idempotency_key,provider_payload) VALUES($1,$2,'mercadopago','requires_confirmation',$3,0,'ARS',$4,$5)`,[job.rows[0].id,customer.rows[0].id,totalCents,marketplacePaymentKey(idempotencyKey),{applicationFeeCents,paymentMethodId:providerPayment.paymentMethodId,installments:providerPayment.installments}]);
+      paymentStatus="requires_confirmation";
     }
-    await client.query("INSERT INTO job_events(job_id, actor_id, status) VALUES ($1, $2, 'accepted')", [job.rows[0].id, customer.rows[0].id]);
-    await createDispatchOffers(client,{jobId:job.rows[0].id,mode:"delivery"});
-    await enqueueNotificationForInternalUser(client,{userId:customer.rows[0].id,template:"order_status",payload:{kind:"food_order",jobId:publicId,status:"accepted"},deduplicationKey:`food_order:${publicId}:accepted`});
+    await client.query("INSERT INTO job_events(job_id, actor_id, status) VALUES ($1, $2, $3)", [job.rows[0].id, customer.rows[0].id,initialStatus]);
+    if(walletPayment){await createDispatchOffers(client,{jobId:job.rows[0].id,mode:"delivery"});await enqueueNotificationForInternalUser(client,{userId:customer.rows[0].id,template:"order_status",payload:{kind:"food_order",jobId:publicId,status:"accepted"},deduplicationKey:`food_order:${publicId}:accepted`});}
     const responseOrder = {
       id: publicId, customerId: customerPublicId, restaurantId: merchantPublicId, courierId: null,
-      status: "accepted", deliveryAddress, paymentMethod,
+      status: initialStatus, deliveryAddress, paymentMethod,
       pickupLocation: { lat: Number(job.rows[0].pickup_lat), lng: Number(job.rows[0].pickup_lng) },
       deliveryLocation: { lat: Number(job.rows[0].dropoff_lat), lng: Number(job.rows[0].dropoff_lng) },
        items: snapshots.map(({ entry, item,selection,unitPriceCents }) => ({ menuItemId: item.public_id, name: item.name,
          quantity: entry.quantity, unitPrice: pesos(unitPriceCents), extras: selection.modifiers.map(modifier=>modifier.name),modifiers:selection.modifiers,note: entry.note || "" })),
       subtotal: metadata.subtotal, deliveryFee: metadata.deliveryFee, serviceFee,
       discount:metadata.discount,promotionCode:metadata.promotionCode,total: pesos(totalCents), etaMin: metadata.etaMin, createdAt: new Date().toISOString(),
-      timeline: [{ status: "accepted", at: new Date().toISOString() }], paymentStatus
+      timeline: [{ status: initialStatus, at: new Date().toISOString() }], paymentStatus
     };
     await client.query("UPDATE idempotency_keys SET response_status = 200, response_body = $2 WHERE key = $1", [idempotencyKey, { order: responseOrder }]);
     await client.query("COMMIT");
@@ -401,6 +411,15 @@ export async function createPostgresOrder({ publicId, customerPublicId, merchant
   } finally {
     client.release();
   }
+}
+
+export async function processPostgresOrderMarketplacePayment({orderPublicId,customerPublicId,idempotencyKey,cardToken,paymentMethodId,installments}){
+  const context=(await postgresPool.query(`SELECT j.id job_id,j.public_id,j.status,j.quoted_amount_cents,j.customer_id,u.email,m.public_id merchant_public_id,p.id payment_intent_id,p.status payment_status,p.amount_cents,p.provider_payload,c.access_token_ciphertext,c.revoked_at,c.token_expires_at FROM jobs j JOIN users u ON u.id=j.customer_id JOIN merchants m ON m.id=j.merchant_id JOIN payment_intents p ON p.job_id=j.id AND p.provider='mercadopago' LEFT JOIN merchant_payment_connections c ON c.merchant_id=m.id AND c.provider='mercadopago' WHERE j.public_id=$1 AND u.public_id=$2`,[orderPublicId,customerPublicId])).rows[0];
+  if(!context)throw Object.assign(new Error("Intento de pago no encontrado"),{status:404});
+  if(context.payment_status==="captured")return(await getPostgresOrders()).find(order=>order.id===orderPublicId);
+  if(!context.access_token_ciphertext||context.revoked_at||(context.token_expires_at&&new Date(context.token_expires_at)<=new Date()))throw Object.assign(new Error("El comercio todavía no puede cobrar con Mercado Pago"),{status:409});
+  const payment=await createMercadoPagoPayment({accessToken:decryptPaymentOAuthToken(context.access_token_ciphertext),idempotencyKey:marketplacePaymentKey(idempotencyKey),cardToken,transactionAmount:pesos(context.amount_cents),applicationFee:pesos(context.provider_payload.applicationFeeCents),paymentMethodId,installments,payerEmail:context.email,externalReference:orderPublicId,description:`Pedido ${orderPublicId}`});
+  const client=await postgresPool.connect();try{await client.query("BEGIN");const locked=(await client.query("SELECT status FROM payment_intents WHERE id=$1 FOR UPDATE",[context.payment_intent_id])).rows[0];if(locked.status==="captured"){await client.query("ROLLBACK");return(await getPostgresOrders()).find(order=>order.id===orderPublicId);}const decision=mercadoPagoFulfillmentDecision(payment.status);await client.query(`UPDATE payment_intents SET provider_intent_id=$2,status=$3,captured_amount_cents=$4,failure_code=$5,provider_payload=provider_payload||$6::jsonb,updated_at=now() WHERE id=$1`,[context.payment_intent_id,payment.id,decision.intentStatus,decision.fulfill?Number(context.amount_cents):0,decision.terminal&&!decision.fulfill?payment.statusDetail||payment.status:null,JSON.stringify({statusDetail:payment.statusDetail,applicationFee:payment.applicationFee,collectorId:payment.collectorId,dateApproved:payment.dateApproved})]);if(decision.fulfill&&context.status==="requested"){await client.query("UPDATE jobs SET status='accepted',updated_at=now() WHERE id=$1",[context.job_id]);await client.query("INSERT INTO job_events(job_id,actor_id,status,metadata) VALUES($1,$2,'accepted',$3)",[context.job_id,context.customer_id,{paymentProvider:"mercadopago",providerPaymentId:payment.id}]);await createDispatchOffers(client,{jobId:context.job_id,mode:"delivery"});await enqueueNotificationForInternalUser(client,{userId:context.customer_id,template:"order_status",payload:{kind:"food_order",jobId:orderPublicId,status:"accepted"},deduplicationKey:`food_order:${orderPublicId}:accepted`});}else if(decision.terminal&&context.status==="requested"){await client.query("UPDATE jobs SET status='cancelled',cancellation_reason='payment_failed',updated_at=now() WHERE id=$1",[context.job_id]);await client.query("INSERT INTO job_events(job_id,actor_id,status,metadata) VALUES($1,$2,'cancelled',$3)",[context.job_id,context.customer_id,{reason:"payment_failed",providerStatus:payment.status}]);}await client.query("COMMIT");return{...(await getPostgresOrders()).find(order=>order.id===orderPublicId),paymentStatus:decision.intentStatus,paymentStatusDetail:payment.statusDetail};}catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}
 }
 
 export async function assignPostgresOrderDriver(orderPublicId, driverPublicId, actorPublicId) {
