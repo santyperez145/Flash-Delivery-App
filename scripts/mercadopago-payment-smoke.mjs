@@ -31,4 +31,19 @@ assert.deepEqual(JSON.parse(refundRequest.options.body),{amount:125.5});
 assert.deepEqual(refund,{id:"777",paymentId:"987654",amount:125.5,status:"approved",dateCreated:"2026-08-22T13:00:00Z"});
 await assert.rejects(()=>refundMercadoPagoPayment({accessToken:"secret",paymentId:"987654",idempotencyKey:"refund-order-12345678",amount:-1,fetchImpl:async()=>{throw new Error("must not call")}}),/Importe de reembolso inválido/);
 
+await assert.rejects(
+  ()=>createMercadoPagoPayment({accessToken:"secret",idempotencyKey:"payment-network-123456",cardToken:"card-token_12345678",transactionAmount:100,applicationFee:10,paymentMethodId:"visa",payerEmail:"buyer@example.com",externalReference:"ORDER-2",description:"test",fetchImpl:async()=>{throw new Error("socket included APP_USR-secret");}}),
+  error=>error.status===502&&error.providerCode==="provider_network_error"&&!error.message.includes("APP_USR"),
+);
+await assert.rejects(
+  ()=>createMercadoPagoPayment({accessToken:"secret",idempotencyKey:"payment-rate-limit-1234",cardToken:"card-token_12345678",transactionAmount:100,applicationFee:10,paymentMethodId:"visa",payerEmail:"buyer@example.com",externalReference:"ORDER-3",description:"test",fetchImpl:async()=>({ok:false,status:429,json:async()=>({error:"too_many_requests"})})}),
+  error=>error.status===429&&error.providerStatus===429,
+);
+
+const {renderPrometheus}=await import("../server/observability.js");
+const metrics=renderPrometheus({pool:{},business:{activeFood:0,activeRides:0,activeShipments:0,openTickets:0,payments:[],notifications:[],dispatchOffers:[],realtimeEvents:0},startedAt:Date.now()});
+assert.match(metrics,/flash_provider_calls_total\{provider="mercadopago",operation="create_payment",outcome="success"\} 1/);
+assert.match(metrics,/flash_provider_calls_total\{provider="mercadopago",operation="create_payment",outcome="network_error"\} 1/);
+assert.match(metrics,/flash_provider_calls_total\{provider="mercadopago",operation="create_payment",outcome="rate_limited"\} 1/);
+
 console.log("mercadopago payment smoke passed");
