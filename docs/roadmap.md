@@ -1,5 +1,7 @@
 # Roadmap de producto
 
+El roadmap rector actualizado está en `ROADMAP.MD` y adopta `C:\Users\santiago\Desktop\FlashAPP.txt`, recalibrado contra el runtime PostgreSQL actual. Este archivo conserva detalle histórico; ante diferencias prevalece “Roadmap rector adoptado — 21 de agosto de 2026”.
+
 Fecha base: 14 de agosto de 2026.
 
 Objetivo: llevar Flash Delivery Mobility desde MVP fullstack local hasta plataforma competitiva con apps mobile, dispatch en tiempo real, pagos, soporte y operacion escalable.
@@ -17,11 +19,15 @@ Flash debe operar cuatro superficies reales:
 
 - [x] Frontend React/Vite responsive con modo mobile para apps y desktop para superadmin.
 - [x] Backend Express con API real.
-- [x] Persistencia local SQLite.
+- [x] Fallback local SQLite aislado para demo y pruebas sin `DATABASE_URL`.
+- [x] Runtime principal PostgreSQL/PostGIS sin lecturas ni escrituras SQLite, verificado de punta a punta.
+- [x] Destinos de viaje guardados y recientes persistidos con coordenadas PostGIS, deduplicación, retención, ownership y RLS.
 - [x] Login con bcrypt y JWT.
 - [x] RBAC inicial por roles `customer`, `merchant`, `driver`, `admin`.
 - [x] Ownership en servidor para pedidos, viajes, restaurantes y drivers.
 - [x] Auditoria de mutaciones relevantes.
+- [x] Tarifas versionadas con doble aprobación, vigencia programada, worker, riesgo porcentual, rollback histórico y trazabilidad de solicitante/revisor.
+- [x] Propinas post-servicio y correcciones parciales/totales con doble aprobación, concurrencia segura y ledger balanceado.
 - [x] Smoke test de seguridad para JWT/RBAC/ownership.
 - [x] Configuracion validada por entorno.
 - [x] Headers de seguridad, CORS allowlist y rate limiting inicial.
@@ -56,7 +62,7 @@ Criterios de salida:
 Meta: reemplazar la persistencia demo por una base preparada para produccion.
 
 Trabajo:
-- Migrar SQLite a Postgres.
+- [x] Migrar los dominios operativos y de identidad a PostgreSQL/PostGIS.
 - Agregar migraciones versionadas con Prisma, Drizzle o Knex.
 - Usar PostGIS para zonas, conductores cercanos y busqueda geoespacial.
 - Separar `users`, `roles`, `permissions`, `sessions`, `orders`, `rides`, `payments`, `ledger`, `audit_events`.
@@ -129,7 +135,7 @@ Meta: convertir la plataforma en negocio operable.
 
 Trabajo:
 - Soporte multiagente con SLA, macros, historial y escalamiento.
-- Promociones, cupones, referidos y pricing dinamico.
+- [~] Promociones, cupones y referidos operativos; falta consola de campañas de referidos con aprobación dual y antifraude por dispositivo/hogar.
 - Ratings y calidad por comercio/driver/cliente.
 - Moderacion, suspensiones y documentos vencidos.
 - Panel de demanda por zona, heatmaps y forecast.

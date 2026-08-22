@@ -1,0 +1,17 @@
+ALTER TABLE ledger_transactions DROP CONSTRAINT ledger_transactions_kind_check;
+ALTER TABLE ledger_transactions ADD CONSTRAINT ledger_transactions_kind_check CHECK(kind IN('sandbox_topup','driver_earning','payment','refund','adjustment','merchant_settlement','payout_reserve','payout_release','tip','tip_adjustment','referral_reward'));
+
+CREATE TABLE referral_campaigns (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),name text NOT NULL,advocate_reward_cents bigint NOT NULL CHECK(advocate_reward_cents>=0),friend_reward_cents bigint NOT NULL CHECK(friend_reward_cents>=0),currency char(3) NOT NULL DEFAULT 'ARS',qualifying_jobs integer NOT NULL DEFAULT 1 CHECK(qualifying_jobs>0),starts_at timestamptz NOT NULL,ends_at timestamptz,active boolean NOT NULL DEFAULT true,created_at timestamptz NOT NULL DEFAULT now(),CHECK(ends_at IS NULL OR ends_at>starts_at));
+CREATE UNIQUE INDEX referral_campaign_one_active_idx ON referral_campaigns((active)) WHERE active;
+CREATE TABLE referral_codes (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),user_id uuid NOT NULL UNIQUE REFERENCES users(id),code text NOT NULL UNIQUE CHECK(code ~ '^[A-Z0-9]{6,16}$'),created_at timestamptz NOT NULL DEFAULT now(),disabled_at timestamptz);
+CREATE TABLE referral_attributions (id uuid PRIMARY KEY DEFAULT gen_random_uuid(),campaign_id uuid NOT NULL REFERENCES referral_campaigns(id),advocate_user_id uuid NOT NULL REFERENCES users(id),referred_user_id uuid NOT NULL UNIQUE REFERENCES users(id),code_id uuid NOT NULL REFERENCES referral_codes(id),status text NOT NULL DEFAULT 'pending' CHECK(status IN('pending','rewarded','rejected')),qualifying_job_id uuid REFERENCES jobs(id),advocate_transaction_id uuid UNIQUE REFERENCES ledger_transactions(id),friend_transaction_id uuid UNIQUE REFERENCES ledger_transactions(id),rejection_reason text,attributed_at timestamptz NOT NULL DEFAULT now(),rewarded_at timestamptz,CHECK(advocate_user_id<>referred_user_id));
+CREATE INDEX referral_attributions_advocate_idx ON referral_attributions(advocate_user_id,status,attributed_at DESC);
+CREATE INDEX referral_attributions_pending_idx ON referral_attributions(referred_user_id) WHERE status='pending';
+ALTER TABLE referral_codes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE referral_attributions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY referral_codes_owner ON referral_codes USING(user_id=app.current_user_id() OR app.has_role('admin')) WITH CHECK(user_id=app.current_user_id() OR app.has_role('admin'));
+CREATE POLICY referral_attributions_participant ON referral_attributions USING(advocate_user_id=app.current_user_id() OR referred_user_id=app.current_user_id() OR app.has_role('admin'));
+DO $$ BEGIN IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname='flash_runtime') THEN CREATE POLICY referral_codes_runtime_service ON referral_codes TO flash_runtime USING(true) WITH CHECK(true); CREATE POLICY referral_attributions_runtime_service ON referral_attributions TO flash_runtime USING(true) WITH CHECK(true); GRANT SELECT,INSERT,UPDATE ON referral_codes,referral_attributions TO flash_runtime; GRANT SELECT ON referral_campaigns TO flash_runtime; END IF; END $$;
+GRANT SELECT ON referral_campaigns,referral_codes,referral_attributions TO flash_rls_audit;
+INSERT INTO referral_campaigns(name,advocate_reward_cents,friend_reward_cents,starts_at) VALUES('Referidos beta Buenos Aires',250000,150000,now());
+COMMENT ON TABLE referral_attributions IS 'Attribution and idempotent wallet reward after the referred customer completes a paid job.';

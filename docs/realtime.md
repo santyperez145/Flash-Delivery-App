@@ -1,37 +1,39 @@
-# Realtime de Flash
+# Realtime durable de Flash
 
-Flash tiene una primera capa realtime funcional para beta local y para validar el modelo operativo antes de introducir un bus de eventos.
+## Contrato
 
-## Contrato actual
+- `GET /api/events` autenticado por JWT.
+- SSE sin caché ni buffering, heartbeat cada 25 segundos.
+- Cada evento PostgreSQL recibe una secuencia monotónica y se envía como `id:` SSE.
+- El cliente conserva el último cursor procesado en `sessionStorage` y lo reenvía mediante `Last-Event-ID` al reconectar.
+- La API reproduce hasta 100 eventos posteriores autorizados y luego continúa en vivo.
+- El cliente descarta `state.updated` con secuencia repetida, renueva el access token
+  si el stream recibe `401` y reintenta con backoff exponencial más jitter hasta 30 segundos.
+- Logout elimina también el cursor para que una identidad nueva nunca herede el
+  punto de replay de la sesión anterior.
 
-- `GET /api/events`
-- Autenticacion por `Authorization: Bearer <JWT>`.
-- Respuesta `text/event-stream` sin cache y con buffering desactivado.
-- Frame inicial `connected`.
-- Heartbeat cada 25 segundos.
-- Evento `state.updated` despues de una mutacion persistida.
-- Payload deliberadamente pequeno: id del evento, tipo, entidad, accion, request id y timestamp.
+## Arquitectura
 
-El cliente vuelve a pedir `/api/state` cuando recibe una mutacion. El stream no transporta datos privados ni intenta ser la fuente de verdad; SQLite/API siguen siendo autoritativos.
+`realtime_events` es el event log durable. Un trigger publica solamente su secuencia en el canal PostgreSQL `flash_realtime`; cada réplica de API mantiene una conexión `LISTEN`, recupera la fila y la distribuye a sus conexiones locales. Una escritura hecha desde otra conexión o réplica llega al mismo stream sin memoria compartida.
 
-## Eventos publicados
+Los eventos transportan únicamente tipo, entidad, acción, request ID y timestamp. No incluyen coordenadas, direcciones, teléfonos, mensajes ni datos financieros. La app vuelve a consultar el recurso segmentado correspondiente (`/me/activity`, cuenta, catálogo u Operaciones), que aplica autorización y sigue siendo la fuente de verdad.
 
-- `restaurant.updated`
-- `order.created`
-- `order.updated`
-- `ride.created`
-- `ride.updated`
-- `driver.updated`
-- `driver.location.updated`
-- `platform.reset`
+## Audiencias
 
-Las coordenadas no se envian dentro del evento realtime. El evento solo dispara una recarga autorizada de estado; esto evita filtrar ubicaciones a sesiones que no deben verlas.
+Cada fila guarda usuarios públicos y roles autorizados. Pedidos, viajes y envíos se limitan al cliente, comercio, conductor asignado y operaciones. Soporte se limita al cliente y operaciones; wallet/perfil al titular y operaciones; restaurante al comercio propietario y operaciones. Eventos globales de configuración pueden dirigirse a todos los roles autenticados.
 
-## Evolucion productiva
+El mismo predicado se usa para fanout en vivo y replay, evitando que una reconexión revele eventos que el cliente no habría recibido en directo.
 
-1. Migrar el registro de conexiones a un gateway realtime con Redis Pub/Sub.
-2. Filtrar eventos por usuario, comercio, driver, zona y rol.
-3. Agregar secuencia monotona por particion y replay desde un event log.
-4. Usar WebSocket cuando haga falta comunicacion bidireccional de presencia, chat o tracking.
-5. Mantener SSE para dashboard, actividad y notificaciones de solo lectura.
-6. Instrumentar conexiones abiertas, latencia de evento, reconexiones y eventos descartados.
+## Retención y operación
+
+```bash
+npm run realtime:prune
+```
+
+Por defecto conserva siete días y como máximo 100.000 filas. Se configura con `REALTIME_RETENTION_DAYS` y `REALTIME_MAX_ROWS`; producción debe programar este comando como cron/job. Prometheus publica conexiones SSE por instancia y cantidad de eventos retenidos.
+
+## Evolución pendiente
+
+- Insertar el evento en la misma transacción de dominio mediante outbox para todas las mutaciones (actualmente se persiste inmediatamente después del commit).
+- WebSocket para presencia bidireccional, chat y tracking de alta frecuencia.
+- Métricas de latencia end-to-end, cursores demasiado antiguos y replay truncado.

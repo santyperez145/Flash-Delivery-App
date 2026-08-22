@@ -50,15 +50,15 @@ flowchart LR
 
 ## Fases recomendadas
 
-Fase 1, MVP serio:
-- Mantener Express + SQLite para desarrollo local.
+Fase 1, MVP serio (completada en runtime local):
+- Mantener Express con PostgreSQL/PostGIS reproducible; SQLite sólo para pruebas fallback.
 - PWA instalable para pruebas internas.
 - Docker Compose para entorno reproducible.
 - JWT, bcrypt, validacion de payloads y superadmin desktop.
 
 Fase 2, beta cerrada:
-- Migrar SQLite a Postgres.
-- Agregar PostGIS para busqueda geoespacial.
+- [x] Migrar el runtime principal de SQLite a PostgreSQL.
+- [x] Agregar PostGIS para búsqueda geoespacial.
 - Redis para presencia de drivers, locks de asignacion y cache.
 - WebSockets o SSE para tracking, chat y ofertas.
 - Worker de dispatch separado de la API.
@@ -80,7 +80,7 @@ Para produccion:
 - PostGIS para drivers cercanos, zonas y ETA.
 - Redis GEO para ubicacion viva de drivers/repartidores.
 - Ledger inmutable para pagos, comisiones, reintegros, ajustes y liquidaciones.
-- Audit log append-only para acciones administrativas.
+- Audit log append-only aplicado físicamente con privilegios mínimos, trigger y contexto de mantenimiento exclusivo de migraciones.
 
 ## Seguridad
 

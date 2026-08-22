@@ -1,0 +1,19 @@
+{
+  "cli": { "version": ">= 16.0.0", "appVersionSource": "remote" },
+  "build": {
+    "development-customer": { "developmentClient": true, "distribution": "internal", "env": { "EXPO_PUBLIC_APP_VARIANT": "customer" } },
+    "development-driver": { "developmentClient": true, "distribution": "internal", "env": { "EXPO_PUBLIC_APP_VARIANT": "driver" } },
+    "development-merchant": { "developmentClient": true, "distribution": "internal", "env": { "EXPO_PUBLIC_APP_VARIANT": "merchant" } },
+    "preview-customer": { "distribution": "internal", "android": { "buildType": "apk" }, "env": { "EXPO_PUBLIC_APP_VARIANT": "customer" } },
+    "preview-driver": { "distribution": "internal", "android": { "buildType": "apk" }, "env": { "EXPO_PUBLIC_APP_VARIANT": "driver" } },
+    "preview-merchant": { "distribution": "internal", "android": { "buildType": "apk" }, "env": { "EXPO_PUBLIC_APP_VARIANT": "merchant" } },
+    "production-customer": { "autoIncrement": true, "env": { "EXPO_PUBLIC_APP_VARIANT": "customer" } },
+    "production-driver": { "autoIncrement": true, "env": { "EXPO_PUBLIC_APP_VARIANT": "driver" } },
+    "production-merchant": { "autoIncrement": true, "env": { "EXPO_PUBLIC_APP_VARIANT": "merchant" } }
+  },
+  "submit": {
+    "production-customer": {},
+    "production-driver": {},
+    "production-merchant": {}
+  }
+}

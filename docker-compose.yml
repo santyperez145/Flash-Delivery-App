@@ -1,4 +1,21 @@
 services:
+  postgres:
+    image: postgis/postgis:17-3.5
+    container_name: flash-postgres
+    environment:
+      POSTGRES_DB: flash
+      POSTGRES_USER: flash
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-flash_local_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - flash-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flash -d flash"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
   flash:
     build: .
     container_name: flash-delivery-mobility
@@ -11,11 +28,18 @@ services:
       RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-300}
       AUTH_RATE_LIMIT_MAX: ${AUTH_RATE_LIMIT_MAX:-40}
+      DATABASE_URL: postgresql://flash:${POSTGRES_PASSWORD:-flash_local_password}@postgres:5432/flash
+      DATABASE_SSL: "false"
     ports:
       - "4000:4000"
     volumes:
       - flash-data:/app/server/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["sh", "-c", "npm run db:migrate && node server/start.js"]
     restart: unless-stopped
 
 volumes:
   flash-data:
+  flash-postgres-data:

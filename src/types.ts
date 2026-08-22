@@ -30,6 +30,7 @@ export type User = {
   defaultAddress?: string;
   restaurantId?: string;
   driverId?: string;
+  status?: "active" | "suspended" | "pending";
 };
 
 export type Extra = {
@@ -48,6 +49,25 @@ export type MenuItem = {
   timeMin: number;
   kcal: number;
   stock: boolean;
+  modifierGroups?: Array<{
+    id: string;
+    name: string;
+    min: number;
+    max: number;
+    required: boolean;
+    modifiers: Array<{
+      id: string;
+      name: string;
+      price: number;
+      available: boolean;
+    }>;
+  }>;
+  dietaryLabels?: Array<{ code: string; name: string }>;
+  allergens?: Array<{
+    code: string;
+    name: string;
+    presence: "contains" | "may_contain";
+  }>;
   image: string;
   tags: string[];
 };
@@ -75,6 +95,7 @@ export type Restaurant = {
   etaMin: number;
   deliveryFee: number;
   open: boolean;
+  manualOpen?: boolean;
   image: string;
   cover: string;
   badge: string;
@@ -83,6 +104,36 @@ export type Restaurant = {
   lng?: number | null;
   menu: MenuItem[];
   extras: Extra[];
+  branches?: Array<{
+    id: string;
+    name: string;
+    address: string;
+    lat: number;
+    lng: number;
+    open: boolean;
+    manualOpen: boolean;
+    status: "active" | "paused" | "closed";
+    etaMin: number;
+    isPrimary: boolean;
+    timezone: string;
+    weeklyHours: Array<{
+      weekday: number;
+      opensAt: string;
+      closesAt: string;
+      enabled: boolean;
+    }>;
+    scheduleExceptions: Array<{
+      date: string;
+      isOpen: boolean;
+      opensAt: string | null;
+      closesAt: string | null;
+      reason: string | null;
+    }>;
+    inventory: Record<
+      string,
+      { available: boolean; stockQuantity: number | null; version: number }
+    >;
+  }>;
 };
 
 export type Driver = {
@@ -125,11 +176,15 @@ export type Order = {
   courierId: string | null;
   status: OrderStatus;
   deliveryAddress: string;
+  pickupLocation?: GeoPoint | null;
+  deliveryLocation?: GeoPoint | null;
   paymentMethod: string;
   items: OrderItem[];
   subtotal: number;
   deliveryFee: number;
   serviceFee: number;
+  discount?: number;
+  promotionCode?: string | null;
   total: number;
   etaMin: number;
   createdAt: string;
@@ -151,26 +206,122 @@ export type Ride = {
   durationMin: number;
   fare: number;
   paymentMethod: string;
+  scheduledFor?: string | null;
   createdAt: string;
   timeline: TimelineEntry<RideStatus>[];
 };
 
 export type Promotion = {
   id: string;
+  code?: string;
   title: string;
   description: string;
   service: Service;
   discountPercent: number;
+  kind?: "percentage" | "fixed" | "free_delivery" | "wallet_credit";
+  value?: number;
+  maxDiscount?: number;
+  minSubtotal?: number;
   active: boolean;
 };
 
 export type SupportTicket = {
   id: string;
   service: Service;
-  status: "open" | "closed";
+  status:
+    "open" | "waiting_customer" | "waiting_operations" | "resolved" | "closed";
   title: string;
-  priority: "low" | "medium" | "high";
+  priority: "low" | "medium" | "high" | "urgent";
   userId?: string;
+  assignedTo: string | null;
+  firstResponseDueAt: string;
+  resolutionDueAt: string;
+  firstRespondedAt: string | null;
+  slaStatus:
+    "on_track" | "first_response_breached" | "resolution_breached" | "met";
+  escalationLevel: number;
+  lastEscalatedAt: string | null;
+  assignmentHistory: Array<{
+    assignedTo: string;
+    assignedBy: string | null;
+    reason: "auto_create" | "auto_queue" | "manual" | "escalation";
+    createdAt: string;
+  }>;
+  escalations: Array<{
+    level: number;
+    breachKind: "first_response" | "resolution";
+    assignedTo: string | null;
+    createdAt: string;
+  }>;
+  messages: Array<{
+    id: string;
+    senderId: string | null;
+    body: string;
+    internal: boolean;
+    createdAt: string;
+  }>;
+};
+export type SupportAgent = {
+  userId: string;
+  name: string;
+  availability: "available" | "busy" | "offline";
+  maxActiveTickets: number;
+  skills: string[];
+  activeTickets: number;
+  lastAssignedAt: string | null;
+  updatedAt: string;
+};
+export type NotificationDeadLetter = {
+  id: string;
+  userId: string;
+  channel: "push" | "email" | "sms" | "in_app";
+  template: string;
+  reason: string;
+  attempts: number;
+  replayCount: number;
+  createdAt: string;
+  lastReplayedAt: string | null;
+};
+export type OrderIssue = {
+  id: string;
+  orderId: string;
+  category:
+    | "missing_item"
+    | "wrong_item"
+    | "damaged_item"
+    | "quality"
+    | "late"
+    | "other";
+  description: string;
+  status: "open" | "approved" | "rejected";
+  requestedRefund: number;
+  approvedRefund: number;
+  resolutionNote: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+};
+export type OrderSubstitution = {
+  id: string;
+  orderId: string;
+  status: "pending" | "accepted" | "rejected" | "cancelled";
+  quantity: number;
+  reason: string;
+  original: { id: string; name: string; unitPrice: number };
+  replacement: { id: string; name: string; unitPrice: number };
+  refundAmount: number;
+  createdAt: string;
+  decidedAt: string | null;
+};
+
+export type Rating = {
+  id: string;
+  jobId: string;
+  userId: string;
+  subjectType: "driver" | "merchant" | "customer";
+  score: number;
+  tags: string[];
+  comment: string;
+  createdAt: string;
 };
 
 export type UserAddress = {
@@ -250,14 +401,28 @@ export type AdminDashboard = {
     unassignedRides: number;
     openRestaurants: number;
     onlineDrivers: number;
+    financial: {
+      grossProcessed: number;
+      netCaptured: number;
+      paymentCount: number;
+      refunded: number;
+      refundCount: number;
+      postedPlatformRevenue: number;
+      merchantPayable: number;
+      pendingPayouts: number;
+      pendingPayoutCount: number;
+      currency: "ARS";
+      revenueCoverage: "wallet_settlements";
+    } | null;
   };
   investor: {
-    seedTarget: number;
-    monthlyBurn: number;
-    runwayMonths: number;
-    netRevenueRunRate: number;
-    contributionMargin: number;
-    contributionMarginPercent: number;
+    dataStatus: "operational_only";
+    seedTarget: number | null;
+    monthlyBurn: number | null;
+    runwayMonths: number | null;
+    netRevenueRunRate: number | null;
+    contributionMargin: number | null;
+    contributionMarginPercent: number | null;
     readinessScore: number;
     milestones: Array<{
       label: string;
@@ -296,7 +461,10 @@ export type AppState = {
   orders: Order[];
   rides: Ride[];
   promotions: Promotion[];
+  favoriteRestaurantIds?: string[];
   supportTickets: SupportTicket[];
+  ratings: Rating[];
+  tips?: ServiceTip[];
   zones: Zone[];
   auditEvents: AuditEvent[];
   metrics: Metrics;
@@ -319,6 +487,7 @@ export type RideQuote = Pick<
 };
 
 export type RealtimeEvent = {
+  cursor?: string;
   id: string;
   type: string;
   entityType?: string | null;
@@ -326,4 +495,259 @@ export type RealtimeEvent = {
   action?: string | null;
   requestId?: string | null;
   at: string;
+};
+
+export type ShipmentOptions = {
+  categories: Array<{
+    code: "documents" | "standard" | "fragile" | "electronics";
+    name: string;
+    handlingInstructions: string;
+    surcharge: number;
+    maximumWeightKg: number;
+    active?: boolean;
+  }>;
+  serviceLevels: Array<{
+    code: "economy" | "standard" | "priority" | "express";
+    name: string;
+    transportMultiplier: number;
+    etaMultiplier: number;
+    maximumDistanceKm: number | null;
+    active?: boolean;
+  }>;
+};
+export type PricingService = "food" | "ride" | "shipment";
+export type ServiceQuickReply = {
+  id: string;
+  serviceScope: "all" | "food" | "ride" | "shipment";
+  audience: "customer" | "driver" | "merchant";
+  locale: string;
+  body: string;
+  position: number;
+  active: boolean;
+  updatedAt: string;
+};
+export type ShipmentClaimEvidence = {
+  id: string;
+  fileName: string;
+  mimeType: "image/jpeg" | "image/png" | "application/pdf";
+  sha256: string;
+  sizeBytes: number;
+  createdAt: string;
+};
+export type ShipmentClaim = {
+  id: string;
+  shipmentId: string;
+  claimType: "lost" | "damaged" | "stolen";
+  description: string;
+  requestedAmount: number;
+  eligibleAmount: number;
+  approvedAmount: number | null;
+  status:
+    | "submitted"
+    | "under_review"
+    | "approved"
+    | "rejected"
+    | "settlement_pending"
+    | "settled";
+  resolutionNote: string | null;
+  evidence: ShipmentClaimEvidence[];
+  createdAt: string;
+  updatedAt: string;
+};
+export type PaymentReconciliationCase = {
+  id: string;
+  provider: string;
+  caseType:
+    | "stale_intent"
+    | "capture_mismatch"
+    | "refund_mismatch"
+    | "orphan_webhook"
+    | "webhook_failure";
+  severity: "low" | "medium" | "high" | "critical";
+  entityType: "payment_intent" | "refund" | "webhook_event";
+  externalReference: string | null;
+  summary: string;
+  details: Record<string, unknown>;
+  status: "open" | "resolved" | "ignored";
+  firstDetectedAt: string;
+  lastDetectedAt: string;
+  resolvedBy: string | null;
+  resolutionNote: string | null;
+  resolvedAt: string | null;
+};
+export type PaymentReconciliation = {
+  summary: { openCount: number; urgentCount: number; resolvedCount: number };
+  cases: PaymentReconciliationCase[];
+};
+export type TransactionRiskAssessment = {
+  id: string;
+  customerId: string;
+  service: "food" | "ride" | "shipment";
+  amount: number;
+  score: number;
+  decision: "allow" | "review" | "block";
+  rules: Array<{ code: string; points: number; fact: Record<string, unknown> }>;
+  requestId: string | null;
+  entityId: string | null;
+  createdAt: string;
+  reviewedBy: string | null;
+  reviewStatus: "confirmed_fraud" | "false_positive" | "cleared" | null;
+  reviewNote: string | null;
+  reviewedAt: string | null;
+};
+export type PricingPlan = {
+  service: PricingService;
+  version: string;
+  currency: string;
+  config: Record<string, unknown>;
+  effectiveFrom: string;
+  active: boolean;
+};
+export type PricingRiskWarning = {
+  path: string;
+  previous: number;
+  next: number;
+  changePercent: number;
+  direction: "increase" | "decrease";
+};
+export type PricingChangeRequest = {
+  id: string;
+  service: PricingService;
+  version: string;
+  currency: string;
+  config: Record<string, unknown>;
+  status: "pending" | "approved" | "rejected" | "activated" | "cancelled";
+  changeKind: "update" | "rollback";
+  sourceVersion: string | null;
+  riskLevel: "low" | "medium" | "high";
+  maximumChangePercent: number;
+  riskWarnings: PricingRiskWarning[];
+  requestedBy: string;
+  reviewedBy: string | null;
+  requestedAt: string;
+  reviewedAt: string | null;
+  effectiveAt: string;
+  activatedAt: string | null;
+  reviewNote: string | null;
+};
+export type DriverDocument = {
+  id: string;
+  type:
+    | "identity"
+    | "driver_license"
+    | "vehicle_registration"
+    | "insurance"
+    | "background_check";
+  mimeType: string;
+  sha256: string;
+  sizeBytes: number;
+  expiresAt: string | null;
+  status: "pending" | "approved" | "rejected" | "expired" | "superseded";
+  rejectionReason: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+};
+export type DriverCompliance = {
+  driverId: string;
+  status: "pending" | "in_review" | "approved" | "rejected" | "suspended";
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  rejectionReason: string | null;
+  requiredTypes: DriverDocument["type"][];
+  documents: DriverDocument[];
+};
+export type DriverVehicle={id:string;driverId:string;kind:"bicycle"|"motorcycle"|"car"|"van";model:string;plate:string;color:string|null;seats:number|null;serviceModes:Array<"delivery"|"ride">;active:boolean;status:"pending"|"approved"|"rejected";rejectionReason:string|null;reviewedAt:string|null;retiredAt:string|null;createdAt:string;updatedAt:string};
+
+export type ServiceTip = {
+  id: string;
+  jobId: string;
+  customerId: string;
+  driverId: string;
+  amount: number;
+  createdAt: string;
+};
+export type TipAdjustment = {
+  id: string;
+  tipId: string;
+  jobId: string;
+  customerId: string;
+  driverId: string;
+  tipAmount: number;
+  amount: number;
+  reason: string;
+  status: "pending" | "approved" | "rejected";
+  requestedBy: string;
+  requestedAt: string;
+  reviewedBy: string | null;
+  reviewNote: string | null;
+  reviewedAt: string | null;
+};
+
+export type DispatchScoreBreakdown = {
+  rating: number;
+  distancePenalty: number;
+  loadPenalty: number;
+  freshnessPenalty: number;
+  acceptancePoints: number;
+  responsePoints: number;
+  acceptanceRate: number;
+  averageResponseSeconds: number;
+};
+export type DispatchOffer = {
+  id: string;
+  jobId: string;
+  kind: "ride" | "delivery";
+  subtype: string | null;
+  serviceLevel: string;
+  pickup: string;
+  destination: string;
+  fare: number;
+  distanceKm: number;
+  durationMin: number;
+  score: number;
+  scoreBreakdown?: DispatchScoreBreakdown;
+  expiresAt: string;
+  status: "pending";
+};
+export type MerchantFinance = {
+  merchantId: string;
+  availableBalance: number;
+  movements: Array<{
+    id: string;
+    kind: string;
+    description: string;
+    direction: "credit" | "debit";
+    amount: number;
+    createdAt: string;
+    metadata: Record<string, unknown>;
+  }>;
+  payouts: Array<{
+    id: string;
+    amount: number;
+    status: string;
+    periodStart: string;
+    periodEnd: string;
+    createdAt: string;
+    paidAt: string | null;
+    reviewDecision: string | null;
+    reviewNote: string | null;
+    reviewedAt: string | null;
+  }>;
+};
+export type PayoutReview = {
+  id: string;
+  merchantId: string;
+  merchantName: string;
+  amount: number;
+  currency: string;
+  status: "pending" | "processing" | "paid" | "failed" | "cancelled";
+  provider: string;
+  providerPayoutId: string | null;
+  requestedBy: string | null;
+  reviewedBy: string | null;
+  reviewDecision: "approved" | "rejected" | null;
+  reviewNote: string | null;
+  createdAt: string;
+  reviewedAt: string | null;
+  paidAt: string | null;
 };

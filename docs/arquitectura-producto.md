@@ -11,8 +11,8 @@ Flash Delivery Mobility esta organizada como una plataforma multirol:
 
 - Frontend: React, Vite, TypeScript y CSS responsive.
 - Backend: Express.
-- Base de datos: SQLite con `better-sqlite3`.
-- Auth: bcrypt para passwords, JWT para sesion y RBAC inicial por rol.
+- Base de datos principal: PostgreSQL 17 + PostGIS, migraciones SQL versionadas y RLS. SQLite queda aislado como fallback de pruebas sin `DATABASE_URL`.
+- Auth: bcrypt, access/refresh tokens rotativos, sesiones revocables, bloqueo por intentos y MFA administrativo.
 - Validacion: `zod` en endpoints criticos.
 - Seguridad HTTP: Helmet, CORS con allowlist y rate limiting.
 - Operacion: request IDs, logs estructurados, health y readiness.
@@ -45,9 +45,9 @@ erDiagram
 
 ## API principal
 
-- `GET /api/health`: salud del backend y path de SQLite.
-- `GET /api/ready`: readiness del backend y lectura basica de base.
-- `GET /api/state`: estado de app protegido por JWT.
+- `GET /api/health`: liveness del proceso.
+- `GET /api/ready`: readiness PostgreSQL/PostGIS y almacén efectivo de cada dominio.
+- `GET /api/bootstrap/:audience` + recursos segmentados: contexto protegido por JWT; el antiguo `/api/state` responde `410 Gone`.
 - `POST /api/auth/login`: login con password hasheado y JWT.
 - `POST /api/auth/register`: registro de cliente.
 - `GET /api/restaurants`: catalogo.
@@ -82,10 +82,10 @@ El servidor agrega `X-Request-Id` a cada respuesta, limita abuso por ventana de 
 
 ## Decisiones
 
-La app usa SQLite para que sea real y portable en local. En produccion, el mismo modelo deberia moverse a Postgres con migraciones versionadas, indices geoespaciales, colas de eventos y WebSockets.
+PostgreSQL/PostGIS es la fuente de verdad del runtime local y productivo. SQLite se conserva únicamente para la suite fallback aislada; el smoke PostgreSQL verifica cero lecturas y escrituras sobre ese archivo.
 
 El frontend consume una API unica. Esto permite reemplazar la base local por servicios reales sin reescribir la experiencia del usuario.
 
-La sesion actual usa cuentas demo, pero la proteccion vive en servidor: JWT, roles, ownership y auditoria. Para produccion faltan refresh tokens, rotacion de sesiones, rate limiting, MFA para superadmin y politicas finas de permisos.
+Las cuentas seed sólo facilitan pruebas locales. La protección vive en servidor con RBAC, ownership, RLS, auditoría, refresh-token rotation, revocación, rate limiting, bloqueo por intentos y MFA obligatorio configurable para administración.
 
-La plataforma ya acepta coordenadas, calcula distancia geodesica inicial y recibe posiciones foreground de drivers. El siguiente paso productivo es conectar geocoding, calculo de ruta vial con un proveedor, tracking background controlado y mapas nativos.
+La plataforma acepta coordenadas, geocodifica con Nominatim, obtiene rutas viales y pasos con OSRM, cachea respuestas mediante claves anonimizadas en PostgreSQL y recibe posiciones foreground de drivers. Quedan como trabajo de despliegue el proveedor con SLA, tracking background y mapas nativos con claves propias.

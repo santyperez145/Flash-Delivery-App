@@ -27,6 +27,15 @@ jobs:
       - name: Check
         run: npm run check
 
+      - name: Secret scan
+        run: npm run test:secrets
+
+      - name: Production dependency gate
+        run: npm run test:dependency-gate
+
+      - name: OpenTelemetry export contract
+        run: npm run test:telemetry
+
   mobile-typecheck:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -49,3 +58,6 @@ jobs:
       - name: Typecheck mobile
         run: npm run typecheck
         working-directory: apps/mobile
+
+      - name: Validate native runtime and build variants
+        run: npm run test:mobile-native-runtime && npm run test:mobile-build-variants

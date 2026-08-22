@@ -6,21 +6,30 @@
     "orientation": "portrait",
     "scheme": "flash",
     "userInterfaceStyle": "automatic",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "app.flash.delivery",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Flash usa tu ubicacion para ofrecer viajes y actualizar tu posicion mientras trabajas."
+        "NSLocationWhenInUseUsageDescription": "Flash usa tu ubicación mientras trabajas para asignarte servicios y mostrar el seguimiento al cliente.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Si activás disponibilidad, Flash mantiene tu ubicación en segundo plano para asignaciones y seguimiento hasta que vuelvas a estar offline."
       }
     },
     "plugins": [
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "Flash usa tu ubicacion para asignar viajes y deliveries con precision."
+          "locationAlwaysAndWhenInUsePermission": "Si activás disponibilidad, Flash mantiene tu ubicación en segundo plano para asignaciones y seguimiento hasta que vuelvas a estar offline.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
-      ]
+      ],
+      "expo-sharing",
+      "expo-secure-store",
+      "expo-font"
     ],
     "android": {
       "package": "app.flash.delivery",
@@ -30,6 +39,9 @@
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
         "POST_NOTIFICATIONS"
       ]
     },

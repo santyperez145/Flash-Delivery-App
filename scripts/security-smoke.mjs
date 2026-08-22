@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 
 const port = process.env.TEST_PORT || "4199";
 const base = `http://127.0.0.1:${port}/api`;
-const server = spawn(process.execPath, ["server/index.js"], {
+const server = spawn(process.execPath, ["server/start.js"], {
   cwd: process.cwd(),
   env: { ...process.env, NODE_ENV: "test", LOG_LEVEL: "silent", PORT: port },
   stdio: ["ignore", "pipe", "pipe"]
@@ -72,13 +72,16 @@ async function run() {
 
   const ready = await request("/ready");
   assert(
-    ready.status === 200 && ready.body?.requestId && ready.body?.database === "ready",
+    ready.status === 200 && ready.body?.requestId && ready.body?.database && ["sqlite-demo", "transition"].includes(ready.body?.runtimeStore),
     "ready endpoint exposes request id",
     ready.text
   );
 
-  const stateNoToken = await request("/state");
-  assert(stateNoToken.status === 401, "state rejects anonymous", stateNoToken.text);
+  const stateNoToken = await request("/bootstrap/customer");
+  assert(stateNoToken.status === 401, "bootstrap rejects anonymous", stateNoToken.text);
+
+  const retiredStateNoToken = await request("/state");
+  assert(retiredStateNoToken.status === 401, "retired global state still rejects anonymous", retiredStateNoToken.text);
 
   const eventsNoToken = await request("/events");
   assert(eventsNoToken.status === 401, "realtime rejects anonymous", eventsNoToken.text);
@@ -90,6 +93,35 @@ async function run() {
   const merchantToken = await login("comercio@flash.app");
   const driverToken = await login("conductor@flash.app");
   const adminToken = await login("ops@flash.app");
+  const metricsWithoutToken=await request("/internal/metrics"),metricsWithAdminJwt=await request("/internal/metrics",{headers:auth(adminToken)});
+  assert(metricsWithoutToken.status===401&&metricsWithAdminJwt.status===401,"metrics require dedicated scrape token",metricsWithAdminJwt.text);
+
+  const sessionLogin = await request("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email: "cliente@flash.app", password: "demo123", deviceName: "security-smoke" })
+  });
+  assert(sessionLogin.status === 200 && sessionLogin.body?.refreshToken, "login issues refresh session", sessionLogin.text);
+  const firstRefreshToken = sessionLogin.body.refreshToken;
+  const rotatedSession = await request("/auth/refresh", {
+    method: "POST",
+    body: JSON.stringify({ refreshToken: firstRefreshToken, deviceName: "security-smoke" })
+  });
+  assert(rotatedSession.status === 200 && rotatedSession.body?.refreshToken !== firstRefreshToken, "refresh token rotates", rotatedSession.text);
+  const reusedSession = await request("/auth/refresh", {
+    method: "POST",
+    body: JSON.stringify({ refreshToken: firstRefreshToken })
+  });
+  assert(reusedSession.status === 401, "rotated refresh token cannot be reused", reusedSession.text);
+  const logoutSession = await request("/auth/logout", {
+    method: "POST",
+    body: JSON.stringify({ refreshToken: rotatedSession.body.refreshToken })
+  });
+  assert(logoutSession.status === 200, "logout revokes session", logoutSession.text);
+  const refreshAfterLogout = await request("/auth/refresh", {
+    method: "POST",
+    body: JSON.stringify({ refreshToken: rotatedSession.body.refreshToken })
+  });
+  assert(refreshAfterLogout.status === 401, "revoked session cannot refresh", refreshAfterLogout.text);
 
   const account = await request("/me", { headers: auth(customerToken) });
   assert(
@@ -120,13 +152,26 @@ async function run() {
     topUp.text
   );
 
-  const state = await request("/state", { headers: auth(customerToken) });
+  const state = await request("/bootstrap/customer", { headers: auth(customerToken) });
+  const customerActivity=await request("/me/activity?limit=50",{headers:auth(customerToken)}),customerCatalog=await request("/catalog/restaurants?limit=50",{headers:auth(customerToken)});
   assert(
-    state.status === 200 && state.body?.state?.restaurants?.length > 0,
-    "state accepts authenticated user",
+    state.status === 200 && customerCatalog.body?.restaurants?.length > 0,
+    "segmented resources accept authenticated user",
     state.text
   );
+
+  const retiredState = await request("/state", { headers: auth(customerToken) });
+  assert(retiredState.status === 410, "authenticated clients cannot regress to global state", retiredState.text);
   assert(state.body?.state?.meta?.version >= 4, "database schema version is current", state.text);
+  assert(state.body?.state?.users?.length === 1 && state.body.state.users[0].id === "usr_customer", "customer state hides other users", state.text);
+  assert(customerActivity.body?.items?.every(entry=>entry.resource?.customerId==="usr_customer"), "customer activity enforces job ownership", customerActivity.text);
+
+  const merchantState = await request("/merchant/me", { headers: auth(merchantToken) });
+  const merchantActivity=await request("/me/activity?limit=50",{headers:auth(merchantToken)});
+  assert(merchantState.body?.restaurants?.every((entry) => entry.ownerId === "usr_merchant")&&merchantActivity.body?.items?.every(entry=>entry.kind==="order"), "merchant resources are scoped to owned commerce", merchantState.text);
+  const driverState = await request("/me/activity?limit=50", { headers: auth(driverToken) });
+  const unassignedOffer=driverState.body?.items?.find(entry=>entry.kind==="order"&&!entry.resource?.courierId);
+  assert(driverState.status===200&&(!unassignedOffer||unassignedOffer.resource.customerId==="private"), "driver offers redact customer identity", driverState.text);
 
   const customerDashboard = await request("/admin/dashboard", { headers: auth(customerToken) });
   assert(customerDashboard.status === 403, "customer cannot read admin dashboard", customerDashboard.text);
@@ -200,6 +245,13 @@ async function run() {
   });
   assert(merchantRestaurant.status === 200, "merchant manages owned restaurant", merchantRestaurant.text);
 
+  const merchantDashboard = await request("/merchant/dashboard", { headers: auth(merchantToken) });
+  assert(
+    merchantDashboard.status === 200 && merchantDashboard.body?.dashboard?.restaurant?.id === "rest_roja",
+    "merchant reads owned operational dashboard",
+    merchantDashboard.text
+  );
+
   const forbiddenOrder = await request("/orders", {
     method: "POST",
     headers: auth(driverToken),
@@ -246,6 +298,60 @@ async function run() {
     "assigned driver advances order",
     advanced.text
   );
+
+  await request(`/orders/${order.body.order.id}/advance`, { method: "POST", headers: auth(driverToken) });
+  const delivered = await request(`/orders/${order.body.order.id}/advance`, { method: "POST", headers: auth(driverToken) });
+  assert(delivered.status === 200 && delivered.body?.order?.status === "delivered", "driver completes delivery", delivered.text);
+  const driverAccount = await request("/me", { headers: auth(driverToken) });
+  assert(
+    driverAccount.status === 200 && driverAccount.body?.account?.user?.wallet > 38200 && driverAccount.body?.account?.walletTransactions?.[0]?.kind === "credit",
+    "completed delivery credits driver wallet",
+    driverAccount.text
+  );
+
+  const shipmentQuote = await request("/shipments/quote", {
+    method: "POST",
+    body: JSON.stringify({
+      pickup: "Defensa 982, San Telmo",
+      destination: "Av. Santa Fe 1800, Recoleta",
+      packageSize: "small",
+      weightKg: 2
+    })
+  });
+  assert(shipmentQuote.status === 200 && shipmentQuote.body?.quote?.fare > 0, "shipment quote calculates fare", shipmentQuote.text);
+
+  const forbiddenShipment = await request("/shipments", {
+    method: "POST",
+    headers: auth(driverToken),
+    body: JSON.stringify({ customerId: "usr_customer" })
+  });
+  assert(forbiddenShipment.status === 403, "driver cannot create customer shipment", forbiddenShipment.text);
+
+  const shipment = await request("/shipments", {
+    method: "POST",
+    headers: auth(customerToken),
+    body: JSON.stringify({
+      customerId: "usr_customer",
+      pickup: "Defensa 982, San Telmo",
+      destination: "Av. Santa Fe 1800, Recoleta",
+      recipientName: "Martin Demo",
+      recipientPhone: "+5491100000001",
+      packageSize: "small",
+      description: "Documentos cerrados",
+      weightKg: 1.5,
+      deliveryNotes: "Entregar en mano",
+      paymentMethod: "Flash Wallet",
+      termsAccepted: true
+    })
+  });
+  assert(shipment.status === 200 && shipment.body?.shipment?.deliveryPin, "customer creates tracked shipment", shipment.text);
+
+  const cancelShipment = await request(`/shipments/${shipment.body.shipment.id}/status`, {
+    method: "PATCH",
+    headers: auth(customerToken),
+    body: JSON.stringify({ status: "cancelled", reason: "changed_mind" })
+  });
+  assert(cancelShipment.status === 200 && cancelShipment.body?.shipment?.status === "cancelled", "customer cancels own shipment", cancelShipment.text);
 
   const customerReset = await request("/reset", { method: "POST", headers: auth(customerToken) });
   assert(customerReset.status === 403, "customer cannot reset platform", customerReset.text);
