@@ -3397,14 +3397,19 @@ app.get("/api/support/tickets", requireAuth, async (req, res) => {
 app.post("/api/support/tickets", requireAuth, async (req, res) => {
   if (!usesPostgresCommerce())
     return fail(res, 503, "Soporte real requiere PostgreSQL");
+  const idempotencyKey=String(req.get("idempotency-key")||"");
+  if(!/^[a-zA-Z0-9._:-]{16,128}$/.test(idempotencyKey))return fail(res,400,"Idempotency-Key válido es obligatorio");
   const parsed = parseOrFail(supportTicketCreateSchema, req.body || {});
   if (!parsed.ok) return fail(res, 400, parsed.message);
   try {
-    const ticket = await createPostgresSupportTicket({
+    const created = await createPostgresSupportTicket({
       userPublicId: req.auth.userId,
+      idempotencyKey,
       ...parsed.data,
+      jobPublicId:parsed.data.jobId,
     });
-    await recordPostgresAudit({
+    const ticket=created.ticket;
+    if(!created.replayed)await recordPostgresAudit({
       actorPublicId: req.auth.userId,
       roles: req.auth.roles,
       action: "support.created",
@@ -3416,7 +3421,7 @@ app.post("/api/support/tickets", requireAuth, async (req, res) => {
         priority: parsed.data.priority,
       },
     });
-    await publishRealtimeEvent({
+    if(!created.replayed)await publishRealtimeEvent({
       req,
       type: "support.updated",
       entityType: "support_ticket",
