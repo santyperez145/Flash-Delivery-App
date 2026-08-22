@@ -5,7 +5,7 @@ import { decryptPaymentOAuthToken,encryptPaymentOAuthToken } from "./secret-enve
 import { exchangeMercadoPagoCode, mercadoPagoAuthorizationUrl } from "./payment-marketplace-provider.js";
 
 const stateHash=value=>crypto.createHash("sha256").update(String(value)).digest("hex");
-const publicConnection=row=>row?{provider:row.provider,externalAccountId:row.external_account_id,liveMode:row.live_mode,scope:row.scope||null,connectedAt:new Date(row.connected_at).toISOString(),tokenExpiresAt:row.token_expires_at?new Date(row.token_expires_at).toISOString():null,status:row.revoked_at?"revoked":"connected"}:null;
+const publicConnection=row=>row?{provider:row.provider,externalAccountId:row.external_account_id,liveMode:row.live_mode,scope:row.scope||null,connectedAt:new Date(row.connected_at).toISOString(),tokenExpiresAt:row.token_expires_at?new Date(row.token_expires_at).toISOString():null,status:row.revoked_at?"revoked":Number(row.refresh_failures)>=5||(row.token_expires_at&&new Date(row.token_expires_at)<=new Date())?"reconnect_required":"connected"}:null;
 
 export async function beginMerchantPaymentOAuth({merchantPublicId,userPublicId}){
   if(config.paymentMarketplace.provider!=="mercadopago")throw Object.assign(new Error("Proveedor marketplace no configurado"),{status:503});

@@ -740,7 +740,7 @@ export type MerchantFinance = {
     reviewedAt: string | null;
   }>;
 };
-export type MerchantPaymentConnection={provider:"mercadopago";externalAccountId:string;liveMode:boolean;scope:string|null;connectedAt:string;tokenExpiresAt:string|null;status:"connected"|"revoked"};
+export type MerchantPaymentConnection={provider:"mercadopago";externalAccountId:string;liveMode:boolean;scope:string|null;connectedAt:string;tokenExpiresAt:string|null;status:"connected"|"reconnect_required"|"revoked"};
 export type PayoutReview = {
   id: string;
   merchantId: string;
