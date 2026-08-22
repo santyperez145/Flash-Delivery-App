@@ -9,6 +9,7 @@ import type {
   GeoPoint,
   RealtimeEvent,
   Restaurant,
+  RoadRoute,
   Ride,
   RideQuote,
   RideForm,
@@ -237,6 +238,17 @@ export const api = {
   async getAccountContext(){return request<{account:{user:User;addresses:AppState["addresses"];paymentMethods:AppState["paymentMethods"];walletTransactions:AppState["walletTransactions"];supportTickets:AppState["supportTickets"];ratings:AppState["ratings"];favoriteRestaurantIds:string[];tips:NonNullable<AppState["tips"]>}}>("/me");},
   async getActivity(cursor?:string,limit=20){const params=new URLSearchParams({limit:String(limit),...(cursor?{cursor}:{})});return request<{items:Array<{id:string;kind:"order"|"ride"|"shipment";createdAt:string;resource:unknown}>;nextCursor:string|null}>(`/me/activity?${params}`);},
   async getCatalog(cursor?:string,limit=20,query=""){const params=new URLSearchParams({limit:String(limit),...(cursor?{cursor}:{}),...(query?{q:query}:{})});return request<{restaurants:Restaurant[];nextCursor:string|null}>(`/catalog/restaurants?${params}`);},
+  async route(from: GeoPoint, to: GeoPoint) {
+    const params = new URLSearchParams({
+      fromLat: String(from.lat),
+      fromLng: String(from.lng),
+      toLat: String(to.lat),
+      toLng: String(to.lng),
+    });
+    return request<{ route: RoadRoute; provider: string }>(
+      `/maps/route?${params.toString()}`,
+    );
+  },
 
   async updateProfile(payload: {
     name: string;
