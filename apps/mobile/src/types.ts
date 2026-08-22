@@ -106,6 +106,8 @@ export type DriverEarningsPeriod = {
   tips: number;
   adjustments: number;
   services: number;
+  onlineSeconds: number | null;
+  activeSeconds: number | null;
   periodStart: string;
   periodEnd: string;
 };
@@ -126,6 +128,9 @@ export type DriverEarnings = {
     amount: number;
     createdAt: string;
   }>;
+  timeTracking:
+    | { status: "available"; source: "postgres-operational-sessions"; observedAt: string }
+    | { status: "unavailable"; reason: "postgres_required" };
   cashout: { status: "not_configured"; reason: "external_payout_provider_required" };
 };
 

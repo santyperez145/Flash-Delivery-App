@@ -45,10 +45,35 @@ const earningCategory = (row) => {
   return row.job_kind === "ride" ? "ride" : "shipment";
 };
 
+const unionDurationSeconds = (rows, start, end, observedAt) => {
+  const lower = new Date(start).getTime();
+  const upper = Math.min(new Date(end).getTime(), new Date(observedAt).getTime());
+  if (!Number.isFinite(lower) || !Number.isFinite(upper) || upper <= lower) return 0;
+  const intervals = rows
+    .map((row) => [
+      Math.max(lower, new Date(row.started_at).getTime()),
+      Math.min(upper, row.ended_at ? new Date(row.ended_at).getTime() : upper),
+    ])
+    .filter(([from, to]) => Number.isFinite(from) && Number.isFinite(to) && to > from)
+    .sort((left, right) => left[0] - right[0]);
+  let total = 0;
+  let current = null;
+  for (const interval of intervals) {
+    if (!current) current = [...interval];
+    else if (interval[0] <= current[1]) current[1] = Math.max(current[1], interval[1]);
+    else {
+      total += current[1] - current[0];
+      current = [...interval];
+    }
+  }
+  if (current) total += current[1] - current[0];
+  return Math.floor(total / 1000);
+};
+
 export async function getDriverEarnings(userPublicId) {
   const identity = (
     await postgresPool.query(
-      `SELECT u.id user_id,u.timezone,d.public_id driver_public_id
+      `SELECT u.id user_id,u.timezone,d.id driver_id,d.public_id driver_public_id
        FROM users u JOIN drivers d ON d.user_id=u.id
        WHERE u.public_id=$1`,
       [userPublicId],
@@ -73,12 +98,32 @@ export async function getDriverEarnings(userPublicId) {
       [timezone],
     )
   ).rows[0];
+  const observedAt = new Date();
+  const [availabilityRows, jobRows] = await Promise.all([
+    postgresPool.query(
+      `SELECT started_at,ended_at FROM driver_availability_sessions
+       WHERE driver_id=$1 AND started_at<$3 AND COALESCE(ended_at,$4)>$2
+       ORDER BY started_at`,
+      [identity.driver_id, periodBounds.week_start, periodBounds.week_end, observedAt],
+    ),
+    postgresPool.query(
+      `SELECT started_at,ended_at FROM driver_job_sessions
+       WHERE driver_id=$1 AND started_at<$3 AND COALESCE(ended_at,$4)>$2
+       ORDER BY started_at`,
+      [identity.driver_id, periodBounds.week_start, periodBounds.week_end, observedAt],
+    ),
+  ]);
+  const operationalTime = (start, end) => ({
+    onlineSeconds: unionDurationSeconds(availabilityRows.rows, start, end, observedAt),
+    activeSeconds: unionDurationSeconds(jobRows.rows, start, end, observedAt),
+  });
   const emptyPeriod = (start, end) => ({
     amount: 0,
     serviceEarnings: 0,
     tips: 0,
     adjustments: 0,
     services: 0,
+    ...operationalTime(start, end),
     periodStart: new Date(start).toISOString(),
     periodEnd: new Date(end).toISOString(),
   });
@@ -92,6 +137,7 @@ export async function getDriverEarnings(userPublicId) {
       today: emptyPeriod(periodBounds.today_start, periodBounds.today_end),
       week: emptyPeriod(periodBounds.week_start, periodBounds.week_end),
       recent: [],
+      timeTracking: { status: "available", source: "postgres-operational-sessions", observedAt: observedAt.toISOString() },
       cashout: { status: "not_configured", reason: "external_payout_provider_required" },
     };
   }
@@ -138,6 +184,7 @@ export async function getDriverEarnings(userPublicId) {
     tips: amount(summary[`${prefix}_tips`]),
     adjustments: amount(summary[`${prefix}_adjustments`]),
     services: Number(summary[`${prefix}_count`] || 0),
+    ...operationalTime(start, end),
     periodStart: new Date(start).toISOString(),
     periodEnd: new Date(end).toISOString(),
   });
@@ -157,6 +204,7 @@ export async function getDriverEarnings(userPublicId) {
       amount: signedCents(row) / 100,
       createdAt: new Date(row.created_at).toISOString(),
     })),
+    timeTracking: { status: "available", source: "postgres-operational-sessions", observedAt: observedAt.toISOString() },
     cashout: { status: "not_configured", reason: "external_payout_provider_required" },
   };
 }

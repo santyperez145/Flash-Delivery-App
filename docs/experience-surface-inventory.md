@@ -83,7 +83,8 @@ Flash adopta jerarquía y estados comparables, no texto, activos, colores ni ide
 ### Ganancias
 
 - [x] día, semana, detalle por servicio, propinas, ajustes, saldo Wallet y movimientos provienen del ledger dedicado, sin proyectar datos ausentes.
-- [~] sesión/horas y liquidación externa permanecen bloqueadas por telemetría, proveedor y habilitación productiva.
+- [x] tiempo conectado y activo diario/semanal desde sesiones PostgreSQL, con procedencia y solapamientos unidos; no implica pago horario.
+- [~] liquidación externa permanece bloqueada por proveedor, KYC/habilitación y prueba productiva.
 - [ ] objetivos/promociones sólo con campañas reales, elegibilidad y términos.
 
 ### Inbox

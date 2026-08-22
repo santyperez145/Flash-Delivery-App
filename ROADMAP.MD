@@ -15,7 +15,7 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [x] La segmentación se contrastó con documentación oficial vigente de Uber Driver, Lyft Driver y DoorDash Dasher; se adoptan jerarquía y estados, nunca activos ni identidad propietaria.
 - [x] La guía giro a giro queda exclusivamente en Flash Driver. El cliente conserva mapa, ubicación, ETA y progreso, pero no instrucciones de conducción.
 - [x] Flash Driver separa Home/Mapa, Ganancias, Inbox y Cuenta con barra inferior fija; legajo/flota salen del flujo de conducción y cada cambio de sección vuelve al inicio de su contenido.
-- [ ] Heatmap, voz, tráfico, reportes viales, waiting fees, llamadas anonimizadas y CarPlay/Android Auto permanecen bloqueados hasta tener contratos, proveedor, operación y prueba física.
+- [~] El mapa de demanda observada ya usa polígonos y conteos reales; voz, tráfico, reportes viales, waiting fees, llamadas anonimizadas y CarPlay/Android Auto permanecen bloqueados hasta tener contratos, proveedor, operación y prueba física.
 
 ## Avance 22 de agosto de 2026 — ganancias contables de Flash Driver
 
@@ -24,7 +24,16 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [x] Home dejó de leer `metadata.earningsToday`: su importe y la pantalla Ganancias comparten el mismo cálculo PostgreSQL de doble partida.
 - [x] Ganancias separa hoy, semana, servicios, propinas, ajustes, saldo Wallet, vacío/error/reintento y movimientos recientes, con barra inferior fija verificada en navegador.
 - [x] OpenAPI y smoke PostgreSQL verifican `401`, `403`, ownership, `no-store`, sumas del ledger, categorías, ausencia de movimientos inventados y paridad entre Home/Ganancias.
-- [~] El saldo Wallet es real, pero retiro/liquidación externa permanece visible como no configurado hasta seleccionar PSP bancario, completar KYC/habilitación y hacer prueba controlada; sesión/horas activas también requieren un contrato operativo propio.
+- [~] El saldo Wallet y las sesiones/horas operativas son reales; retiro/liquidación externa permanece visible como no configurado hasta seleccionar PSP bancario, completar KYC/habilitación y hacer prueba controlada.
+
+## Avance 22 de agosto de 2026 — jornadas operativas de Flash Driver
+
+- [x] Las migraciones `107_driver_operational_sessions.sql` y `108_driver_job_session_assignment_reason.sql` registran intervalos online por modo y de asignación a cierre por job, con razones de apertura/cierre, índices parciales y baselines honestos para estados preexistentes.
+- [x] Triggers PostgreSQL cubren disponibilidad, cambio de modo, reasignación, finalización, cancelación y desconexiones indirectas por compliance/vehículo/suspensión; no dependen de que una única ruta HTTP sea la autora del cambio.
+- [x] Ganancias devuelve `onlineSeconds` y `activeSeconds` diario/semanal, recorta al huso horario y momento observado, y une solapamientos para no duplicar batching.
+- [x] Sin PostgreSQL no hay horas simuladas: el contrato responde `null` y procedencia no disponible. La métrica no habilita salario horario, promociones, surge ni garantía de ingreso.
+- [x] Ownership RLS, auditoría de sólo lectura, `401/403`, `no-store`, atribución de razones y cálculo con trabajos concurrentes quedan cubiertos por smokes dedicados.
+- [x] La semántica competitiva y las fronteras de producto se documentan en `docs/competitive-research/driver-operational-time.md`.
 
 ## Avance 22 de agosto de 2026 — preferencia de navegación Driver
 

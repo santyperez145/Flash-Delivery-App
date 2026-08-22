@@ -24,6 +24,8 @@ let fixturePaymentMethodId;
 let fixturePreferencePrevious;
 let fixtureDriverPreferencePrevious;
 let fixtureDriverId;
+let fixtureAvailabilitySessionId;
+let fixtureJobSessionId;
 let fixtureDietaryPreference;
 let fixtureRideDestinationId;
 let fixtureTrustedContactId;
@@ -272,6 +274,8 @@ try {
   assert(vehiclePrivileges.posture&&!vehiclePrivileges.plate&&!vehiclePrivileges.model&&!vehiclePrivileges.color&&!vehiclePrivileges.can_update,"audit role inspects vehicle approval posture without identity attributes or write access");
   const driverPreferencePrivileges=(await client.query(`SELECT has_column_privilege(current_user,'driver_preferences','navigation_provider','SELECT') can_read,has_table_privilege(current_user,'driver_preferences','UPDATE') can_update`)).rows[0];
   assert(driverPreferencePrivileges.can_read&&!driverPreferencePrivileges.can_update,"audit role inspects navigator posture but cannot change driver preference");
+  const driverTimePrivileges=(await client.query(`SELECT has_column_privilege(current_user,'driver_availability_sessions','started_at','SELECT') availability,has_column_privilege(current_user,'driver_job_sessions','ended_at','SELECT') active_time,has_table_privilege(current_user,'driver_availability_sessions','UPDATE') can_update_availability,has_table_privilege(current_user,'driver_job_sessions','UPDATE') can_update_active`)).rows[0];
+  assert(driverTimePrivileges.availability&&driverTimePrivileges.active_time&&!driverTimePrivileges.can_update_availability&&!driverTimePrivileges.can_update_active,"audit role inspects driver time provenance without changing operational intervals");
   const deliveryEvidencePrivileges = (
     await client.query(
       `SELECT has_column_privilege(current_user,'shipment_delivery_evidence','content_sha256','SELECT') metadata,has_column_privilege(current_user,'shipment_delivery_evidence','content_ciphertext','SELECT') content,has_column_privilege(current_user,'shipment_delivery_evidence','signer_name','SELECT') signer_identity,has_column_privilege(current_user,'shipment_delivery_evidence','consent_version','SELECT') consent_posture`,
@@ -522,6 +526,8 @@ try {
   fixtureDriverId=driver.id;
   fixtureDriverPreferencePrevious=(await owner.query("SELECT navigation_provider FROM driver_preferences WHERE driver_id=$1",[driver.id])).rows[0]||null;
   await owner.query("INSERT INTO driver_preferences(driver_id,navigation_provider) VALUES($1,'system') ON CONFLICT(driver_id) DO UPDATE SET navigation_provider='system'",[driver.id]);
+  fixtureAvailabilitySessionId=(await owner.query("INSERT INTO driver_availability_sessions(driver_id,service_mode,started_at,ended_at,start_reason,end_reason) VALUES($1,'delivery',now()-interval '2 minutes',now()-interval '1 minute','driver_online','offline') RETURNING id",[driver.id])).rows[0].id;
+  fixtureJobSessionId=(await owner.query("INSERT INTO driver_job_sessions(driver_id,job_id,service_mode,started_at,ended_at,start_reason,end_reason) VALUES($1,$2,'delivery',now()-interval '2 minutes',now()-interval '1 minute','offer_accepted','completed') RETURNING id",[driver.id,fixtureJob.id])).rows[0].id;
   fixtureTipTransactionId = (
     await owner.query(
       `INSERT INTO ledger_transactions(idempotency_key,kind,actor_id,description) VALUES($1,'tip',$2,'RLS tip fixture') RETURNING id`,
@@ -817,6 +823,11 @@ try {
       .rows[0].count === 1,
     "RLS exposes only the driver's own navigation preference",
   );
+  assert(
+    (await client.query("SELECT count(*)::int count FROM driver_availability_sessions WHERE id=$1",[fixtureAvailabilitySessionId])).rows[0].count===1&&
+      (await client.query("SELECT count(*)::int count FROM driver_job_sessions WHERE id=$1",[fixtureJobSessionId])).rows[0].count===1,
+    "RLS exposes the driver's own online and active-time provenance",
+  );
   await client.query(
     "SELECT set_config('app.user_id',$1,false),set_config('app.roles','customer',false)",
     [admin.id],
@@ -906,6 +917,11 @@ try {
       .rows[0].count === 0,
     "RLS hides driver navigation preference from unrelated users",
   );
+  assert(
+    (await client.query("SELECT count(*)::int count FROM driver_availability_sessions WHERE id=$1",[fixtureAvailabilitySessionId])).rows[0].count===0&&
+      (await client.query("SELECT count(*)::int count FROM driver_job_sessions WHERE id=$1",[fixtureJobSessionId])).rows[0].count===0,
+    "RLS hides driver work intervals from unrelated users",
+  );
   const otherRatings = await client.query(
       "SELECT count(*)::int count FROM ratings WHERE id=$1",
       [fixtureRatingId],
@@ -994,6 +1010,8 @@ try {
     await owner.query("DELETE FROM payment_methods WHERE id=$1", [
       fixturePaymentMethodId,
     ]);
+  if(owner&&fixtureAvailabilitySessionId)await owner.query("DELETE FROM driver_availability_sessions WHERE id=$1",[fixtureAvailabilitySessionId]);
+  if(owner&&fixtureJobSessionId)await owner.query("DELETE FROM driver_job_sessions WHERE id=$1",[fixtureJobSessionId]);
   if(owner&&fixtureDriverId){if(fixtureDriverPreferencePrevious)await owner.query("UPDATE driver_preferences SET navigation_provider=$2,updated_at=now() WHERE driver_id=$1",[fixtureDriverId,fixtureDriverPreferencePrevious.navigation_provider]);else await owner.query("DELETE FROM driver_preferences WHERE driver_id=$1",[fixtureDriverId]);}
   if (owner) {
     if (fixtureServiceMessageId)
