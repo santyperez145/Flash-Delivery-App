@@ -18,6 +18,7 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 ## Avance 22 de agosto de 2026 — navegación visual de Flash Driver
 
 - [x] La app de conductor muestra un mapa nativo del GPS vigente al próximo pickup/destino para comida, viajes o envíos, con ruta vial, color por vertical y reencuadre.
+- [x] Viajes y envíos precargan como origen la dirección predeterminada sólo cuando posee coordenadas persistidas; el usuario ve contexto cartográfico desde el primer destino sin geocodificar ni inventar una ubicación nuevamente.
 - [x] Cambiar de trabajo o fase elimina inmediatamente la geometría anterior; una falla de routing se informa y nunca deja visible una ruta obsoleta.
 - [x] El botón Navegar delega giro a giro a Apple Maps para conducción iOS o a Google Maps mediante URL universal para Android, bicicleta y fallback web, sin requerir otra clave.
 - [x] La URL omite el origen para que el proveedor use la ubicación actual del dispositivo, y sólo se habilita desde un job real con destino geográfico.
