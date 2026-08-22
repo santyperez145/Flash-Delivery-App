@@ -131,6 +131,9 @@ Fuentes oficiales adicionales:
 - [Modalidades de viaje de Lyft](https://help.lyft.com/hc/en-ca/all/articles/115012927427-Lyft-ride-modes-overview)
 - [Live Order Tracking FAQ de Uber Eats](https://help.uber.com/en/merchants-and-restaurants/article/live-order-tracking---faq?nodeId=d006582e-113f-4423-9d33-e938de34b3a2)
 - [Support de Uber Eats](https://help.uber.com/merchants-and-restaurants/article/support?nodeId=a467254f-b6b2-4e11-a88b-d96653ca1f81)
+- [Uber Courier: entrega local de paquetes](https://www.uber.com/us/en/item-delivery/)
+- [Uber Courier: preguntas frecuentes de paquetes](https://help.uber.com/riders/article/courier-package-delivery-faq?nodeId=2f234df8-cdf6-4bf9-81da-8f68b79b35f5)
+- [Uber Connect: seguimiento y comunicación de paquetes](https://www.uber.com/us/en/newsroom/uber-connect-holiday/)
 
 ## Pricing y rutas competitivas
 
@@ -149,3 +152,9 @@ Uber concentra en el viaje activo compartir ubicación, verificación por PIN, a
 - [Precio adelantado de Uber](https://www.uber.com/us/en/ride/how-it-works/upfront-pricing/)
 - [Google Routes: matriz de distancia y duracion](https://developers.google.com/maps/documentation/routes/compute_route_matrix)
 - [Google Routes: trafico, peajes y rutas detalladas](https://developers.google.com/maps/documentation/routes/reference/rpc/google.maps.routing.v2)
+
+### Decisión 22 de agosto de 2026 — seguimiento de envíos en web
+
+Las referencias oficiales de Uber Courier y Uber Connect consolidan tres expectativas para una entrega local: seguimiento durante el trayecto, visibilidad controlada para la persona destinataria y verificación de entrega mediante PIN. Flash ya tenía estas capacidades en mobile; esta entrega las lleva a la Actividad web autenticada con ruta OSRM, estado persistido, conductor sólo cuando está asignado, PIN bajo demanda y metadatos de evidencia. La PWA no publica la ubicación ni el teléfono del destinatario y no presenta una posición interpolada si no existe una señal del backend.
+
+La creación web queda deliberadamente separada: antes de habilitarla se debe trasladar el cotizador firmado, restricciones de categoría, protección/valor declarado, términos y devoluciones a un flujo equivalente al mobile. Esto evita una pantalla visualmente completa que cobre o cree envíos con un contrato de precio incompleto.

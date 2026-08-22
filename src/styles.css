@@ -2296,6 +2296,89 @@ textarea {
   white-space: nowrap;
 }
 
+.shipment-driver-marker {
+  background: #087a50;
+}
+
+.shipment-tracking-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 12px;
+  background: #f4fbf7;
+  border: 1px solid #cdebd9;
+  border-radius: 12px;
+}
+
+.shipment-tracking-summary > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.shipment-tracking-summary strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shipment-tracking-summary small {
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shipment-proof-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.shipment-proof-summary > div {
+  display: grid;
+  gap: 3px;
+}
+
+.shipment-proof-summary strong {
+  color: var(--ink);
+  font-size: 0.82rem;
+}
+
+.shipment-proof-summary > span {
+  color: var(--ink-soft);
+  font-size: 0.7rem;
+  text-align: right;
+}
+
+@media (max-width: 600px) {
+  .shipment-tracking-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .shipment-tracking-summary strong,
+  .shipment-tracking-summary small {
+    white-space: normal;
+  }
+
+  .shipment-proof-summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .shipment-proof-summary > span {
+    text-align: left;
+  }
+}
+
 .ride-safety-actions {
   display: grid;
   gap: 10px;

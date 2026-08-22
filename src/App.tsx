@@ -50,6 +50,7 @@ import type {
   AdminDashboard,
   CartLine,
   CustomerTab,
+  DeliveryEvidence,
   Driver,
   DispatchOffer,
   DietaryPreferences,
@@ -73,6 +74,7 @@ import type {
   PricingPlan,
   PricingService,
   ServiceQuickReply,
+  Shipment,
   ShipmentClaim,
   PaymentReconciliation,
   PaymentReconciliationCase,
@@ -117,6 +119,16 @@ const rideStatusLabel: Record<RideStatus, string> = {
   cancelled: "Cancelado",
 };
 
+const shipmentStatusLabel: Record<Shipment["status"], string> = {
+  requested: "Buscando repartidor",
+  driver_assigned: "Repartidor asignado",
+  arriving: "Retirando el paquete",
+  picked_up: "Paquete retirado",
+  delivering: "En camino",
+  delivered: "Entregado",
+  cancelled: "Cancelado",
+};
+
 const orderSteps: OrderStatus[] = [
   "requested",
   "accepted",
@@ -145,6 +157,15 @@ const rideServices: Array<{
   { id: "comfort", label: "Comfort", icon: Sparkles },
   { id: "moto", label: "Moto", icon: Bike },
   { id: "xl", label: "XL", icon: Truck },
+];
+
+const shipmentSteps: Shipment["status"][] = [
+  "requested",
+  "driver_assigned",
+  "arriving",
+  "picked_up",
+  "delivering",
+  "delivered",
 ];
 
 function PublicRideTrackingPage({ token }: { token: string }) {
@@ -6473,10 +6494,16 @@ function CustomerActivity({
 }) {
   const orders = state.orders.filter((order) => order.customerId === user?.id);
   const rides = state.rides.filter((ride) => ride.customerId === user?.id);
+  const shipments = state.shipments.filter(
+    (shipment) => shipment.customerId === user?.id,
+  );
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
   const [trackingRideId, setTrackingRideId] = useState<string | null>(null);
+  const [trackingShipmentId, setTrackingShipmentId] = useState<string | null>(null);
   const trackingOrder = orders.find((order) => order.id === trackingOrderId) || null;
   const trackingRide = rides.find((ride) => ride.id === trackingRideId) || null;
+  const trackingShipment =
+    shipments.find((shipment) => shipment.id === trackingShipmentId) || null;
   return (
     <div className="activity-stack">
       <SectionTitle title="Pedidos" />
@@ -6580,6 +6607,36 @@ function CustomerActivity({
           />
         );
       })}
+      <SectionTitle title="Envíos" />
+      {shipments.map((shipment) => {
+        const driver = state.drivers.find(
+          (entry) => entry.id === shipment.driverId,
+        );
+        const active = !["delivered", "cancelled"].includes(shipment.status);
+        return (
+          <StatusCard
+            key={shipment.id}
+            icon={PackageCheck}
+            title={`${shipmentStatusLabel[shipment.status]} · ${shipment.recipientName}`}
+            subtitle={`${shipment.pickup} → ${shipment.destination} · ${shipment.packageSize}`}
+            amount={shipment.fare}
+            status={shipment.status}
+            actionLabel={active ? "Seguir envío" : undefined}
+            onAction={active ? () => setTrackingShipmentId(shipment.id) : undefined}
+            secondaryActionLabel={active ? "Cancelar" : undefined}
+            onSecondaryAction={
+              active
+                ? () =>
+                    runAction(
+                      () => api.setShipmentStatus(shipment.id, "cancelled"),
+                      "Envío cancelado",
+                    )
+                : undefined
+            }
+            disabled={busy}
+          />
+        );
+      })}
       {trackingOrder && (
         <OrderTrackingSheet
           order={trackingOrder}
@@ -6599,6 +6656,17 @@ function CustomerActivity({
             null
           }
           onClose={() => setTrackingRideId(null)}
+        />
+      )}
+      {trackingShipment && (
+        <ShipmentTrackingSheet
+          shipment={trackingShipment}
+          driver={
+            state.drivers.find(
+              (driver) => driver.id === trackingShipment.driverId,
+            ) || null
+          }
+          onClose={() => setTrackingShipmentId(null)}
         />
       )}
     </div>
@@ -7186,6 +7254,328 @@ function RideTrackingSheet({
         </section>
         <p className="tracking-integrity-note">
           La ubicación y los estados provienen del backend autenticado. Si una señal o el proveedor de mapas falla, Flash conserva el viaje y sus acciones de seguridad sin inventar movimiento.
+        </p>
+      </section>
+    </div>
+  );
+}
+
+function ShipmentTrackingSheet({
+  shipment,
+  driver,
+  onClose,
+}: {
+  shipment: Shipment;
+  driver: Driver | null;
+  onClose: () => void;
+}) {
+  const [route, setRoute] = useState<RoadRoute | null>(null);
+  const [routeError, setRouteError] = useState<string | null>(null);
+  const [routeLoading, setRouteLoading] = useState(false);
+  const [evidence, setEvidence] = useState<DeliveryEvidence[]>([]);
+  const [deliveryCode, setDeliveryCode] = useState<string | null>(null);
+  const [codeBusy, setCodeBusy] = useState(false);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const origin = shipment.pickupLocation;
+    const destination = shipment.destinationLocation;
+    setRoute(null);
+    setEvidence([]);
+    setRouteError(null);
+    if (!origin || !destination) {
+      setRouteError("Mapa no disponible: faltan coordenadas del envío.");
+      return () => {
+        cancelled = true;
+      };
+    }
+    setRouteLoading(true);
+    void Promise.all([
+      api.route(origin, destination),
+      api
+        .getShipmentDeliveryEvidence(shipment.id)
+        .then((response) => response.evidence)
+        .catch(() => []),
+    ])
+      .then(([routeResponse, shipmentEvidence]) => {
+        if (cancelled) return;
+        setRoute(routeResponse.route);
+        setEvidence(shipmentEvidence);
+      })
+      .catch((error) => {
+        if (!cancelled)
+          setRouteError(
+            error instanceof Error
+              ? error.message
+              : "La ruta vial no está disponible ahora.",
+          );
+      })
+      .finally(() => {
+        if (!cancelled) setRouteLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    shipment.id,
+    shipment.pickupLocation?.lat,
+    shipment.pickupLocation?.lng,
+    shipment.destinationLocation?.lat,
+    shipment.destinationLocation?.lng,
+  ]);
+
+  const map =
+    shipment.pickupLocation && shipment.destinationLocation
+      ? buildWebTrackingMap(
+          shipment.pickupLocation,
+          shipment.destinationLocation,
+          route?.coordinates || [],
+          driver?.location || null,
+        )
+      : null;
+  const currentIndex = Math.max(shipmentSteps.indexOf(shipment.status), 0);
+  const nextStep = route?.steps[0]?.instruction || null;
+  const proofCount = Math.max(
+    evidence.length,
+    shipment.deliveryEvidenceCount || 0,
+  );
+
+  const revealDeliveryCode = async () => {
+    setCodeBusy(true);
+    setActionNotice(null);
+    try {
+      const response = await api.getShipmentDeliveryCode(shipment.id);
+      setDeliveryCode(response.deliveryCode);
+    } catch (error) {
+      setActionNotice(
+        error instanceof Error
+          ? error.message
+          : "No se pudo consultar el PIN de entrega.",
+      );
+    } finally {
+      setCodeBusy(false);
+    }
+  };
+
+  const shareShipment = async () => {
+    const text = `Mi envío Flash está ${shipmentStatusLabel[shipment.status].toLowerCase()}. Destino: ${shipment.destination}. ETA publicada: ${shipment.etaMin} min.`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "Seguimiento de envío Flash", text });
+        setActionNotice("Estado compartido");
+      } else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(text);
+        setActionNotice("Estado copiado");
+      } else {
+        setActionNotice("El estado está disponible para compartir");
+      }
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === "AbortError"))
+        setActionNotice("No se pudo compartir el estado.");
+    }
+  };
+
+  return (
+    <div className="sheet-backdrop tracking-backdrop" role="presentation">
+      <section
+        className="item-sheet order-tracking-sheet shipment-tracking-sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="shipment-tracking-title"
+      >
+        <button
+          className="sheet-close"
+          type="button"
+          onClick={onClose}
+          aria-label="Cerrar seguimiento"
+        >
+          <X size={18} />
+        </button>
+        <div className="tracking-sheet-heading">
+          <div>
+            <span className="muted-label">Envío en vivo</span>
+            <h2 id="shipment-tracking-title">
+              {shipmentStatusLabel[shipment.status]}
+            </h2>
+            <p>
+              {shipment.pickup} → {shipment.destination} · ETA publicada {shipment.etaMin} min
+            </p>
+          </div>
+          <button
+            className="tracking-share-button"
+            type="button"
+            onClick={() => void shareShipment()}
+          >
+            <Copy size={15} /> Compartir estado
+          </button>
+        </div>
+        {map ? (
+          <div className="order-tracking-map" aria-label="Mapa de seguimiento del envío">
+            {map.tiles.map((tile) => (
+              <img
+                key={tile.key}
+                className="order-map-tile"
+                src={tile.uri}
+                alt=""
+                aria-hidden="true"
+                style={{
+                  left: `${tile.column * 33.333}%`,
+                  top: `${tile.row * 33.333}%`,
+                }}
+              />
+            ))}
+            {map.route.length > 1 && (
+              <svg
+                className="order-map-route"
+                viewBox="0 0 300 300"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+              >
+                <polyline
+                  points={map.route.map((point) => `${point.x},${point.y}`).join(" ")}
+                  fill="none"
+                  stroke="rgba(255,255,255,.96)"
+                  strokeWidth="11"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+                <polyline
+                  points={map.route.map((point) => `${point.x},${point.y}`).join(" ")}
+                  fill="none"
+                  stroke="#087a50"
+                  strokeWidth="5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            )}
+            <span
+              className="order-map-marker pickup"
+              style={{ left: `${map.pickup.x / 3}%`, top: `${map.pickup.y / 3}%` }}
+              title="Origen"
+            >
+              <Store size={14} />
+            </span>
+            <span
+              className="order-map-marker dropoff"
+              style={{ left: `${map.dropoff.x / 3}%`, top: `${map.dropoff.y / 3}%` }}
+              title="Destino"
+            >
+              <Home size={14} />
+            </span>
+            {map.driver && (
+              <span
+                className="order-map-marker driver shipment-driver-marker"
+                style={{ left: `${map.driver.x / 3}%`, top: `${map.driver.y / 3}%` }}
+                title="Repartidor"
+              >
+                <Truck size={14} />
+              </span>
+            )}
+            <div className="tracking-map-caption">
+              <strong>
+                {route
+                  ? `${route.distanceKm} km · ${route.durationMin} min de recorrido`
+                  : routeLoading
+                    ? "Calculando ruta real…"
+                    : routeError || "Ruta vial no disponible"}
+              </strong>
+              <span>
+                {driver
+                  ? `${driver.name} · ${driver.vehicle}`
+                  : "Buscando un repartidor disponible"}
+              </span>
+            </div>
+            <small className="map-attribution">© OpenStreetMap contributors</small>
+          </div>
+        ) : (
+          <div className="tracking-map-empty">
+            <MapPin size={20} />
+            <strong>El mapa se activará al recibir coordenadas</strong>
+            <span>{routeError}</span>
+          </div>
+        )}
+        <div className="tracking-status-panel">
+          <div className="tracking-status-copy">
+            <div>
+              <span className="muted-label">Estado actual</span>
+              <h3>{shipmentStatusLabel[shipment.status]}</h3>
+            </div>
+            {driver && (
+              <div className="tracking-driver-summary">
+                <span className="avatar">{initials(driver.name)}</span>
+                <span>
+                  <strong>{driver.name}</strong>
+                  <small>{driver.vehicle} · ★ {driver.rating.toFixed(1)}</small>
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="stepper tracking-stepper shipment-tracking-stepper">
+            {shipmentSteps.map((step, index) => (
+              <div
+                className={index <= currentIndex ? "step active" : "step"}
+                key={step}
+              >
+                <span>{index < currentIndex ? <Check size={12} /> : index + 1}</span>
+                <small>{shipmentStatusLabel[step]}</small>
+              </div>
+            ))}
+          </div>
+          {nextStep && shipment.status === "delivering" && (
+            <div className="next-route-step">
+              <MapPin size={15} /> <span>{nextStep}</span>
+            </div>
+          )}
+        </div>
+        <section className="shipment-tracking-summary">
+          <div>
+            <span className="muted-label">Paquete</span>
+            <strong>{shipment.description || "Envío Flash"}</strong>
+            <small>
+              {shipment.packageSize} · {shipment.weightKg} kg · {shipment.itemCategory || "standard"}
+            </small>
+          </div>
+          <div>
+            <span className="muted-label">Destinatario</span>
+            <strong>{shipment.recipientName}</strong>
+            <small>{shipment.signatureRequired ? "Firma requerida" : "Entrega con PIN"}</small>
+          </div>
+          <div>
+            <span className="muted-label">Protección</span>
+            <strong>{shipment.protection === "standard" ? "Protegido" : "Básica"}</strong>
+            <small>{money.format(shipment.fare)} · {shipment.distanceKm} km</small>
+          </div>
+        </section>
+        {driver && ["driver_assigned", "arriving", "picked_up", "delivering"].includes(shipment.status) && (
+          <section className="ride-pin-card shipment-pin-card">
+            <div>
+              <span className="muted-label">PIN de entrega</span>
+              <strong>{deliveryCode || "••••"}</strong>
+              <small>Compartilo únicamente con quien recibe el paquete al momento de la entrega.</small>
+            </div>
+            {!deliveryCode && (
+              <button type="button" onClick={() => void revealDeliveryCode()} disabled={codeBusy}>
+                <KeyRound size={15} /> {codeBusy ? "Consultando…" : "Mostrar PIN"}
+              </button>
+            )}
+          </section>
+        )}
+        <section className="shipment-proof-summary">
+          <div>
+            <span className="muted-label">Prueba de entrega</span>
+            <strong>{shipment.deliveryVerifiedAt ? "Verificada" : "Pendiente"}</strong>
+          </div>
+          <span>
+            {proofCount > 0
+              ? `${proofCount} evidencia${proofCount === 1 ? "" : "s"} registrada${proofCount === 1 ? "" : "s"}`
+              : "Todavía no hay evidencia registrada"}
+          </span>
+        </section>
+        {actionNotice && <small className="tracking-action-notice">{actionNotice}</small>}
+        <p className="tracking-integrity-note">
+          La ruta, el estado, el ETA, la ubicación del repartidor y la prueba de entrega provienen del backend autenticado. Si falta una señal o el proveedor de mapas falla, Flash conserva el estado operativo sin inventar movimiento.
         </p>
       </section>
     </div>
