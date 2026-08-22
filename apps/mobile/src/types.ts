@@ -70,7 +70,7 @@ export type Order = {
   customerId: string;
   restaurantId: string;
   courierId: string | null;
-  status: "accepted" | "preparing" | "ready_for_pickup" | "courier_assigned" | "picked_up" | "delivering" | "delivered" | "cancelled";
+  status: "requested" | "accepted" | "preparing" | "ready_for_pickup" | "courier_assigned" | "picked_up" | "delivering" | "delivered" | "cancelled";
   deliveryAddress: string;
   pickupLocation?:GeoPoint|null;
   deliveryLocation?:GeoPoint|null;

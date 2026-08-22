@@ -40,7 +40,7 @@ import {
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { CSSProperties } from "react";
+import type { ComponentType, CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, subscribeToEvents } from "./api";
 import type {
@@ -88,6 +88,7 @@ const money = new Intl.NumberFormat("es-AR", {
 });
 
 const orderStatusLabel: Record<OrderStatus, string> = {
+  requested: "Validando pago",
   accepted: "Aceptado",
   preparing: "Preparando",
   ready_for_pickup: "Listo para retirar",
@@ -108,6 +109,7 @@ const rideStatusLabel: Record<RideStatus, string> = {
 };
 
 const orderSteps: OrderStatus[] = [
+  "requested",
   "accepted",
   "preparing",
   "ready_for_pickup",
@@ -517,7 +519,7 @@ function App() {
     setToast("Producto agregado al carrito");
   };
 
-  const createOrder = () => {
+  const createOrder = async (providerPayment?:{cardToken:string;paymentMethodId:string;installments:number}) => {
     if (!activeUser || !cartRestaurant || !cart.length) return;
     const deliveryAddress = state?.addresses.find(
       (address) =>
@@ -527,7 +529,8 @@ function App() {
         address.lat !== null &&
         address.lng !== null,
     );
-    runAction(async () => {
+    setBusy(true);setError(null);
+    try{
       await api.createOrder({
         customerId: activeUser.id,
         restaurantId: cartRestaurant.id,
@@ -536,7 +539,8 @@ function App() {
           deliveryAddress?.address ||
           activeUser.defaultAddress ||
           "Dirección pendiente de confirmar",
-        paymentMethod: "Flash Wallet",
+        paymentMethod: providerPayment?"Mercado Pago":"Flash Wallet",
+        providerPayment,
         promotionCode: promotionCode.trim() || undefined,
         items: cart.map((line) => ({
           menuItemId: line.item.id,
@@ -551,7 +555,8 @@ function App() {
       setCheckoutOpen(false);
       setCartOpen(false);
       setTab("activity");
-    }, "Pedido creado y enviado al comercio");
+      await refresh();setToast("Pedido creado y enviado al comercio");window.setTimeout(()=>setToast(null),2600);
+    }catch(requestError){const message=requestError instanceof Error?requestError.message:"No se pudo crear el pedido";setToast(message);throw requestError;}finally{setBusy(false);}
   };
 
   const quoteRide = () =>
@@ -5678,7 +5683,7 @@ function CustomerApp(props: {
   setPromotionCode: (code: string) => void;
   cartRestaurant: Restaurant | null;
   openItem: (restaurant: Restaurant, item: MenuItem) => void;
-  createOrder: () => void;
+  createOrder: (providerPayment?:{cardToken:string;paymentMethodId:string;installments:number}) => Promise<void>;
   rideForm: RideForm;
   setRideForm: React.Dispatch<React.SetStateAction<RideForm>>;
   quote: RideQuote | null;
@@ -5776,6 +5781,7 @@ function CustomerApp(props: {
           setCheckoutOpen(false);
         }}
         onCreateOrder={createOrder}
+        customerEmail={user?.email||""}
         busy={busy}
       />
     );
@@ -6568,6 +6574,7 @@ function CartScreen({
   setCheckoutOpen,
   onBack,
   onCreateOrder,
+  customerEmail,
   busy,
 }: {
   cart: CartLine[];
@@ -6586,9 +6593,13 @@ function CartScreen({
   checkoutOpen: boolean;
   setCheckoutOpen: (open: boolean) => void;
   onBack: () => void;
-  onCreateOrder: () => void;
+  onCreateOrder: (providerPayment?:{cardToken:string;paymentMethodId:string;installments:number}) => Promise<void>;
+  customerEmail:string;
   busy: boolean;
 }) {
+  const[paymentMode,setPaymentMode]=useState<"wallet"|"mercadopago">("wallet"),[paymentConfiguration,setPaymentConfiguration]=useState<{provider:"mercadopago"|"disabled";publicKey:string|null;merchantReady:boolean}|null>(null),[paymentConfigurationError,setPaymentConfigurationError]=useState("");
+  useEffect(()=>{if(!checkoutOpen||!restaurant){setPaymentMode("wallet");setPaymentConfiguration(null);return;}let active=true;setPaymentConfigurationError("");api.getPaymentClientConfiguration(restaurant.id).then(configuration=>{if(active)setPaymentConfiguration(configuration);}).catch(error=>{if(active)setPaymentConfigurationError(error instanceof Error?error.message:"No se pudo consultar Mercado Pago");});return()=>{active=false};},[checkoutOpen,restaurant]);
+  const mercadoPagoReady=paymentConfiguration?.provider==="mercadopago"&&paymentConfiguration.merchantReady&&Boolean(paymentConfiguration.publicKey);
   return (
     <div className="screen">
       <TopBar
@@ -6655,14 +6666,12 @@ function CartScreen({
                 </div>
                 <ChevronRight size={17} />
               </div>
-              <div className="checkout-line">
-                <WalletCards size={18} />
-                <div>
-                  <strong>Flash Wallet</strong>
-                  <span>Saldo disponible en Flash Wallet</span>
-                </div>
-                <ChevronRight size={17} />
+              <div className="payment-choice" role="radiogroup" aria-label="Método de pago">
+                <button type="button" role="radio" aria-checked={paymentMode==="wallet"} className={paymentMode==="wallet"?"active":""} onClick={()=>setPaymentMode("wallet")}><WalletCards size={18}/><span><strong>Flash Wallet</strong><small>Saldo disponible al instante</small></span></button>
+                <button type="button" role="radio" aria-checked={paymentMode==="mercadopago"} className={paymentMode==="mercadopago"?"active":""} disabled={!mercadoPagoReady} onClick={()=>setPaymentMode("mercadopago")}><CreditCard size={18}/><span><strong>Tarjeta</strong><small>{mercadoPagoReady?"Tokenización segura con Mercado Pago":paymentConfiguration?"No disponible para este comercio":"Consultando disponibilidad…"}</small></span></button>
               </div>
+              {paymentConfigurationError&&<small className="payment-provider-error">{paymentConfigurationError}</small>}
+              {paymentMode==="mercadopago"&&mercadoPagoReady&&paymentConfiguration?.publicKey&&<MercadoPagoCardCheckout publicKey={paymentConfiguration.publicKey} amount={totals.total} email={customerEmail} busy={busy} onSubmit={onCreateOrder} onError={setPaymentConfigurationError}/>}
               <label className="checkout-line">
                 <TicketPercent size={18} />
                 <div>
@@ -6695,21 +6704,33 @@ function CartScreen({
             </section>
           )}
           <SummaryBlock totals={totals} />
-          <button
+          {paymentMode==="wallet"&&<button
             className="primary-button sticky-action"
             type="button"
             onClick={() =>
-              checkoutOpen ? onCreateOrder() : setCheckoutOpen(true)
+              checkoutOpen ? void onCreateOrder() : setCheckoutOpen(true)
             }
             disabled={busy}
           >
             <ReceiptText size={17} />
             {checkoutOpen ? "Confirmar pedido" : "Ir a pagar"}
-          </button>
+          </button>}
+          {paymentMode==="mercadopago"&&!checkoutOpen&&<button className="primary-button sticky-action" type="button" onClick={()=>setCheckoutOpen(true)}><ReceiptText size={17}/>Ir a pagar</button>}
         </>
       )}
     </div>
   );
+}
+
+type ProviderPaymentInput={cardToken:string;paymentMethodId:string;installments:number};
+type CardBrickForm={token:string;payment_method_id:string;installments:number;transaction_amount:number};
+type CardBrickProps={initialization:{amount:number;payer:{email:string}};customization:{paymentMethods:{maxInstallments:number;types:{included:Array<"credit_card"|"debit_card"|"prepaid_card">}};visual:{style:{theme:string}}};locale:"es-AR";onSubmit:(form:CardBrickForm)=>Promise<void>;onReady:()=>void;onError:(error:unknown)=>void};
+
+function MercadoPagoCardCheckout({publicKey,amount,email,busy,onSubmit,onError}:{publicKey:string;amount:number;email:string;busy:boolean;onSubmit:(payment:ProviderPaymentInput)=>Promise<void>;onError:(message:string)=>void}){
+  const[CardBrick,setCardBrick]=useState<ComponentType<CardBrickProps>|null>(null);
+  useEffect(()=>{let active=true;import("@mercadopago/sdk-react").then(sdk=>{if(!active)return;sdk.initMercadoPago(publicKey,{locale:"es-AR"});setCardBrick(()=>sdk.CardPayment as unknown as ComponentType<CardBrickProps>);}).catch(()=>{if(active)onError("No se pudo cargar el formulario seguro de Mercado Pago")});return()=>{active=false};},[onError,publicKey]);
+  if(!CardBrick)return<div className="payment-brick-loading"><RefreshCw size={16}/>Cargando formulario seguro…</div>;
+  return <div className={busy?"payment-brick busy":"payment-brick"}><CardBrick initialization={{amount,payer:{email}}} customization={{paymentMethods:{maxInstallments:12,types:{included:["credit_card","debit_card","prepaid_card"]}},visual:{style:{theme:"default"}}}} locale="es-AR" onReady={()=>onError("")} onError={()=>onError("Mercado Pago no pudo preparar el formulario")} onSubmit={async form=>{if(busy)throw new Error("El pago ya se está procesando");if(Math.abs(Number(form.transaction_amount)-amount)>.01)throw new Error("El total del formulario cambió; revisá el pedido");await onSubmit({cardToken:form.token,paymentMethodId:form.payment_method_id,installments:Number(form.installments)||1});}}/></div>;
 }
 
 function MerchantApp({
