@@ -50,6 +50,11 @@ El portal de negocios sólo recibe estado, modo test/live, últimos cuatro del I
 externo y vencimiento. Las credenciales nunca se serializan. Con el proveedor
 deshabilitado, la UI muestra el gate real en lugar de simular una conexión.
 
+El comercio también puede desvincularse desde el portal, pero debe reingresar su
+contraseña actual. La revocación es transaccional y reemplaza inmediatamente
+access/refresh ciphertexts por `NULL`; sólo conserva proveedor, cuenta externa,
+fechas y auditoría. Reconectar requiere un OAuth completo con un `state` nuevo.
+
 ## Fuentes primarias
 
 - Mercado Pago Split 1:1, disponibilidad Argentina y alcance marketplace:

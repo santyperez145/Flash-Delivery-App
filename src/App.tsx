@@ -1434,6 +1434,7 @@ function MerchantDesktopConsole({
   const [payoutPassword, setPayoutPassword] = useState("");
   const [paymentConnection,setPaymentConnection]=useState<import("./types").MerchantPaymentConnection|null>(null);
   const [paymentProviderConfigured,setPaymentProviderConfigured]=useState(false);
+  const [paymentConnectionPassword,setPaymentConnectionPassword]=useState("");
   const loadFinance = useCallback(async () => {
     setFinanceLoading(true);
     try {
@@ -1976,7 +1977,7 @@ function MerchantDesktopConsole({
           <div className="merchant-finance-grid">
             <section className="admin-card merchant-payout-history">
               <AdminSectionHeader title="Cobros del marketplace" action={paymentConnection?.status==="connected"?(paymentConnection.liveMode?"Cuenta real":"Cuenta de prueba"):"Sin vincular"}/>
-              {paymentConnection?<><p>Mercado Pago conectado · cuenta terminada en {paymentConnection.externalAccountId.slice(-4)}.</p><small>Conectado {new Date(paymentConnection.connectedAt).toLocaleString("es-AR")}. Flash nunca muestra ni guarda tokens sin cifrar.</small></>:<><p>Vinculá la cuenta seller para que Mercado Pago pueda dividir cobros entre el comercio y Flash.</p><button className="primary-button" disabled={busy||!paymentProviderConfigured} onClick={()=>runAction(async()=>{const result=await api.beginMerchantPaymentConnection(restaurant.id);window.location.assign(result.authorizationUrl);},"Redirigiendo a Mercado Pago")}>{paymentProviderConfigured?"Conectar Mercado Pago":"Integración pendiente de credenciales"}</button></>}
+              {paymentConnection?.status==="connected"?<><p>Mercado Pago conectado · cuenta terminada en {paymentConnection.externalAccountId.slice(-4)}.</p><small>Conectado {new Date(paymentConnection.connectedAt).toLocaleString("es-AR")}. Flash nunca muestra ni guarda tokens sin cifrar.</small><div className="merchant-payout-form"><input type="password" autoComplete="current-password" placeholder="Contraseña para desvincular" value={paymentConnectionPassword} onChange={event=>setPaymentConnectionPassword(event.target.value)}/><button className="secondary-button" disabled={busy||paymentConnectionPassword.length<4} onClick={()=>runAction(async()=>{const result=await api.disconnectMerchantPaymentConnection(restaurant.id,paymentConnectionPassword);setPaymentConnection(result.connection);setPaymentConnectionPassword("");},"Mercado Pago desvinculado y credenciales eliminadas")}>Desvincular de forma segura</button></div></>:<><p>{paymentConnection?.status==="revoked"?"La conexión anterior fue revocada y sus credenciales se eliminaron.":"Vinculá la cuenta seller para que Mercado Pago pueda dividir cobros entre el comercio y Flash."}</p><button className="primary-button" disabled={busy||!paymentProviderConfigured} onClick={()=>runAction(async()=>{const result=await api.beginMerchantPaymentConnection(restaurant.id);window.location.assign(result.authorizationUrl);},"Redirigiendo a Mercado Pago")}>{paymentProviderConfigured?"Conectar Mercado Pago":"Integración pendiente de credenciales"}</button></>}
             </section>
             <section className="admin-card">
               <AdminSectionHeader
