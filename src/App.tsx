@@ -393,10 +393,17 @@ function App() {
     rideForm.destinationCoords?.lng,
   ]);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (knownUserId = sessionUserId) => {
     const response = await api.state();
     setState(response.state);
-    if (isDesktop && desktopPortal === "admin") {
+    const refreshedUser = response.state.users.find(
+      (user) => user.id === knownUserId,
+    );
+    if (
+      isDesktop &&
+      desktopPortal === "admin" &&
+      refreshedUser?.roles.includes("admin")
+    ) {
       try {
         const dashboardResponse = await api.adminDashboard();
         setAdminDashboard(dashboardResponse.dashboard);
@@ -406,7 +413,7 @@ function App() {
     } else {
       setAdminDashboard(null);
     }
-  }, [desktopPortal, isDesktop]);
+  }, [desktopPortal, isDesktop, sessionUserId]);
 
   const bootstrapSession = useCallback(async () => {
     const user = await api.restoreSession();
@@ -424,7 +431,7 @@ function App() {
       setDesktopPortal("merchant");
     } else if (user.roles.includes("driver")) setMode("driver");
     else setMode("customer");
-    await refresh();
+    await refresh(user.id);
     if (user.roles.includes("customer")) {
       const [saved,dietary]=await Promise.all([api.cart(),api.getDietaryPreferences()]);
       setCart(saved.cart);setDietaryPreferences(dietary.preferences);

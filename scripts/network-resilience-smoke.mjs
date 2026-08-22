@@ -15,6 +15,7 @@ assert.match(webApi, /transportRetry && SAFE_READ_METHODS\.has\(method\)/);
 assert.match(webApi, /No hay conexión con Flash/);
 assert.match(webApp, /flash:network/);
 assert.match(webApp, /NetworkStatusBanner/);
+assert.match(webApp, /refreshedUser\?\.roles\.includes\("admin"\)/);
 
 assert.equal(mobilePackage.dependencies["expo-network"], "~57.0.1");
 assert.match(mobileApi, /const SAFE_READ_METHODS = new Set\(\["GET", "HEAD", "OPTIONS"\]\)/);

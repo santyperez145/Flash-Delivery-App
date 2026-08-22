@@ -24,6 +24,12 @@ Decisión técnica: se usa el módulo oficial [Expo Network](https://docs.expo.d
 - [x] `test:dietary-local` cubre lectura inicial, actualización, persistencia y contrato de respuesta; se verificó la recuperación del frontend en el navegador después de reiniciar el API.
 - [~] SQLite sigue siendo sólo modo demo/desarrollo; producción requiere PostgreSQL con migraciones `059` y `060` aplicadas.
 
+## Corrección 22 de agosto de 2026 — guard de rol en dashboard web
+
+- [x] El frontend sólo solicita `/api/admin/dashboard` cuando el usuario autenticado tiene rol `admin`; clientes y comercios no generan llamadas prohibidas durante bootstrap o refresh.
+- [x] El backend mantiene la denegación `403` como defensa autoritativa si un cliente intenta llamar directamente al dashboard; la corrección evita el ruido de consola sin debilitar autorización.
+- [x] `test:network-resilience` verifica el guard de rol y se validó el bundle nuevo en navegador sin errores de consola.
+
 ## Corrección 22 de agosto de 2026 — panel operativo local
 
 - [x] Comercios, conductores, usuarios, soporte y auditoría operativos seleccionan PostgreSQL cuando `DATABASE_URL` está configurado y el fallback SQLite local cuando se ejecuta el entorno demo.
