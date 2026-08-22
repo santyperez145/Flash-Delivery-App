@@ -14,6 +14,10 @@ Flash Delivery Mobility esta organizada como una plataforma multirol:
   entry propio a 560 KiB y toda la carga JavaScript inicial a 850 KiB. El
   presupuesto evita regresiones, pero no sustituye mediciones Core Web Vitals
   sobre dispositivos y redes reales.
+- Express comprime respuestas elegibles mayores a 1 KiB. Los assets con hash se
+  cachean como `immutable` durante un año, mientras `index.html` siempre
+  revalida. El stream SSE se excluye expresamente para no agregar buffering;
+  `test:web-delivery` verifica los cuatro contratos sobre un servidor real.
 - Backend: Express.
 - Base de datos principal: PostgreSQL 17 + PostGIS, migraciones SQL versionadas y RLS. SQLite queda aislado como fallback de pruebas sin `DATABASE_URL`.
 - Auth: bcrypt, access/refresh tokens rotativos, sesiones revocables, bloqueo por intentos y MFA administrativo.

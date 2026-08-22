@@ -40,6 +40,9 @@ jobs:
       - name: Web bundle budget
         run: npm run test:web-bundle-budget
 
+      - name: Web compression and cache contract
+        run: npm run test:web-delivery
+
       - name: Secret scan
         run: npm run test:secrets
 
