@@ -18,12 +18,13 @@ de documentación; no contiene tokens, credenciales ni ejemplos personales.
 - Creación, revocación y consulta pública minimizada de enlaces temporales de viaje.
 - Ofertas privadas de dispatch y rechazo antes del TTL.
 - Tickets de soporte, conversación visible y actualización exclusiva de agentes.
+- Inventarios operativos paginados, feature flags, métricas y readiness de zona.
 - Bearer JWT, respuestas de error, límites básicos y códigos HTTP relevantes.
 
 La cobertura es incremental. Una ruta ausente todavía no tiene contrato público
-y no debe integrarse por inferencia. Operaciones se incorporará por dominios
-junto con pruebas de
-respuestas reales.
+y no debe integrarse por inferencia. Los dominios cubiertos se amplían junto con
+pruebas de respuestas reales; los objetos administrativos genéricos no se
+consideran todavía contratos estables para integradores externos.
 
 `npm run test:openapi-contract` inicia la API, comprueba referencias y
 `operationId`, y enfrenta el documento con respuestas reales de health,

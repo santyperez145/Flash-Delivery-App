@@ -32,7 +32,7 @@ try {
 
   const operations = Object.values(spec.paths).flatMap((path) => Object.values(path)).filter((operation) => operation?.operationId);
   const operationIds = operations.map((operation) => operation.operationId);
-  assert(operationIds.length === new Set(operationIds).size && operationIds.length >= 30, "operationId es único en los dominios documentados");
+  assert(operationIds.length === new Set(operationIds).size && operationIds.length >= 40, "operationId es único en los dominios documentados");
   const refs = collectRefs(spec);
   const unresolvedRefs = refs.filter((ref) => !ref.startsWith("#/components/schemas/") || !spec.components.schemas[ref.split("/").at(-1)]);
   assert(unresolvedRefs.length === 0, `${new Set(refs).size} referencias internas están resueltas`);
@@ -68,6 +68,9 @@ try {
   assert(anonymousOffers.status===401&&spec.paths["/api/driver/offers"].get.security,"ofertas privadas exigen identidad driver");
   assert(anonymousTickets.status===401&&spec.paths["/api/support/tickets"].get.security,"soporte exige identidad antes de resolver visibilidad");
   assert(spec.components.schemas.SupportMessageRequest.properties.internal.description.includes("support/admin"),"contrato distingue notas internas por rol");
+  const anonymousOperations=await fetch(`${origin}/api/operations/feature-flags`);
+  assert(anonymousOperations.status===401&&spec.paths["/api/operations/feature-flags"].get.security,"operaciones exige identidad administrativa");
+  assert(spec.paths["/api/operations/users"].get.parameters.find(parameter=>parameter.name==="limit").schema.maximum===100,"paginación operativa publica límite máximo estable");
   const serializedSpec=JSON.stringify(spec).toLowerCase();
   assert(!serializedSpec.includes('"pan"')&&!serializedSpec.includes('"cvv"')&&!serializedSpec.includes('access_token_ciphertext')&&!serializedSpec.includes('refresh_token_ciphertext'), "contrato no modela datos de tarjeta ni credenciales seller");
 } finally {
