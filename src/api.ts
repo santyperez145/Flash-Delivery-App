@@ -855,6 +855,8 @@ export const api = {
       { method: "PUT", body: JSON.stringify(payload) },
     );
   },
+  async getDietaryPreferences(){return request<{preferences:import("./types").DietaryPreferences}>("/dietary-preferences");},
+  async updateDietaryPreferences(input:{dietaryLabels:string[];avoidedAllergens:string[];hideIncompatible:boolean}){return request<{preferences:import("./types").DietaryPreferences}>("/dietary-preferences",{method:"PUT",body:JSON.stringify(input)});},
   async getDriverCompliance(driverId: string) {
     return request<{ compliance: DriverCompliance }>(
       `/drivers/${driverId}/compliance`,

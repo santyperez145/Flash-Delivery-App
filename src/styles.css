@@ -1757,6 +1757,12 @@ textarea {
   color: var(--ink);
 }
 
+.dietary-profile-card{display:grid;gap:12px;padding:14px;background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 10px 30px rgba(39,28,46,.06)}
+.dietary-profile-heading{display:flex;gap:10px;align-items:flex-start}.dietary-profile-heading>span{display:grid;width:38px;height:38px;place-items:center;color:#087a50;background:#e9f8ef;border-radius:12px}.dietary-profile-heading h3,.dietary-profile-heading p{margin:0}.dietary-profile-heading p,.dietary-filter-toggle small{color:var(--muted);font-size:.72rem;line-height:1.4}
+.dietary-chip-list{display:flex;flex-wrap:wrap;gap:7px}.dietary-chip{padding:7px 10px;color:#5f5965;background:#fff;border:1px solid #ddd9e1;border-radius:999px;font-size:.72rem;font-weight:800}.dietary-chip.selected{color:#087a50;background:#e9f8ef;border-color:#8ed5aa}.dietary-chip.allergen.selected{color:#a3480a;background:#fff0e6;border-color:#ffb47b}
+.dietary-filter-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px;text-align:left;background:var(--paper-soft);border:0;border-radius:12px}.dietary-filter-toggle span{display:grid;gap:2px}.dietary-filter-toggle i{position:relative;width:40px;height:23px;background:#c9c4cd;border-radius:999px;transition:.2s}.dietary-filter-toggle i::after{position:absolute;top:3px;left:3px;width:17px;height:17px;content:"";background:#fff;border-radius:50%;transition:.2s}.dietary-filter-toggle i.active{background:#087a50}.dietary-filter-toggle i.active::after{transform:translateX(17px)}
+.dietary-caution,.dietary-loading{display:flex;gap:8px;align-items:flex-start;padding:10px;color:#7c4c20;background:#fff8eb;border-radius:12px;font-size:.72rem;line-height:1.45}.dietary-caution svg{flex:0 0 auto}
+
 .status-card {
   grid-template-columns: auto 1fr auto;
 }

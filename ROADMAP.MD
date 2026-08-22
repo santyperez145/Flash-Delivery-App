@@ -354,7 +354,7 @@ Leyenda: `[x]` terminado y verificado, `[~]` operativo con deuda identificada, `
 ### P0 - Producto completo desde Figma
 
 - [x] Inventario trazable en `docs/figma-screen-matrix.md`.
-- [~] Comidas: discovery, detalle personalizable, carrito persistente, checkout visual y actividad funcionales; faltan restricciones alimentarias estructuradas y paridad visual fina de confirmación.
+- [~] Comidas: discovery, detalle personalizable, carrito persistente, checkout visual, actividad y restricciones alimentarias estructuradas con perfil privado/filtro web+mobile funcionales; falta paridad visual fina de confirmación.
 - [~] Comidas: total firmado, pago Wallet, promociones, OTP de email, soporte y comprobante de servicio funcionales; faltan factura fiscal, PSP externo y completar tracking visual.
 - [~] Viajes: mapa, ruta, modalidades, precio, solicitud, asignacion y guia funcionales.
 - [~] Viajes: matching, estados, rating, reservas, propina y comprobante funcionan; falta seguridad dedicada.
