@@ -480,7 +480,9 @@ function CustomerScreen({
   const [foodQuery, setFoodQuery] = useState("");
   type CatalogSearchResult={restaurantId:string;restaurantName:string;cuisine:string;image:string;cover:string;etaMin:number;deliveryFee:number;matchedItems:Array<{id:string;name:string;category:string}>;matchCount:number;score:number};
   const[catalogResults,setCatalogResults]=useState<CatalogSearchResult[]>([]),[catalogSearchLoading,setCatalogSearchLoading]=useState(false),[catalogSearchError,setCatalogSearchError]=useState(""),[catalogNextOffset,setCatalogNextOffset]=useState<number|null>(null);
+  const[catalogSearchNonce,setCatalogSearchNonce]=useState(0);
   const [foodCategory, setFoodCategory] = useState("Todos");
+  const [foodMenuCategory,setFoodMenuCategory]=useState("Todos");
   const [favoriteRestaurantIds,setFavoriteRestaurantIds]=useState<string[]>(state.favoriteRestaurantIds||[]);
   const [favoritePendingId,setFavoritePendingId]=useState<string|null>(null);
   useEffect(()=>setFavoriteRestaurantIds(state.favoriteRestaurantIds||[]),[state.favoriteRestaurantIds]);
@@ -589,7 +591,7 @@ function CustomerScreen({
   const [supportCategory,setSupportCategory]=useState<"food"|"ride"|"shipment"|"payment"|"account"|"safety"|"other">("food");
   const [supportReplies,setSupportReplies]=useState<Record<string,string>>({});
   useEffect(()=>{let cancelled=false;api.getDietaryPreferences().then(result=>{if(!cancelled)setDietaryPreferences(result.preferences);}).catch(()=>{});return()=>{cancelled=true;};},[user.id]);
-  useEffect(()=>{if(foodScreen!=="search")return;let cancelled=false;setCatalogSearchLoading(true);setCatalogSearchError("");const timer=setTimeout(()=>{void api.searchCatalog(foodQuery,0).then(result=>{if(!cancelled){setCatalogResults(result.results);setCatalogNextOffset(result.nextOffset);}}).catch(error=>{if(!cancelled){setCatalogResults([]);setCatalogSearchError(error instanceof Error?error.message:"No se pudo buscar");}}).finally(()=>{if(!cancelled)setCatalogSearchLoading(false);});},250);return()=>{cancelled=true;clearTimeout(timer);};},[foodScreen,foodQuery,dietaryPreferences.hideIncompatible,dietaryPreferences.dietaryLabels,dietaryPreferences.avoidedAllergens]);
+  useEffect(()=>{if(foodScreen!=="search")return;let cancelled=false;setCatalogSearchLoading(true);setCatalogSearchError("");const timer=setTimeout(()=>{void api.searchCatalog(foodQuery,0).then(result=>{if(!cancelled){setCatalogResults(result.results);setCatalogNextOffset(result.nextOffset);}}).catch(error=>{if(!cancelled){setCatalogResults([]);setCatalogSearchError(error instanceof Error?error.message:"No se pudo buscar");}}).finally(()=>{if(!cancelled)setCatalogSearchLoading(false);});},250);return()=>{cancelled=true;clearTimeout(timer);};},[foodScreen,foodQuery,catalogSearchNonce,dietaryPreferences.hideIncompatible,dietaryPreferences.dietaryLabels,dietaryPreferences.avoidedAllergens]);
   useEffect(()=>{if(sharedView!=="account")return;let cancelled=false;Promise.all([api.getNotifications(),api.getNotificationPreferences(),api.getDietaryPreferences(),api.getReferralSummary(),api.getAccountSessions()]).then(([inbox,settings,dietary,referrals,sessions])=>{if(!cancelled){setNotifications(inbox.notifications);setNotificationPreferences(settings.preferences);setDietaryPreferences(dietary.preferences);setReferral(referrals.referral);setAccountSessions(sessions.sessions);}}).catch(()=>{});return()=>{cancelled=true;};},[sharedView]);
   useEffect(()=>{if(phoneRetrySeconds<=0)return;const timer=setInterval(()=>setPhoneRetrySeconds(value=>Math.max(0,value-1)),1000);return()=>clearInterval(timer);},[phoneRetrySeconds>0]);
   const [pickup, setPickup] = useState(
@@ -855,6 +857,9 @@ function CustomerScreen({
     state.restaurants.find(
       (restaurant) => restaurant.id === selectedRestaurantId,
     ) || null;
+  const foodMenuCategories=useMemo(()=>["Todos",...Array.from(new Set((selectedRestaurant?.menu||[]).map(item=>item.category?.trim()||"Otros")))],[selectedRestaurant]);
+  useEffect(()=>setFoodMenuCategory("Todos"),[selectedRestaurantId]);
+  const visibleFoodMenuItems=(selectedRestaurant?.menu||[]).filter(item=>(foodMenuCategory==="Todos"||(item.category?.trim()||"Otros")===foodMenuCategory)&&(!dietaryPreferences.hideIncompatible||itemMatchesDiet(item)));
 
   const changeCartQuantity = (lineId: string, delta: number) => {
     setCart((current) =>
@@ -1339,10 +1344,13 @@ function CustomerScreen({
                   >
                     <Ionicons name="chevron-back" size={20} color="#222" />
                   </Pressable>
-                  <Text style={styles.foodPageTitle}>Buscar</Text>
+                  <View style={styles.foodPageHeaderCopy}>
+                    <Text style={styles.foodPageTitle}>Buscar</Text>
+                    <Text style={styles.foodPageSubtitle}>Catálogo y disponibilidad actual</Text>
+                  </View>
                 </View>
                 <View style={styles.foodSearchButton}>
-                  <Ionicons name="search" size={18} color="#9a979d" />
+                  <Ionicons name="search" size={20} color={flashDesign.color.inkSoft} />
                   <TextInput
                     autoFocus
                     value={foodQuery}
@@ -1350,26 +1358,27 @@ function CustomerScreen({
                     placeholder="¿Qué querés comer?"
                     style={styles.foodSearchInput}
                   />
+                  {foodQuery?<Pressable accessibilityLabel="Limpiar búsqueda" style={styles.foodSearchClear} onPress={()=>setFoodQuery("")}><Ionicons name="close" size={17} color={flashDesign.color.inkSoft}/></Pressable>:null}
                 </View>
-                <Text style={styles.foodSectionTitle}>
-                  {foodQuery ? "Resultados" : "Explorá el catálogo"}
-                </Text>
+                <View style={styles.foodSectionHeader}><Text style={styles.foodSectionTitle}>{foodQuery ? "Resultados" : "Explorá el catálogo"}</Text>{!catalogSearchLoading&&!catalogSearchError?<Text style={styles.foodSeeAll}>{catalogResults.length}{catalogNextOffset!==null?"+":""} opciones</Text>:null}</View>
                 {!foodQuery && (
-                  <View style={styles.choiceRow}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.foodSearchCategoryRail}>
                     {foodCategories.filter(category=>category.name!=="Todos").slice(0,6).map((category) => (
                       <Pressable
                         key={category.name}
                         onPress={() => setFoodQuery(category.name)}
-                        style={styles.foodChip}
+                        style={styles.foodSearchCategoryCard}
                       >
-                        <Text style={styles.foodChipText}>{category.name}</Text>
+                        {category.image?<Image source={{uri:category.image}} style={styles.foodSearchCategoryImage}/>:<View style={styles.foodSearchCategoryImageFallback}><Ionicons name="restaurant" size={20} color={flashDesign.color.food}/></View>}
+                        <Text style={styles.foodSearchCategoryName} numberOfLines={2}>{category.name}</Text>
+                        <Text style={styles.foodSearchCategoryCount}>{category.count} {category.count===1?"lugar":"lugares"}</Text>
                       </Pressable>
                     ))}
-                  </View>
+                  </ScrollView>
                 )}
-                {catalogSearchLoading&&<View style={styles.searchStatus}><ActivityIndicator color="#ff6a21"/><Text style={styles.cardText}>Buscando en el catálogo…</Text></View>}
-                {Boolean(catalogSearchError)&&<View style={styles.searchStatus}><Ionicons name="cloud-offline-outline" size={21} color="#b7443d"/><Text style={styles.cardText}>{catalogSearchError}</Text></View>}
-                {!catalogSearchLoading&&!catalogSearchError&&!catalogResults.length&&foodQuery.trim()&&<View style={styles.searchStatus}><Ionicons name="search-outline" size={23} color="#8d8792"/><Text style={styles.cardText}>No encontramos coincidencias disponibles.</Text></View>}
+                {catalogSearchLoading?<View style={styles.foodSearchSkeletonList}>{[0,1,2].map(index=><View key={index} style={styles.foodSearchSkeletonCard}><View style={styles.foodSearchSkeletonImage}/><View style={styles.foodSearchSkeletonCopy}><View style={styles.foodSearchSkeletonTitle}/><View style={styles.foodSearchSkeletonLine}/><View style={styles.foodSearchSkeletonShort}/></View></View>)}</View>:null}
+                {Boolean(catalogSearchError)&&<View style={styles.foodSearchState}><View style={styles.foodSearchStateIcon}><Ionicons name="cloud-offline-outline" size={25} color={flashDesign.color.danger}/></View><Text style={styles.foodSearchStateTitle}>No pudimos buscar</Text><Text style={styles.foodSearchStateCopy}>{catalogSearchError}</Text><Pressable style={styles.foodSearchRetry} onPress={()=>setCatalogSearchNonce(current=>current+1)}><Text style={styles.foodSearchRetryText}>Reintentar</Text></Pressable></View>}
+                {!catalogSearchLoading&&!catalogSearchError&&!catalogResults.length&&foodQuery.trim()?<View style={styles.foodSearchState}><View style={styles.foodSearchStateIcon}><Ionicons name="search-outline" size={26} color={flashDesign.color.food}/></View><Text style={styles.foodSearchStateTitle}>Sin coincidencias</Text><Text style={styles.foodSearchStateCopy}>Probá con otro plato, categoría o restaurante.</Text><Pressable style={styles.foodSearchRetry} onPress={()=>setFoodQuery("")}><Text style={styles.foodSearchRetryText}>Limpiar búsqueda</Text></Pressable></View>:null}
                 {catalogResults.map((result) => (
                   <Pressable
                     key={result.restaurantId}
@@ -1377,21 +1386,19 @@ function CustomerScreen({
                       setSelectedRestaurantId(result.restaurantId);
                       setFoodScreen("restaurant");
                     }}
-                    style={styles.foodSearchResult}
+                    style={styles.foodSearchResultCard}
                   >
                     <ImageBackground
                       source={{ uri: result.cover }}
                       imageStyle={styles.foodCardBannerImage}
-                      style={styles.foodResultImage}
-                    />
-                    <View style={styles.itemCopy}>
-                      <Text style={styles.cardTitle}>{result.restaurantName}</Text>
-                      <Text style={styles.cardText}>
-                        {result.cuisine} · {result.etaMin} min
-                      </Text>
-                      <Text style={styles.searchMatchText} numberOfLines={1}>{result.matchedItems.map(item=>item.name).join(" · ")}</Text>
+                      style={styles.foodSearchResultImage}
+                    ><View style={styles.foodSearchResultEta}><Ionicons name="time-outline" size={12} color={flashDesign.color.ink}/><Text style={styles.foodSearchResultEtaText}>{result.etaMin} min</Text></View></ImageBackground>
+                    <View style={styles.foodSearchResultBody}>
+                      <View style={styles.foodSearchResultHeading}><Text style={styles.foodSearchResultName} numberOfLines={1}>{result.restaurantName}</Text><Ionicons name="chevron-forward" size={18} color={flashDesign.color.muted}/></View>
+                      <Text style={styles.foodSearchResultCuisine} numberOfLines={1}>{result.cuisine}</Text>
+                      <View style={styles.foodSearchResultMeta}><Ionicons name="bicycle-outline" size={14} color={flashDesign.color.inkSoft}/><Text style={styles.foodSearchResultMetaText}>{result.deliveryFee?money.format(result.deliveryFee):"Envío gratis"}</Text><View style={styles.foodMetaDot}/><Text style={styles.foodSearchResultMetaText}>{result.matchCount} {result.matchCount===1?"coincidencia":"coincidencias"}</Text></View>
+                      {result.matchedItems.length?<Text style={styles.searchMatchText} numberOfLines={1}>{result.matchedItems.map(item=>item.name).join(" · ")}</Text>:null}
                     </View>
-                    <Ionicons name="chevron-forward" size={20} color="#aaa" />
                   </Pressable>
                 ))}
                 {catalogNextOffset!==null&&!catalogSearchLoading&&<Pressable style={styles.searchMoreButton} onPress={()=>{setCatalogSearchLoading(true);void api.searchCatalog(foodQuery,catalogNextOffset).then(result=>{setCatalogResults(current=>[...current,...result.results]);setCatalogNextOffset(result.nextOffset);}).catch(error=>setCatalogSearchError(error instanceof Error?error.message:"No se pudo continuar")).finally(()=>setCatalogSearchLoading(false));}}><Text style={styles.searchMoreText}>Ver más resultados</Text></Pressable>}
@@ -1409,49 +1416,37 @@ function CustomerScreen({
                     onPress={() => setFoodScreen("home")}
                     style={styles.foodFloatingButton}
                   >
-                    <Ionicons name="chevron-back" size={22} color="#222" />
+                    <Ionicons name="chevron-back" size={22} color={flashDesign.color.ink} />
                   </Pressable>
-                  <Pressable style={styles.foodFloatingButton}>
-                    <Ionicons name="heart-outline" size={22} color="#222" />
+                  <Pressable disabled={favoritePendingId===selectedRestaurant.id} style={styles.foodFloatingButton} accessibilityLabel={favoriteRestaurantIds.includes(selectedRestaurant.id)?`Quitar ${selectedRestaurant.name} de favoritos`:`Guardar ${selectedRestaurant.name} en favoritos`} accessibilityState={{checked:favoriteRestaurantIds.includes(selectedRestaurant.id),busy:favoritePendingId===selectedRestaurant.id}} onPress={()=>void toggleFavorite(selectedRestaurant.id)}>
+                    <Ionicons name={favoriteRestaurantIds.includes(selectedRestaurant.id)?"heart":"heart-outline"} size={22} color={favoriteRestaurantIds.includes(selectedRestaurant.id)?flashDesign.color.food:flashDesign.color.ink} />
                   </Pressable>
                 </ImageBackground>
                 <View style={styles.foodRestaurantInfo}>
-                  <Text style={styles.foodRestaurantTitle}>
-                    {selectedRestaurant.name}
-                  </Text>
-                  <Text style={styles.cardText}>
-                    {selectedRestaurant.cuisine}
-                  </Text>
-                  <View style={styles.foodMetaRow}>
-                    <Text style={styles.foodRating}>
-                      ☆ {selectedRestaurant.rating}
-                    </Text>
-                    <Text style={styles.cardText}>
-                      🛵 {money.format(selectedRestaurant.deliveryFee)}
-                    </Text>
-                    <Text style={styles.cardText}>
-                      ◷ {selectedRestaurant.etaMin} min
-                    </Text>
+                  <View style={styles.foodRestaurantStatusRow}><View style={styles.foodRestaurantOpenBadge}><View style={styles.foodRestaurantOpenDot}/><Text style={styles.foodRestaurantOpenText}>Abierto ahora</Text></View>{selectedRestaurant.badge?<Text style={styles.foodRestaurantOfferBadge}>{selectedRestaurant.badge}</Text>:null}</View>
+                  <Text style={styles.foodRestaurantTitle}>{selectedRestaurant.name}</Text>
+                  <Text style={styles.foodRestaurantCuisine}>{selectedRestaurant.cuisine} · {selectedRestaurant.address}</Text>
+                  <View style={styles.foodRestaurantFacts}>
+                    <View style={styles.foodRestaurantFact}><View style={styles.foodRestaurantFactIcon}><Ionicons name="star" size={15} color="#E98A00"/></View><View><Text style={styles.foodRestaurantFactValue}>{selectedRestaurant.rating.toFixed(1)}</Text><Text style={styles.foodRestaurantFactLabel}>calificación</Text></View></View>
+                    <View style={styles.foodRestaurantFact}><View style={styles.foodRestaurantFactIcon}><Ionicons name="time-outline" size={16} color={flashDesign.color.food}/></View><View><Text style={styles.foodRestaurantFactValue}>{selectedRestaurant.etaMin} min</Text><Text style={styles.foodRestaurantFactLabel}>estimado</Text></View></View>
+                    <View style={styles.foodRestaurantFact}><View style={styles.foodRestaurantFactIcon}><Ionicons name="bicycle-outline" size={16} color={flashDesign.color.shipment}/></View><View><Text style={styles.foodRestaurantFactValue}>{selectedRestaurant.deliveryFee?money.format(selectedRestaurant.deliveryFee):"Gratis"}</Text><Text style={styles.foodRestaurantFactLabel}>{selectedRestaurant.distanceKm.toFixed(1)} km</Text></View></View>
                   </View>
                 </View>
-                <View style={styles.foodMenuTabs}>
-                  <Text style={styles.foodMenuTabActive}>Popular</Text>
-                  <Text style={styles.foodMenuTab}>Combos</Text>
-                  <Text style={styles.foodMenuTab}>Bebidas</Text>
-                </View>
+                <View style={styles.foodSectionHeader}><Text style={styles.foodSectionTitle}>Menú</Text><Text style={styles.foodSeeAll}>{visibleFoodMenuItems.length} disponibles</Text></View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.foodMenuTabs}>
+                  {foodMenuCategories.map(category=><Pressable key={category} style={[styles.foodMenuTabButton,foodMenuCategory===category&&styles.foodMenuTabButtonActive]} onPress={()=>setFoodMenuCategory(category)} accessibilityState={{selected:foodMenuCategory===category}}><Text style={[styles.foodMenuTab,foodMenuCategory===category&&styles.foodMenuTabActive]}>{category}</Text></Pressable>)}
+                </ScrollView>
                 {dietaryPreferences.hideIncompatible&&<View style={styles.dietaryFilterBanner}><Ionicons name="options-outline" size={17} color="#087a50"/><Text style={styles.dietaryBadgeText}>Filtro personal activo · sólo productos declarados compatibles</Text></View>}
-                {selectedRestaurant.menu.filter(item=>!dietaryPreferences.hideIncompatible||itemMatchesDiet(item)).map((item) => (
+                {visibleFoodMenuItems.map((item) => (
                   <View key={item.id} style={styles.foodProductCard}>
                     <ImageBackground
-                      source={{ uri: selectedRestaurant.cover }}
+                      source={{ uri: selectedRestaurant.image||selectedRestaurant.cover }}
                       imageStyle={styles.foodProductImageStyle}
                       style={styles.foodProductImage}
-                    />
+                    >{!item.stock?<View style={styles.foodProductUnavailable}><Text style={styles.foodProductUnavailableText}>AGOTADO</Text></View>:null}</ImageBackground>
                     <View style={styles.itemCopy}>
-                      <Text style={styles.itemName}>{item.name}</Text>
-                      <Text style={styles.cardText} numberOfLines={2}>
-                        Preparado al momento con ingredientes seleccionados.
-                      </Text>
+                      <View style={styles.foodProductHeading}><Text style={styles.foodProductName} numberOfLines={2}>{item.name}</Text>{item.dietaryLabels?.length?<Ionicons name="leaf-outline" size={16} color={flashDesign.color.shipment}/>:null}</View>
+                      <Text style={styles.foodProductDescription} numberOfLines={2}>{item.description?.trim()||item.category||"Información del producto no declarada"}</Text>
                       <Text style={styles.foodProductPrice}>
                         {money.format(item.price)}
                       </Text>
@@ -1459,12 +1454,14 @@ function CustomerScreen({
                     <Pressable
                       disabled={!item.stock || busy}
                       onPress={() => {if(item.modifierGroups?.length){setCustomizingRestaurant(selectedRestaurant);setCustomizingItem(item);setCustomizingExtras([]);setCustomizingNote("");}else addItem(selectedRestaurant,item);}}
-                      style={styles.foodAddButton}
+                      style={[styles.foodAddButton,!item.stock&&styles.foodAddButtonDisabled]}
+                      accessibilityLabel={item.stock?`Agregar ${item.name}`:`${item.name} agotado`}
                     >
                       <Ionicons name="add" size={22} color="#fff" />
                     </Pressable>
                   </View>
                 ))}
+                {visibleFoodMenuItems.length===0?<View style={styles.foodSearchState}><View style={styles.foodSearchStateIcon}><Ionicons name="restaurant-outline" size={25} color={flashDesign.color.food}/></View><Text style={styles.foodSearchStateTitle}>No hay productos disponibles</Text><Text style={styles.foodSearchStateCopy}>Probá otra categoría o revisá tus preferencias alimentarias.</Text><Pressable style={styles.foodSearchRetry} onPress={()=>setFoodMenuCategory("Todos")}><Text style={styles.foodSearchRetryText}>Ver todo el menú</Text></Pressable></View>:null}
                 {cart.length > 0 && (
                   <Pressable
                     onPress={() => setFoodScreen("cart")}
@@ -4138,17 +4135,51 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    minHeight: 46,
+    minHeight: 50,
   },
+  foodPageHeaderCopy:{flex:1,minWidth:0,gap:2},
   foodBack: {
-    width: 38,
-    height: 38,
-    borderRadius: 14,
-    backgroundColor: "#f5f3f4",
+    width: flashDesign.control.touch,
+    height: flashDesign.control.touch,
+    borderRadius: 16,
+    backgroundColor: flashDesign.color.surface,
+    borderWidth:1,
+    borderColor:flashDesign.color.line,
     alignItems: "center",
     justifyContent: "center",
   },
-  foodPageTitle: { color: "#252128", fontSize: 18, fontWeight: "900" },
+  foodPageTitle: { color: flashDesign.color.ink, fontSize: 19, fontWeight: "900",letterSpacing:-.3 },
+  foodPageSubtitle:{color:flashDesign.color.inkSoft,fontSize:10,fontWeight:"700"},
+  foodSearchClear:{width:38,height:38,borderRadius:14,alignItems:"center",justifyContent:"center",backgroundColor:flashDesign.color.surfaceMuted},
+  foodSearchCategoryRail:{gap:10,paddingRight:4,paddingBottom:2},
+  foodSearchCategoryCard:{width:126,padding:8,borderRadius:18,backgroundColor:flashDesign.color.surface,borderWidth:1,borderColor:flashDesign.color.line},
+  foodSearchCategoryImage:{width:"100%",height:74,borderRadius:13},
+  foodSearchCategoryImageFallback:{width:"100%",height:74,borderRadius:13,alignItems:"center",justifyContent:"center",backgroundColor:flashDesign.color.warningSoft},
+  foodSearchCategoryName:{minHeight:30,color:flashDesign.color.ink,fontSize:12,lineHeight:15,fontWeight:"900",marginTop:7},
+  foodSearchCategoryCount:{color:flashDesign.color.muted,fontSize:9,fontWeight:"700",marginTop:2},
+  foodSearchSkeletonList:{gap:10},
+  foodSearchSkeletonCard:{minHeight:110,flexDirection:"row",gap:12,padding:9,borderRadius:20,backgroundColor:flashDesign.color.surface,borderWidth:1,borderColor:flashDesign.color.line},
+  foodSearchSkeletonImage:{width:98,borderRadius:14,backgroundColor:"#E9E5EC"},
+  foodSearchSkeletonCopy:{flex:1,justifyContent:"center",gap:9},
+  foodSearchSkeletonTitle:{width:"72%",height:14,borderRadius:7,backgroundColor:"#E6E1E9"},
+  foodSearchSkeletonLine:{width:"92%",height:10,borderRadius:5,backgroundColor:"#EEEAF0"},
+  foodSearchSkeletonShort:{width:"52%",height:10,borderRadius:5,backgroundColor:"#EEEAF0"},
+  foodSearchState:{minHeight:220,alignItems:"center",justifyContent:"center",gap:9,padding:22,borderRadius:flashDesign.radius.surface,backgroundColor:flashDesign.color.surface,borderWidth:1,borderColor:flashDesign.color.line},
+  foodSearchStateIcon:{width:54,height:54,borderRadius:19,alignItems:"center",justifyContent:"center",backgroundColor:flashDesign.color.warningSoft},
+  foodSearchStateTitle:{color:flashDesign.color.ink,fontSize:17,fontWeight:"900"},
+  foodSearchStateCopy:{maxWidth:270,color:flashDesign.color.inkSoft,fontSize:12,lineHeight:18,textAlign:"center"},
+  foodSearchRetry:{minHeight:42,alignItems:"center",justifyContent:"center",paddingHorizontal:16,borderRadius:13,backgroundColor:flashDesign.color.ink,marginTop:2},
+  foodSearchRetryText:{color:"#fff",fontSize:11,fontWeight:"900"},
+  foodSearchResultCard:{overflow:"hidden",borderRadius:21,backgroundColor:flashDesign.color.surface,borderWidth:1,borderColor:flashDesign.color.line,shadowColor:flashDesign.color.ink,shadowOffset:{width:0,height:8},shadowOpacity:.06,shadowRadius:15,elevation:2},
+  foodSearchResultImage:{height:148,padding:10,alignItems:"flex-end"},
+  foodSearchResultEta:{flexDirection:"row",alignItems:"center",gap:4,paddingHorizontal:8,paddingVertical:6,borderRadius:flashDesign.radius.pill,backgroundColor:"rgba(255,255,255,.95)"},
+  foodSearchResultEtaText:{color:flashDesign.color.ink,fontSize:10,fontWeight:"900"},
+  foodSearchResultBody:{gap:6,padding:13},
+  foodSearchResultHeading:{flexDirection:"row",alignItems:"center",gap:8},
+  foodSearchResultName:{flex:1,color:flashDesign.color.ink,fontSize:16,fontWeight:"900"},
+  foodSearchResultCuisine:{color:flashDesign.color.inkSoft,fontSize:11},
+  foodSearchResultMeta:{flexDirection:"row",alignItems:"center",flexWrap:"wrap",gap:6},
+  foodSearchResultMetaText:{color:flashDesign.color.inkSoft,fontSize:10,fontWeight:"700"},
   foodSearchResult: {
     flexDirection: "row",
     alignItems: "center",
@@ -4159,66 +4190,96 @@ const styles = StyleSheet.create({
   },
   foodResultImage: { width: 70, height: 62, borderRadius: 13 },
   foodRestaurantHero: {
-    height: 230,
-    borderRadius: 26,
-    padding: 15,
+    width:"100%",
+    aspectRatio:16/9,
+    borderRadius: flashDesign.radius.surface,
+    overflow:"hidden",
+    padding: 13,
     flexDirection: "row",
     justifyContent: "space-between",
   },
-  foodRestaurantHeroImage: { borderRadius: 26 },
+  foodRestaurantHeroImage: { borderRadius: flashDesign.radius.surface },
   foodFloatingButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 16,
-    backgroundColor: "#fff",
+    width: flashDesign.control.touch,
+    height: flashDesign.control.touch,
+    borderRadius: 17,
+    backgroundColor: "rgba(255,255,255,.96)",
     alignItems: "center",
     justifyContent: "center",
+    shadowColor:flashDesign.color.ink,
+    shadowOpacity:.14,
+    shadowRadius:10,
+    elevation:2,
   },
   foodRestaurantInfo: {
-    backgroundColor: "#fff",
-    borderRadius: 22,
+    backgroundColor: flashDesign.color.surface,
+    borderRadius: flashDesign.radius.surface,
+    borderWidth:1,
+    borderColor:flashDesign.color.line,
     padding: 17,
-    marginTop: -30,
-    marginHorizontal: 12,
-    gap: 4,
+    marginTop: -26,
+    marginHorizontal: 10,
+    gap: 9,
+    shadowColor:flashDesign.color.ink,
+    shadowOffset:{width:0,height:10},
+    shadowOpacity:.1,
+    shadowRadius:18,
+    elevation:4,
   },
-  foodRestaurantTitle: { color: "#252128", fontSize: 22, fontWeight: "900" },
+  foodRestaurantStatusRow:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",gap:8,flexWrap:"wrap"},
+  foodRestaurantOpenBadge:{flexDirection:"row",alignItems:"center",gap:6,paddingHorizontal:9,paddingVertical:5,borderRadius:flashDesign.radius.pill,backgroundColor:flashDesign.color.successSoft},
+  foodRestaurantOpenDot:{width:7,height:7,borderRadius:4,backgroundColor:flashDesign.color.shipment},
+  foodRestaurantOpenText:{color:flashDesign.color.shipment,fontSize:9,fontWeight:"900",textTransform:"uppercase",letterSpacing:.5},
+  foodRestaurantOfferBadge:{maxWidth:"58%",color:flashDesign.color.foodDeep,fontSize:9,fontWeight:"900",paddingHorizontal:9,paddingVertical:5,borderRadius:flashDesign.radius.pill,overflow:"hidden",backgroundColor:flashDesign.color.warningSoft},
+  foodRestaurantTitle: { color: flashDesign.color.ink, fontSize: 23, lineHeight:28,fontWeight: "900",letterSpacing:-.5 },
+  foodRestaurantCuisine:{color:flashDesign.color.inkSoft,fontSize:11,lineHeight:16},
+  foodRestaurantFacts:{flexDirection:"row",gap:8,paddingTop:3},
+  foodRestaurantFact:{flex:1,minWidth:0,flexDirection:"row",alignItems:"center",gap:7,padding:8,borderRadius:14,backgroundColor:flashDesign.color.canvas},
+  foodRestaurantFactIcon:{width:30,height:30,borderRadius:11,alignItems:"center",justifyContent:"center",backgroundColor:flashDesign.color.surface},
+  foodRestaurantFactValue:{color:flashDesign.color.ink,fontSize:11,fontWeight:"900"},
+  foodRestaurantFactLabel:{color:flashDesign.color.muted,fontSize:8,marginTop:1},
   foodMenuTabs: {
     flexDirection: "row",
-    gap: 26,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee9ec",
+    gap: 8,
+    paddingVertical: 2,
+    paddingRight:4,
   },
-  foodMenuTab: { color: "#969198", fontWeight: "700" },
+  foodMenuTabButton:{minHeight:40,alignItems:"center",justifyContent:"center",paddingHorizontal:14,borderRadius:14,backgroundColor:flashDesign.color.surface,borderWidth:1,borderColor:flashDesign.color.line},
+  foodMenuTabButtonActive:{backgroundColor:flashDesign.color.ink,borderColor:flashDesign.color.ink},
+  foodMenuTab: { color: flashDesign.color.inkSoft,fontSize:11, fontWeight: "800" },
   foodMenuTabActive: {
-    color: "#ff6a21",
+    color: "#fff",
     fontWeight: "900",
-    borderBottomWidth: 2,
-    borderBottomColor: "#ff6a21",
-    paddingBottom: 8,
   },
   foodProductCard: {
-    minHeight: 112,
+    minHeight: 122,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    backgroundColor: "#fff",
+    backgroundColor: flashDesign.color.surface,
     borderRadius: 20,
-    padding: 10,
+    borderWidth:1,
+    borderColor:flashDesign.color.line,
+    padding: 9,
   },
-  foodProductImage: { width: 92, height: 92, borderRadius: 16 },
+  foodProductImage: { width: 104, height: 104, borderRadius: 16,alignItems:"center",justifyContent:"center",overflow:"hidden" },
   foodProductImageStyle: { borderRadius: 16 },
-  foodProductPrice: { color: "#ff6a21", fontWeight: "900", marginTop: 5 },
+  foodProductUnavailable:{paddingHorizontal:8,paddingVertical:5,borderRadius:10,backgroundColor:"rgba(23,19,28,.78)"},
+  foodProductUnavailableText:{color:"#fff",fontSize:8,fontWeight:"900",letterSpacing:.8},
+  foodProductHeading:{flexDirection:"row",alignItems:"flex-start",gap:6},
+  foodProductName:{flex:1,color:flashDesign.color.ink,fontSize:14,lineHeight:18,fontWeight:"900"},
+  foodProductDescription:{color:flashDesign.color.inkSoft,fontSize:10,lineHeight:14},
+  foodProductPrice: { color: flashDesign.color.foodDeep, fontWeight: "900", marginTop: 3 },
   foodAddButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 13,
-    backgroundColor: "#ff6a21",
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: flashDesign.color.food,
     alignItems: "center",
     justifyContent: "center",
     alignSelf: "flex-end",
   },
+  foodAddButtonDisabled:{backgroundColor:"#C8C2CB"},
   foodStickyCart: {
     minHeight: 56,
     borderRadius: 18,

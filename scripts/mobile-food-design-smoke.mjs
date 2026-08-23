@@ -17,6 +17,9 @@ assert(app.includes("activeFoodPromotion") && api.includes('request<{promotions:
 assert(!app.includes("Hurry Offers!") && !app.includes("#FLASH25"), "legacy promotional demo content must stay removed");
 assert(app.includes("toggleFavorite") && api.includes("/favorites/${restaurantId}") && types.includes("favoriteRestaurantIds?: string[]"), "favorite controls must persist through the authenticated API");
 assert(app.includes("aspectRatio: 16/9"), "merchant media must preserve a stable 16:9 ratio");
+assert(app.includes("foodSearchCategoryRail") && app.includes("foodSearchResultCard") && app.includes("catalogSearchNonce"), "search must expose responsive catalog discovery and a real retry state");
+assert(app.includes("foodMenuCategories=useMemo") && app.includes("visibleFoodMenuItems") && !app.includes("Preparado al momento con ingredientes seleccionados."), "restaurant menu tabs and descriptions must come from catalog data");
+assert(!app.includes('<Text style={styles.foodMenuTabActive}>Popular</Text>') && app.includes("foodProductUnavailable"), "restaurant must not present decorative menu tabs and must surface real stock");
 assert(roadmap.includes("Foodu") && roadmap.includes("Definición de terminado visual"), "the visual implementation must remain governed by the design roadmap");
 
 console.log("ok - Customer Comidas usa sistema visual y datos reales");

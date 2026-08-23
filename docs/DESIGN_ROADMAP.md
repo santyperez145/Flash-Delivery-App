@@ -118,8 +118,8 @@ prueba física pendiente conserva `[~]`.
 
 - [~] Inicio: ubicación, búsqueda, campaña aplicable, categorías de catálogo,
   favoritos, comercios abiertos, cerrado/vacío y carga.
-- [~] Buscar: historial real o categorías sugeridas, filtros, resultados,
-  paginación, sin coincidencias y fallo recuperable.
+- [x] Buscar: categorías reales, resultados, paginación, skeleton, sin
+  coincidencias y fallo recuperable; historial todavía no se presenta sin persistencia.
 - [~] Restaurante: hero 16:9, información, disponibilidad por sucursal,
   categorías de menú, producto, favoritos y carrito persistente.
 - [~] Producto: detalle, modificadores, alérgenos, nota, stock y límites.
@@ -224,5 +224,21 @@ Una pantalla sólo pasa a `[x]` cuando:
   checkout cuando corresponde.
 - Media 16:9, cards, app bar, ubicación, búsqueda, categorías, favoritos, empty y
   navegación usan los primeros tokens React Native de Flash.
-- Continúan `[~]`: búsqueda avanzada, restaurante, producto, carrito y checkout
-  necesitan el mismo rediseño antes de cerrar el flujo completo.
+- Continúan `[~]`: restaurante, producto, carrito y checkout necesitan el mismo
+  rediseño antes de cerrar el flujo completo.
+
+### 22 de agosto de 2026 — Buscar y Restaurante P0
+
+- Buscar usa el endpoint paginado de catálogo tanto vacío como con consulta;
+  categorías e imágenes provienen de los comercios abiertos y el error permite
+  reintentar la misma operación.
+- Skeleton, sin coincidencias, error, resultados, coincidencias de menú, fee y
+  ETA conservan una composición estable sin inventar búsquedas recientes.
+- Restaurante deriva tabs de las categorías del menú, descripción, precio,
+  dieta y stock del catálogo. Se retiraron `Popular/Combos/Bebidas` y la
+  descripción genérica que hacían pasar contenido visual por dato real.
+- El hero 16:9, disponibilidad, campaña, dirección, rating, tiempo, distancia,
+  fee, favorito persistente y carrito forman una jerarquía única.
+- Menú vacío/filtrado, agotado y add deshabilitado son estados explícitos. Sigue
+  pendiente verificar disponibilidad horaria por sucursal en el detalle y
+  rediseñar personalización, carrito y checkout.
