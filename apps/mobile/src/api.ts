@@ -11,8 +11,8 @@ let token = "";
 let refreshToken = "";
 let sessionDriverId:string|null=null;
 let activeAudience:"customer"|"merchant"|"driver"="customer";
-const appVariant=String(Constants.expoConfig?.extra?.appVariant||"customer") as "customer"|"merchant"|"driver";
-const allowsVariant=(user:import("./types").User)=>user.roles.includes(appVariant);
+export const mobileAppVariant=String(Constants.expoConfig?.extra?.appVariant||"customer") as "customer"|"merchant"|"driver";
+const allowsVariant=(user:import("./types").User)=>user.roles.includes(mobileAppVariant);
 
 type Envelope<T> = T & { ok: boolean; message?: string };
 const SAFE_READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -105,9 +105,12 @@ export const api = {
   async login(email: string, password: string) {
     const session = await request<{ token: string; refreshToken: string; user: import("./types").User }>("/auth/login", {
       method: "POST",
-      body: JSON.stringify({ email, password, deviceName: "Flash Mobile" })
+      body: JSON.stringify({ email, password, deviceName: "Flash Mobile", audience: mobileAppVariant })
     });
-    if(!allowsVariant(session.user))throw new Error(`Esta cuenta no pertenece a ${appVariant==="driver"?"Flash Driver":appVariant==="merchant"?"Flash Negocios":"Flash"}`);
+    if(!allowsVariant(session.user)){
+      await fetchWithTimeout(`${API_BASE}/auth/logout`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({refreshToken:session.refreshToken})}).catch(()=>undefined);
+      throw new Error(`Esta cuenta no pertenece a ${mobileAppVariant==="driver"?"Flash Driver":mobileAppVariant==="merchant"?"Flash Negocios":"Flash"}`);
+    }
     token = session.token;
     refreshToken = session.refreshToken;
     sessionDriverId=session.user.driverId||null;

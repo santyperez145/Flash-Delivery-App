@@ -102,6 +102,8 @@
     "test:web-tracking-maps": "node scripts/web-tracking-map-ui-smoke.mjs",
     "test:responsive-layout": "node scripts/responsive-layout-smoke.mjs",
     "test:responsive-browser": "node scripts/responsive-browser-smoke.mjs",
+    "test:mobile-auth-design": "node scripts/mobile-auth-design-smoke.mjs",
+    "test:auth-audience": "node --env-file-if-exists=.env.local scripts/auth-audience-smoke.mjs",
     "test:mobile-food-design": "node scripts/mobile-food-design-smoke.mjs",
     "test:openapi-contract": "node scripts/openapi-contract-smoke.mjs",
     "test:graceful-shutdown": "node scripts/graceful-shutdown-smoke.mjs",

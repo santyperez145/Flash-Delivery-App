@@ -89,9 +89,16 @@ async function withAuditScreenshot(page, label, action) {
 async function login(page, url, email, submitLabel) {
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: 20_000 });
   await assertNoPageOverflow(page, `${email} login`);
-  await page.getByPlaceholder("Email").fill(email);
-  await page.getByPlaceholder("Contraseña").fill("demo123");
-  await page.getByText(submitLabel, { exact: true }).click();
+  if (submitLabel === "Continuar") {
+    await page.getByPlaceholder("nombre@ejemplo.com").fill(email);
+    await page.getByText("Continuar", { exact: true }).click();
+    await page.getByPlaceholder("Tu contraseña").fill("demo123");
+    await page.getByText("Ingresar", { exact: true }).click();
+  } else {
+    await page.getByPlaceholder("Email").fill(email);
+    await page.getByPlaceholder("Contraseña").fill("demo123");
+    await page.getByText(submitLabel, { exact: true }).click();
+  }
 }
 
 async function auditMobile(browser) {
