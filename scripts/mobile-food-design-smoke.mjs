@@ -23,6 +23,9 @@ assert(!app.includes('<Text style={styles.foodMenuTabActive}>Popular</Text>') &&
 assert(app.includes("foodCartMerchant") && app.includes("foodCartOptionSelected") && app.includes("selectedFoodAddress"), "cart must compose products, geocoded address and payment from real account state");
 assert(app.includes("foodCheckoutHero") && app.includes("foodCheckoutQuote.expiresAt") && app.includes("foodCheckoutQuote.pricingVersion"), "checkout must present signed quote expiry and pricing provenance");
 assert(app.includes("servidor vuelve a validar stock") && app.includes("foodCheckoutQuote.total"), "checkout must disclose server revalidation and use the authoritative total");
+assert(app.includes("customizingModifierTotal") && app.includes("customizingSelectionValid") && app.includes("productCustomizerActionPrice"), "product customization must enforce modifier limits and calculate the displayed total from catalog prices");
+assert(app.includes("Información de alérgenos") && app.includes("modifierRowBlocked") && app.includes("customizingNote.length"), "customization must surface allergens, max selections and note length honestly");
+assert(app.includes("mobileOrderStatusLabel[order.status]") && app.includes("foodActiveOrderCard"), "order activity must translate backend status into an actionable customer card");
 assert(roadmap.includes("Foodu") && roadmap.includes("Definición de terminado visual"), "the visual implementation must remain governed by the design roadmap");
 
 console.log("ok - Customer Comidas usa sistema visual y datos reales");
