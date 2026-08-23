@@ -36,6 +36,16 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [x] Navegador real verificó catálogo vacío, resultados, apertura de restaurante y filtro Pizza con un único producto; TypeScript y el smoke de diseño bloquean regresiones.
 - [~] Personalización, carrito y checkout son los siguientes tramos P0; la disponibilidad horaria fina por sucursal requiere trasladar ese contrato al catálogo Customer.
 
+## Avance 22 de agosto de 2026 — Carrito y Checkout profesionales
+
+- [x] Carrito muestra comercio, productos, cantidades, extras, notas, subtotal, direcciones geocodificadas, pagos reales y promoción aplicable con una jerarquía responsive única.
+- [x] Si faltan dirección o pago, el flujo bloquea la quote y dirige a Cuenta; no elige ni dibuja datos sustitutos.
+- [x] Fees y descuentos no aparecen antes de cotizar. Cambiar dirección, pago, cupón o carrito invalida la quote previa y obliga a recalcular.
+- [x] Checkout usa el JWT firmado para mostrar vencimiento, ETA, distancia, versión tarifaria, líneas, modificadores, dirección, pago, subtotal, envío, servicio, descuento y total.
+- [x] El CTA confirma el total autoritativo, declara la revalidación servidor y se deshabilita al vencer; actualizar precio vuelve a cotizar en vez de crear silenciosamente otro total.
+- [x] Navegador real abrió una quote de 8,29 km / 46 min y mantuvo separado el ETA de catálogo de 22 min; no se confirmó la compra de prueba.
+- [~] Prueba física de teclado/safe areas/caducidad y rediseño de personalización siguen abiertos antes de declarar completo el flujo nativo de Comidas.
+
 ## Auditoría 22 de agosto de 2026 — arquitectura completa de pantallas
 
 - [x] `docs/product-execution-guidelines.md` formaliza como contrato versionado los lineamientos de producto competitivo, frontend/backend real, visuales completas, guía exclusiva de Driver y publicación verificada.
