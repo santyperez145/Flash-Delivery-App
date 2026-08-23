@@ -37,6 +37,7 @@ import { api } from "./src/api";
 import { configureAnalytics, track } from "./src/analytics";
 import FlashNativeMap from "./src/FlashNativeMap";
 import DriverDemandMap from "./src/DriverDemandMap";
+import { flashDesign } from "./src/design-system";
 import { buildExternalNavigationUrl } from "./src/navigation-links";
 import {getBackgroundLocationState,startDriverBackgroundLocation,stopDriverBackgroundLocation,type BackgroundLocationState} from "./src/background-location";
 import type {
@@ -473,7 +474,6 @@ function CustomerScreen({
   const lastActivityAnalyticsKey = useRef("");
   const previousFoodQuery = useRef("");
   const previousCartCount = useRef<number | null>(null);
-  const [foodOfferVisible, setFoodOfferVisible] = useState(true);
   useEffect(() => {
     customerScrollRef.current?.scrollTo({ y: 0, animated: false });
   }, [foodScreen, customerWindow, sharedView]);
@@ -481,6 +481,21 @@ function CustomerScreen({
   type CatalogSearchResult={restaurantId:string;restaurantName:string;cuisine:string;image:string;cover:string;etaMin:number;deliveryFee:number;matchedItems:Array<{id:string;name:string;category:string}>;matchCount:number;score:number};
   const[catalogResults,setCatalogResults]=useState<CatalogSearchResult[]>([]),[catalogSearchLoading,setCatalogSearchLoading]=useState(false),[catalogSearchError,setCatalogSearchError]=useState(""),[catalogNextOffset,setCatalogNextOffset]=useState<number|null>(null);
   const [foodCategory, setFoodCategory] = useState("Todos");
+  const [favoriteRestaurantIds,setFavoriteRestaurantIds]=useState<string[]>(state.favoriteRestaurantIds||[]);
+  const [favoritePendingId,setFavoritePendingId]=useState<string|null>(null);
+  useEffect(()=>setFavoriteRestaurantIds(state.favoriteRestaurantIds||[]),[state.favoriteRestaurantIds]);
+  const foodCategories=useMemo(()=>{
+    const restaurants=state.restaurants.filter(restaurant=>restaurant.open);
+    const byCuisine=new Map<string,{name:string;image:string;count:number}>();
+    for(const restaurant of restaurants){
+      const name=restaurant.cuisine.trim()||"Otros";
+      const current=byCuisine.get(name);
+      byCuisine.set(name,{name,image:current?.image||restaurant.image||restaurant.cover,count:(current?.count||0)+1});
+    }
+    return [{name:"Todos",image:restaurants[0]?.image||restaurants[0]?.cover||"",count:restaurants.length},...Array.from(byCuisine.values()).sort((left,right)=>right.count-left.count||left.name.localeCompare(right.name,"es"))];
+  },[state.restaurants]);
+  const activeFoodPromotion=useMemo(()=>state.promotions?.find(promotion=>promotion.active&&promotion.service==="food")||null,[state.promotions]);
+  const foodPromotionValue=activeFoodPromotion?(activeFoodPromotion.kind==="free_delivery"?"Envío bonificado":activeFoodPromotion.kind==="fixed"?`${money.format(activeFoodPromotion.value||0)} menos`:activeFoodPromotion.kind==="wallet_credit"?`${money.format(activeFoodPromotion.value||0)} en Wallet`:`${activeFoodPromotion.discountPercent||activeFoodPromotion.value||0}% menos`):"";
   const [dietaryPreferences,setDietaryPreferences]=useState<DietaryPreferences>({dietaryLabels:[],avoidedAllergens:[],hideIncompatible:false});
   const itemMatchesDiet=(item:Restaurant["menu"][number])=>{const itemDiets=new Set((item.dietaryLabels||[]).map(entry=>entry.code)),itemAllergens=new Set((item.allergens||[]).map(entry=>entry.code));return dietaryPreferences.dietaryLabels.every(entry=>itemDiets.has(entry.code))&&!dietaryPreferences.avoidedAllergens.some(entry=>itemAllergens.has(entry.code));};
   const openRestaurants = state.restaurants.filter(
@@ -496,6 +511,7 @@ function CustomerScreen({
           .toLowerCase()
           .includes(foodQuery.trim().toLowerCase())),
   );
+  const favoriteRestaurants=openRestaurants.filter(restaurant=>favoriteRestaurantIds.includes(restaurant.id));
   const [cart, setCart] = useState<MobileCartLine[]>([]);
   const[lastCreatedOrder,setLastCreatedOrder]=useState<Order|null>(null);
   const [cartHydrated,setCartHydrated]=useState(false);
@@ -503,6 +519,19 @@ function CustomerScreen({
   const [customizingRestaurant,setCustomizingRestaurant]=useState<Restaurant|null>(null);
   const [customizingExtras,setCustomizingExtras]=useState<string[]>([]);
   const [customizingNote,setCustomizingNote]=useState("");
+  const toggleFavorite=async(restaurantId:string)=>{
+    if(favoritePendingId)return;
+    const favorite=!favoriteRestaurantIds.includes(restaurantId);
+    setFavoritePendingId(restaurantId);
+    try{
+      const result=await api.setFavorite(restaurantId,favorite);
+      setFavoriteRestaurantIds(result.restaurantIds);
+    }catch(error){
+      Alert.alert("No pudimos actualizar favoritos",error instanceof Error?error.message:"Intentá nuevamente.");
+    }finally{
+      setFavoritePendingId(null);
+    }
+  };
   useEffect(()=>{let cancelled=false;setCartHydrated(false);void api.cart().then(result=>{if(cancelled)return;setCart(result.cart.map(line=>({lineId:`${line.item.id}:${line.extras.slice().sort().join(",")}:${line.note}`,restaurantId:line.restaurantId,menuItemId:line.item.id,name:line.item.name,unitPrice:line.item.price,quantity:line.quantity,extras:line.extras,note:line.note})));setCartHydrated(true);}).catch(()=>{if(!cancelled)setCartHydrated(true);});return()=>{cancelled=true;};},[user.id]);
   useEffect(()=>{if(!cartHydrated)return;const timer=setTimeout(()=>{void api.saveMobileCart(cart[0]?.restaurantId,cart.map(line=>({menuItemId:line.menuItemId,quantity:line.quantity,extras:line.extras,note:line.note}))).catch(()=>undefined);},250);return()=>clearTimeout(timer);},[cart,cartHydrated]);
   useEffect(() => {
@@ -1142,36 +1171,60 @@ function CustomerScreen({
             {foodScreen === "home" && (
               <>
                 <View style={styles.foodTopbar}>
-                  <View>
-                    <Text style={styles.foodDeliverLabel}>DELIVER TO</Text>
-                    <Text style={styles.foodAddress} numberOfLines={1}>
-                      {deliveryAddress || "Elegí tu ubicación"}⌄
-                    </Text>
-                  </View>
-                  <Pressable
-                    onPress={() => setFoodScreen("cart")}
-                    style={styles.foodCartIcon}
-                  >
-                    <Ionicons name="bag-handle" size={19} color="#fff" />
-                    {cart.length > 0 && (
-                      <Text style={styles.foodCartCount}>
-                        {cart.reduce((sum, line) => sum + line.quantity, 0)}
+                  <View style={styles.foodLocationBlock}>
+                    <View style={styles.foodLocationIcon}>
+                      <Ionicons name="location" size={18} color={flashDesign.color.food} />
+                    </View>
+                    <View style={styles.foodLocationCopy}>
+                      <Text style={styles.foodDeliverLabel}>ENTREGAR EN</Text>
+                      <Text style={styles.foodAddress} numberOfLines={1}>
+                        {deliveryAddress || "Elegí una dirección"}
                       </Text>
-                    )}
-                  </Pressable>
+                    </View>
+                  </View>
+                  <View style={styles.foodTopActions}>
+                    <Pressable onPress={()=>setSharedView("account")} style={styles.foodAvatar} accessibilityLabel="Abrir cuenta">
+                      <Text style={styles.foodAvatarText}>{user.name.trim().slice(0,1).toUpperCase()}</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setFoodScreen("cart")}
+                      style={styles.foodCartIcon}
+                      accessibilityLabel={`Abrir carrito con ${cart.reduce((sum,line)=>sum+line.quantity,0)} productos`}
+                    >
+                      <Ionicons name="bag-handle-outline" size={20} color="#fff" />
+                      {cart.length > 0 && (
+                        <Text style={styles.foodCartCount}>
+                          {cart.reduce((sum, line) => sum + line.quantity, 0)}
+                        </Text>
+                      )}
+                    </Pressable>
+                  </View>
                 </View>
-                <Text style={styles.foodGreeting}>
-                  Hola, {user.name.split(" ")[0]}.{" "}
-                  <Text style={styles.foodGreetingStrong}>¡Buen día!</Text>
-                </Text>
+                <View style={styles.foodHomeHeading}>
+                  <Text style={styles.foodHomeEyebrow}>HOLA, {user.name.split(" ")[0].toUpperCase()}</Text>
+                  <Text style={styles.foodHomeTitle}>¿Qué te gustaría pedir?</Text>
+                </View>
+                {activeFoodPromotion?<LinearGradient colors={[flashDesign.color.ink,"#33253B"]} start={{x:0,y:0}} end={{x:1,y:1}} style={styles.foodPromoBanner}>
+                  <View style={styles.foodPromoCopy}>
+                    <View style={styles.foodPromoBadge}><Ionicons name="sparkles" size={14} color={flashDesign.color.food}/><Text style={styles.foodPromoBadgeText}>{foodPromotionValue}</Text></View>
+                    <Text style={styles.foodPromoTitle}>{activeFoodPromotion.title}</Text>
+                    <Text style={styles.foodPromoDescription} numberOfLines={2}>{activeFoodPromotion.description}</Text>
+                    <Pressable style={styles.foodPromoAction} onPress={()=>{if(activeFoodPromotion.code)setFoodPromotionCode(activeFoodPromotion.code);setFoodScreen(cart.length?"cart":"search");}}>
+                      <Text style={styles.foodPromoActionText}>{cart.length?"Ver carrito":"Explorar opciones"}</Text>
+                      <Ionicons name="arrow-forward" size={16} color={flashDesign.color.ink}/>
+                    </Pressable>
+                  </View>
+                  <View style={styles.foodPromoArt}><Ionicons name="fast-food" size={45} color="#fff"/><View style={styles.foodPromoArtDot}/></View>
+                </LinearGradient>:null}
                 <Pressable
                   onPress={() => setFoodScreen("search")}
                   style={styles.foodSearchButton}
                 >
-                  <Ionicons name="search" size={18} color="#9a979d" />
+                  <Ionicons name="search" size={20} color={flashDesign.color.inkSoft} />
                   <Text style={styles.foodSearchPlaceholder}>
-                    Buscar platos o restaurantes
+                    Buscar platos, tiendas o restaurantes
                   </Text>
+                  <View style={styles.foodSearchFilter}><Ionicons name="options-outline" size={18} color="#fff"/></View>
                 </Pressable>
                 <View style={styles.foodSectionHeader}>
                   <Text style={styles.foodSectionTitle}>
@@ -1184,55 +1237,48 @@ function CustomerScreen({
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={styles.foodCategoryRail}
                 >
-                  {[
-                    [
-                      "Todos",
-                      "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=240",
-                    ],
-                    [
-                      "Parrilla",
-                      "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=240",
-                    ],
-                    [
-                      "Sushi",
-                      "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=240",
-                    ],
-                    [
-                      "Pizza",
-                      "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=240",
-                    ],
-                    [
-                      "Plant",
-                      "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=240",
-                    ],
-                  ].map(([category, image]) => (
+                  {foodCategories.map((category) => (
                     <Pressable
-                      key={category}
-                      onPress={() => setFoodCategory(category)}
+                      key={category.name}
+                      onPress={() => setFoodCategory(category.name)}
                       style={styles.foodCategoryItem}
+                      accessibilityState={{selected:foodCategory===category.name}}
                     >
                       <View
                         style={[
                           styles.foodCategoryArt,
-                          foodCategory === category &&
+                          foodCategory === category.name &&
                             styles.foodCategoryArtActive,
                         ]}
                       >
-                        <Image
-                          source={{ uri: image }}
-                          style={styles.foodCategoryImage}
-                        />
+                        {category.image
+                          ? <Image source={{uri:category.image}} style={styles.foodCategoryImage}/>
+                          : <Ionicons name="restaurant" size={24} color={flashDesign.color.food}/>
+                        }
                       </View>
-                      <Text style={styles.foodCategoryName}>{category}</Text>
+                      <Text style={[styles.foodCategoryName,foodCategory===category.name&&styles.foodCategoryNameActive]} numberOfLines={2}>{category.name}</Text>
                     </Pressable>
                   ))}
                 </ScrollView>
+                {favoriteRestaurants.length>0?<>
+                  <View style={styles.foodSectionHeader}>
+                    <Text style={styles.foodSectionTitle}>Tus favoritos</Text>
+                    <Text style={styles.foodSeeAll}>{favoriteRestaurants.length} guardados</Text>
+                  </View>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.foodFavoriteRail}>
+                    {favoriteRestaurants.map(restaurant=><Pressable key={restaurant.id} style={styles.foodFavoriteCard} onPress={()=>{setSelectedRestaurantId(restaurant.id);setFoodScreen("restaurant");}}>
+                      <ImageBackground source={{uri:restaurant.cover}} imageStyle={styles.foodFavoriteImageStyle} style={styles.foodFavoriteImage}><View style={styles.foodFavoriteEta}><Ionicons name="time-outline" size={13} color={flashDesign.color.ink}/><Text style={styles.foodFavoriteEtaText}>{restaurant.etaMin} min</Text></View></ImageBackground>
+                      <Text style={styles.foodFavoriteName} numberOfLines={1}>{restaurant.name}</Text>
+                      <Text style={styles.foodFavoriteMeta} numberOfLines={1}>{restaurant.cuisine}</Text>
+                    </Pressable>)}
+                  </ScrollView>
+                </>:null}
                 <View style={styles.foodSectionHeader}>
                   <Text style={styles.foodSectionTitle}>
-                    Restaurantes abiertos
+                    {foodCategory==="Todos"?"Elegidos para vos":foodCategory}
                   </Text>
                   <Text style={styles.foodSeeAll}>
-                    {openRestaurants.length} cerca ›
+                    {openRestaurants.length} abiertos
                   </Text>
                 </View>
                 {openRestaurants.map((restaurant) => (
@@ -1242,44 +1288,45 @@ function CustomerScreen({
                       setSelectedRestaurantId(restaurant.id);
                       setFoodScreen("restaurant");
                     }}
-                    style={styles.foodCard}
+                    style={styles.foodMerchantCard}
                   >
                     <ImageBackground
                       source={{ uri: restaurant.cover }}
-                      imageStyle={styles.foodCardBannerImage}
+                      imageStyle={styles.foodMerchantBannerImage}
                       style={styles.foodCardBannerLarge}
                     >
                       <View style={styles.foodCardTopline}>
                         <Text style={styles.foodCardPromo}>
                           {restaurant.badge}
                         </Text>
-                        <Pressable style={styles.foodHeart}>
+                        <Pressable disabled={favoritePendingId===restaurant.id} style={styles.foodHeart} accessibilityLabel={favoriteRestaurantIds.includes(restaurant.id)?`Quitar ${restaurant.name} de favoritos`:`Guardar ${restaurant.name} en favoritos`} accessibilityState={{checked:favoriteRestaurantIds.includes(restaurant.id),busy:favoritePendingId===restaurant.id}} onPress={(event)=>{event.stopPropagation();void toggleFavorite(restaurant.id);}}>
                           <Ionicons
-                            name="heart-outline"
-                            size={18}
-                            color="#222"
+                            name={favoriteRestaurantIds.includes(restaurant.id)?"heart":"heart-outline"}
+                            size={19}
+                            color={favoriteRestaurantIds.includes(restaurant.id)?flashDesign.color.food:flashDesign.color.ink}
                           />
                         </Pressable>
                       </View>
                     </ImageBackground>
-                    <Text style={styles.cardTitle}>{restaurant.name}</Text>
-                    <Text style={styles.cardText}>{restaurant.cuisine}</Text>
-                    <View style={styles.foodMetaRow}>
-                      <Text style={styles.foodRating}>
-                        ☆ {restaurant.rating}
-                      </Text>
-                      <Text style={styles.cardText}>
-                        🛵{" "}
-                        {restaurant.deliveryFee
-                          ? money.format(restaurant.deliveryFee)
-                          : "Gratis"}
-                      </Text>
-                      <Text style={styles.cardText}>
-                        ◷ {restaurant.etaMin} min
-                      </Text>
+                    <View style={styles.foodMerchantBody}>
+                      <View style={styles.foodMerchantTitleRow}>
+                        <View style={styles.itemCopy}>
+                          <Text style={styles.foodMerchantName} numberOfLines={1}>{restaurant.name}</Text>
+                          <Text style={styles.foodMerchantCuisine} numberOfLines={1}>{restaurant.cuisine}</Text>
+                        </View>
+                        <View style={styles.foodRatingPill}><Ionicons name="star" size={12} color="#E98A00"/><Text style={styles.foodRatingText}>{restaurant.rating.toFixed(1)}</Text></View>
+                      </View>
+                      <View style={styles.foodMetaRow}>
+                        <View style={styles.foodMetaItem}><Ionicons name="time-outline" size={15} color={flashDesign.color.inkSoft}/><Text style={styles.foodMetaText}>{restaurant.etaMin} min</Text></View>
+                        <View style={styles.foodMetaDot}/>
+                        <View style={styles.foodMetaItem}><Ionicons name="bicycle-outline" size={15} color={flashDesign.color.inkSoft}/><Text style={styles.foodMetaText}>{restaurant.deliveryFee?money.format(restaurant.deliveryFee):"Envío gratis"}</Text></View>
+                        <View style={styles.foodMetaDot}/>
+                        <Text style={styles.foodMetaText}>{restaurant.distanceKm.toFixed(1)} km</Text>
+                      </View>
                     </View>
                   </Pressable>
                 ))}
+                {openRestaurants.length===0?<View style={styles.foodEmpty}><View style={styles.foodEmptyIcon}><Ionicons name="restaurant-outline" size={30} color={flashDesign.color.food}/></View><Text style={styles.foodEmptyTitle}>No hay opciones abiertas</Text><Text style={styles.foodEmptyCopy}>Probá otra categoría o volvé a buscar cuando los comercios estén disponibles.</Text><Pressable style={styles.foodEmptyAction} onPress={()=>setFoodCategory("Todos")}><Text style={styles.foodEmptyActionText}>Ver todas</Text></Pressable></View>:null}
               </>
             )}
 
@@ -1300,22 +1347,22 @@ function CustomerScreen({
                     autoFocus
                     value={foodQuery}
                     onChangeText={setFoodQuery}
-                    placeholder="Pizza"
+                    placeholder="¿Qué querés comer?"
                     style={styles.foodSearchInput}
                   />
                 </View>
                 <Text style={styles.foodSectionTitle}>
-                  {foodQuery ? "Resultados" : "Búsquedas recientes"}
+                  {foodQuery ? "Resultados" : "Explorá el catálogo"}
                 </Text>
                 {!foodQuery && (
                   <View style={styles.choiceRow}>
-                    {["Burger", "Sandwich", "Pizza", "Sushi"].map((term) => (
+                    {foodCategories.filter(category=>category.name!=="Todos").slice(0,6).map((category) => (
                       <Pressable
-                        key={term}
-                        onPress={() => setFoodQuery(term)}
+                        key={category.name}
+                        onPress={() => setFoodQuery(category.name)}
                         style={styles.foodChip}
                       >
-                        <Text>{term}</Text>
+                        <Text style={styles.foodChipText}>{category.name}</Text>
                       </Pressable>
                     ))}
                   </View>
@@ -1590,39 +1637,6 @@ function CustomerScreen({
                 ))}
               </>
             )}
-
-            <Modal
-              transparent
-              visible={foodOfferVisible}
-              animationType="fade"
-              onRequestClose={() => setFoodOfferVisible(false)}
-            >
-              <View style={styles.foodModalBackdrop}>
-                <LinearGradient
-                  colors={["#ffd52f", "#ff720f"]}
-                  style={styles.foodOfferModal}
-                >
-                  <Pressable
-                    onPress={() => setFoodOfferVisible(false)}
-                    style={styles.foodModalClose}
-                  >
-                    <Ionicons name="close" size={20} color="#ff6a21" />
-                  </Pressable>
-                  <Ionicons name="paper-plane" size={44} color="#fff" />
-                  <Text style={styles.foodModalTitle}>Hurry Offers!</Text>
-                  <Text style={styles.foodModalCode}>#FLASH25</Text>
-                  <Text style={styles.foodModalCopy}>
-                    Obtené 25% de descuento en restaurantes seleccionados.
-                  </Text>
-                  <Pressable
-                    onPress={() => setFoodOfferVisible(false)}
-                    style={styles.foodModalAction}
-                  >
-                    <Text style={styles.foodModalActionText}>ENTENDIDO</Text>
-                  </Pressable>
-                </LinearGradient>
-              </View>
-            </Modal>
           </>
         )}
 
@@ -3748,7 +3762,7 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     backgroundColor: "#fff",
   },
-  customerScrollContent: { padding: 14, paddingBottom: 24 },
+  customerScrollContent: { padding: flashDesign.space.md, paddingBottom: flashDesign.space.xl, backgroundColor: flashDesign.color.canvas },
   header: {
     paddingHorizontal: 18,
     paddingVertical: 14,
@@ -3895,31 +3909,36 @@ const styles = StyleSheet.create({
   loginSwitchText: { color: "#7200d8", fontWeight: "800" },
   serviceNav: {
     flexDirection: "row",
-    gap: 8,
-    padding: 6,
-    borderRadius: 22,
-    backgroundColor: "#fff",
+    gap: flashDesign.space.xs,
+    padding: 5,
+    borderRadius: flashDesign.radius.surface,
+    backgroundColor: flashDesign.color.surface,
     borderWidth: 1,
-    borderColor: "#e8e5eb",
+    borderColor: flashDesign.color.line,
+    shadowColor: flashDesign.color.ink,
+    shadowOffset: {width:0,height:8},
+    shadowOpacity: .06,
+    shadowRadius: 16,
+    elevation: 2,
   },
   serviceNavItem: {
     flex: 1,
-    minHeight: 64,
-    borderRadius: 17,
+    minHeight: 62,
+    borderRadius: 19,
     alignItems: "center",
     justifyContent: "center",
     gap: 4,
   },
-  serviceNavItemActive: { backgroundColor: "#17131c" },
+  serviceNavItemActive: { backgroundColor: flashDesign.color.ink },
   serviceIconBubble: {
     width: 34,
     height: 34,
     borderRadius: 12,
-    backgroundColor: "#fff0e9",
+    backgroundColor: flashDesign.color.warningSoft,
     alignItems: "center",
     justifyContent: "center",
   },
-  serviceIconBubbleActive: { backgroundColor: "#f4511e" },
+  serviceIconBubbleActive: { backgroundColor: flashDesign.color.food },
   serviceNavText: { color: "#625b69", fontSize: 12, fontWeight: "900" },
   serviceNavTextActive: { color: "#fff" },
   foodHero: {
@@ -3933,25 +3952,31 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 2,
+    gap: flashDesign.space.sm,
+    paddingTop: 2,
   },
+  foodLocationBlock:{flex:1,minWidth:0,flexDirection:"row",alignItems:"center",gap:10},
+  foodLocationIcon:{width:flashDesign.control.touch,height:flashDesign.control.touch,borderRadius:16,alignItems:"center",justifyContent:"center",backgroundColor:flashDesign.color.warningSoft},
+  foodLocationCopy:{flex:1,minWidth:0,gap:2},
+  foodTopActions:{flexDirection:"row",alignItems:"center",gap:8},
+  foodAvatar:{width:flashDesign.control.touch,height:flashDesign.control.touch,borderRadius:17,alignItems:"center",justifyContent:"center",backgroundColor:"#EEE7FF",borderWidth:1,borderColor:"#DED0FF"},
+  foodAvatarText:{color:flashDesign.color.brandDeep,fontSize:16,fontWeight:"900"},
   foodDeliverLabel: {
-    color: "#ff6a21",
-    fontSize: 10,
+    color: flashDesign.color.foodDeep,
+    fontSize: 9,
     fontWeight: "900",
-    letterSpacing: 1,
+    letterSpacing: 1.2,
   },
   foodAddress: {
-    color: "#252128",
-    fontWeight: "800",
-    maxWidth: 260,
-    marginTop: 2,
+    color: flashDesign.color.ink,
+    fontSize:13,
+    fontWeight: "900",
   },
   foodCartIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 16,
-    backgroundColor: "#252128",
+    width: flashDesign.control.touch,
+    height: flashDesign.control.touch,
+    borderRadius: 17,
+    backgroundColor: flashDesign.color.ink,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -3962,55 +3987,81 @@ const styles = StyleSheet.create({
     minWidth: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: "#ff6a21",
+    backgroundColor: flashDesign.color.food,
     color: "#fff",
     fontSize: 10,
     textAlign: "center",
     paddingTop: 2,
     overflow: "hidden",
   },
-  foodGreeting: { color: "#555057", fontSize: 16, marginVertical: 4 },
-  foodGreetingStrong: { color: "#252128", fontWeight: "900" },
+  foodHomeHeading:{gap:3,paddingTop:6,paddingBottom:2},
+  foodHomeEyebrow:{color:flashDesign.color.foodDeep,fontSize:10,fontWeight:"900",letterSpacing:1.2},
+  foodHomeTitle:{color:flashDesign.color.ink,fontSize:flashDesign.type.display,lineHeight:35,fontWeight:"900",letterSpacing:-1},
+  foodPromoBanner:{minHeight:186,borderRadius:flashDesign.radius.surface,padding:18,overflow:"hidden",flexDirection:"row",alignItems:"stretch",shadowColor:flashDesign.color.ink,shadowOffset:{width:0,height:12},shadowOpacity:.14,shadowRadius:22,elevation:4},
+  foodPromoCopy:{flex:1,minWidth:0,alignItems:"flex-start",justifyContent:"center",gap:7,zIndex:2},
+  foodPromoBadge:{flexDirection:"row",alignItems:"center",gap:5,paddingHorizontal:9,paddingVertical:5,borderRadius:flashDesign.radius.pill,backgroundColor:"rgba(255,255,255,.12)"},
+  foodPromoBadgeText:{color:"#FFD6C2",fontSize:10,fontWeight:"900",letterSpacing:.4,textTransform:"uppercase"},
+  foodPromoTitle:{color:"#fff",fontSize:22,lineHeight:26,fontWeight:"900",letterSpacing:-.5},
+  foodPromoDescription:{color:"rgba(255,255,255,.72)",fontSize:12,lineHeight:17},
+  foodPromoAction:{minHeight:38,flexDirection:"row",alignItems:"center",gap:7,paddingHorizontal:13,borderRadius:12,backgroundColor:"#fff",marginTop:2},
+  foodPromoActionText:{color:flashDesign.color.ink,fontSize:11,fontWeight:"900"},
+  foodPromoArt:{width:90,alignItems:"center",justifyContent:"center",marginRight:-4,transform:[{rotate:"-7deg"}],borderRadius:32,backgroundColor:flashDesign.color.food},
+  foodPromoArtDot:{position:"absolute",right:-18,bottom:-20,width:58,height:58,borderRadius:29,backgroundColor:"rgba(255,255,255,.18)"},
   foodSearchButton: {
-    minHeight: 50,
-    borderRadius: 13,
-    paddingHorizontal: 14,
-    backgroundColor: "#f5f3f4",
+    minHeight: 54,
+    borderRadius: 18,
+    paddingLeft: 15,
+    paddingRight: 7,
+    backgroundColor: flashDesign.color.surface,
+    borderWidth:1,
+    borderColor:flashDesign.color.line,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
   },
-  foodSearchPlaceholder: { color: "#9a979d", flex: 1 },
+  foodSearchPlaceholder: { color: flashDesign.color.muted, flex: 1,fontSize:13 },
+  foodSearchFilter:{width:40,height:40,borderRadius:14,alignItems:"center",justifyContent:"center",backgroundColor:flashDesign.color.ink},
   foodSearchInput: { color: "#252128", flex: 1, minHeight: 46 },
   foodSectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 5,
+    marginTop: 8,
+    gap:12,
   },
-  foodSectionTitle: { color: "#252128", fontSize: 17, fontWeight: "800" },
-  foodSeeAll: { color: "#6f6971", fontSize: 12, fontWeight: "700" },
-  foodCategoryRail: { gap: 14, paddingVertical: 4 },
-  foodCategoryItem: { width: 65, alignItems: "center", gap: 7 },
+  foodSectionTitle: { color: flashDesign.color.ink, fontSize: flashDesign.type.section, fontWeight: "900",letterSpacing:-.3 },
+  foodSeeAll: { color: flashDesign.color.inkSoft, fontSize: 11, fontWeight: "800" },
+  foodCategoryRail: { gap: 10, paddingVertical: 4,paddingRight:4 },
+  foodCategoryItem: { width: 76, alignItems: "center", gap: 7 },
   foodCategoryArt: {
-    width: 58,
-    height: 58,
-    borderRadius: 21,
-    backgroundColor: "#fff3ea",
+    width: 68,
+    height: 68,
+    borderRadius: 23,
+    backgroundColor: flashDesign.color.surface,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#f6e5d8",
+    borderColor: flashDesign.color.line,
   },
   foodCategoryArtActive: {
-    borderColor: "#ff6a21",
-    borderWidth: 3,
-    shadowColor: "#ff6a21",
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
+    borderColor: flashDesign.color.food,
+    borderWidth: 2,
+    shadowColor: flashDesign.color.food,
+    shadowOpacity: 0.16,
+    shadowRadius: 10,
+    elevation:2,
   },
-  foodCategoryImage: { width: 52, height: 52, borderRadius: 18 },
-  foodCategoryName: { color: "#474148", fontSize: 11, fontWeight: "700" },
+  foodCategoryImage: { width: 60, height: 60, borderRadius: 19 },
+  foodCategoryName: { minHeight:28,color: flashDesign.color.inkSoft, fontSize: 10, lineHeight:13,fontWeight: "800",textAlign:"center" },
+  foodCategoryNameActive:{color:flashDesign.color.foodDeep,fontWeight:"900"},
+  foodFavoriteRail:{gap:12,paddingRight:4,paddingBottom:2},
+  foodFavoriteCard:{width:166,padding:7,borderRadius:19,backgroundColor:flashDesign.color.surface,borderWidth:1,borderColor:flashDesign.color.line},
+  foodFavoriteImage:{height:94,padding:7,alignItems:"flex-end"},
+  foodFavoriteImageStyle:{borderRadius:14},
+  foodFavoriteEta:{flexDirection:"row",alignItems:"center",gap:4,paddingHorizontal:7,paddingVertical:5,borderRadius:flashDesign.radius.pill,backgroundColor:"rgba(255,255,255,.94)"},
+  foodFavoriteEtaText:{color:flashDesign.color.ink,fontSize:9,fontWeight:"900"},
+  foodFavoriteName:{color:flashDesign.color.ink,fontSize:13,fontWeight:"900",marginTop:7,paddingHorizontal:2},
+  foodFavoriteMeta:{color:flashDesign.color.muted,fontSize:10,marginTop:2,paddingHorizontal:2,paddingBottom:2},
   foodOffer: {
     minHeight: 112,
     borderRadius: 22,
@@ -4064,17 +4115,24 @@ const styles = StyleSheet.create({
   foodMetaRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
-    marginTop: 3,
+    flexWrap:"wrap",
+    gap: 7,
   },
   foodRating: { color: "#ff6a21", fontWeight: "900" },
+  foodMetaItem:{flexDirection:"row",alignItems:"center",gap:4},
+  foodMetaText:{color:flashDesign.color.inkSoft,fontSize:11,fontWeight:"700"},
+  foodMetaDot:{width:3,height:3,borderRadius:2,backgroundColor:"#C3BDC7"},
   foodHeart: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: "#fff",
+    width: flashDesign.control.touch,
+    height: flashDesign.control.touch,
+    borderRadius: 18,
+    backgroundColor: "rgba(255,255,255,.96)",
     alignItems: "center",
     justifyContent: "center",
+    shadowColor:flashDesign.color.ink,
+    shadowOpacity:.12,
+    shadowRadius:10,
+    elevation:2,
   },
   foodPageHeader: {
     flexDirection: "row",
@@ -4210,10 +4268,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 14,
-    backgroundColor: "#fff",
-    borderRadius: 24,
-    padding: 20,
+    backgroundColor: flashDesign.color.surface,
+    borderRadius: flashDesign.radius.surface,
+    borderWidth:1,
+    borderColor:flashDesign.color.line,
+    padding: 24,
   },
+  foodEmptyIcon:{width:58,height:58,borderRadius:20,alignItems:"center",justifyContent:"center",backgroundColor:flashDesign.color.warningSoft},
+  foodEmptyTitle:{color:flashDesign.color.ink,fontSize:18,fontWeight:"900",textAlign:"center"},
+  foodEmptyCopy:{maxWidth:280,color:flashDesign.color.inkSoft,fontSize:12,lineHeight:18,textAlign:"center"},
+  foodEmptyAction:{minHeight:44,alignItems:"center",justifyContent:"center",paddingHorizontal:18,borderRadius:14,backgroundColor:flashDesign.color.ink},
+  foodEmptyActionText:{color:"#fff",fontSize:12,fontWeight:"900"},
   foodBottomNav: {
     flexDirection: "row",
     minHeight: 68,
@@ -4495,61 +4560,6 @@ const styles = StyleSheet.create({
   primaryButton:{minHeight:48,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:8,paddingHorizontal:15,borderRadius:15,backgroundColor:"#7c3cff"},
   primaryButtonText:{color:"#fff",fontWeight:"900"},
   disabledButton:{opacity:.45},
-  foodModalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(25,31,39,.66)",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 28,
-  },
-  foodOfferModal: {
-    width: "100%",
-    maxWidth: 330,
-    minHeight: 320,
-    borderRadius: 26,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 26,
-    gap: 13,
-    shadowColor: "#000",
-    shadowOpacity: 0.25,
-    shadowRadius: 24,
-  },
-  foodModalClose: {
-    position: "absolute",
-    top: 14,
-    right: 14,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#fff",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  foodModalTitle: { color: "#fff", fontSize: 34, fontWeight: "900" },
-  foodModalCode: {
-    color: "#fff",
-    fontSize: 20,
-    fontWeight: "900",
-    letterSpacing: 2,
-  },
-  foodModalCopy: { color: "#fff", textAlign: "center", lineHeight: 20 },
-  foodModalAction: {
-    marginTop: 8,
-    width: "100%",
-    minHeight: 48,
-    borderRadius: 13,
-    borderWidth: 2,
-    borderColor: "#fff",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  foodModalActionText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "900",
-    letterSpacing: 1,
-  },
   foodSearch: {
     minHeight: 48,
     borderRadius: 16,
@@ -4567,6 +4577,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  foodChipText:{color:flashDesign.color.inkSoft,fontSize:12,fontWeight:"800"},
   foodChipActive: { backgroundColor: "#ff6a21", borderColor: "#ff6a21" },
   foodChipTextActive: { color: "#fff" },
   foodCard: {
@@ -4577,6 +4588,13 @@ const styles = StyleSheet.create({
     borderColor: "#e8e5eb",
     gap: 6,
   },
+  foodMerchantCard:{overflow:"hidden",borderRadius:flashDesign.radius.surface,backgroundColor:flashDesign.color.surface,borderWidth:1,borderColor:flashDesign.color.line,shadowColor:flashDesign.color.ink,shadowOffset:{width:0,height:10},shadowOpacity:.08,shadowRadius:18,elevation:3},
+  foodMerchantBody:{gap:10,paddingHorizontal:14,paddingTop:13,paddingBottom:15},
+  foodMerchantTitleRow:{flexDirection:"row",alignItems:"flex-start",gap:12},
+  foodMerchantName:{color:flashDesign.color.ink,fontSize:17,fontWeight:"900",letterSpacing:-.2},
+  foodMerchantCuisine:{color:flashDesign.color.inkSoft,fontSize:11,marginTop:3},
+  foodRatingPill:{flexDirection:"row",alignItems:"center",gap:4,paddingHorizontal:8,paddingVertical:6,borderRadius:flashDesign.radius.pill,backgroundColor:"#FFF5DC"},
+  foodRatingText:{color:"#7B5800",fontSize:11,fontWeight:"900"},
   foodCardBanner: {
     height: 86,
     borderRadius: 16,
@@ -4585,12 +4603,13 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   foodCardBannerLarge: {
-    height: 155,
-    borderRadius: 16,
+    width:"100%",
+    aspectRatio: 16/9,
     backgroundColor: "#ffe1cc",
     justifyContent: "flex-start",
-    padding: 10,
+    padding: 12,
   },
+  foodMerchantBannerImage:{borderTopLeftRadius:flashDesign.radius.surface,borderTopRightRadius:flashDesign.radius.surface},
   foodCardBannerImage: { borderRadius: 16 },
   foodCardTopline: {
     flexDirection: "row",
@@ -4599,11 +4618,11 @@ const styles = StyleSheet.create({
   },
   foodCardPromo: {
     color: "#fff",
-    backgroundColor: "#f4511e",
+    backgroundColor: flashDesign.color.food,
     borderRadius: 999,
     paddingHorizontal: 10,
-    paddingVertical: 6,
-    fontSize: 11,
+    paddingVertical: 7,
+    fontSize: 10,
     fontWeight: "900",
     overflow: "hidden",
   },

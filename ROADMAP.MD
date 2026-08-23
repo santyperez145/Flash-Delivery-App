@@ -16,6 +16,16 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [x] Se preserva identidad propia Flash y se prohíbe copiar activos, textos, colores, código o marca de los kits y competidores.
 - [ ] P0 visual: materializar tokens compartidos y rediseñar el flujo completo de Comidas; luego aplicar la misma base a Actividad, Cuenta, Viajes, Envíos, Driver, Merchant y Operaciones sin retirar lógica real.
 
+## Avance 22 de agosto de 2026 — Home de Comidas profesional y real
+
+- [x] El primer sistema de tokens React Native fija identidad, colores por vertical, tipografía, espacios, radios y objetivos táctiles sin instalar otra dependencia.
+- [x] Home adopta app bar de ubicación, hero tipográfico, campaña contextual, búsqueda, categorías, favoritos y cards 16:9 con jerarquía consistente y media sin deformar.
+- [x] Campaña y código provienen de `/api/promotions`; se eliminaron el popup forzado `Hurry Offers`, `FLASH25` y las categorías/URLs de imágenes decorativas.
+- [x] Categorías, comercios, rating, ETA, fee y distancia se derivan del catálogo autoritativo. El estado sin opciones queda explícito y accionable.
+- [x] Favoritos se hidratan desde la cuenta, persisten en PostgreSQL mediante `/api/favorites/:restaurantId` y exponen busy/checked accesibles; agregar y quitar se verificó en el navegador real.
+- [x] Un smoke dedicado impide reintroducir el cupón demo, fixtures visuales o corazones sin API; TypeScript mobile permanece verde.
+- [~] Buscar, restaurante, producto, carrito y checkout conservan lógica real pero necesitan recibir el mismo rediseño antes de marcar Comidas visualmente completo.
+
 ## Auditoría 22 de agosto de 2026 — arquitectura completa de pantallas
 
 - [x] `docs/product-execution-guidelines.md` formaliza como contrato versionado los lineamientos de producto competitivo, frontend/backend real, visuales completas, guía exclusiva de Driver y publicación verificada.

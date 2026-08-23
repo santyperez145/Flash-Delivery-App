@@ -170,11 +170,14 @@ prueba física pendiente conserva `[~]`.
 
 ### P0 — coherencia del producto que ya funciona
 
-- [ ] Materializar tokens compartidos en React Native y web.
-- [ ] Rediseñar Home/Buscar/Restaurante/Producto/Carrito/Checkout de Comidas.
-- [ ] Eliminar promociones, categorías, recents, fees, ETA y estados visuales
+- [~] Materializar tokens compartidos: React Native ya usa el contrato versionado;
+  web continúa pendiente de migrar al mismo vocabulario.
+- [~] Rediseñar Home/Buscar/Restaurante/Producto/Carrito/Checkout de Comidas:
+  Home ya adoptó la nueva jerarquía; el resto continúa abierto.
+- [~] Eliminar promociones, categorías, recents, fees, ETA y estados visuales
   hardcodeados cuando exista contrato backend.
-- [ ] Consolidar cards, app bars, chips, sheets, estados y navegación.
+- [~] Consolidar cards, app bars, chips, sheets, estados y navegación: Home de
+  Comidas ya consume tokens y componentes locales; falta extraer familias comunes.
 - [ ] Completar la misma base en Actividad, Cuenta, Viajes y Envíos.
 
 ### P1 — apps operativas
@@ -204,3 +207,22 @@ Una pantalla sólo pasa a `[x]` cuando:
    los estados relevantes.
 7. Las capacidades nativas críticas se prueban en build físico antes de cerrar.
 8. Roadmap y deuda de proveedor/operación se actualizan en el mismo commit.
+
+## Registro de ejecución
+
+### 22 de agosto de 2026 — Home de Comidas P0
+
+- La campaña visible viene de `GET /api/promotions`; si no existe una campaña
+  activa de Comidas, el banner no aparece.
+- Categorías, imágenes, cantidades, comercios, ETA, costo de envío, distancia y
+  rating se derivan del catálogo. Se retiraron categorías/recents decorativos y
+  URLs externas fijadas en el componente.
+- Favoritos leen la cuenta autenticada y persisten mediante
+  `PUT /api/favorites/:restaurantId`; el control expone loading y no simula éxito.
+- El modal promocional forzado, su texto en inglés y el cupón ficticio fueron
+  eliminados. La promoción real vive en el flujo y transfiere su código al
+  checkout cuando corresponde.
+- Media 16:9, cards, app bar, ubicación, búsqueda, categorías, favoritos, empty y
+  navegación usan los primeros tokens React Native de Flash.
+- Continúan `[~]`: búsqueda avanzada, restaurante, producto, carrito y checkout
+  necesitan el mismo rediseño antes de cerrar el flujo completo.
