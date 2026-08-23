@@ -255,6 +255,8 @@ export type ShipmentClaimEvidence={id:string;fileName:string;mimeType:"image/jpe
 export type ShipmentClaim={id:string;shipmentId:string;claimType:"lost"|"damaged"|"stolen";description:string;requestedAmount:number;eligibleAmount:number;approvedAmount:number|null;status:"submitted"|"under_review"|"approved"|"rejected"|"settlement_pending"|"settled";resolutionNote:string|null;evidence:ShipmentClaimEvidence[];createdAt:string;updatedAt:string};
 export type ShipmentOptions={categories:Array<{code:NonNullable<Shipment["itemCategory"]>;name:string;handlingInstructions:string;surcharge:number;maximumWeightKg:number}>;serviceLevels:Array<{code:NonNullable<Shipment["serviceLevel"]>;name:string;transportMultiplier:number;etaMultiplier:number;maximumDistanceKm:number|null}>};
 
+export type Promotion={id:string;code?:string;title:string;description:string;service:"food"|"ride"|"shipment";discountPercent:number;kind?:"percentage"|"fixed"|"free_delivery"|"wallet_credit";value?:number;maxDiscount?:number;minSubtotal?:number;active:boolean;startsAt?:string;endsAt?:string};
+
 export type AppState = {
   users: User[];
   addresses:UserAddress[];
@@ -266,6 +268,8 @@ export type AppState = {
   rides: Ride[];
   shipments: Shipment[];
   tips?: ServiceTip[];
+  promotions?: Promotion[];
+  favoriteRestaurantIds?: string[];
   metrics: {
     activeOrders: number;
     activeRides: number;
