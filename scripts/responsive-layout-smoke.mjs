@@ -1,14 +1,17 @@
 import fs from "node:fs";
 
 const mobile = fs.readFileSync("apps/mobile/App.tsx", "utf8");
+const webApp = fs.readFileSync("src/App.tsx", "utf8");
 const mobilePackage = JSON.parse(
   fs.readFileSync("apps/mobile/package.json", "utf8"),
 );
+const rootPackage = JSON.parse(fs.readFileSync("package.json", "utf8"));
 const desktop = fs.readFileSync("src/styles.css", "utf8");
 const adaptive = fs.readFileSync("src/adaptive.css", "utf8");
 const entry = fs.readFileSync("src/main.tsx", "utf8");
 const guidelines = fs.readFileSync("docs/ui-layout-guidelines.md", "utf8");
 const agents = fs.readFileSync("AGENTS.md", "utf8");
+const browserSmoke = fs.readFileSync("scripts/responsive-browser-smoke.mjs", "utf8");
 
 function assert(condition, label) {
   if (!condition) throw new Error(`failed: ${label}`);
@@ -72,6 +75,7 @@ assert(
 
 assert(
   entry.includes('import "./adaptive.css"') &&
+    webApp.match(/window\.matchMedia\("\(min-width: 620px\)"\)/g)?.length === 2 &&
     adaptive.includes("@media (max-width: 900px)") &&
     adaptive.includes("@media (max-width: 620px)") &&
     adaptive.includes(".admin-nav::-webkit-scrollbar") &&
@@ -87,4 +91,14 @@ assert(
     guidelines.includes("Operaciones") &&
     agents.includes("docs/ui-layout-guidelines.md"),
   "the responsive contract is documented and mandatory for future deliveries",
+);
+
+assert(
+  rootPackage.scripts?.["test:responsive-browser"] ===
+    "node scripts/responsive-browser-smoke.mjs" &&
+    ["320, height: 568", "390, height: 844", "768, height: 1024", "1440, height: 900"].every(
+      (viewport) => browserSmoke.includes(viewport),
+    ) &&
+    browserSmoke.includes("assertNoPageOverflow"),
+  "a real Chromium matrix guards compact, medium and wide compositions",
 );

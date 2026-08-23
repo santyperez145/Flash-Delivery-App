@@ -24,6 +24,9 @@ y los Figma rectores continúan determinando apariencia, jerarquía y proporció
 - [Expo safe-area-context](https://docs.expo.dev/versions/latest/sdk/safe-area-context/):
   proveedor raíz y medición nativa para notch, barras del sistema y gestos en
   Android, iOS y web.
+- [Playwright — Emulation](https://playwright.dev/docs/emulation): viewports y
+  dispositivos reproducibles para atravesar los mismos cortes sin depender del
+  tamaño de la ventana del desarrollador.
 
 Flash adopta patrones y estándares, no activos, textos, colores ni identidad de
 terceros.
@@ -105,8 +108,19 @@ Una ventana redimensionable debe poder atravesarlos sin recargar ni perder estad
 
 - `npm run test:responsive-layout` protege safe areas, viewport dinámico,
   breakpoints, barras y límites de sheets.
+- `npm run test:responsive-browser` recorre Chromium real en 320×568, 390×844,
+  768×1024, 1024×768 y 1440×900; valida acceso, overflow horizontal, destinos
+  mobile, cambio compact/tablet/desktop, navegación sticky y targets mínimos.
+- Driver y Merchant mobile se ensayan con `FLASH_MOBILE_VARIANT=driver` o
+  `merchant` y `FLASH_SKIP_DESKTOP=1`; cada ejecución debe apuntar a una variante
+  Expo iniciada con el mismo valor y `--clear`.
 - `npm run mobile:typecheck` y `npm run build` deben quedar verdes.
 - Inspección real mínima: 320×568, 390×844, 768×1024, 1024×768 y 1440×900.
 - En cambios de mapa, teclado, cámara, firma o navegación: build Android/iOS y
   prueba física antes de marcar el ítem nativo como completo.
 
+Los screenshots dorados no reemplazan estas aserciones geométricas: Playwright
+advierte que el render puede variar por sistema operativo, navegador, hardware y
+modo headless. Las capturas se guardan como `qa-responsive-*.png` al fallar para
+diagnóstico; una futura comparación pixel a pixel deberá ejecutarse en una imagen
+CI fija y versionada.

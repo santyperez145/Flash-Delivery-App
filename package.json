@@ -101,6 +101,7 @@
     "test:web-ride-home": "node scripts/web-ride-home-ui-smoke.mjs",
     "test:web-tracking-maps": "node scripts/web-tracking-map-ui-smoke.mjs",
     "test:responsive-layout": "node scripts/responsive-layout-smoke.mjs",
+    "test:responsive-browser": "node scripts/responsive-browser-smoke.mjs",
     "test:openapi-contract": "node scripts/openapi-contract-smoke.mjs",
     "test:graceful-shutdown": "node scripts/graceful-shutdown-smoke.mjs",
     "test:idempotency-prune": "node scripts/idempotency-prune-smoke.mjs"
@@ -141,6 +142,7 @@
     "@types/react-dom": "^19.1.7",
     "@vitejs/plugin-react": "^5.0.0",
     "playwright": "^1.62.1",
+    "terser": "^5.50.0",
     "typescript": "^5.9.2",
     "vite": "^7.1.2",
     "yaml": "^2.9.0"

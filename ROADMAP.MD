@@ -24,7 +24,9 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [x] Customer, Driver y Merchant comparten `SafeAreaProvider` real y un viewport mobile/web acotado; notch, barras del sistema y home indicator dejan de depender de padding supuesto.
 - [x] Tracking, incidencias, personalización, firma y comanda limitan ancho; hechos, formularios, métricas y acciones permiten wrap en pantallas compactas.
 - [x] Operaciones y Negocios cambian sidebar por navegación superior desplazable bajo 900 px; los grids de alta densidad colapsan antes de provocar scroll horizontal.
-- [~] Composición wide y viewports acotados verificados en navegador; la regresión protege reglas compact/medium/expanded, pero la matriz visual 320/390/768 y safe areas, teclado, orientación y Dynamic Type continúan abiertos hasta navegador redimensionable y prueba física Android/iOS.
+- [x] Matriz Chromium reproducible verde en 320×568, 390×844, 768×1024, 1024×768 y 1440×900 para Customer mobile, Driver, Flash Negocios, comercio desktop y Operaciones; valida acceso, overflow, destinos, targets y cambio de composición.
+- [x] El portal desktop se conserva desde 620 px para activar su composición tablet; 320/390 usa el workspace táctil y el acceso Expo ya no desborda por su decoración absoluta.
+- [~] Safe areas, teclado, orientación y Dynamic Type continúan abiertos hasta prueba física Android/iOS; no se infieren desde la matriz Chromium.
 
 ## Avance 22 de agosto de 2026 — ganancias contables de Flash Driver
 
@@ -249,7 +251,7 @@ Decisión competitiva: se adopta una bandeja transaccional persistente y prefere
 #### Fase 1 — core productivo
 
 - [~] Monolito modular por repositorios; falta migrar Express y frontend principal a TypeScript modular.
-- [~] Bundle web con React e iconos en chunks cacheables y presupuesto CI: entry propio reducido de 718 KiB a 327 KiB; falta extraer Customer, Negocios y Operaciones del `App.tsx` monolítico y medir Core Web Vitals con tráfico real.
+- [~] Bundle web con React e iconos cacheables, tracking público diferido y minificación productiva Terser: entry propio 457,2 KiB y carga inicial 845,8 KiB bajo presupuestos CI de 560/850 KiB. Falta extraer Customer, Negocios y Operaciones del `App.tsx` monolítico y medir Core Web Vitals con tráfico real.
 - [x] Entrega web productiva con gzip dinámico, assets versionados inmutables por un año, HTML revalidable y SSE excluido de compresión para evitar buffering; contrato HTTP bloqueante en CI.
 - [x] CSP activa por defecto: scripts same-origin, sin `unsafe-eval`, objetos/iframes bloqueados y allowlist explícita para API, mapas, imágenes, workers y estilos necesarios; contrato bloqueante sobre el HTML real.
 - [x] Viajes exige cotización JWT vigente en PostgreSQL igual que comida/envíos; desktop consume opciones firmadas, invalida tarifa al cambiar ruta/categoría y bloquea confirmación sin recotizar. El endpoint legacy también firma su respuesta.
