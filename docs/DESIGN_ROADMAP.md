@@ -122,7 +122,8 @@ prueba física pendiente conserva `[~]`.
   coincidencias y fallo recuperable; historial todavía no se presenta sin persistencia.
 - [~] Restaurante: hero 16:9, información, disponibilidad por sucursal,
   categorías de menú, producto, favoritos y carrito persistente.
-- [~] Producto: detalle, modificadores, alérgenos, nota, stock y límites.
+- [~] Producto: detalle, modificadores, alérgenos, nota, stock y límites están
+  integrados; falta teclado/Dynamic Type en build físico.
 - [~] Carrito/checkout: líneas, edición, dirección geocodificada, pago tokenizado,
   cupón real, quote firmada, caducidad, total y confirmación. Diseño y contratos
   están integrados; falta ensayo físico de teclado/safe areas para cerrar.
@@ -262,3 +263,18 @@ Una pantalla sólo pasa a `[x]` cuando:
   evitar mutar datos de prueba sin necesidad.
 - Continúan pendientes para cerrar `[x]`: teclado, safe areas y caducidad en build
   físico; personalización de producto recibe el próximo tramo visual.
+
+### 22 de agosto de 2026 — Personalización y post-compra P0
+
+- La hoja de producto presenta imagen, descripción, precio base, dieta,
+  alérgenos, grupos opcionales/obligatorios, mínimos/máximos y disponibilidad
+  desde catálogo, con una única tarea y CTA dentro del área segura.
+- Seleccionar modificadores actualiza contador y total con los mismos precios que
+  `addItem`; alcanzar el máximo bloquea opciones adicionales y un mínimo faltante
+  bloquea agregar. La nota expone límite 500 y contador.
+- La prueba visual confirmó que Cheddar extra cambia `0/4` a `1/4` y el total de
+  `$ 6.500` a `$ 7.050`, luego cerró la hoja sin mutar el carrito.
+- Confirmación y pedidos activos usan estado traducido, ETA, destino, total,
+  compartir, tracking y cancelación real; se retiró el status técnico crudo.
+- Quedan `[~]` hasta prueba física de teclado, scroll de sheet, Dynamic Type y
+  creación controlada de un pedido completo en build firmado.

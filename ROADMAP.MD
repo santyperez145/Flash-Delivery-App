@@ -46,6 +46,15 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [x] Navegador real abrió una quote de 8,29 km / 46 min y mantuvo separado el ETA de catálogo de 22 min; no se confirmó la compra de prueba.
 - [~] Prueba física de teclado/safe areas/caducidad y rediseño de personalización siguen abiertos antes de declarar completo el flujo nativo de Comidas.
 
+## Avance 22 de agosto de 2026 — Personalización y post-compra
+
+- [x] La sheet de producto muestra imagen, descripción, precio, dieta, alérgenos, modificadores, obligatoriedad, mínimos/máximos, nota y total desde datos reales.
+- [x] El CTA permanece dentro del área segura, refleja el total base + modificadores y se bloquea si falta una selección obligatoria; alcanzar el máximo bloquea opciones adicionales.
+- [x] Browser real verificó el cambio `0/4 → 1/4` y `$ 6.500 → $ 7.050` al elegir Cheddar extra; la hoja se cerró sin agregar la prueba al carrito.
+- [x] Confirmación y pedidos en curso usan labels de estado para cliente, ETA, destino, total, compartir, tracking y cancelación; ya no muestran el enum técnico del backend.
+- [x] El smoke visual protege límites, alérgenos, contador de nota, total de modificadores y traducción de estado.
+- [~] Teclado, scroll del sheet, Dynamic Type y una compra end-to-end en build físico siguen pendientes; no se declara completo sólo por el render web.
+
 ## Auditoría 22 de agosto de 2026 — arquitectura completa de pantallas
 
 - [x] `docs/product-execution-guidelines.md` formaliza como contrato versionado los lineamientos de producto competitivo, frontend/backend real, visuales completas, guía exclusiva de Driver y publicación verificada.

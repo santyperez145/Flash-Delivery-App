@@ -860,6 +860,9 @@ function CustomerScreen({
   const foodMenuCategories=useMemo(()=>["Todos",...Array.from(new Set((selectedRestaurant?.menu||[]).map(item=>item.category?.trim()||"Otros")))],[selectedRestaurant]);
   useEffect(()=>setFoodMenuCategory("Todos"),[selectedRestaurantId]);
   const visibleFoodMenuItems=(selectedRestaurant?.menu||[]).filter(item=>(foodMenuCategory==="Todos"||(item.category?.trim()||"Otros")===foodMenuCategory)&&(!dietaryPreferences.hideIncompatible||itemMatchesDiet(item)));
+  const customizingModifierTotal=(customizingItem?.modifierGroups||[]).flatMap(group=>group.modifiers).filter(modifier=>customizingExtras.includes(modifier.id)).reduce((sum,modifier)=>sum+modifier.price,0);
+  const customizingTotal=(customizingItem?.price||0)+customizingModifierTotal;
+  const customizingSelectionValid=!customizingItem?.modifierGroups?.some(group=>customizingExtras.filter(id=>group.modifiers.some(modifier=>modifier.id===id)).length<group.min);
 
   const changeCartQuantity = (lineId: string, delta: number) => {
     setCart((current) =>
@@ -1476,7 +1479,31 @@ function CustomerScreen({
                     </Text>
                   </Pressable>
                 )}
-                <Modal visible={Boolean(customizingItem&&customizingRestaurant)} transparent animationType="slide" onRequestClose={()=>setCustomizingItem(null)}><View style={styles.productCustomizerBackdrop}><View style={styles.productCustomizerSheet}><View style={styles.addressBookHeading}><View><Text style={styles.foodRestaurantTitle}>{customizingItem?.name}</Text><Text style={styles.cardText}>Personalizá tu pedido</Text></View><Pressable style={styles.foodBack} onPress={()=>setCustomizingItem(null)}><Ionicons name="close" size={21} color="#222"/></Pressable></View><ScrollView contentContainerStyle={styles.productCustomizerContent}>{Boolean(customizingItem?.dietaryLabels?.length)&&<View style={styles.dietaryBadgeRow}>{customizingItem?.dietaryLabels?.map(label=><View style={styles.dietaryBadge} key={label.code}><Ionicons name="leaf-outline" size={14} color="#087a50"/><Text style={styles.dietaryBadgeText}>{label.name}</Text></View>)}</View>}{Boolean(customizingItem?.allergens?.length)&&<View style={styles.allergenWarning}><Ionicons name="warning-outline" size={20} color="#9a4b00"/><View><Text style={styles.allergenWarningTitle}>Información de alérgenos</Text><Text style={styles.allergenWarningText}>{customizingItem?.allergens?.map(entry=>`${entry.presence==="contains"?"Contiene":"Puede contener"} ${entry.name.toLowerCase()}`).join(" · ")}</Text></View></View>}{customizingItem?.modifierGroups?.map(group=>{const selected=customizingExtras.filter(id=>group.modifiers.some(modifier=>modifier.id===id));return <View key={group.id} style={styles.foodCard}><View style={styles.addressBookHeading}><View><Text style={styles.sectionTitle}>{group.name}</Text><Text style={styles.cardText}>{group.required?"Obligatorio":"Opcional"} · elegí {group.min}–{group.max}</Text></View><Text style={styles.modifierCounter}>{selected.length}/{group.max}</Text></View>{group.modifiers.filter(modifier=>modifier.available).map(modifier=>{const checked=customizingExtras.includes(modifier.id);return <Pressable key={modifier.id} style={styles.modifierRow} onPress={()=>setCustomizingExtras(current=>checked?current.filter(id=>id!==modifier.id):selected.length>=group.max?current:[...current,modifier.id])}><Ionicons name={checked?"checkmark-circle":"ellipse-outline"} size={22} color={checked?"#ff6a21":"#aaa"}/><Text style={[styles.sectionTitle,{flex:1}]}>{modifier.name}</Text><Text style={styles.foodProductPrice}>{modifier.price?`+ ${money.format(modifier.price)}`:"Incluido"}</Text></Pressable>})}</View>})}<Text style={styles.foodSectionTitle}>Indicaciones para cocina</Text><TextInput value={customizingNote} onChangeText={setCustomizingNote} maxLength={500} multiline placeholder="Ej. sin sal, cortar por la mitad" style={[styles.input,styles.productNote]}/></ScrollView><ActionButton label="Agregar al carrito" disabled={busy||Boolean(customizingItem?.modifierGroups?.some(group=>customizingExtras.filter(id=>group.modifiers.some(modifier=>modifier.id===id)).length<group.min))} onPress={()=>{if(customizingRestaurant&&customizingItem)addItem(customizingRestaurant,customizingItem,customizingExtras,customizingNote);setCustomizingItem(null);}}/></View></View></Modal>
+                <Modal visible={Boolean(customizingItem&&customizingRestaurant)} transparent animationType="slide" onRequestClose={()=>setCustomizingItem(null)}>
+                  <View style={styles.productCustomizerBackdrop}>
+                    <View style={styles.productCustomizerSheet}>
+                      <View style={styles.productCustomizerHandle}/>
+                      <View style={styles.productCustomizerHeader}>
+                        <View style={styles.itemCopy}><Text style={styles.productCustomizerEyebrow}>PERSONALIZAR</Text><Text style={styles.productCustomizerTitle}>{customizingItem?.name}</Text><Text style={styles.productCustomizerRestaurant}>{customizingRestaurant?.name}</Text></View>
+                        <Pressable style={styles.foodBack} accessibilityLabel="Cerrar personalización" onPress={()=>setCustomizingItem(null)}><Ionicons name="close" size={21} color={flashDesign.color.ink}/></Pressable>
+                      </View>
+                      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.productCustomizerContent}>
+                        <View style={styles.productCustomizerSummary}>
+                          {customizingRestaurant?<Image source={{uri:customizingRestaurant.image||customizingRestaurant.cover}} style={styles.productCustomizerImage}/>:null}
+                          <View style={styles.itemCopy}><Text style={styles.productCustomizerSummaryPrice}>{money.format(customizingItem?.price||0)}</Text><Text style={styles.productCustomizerSummaryDescription} numberOfLines={3}>{customizingItem?.description?.trim()||customizingItem?.category||"Información del producto no declarada"}</Text></View>
+                        </View>
+                        {Boolean(customizingItem?.dietaryLabels?.length)?<View style={styles.dietaryBadgeRow}>{customizingItem?.dietaryLabels?.map(label=><View style={styles.dietaryBadge} key={label.code}><Ionicons name="leaf-outline" size={14} color={flashDesign.color.shipment}/><Text style={styles.dietaryBadgeText}>{label.name}</Text></View>)}</View>:null}
+                        {Boolean(customizingItem?.allergens?.length)?<View style={styles.allergenWarning}><View style={styles.productCustomizerWarningIcon}><Ionicons name="warning-outline" size={19} color="#9A4B00"/></View><View style={styles.itemCopy}><Text style={styles.allergenWarningTitle}>Información de alérgenos</Text><Text style={styles.allergenWarningText}>{customizingItem?.allergens?.map(entry=>`${entry.presence==="contains"?"Contiene":"Puede contener"} ${entry.name.toLowerCase()}`).join(" · ")}</Text></View></View>:null}
+                        {customizingItem?.modifierGroups?.map(group=>{const selected=customizingExtras.filter(id=>group.modifiers.some(modifier=>modifier.id===id));return <View key={group.id} style={styles.foodCustomizerGroup}>
+                          <View style={styles.foodCustomizerGroupHeader}><View style={styles.itemCopy}><View style={styles.foodCustomizerGroupTitleRow}><Text style={styles.foodCustomizerGroupTitle}>{group.name}</Text><Text style={[styles.foodCustomizerRequirement,group.required&&styles.foodCustomizerRequirementRequired]}>{group.required?"OBLIGATORIO":"OPCIONAL"}</Text></View><Text style={styles.foodCustomizerGroupMeta}>Elegí entre {group.min} y {group.max}</Text></View><Text style={styles.modifierCounter}>{selected.length}/{group.max}</Text></View>
+                          {group.modifiers.filter(modifier=>modifier.available).map(modifier=>{const checked=customizingExtras.includes(modifier.id),blocked=!checked&&selected.length>=group.max;return <Pressable key={modifier.id} disabled={blocked} style={[styles.modifierRow,checked&&styles.modifierRowSelected,blocked&&styles.modifierRowBlocked]} onPress={()=>setCustomizingExtras(current=>checked?current.filter(id=>id!==modifier.id):[...current,modifier.id])} accessibilityState={{checked,disabled:blocked}}><View style={[styles.modifierControl,checked&&styles.modifierControlSelected]}>{checked?<Ionicons name="checkmark" size={15} color="#fff"/>:null}</View><Text style={styles.modifierName}>{modifier.name}</Text><Text style={styles.modifierPrice}>{modifier.price?`+ ${money.format(modifier.price)}`:"Incluido"}</Text></Pressable>})}
+                        </View>})}
+                        <View style={styles.foodCustomizerNoteSection}><View style={styles.foodCustomizerNoteHeading}><View><Text style={styles.foodCustomizerGroupTitle}>Indicaciones para cocina</Text><Text style={styles.foodCustomizerGroupMeta}>Opcional · máximo 500 caracteres</Text></View><Text style={styles.foodCustomizerNoteCount}>{customizingNote.length}/500</Text></View><TextInput value={customizingNote} onChangeText={setCustomizingNote} maxLength={500} multiline placeholder="Ej. sin sal, cortar por la mitad" placeholderTextColor={flashDesign.color.muted} style={styles.productNote}/></View>
+                      </ScrollView>
+                      <Pressable disabled={busy||!customizingSelectionValid} style={[styles.productCustomizerAction,(busy||!customizingSelectionValid)&&styles.disabledButton]} onPress={()=>{if(customizingRestaurant&&customizingItem)addItem(customizingRestaurant,customizingItem,customizingExtras,customizingNote);setCustomizingItem(null);}}><View style={styles.productCustomizerActionCount}><Text style={styles.productCustomizerActionCountText}>1</Text></View><Text style={styles.productCustomizerActionText}>{busy?"Agregando…":"Agregar al carrito"}</Text><Text style={styles.productCustomizerActionPrice}>{money.format(customizingTotal)}</Text></Pressable>
+                    </View>
+                  </View>
+                </Modal>
               </>
             )}
 
@@ -1575,50 +1602,20 @@ function CustomerScreen({
 
             {foodScreen === "orders" && (
               <>
-                {lastCreatedOrder&&<View style={styles.orderConfirmationCard}><View style={styles.orderConfirmationIcon}><Ionicons name="checkmark" size={30} color="#fff"/></View><Text style={styles.orderConfirmationEyebrow}>PEDIDO CONFIRMADO</Text><Text style={styles.foodRestaurantTitle}>El comercio ya lo recibió</Text><Text style={styles.cardText}>Pedido {lastCreatedOrder.id} · entrega estimada en {lastCreatedOrder.etaMin} min.</Text><Text style={styles.totalText}>{money.format(lastCreatedOrder.total)}</Text><Pressable style={styles.orderConfirmationAction} onPress={()=>{setLastCreatedOrder(null);setSharedView("activity");}}><Text style={styles.orderConfirmationActionText}>Seguir en Actividad</Text><Ionicons name="arrow-forward" size={18} color="#fff"/></Pressable></View>}
-                <Text style={styles.foodRestaurantTitle}>Tus pedidos</Text>
+                {lastCreatedOrder?<LinearGradient colors={["#FFF4E9","#FFE7D6"]} style={styles.orderConfirmationCard}><View style={styles.orderConfirmationIcon}><Ionicons name="checkmark" size={29} color="#fff"/></View><Text style={styles.orderConfirmationEyebrow}>PEDIDO CONFIRMADO</Text><Text style={styles.orderConfirmationTitle}>El comercio ya lo recibió</Text><Text style={styles.orderConfirmationCopy}>Pedido {lastCreatedOrder.id} · entrega estimada en {lastCreatedOrder.etaMin} min.</Text><Text style={styles.orderConfirmationTotal}>{money.format(lastCreatedOrder.total)}</Text><Pressable style={styles.orderConfirmationAction} onPress={()=>{setLastCreatedOrder(null);setSharedView("activity");}}><Text style={styles.orderConfirmationActionText}>Seguir en Actividad</Text><Ionicons name="arrow-forward" size={18} color="#fff"/></Pressable></LinearGradient>:null}
+                <View style={styles.foodPageHeader}><Pressable onPress={()=>setFoodScreen("home")} style={styles.foodBack}><Ionicons name="chevron-back" size={20} color={flashDesign.color.ink}/></Pressable><View style={styles.foodPageHeaderCopy}><Text style={styles.foodPageTitle}>Tus pedidos</Text><Text style={styles.foodPageSubtitle}>Estado y próxima acción en tiempo real</Text></View></View>
+                <View style={styles.foodSectionHeader}><Text style={styles.foodSectionTitle}>En curso</Text><Text style={styles.foodSeeAll}>{activeOrders.length} activos</Text></View>
                 {activeOrders.length === 0 && (
                   <View style={styles.foodEmpty}>
-                    <Ionicons
-                      name="receipt-outline"
-                      size={54}
-                      color="#ff6a21"
-                    />
-                    <Text style={styles.cardText}>
-                      No hay pedidos en curso.
-                    </Text>
+                    <View style={styles.foodEmptyIcon}><Ionicons name="receipt-outline" size={30} color={flashDesign.color.food}/></View><Text style={styles.foodEmptyTitle}>No hay pedidos en curso</Text><Text style={styles.foodEmptyCopy}>Cuando confirmes una compra, su preparación y entrega aparecerán acá y en Actividad.</Text><Pressable style={styles.foodEmptyAction} onPress={()=>setFoodScreen("home")}><Text style={styles.foodEmptyActionText}>Explorar restaurantes</Text></Pressable>
                   </View>
                 )}
                 {activeOrders.map((order) => (
-                  <View key={order.id} style={styles.foodCard}>
-                    <Text style={styles.cardTitle}>{order.status}</Text>
-                    <Text style={styles.cardText}>
-                      {order.deliveryAddress} · {money.format(order.total)}
-                    </Text>
-                    <Pressable
-                      style={styles.shareAction}
-                      onPress={() =>
-                        shareStatus(
-                          "Pedido Flash",
-                          `Mi pedido Flash está ${order.status}. Entrega en ${order.deliveryAddress}.`,
-                        )
-                      }
-                    >
-                      <Ionicons
-                        name="share-social-outline"
-                        size={18}
-                        color="#ff6a21"
-                      />
-                      <Text style={styles.shareActionText}>
-                        Compartir estado
-                      </Text>
-                    </Pressable>
-                    <Pressable style={styles.reorderButton} onPress={()=>setTrackingOrderId(order.id)}><Ionicons name="map-outline" size={18} color="#fff"/><Text style={styles.reorderButtonText}>Ver seguimiento</Text></Pressable>
-                    <ActionButton
-                      label="Cancelar pedido"
-                      disabled={busy}
-                      onPress={() => cancelService("order", order.id)}
-                    />
+                  <View key={order.id} style={styles.foodActiveOrderCard}>
+                    <View style={styles.foodActiveOrderHeader}><View style={styles.foodActiveOrderIcon}><Ionicons name="restaurant" size={19} color="#fff"/></View><View style={styles.itemCopy}><Text style={styles.foodActiveOrderEyebrow}>PEDIDO {order.id}</Text><Text style={styles.foodActiveOrderStatus}>{mobileOrderStatusLabel[order.status]}</Text></View><Text style={styles.foodActiveOrderEta}>{order.etaMin} min</Text></View>
+                    <View style={styles.foodActiveOrderDestination}><Ionicons name="location-outline" size={17} color={flashDesign.color.food}/><Text style={styles.foodActiveOrderDestinationText} numberOfLines={2}>{order.deliveryAddress}</Text><Text style={styles.foodActiveOrderTotal}>{money.format(order.total)}</Text></View>
+                    <View style={styles.foodActiveOrderActions}><Pressable style={styles.foodActiveOrderSecondary} onPress={()=>shareStatus("Pedido Flash",`Mi pedido Flash está ${mobileOrderStatusLabel[order.status].toLowerCase()}. Entrega en ${order.deliveryAddress}.`)}><Ionicons name="share-social-outline" size={17} color={flashDesign.color.food}/><Text style={styles.foodActiveOrderSecondaryText}>Compartir</Text></Pressable><Pressable style={styles.foodActiveOrderPrimary} onPress={()=>setTrackingOrderId(order.id)}><Ionicons name="map-outline" size={17} color="#fff"/><Text style={styles.foodActiveOrderPrimaryText}>Ver seguimiento</Text></Pressable></View>
+                    {!['delivered','cancelled'].includes(order.status)?<Pressable disabled={busy} style={styles.foodActiveOrderCancel} onPress={()=>cancelService("order",order.id)}><Text style={styles.foodActiveOrderCancelText}>Cancelar pedido</Text><Ionicons name="chevron-forward" size={16} color={flashDesign.color.danger}/></Pressable>:null}
                   </View>
                 ))}
               </>
@@ -4561,9 +4558,26 @@ const styles = StyleSheet.create({
   deliveryProofIcon:{width:40,height:40,borderRadius:13,alignItems:"center",justifyContent:"center",backgroundColor:"#7c3cff"},
   deliveryEvidenceBadge:{flexDirection:"row",alignItems:"center",gap:7,alignSelf:"flex-start",paddingHorizontal:10,paddingVertical:7,borderRadius:999,backgroundColor:"#e8f7f0"},
   deliveryEvidenceBadgeText:{fontSize:12,fontWeight:"800",color:"#087a50"},
-  productCustomizerBackdrop:{flex:1,alignItems:"center",justifyContent:"flex-end",backgroundColor:"rgba(20,16,24,.48)"},
-  productCustomizerSheet:{width:"100%",maxWidth:620,maxHeight:"88%",padding:18,paddingBottom:28,gap:14,borderTopLeftRadius:28,borderTopRightRadius:28,backgroundColor:"#fff"},
-  productCustomizerContent:{gap:13,paddingBottom:10},
+  productCustomizerBackdrop:{flex:1,alignItems:"center",justifyContent:"flex-end",backgroundColor:"rgba(20,16,24,.56)"},
+  productCustomizerSheet:{width:"100%",maxWidth:620,maxHeight:"92%",paddingHorizontal:18,paddingTop:9,paddingBottom:28,gap:14,borderTopLeftRadius:flashDesign.radius.sheet,borderTopRightRadius:flashDesign.radius.sheet,backgroundColor:flashDesign.color.canvas},
+  productCustomizerHandle:{alignSelf:"center",width:42,height:5,borderRadius:3,backgroundColor:"#D5CFD8"},
+  productCustomizerHeader:{flexDirection:"row",alignItems:"flex-start",gap:12},
+  productCustomizerEyebrow:{color:flashDesign.color.foodDeep,fontSize:9,fontWeight:"900",letterSpacing:1.2},
+  productCustomizerTitle:{color:flashDesign.color.ink,fontSize:22,lineHeight:27,fontWeight:"900",letterSpacing:-.4,marginTop:2},
+  productCustomizerRestaurant:{color:flashDesign.color.inkSoft,fontSize:10,marginTop:3},
+  productCustomizerContent:{gap:13,paddingBottom:6},
+  productCustomizerSummary:{minHeight:100,flexDirection:"row",alignItems:"center",gap:13,padding:10,borderRadius:20,backgroundColor:flashDesign.color.surface,borderWidth:1,borderColor:flashDesign.color.line},
+  productCustomizerImage:{width:82,height:82,borderRadius:16},
+  productCustomizerSummaryPrice:{color:flashDesign.color.foodDeep,fontSize:17,fontWeight:"900"},
+  productCustomizerSummaryDescription:{color:flashDesign.color.inkSoft,fontSize:10,lineHeight:15,marginTop:4},
+  productCustomizerWarningIcon:{width:36,height:36,borderRadius:12,alignItems:"center",justifyContent:"center",backgroundColor:"rgba(255,255,255,.7)"},
+  foodCustomizerGroup:{overflow:"hidden",borderRadius:20,backgroundColor:flashDesign.color.surface,borderWidth:1,borderColor:flashDesign.color.line},
+  foodCustomizerGroupHeader:{minHeight:70,flexDirection:"row",alignItems:"center",gap:10,padding:13,backgroundColor:"#FBF9FC"},
+  foodCustomizerGroupTitleRow:{flexDirection:"row",alignItems:"center",gap:7,flexWrap:"wrap"},
+  foodCustomizerGroupTitle:{color:flashDesign.color.ink,fontSize:14,fontWeight:"900"},
+  foodCustomizerGroupMeta:{color:flashDesign.color.inkSoft,fontSize:9,marginTop:3},
+  foodCustomizerRequirement:{color:flashDesign.color.inkSoft,fontSize:7,fontWeight:"900",letterSpacing:.6,paddingHorizontal:6,paddingVertical:3,borderRadius:flashDesign.radius.pill,overflow:"hidden",backgroundColor:flashDesign.color.surfaceMuted},
+  foodCustomizerRequirementRequired:{color:flashDesign.color.foodDeep,backgroundColor:flashDesign.color.warningSoft},
   dietaryBadgeRow:{flexDirection:"row",flexWrap:"wrap",gap:7},
   dietaryBadge:{flexDirection:"row",alignItems:"center",gap:5,backgroundColor:"#e9f8ef",borderRadius:999,paddingHorizontal:10,paddingVertical:7},
   dietaryBadgeText:{color:"#087a50",fontSize:12,fontWeight:"800"},
@@ -4580,11 +4594,30 @@ const styles = StyleSheet.create({
   searchMatchText:{fontSize:11,color:"#8a6578",marginTop:3},
   searchMoreButton:{alignItems:"center",borderWidth:1,borderColor:"#ffb992",borderRadius:14,padding:13},
   searchMoreText:{color:"#d64c0b",fontWeight:"900"},
-  orderConfirmationCard:{alignItems:"center",gap:8,backgroundColor:"#fff7ef",borderWidth:1,borderColor:"#ffd0af",borderRadius:24,padding:22,marginBottom:10},
-  orderConfirmationIcon:{width:58,height:58,borderRadius:29,alignItems:"center",justifyContent:"center",backgroundColor:"#ff6a21",shadowColor:"#ff6a21",shadowOpacity:.25,shadowRadius:12},
-  orderConfirmationEyebrow:{fontSize:11,fontWeight:"900",letterSpacing:1.4,color:"#d34b0d"},
-  orderConfirmationAction:{width:"100%",flexDirection:"row",justifyContent:"center",alignItems:"center",gap:8,backgroundColor:"#211c24",borderRadius:14,padding:13,marginTop:6},
+  orderConfirmationCard:{alignItems:"center",gap:8,borderWidth:1,borderColor:"#FFD0AF",borderRadius:flashDesign.radius.surface,padding:22,marginBottom:4},
+  orderConfirmationIcon:{width:58,height:58,borderRadius:21,alignItems:"center",justifyContent:"center",backgroundColor:flashDesign.color.food,shadowColor:flashDesign.color.food,shadowOffset:{width:0,height:8},shadowOpacity:.24,shadowRadius:14,elevation:3},
+  orderConfirmationEyebrow:{fontSize:9,fontWeight:"900",letterSpacing:1.4,color:flashDesign.color.foodDeep,marginTop:3},
+  orderConfirmationTitle:{color:flashDesign.color.ink,fontSize:21,fontWeight:"900",textAlign:"center",letterSpacing:-.4},
+  orderConfirmationCopy:{maxWidth:290,color:flashDesign.color.inkSoft,fontSize:11,lineHeight:16,textAlign:"center"},
+  orderConfirmationTotal:{color:flashDesign.color.ink,fontSize:25,fontWeight:"900",marginVertical:3},
+  orderConfirmationAction:{width:"100%",minHeight:50,flexDirection:"row",justifyContent:"center",alignItems:"center",gap:8,backgroundColor:flashDesign.color.ink,borderRadius:16,padding:13,marginTop:6},
   orderConfirmationActionText:{color:"#fff",fontWeight:"900"},
+  foodActiveOrderCard:{gap:12,padding:14,borderRadius:flashDesign.radius.surface,backgroundColor:flashDesign.color.surface,borderWidth:1,borderColor:flashDesign.color.line,shadowColor:flashDesign.color.ink,shadowOffset:{width:0,height:9},shadowOpacity:.07,shadowRadius:16,elevation:2},
+  foodActiveOrderHeader:{flexDirection:"row",alignItems:"center",gap:10},
+  foodActiveOrderIcon:{width:42,height:42,borderRadius:14,alignItems:"center",justifyContent:"center",backgroundColor:flashDesign.color.food},
+  foodActiveOrderEyebrow:{color:flashDesign.color.muted,fontSize:8,fontWeight:"900",letterSpacing:.7},
+  foodActiveOrderStatus:{color:flashDesign.color.ink,fontSize:15,fontWeight:"900",marginTop:2},
+  foodActiveOrderEta:{color:flashDesign.color.foodDeep,fontSize:11,fontWeight:"900",paddingHorizontal:9,paddingVertical:6,borderRadius:flashDesign.radius.pill,overflow:"hidden",backgroundColor:flashDesign.color.warningSoft},
+  foodActiveOrderDestination:{minHeight:56,flexDirection:"row",alignItems:"center",gap:8,padding:10,borderRadius:15,backgroundColor:flashDesign.color.canvas},
+  foodActiveOrderDestinationText:{flex:1,color:flashDesign.color.inkSoft,fontSize:10,lineHeight:14},
+  foodActiveOrderTotal:{color:flashDesign.color.ink,fontSize:12,fontWeight:"900"},
+  foodActiveOrderActions:{flexDirection:"row",gap:8},
+  foodActiveOrderSecondary:{flex:1,minHeight:46,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:6,borderRadius:14,borderWidth:1,borderColor:"#FFD7C2",backgroundColor:flashDesign.color.warningSoft},
+  foodActiveOrderSecondaryText:{color:flashDesign.color.foodDeep,fontSize:11,fontWeight:"900"},
+  foodActiveOrderPrimary:{flex:1.3,minHeight:46,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:6,borderRadius:14,backgroundColor:flashDesign.color.ink},
+  foodActiveOrderPrimaryText:{color:"#fff",fontSize:11,fontWeight:"900"},
+  foodActiveOrderCancel:{minHeight:42,flexDirection:"row",alignItems:"center",justifyContent:"space-between",paddingHorizontal:11,borderTopWidth:1,borderTopColor:flashDesign.color.line},
+  foodActiveOrderCancelText:{color:flashDesign.color.danger,fontSize:10,fontWeight:"800"},
   reorderButton:{flexDirection:"row",alignItems:"center",justifyContent:"center",gap:7,backgroundColor:"#ff6a21",borderRadius:13,padding:12,marginTop:12},
   reorderButtonText:{color:"#fff",fontWeight:"900"},
   trackingBackdrop:{flex:1,alignItems:"center",justifyContent:"flex-end",backgroundColor:"rgba(20,15,24,.48)"},
@@ -4626,10 +4659,24 @@ const styles = StyleSheet.create({
   returnStatusCard:{flexDirection:"row",alignItems:"center",gap:8,backgroundColor:"#f2edff",borderRadius:12,padding:11,marginTop:10},
   allergenWarning:{flexDirection:"row",gap:10,alignItems:"flex-start",backgroundColor:"#fff4df",borderWidth:1,borderColor:"#ffd69a",borderRadius:14,padding:12},
   allergenWarningTitle:{fontSize:13,fontWeight:"900",color:"#7c3b00"},
-  allergenWarningText:{fontSize:12,lineHeight:18,color:"#7c4c20",paddingRight:25},
-  modifierCounter:{paddingHorizontal:9,paddingVertical:5,borderRadius:999,overflow:"hidden",backgroundColor:"#fff0e8",color:"#c94c0b",fontSize:12,fontWeight:"900"},
-  modifierRow:{minHeight:48,flexDirection:"row",alignItems:"center",gap:10,borderTopWidth:1,borderTopColor:"#eee8f0"},
-  productNote:{minHeight:86,textAlignVertical:"top"},
+  allergenWarningText:{fontSize:11,lineHeight:16,color:"#7c4c20"},
+  modifierCounter:{paddingHorizontal:9,paddingVertical:5,borderRadius:999,overflow:"hidden",backgroundColor:flashDesign.color.warningSoft,color:flashDesign.color.foodDeep,fontSize:11,fontWeight:"900"},
+  modifierRow:{minHeight:54,flexDirection:"row",alignItems:"center",gap:10,paddingHorizontal:13,borderTopWidth:1,borderTopColor:flashDesign.color.line},
+  modifierRowSelected:{backgroundColor:"#FFF9F5"},
+  modifierRowBlocked:{opacity:.42},
+  modifierControl:{width:23,height:23,borderRadius:8,alignItems:"center",justifyContent:"center",borderWidth:1.5,borderColor:"#C8C1CC",backgroundColor:flashDesign.color.surface},
+  modifierControlSelected:{backgroundColor:flashDesign.color.food,borderColor:flashDesign.color.food},
+  modifierName:{flex:1,color:flashDesign.color.ink,fontSize:12,fontWeight:"800"},
+  modifierPrice:{color:flashDesign.color.inkSoft,fontSize:10,fontWeight:"800"},
+  foodCustomizerNoteSection:{gap:10,padding:13,borderRadius:20,backgroundColor:flashDesign.color.surface,borderWidth:1,borderColor:flashDesign.color.line},
+  foodCustomizerNoteHeading:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",gap:10},
+  foodCustomizerNoteCount:{color:flashDesign.color.muted,fontSize:9,fontWeight:"800"},
+  productNote:{minHeight:92,padding:12,borderRadius:15,borderWidth:1,borderColor:flashDesign.color.line,backgroundColor:flashDesign.color.canvas,color:flashDesign.color.ink,fontSize:12,textAlignVertical:"top"},
+  productCustomizerAction:{minHeight:56,flexDirection:"row",alignItems:"center",gap:10,paddingHorizontal:10,borderRadius:18,backgroundColor:flashDesign.color.food,shadowColor:flashDesign.color.food,shadowOffset:{width:0,height:10},shadowOpacity:.22,shadowRadius:18,elevation:3},
+  productCustomizerActionCount:{width:34,height:34,borderRadius:12,alignItems:"center",justifyContent:"center",backgroundColor:"rgba(255,255,255,.18)"},
+  productCustomizerActionCountText:{color:"#fff",fontSize:12,fontWeight:"900"},
+  productCustomizerActionText:{flex:1,color:"#fff",fontSize:13,fontWeight:"900"},
+  productCustomizerActionPrice:{color:"#fff",fontSize:13,fontWeight:"900"},
   foodCheckoutHero:{minHeight:190,gap:8,padding:18,borderRadius:flashDesign.radius.surface,shadowColor:flashDesign.color.ink,shadowOffset:{width:0,height:12},shadowOpacity:.14,shadowRadius:22,elevation:4},
   foodCheckoutHeroTop:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",gap:8},
   foodCheckoutVerified:{flexDirection:"row",alignItems:"center",gap:5,paddingHorizontal:9,paddingVertical:5,borderRadius:flashDesign.radius.pill,backgroundColor:"rgba(8,122,80,.25)"},
