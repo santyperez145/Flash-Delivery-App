@@ -124,7 +124,8 @@ prueba física pendiente conserva `[~]`.
   categorías de menú, producto, favoritos y carrito persistente.
 - [~] Producto: detalle, modificadores, alérgenos, nota, stock y límites.
 - [~] Carrito/checkout: líneas, edición, dirección geocodificada, pago tokenizado,
-  cupón real, quote firmada, caducidad, total y confirmación.
+  cupón real, quote firmada, caducidad, total y confirmación. Diseño y contratos
+  están integrados; falta ensayo físico de teclado/safe areas para cerrar.
 - [~] Actividad/tracking: lista unificada, timeline, mapa, courier real, chat,
   soporte, recibo y volver a pedir.
 - [~] Cuenta: perfil, direcciones, pagos, preferencias, notificaciones, soporte,
@@ -241,4 +242,23 @@ Una pantalla sólo pasa a `[x]` cuando:
   fee, favorito persistente y carrito forman una jerarquía única.
 - Menú vacío/filtrado, agotado y add deshabilitado son estados explícitos. Sigue
   pendiente verificar disponibilidad horaria por sucursal en el detalle y
-  rediseñar personalización, carrito y checkout.
+  rediseñar personalización de producto.
+
+### 22 de agosto de 2026 — Carrito y Checkout P0
+
+- Carrito organiza comercio, líneas, cantidades, extras/notas, dirección, pago,
+  promoción y subtotal sin anticipar fees que todavía no fueron cotizados.
+- Direcciones sólo se ofrecen con coordenadas persistidas y los métodos de pago
+  muestran Wallet o identificadores enmascarados. La ausencia de cualquiera
+  bloquea continuar y lleva a Cuenta en vez de simular una selección.
+- La campaña activa puede transferir su código; cualquier edición invalida la
+  quote previa. El subtotal informa que envío, servicio y descuento se calculan
+  en el paso siguiente.
+- Checkout presenta ETA, ruta, versión, vencimiento, dirección, pago, líneas,
+  modificadores, nota, fees, descuento y total exclusivamente desde la quote
+  firmada. El CTA muestra el mismo total y bloquea una quote vencida.
+- La revisión visual abrió una quote real de 8,29 km / 46 min y verificó que no
+  se reutiliza el ETA de 22 min del card del comercio. No se creó una compra para
+  evitar mutar datos de prueba sin necesidad.
+- Continúan pendientes para cerrar `[x]`: teclado, safe areas y caducidad en build
+  físico; personalización de producto recibe el próximo tramo visual.

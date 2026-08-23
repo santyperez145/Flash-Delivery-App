@@ -20,6 +20,9 @@ assert(app.includes("aspectRatio: 16/9"), "merchant media must preserve a stable
 assert(app.includes("foodSearchCategoryRail") && app.includes("foodSearchResultCard") && app.includes("catalogSearchNonce"), "search must expose responsive catalog discovery and a real retry state");
 assert(app.includes("foodMenuCategories=useMemo") && app.includes("visibleFoodMenuItems") && !app.includes("Preparado al momento con ingredientes seleccionados."), "restaurant menu tabs and descriptions must come from catalog data");
 assert(!app.includes('<Text style={styles.foodMenuTabActive}>Popular</Text>') && app.includes("foodProductUnavailable"), "restaurant must not present decorative menu tabs and must surface real stock");
+assert(app.includes("foodCartMerchant") && app.includes("foodCartOptionSelected") && app.includes("selectedFoodAddress"), "cart must compose products, geocoded address and payment from real account state");
+assert(app.includes("foodCheckoutHero") && app.includes("foodCheckoutQuote.expiresAt") && app.includes("foodCheckoutQuote.pricingVersion"), "checkout must present signed quote expiry and pricing provenance");
+assert(app.includes("servidor vuelve a validar stock") && app.includes("foodCheckoutQuote.total"), "checkout must disclose server revalidation and use the authoritative total");
 assert(roadmap.includes("Foodu") && roadmap.includes("Definición de terminado visual"), "the visual implementation must remain governed by the design roadmap");
 
 console.log("ok - Customer Comidas usa sistema visual y datos reales");

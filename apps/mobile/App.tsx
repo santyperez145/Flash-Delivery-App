@@ -1489,79 +1489,69 @@ function CustomerScreen({
                     }
                     style={styles.foodBack}
                   >
-                    <Ionicons name="chevron-back" size={20} color="#222" />
+                    <Ionicons name="chevron-back" size={20} color={flashDesign.color.ink} />
                   </Pressable>
-                  <Text style={styles.foodPageTitle}>Mi carrito</Text>
+                  <View style={styles.foodPageHeaderCopy}><Text style={styles.foodPageTitle}>Mi carrito</Text><Text style={styles.foodPageSubtitle}>Revisá productos, entrega y pago</Text></View>
                 </View>
                 {cart.length === 0 ? (
                   <View style={styles.foodEmpty}>
-                    <Ionicons
-                      name="bag-handle-outline"
-                      size={58}
-                      color="#ff6a21"
-                    />
-                    <Text style={styles.foodSectionTitle}>
-                      Tu carrito está vacío
-                    </Text>
-                    <ActionButton
-                      label="Explorar restaurantes"
-                      disabled={busy}
-                      onPress={() => setFoodScreen("home")}
-                    />
+                    <View style={styles.foodEmptyIcon}><Ionicons name="bag-handle-outline" size={31} color={flashDesign.color.food}/></View>
+                    <Text style={styles.foodEmptyTitle}>Tu carrito está vacío</Text>
+                    <Text style={styles.foodEmptyCopy}>Explorá restaurantes abiertos y agregá productos para calcular entrega y total.</Text>
+                    <Pressable disabled={busy} style={styles.foodEmptyAction} onPress={()=>setFoodScreen("home")}><Text style={styles.foodEmptyActionText}>Explorar restaurantes</Text></Pressable>
                   </View>
                 ) : (
                   <>
-                    <Text style={styles.foodSectionTitle}>
-                      {cartRestaurant?.name}
-                    </Text>
+                    {cartRestaurant?<Pressable style={styles.foodCartMerchant} onPress={()=>{setSelectedRestaurantId(cartRestaurant.id);setFoodScreen("restaurant");}}><Image source={{uri:cartRestaurant.image||cartRestaurant.cover}} style={styles.foodCartMerchantImage}/><View style={styles.itemCopy}><Text style={styles.foodCartMerchantEyebrow}>PEDIDO EN</Text><Text style={styles.foodCartMerchantName}>{cartRestaurant.name}</Text><Text style={styles.foodCartMerchantMeta}>{cartRestaurant.etaMin} min · {cartRestaurant.distanceKm.toFixed(1)} km</Text></View><Ionicons name="chevron-forward" size={19} color={flashDesign.color.muted}/></Pressable>:null}
+                    <View style={styles.foodSectionHeader}><Text style={styles.foodSectionTitle}>Productos</Text><Text style={styles.foodSeeAll}>{cart.reduce((sum,line)=>sum+line.quantity,0)} unidades</Text></View>
                     {cart.map((line) => (
                       <View key={line.lineId} style={styles.foodCartLine}>
+                        <View style={styles.foodCartLineIcon}><Ionicons name="restaurant-outline" size={19} color={flashDesign.color.food}/></View>
                         <View style={styles.itemCopy}>
-                          <Text style={styles.itemName}>{line.name}</Text>
+                          <Text style={styles.foodCartLineName}>{line.name}</Text>
                           <Text style={styles.foodProductPrice}>
                             {money.format(line.unitPrice * line.quantity)}
                           </Text>
-                          {line.extras.length>0&&<Text style={styles.cardText}>{line.extras.length} agregado{line.extras.length===1?"":"s"}</Text>}
-                          {line.note&&<Text style={styles.cardText}>“{line.note}”</Text>}
+                          {line.extras.length>0&&<Text style={styles.foodCartLineMeta}>{line.extras.length} agregado{line.extras.length===1?"":"s"}</Text>}
+                          {line.note&&<Text style={styles.foodCartLineNote} numberOfLines={2}>“{line.note}”</Text>}
                         </View>
                         <View style={styles.foodQuantity}>
                           <Pressable
+                            accessibilityLabel={`Quitar una unidad de ${line.name}`}
+                            style={styles.foodQuantityButton}
                             onPress={() =>
                               changeCartQuantity(line.lineId, -1)
                             }
                           >
-                            <Ionicons name="remove" size={20} color="#ff6a21" />
+                            <Ionicons name="remove" size={17} color={flashDesign.color.ink} />
                           </Pressable>
-                          <Text style={styles.itemName}>{line.quantity}</Text>
+                          <Text style={styles.foodQuantityValue}>{line.quantity}</Text>
                           <Pressable
+                            accessibilityLabel={`Agregar una unidad de ${line.name}`}
+                            style={[styles.foodQuantityButton,styles.foodQuantityButtonAdd]}
                             onPress={() =>
                               changeCartQuantity(line.lineId, 1)
                             }
                           >
-                            <Ionicons name="add" size={20} color="#ff6a21" />
+                            <Ionicons name="add" size={17} color="#fff" />
                           </Pressable>
                         </View>
                       </View>
                     ))}
-                    <Text style={styles.foodSectionTitle}>
-                      Dirección de entrega
-                    </Text>
-                    {state.addresses.filter(item=>item.userId===user.id&&!item.id.startsWith("profile-")&&item.lat!==null&&item.lng!==null).map(address=><Pressable key={address.id} onPress={()=>{setDeliveryAddress(address.address);setFoodCheckoutQuote(null);}} style={[styles.paymentMethodRow,deliveryAddress===address.address&&styles.notificationUnread]}><View style={styles.savedAddressIcon}><Ionicons name={address.isDefault?"home":"location-outline"} size={18} color="#ff6a21"/></View><View style={styles.savedAddressCopy}><Text style={styles.sectionTitle}>{address.label}</Text><Text style={styles.cardText}>{address.address}</Text></View>{deliveryAddress===address.address?<Ionicons name="checkmark-circle" size={22} color="#ff6a21"/>:null}</Pressable>)}
-                    <Text style={styles.foodSectionTitle}>Método de pago</Text>
-                    {customerPaymentMethods.map(method=><Pressable key={method.id} onPress={()=>{setSelectedFoodPaymentId(method.id);setFoodCheckoutQuote(null);}} style={[styles.paymentMethodRow,selectedFoodPayment?.id===method.id&&styles.notificationUnread]}><View style={styles.savedAddressIcon}><Ionicons name={method.type==="wallet"?"wallet":"card"} size={18} color="#7c3cff"/></View><Text style={[styles.sectionTitle,{flex:1}]}>{method.label}</Text>{selectedFoodPayment?.id===method.id?<Ionicons name="checkmark-circle" size={22} color="#7c3cff"/>:null}</Pressable>)}
-                    <Text style={styles.foodSectionTitle}>Cupón</Text>
-                    <TextInput value={foodPromotionCode} onChangeText={value=>{setFoodPromotionCode(value.toUpperCase());setFoodCheckoutQuote(null);}} autoCapitalize="characters" placeholder="Código promocional (opcional)" style={styles.input}/>
-                    <View style={styles.foodTotalRow}>
-                      <Text style={styles.cardTitle}>Total productos</Text>
-                      <Text style={styles.foodRestaurantTitle}>
-                        {money.format(cartTotal)}
-                      </Text>
+                    <View style={styles.foodSectionHeader}><Text style={styles.foodSectionTitle}>Entrega</Text><Text style={styles.foodSeeAll}>Dirección verificada</Text></View>
+                    <View style={styles.foodCartOptionList}>
+                      {state.addresses.filter(item=>item.userId===user.id&&!item.id.startsWith("profile-")&&item.lat!==null&&item.lng!==null).map(address=>{const selected=deliveryAddress===address.address;return <Pressable key={address.id} onPress={()=>{setDeliveryAddress(address.address);setFoodCheckoutQuote(null);}} style={[styles.foodCartOption,selected&&styles.foodCartOptionSelected]} accessibilityState={{selected}}><View style={[styles.foodCartOptionIcon,selected&&styles.foodCartOptionIconSelected]}><Ionicons name={address.isDefault?"home":"location-outline"} size={19} color={selected?"#fff":flashDesign.color.food}/></View><View style={styles.savedAddressCopy}><View style={styles.foodCartOptionTitleRow}><Text style={styles.foodCartOptionTitle}>{address.label}</Text>{address.isDefault?<Text style={styles.foodCartDefaultBadge}>PREDETERMINADA</Text>:null}</View><Text style={styles.foodCartOptionMeta} numberOfLines={2}>{address.address}</Text></View><Ionicons name={selected?"checkmark-circle":"ellipse-outline"} size={22} color={selected?flashDesign.color.food:flashDesign.color.muted}/></Pressable>})}
+                      {!state.addresses.some(item=>item.userId===user.id&&!item.id.startsWith("profile-")&&item.lat!==null&&item.lng!==null)?<Pressable style={styles.foodCartMissingOption} onPress={()=>setSharedView("account")}><Ionicons name="location-outline" size={20} color={flashDesign.color.danger}/><View style={styles.itemCopy}><Text style={styles.foodCartOptionTitle}>Falta una dirección geocodificada</Text><Text style={styles.foodCartOptionMeta}>Agregala en Cuenta para poder cotizar la entrega.</Text></View><Ionicons name="chevron-forward" size={18} color={flashDesign.color.muted}/></Pressable>:null}
                     </View>
-                    <ActionButton
-                      label="Continuar al checkout"
-                      disabled={busy||!selectedFoodAddress||!selectedFoodPayment}
-                      onPress={openFoodCheckout}
-                    />
+                    <View style={styles.foodSectionHeader}><Text style={styles.foodSectionTitle}>Pago</Text><Text style={styles.foodSeeAll}>Token seguro</Text></View>
+                    <View style={styles.foodCartOptionList}>
+                      {customerPaymentMethods.map(method=>{const selected=selectedFoodPayment?.id===method.id;return <Pressable key={method.id} onPress={()=>{setSelectedFoodPaymentId(method.id);setFoodCheckoutQuote(null);}} style={[styles.foodCartOption,selected&&styles.foodCartOptionSelected]} accessibilityState={{selected}}><View style={[styles.foodCartOptionIcon,styles.foodCartPaymentIcon,selected&&styles.foodCartPaymentIconSelected]}><Ionicons name={method.type==="wallet"?"wallet":"card"} size={19} color={selected?"#fff":flashDesign.color.brand}/></View><View style={styles.itemCopy}><Text style={styles.foodCartOptionTitle}>{method.label}</Text><Text style={styles.foodCartOptionMeta}>{method.type==="wallet"?"Saldo y movimientos en Flash Wallet":method.brand?`${method.brand.toUpperCase()} terminada en ${method.last4||"••••"}`:"Método tokenizado"}</Text></View><Ionicons name={selected?"checkmark-circle":"ellipse-outline"} size={22} color={selected?flashDesign.color.brand:flashDesign.color.muted}/></Pressable>})}
+                      {!customerPaymentMethods.length?<Pressable style={styles.foodCartMissingOption} onPress={()=>setSharedView("account")}><Ionicons name="card-outline" size={20} color={flashDesign.color.danger}/><View style={styles.itemCopy}><Text style={styles.foodCartOptionTitle}>Falta un método de pago</Text><Text style={styles.foodCartOptionMeta}>Agregalo de forma segura desde Cuenta.</Text></View><Ionicons name="chevron-forward" size={18} color={flashDesign.color.muted}/></Pressable>:null}
+                    </View>
+                    <View style={styles.foodSectionHeader}><Text style={styles.foodSectionTitle}>Promoción</Text>{activeFoodPromotion?.code?<Pressable onPress={()=>{setFoodPromotionCode(activeFoodPromotion.code||"");setFoodCheckoutQuote(null);}}><Text style={styles.foodSeeAll}>Usar {activeFoodPromotion.code}</Text></Pressable>:null}</View>
+                    <View style={styles.foodCouponField}><View style={styles.foodCouponIcon}><Ionicons name="ticket-outline" size={19} color={flashDesign.color.food}/></View><TextInput value={foodPromotionCode} onChangeText={value=>{setFoodPromotionCode(value.toUpperCase());setFoodCheckoutQuote(null);}} autoCapitalize="characters" placeholder="Código promocional (opcional)" placeholderTextColor={flashDesign.color.muted} style={styles.foodCouponInput}/>{foodPromotionCode?<Pressable accessibilityLabel="Quitar promoción" style={styles.foodSearchClear} onPress={()=>{setFoodPromotionCode("");setFoodCheckoutQuote(null);}}><Ionicons name="close" size={17} color={flashDesign.color.inkSoft}/></Pressable>:null}</View>
+                    <View style={styles.foodCartTotalCard}><View><Text style={styles.foodCartTotalLabel}>SUBTOTAL DE PRODUCTOS</Text><Text style={styles.foodCartTotalHelp}>Envío, servicio y descuento se calculan al continuar.</Text></View><Text style={styles.foodCartTotalValue}>{money.format(cartTotal)}</Text></View>
+                    <Pressable disabled={busy||!selectedFoodAddress||!selectedFoodPayment} style={[styles.foodCheckoutPrimary,(busy||!selectedFoodAddress||!selectedFoodPayment)&&styles.disabledButton]} onPress={openFoodCheckout}><Text style={styles.foodCheckoutPrimaryText}>{busy?"Calculando precio…":"Continuar al checkout"}</Text><Ionicons name="arrow-forward" size={18} color="#fff"/></Pressable>
                   </>
                 )}
               </>
@@ -1569,18 +1559,17 @@ function CustomerScreen({
 
             {foodScreen === "checkout" && foodCheckoutQuote && (
               <>
-                <View style={styles.foodPageHeader}><Pressable onPress={()=>setFoodScreen("cart")} style={styles.foodBack}><Ionicons name="chevron-back" size={20} color="#222"/></Pressable><Text style={styles.foodPageTitle}>Confirmar pedido</Text></View>
-                <View style={styles.foodCard}><View style={styles.addressBookHeading}><View><Text style={styles.foodRestaurantTitle}>{cartRestaurant?.name}</Text><Text style={styles.cardText}>Llega en aproximadamente {foodCheckoutQuote.etaMin} min</Text></View><View style={styles.savedAddressIcon}><Ionicons name="shield-checkmark" size={20} color="#087a50"/></View></View><Text style={styles.cardText}>{foodCheckoutQuote.distanceKm} km · precio bloqueado por 5 minutos</Text><Text style={styles.helperText}>{foodCheckoutQuote.pricingVersion}</Text></View>
-                <Text style={styles.foodSectionTitle}>Entrega</Text>
-                <View style={styles.paymentMethodRow}><Ionicons name="location" size={20} color="#ff6a21"/><View style={styles.savedAddressCopy}><Text style={styles.sectionTitle}>En {foodCheckoutQuote.deliveryAddress}</Text><Text style={styles.cardText}>Dirección validada con coordenadas reales</Text></View></View>
-                <Text style={styles.foodSectionTitle}>Pago</Text>
-                <View style={styles.paymentMethodRow}><Ionicons name={selectedFoodPayment?.type==="wallet"?"wallet":"card"} size={20} color="#7c3cff"/><View style={styles.savedAddressCopy}><Text style={styles.sectionTitle}>{foodCheckoutQuote.paymentMethod}</Text><Text style={styles.cardText}>{selectedFoodPayment?.type==="wallet"?"Captura atómica al confirmar":"Token seguro · captura según proveedor"}</Text></View></View>
-                <Text style={styles.foodSectionTitle}>Resumen</Text>
-                {foodCheckoutQuote.items.map((item,index)=><View key={`${item.menuItemId}-${index}`} style={styles.checkoutItem}><View style={styles.foodTotalRow}><Text style={styles.cardText}>{item.quantity} × {item.name}</Text><Text style={styles.sectionTitle}>{money.format(item.unitPrice*item.quantity)}</Text></View>{item.modifiers.map(modifier=><Text key={modifier.id} style={styles.helperText}>+ {modifier.name}{modifier.price?` · ${money.format(modifier.price)}`:""}</Text>)}{item.note?<Text style={styles.helperText}>Nota: {item.note}</Text>:null}</View>)}
-                <View style={styles.foodCard}><View style={styles.foodTotalRow}><Text style={styles.cardText}>Productos</Text><Text style={styles.sectionTitle}>{money.format(foodCheckoutQuote.subtotal)}</Text></View><View style={styles.foodTotalRow}><Text style={styles.cardText}>Envío</Text><Text style={styles.sectionTitle}>{money.format(foodCheckoutQuote.deliveryFee)}</Text></View><View style={styles.foodTotalRow}><Text style={styles.cardText}>Tarifa de servicio</Text><Text style={styles.sectionTitle}>{money.format(foodCheckoutQuote.serviceFee)}</Text></View>{foodCheckoutQuote.discount>0?<View style={styles.foodTotalRow}><Text style={[styles.cardText,{color:"#087a50"}]}>Descuento {foodCheckoutQuote.promotionCode}</Text><Text style={[styles.sectionTitle,{color:"#087a50"}]}>− {money.format(foodCheckoutQuote.discount)}</Text></View>:null}<View style={styles.foodTotalRow}><Text style={styles.foodRestaurantTitle}>Total</Text><Text style={styles.foodRestaurantTitle}>{money.format(foodCheckoutQuote.total)}</Text></View></View>
-                <View style={styles.issueSecurityNote}><Ionicons name="lock-closed" size={18} color="#087a50"/><Text style={styles.issueSecurityText}>El servidor volverá a validar stock, cupón, propiedad de la dirección y monto firmado antes de cobrar.</Text></View>
-                <ActionButton label="Confirmar y pedir" disabled={busy||new Date(foodCheckoutQuote.expiresAt)<=new Date()} onPress={createOrder}/>
-                {new Date(foodCheckoutQuote.expiresAt)<=new Date()?<ActionButton label="Actualizar precio" disabled={busy} onPress={openFoodCheckout}/>:null}
+                <View style={styles.foodPageHeader}><Pressable onPress={()=>setFoodScreen("cart")} style={styles.foodBack}><Ionicons name="chevron-back" size={20} color={flashDesign.color.ink}/></Pressable><View style={styles.foodPageHeaderCopy}><Text style={styles.foodPageTitle}>Confirmar pedido</Text><Text style={styles.foodPageSubtitle}>Última revisión antes de cobrar</Text></View></View>
+                <LinearGradient colors={[flashDesign.color.ink,"#36293D"]} style={styles.foodCheckoutHero}><View style={styles.foodCheckoutHeroTop}><View style={styles.foodCheckoutVerified}><Ionicons name="shield-checkmark" size={15} color="#BDF3D7"/><Text style={styles.foodCheckoutVerifiedText}>PRECIO FIRMADO</Text></View><Text style={styles.foodCheckoutExpiry}>Hasta {new Date(foodCheckoutQuote.expiresAt).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}</Text></View><Text style={styles.foodCheckoutMerchant}>{cartRestaurant?.name}</Text><Text style={styles.foodCheckoutEta}>Llega en aproximadamente {foodCheckoutQuote.etaMin} min</Text><View style={styles.foodCheckoutHeroFacts}><View><Text style={styles.foodCheckoutHeroFactLabel}>DISTANCIA</Text><Text style={styles.foodCheckoutHeroFactValue}>{foodCheckoutQuote.distanceKm} km</Text></View><View style={styles.foodCheckoutHeroDivider}/><View style={styles.itemCopy}><Text style={styles.foodCheckoutHeroFactLabel}>TARIFA</Text><Text style={styles.foodCheckoutHeroFactValue} numberOfLines={1}>{foodCheckoutQuote.pricingVersion}</Text></View></View></LinearGradient>
+                <View style={styles.foodSectionHeader}><Text style={styles.foodSectionTitle}>Entrega y pago</Text><Pressable onPress={()=>setFoodScreen("cart")}><Text style={styles.foodSeeAll}>Editar</Text></Pressable></View>
+                <View style={styles.foodCheckoutInfoList}><View style={styles.foodCheckoutInfoCard}><View style={[styles.foodCheckoutInfoIcon,{backgroundColor:flashDesign.color.warningSoft}]}><Ionicons name="location" size={20} color={flashDesign.color.food}/></View><View style={styles.itemCopy}><Text style={styles.foodCheckoutInfoTitle}>Entregar en</Text><Text style={styles.foodCheckoutInfoValue} numberOfLines={2}>{foodCheckoutQuote.deliveryAddress}</Text><Text style={styles.foodCheckoutInfoMeta}>Dirección validada con coordenadas</Text></View><Ionicons name="checkmark-circle" size={21} color={flashDesign.color.shipment}/></View><View style={styles.foodCheckoutInfoCard}><View style={[styles.foodCheckoutInfoIcon,{backgroundColor:"#EEE7FF"}]}><Ionicons name={selectedFoodPayment?.type==="wallet"?"wallet":"card"} size={20} color={flashDesign.color.brand}/></View><View style={styles.itemCopy}><Text style={styles.foodCheckoutInfoTitle}>Pagar con</Text><Text style={styles.foodCheckoutInfoValue}>{foodCheckoutQuote.paymentMethod}</Text><Text style={styles.foodCheckoutInfoMeta}>{selectedFoodPayment?.type==="wallet"?"Captura atómica al confirmar":"Token seguro · captura según proveedor"}</Text></View><Ionicons name="checkmark-circle" size={21} color={flashDesign.color.shipment}/></View></View>
+                <View style={styles.foodSectionHeader}><Text style={styles.foodSectionTitle}>Tu pedido</Text><Text style={styles.foodSeeAll}>{foodCheckoutQuote.items.reduce((sum,item)=>sum+item.quantity,0)} unidades</Text></View>
+                <View style={styles.foodCheckoutItems}>{foodCheckoutQuote.items.map((item,index)=><View key={`${item.menuItemId}-${index}`} style={styles.checkoutItem}><View style={styles.foodCheckoutItemQuantity}><Text style={styles.foodCheckoutItemQuantityText}>{item.quantity}×</Text></View><View style={styles.itemCopy}><Text style={styles.foodCheckoutItemName}>{item.name}</Text>{item.modifiers.map(modifier=><Text key={modifier.id} style={styles.foodCheckoutItemMeta}>+ {modifier.name}{modifier.price?` · ${money.format(modifier.price)}`:""}</Text>)}{item.note?<Text style={styles.foodCheckoutItemNote}>“{item.note}”</Text>:null}</View><Text style={styles.foodCheckoutItemPrice}>{money.format(item.unitPrice*item.quantity)}</Text></View>)}</View>
+                <View style={styles.foodSectionHeader}><Text style={styles.foodSectionTitle}>Detalle del total</Text><Text style={styles.foodSeeAll}>ARS</Text></View>
+                <View style={styles.foodCheckoutTotals}><View style={styles.foodTotalRow}><Text style={styles.foodCheckoutTotalLabel}>Productos</Text><Text style={styles.foodCheckoutTotalAmount}>{money.format(foodCheckoutQuote.subtotal)}</Text></View><View style={styles.foodTotalRow}><Text style={styles.foodCheckoutTotalLabel}>Envío</Text><Text style={styles.foodCheckoutTotalAmount}>{money.format(foodCheckoutQuote.deliveryFee)}</Text></View><View style={styles.foodTotalRow}><Text style={styles.foodCheckoutTotalLabel}>Tarifa de servicio</Text><Text style={styles.foodCheckoutTotalAmount}>{money.format(foodCheckoutQuote.serviceFee)}</Text></View>{foodCheckoutQuote.discount>0?<View style={styles.foodTotalRow}><Text style={styles.foodCheckoutDiscountLabel}>Descuento {foodCheckoutQuote.promotionCode}</Text><Text style={styles.foodCheckoutDiscountAmount}>− {money.format(foodCheckoutQuote.discount)}</Text></View>:null}<View style={styles.foodCheckoutTotalDivider}/><View style={styles.foodTotalRow}><Text style={styles.foodCheckoutGrandLabel}>Total</Text><Text style={styles.foodCheckoutGrandAmount}>{money.format(foodCheckoutQuote.total)}</Text></View></View>
+                <View style={styles.foodCheckoutSecurity}><View style={styles.foodCheckoutSecurityIcon}><Ionicons name="lock-closed" size={18} color={flashDesign.color.shipment}/></View><Text style={styles.foodCheckoutSecurityText}>Al confirmar, el servidor vuelve a validar stock, cupón, propiedad de la dirección y monto firmado antes de cobrar.</Text></View>
+                <Pressable disabled={busy||new Date(foodCheckoutQuote.expiresAt)<=new Date()} style={[styles.foodCheckoutPrimary,(busy||new Date(foodCheckoutQuote.expiresAt)<=new Date())&&styles.disabledButton]} onPress={createOrder}><Text style={styles.foodCheckoutPrimaryText}>{busy?"Confirmando…":`Confirmar · ${money.format(foodCheckoutQuote.total)}`}</Text><Ionicons name="arrow-forward" size={18} color="#fff"/></Pressable>
+                {new Date(foodCheckoutQuote.expiresAt)<=new Date()?<Pressable disabled={busy} style={styles.foodCheckoutRefresh} onPress={openFoodCheckout}><Ionicons name="refresh" size={17} color={flashDesign.color.food}/><Text style={styles.foodCheckoutRefreshText}>El precio venció · actualizar</Text></Pressable>:null}
               </>
             )}
 
@@ -4302,28 +4291,63 @@ const styles = StyleSheet.create({
   },
   foodStickyLabel: { color: "#fff", fontWeight: "900", flex: 1 },
   foodStickyPrice: { color: "#fff", fontWeight: "900" },
+  foodCartMerchant:{minHeight:86,flexDirection:"row",alignItems:"center",gap:12,padding:10,borderRadius:20,backgroundColor:flashDesign.color.surface,borderWidth:1,borderColor:flashDesign.color.line},
+  foodCartMerchantImage:{width:66,height:66,borderRadius:16},
+  foodCartMerchantEyebrow:{color:flashDesign.color.foodDeep,fontSize:9,fontWeight:"900",letterSpacing:1},
+  foodCartMerchantName:{color:flashDesign.color.ink,fontSize:16,fontWeight:"900",marginTop:2},
+  foodCartMerchantMeta:{color:flashDesign.color.inkSoft,fontSize:10,marginTop:3},
   foodCartLine: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 18,
-    padding: 15,
+    gap:10,
+    backgroundColor: flashDesign.color.surface,
+    borderRadius: 20,
+    borderWidth:1,
+    borderColor:flashDesign.color.line,
+    padding: 11,
   },
+  foodCartLineIcon:{width:40,height:40,borderRadius:14,alignItems:"center",justifyContent:"center",backgroundColor:flashDesign.color.warningSoft},
+  foodCartLineName:{color:flashDesign.color.ink,fontSize:13,fontWeight:"900"},
+  foodCartLineMeta:{color:flashDesign.color.inkSoft,fontSize:9,marginTop:2},
+  foodCartLineNote:{color:flashDesign.color.inkSoft,fontSize:9,lineHeight:13,fontStyle:"italic",marginTop:2},
   foodQuantity: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 13,
-    backgroundColor: "#fff3ea",
-    borderRadius: 14,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    gap: 7,
+    borderRadius: 15,
+    backgroundColor:flashDesign.color.canvas,
+    padding:4,
   },
+  foodQuantityButton:{width:36,height:36,borderRadius:12,alignItems:"center",justifyContent:"center",backgroundColor:flashDesign.color.surface,borderWidth:1,borderColor:flashDesign.color.line},
+  foodQuantityButtonAdd:{backgroundColor:flashDesign.color.food,borderColor:flashDesign.color.food},
+  foodQuantityValue:{minWidth:18,color:flashDesign.color.ink,fontSize:12,fontWeight:"900",textAlign:"center"},
   foodTotalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingVertical: 8,
   },
+  foodCartOptionList:{overflow:"hidden",borderRadius:20,backgroundColor:flashDesign.color.surface,borderWidth:1,borderColor:flashDesign.color.line},
+  foodCartOption:{minHeight:74,flexDirection:"row",alignItems:"center",gap:11,padding:11,borderBottomWidth:1,borderBottomColor:flashDesign.color.line,backgroundColor:flashDesign.color.surface},
+  foodCartOptionSelected:{backgroundColor:"#FFF9F5"},
+  foodCartOptionIcon:{width:42,height:42,borderRadius:14,alignItems:"center",justifyContent:"center",backgroundColor:flashDesign.color.warningSoft},
+  foodCartOptionIconSelected:{backgroundColor:flashDesign.color.food},
+  foodCartPaymentIcon:{backgroundColor:"#EEE7FF"},
+  foodCartPaymentIconSelected:{backgroundColor:flashDesign.color.brand},
+  foodCartOptionTitleRow:{flexDirection:"row",alignItems:"center",gap:7,flexWrap:"wrap"},
+  foodCartOptionTitle:{color:flashDesign.color.ink,fontSize:12,fontWeight:"900"},
+  foodCartOptionMeta:{color:flashDesign.color.inkSoft,fontSize:10,lineHeight:14,marginTop:3},
+  foodCartDefaultBadge:{color:flashDesign.color.foodDeep,fontSize:7,fontWeight:"900",letterSpacing:.5,paddingHorizontal:6,paddingVertical:3,borderRadius:flashDesign.radius.pill,overflow:"hidden",backgroundColor:flashDesign.color.warningSoft},
+  foodCartMissingOption:{minHeight:76,flexDirection:"row",alignItems:"center",gap:10,padding:12,backgroundColor:"#FFF4F2"},
+  foodCouponField:{minHeight:54,flexDirection:"row",alignItems:"center",gap:9,paddingLeft:8,paddingRight:7,borderRadius:18,backgroundColor:flashDesign.color.surface,borderWidth:1,borderColor:flashDesign.color.line},
+  foodCouponIcon:{width:40,height:40,borderRadius:14,alignItems:"center",justifyContent:"center",backgroundColor:flashDesign.color.warningSoft},
+  foodCouponInput:{flex:1,minHeight:50,color:flashDesign.color.ink,fontSize:12,fontWeight:"800"},
+  foodCartTotalCard:{minHeight:92,flexDirection:"row",alignItems:"center",justifyContent:"space-between",gap:14,padding:15,borderRadius:20,backgroundColor:flashDesign.color.ink},
+  foodCartTotalLabel:{color:"#FFD4BF",fontSize:9,fontWeight:"900",letterSpacing:1},
+  foodCartTotalHelp:{maxWidth:210,color:"rgba(255,255,255,.62)",fontSize:9,lineHeight:13,marginTop:5},
+  foodCartTotalValue:{color:"#fff",fontSize:22,fontWeight:"900"},
+  foodCheckoutPrimary:{minHeight:54,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:8,paddingHorizontal:15,borderRadius:17,backgroundColor:flashDesign.color.food,shadowColor:flashDesign.color.food,shadowOffset:{width:0,height:10},shadowOpacity:.22,shadowRadius:18,elevation:3},
+  foodCheckoutPrimaryText:{color:"#fff",fontSize:13,fontWeight:"900"},
   foodEmpty: {
     minHeight: 220,
     alignItems: "center",
@@ -4606,7 +4630,44 @@ const styles = StyleSheet.create({
   modifierCounter:{paddingHorizontal:9,paddingVertical:5,borderRadius:999,overflow:"hidden",backgroundColor:"#fff0e8",color:"#c94c0b",fontSize:12,fontWeight:"900"},
   modifierRow:{minHeight:48,flexDirection:"row",alignItems:"center",gap:10,borderTopWidth:1,borderTopColor:"#eee8f0"},
   productNote:{minHeight:86,textAlignVertical:"top"},
-  checkoutItem:{gap:3,paddingVertical:7,borderBottomWidth:1,borderBottomColor:"#eee8f0"},
+  foodCheckoutHero:{minHeight:190,gap:8,padding:18,borderRadius:flashDesign.radius.surface,shadowColor:flashDesign.color.ink,shadowOffset:{width:0,height:12},shadowOpacity:.14,shadowRadius:22,elevation:4},
+  foodCheckoutHeroTop:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",gap:8},
+  foodCheckoutVerified:{flexDirection:"row",alignItems:"center",gap:5,paddingHorizontal:9,paddingVertical:5,borderRadius:flashDesign.radius.pill,backgroundColor:"rgba(8,122,80,.25)"},
+  foodCheckoutVerifiedText:{color:"#BDF3D7",fontSize:9,fontWeight:"900",letterSpacing:.8},
+  foodCheckoutExpiry:{color:"rgba(255,255,255,.6)",fontSize:9,fontWeight:"800"},
+  foodCheckoutMerchant:{color:"#fff",fontSize:24,lineHeight:29,fontWeight:"900",letterSpacing:-.5,marginTop:7},
+  foodCheckoutEta:{color:"rgba(255,255,255,.72)",fontSize:12},
+  foodCheckoutHeroFacts:{flexDirection:"row",alignItems:"center",gap:13,marginTop:"auto",paddingTop:13,borderTopWidth:1,borderTopColor:"rgba(255,255,255,.12)"},
+  foodCheckoutHeroDivider:{width:1,height:30,backgroundColor:"rgba(255,255,255,.16)"},
+  foodCheckoutHeroFactLabel:{color:"rgba(255,255,255,.52)",fontSize:8,fontWeight:"900",letterSpacing:.8},
+  foodCheckoutHeroFactValue:{color:"#fff",fontSize:11,fontWeight:"900",marginTop:3},
+  foodCheckoutInfoList:{overflow:"hidden",borderRadius:20,backgroundColor:flashDesign.color.surface,borderWidth:1,borderColor:flashDesign.color.line},
+  foodCheckoutInfoCard:{minHeight:78,flexDirection:"row",alignItems:"center",gap:11,padding:12,borderBottomWidth:1,borderBottomColor:flashDesign.color.line},
+  foodCheckoutInfoIcon:{width:42,height:42,borderRadius:14,alignItems:"center",justifyContent:"center"},
+  foodCheckoutInfoTitle:{color:flashDesign.color.muted,fontSize:8,fontWeight:"900",letterSpacing:.6,textTransform:"uppercase"},
+  foodCheckoutInfoValue:{color:flashDesign.color.ink,fontSize:12,lineHeight:16,fontWeight:"900",marginTop:2},
+  foodCheckoutInfoMeta:{color:flashDesign.color.inkSoft,fontSize:9,marginTop:3},
+  foodCheckoutItems:{overflow:"hidden",borderRadius:20,backgroundColor:flashDesign.color.surface,borderWidth:1,borderColor:flashDesign.color.line},
+  checkoutItem:{minHeight:70,flexDirection:"row",alignItems:"flex-start",gap:10,padding:12,borderBottomWidth:1,borderBottomColor:flashDesign.color.line},
+  foodCheckoutItemQuantity:{minWidth:34,height:34,alignItems:"center",justifyContent:"center",borderRadius:12,backgroundColor:flashDesign.color.warningSoft},
+  foodCheckoutItemQuantityText:{color:flashDesign.color.foodDeep,fontSize:11,fontWeight:"900"},
+  foodCheckoutItemName:{color:flashDesign.color.ink,fontSize:12,fontWeight:"900"},
+  foodCheckoutItemMeta:{color:flashDesign.color.inkSoft,fontSize:9,marginTop:3},
+  foodCheckoutItemNote:{color:flashDesign.color.inkSoft,fontSize:9,lineHeight:13,fontStyle:"italic",marginTop:3},
+  foodCheckoutItemPrice:{color:flashDesign.color.ink,fontSize:11,fontWeight:"900"},
+  foodCheckoutTotals:{gap:2,padding:15,borderRadius:20,backgroundColor:flashDesign.color.surface,borderWidth:1,borderColor:flashDesign.color.line},
+  foodCheckoutTotalLabel:{color:flashDesign.color.inkSoft,fontSize:11,fontWeight:"700"},
+  foodCheckoutTotalAmount:{color:flashDesign.color.ink,fontSize:11,fontWeight:"900"},
+  foodCheckoutDiscountLabel:{color:flashDesign.color.shipment,fontSize:11,fontWeight:"800"},
+  foodCheckoutDiscountAmount:{color:flashDesign.color.shipment,fontSize:11,fontWeight:"900"},
+  foodCheckoutTotalDivider:{height:1,backgroundColor:flashDesign.color.line,marginVertical:4},
+  foodCheckoutGrandLabel:{color:flashDesign.color.ink,fontSize:17,fontWeight:"900"},
+  foodCheckoutGrandAmount:{color:flashDesign.color.ink,fontSize:20,fontWeight:"900"},
+  foodCheckoutSecurity:{flexDirection:"row",alignItems:"flex-start",gap:10,padding:12,borderRadius:17,backgroundColor:flashDesign.color.successSoft},
+  foodCheckoutSecurityIcon:{width:34,height:34,borderRadius:12,alignItems:"center",justifyContent:"center",backgroundColor:flashDesign.color.surface},
+  foodCheckoutSecurityText:{flex:1,color:flashDesign.color.shipment,fontSize:10,lineHeight:15,fontWeight:"700"},
+  foodCheckoutRefresh:{minHeight:48,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:7,borderRadius:16,borderWidth:1,borderColor:"#FFD0B8",backgroundColor:flashDesign.color.warningSoft},
+  foodCheckoutRefreshText:{color:flashDesign.color.foodDeep,fontSize:12,fontWeight:"900"},
   proofCameraButton:{minHeight:42,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:6,paddingHorizontal:12,borderRadius:13,backgroundColor:"#18151d"},
   complianceHeader:{flexDirection:"row",alignItems:"flex-start",justifyContent:"space-between",gap:10},
   complianceBadge:{fontSize:9,fontWeight:"900",letterSpacing:.7,color:"#7c3cff",backgroundColor:"#efe7ff",paddingHorizontal:9,paddingVertical:6,borderRadius:10},
