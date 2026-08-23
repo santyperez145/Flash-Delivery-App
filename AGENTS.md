@@ -8,7 +8,7 @@ Estas reglas aplican a todo el repositorio y a cada entrega futura.
 - Registrar las referencias y la decisión derivada cuando influyan materialmente en arquitectura, seguridad, experiencia o costos. Comparar flujos y estándares; no copiar activos, texto, código ni identidad propietaria.
 - Implementar lógica real, estados honestos y degradación explícita. No presentar mocks, datos inventados, proveedores sandbox o integraciones incompletas como capacidades productivas.
 - Mantener la estrategia delivery/courier primero. Movilidad pública, dinero productivo, seguros, fiscalidad y comunicaciones externas permanecen bloqueados hasta disponer de proveedores, habilitación y verificación real.
-- Toda pantalla nueva o modificada debe cumplir `docs/ui-layout-guidelines.md`: safe areas reales, composición compact/medium/expanded, barras estables, una sola hoja modal, texto variable y estados honestos sin desbordes.
+- Toda pantalla nueva o modificada debe cumplir `docs/DESIGN_ROADMAP.md` y `docs/ui-layout-guidelines.md`: sistema visual Flash, cobertura competitiva, safe areas reales, composición compact/medium/expanded, barras estables, una sola hoja modal, texto variable y estados honestos sin desbordes.
 
 ## Tecnología
 
