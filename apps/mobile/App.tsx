@@ -352,7 +352,13 @@ function AppContent() {
     state?.users.find((user) => user.id === sessionUser?.id) || sessionUser;
 
   if (!loading && !sessionUser)
-    return <LoginScreen busy={busy} onLogin={login} onRegister={register} />;
+    return (
+      <SafeAreaView style={styles.loginSafeArea}>
+        <View style={[styles.appViewport, styles.customerViewport]}>
+          <LoginScreen busy={busy} onLogin={login} onRegister={register} />
+        </View>
+      </SafeAreaView>
+    );
 
   return (
     <SafeAreaView
@@ -3705,6 +3711,7 @@ const styles = StyleSheet.create({
   },
   customerViewport: { maxWidth: 430, backgroundColor: "#fff" },
   operationsViewport: { maxWidth: 620, backgroundColor: "#f6f3f0" },
+  loginSafeArea: { flex: 1, width: "100%", backgroundColor: "#f4f6f8" },
   networkStatusBanner: {
     position: "absolute",
     top: 8,
@@ -3852,6 +3859,7 @@ const styles = StyleSheet.create({
     padding: 22,
     backgroundColor: "#6f00ff",
     gap: 24,
+    overflow: "hidden",
   },
   loginGlow: {
     position: "absolute",

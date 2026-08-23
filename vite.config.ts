@@ -9,6 +9,12 @@ export default defineConfig({
   },
   build: {
     manifest: true,
+    // Terser is slower than Vite's default minifier, but keeps the production
+    // entry below the measured delivery budget without weakening browser support.
+    minify: "terser",
+    terserOptions: {
+      compress: { passes: 2 },
+    },
     rollupOptions: {
       output: {
         manualChunks(id) {

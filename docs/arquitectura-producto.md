@@ -12,8 +12,12 @@ Flash Delivery Mobility esta organizada como una plataforma multirol:
 - Frontend: React, Vite, TypeScript y CSS responsive. React e iconografía se
   publican como chunks cacheables separados; `test:web-bundle-budget` limita el
   entry propio a 560 KiB y toda la carga JavaScript inicial a 850 KiB. El
-  presupuesto evita regresiones, pero no sustituye mediciones Core Web Vitals
-  sobre dispositivos y redes reales.
+  tracking público se carga sólo en rutas `/track/:token` y Terser 5
+  (BSD-2-Clause, sólo desarrollo) comprime el build productivo con dos pasadas,
+  siguiendo la
+  [opción oficial sustituible de Vite](https://vite.dev/config/build-options#build-minify);
+  desarrollo conserva su ciclo rápido. El presupuesto evita regresiones,
+  pero no sustituye mediciones Core Web Vitals sobre dispositivos y redes reales.
 - Express comprime respuestas elegibles mayores a 1 KiB. Los assets con hash se
   cachean como `immutable` durante un año, mientras `index.html` siempre
   revalida. El stream SSE se excluye expresamente para no agregar buffering;

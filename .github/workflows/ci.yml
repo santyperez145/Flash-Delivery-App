@@ -37,6 +37,9 @@ jobs:
       - name: Check
         run: npm run check
 
+      - name: Responsive layout contract
+        run: npm run test:responsive-layout
+
       - name: Web bundle budget
         run: npm run test:web-bundle-budget
 
