@@ -26,6 +26,16 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [x] Un smoke dedicado impide reintroducir el cupón demo, fixtures visuales o corazones sin API; TypeScript mobile permanece verde.
 - [~] Buscar, restaurante, producto, carrito y checkout conservan lógica real pero necesitan recibir el mismo rediseño antes de marcar Comidas visualmente completo.
 
+## Avance 22 de agosto de 2026 — Buscar y Restaurante profesionales
+
+- [x] Buscar presenta categorías reales, catálogo paginado, skeleton, resultado rico, cero coincidencias y error con reintento; no etiqueta fixtures como “búsquedas recientes”.
+- [x] Cada resultado expone portada proporcional, ETA, fee, cantidad y nombres de coincidencias reales antes de abrir el comercio.
+- [x] Restaurante usa hero 16:9, favorito PostgreSQL, apertura, campaña, dirección, rating, ETA, distancia y fee del catálogo.
+- [x] Los tabs se derivan de las categorías reales del menú; seleccionar uno filtra productos y actualiza el conteo. Se eliminaron `Popular/Combos/Bebidas` hardcodeados.
+- [x] Producto muestra descripción/categoría declarada, precio, dieta, stock y estado agotado; ya no inventa una descripción culinaria genérica.
+- [x] Navegador real verificó catálogo vacío, resultados, apertura de restaurante y filtro Pizza con un único producto; TypeScript y el smoke de diseño bloquean regresiones.
+- [~] Personalización, carrito y checkout son los siguientes tramos P0; la disponibilidad horaria fina por sucursal requiere trasladar ese contrato al catálogo Customer.
+
 ## Auditoría 22 de agosto de 2026 — arquitectura completa de pantallas
 
 - [x] `docs/product-execution-guidelines.md` formaliza como contrato versionado los lineamientos de producto competitivo, frontend/backend real, visuales completas, guía exclusiva de Driver y publicación verificada.
