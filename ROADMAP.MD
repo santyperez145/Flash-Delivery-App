@@ -8,6 +8,14 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 22 de agosto de 2026 — Design Roadmap rector
+
+- [x] `docs/DESIGN_ROADMAP.md` convierte la calidad visual, cobertura de pantallas, tokens, componentes, referencias y definición de terminado en lineamiento obligatorio del repositorio.
+- [x] Foodu queda como referencia estructural principal de Comidas por su preview de más de 180 pantallas; Foodie, FreshGo, Foodeck y FoodWagon tienen usos secundarios acotados para no mezclar identidades.
+- [x] La decisión se contrastó con fuentes oficiales vigentes de DoorDash y Uber Eats: marketplace de tres lados, descubrimiento con contexto, tracking honesto y Driver centrado en mapa/operación.
+- [x] Se preserva identidad propia Flash y se prohíbe copiar activos, textos, colores, código o marca de los kits y competidores.
+- [ ] P0 visual: materializar tokens compartidos y rediseñar el flujo completo de Comidas; luego aplicar la misma base a Actividad, Cuenta, Viajes, Envíos, Driver, Merchant y Operaciones sin retirar lógica real.
+
 ## Auditoría 22 de agosto de 2026 — arquitectura completa de pantallas
 
 - [x] `docs/product-execution-guidelines.md` formaliza como contrato versionado los lineamientos de producto competitivo, frontend/backend real, visuales completas, guía exclusiva de Driver y publicación verificada.

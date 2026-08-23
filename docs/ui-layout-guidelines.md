@@ -3,7 +3,8 @@
 Fecha de contraste: 22 de agosto de 2026. Este documento es obligatorio para
 Customer, Driver, Merchant, Operaciones, tracking público y toda superficie
 nueva. Define composición y comportamiento; cada vertical conserva su identidad
-y los Figma rectores continúan determinando apariencia, jerarquía y proporción.
+y [`DESIGN_ROADMAP.md`](DESIGN_ROADMAP.md) determina sistema, apariencia,
+jerarquía, cobertura y proporción.
 
 ## Referencias verificadas
 
