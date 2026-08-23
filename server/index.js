@@ -761,6 +761,7 @@ const loginSchema = z.object({
   email: z.string().email("Email invalido"),
   password: z.string().min(4, "Password demasiado corto"),
   deviceName: z.string().trim().max(160).optional(),
+  audience: z.enum(["customer", "driver", "merchant"]).optional(),
 });
 
 const registerSchema = z.object({
@@ -6064,6 +6065,10 @@ app.post("/api/auth/login", async (req, res) => {
       verificationRequired: true,
       email: user.email,
     });
+  if (parsed.data.audience && !user.roles?.includes(parsed.data.audience)) {
+    const productName=parsed.data.audience==="driver"?"Flash Driver":parsed.data.audience==="merchant"?"Flash Negocios":"Flash";
+    return fail(res,403,`Esta cuenta no pertenece a ${productName}`);
+  }
   if (usesPostgresAuth()) await recordPostgresLoginSuccess(user.id);
   if (
     usesPostgresAuth() &&

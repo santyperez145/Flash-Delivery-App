@@ -172,6 +172,9 @@ prueba física pendiente conserva `[~]`.
 
 ### P0 — coherencia del producto que ya funciona
 
+- [x] Acceso mobile progresivo con identidad Flash, email primero, contraseña,
+  registro, OTP y recuperación como estados separados; sin proveedores sociales
+  simulados ni códigos de desarrollo autocompletados.
 - [~] Materializar tokens compartidos: React Native ya usa el contrato versionado;
   web continúa pendiente de migrar al mismo vocabulario.
 - [~] Rediseñar Home/Buscar/Restaurante/Producto/Carrito/Checkout de Comidas:
@@ -211,6 +214,16 @@ Una pantalla sólo pasa a `[x]` cuando:
 8. Roadmap y deuda de proveedor/operación se actualizan en el mismo commit.
 
 ## Registro de ejecución
+
+### 22 de agosto de 2026 — Acceso mobile competitivo y honesto
+
+- La referencia competitiva y la frontera de proveedores quedan registradas en
+  [`competitive-research/mobile-authentication.md`](competitive-research/mobile-authentication.md).
+- El acceso usa una decisión principal por paso, conserva autenticación y
+  recuperación reales y no dibuja Apple, Google, passkeys, SMS o biometría antes
+  de integrar y probar esos contratos.
+- Hero, servicios, hoja, campos, errores, loading y acciones usan jerarquía Flash
+  y composición desplazable para no romperse con pantallas compactas o teclado.
 
 ### 22 de agosto de 2026 — Home de Comidas P0
 

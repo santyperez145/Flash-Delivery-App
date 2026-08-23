@@ -33,7 +33,7 @@ import {
   SafeAreaProvider,
   SafeAreaView,
 } from "react-native-safe-area-context";
-import { api } from "./src/api";
+import { api, mobileAppVariant } from "./src/api";
 import { configureAnalytics, track } from "./src/analytics";
 import FlashNativeMap from "./src/FlashNativeMap";
 import DriverDemandMap from "./src/DriverDemandMap";
@@ -2591,6 +2591,7 @@ function LoginScreen({
   }) => Promise<{user:User;verificationRequired:true;developmentCode?:string;expiresAt?:string}>;
 }) {
   const [creating, setCreating] = useState(false);
+  const [loginStep,setLoginStep]=useState<"email"|"password">("email");
   const [recoveryStep,setRecoveryStep]=useState<"none"|"request"|"confirm">("none");
   const [recoveryToken,setRecoveryToken]=useState("");
   const [recoveryBusy,setRecoveryBusy]=useState(false);
@@ -2601,16 +2602,59 @@ function LoginScreen({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
+  const [passwordVisible,setPasswordVisible]=useState(false);
   const [error, setError] = useState("");
+  const {height}=useWindowDimensions();
+  const compactAuth=height<700;
+  const normalizedEmail=email.trim().toLowerCase();
+  const emailIsValid=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail);
+  const isCustomerAccess=mobileAppVariant==="customer";
+  const audiencePresentation=mobileAppVariant==="driver"
+    ? {eyebrow:"FLASH DRIVER",title:"Tu jornada,\nbajo control.",copy:"Ofertas, navegación y ganancias con seguridad desde una sola app.",services:[
+        {icon:"map-outline" as const,label:"Mapa",color:"#c9afff"},
+        {icon:"wallet-outline" as const,label:"Ganancias",color:"#d6ff72"},
+        {icon:"shield-checkmark-outline" as const,label:"Seguridad",color:"#8ce1bd"},
+      ]}
+    : mobileAppVariant==="merchant"
+      ? {eyebrow:"FLASH NEGOCIOS",title:"Tu local,\nen movimiento.",copy:"Pedidos, catálogo y operación diaria en un único espacio de trabajo.",services:[
+          {icon:"pulse-outline" as const,label:"Hoy",color:"#ffb584"},
+          {icon:"receipt-outline" as const,label:"Pedidos",color:"#c9afff"},
+          {icon:"grid-outline" as const,label:"Catálogo",color:"#8ce1bd"},
+        ]}
+      : {eyebrow:"TU CIUDAD EN UNA APP",title:"Lo que necesitás,\nen movimiento.",copy:"Pedí, viajá o enviá con seguimiento y soporte desde una sola cuenta.",services:[
+          {icon:"restaurant-outline" as const,label:"Comidas",color:"#ffb584"},
+          {icon:"car-sport-outline" as const,label:"Viajes",color:"#c9afff"},
+          {icon:"cube-outline" as const,label:"Envíos",color:"#8ce1bd"},
+        ]};
+
+  const returnToEntry=()=>{
+    setCreating(false);
+    setLoginStep("email");
+    setRecoveryStep("none");
+    setRecoveryToken("");
+    setVerificationEmail("");
+    setVerificationCode("");
+    setPassword("");
+    setConfirmation("");
+    setPasswordVisible(false);
+    setError("");
+  };
+
   const submit = async () => {
     setError("");
     if(verificationEmail){try{setRecoveryBusy(true);await api.confirmEmailVerification(verificationEmail,verificationCode.trim());await onLogin(verificationEmail,password);setVerificationEmail("");setVerificationCode("");}catch(verificationError){setError(verificationError instanceof Error?verificationError.message:"No se pudo verificar el email");}finally{setRecoveryBusy(false);}return;}
     if(recoveryStep==="request"){
-      try{setRecoveryBusy(true);const result=await api.requestPasswordRecovery(email.trim().toLowerCase());setRecoveryToken(result.developmentToken||"");setRecoveryStep("confirm");Alert.alert("Revisá tu email",result.message);}catch(recoveryError){setError(recoveryError instanceof Error?recoveryError.message:"No se pudo iniciar la recuperación");}finally{setRecoveryBusy(false);}return;
+      if(!emailIsValid)return setError("Ingresá un email válido para recuperar tu cuenta.");
+      try{setRecoveryBusy(true);const result=await api.requestPasswordRecovery(normalizedEmail);setRecoveryToken("");setRecoveryStep("confirm");Alert.alert("Revisá tu email",result.message);}catch(recoveryError){setError(recoveryError instanceof Error?recoveryError.message:"No se pudo iniciar la recuperación");}finally{setRecoveryBusy(false);}return;
     }
     if(recoveryStep==="confirm"){
       if(password!==confirmation)return setError("Las contraseñas no coinciden");
-      try{setRecoveryBusy(true);await api.confirmPasswordRecovery(recoveryToken.trim(),password);setRecoveryStep("none");setRecoveryToken("");setPassword("");setConfirmation("");Alert.alert("Contraseña actualizada","Todas las sesiones anteriores fueron cerradas. Ya podés ingresar.");}catch(recoveryError){setError(recoveryError instanceof Error?recoveryError.message:"No se pudo cambiar la contraseña");}finally{setRecoveryBusy(false);}return;
+      try{setRecoveryBusy(true);await api.confirmPasswordRecovery(recoveryToken.trim(),password);setRecoveryStep("none");setLoginStep("password");setRecoveryToken("");setPassword("");setConfirmation("");Alert.alert("Contraseña actualizada","Todas las sesiones anteriores fueron cerradas. Ya podés ingresar.");}catch(recoveryError){setError(recoveryError instanceof Error?recoveryError.message:"No se pudo cambiar la contraseña");}finally{setRecoveryBusy(false);}return;
+    }
+    if(!creating&&loginStep==="email"){
+      if(!emailIsValid)return setError("Ingresá un email válido para continuar.");
+      setLoginStep("password");
+      return;
     }
     if (creating && password !== confirmation)
       return setError("Las contraseñas no coinciden");
@@ -2618,127 +2662,180 @@ function LoginScreen({
       if (creating){
         const registration=await onRegister({
           name: name.trim(),
-          email: email.trim().toLowerCase(),
+          email: normalizedEmail,
           password,
           phone: phone.trim() || undefined,
-        });setVerificationEmail(email.trim().toLowerCase());setVerificationCode(registration.developmentCode||"");setCreating(false);Alert.alert("Verificá tu email","Ingresá el código de seis dígitos que enviamos.");
-      } else await onLogin(email.trim().toLowerCase(), password);
+        });setVerificationEmail(normalizedEmail);setVerificationCode("");setCreating(false);Alert.alert("Verificá tu email","Ingresá el código de seis dígitos que enviamos.");
+      } else await onLogin(normalizedEmail, password);
     } catch (loginError) {
       setError(
         loginError instanceof Error
           ? loginError.message
           : "No se pudo iniciar sesion",
       );
-      if(!creating&&recoveryStep==="none"&&loginError instanceof Error&&loginError.message.includes("verificar")){const normalized=email.trim().toLowerCase();setVerificationEmail(normalized);try{const resent=await api.resendEmailVerification(normalized);setVerificationCode(resent.developmentCode||"");}catch(_error){}}
+      if(!creating&&recoveryStep==="none"&&loginError instanceof Error&&loginError.message.includes("verificar")){setVerificationEmail(normalizedEmail);try{await api.resendEmailVerification(normalizedEmail);setVerificationCode("");}catch(_error){}}
     }
   };
+
+  const isVerification=Boolean(verificationEmail);
+  const title=isVerification
+    ? "Confirmá que sos vos"
+    : recoveryStep==="request"
+      ? "Recuperá tu cuenta"
+      : recoveryStep==="confirm"
+        ? "Creá una contraseña nueva"
+        : creating
+          ? "Creá tu cuenta Flash"
+          : loginStep==="password"
+            ? "Te damos la bienvenida"
+            : mobileAppVariant==="driver"?"Entrá a Flash Driver":mobileAppVariant==="merchant"?"Entrá a Flash Negocios":"Entrá a Flash";
+  const copy=isVerification
+    ? `Ingresá el código de seis dígitos que enviamos a ${verificationEmail}.`
+    : recoveryStep==="request"
+      ? "Te enviaremos instrucciones si encontramos una cuenta con ese email."
+      : recoveryStep==="confirm"
+        ? "Pegá el código recibido y elegí una contraseña segura."
+        : creating
+          ? "Comidas, viajes y envíos con una única cuenta protegida."
+          : loginStep==="password"
+            ? "Ingresá tu contraseña para continuar de forma segura."
+            : isCustomerAccess?"Usá tu email para continuar. Tu cuenta funciona en todos los servicios.":"Usá el email habilitado para tu espacio de trabajo.";
+  const primaryLabel=busy||recoveryBusy
+    ? "Procesando…"
+    : isVerification
+      ? "Verificar y entrar"
+      : recoveryStep==="request"
+        ? "Enviar instrucciones"
+        : recoveryStep==="confirm"
+          ? "Actualizar contraseña"
+          : creating
+            ? "Crear cuenta"
+            : loginStep==="password"
+              ? "Ingresar"
+              : "Continuar";
+  const primaryDisabled=busy||recoveryBusy||(
+    isVerification
+      ? verificationCode.length!==6
+      : recoveryStep==="request"
+        ? !emailIsValid
+        : recoveryStep==="confirm"
+          ? !recoveryToken.trim()||password.length<8||!confirmation
+          : creating
+            ? !name.trim()||!emailIsValid||password.length<8||!confirmation
+            : loginStep==="password"
+              ? !emailIsValid||!password
+              : !emailIsValid
+  );
+
   return (
     <LinearGradient
-      colors={["#6f00ff", "#a000ff", "#ff4b20"]}
+      colors={["#17131c", "#241535", "#5c25bc"]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={styles.loginRoot}
     >
-      <View style={styles.loginGlow} />
-      <View style={styles.loginBrand}>
-        <View style={styles.loginMark}>
-          <Ionicons name="flash" size={36} color="#7c00ff" />
+      <View pointerEvents="none" style={styles.loginGlow} />
+      <View pointerEvents="none" style={styles.loginGlowSecondary} />
+      <ScrollView
+        style={styles.loginScroll}
+        contentContainerStyle={[styles.loginContent,compactAuth&&styles.loginContentCompact]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={[styles.loginHero,compactAuth&&styles.loginHeroCompact]}>
+          <View style={styles.loginBrandRow}>
+            <View style={styles.loginMark}>
+              <Ionicons name="flash" size={23} color={flashDesign.color.brand} />
+            </View>
+            <Text style={styles.loginWordmark}>Flash</Text>
+            <View style={styles.loginSecurePill}>
+              <Ionicons name="shield-checkmark" size={13} color="#d6ff72" />
+              <Text style={styles.loginSecureText}>Acceso protegido</Text>
+            </View>
+          </View>
+          <View style={styles.loginHeroCopy}>
+            <Text style={styles.loginEyebrow}>{audiencePresentation.eyebrow}</Text>
+            <Text style={[styles.loginTitle,compactAuth&&styles.loginTitleCompact]}>{audiencePresentation.title}</Text>
+            <Text style={styles.loginCopy}>{audiencePresentation.copy}</Text>
+          </View>
+          <View style={styles.loginServices}>
+            {audiencePresentation.services.map(service=><View key={service.label} style={styles.loginService}>
+              <View style={[styles.loginServiceIcon,{backgroundColor:service.color}]}><Ionicons name={service.icon} size={17} color="#17131c" /></View>
+              <Text style={styles.loginServiceText}>{service.label}</Text>
+            </View>)}
+          </View>
         </View>
-        <Text style={styles.loginTitle}>Flash</Text>
-        <Text style={styles.loginCopy}>
-          Todo lo que necesitás, moviéndose con vos.
-        </Text>
-      </View>
-      <View style={styles.loginCard}>
-        <Text style={styles.rideTitle}>
-          {verificationEmail?"Verificá tu email":recoveryStep!=="none"?(recoveryStep==="request"?"Recuperar cuenta":"Nueva contraseña"):creating?"Crear tu cuenta":"Ingresar"}
-        </Text>
-        <Text style={styles.helperText}>
-          {verificationEmail?`Enviamos un código de seis dígitos a ${verificationEmail}.`:recoveryStep==="request"?"Te enviaremos un código temporal si la cuenta existe.":recoveryStep==="confirm"?"Ingresá el código recibido y elegí una contraseña nueva.":creating
-            ? "Una sola cuenta para comidas, viajes y envíos."
-            : "Accedé de forma segura a tu cuenta Flash."}
-        </Text>
-        {creating && recoveryStep==="none" ? (
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            autoComplete="name"
-            placeholder="Nombre y apellido"
-            style={styles.input}
-          />
-        ) : null}
-        {creating && recoveryStep==="none" ? (
-          <TextInput
-            value={phone}
-            onChangeText={setPhone}
-            autoComplete="tel"
-            keyboardType="phone-pad"
-            placeholder="Teléfono (opcional)"
-            style={styles.input}
-          />
-        ) : null}
-        {recoveryStep==="confirm" ? <TextInput value={recoveryToken} onChangeText={setRecoveryToken} autoCapitalize="none" placeholder="Código de recuperación" style={styles.input}/> : null}
-        {verificationEmail ? <TextInput value={verificationCode} onChangeText={value=>setVerificationCode(value.replace(/\D/g,"").slice(0,6))} keyboardType="number-pad" placeholder="Código de 6 dígitos" style={styles.input}/> : null}
-        <TextInput
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          placeholder="Email"
-          editable={!verificationEmail}
-          style={styles.input}
-        />
-        {recoveryStep!=="request" ? <TextInput
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          placeholder="Contraseña"
-          style={styles.input}
-        /> : null}
-        {creating || recoveryStep==="confirm" ? (
-          <TextInput
-            value={confirmation}
-            onChangeText={setConfirmation}
-            secureTextEntry
-            placeholder="Repetir contraseña"
-            style={styles.input}
-          />
-        ) : null}
-        {error ? <Text style={styles.loginError}>{error}</Text> : null}
-        <ActionButton
-          label={
-            busy||recoveryBusy?"Procesando...":verificationEmail?"Verificar y entrar":recoveryStep==="request"?"Enviar instrucciones":recoveryStep==="confirm"?"Cambiar contraseña":creating?"Crear cuenta":"Continuar"
-          }
-          disabled={
-            busy || recoveryBusy ||
-            !email ||
-            (Boolean(verificationEmail)&&verificationCode.length!==6) ||
-            (recoveryStep!=="request"&&password.length < (creating||recoveryStep==="confirm" ? 8 : 1)) ||
-            (recoveryStep==="confirm"&&(!recoveryToken.trim()||!confirmation)) ||
-            (creating && (!name.trim() || !confirmation))
-          }
-          onPress={submit}
-        />
-        {recoveryStep==="none"&&!verificationEmail ? <Pressable
-          onPress={() => {
-            setCreating((value) => !value);
-            setError("");
-            setPassword("");
-            setConfirmation("");
-          }}
-          disabled={busy||recoveryBusy}
-          style={styles.loginSwitch}
-        >
-          <Text style={styles.loginSwitchText}>
-            {creating
-              ? "¿Ya tenés cuenta? Ingresar"
-              : "¿Sos nuevo? Crear una cuenta"}
-          </Text>
-        </Pressable> : null}
-        {!creating&&recoveryStep==="none"&&!verificationEmail?<Pressable disabled={busy||recoveryBusy} style={styles.loginSwitch} onPress={()=>{setRecoveryStep("request");setError("");setPassword("");setConfirmation("");}}><Text style={styles.loginSwitchText}>Olvidé mi contraseña</Text></Pressable>:null}
-        {recoveryStep!=="none"?<Pressable disabled={busy||recoveryBusy} style={styles.loginSwitch} onPress={()=>{setRecoveryStep("none");setRecoveryToken("");setPassword("");setConfirmation("");setError("");}}><Text style={styles.loginSwitchText}>Volver a ingresar</Text></Pressable>:null}
-        {verificationEmail?<><Pressable disabled={busy||recoveryBusy} style={styles.loginSwitch} onPress={async()=>{try{setRecoveryBusy(true);const resent=await api.resendEmailVerification(verificationEmail);setVerificationCode(resent.developmentCode||"");Alert.alert("Código reenviado",resent.message);}catch(resendError){setError(resendError instanceof Error?resendError.message:"No se pudo reenviar");}finally{setRecoveryBusy(false);}}}><Text style={styles.loginSwitchText}>Reenviar código</Text></Pressable><Pressable disabled={busy||recoveryBusy} style={styles.loginSwitch} onPress={()=>{setVerificationEmail("");setVerificationCode("");setPassword("");setError("");}}><Text style={styles.loginSwitchText}>Usar otra cuenta</Text></Pressable></>:null}
-      </View>
+        <View style={styles.loginCard}>
+          <View style={styles.loginCardHeader}>
+            {(loginStep==="password"||creating||recoveryStep!=="none"||isVerification)?<Pressable accessibilityRole="button" accessibilityLabel="Volver" disabled={busy||recoveryBusy} onPress={returnToEntry} style={styles.loginBack}><Ionicons name="arrow-back" size={20} color={flashDesign.color.ink}/></Pressable>:null}
+            <View style={styles.loginCardHeading}>
+              <Text style={styles.loginCardTitle}>{title}</Text>
+              <Text style={styles.loginCardCopy}>{copy}</Text>
+            </View>
+          </View>
+
+          {!creating&&recoveryStep==="none"&&loginStep==="password"&&!isVerification?<Pressable onPress={()=>{setLoginStep("email");setPassword("");setError("");}} style={styles.loginIdentity}>
+            <View style={styles.loginIdentityIcon}><Ionicons name="mail-outline" size={17} color={flashDesign.color.brand}/></View>
+            <Text numberOfLines={1} style={styles.loginIdentityText}>{normalizedEmail}</Text>
+            <Text style={styles.loginIdentityAction}>Cambiar</Text>
+          </Pressable>:null}
+
+          {creating?<View style={styles.loginFieldGroup}>
+            <Text style={styles.loginFieldLabel}>Nombre y apellido</Text>
+            <View style={styles.loginInputShell}><Ionicons name="person-outline" size={19} color="#77717d"/><TextInput value={name} onChangeText={setName} autoComplete="name" placeholder="Tu nombre" placeholderTextColor="#918b96" style={styles.loginInput}/></View>
+          </View>:null}
+
+          {creating||(!isVerification&&recoveryStep!=="confirm"&&loginStep==="email")?<View style={styles.loginFieldGroup}>
+            <Text style={styles.loginFieldLabel}>Email</Text>
+            <View style={[styles.loginInputShell,error&&!emailIsValid&&styles.loginInputShellError]}><Ionicons name="mail-outline" size={19} color="#77717d"/><TextInput value={email} onChangeText={value=>{setEmail(value);setError("");}} autoCapitalize="none" autoComplete="email" keyboardType="email-address" returnKeyType="next" onSubmitEditing={()=>{if(!creating)void submit();}} placeholder="nombre@ejemplo.com" placeholderTextColor="#918b96" style={styles.loginInput}/></View>
+          </View>:null}
+
+          {creating?<View style={styles.loginFieldGroup}>
+            <View style={styles.loginLabelRow}><Text style={styles.loginFieldLabel}>Teléfono</Text><Text style={styles.loginOptional}>Opcional</Text></View>
+            <View style={styles.loginInputShell}><Ionicons name="call-outline" size={19} color="#77717d"/><TextInput value={phone} onChangeText={setPhone} autoComplete="tel" keyboardType="phone-pad" placeholder="+54 11 0000 0000" placeholderTextColor="#918b96" style={styles.loginInput}/></View>
+          </View>:null}
+
+          {recoveryStep==="confirm"?<View style={styles.loginFieldGroup}>
+            <Text style={styles.loginFieldLabel}>Código de recuperación</Text>
+            <View style={styles.loginInputShell}><Ionicons name="key-outline" size={19} color="#77717d"/><TextInput value={recoveryToken} onChangeText={setRecoveryToken} autoCapitalize="none" placeholder="Pegá el código recibido" placeholderTextColor="#918b96" style={styles.loginInput}/></View>
+          </View>:null}
+
+          {isVerification?<View style={styles.loginFieldGroup}>
+            <Text style={styles.loginFieldLabel}>Código de verificación</Text>
+            <View style={styles.loginCodeShell}><TextInput accessibilityLabel="Código de 6 dígitos" value={verificationCode} onChangeText={value=>{setVerificationCode(value.replace(/\D/g,"").slice(0,6));setError("");}} keyboardType="number-pad" autoComplete="one-time-code" maxLength={6} placeholder="000000" placeholderTextColor="#c5c0c8" style={styles.loginCodeInput}/></View>
+          </View>:null}
+
+          {(!isVerification&&recoveryStep!=="request"&&(creating||loginStep==="password"))?<View style={styles.loginFieldGroup}>
+            <View style={styles.loginLabelRow}><Text style={styles.loginFieldLabel}>{recoveryStep==="confirm"?"Nueva contraseña":"Contraseña"}</Text>{!creating&&recoveryStep==="none"?<Pressable onPress={()=>{setRecoveryStep("request");setPassword("");setConfirmation("");setError("");}}><Text style={styles.loginInlineAction}>¿La olvidaste?</Text></Pressable>:null}</View>
+            <View style={styles.loginInputShell}><Ionicons name="lock-closed-outline" size={19} color="#77717d"/><TextInput value={password} onChangeText={value=>{setPassword(value);setError("");}} secureTextEntry={!passwordVisible} autoComplete={creating?"new-password":"current-password"} placeholder={creating||recoveryStep==="confirm"?"Mínimo 8 caracteres":"Tu contraseña"} placeholderTextColor="#918b96" style={styles.loginInput}/><Pressable accessibilityRole="button" accessibilityLabel={passwordVisible?"Ocultar contraseña":"Mostrar contraseña"} onPress={()=>setPasswordVisible(value=>!value)} hitSlop={10}><Ionicons name={passwordVisible?"eye-off-outline":"eye-outline"} size={20} color="#77717d"/></Pressable></View>
+          </View>:null}
+
+          {(creating||recoveryStep==="confirm")?<View style={styles.loginFieldGroup}>
+            <Text style={styles.loginFieldLabel}>Repetir contraseña</Text>
+            <View style={styles.loginInputShell}><Ionicons name="shield-checkmark-outline" size={19} color="#77717d"/><TextInput value={confirmation} onChangeText={value=>{setConfirmation(value);setError("");}} secureTextEntry={!passwordVisible} autoComplete="new-password" placeholder="Volvé a escribirla" placeholderTextColor="#918b96" style={styles.loginInput}/></View>
+            <View style={styles.loginPasswordHint}><Ionicons name={password.length>=8?"checkmark-circle":"ellipse-outline"} size={15} color={password.length>=8?flashDesign.color.shipment:"#aaa4ad"}/><Text style={styles.loginPasswordHintText}>Usá al menos 8 caracteres</Text></View>
+          </View>:null}
+
+          {error?<View accessibilityLiveRegion="polite" style={styles.loginError}><Ionicons name="alert-circle" size={18} color={flashDesign.color.danger}/><Text style={styles.loginErrorText}>{error}</Text></View>:null}
+
+          <Pressable accessibilityRole="button" disabled={primaryDisabled} onPress={()=>void submit()} style={({pressed})=>[styles.loginPrimary,primaryDisabled&&styles.loginPrimaryDisabled,pressed&&!primaryDisabled&&styles.loginPrimaryPressed]}>
+            {busy||recoveryBusy?<ActivityIndicator color="#fff"/>:<><Text style={styles.loginPrimaryText}>{primaryLabel}</Text><Ionicons name="arrow-forward" size={19} color="#fff"/></>}
+          </Pressable>
+
+          {isCustomerAccess&&!creating&&recoveryStep==="none"&&loginStep==="email"&&!isVerification?<View style={styles.loginSecondaryBlock}>
+            <View style={styles.loginDivider}><View style={styles.loginDividerLine}/><Text style={styles.loginDividerText}>¿Primera vez?</Text><View style={styles.loginDividerLine}/></View>
+            <Pressable disabled={busy||recoveryBusy} onPress={()=>{setCreating(true);setPassword("");setConfirmation("");setError("");}} style={({pressed})=>[styles.loginSecondary,pressed&&styles.loginSecondaryPressed]}><Text style={styles.loginSecondaryText}>Crear una cuenta</Text></Pressable>
+          </View>:null}
+
+          {!isCustomerAccess&&!creating&&recoveryStep==="none"&&loginStep==="email"&&!isVerification?<View style={styles.loginAudienceNote}><View style={styles.loginAudienceNoteIcon}><Ionicons name="business-outline" size={17} color={flashDesign.color.brand}/></View><Text style={styles.loginAudienceNoteText}>{mobileAppVariant==="driver"?"El alta de conductor requiere identidad, vehículo y documentos aprobados.":"El acceso se habilita desde el onboarding verificado de tu negocio."}</Text></View>:null}
+
+          {creating?<Pressable disabled={busy||recoveryBusy} style={styles.loginSwitch} onPress={returnToEntry}><Text style={styles.loginSwitchText}>¿Ya tenés cuenta? <Text style={styles.loginSwitchStrong}>Ingresar</Text></Text></Pressable>:null}
+          {recoveryStep!=="none"?<Pressable disabled={busy||recoveryBusy} style={styles.loginSwitch} onPress={()=>{setRecoveryStep("none");setLoginStep("password");setRecoveryToken("");setPassword("");setConfirmation("");setError("");}}><Text style={styles.loginSwitchText}>Volver a ingresar</Text></Pressable>:null}
+          {isVerification?<View style={styles.loginVerificationActions}><Pressable disabled={busy||recoveryBusy} style={styles.loginSwitch} onPress={async()=>{try{setRecoveryBusy(true);const resent=await api.resendEmailVerification(verificationEmail);setVerificationCode("");Alert.alert("Código reenviado",resent.message);}catch(resendError){setError(resendError instanceof Error?resendError.message:"No se pudo reenviar");}finally{setRecoveryBusy(false);}}}><Text style={styles.loginSwitchText}>Reenviar código</Text></Pressable><Pressable disabled={busy||recoveryBusy} style={styles.loginSwitch} onPress={returnToEntry}><Text style={styles.loginSwitchText}>Usar otra cuenta</Text></Pressable></View>:null}
+
+          {(creating||(isCustomerAccess&&!isVerification&&recoveryStep==="none"&&loginStep==="email"))?<Text style={styles.loginLegal}>Al continuar aceptás los Términos y reconocés la Política de privacidad de Flash.</Text>:null}
+        </View>
+      </ScrollView>
     </LinearGradient>
   );
 }
@@ -3852,44 +3949,107 @@ const styles = StyleSheet.create({
   sessionName: { color: "#17131c", fontWeight: "900" },
   loginRoot: {
     flex: 1,
-    justifyContent: "center",
-    padding: 22,
-    backgroundColor: "#6f00ff",
-    gap: 24,
+    width: "100%",
+    backgroundColor: flashDesign.color.ink,
     overflow: "hidden",
   },
   loginGlow: {
     position: "absolute",
-    top: -90,
-    right: -70,
-    width: 250,
-    height: 250,
-    borderRadius: 125,
-    backgroundColor: "rgba(255,255,255,.14)",
+    top: -116,
+    right: -94,
+    width: 290,
+    height: 290,
+    borderRadius: 145,
+    backgroundColor: "rgba(163,112,255,.28)",
   },
-  loginBrand: { alignItems: "center", gap: 8 },
+  loginGlowSecondary:{position:"absolute",top:210,left:-112,width:240,height:240,borderRadius:120,backgroundColor:"rgba(255,106,33,.16)"},
+  loginScroll:{flex:1,width:"100%"},
+  loginContent:{flexGrow:1,justifyContent:"flex-end",paddingTop:12},
+  loginContentCompact:{paddingTop:0},
+  loginHero:{minHeight:292,paddingHorizontal:24,paddingTop:14,paddingBottom:34,justifyContent:"space-between",gap:24},
+  loginHeroCompact:{minHeight:230,paddingHorizontal:20,paddingTop:10,paddingBottom:28,gap:16},
+  loginBrandRow:{flexDirection:"row",alignItems:"center",gap:10},
   loginMark: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 14,
     backgroundColor: "#fff",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#210048",
-    shadowOpacity: 0.28,
-    shadowRadius: 18,
+    shadowColor: "#000",
+    shadowOffset:{width:0,height:8},
+    shadowOpacity: .22,
+    shadowRadius: 16,
   },
-  loginTitle: { color: "#fff", fontSize: 34, fontWeight: "900" },
-  loginCopy: { color: "rgba(255,255,255,.68)", textAlign: "center" },
+  loginWordmark:{color:"#fff",fontSize:22,fontWeight:"900",letterSpacing:-.7},
+  loginSecurePill:{marginLeft:"auto",minHeight:32,paddingHorizontal:10,borderRadius:999,flexDirection:"row",alignItems:"center",gap:6,backgroundColor:"rgba(255,255,255,.1)",borderWidth:1,borderColor:"rgba(255,255,255,.12)"},
+  loginSecureText:{color:"#f5f1f8",fontSize:11,fontWeight:"800"},
+  loginHeroCopy:{gap:8},
+  loginEyebrow:{color:"#d6ff72",fontSize:11,fontWeight:"900",letterSpacing:1.5},
+  loginTitle:{color:"#fff",fontSize:40,lineHeight:42,fontWeight:"900",letterSpacing:-1.8},
+  loginTitleCompact:{fontSize:32,lineHeight:34},
+  loginCopy:{maxWidth:340,color:"rgba(255,255,255,.72)",fontSize:14,lineHeight:20},
+  loginServices:{flexDirection:"row",alignItems:"center",gap:8},
+  loginService:{flexDirection:"row",alignItems:"center",gap:6,minHeight:34,paddingRight:10,paddingLeft:4,borderRadius:999,backgroundColor:"rgba(255,255,255,.09)"},
+  loginServiceIcon:{width:27,height:27,borderRadius:999,alignItems:"center",justifyContent:"center"},
+  loginServiceText:{color:"#fff",fontSize:11,fontWeight:"800"},
   loginCard: {
-    padding: 20,
-    borderRadius: 24,
+    width:"100%",
+    minHeight:420,
+    paddingHorizontal:24,
+    paddingTop:26,
+    paddingBottom:28,
+    borderTopLeftRadius:30,
+    borderTopRightRadius:30,
     backgroundColor: "#fff",
-    gap: 12,
+    gap: 16,
+    shadowColor:"#000",
+    shadowOffset:{width:0,height:-8},
+    shadowOpacity:.1,
+    shadowRadius:24,
   },
-  loginError: { color: "#c92d2d", fontWeight: "800" },
-  loginSwitch: { alignItems: "center", paddingVertical: 8 },
-  loginSwitchText: { color: "#7200d8", fontWeight: "800" },
+  loginCardHeader:{flexDirection:"row",alignItems:"flex-start",gap:12},
+  loginBack:{width:42,height:42,borderRadius:14,alignItems:"center",justifyContent:"center",backgroundColor:"#f3f0f5",borderWidth:1,borderColor:flashDesign.color.line},
+  loginCardHeading:{flex:1,minWidth:0,gap:7},
+  loginCardTitle:{color:flashDesign.color.ink,fontSize:27,lineHeight:31,fontWeight:"900",letterSpacing:-.8},
+  loginCardCopy:{color:"#716b75",fontSize:13,lineHeight:19},
+  loginIdentity:{minHeight:54,borderRadius:17,paddingHorizontal:12,flexDirection:"row",alignItems:"center",gap:10,backgroundColor:"#f6f3f8",borderWidth:1,borderColor:flashDesign.color.line},
+  loginIdentityIcon:{width:32,height:32,borderRadius:11,alignItems:"center",justifyContent:"center",backgroundColor:"#efe8ff"},
+  loginIdentityText:{flex:1,minWidth:0,color:flashDesign.color.ink,fontSize:13,fontWeight:"800"},
+  loginIdentityAction:{color:flashDesign.color.brand,fontSize:12,fontWeight:"900"},
+  loginFieldGroup:{gap:7},
+  loginLabelRow:{flexDirection:"row",alignItems:"center",justifyContent:"space-between"},
+  loginFieldLabel:{color:flashDesign.color.ink,fontSize:12,fontWeight:"900"},
+  loginOptional:{color:"#8c8690",fontSize:11,fontWeight:"700"},
+  loginInlineAction:{color:flashDesign.color.brand,fontSize:12,fontWeight:"900"},
+  loginInputShell:{minHeight:54,borderRadius:17,paddingHorizontal:15,flexDirection:"row",alignItems:"center",gap:10,backgroundColor:"#faf9fb",borderWidth:1.5,borderColor:"#dfdbe2"},
+  loginInputShellError:{borderColor:flashDesign.color.danger,backgroundColor:"#fff8f7"},
+  loginInput:{flex:1,minWidth:0,paddingVertical:13,color:flashDesign.color.ink,fontSize:15,fontWeight:"600",outlineStyle:"none"} as never,
+  loginCodeShell:{minHeight:62,borderRadius:18,alignItems:"center",justifyContent:"center",backgroundColor:"#faf9fb",borderWidth:1.5,borderColor:"#dfdbe2"},
+  loginCodeInput:{width:"100%",paddingHorizontal:20,paddingVertical:10,textAlign:"center",color:flashDesign.color.ink,fontSize:25,fontWeight:"900",letterSpacing:12,outlineStyle:"none"} as never,
+  loginPasswordHint:{flexDirection:"row",alignItems:"center",gap:5,paddingLeft:2},
+  loginPasswordHintText:{color:"#7e7882",fontSize:11,fontWeight:"700"},
+  loginError:{flexDirection:"row",alignItems:"flex-start",gap:8,padding:12,borderRadius:14,backgroundColor:"#fff1ef",borderWidth:1,borderColor:"#ffd1ca"},
+  loginErrorText:{flex:1,minWidth:0,color:"#9b251b",fontSize:12,lineHeight:17,fontWeight:"800"},
+  loginPrimary:{minHeight:56,paddingHorizontal:18,borderRadius:18,flexDirection:"row",alignItems:"center",justifyContent:"center",gap:9,backgroundColor:flashDesign.color.ink,shadowColor:flashDesign.color.ink,shadowOffset:{width:0,height:9},shadowOpacity:.18,shadowRadius:16,elevation:3},
+  loginPrimaryDisabled:{backgroundColor:"#c9c4cd",shadowOpacity:0,elevation:0},
+  loginPrimaryPressed:{transform:[{scale:.99}],opacity:.94},
+  loginPrimaryText:{color:"#fff",fontSize:15,fontWeight:"900"},
+  loginSecondaryBlock:{gap:13},
+  loginDivider:{flexDirection:"row",alignItems:"center",gap:10},
+  loginDividerLine:{flex:1,height:1,backgroundColor:flashDesign.color.line},
+  loginDividerText:{color:"#99939d",fontSize:11,fontWeight:"800"},
+  loginSecondary:{minHeight:54,borderRadius:18,alignItems:"center",justifyContent:"center",backgroundColor:"#fff",borderWidth:1.5,borderColor:flashDesign.color.ink},
+  loginSecondaryPressed:{backgroundColor:"#f5f2f6"},
+  loginSecondaryText:{color:flashDesign.color.ink,fontSize:14,fontWeight:"900"},
+  loginAudienceNote:{minHeight:58,padding:12,borderRadius:17,flexDirection:"row",alignItems:"center",gap:10,backgroundColor:"#f6f3f8",borderWidth:1,borderColor:flashDesign.color.line},
+  loginAudienceNoteIcon:{width:32,height:32,borderRadius:11,alignItems:"center",justifyContent:"center",backgroundColor:"#ebe3ff"},
+  loginAudienceNoteText:{flex:1,minWidth:0,color:"#665f69",fontSize:11,lineHeight:16,fontWeight:"700"},
+  loginSwitch:{alignItems:"center",justifyContent:"center",minHeight:38,paddingVertical:5},
+  loginSwitchText:{color:"#706a74",fontSize:13,fontWeight:"700"},
+  loginSwitchStrong:{color:flashDesign.color.brand,fontWeight:"900"},
+  loginVerificationActions:{flexDirection:"row",justifyContent:"center",gap:12},
+  loginLegal:{color:"#9a949e",fontSize:10,lineHeight:15,textAlign:"center",paddingHorizontal:8},
   serviceNav: {
     flexDirection: "row",
     gap: flashDesign.space.xs,

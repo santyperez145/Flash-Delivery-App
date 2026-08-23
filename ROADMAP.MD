@@ -8,6 +8,23 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 22 de agosto de 2026 — Acceso mobile profesional
+
+- [x] Login dejó la tarjeta básica sobre gradiente y adoptó una composición Flash
+  propia con hero de servicios, hoja compacta, targets táctiles y scroll seguro.
+- [x] El acceso ahora es progresivo: email primero, contraseña después, identidad
+  editable y recuperación contextual; registro, OTP y reset tienen estados y
+  navegación independientes sobre los contratos backend existentes.
+- [x] La UI dejó de autocompletar códigos/tokens de desarrollo y no presenta
+  Apple, Google, teléfono, biometría o passkeys como disponibles sin proveedor.
+- [x] Customer, Driver y Merchant reciben contexto propio; sólo Customer expone
+  registro público y un intento válido en la variante incorrecta revoca la
+  sesión recién emitida antes de informar el error.
+- [x] La decisión y sus fuentes oficiales quedan registradas en
+  `docs/competitive-research/mobile-authentication.md`.
+- [ ] Siguiente gate de identidad: integrar passkeys y proveedores nativos sólo
+  después de dominio, credenciales, backend, privacidad y builds físicos.
+
 ## Avance 22 de agosto de 2026 — Design Roadmap rector
 
 - [x] `docs/DESIGN_ROADMAP.md` convierte la calidad visual, cobertura de pantallas, tokens, componentes, referencias y definición de terminado en lineamiento obligatorio del repositorio.
