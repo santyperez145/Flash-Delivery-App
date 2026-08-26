@@ -40,6 +40,7 @@ import {
   startRealtimeListener,
 } from "./http/realtime.js";
 import { mapsRouter } from "./http/maps-router.js";
+import { rideContextRouter } from "./http/ride-context-router.js";
 import { closeRedis, redisClient, redisReadiness } from "./redis.js";
 import { openApiDocument } from "./openapi.js";
 import { closePostgres, postgresPool, postgresReadiness } from "./postgres.js";
@@ -273,16 +274,6 @@ import {
   getAdminMfaStatus,
   verifyAdminMfa,
 } from "./mfa-repository.js";
-import {
-  deletePostgresRideDestination,
-  getPostgresRideDestinations,
-  recordPostgresRideDestination,
-} from "./destination-repository.js";
-import {
-  createPostgresTrustedContact,
-  deletePostgresTrustedContact,
-  getPostgresTrustedContacts,
-} from "./trusted-contact-repository.js";
 import {
   createServiceMessage,
   createServiceQuickReply,
@@ -880,20 +871,6 @@ const driverDocumentReviewSchema = z
         message: "Explica el rechazo",
       });
   });
-const rideDestinationSchema = z.object({
-  label: z.string().trim().min(1).max(80),
-  address: z.string().trim().min(3).max(240),
-  lat: z.coerce.number().min(-90).max(90),
-  lng: z.coerce.number().min(-180).max(180),
-});
-const trustedContactSchema = z.object({
-  name: z.string().trim().min(2).max(80),
-  relationship: z.enum(["family", "friend", "partner", "coworker", "other"]),
-  phone: z
-    .string()
-    .trim()
-    .regex(/^\+[1-9][0-9]{7,14}$/, "Usa formato internacional, por ejemplo +5491112345678"),
-});
 const sandboxPaymentMethodSchema = z
   .object({
     providerToken: z.string().regex(/^pm_test_[A-Za-z0-9_-]{8,120}$/, "Token sandbox inválido"),
@@ -4335,149 +4312,7 @@ app.get("/api/me", requireAuth, async (req, res) => {
 
 app.use(addressesRouter);
 
-app.get(
-  "/api/ride-destinations",
-  requireAuth,
-  requireAnyRole("customer", "admin"),
-  async (req, res) => {
-    try {
-      return ok(res, {
-        destinations: await getPostgresRideDestinations(req.auth.userId),
-      });
-    } catch (_error) {
-      return fail(res, 500, "No se pudieron cargar los destinos recientes");
-    }
-  },
-);
-app.post(
-  "/api/ride-destinations",
-  requireAuth,
-  requireAnyRole("customer", "admin"),
-  async (req, res) => {
-    const parsed = parseOrFail(rideDestinationSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const destination = await recordPostgresRideDestination({
-        userPublicId: req.auth.userId,
-        ...parsed.data,
-      });
-      return res.status(201).json({
-        ok: true,
-        requestId: req.requestId,
-        destination,
-        destinations: await getPostgresRideDestinations(req.auth.userId),
-      });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo guardar el destino reciente");
-    }
-  },
-);
-app.delete(
-  "/api/ride-destinations/:destinationId",
-  requireAuth,
-  requireAnyRole("customer", "admin"),
-  async (req, res) => {
-    try {
-      const destinations = await deletePostgresRideDestination({
-        userPublicId: req.auth.userId,
-        destinationId: req.params.destinationId,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "ride_destination.deleted",
-        entityType: "ride_destination",
-        entityId: req.params.destinationId,
-        requestId: req.requestId,
-      });
-      return ok(res, { deleted: true, destinations });
-    } catch (error) {
-      return failFrom(
-        res,
-        // Un uuid mal formado no es una falla del servidor: el recurso no existe.
-        error.code === "22P02" ? { status: 404, message: "Destino reciente no encontrado" } : error,
-        "No se pudo eliminar el destino",
-      );
-    }
-  },
-);
-app.get(
-  "/api/ride-trusted-contacts",
-  requireAuth,
-  requireAnyRole("customer", "admin"),
-  async (req, res) => {
-    try {
-      return ok(res, {
-        contacts: await getPostgresTrustedContacts(req.auth.userId),
-      });
-    } catch (_error) {
-      return fail(res, 500, "No se pudieron cargar los contactos de confianza");
-    }
-  },
-);
-app.post(
-  "/api/ride-trusted-contacts",
-  requireAuth,
-  requireAnyRole("customer", "admin"),
-  async (req, res) => {
-    const parsed = parseOrFail(trustedContactSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const contact = await createPostgresTrustedContact({
-        userPublicId: req.auth.userId,
-        ...parsed.data,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "ride_trusted_contact.created",
-        entityType: "ride_trusted_contact",
-        entityId: contact.id,
-        requestId: req.requestId,
-        afterData: { relationship: contact.relationship, last4: contact.last4 },
-      });
-      return res.status(201).json({
-        ok: true,
-        requestId: req.requestId,
-        contact,
-        contacts: await getPostgresTrustedContacts(req.auth.userId),
-      });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo guardar el contacto de confianza");
-    }
-  },
-);
-app.delete(
-  "/api/ride-trusted-contacts/:contactId",
-  requireAuth,
-  requireAnyRole("customer", "admin"),
-  async (req, res) => {
-    try {
-      const contacts = await deletePostgresTrustedContact({
-        userPublicId: req.auth.userId,
-        contactId: req.params.contactId,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "ride_trusted_contact.deleted",
-        entityType: "ride_trusted_contact",
-        entityId: req.params.contactId,
-        requestId: req.requestId,
-      });
-      return ok(res, { deleted: true, contacts });
-    } catch (error) {
-      return failFrom(
-        res,
-        // Un uuid mal formado no es una falla del servidor: el recurso no existe.
-        error.code === "22P02"
-          ? { status: 404, message: "Contacto de confianza no encontrado" }
-          : error,
-        "No se pudo eliminar el contacto",
-      );
-    }
-  },
-);
+app.use(rideContextRouter);
 
 app.post("/api/me/phone-verification/request", requireAuth, async (req, res) => {
   if (!usesPostgresAuth()) return fail(res, 503, "La verificación telefónica requiere PostgreSQL");
