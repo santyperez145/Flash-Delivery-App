@@ -38,6 +38,8 @@
     "start": "node --env-file-if-exists=.env.local server/start.js",
     "test:security": "node scripts/security-smoke.mjs",
     "test:realtime-audience": "node scripts/realtime-audience-smoke.mjs",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"server/**/*.js\" \"scripts/**/*.mjs\" \"apps/mobile/App.tsx\" \"apps/mobile/src/**/*.{ts,tsx}\"",
+    "test:format": "prettier --check \"src/**/*.{ts,tsx,css}\" \"server/**/*.js\" \"scripts/**/*.mjs\" \"apps/mobile/App.tsx\" \"apps/mobile/src/**/*.{ts,tsx}\"",
     "test:line-length": "node scripts/line-length-ratchet.mjs",
     "test:rls-matrix": "node scripts/rls-matrix-check.mjs",
     "test:push-provider": "node scripts/push-provider-smoke.mjs",

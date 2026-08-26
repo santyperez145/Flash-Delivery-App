@@ -44,6 +44,12 @@ jobs:
       - name: Realtime audience contract
         run: npm run test:realtime-audience
 
+      # Sin esta puerta el código vuelve a derivar al estado que hacía ilegible
+      # cualquier diff. El ratchet acota el daño heredado; el formateador impide
+      # que se genere daño nuevo.
+      - name: Formatting
+        run: npm run test:format
+
       - name: Line length ratchet
         run: npm run test:line-length
 
