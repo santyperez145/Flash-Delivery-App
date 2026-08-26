@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { createPool } from "./db-client.mjs";
+import { waitForHealthy } from "./wait-for-api.mjs";
 
 const port = 4211,
   base = `http://127.0.0.1:${port}/api`,
@@ -40,12 +41,7 @@ const assert = (condition, message) => {
 };
 let adminToken;
 try {
-  for (let attempt = 0; attempt < 50; attempt += 1) {
-    try {
-      if ((await fetch(`${base}/health`)).ok) break;
-    } catch {}
-    await sleep(200);
-  }
+  await waitForHealthy(`${base}/health`);
   const customerToken = await login("cliente@flash.app");
   adminToken = await login("ops@flash.app");
   const customer = await call("/features", { token: customerToken });

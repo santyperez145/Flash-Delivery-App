@@ -1,6 +1,7 @@
 import { createPool } from "./db-client.mjs";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
+import { waitForHealthy } from "./wait-for-api.mjs";
 
 const port = await new Promise((resolve, reject) => {
   const server = createServer();
@@ -37,12 +38,7 @@ const call = async (path, body) => {
 const sleep = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 try {
-  for (let attempt = 0; attempt < 50; attempt += 1) {
-    try {
-      if ((await fetch(`${base}/health`)).ok) break;
-    } catch {}
-    await sleep(200);
-  }
+  await waitForHealthy(`${base}/health`);
   const wrong = await call("/auth/login", {
     email,
     password: "demo123",

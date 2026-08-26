@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { createClient } from "redis";
+import { waitForHealthy } from "./wait-for-api.mjs";
 
 const redisUrl = process.env.TEST_REDIS_URL || "redis://127.0.0.1:6379/15",
   ports = [4215, 4216],
@@ -36,17 +37,7 @@ try {
     children.push(child);
   }
   for (const port of ports) {
-    let ready = false;
-    for (let attempt = 0; attempt < 60; attempt++) {
-      try {
-        if ((await fetch(`http://127.0.0.1:${port}/api/ready`)).ok) {
-          ready = true;
-          break;
-        }
-      } catch {}
-      await sleep(200);
-    }
-    if (!ready) throw new Error(`Instancia ${port} no inició con Redis`);
+    await waitForHealthy(`http://127.0.0.1:${port}/api/ready`);
   }
   const statuses = [];
   for (let index = 0; index < 4; index++) {

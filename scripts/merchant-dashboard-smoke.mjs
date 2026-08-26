@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import pg from "pg";
+import { waitForHealthy } from "./wait-for-api.mjs";
 
 const port = 4223,
   base = `http://127.0.0.1:${port}/api`,
@@ -47,16 +48,7 @@ const login = async (email) =>
 
 try {
   let ready = false;
-  for (let attempt = 0; attempt < 60; attempt++) {
-    try {
-      if ((await fetch(`${base}/health`)).ok) {
-        ready = true;
-        break;
-      }
-    } catch {}
-    await sleep(200);
-  }
-  assert(ready, "isolated API starts with PostgreSQL");
+  await waitForHealthy(`${base}/health`);
   const merchantToken = await login("comercio@flash.app"),
     customerToken = await login("cliente@flash.app"),
     adminToken = await login("ops@flash.app");
