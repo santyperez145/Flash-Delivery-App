@@ -41,7 +41,7 @@ import {
   updateLocalNotificationPreference,
 } from "../store.js";
 import { requireAuth } from "./authentication.js";
-import { fail, ok, parseOrFail } from "./responses.js";
+import { fail, failFrom, ok, parseOrFail } from "./responses.js";
 
 // Las cinco categorías que un usuario puede silenciar por separado. Es una lista
 // cerrada a propósito: una categoría nueva exige decidir su valor por omisión, y
@@ -86,7 +86,7 @@ notificationsRouter.patch(
           }),
         });
       } catch (error) {
-        return fail(res, error.status || 500, error.message || "No se pudo marcar la notificación");
+        return failFrom(res, error, "No se pudo marcar la notificación");
       }
     }
     try {
@@ -97,7 +97,7 @@ notificationsRouter.patch(
         }),
       });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo marcar la notificación");
+      return failFrom(res, error, "No se pudo marcar la notificación");
     }
   },
 );
@@ -155,11 +155,7 @@ notificationsRouter.patch(
       });
       return ok(res, { preferences });
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudo actualizar la preferencia",
-      );
+      return failFrom(res, error, "No se pudo actualizar la preferencia");
     }
   },
 );
@@ -196,7 +192,7 @@ notificationsRouter.post("/api/devices", requireAuth, async (req, res) => {
     });
     return res.status(201).json({ ok: true, requestId: res.locals.requestId, device });
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo registrar el dispositivo");
+    return failFrom(res, error, "No se pudo registrar el dispositivo");
   }
 });
 notificationsRouter.delete("/api/devices/:deviceId", requireAuth, async (req, res) => {
@@ -215,6 +211,6 @@ notificationsRouter.delete("/api/devices/:deviceId", requireAuth, async (req, re
     });
     return ok(res, { revoked: true });
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo revocar el dispositivo");
+    return failFrom(res, error, "No se pudo revocar el dispositivo");
   }
 });

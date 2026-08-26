@@ -2,7 +2,7 @@
 
 ## Estado al 26 de agosto de 2026
 
-`ci.yml` se dividió en tres workflows y **los cinco jobs están en verde**. La cobertura pasó de **15 a 79 de 82 suites** detrás de una puerta, 78 de ellas bloqueantes.
+`ci.yml` se dividió en tres workflows y **los cinco jobs están en verde**. La cobertura pasó de **15 a 80 de 83 suites** detrás de una puerta, 79 de ellas bloqueantes.
 
 Contexto: hasta el 25 de agosto, `package.json` declaraba 104 scripts y el workflow ejecutaba 15. La causa raíz era que CI sólo declaraba un servicio Redis, así que ninguna suite que necesitara base de datos podía correr. Hallazgo [H-01](auditoria-2026-08-25.md#h-01--ci-no-ejecuta-el-86-de-su-propia-matriz-de-pruebas), ticket [CI-001](backlog-tecnico.md#ci-001--pipeline-productivo).
 
@@ -91,6 +91,14 @@ El inventario recorre **todo el árbol de `server/`, no un archivo**. Leía sól
 Existe porque hasta [ARC-001](backlog-tecnico.md#arc-001--modularización) paso 3 esas reglas estaban dentro de un archivo de 9.500 líneas y **la única forma de ejercitarlas era levantar la API entera**. Eso cubre los caminos que alguien recordó probar, no la regla. Al quedar puras —sin base de datos, sin Express— se afirman una por una sin red ni credenciales, incluidos los casos que un smoke de extremo a extremo no llega a montar: el administrador con MFA habilitado y sin verificar, el pedido cuyo comercio ya no existe, y el conductor que no es el asignado.
 
 La suite también afirma que **el módulo no vuelve a depender de la base**. Sin esa aserción, la propiedad que hace verificable a todo lo demás se pierde en el primer PR que la olvide.
+
+### No divulgación en errores 5xx
+
+`test:error-disclosure` verifica que un 500 no describa su causa. Tiene dos mitades: afirma la política sobre `failFrom` directamente, y recorre las **316 llamadas a `fail()`** del árbol del servidor para impedir que el patrón vuelva.
+
+El manejador global ya aplicaba la política, pero **130 handlers la puenteaban** capturando el error ellos mismos y respondiendo `error.message` en un 500. Se encontró **abriendo la aplicación en un navegador**: `/api/admin/payouts` sobre el fallback devolvía `Cannot read properties of null (reading query)` al cliente. Ningún contrato estático lo veía, porque el código no estaba roto — sólo era indiscreto.
+
+La comprobación analiza cada llamada completa contando paréntesis, no una forma de escribirla. La primera versión buscaba una cadena línea por línea y **tenía un punto ciego**: no veía el 500 escrito como literal. Lo encontró otra vez el navegador, no la suite.
 
 ### Contratos sobre código fuente
 

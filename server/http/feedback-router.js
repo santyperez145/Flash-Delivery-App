@@ -23,7 +23,7 @@ import {
 import { recordPostgresAudit } from "../operations-repository.js";
 import { requireAuth } from "./authentication.js";
 import { isAdmin, requireAnyRole } from "./authorization.js";
-import { fail, ok, parseOrFail } from "./responses.js";
+import { fail, failFrom, ok, parseOrFail } from "./responses.js";
 
 const favoriteSchema = z.object({ favorite: z.boolean() });
 
@@ -73,7 +73,7 @@ feedbackRouter.put(
       });
       return ok(res, { restaurantIds });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo actualizar favoritos");
+      return failFrom(res, error, "No se pudo actualizar favoritos");
     }
   },
 );
@@ -116,6 +116,6 @@ feedbackRouter.post("/api/ratings", requireAuth, async (req, res) => {
     });
     return res.status(201).json({ ok: true, requestId: res.locals.requestId, rating });
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo guardar la calificación");
+    return failFrom(res, error, "No se pudo guardar la calificación");
   }
 });

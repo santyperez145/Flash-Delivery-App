@@ -26,7 +26,7 @@ import { recordPostgresAudit } from "../operations-repository.js";
 import { getLocalDietaryPreferences, replaceLocalDietaryPreferences } from "../store.js";
 import { requireAuth } from "./authentication.js";
 import { requireAnyRole } from "./authorization.js";
-import { fail, ok, parseOrFail } from "./responses.js";
+import { fail, failFrom, ok, parseOrFail } from "./responses.js";
 
 // Los topes son los del catálogo, no arbitrarios: cinco etiquetas dietarias y
 // nueve alérgenos son las listas completas, así que un valor mayor sólo puede
@@ -72,11 +72,7 @@ dietaryRouter.get(
         preferences: await getUserDietaryPreferences(req.auth.userId),
       });
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudieron cargar las preferencias alimentarias",
-      );
+      return failFrom(res, error, "No se pudieron cargar las preferencias alimentarias");
     }
   },
 );
@@ -126,11 +122,7 @@ dietaryRouter.put(
       });
       return ok(res, { preferences });
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudieron actualizar las preferencias alimentarias",
-      );
+      return failFrom(res, error, "No se pudieron actualizar las preferencias alimentarias");
     }
   },
 );

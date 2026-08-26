@@ -56,6 +56,12 @@ jobs:
       - name: Authorization contract
         run: npm run test:authorization
 
+      # Un 500 no describe su causa. Lo decidia el manejador global, pero 130
+      # handlers lo puenteaban capturando el error ellos mismos. Se encontro
+      # probando en el navegador, no leyendo codigo.
+      - name: Error disclosure contract
+        run: npm run test:error-disclosure
+
       - name: Realtime audience contract
         run: npm run test:realtime-audience
 
