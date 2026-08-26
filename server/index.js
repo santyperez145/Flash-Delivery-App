@@ -40,6 +40,8 @@ import {
   startRealtimeListener,
 } from "./http/realtime.js";
 import { mapsRouter } from "./http/maps-router.js";
+import { rideContextRouter } from "./http/ride-context-router.js";
+import { driverFleetRouter } from "./http/driver-fleet-router.js";
 import { closeRedis, redisClient, redisReadiness } from "./redis.js";
 import { openApiDocument } from "./openapi.js";
 import { closePostgres, postgresPool, postgresReadiness } from "./postgres.js";
@@ -249,14 +251,6 @@ import {
   reviewDriverDocument,
   submitDriverDocument,
 } from "./compliance-repository.js";
-import {
-  activateDriverVehicle,
-  createDriverVehicle,
-  getDriverVehicles,
-  retireDriverVehicle,
-  reviewDriverVehicle,
-  updateDriverVehicle,
-} from "./driver-vehicle-repository.js";
 import { getDriverPreferences, updateDriverPreferences } from "./driver-preference-repository.js";
 import { getDriverDemandZones } from "./driver-demand-repository.js";
 import {
@@ -273,16 +267,6 @@ import {
   getAdminMfaStatus,
   verifyAdminMfa,
 } from "./mfa-repository.js";
-import {
-  deletePostgresRideDestination,
-  getPostgresRideDestinations,
-  recordPostgresRideDestination,
-} from "./destination-repository.js";
-import {
-  createPostgresTrustedContact,
-  deletePostgresTrustedContact,
-  getPostgresTrustedContacts,
-} from "./trusted-contact-repository.js";
 import {
   createServiceMessage,
   createServiceQuickReply,
@@ -774,46 +758,6 @@ const driverLocationSchema = coordinateSchema.extend({
   source: z.enum(["foreground", "background"]).optional(),
   accuracyM: z.coerce.number().min(0).max(1000).optional(),
 });
-const driverVehicleFields = {
-  kind: z.enum(["bicycle", "motorcycle", "car", "van"]),
-  model: z.string().trim().min(2).max(80),
-  plate: z
-    .string()
-    .trim()
-    .min(3)
-    .max(16)
-    .regex(/^[A-Za-z0-9 -]+$/),
-  color: z.string().trim().min(2).max(40).nullable().optional(),
-  seats: z.coerce.number().int().min(1).max(8).nullable().optional(),
-  serviceModes: z
-    .array(z.enum(["delivery", "ride"]))
-    .min(1)
-    .max(2),
-};
-const driverVehicleSchema = z.object(driverVehicleFields).superRefine((value, ctx) => {
-  if (value.serviceModes.includes("ride") && (!["car", "van"].includes(value.kind) || !value.seats))
-    ctx.addIssue({
-      code: "custom",
-      path: ["seats"],
-      message: "Viajes requiere auto o van con asientos declarados",
-    });
-});
-const driverVehicleUpdateSchema = z
-  .object(
-    Object.fromEntries(
-      Object.entries(driverVehicleFields).map(([key, value]) => [key, value.optional()]),
-    ),
-  )
-  .refine((value) => Object.keys(value).length > 0, "Indicá al menos un cambio");
-const driverVehicleReviewSchema = z
-  .object({
-    status: z.enum(["approved", "rejected"]),
-    rejectionReason: z.string().trim().max(500).nullable().optional(),
-  })
-  .superRefine((value, ctx) => {
-    if (value.status === "rejected" && (!value.rejectionReason || value.rejectionReason.length < 5))
-      ctx.addIssue({ code: "custom", path: ["rejectionReason"], message: "Explica el rechazo" });
-  });
 const driverPreferenceSchema = z.object({
   navigationProvider: z.enum(["system", "google_maps", "apple_maps"]),
 });
@@ -880,20 +824,6 @@ const driverDocumentReviewSchema = z
         message: "Explica el rechazo",
       });
   });
-const rideDestinationSchema = z.object({
-  label: z.string().trim().min(1).max(80),
-  address: z.string().trim().min(3).max(240),
-  lat: z.coerce.number().min(-90).max(90),
-  lng: z.coerce.number().min(-180).max(180),
-});
-const trustedContactSchema = z.object({
-  name: z.string().trim().min(2).max(80),
-  relationship: z.enum(["family", "friend", "partner", "coworker", "other"]),
-  phone: z
-    .string()
-    .trim()
-    .regex(/^\+[1-9][0-9]{7,14}$/, "Usa formato internacional, por ejemplo +5491112345678"),
-});
 const sandboxPaymentMethodSchema = z
   .object({
     providerToken: z.string().regex(/^pm_test_[A-Za-z0-9_-]{8,120}$/, "Token sandbox inválido"),
@@ -4335,149 +4265,7 @@ app.get("/api/me", requireAuth, async (req, res) => {
 
 app.use(addressesRouter);
 
-app.get(
-  "/api/ride-destinations",
-  requireAuth,
-  requireAnyRole("customer", "admin"),
-  async (req, res) => {
-    try {
-      return ok(res, {
-        destinations: await getPostgresRideDestinations(req.auth.userId),
-      });
-    } catch (_error) {
-      return fail(res, 500, "No se pudieron cargar los destinos recientes");
-    }
-  },
-);
-app.post(
-  "/api/ride-destinations",
-  requireAuth,
-  requireAnyRole("customer", "admin"),
-  async (req, res) => {
-    const parsed = parseOrFail(rideDestinationSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const destination = await recordPostgresRideDestination({
-        userPublicId: req.auth.userId,
-        ...parsed.data,
-      });
-      return res.status(201).json({
-        ok: true,
-        requestId: req.requestId,
-        destination,
-        destinations: await getPostgresRideDestinations(req.auth.userId),
-      });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo guardar el destino reciente");
-    }
-  },
-);
-app.delete(
-  "/api/ride-destinations/:destinationId",
-  requireAuth,
-  requireAnyRole("customer", "admin"),
-  async (req, res) => {
-    try {
-      const destinations = await deletePostgresRideDestination({
-        userPublicId: req.auth.userId,
-        destinationId: req.params.destinationId,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "ride_destination.deleted",
-        entityType: "ride_destination",
-        entityId: req.params.destinationId,
-        requestId: req.requestId,
-      });
-      return ok(res, { deleted: true, destinations });
-    } catch (error) {
-      return failFrom(
-        res,
-        // Un uuid mal formado no es una falla del servidor: el recurso no existe.
-        error.code === "22P02" ? { status: 404, message: "Destino reciente no encontrado" } : error,
-        "No se pudo eliminar el destino",
-      );
-    }
-  },
-);
-app.get(
-  "/api/ride-trusted-contacts",
-  requireAuth,
-  requireAnyRole("customer", "admin"),
-  async (req, res) => {
-    try {
-      return ok(res, {
-        contacts: await getPostgresTrustedContacts(req.auth.userId),
-      });
-    } catch (_error) {
-      return fail(res, 500, "No se pudieron cargar los contactos de confianza");
-    }
-  },
-);
-app.post(
-  "/api/ride-trusted-contacts",
-  requireAuth,
-  requireAnyRole("customer", "admin"),
-  async (req, res) => {
-    const parsed = parseOrFail(trustedContactSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const contact = await createPostgresTrustedContact({
-        userPublicId: req.auth.userId,
-        ...parsed.data,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "ride_trusted_contact.created",
-        entityType: "ride_trusted_contact",
-        entityId: contact.id,
-        requestId: req.requestId,
-        afterData: { relationship: contact.relationship, last4: contact.last4 },
-      });
-      return res.status(201).json({
-        ok: true,
-        requestId: req.requestId,
-        contact,
-        contacts: await getPostgresTrustedContacts(req.auth.userId),
-      });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo guardar el contacto de confianza");
-    }
-  },
-);
-app.delete(
-  "/api/ride-trusted-contacts/:contactId",
-  requireAuth,
-  requireAnyRole("customer", "admin"),
-  async (req, res) => {
-    try {
-      const contacts = await deletePostgresTrustedContact({
-        userPublicId: req.auth.userId,
-        contactId: req.params.contactId,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "ride_trusted_contact.deleted",
-        entityType: "ride_trusted_contact",
-        entityId: req.params.contactId,
-        requestId: req.requestId,
-      });
-      return ok(res, { deleted: true, contacts });
-    } catch (error) {
-      return failFrom(
-        res,
-        // Un uuid mal formado no es una falla del servidor: el recurso no existe.
-        error.code === "22P02"
-          ? { status: 404, message: "Contacto de confianza no encontrado" }
-          : error,
-        "No se pudo eliminar el contacto",
-      );
-    }
-  },
-);
+app.use(rideContextRouter);
 
 app.post("/api/me/phone-verification/request", requireAuth, async (req, res) => {
   if (!usesPostgresAuth()) return fail(res, 503, "La verificación telefónica requiere PostgreSQL");
@@ -8154,177 +7942,7 @@ app.patch(
   },
 );
 
-app.get(
-  "/api/drivers/:driverId/vehicles",
-  requireAuth,
-  requireAnyRole("driver", "support", "admin"),
-  async (req, res) => {
-    try {
-      return ok(res, {
-        vehicles: await getDriverVehicles({
-          driverPublicId: req.params.driverId,
-          actorPublicId: req.auth.userId,
-          roles: req.auth.roles,
-          includeRetired: req.query.includeRetired === "true",
-        }),
-      });
-    } catch (error) {
-      return failFrom(res, error, "No se pudieron cargar los vehículos");
-    }
-  },
-);
-app.post(
-  "/api/drivers/:driverId/vehicles",
-  requireAuth,
-  requireAnyRole("driver", "admin"),
-  async (req, res) => {
-    const parsed = parseOrFail(driverVehicleSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const vehicle = await createDriverVehicle({
-        driverPublicId: req.params.driverId,
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        ...parsed.data,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "driver_vehicle.created",
-        entityType: "driver_vehicle",
-        entityId: vehicle.id,
-        requestId: req.requestId,
-        afterData: {
-          driverId: vehicle.driverId,
-          kind: vehicle.kind,
-          serviceModes: vehicle.serviceModes,
-          status: vehicle.status,
-        },
-      });
-      return res.status(201).json({ ok: true, requestId: req.requestId, vehicle });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo registrar el vehículo");
-    }
-  },
-);
-app.patch(
-  "/api/driver-vehicles/:vehicleId",
-  requireAuth,
-  requireAnyRole("driver", "admin"),
-  async (req, res) => {
-    const parsed = parseOrFail(driverVehicleUpdateSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const vehicle = await updateDriverVehicle({
-        vehiclePublicId: req.params.vehicleId,
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        changes: parsed.data,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "driver_vehicle.updated",
-        entityType: "driver_vehicle",
-        entityId: vehicle.id,
-        requestId: req.requestId,
-        afterData: {
-          kind: vehicle.kind,
-          serviceModes: vehicle.serviceModes,
-          status: vehicle.status,
-        },
-      });
-      return ok(res, { vehicle });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo actualizar el vehículo");
-    }
-  },
-);
-app.post(
-  "/api/driver-vehicles/:vehicleId/activate",
-  requireAuth,
-  requireAnyRole("driver", "admin"),
-  async (req, res) => {
-    try {
-      const vehicle = await activateDriverVehicle({
-        vehiclePublicId: req.params.vehicleId,
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "driver_vehicle.activated",
-        entityType: "driver_vehicle",
-        entityId: vehicle.id,
-        requestId: req.requestId,
-        afterData: { driverId: vehicle.driverId, active: true },
-      });
-      return ok(res, { vehicle });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo activar el vehículo");
-    }
-  },
-);
-app.delete(
-  "/api/driver-vehicles/:vehicleId",
-  requireAuth,
-  requireAnyRole("driver", "admin"),
-  async (req, res) => {
-    try {
-      const vehicle = await retireDriverVehicle({
-        vehiclePublicId: req.params.vehicleId,
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "driver_vehicle.retired",
-        entityType: "driver_vehicle",
-        entityId: vehicle.id,
-        requestId: req.requestId,
-        afterData: { driverId: vehicle.driverId, retiredAt: vehicle.retiredAt },
-      });
-      return ok(res, { vehicle });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo retirar el vehículo");
-    }
-  },
-);
-app.patch(
-  "/api/admin/driver-vehicles/:vehicleId/review",
-  requireAuth,
-  requireAnyRole("admin"),
-  async (req, res) => {
-    const parsed = parseOrFail(driverVehicleReviewSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const vehicle = await reviewDriverVehicle({
-        vehiclePublicId: req.params.vehicleId,
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        ...parsed.data,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: `driver_vehicle.${parsed.data.status}`,
-        entityType: "driver_vehicle",
-        entityId: vehicle.id,
-        requestId: req.requestId,
-        afterData: {
-          driverId: vehicle.driverId,
-          status: vehicle.status,
-          rejectionReason: vehicle.rejectionReason,
-        },
-      });
-      return ok(res, { vehicle });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo revisar el vehículo");
-    }
-  },
-);
+app.use(driverFleetRouter);
 
 app.get(
   "/api/drivers/:driverId/compliance",
