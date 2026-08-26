@@ -8,7 +8,7 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
-## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 11, servidor y frente
+## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 12, servidor y frente
 
 Entregas novena a decimoquinta de la Fase 0. El paso 2 quedó sin registrar acá cuando se publicó, así que esta sección cubre los siete.
 
@@ -149,6 +149,16 @@ Al mudarse `RideTrackingSheet` a la pantalla del cliente y `ServiceChatModal` a 
 ### 262 → 261
 
 La primera línea larga que baja desde el reformateo del paso 1. Al aislarse en un archivo nuevo, el ratchet la vio sin línea base que la tolerara y exigió partirla en lugar de ampliar el presupuesto. Es exactamente para lo que existe.
+
+### El móvil queda en su shell: 15.374 → 321 líneas
+
+El paso 12 saca las tres pantallas que quedaban a `src/screens/`: conductor (2.492 con su guía giro a giro, la captura de firma y sus dos tarjetas), comercio (982 con su detalle de pedido) y acceso (686).
+
+`apps/mobile/App.tsx` queda en **321 líneas**: el proveedor de safe area, el banner de red, `AppContent` y el enrutado por audiencia. **El primer criterio de aceptación de ARC-001 se cumple del lado móvil**, con 321 contra un techo de 1.500. Del lado web falta: `src/App.tsx` sigue en 7.420.
+
+La pantalla de acceso quedó en archivo propio y no dentro de una audiencia porque **no pertenece a ninguna: es la que decide cuál sos**. Un entrypoint por audiencia va a necesitarla entera, sea cual sea.
+
+`SafeAreaView` se importa ahora en dos archivos, y está bien: el shell provee el contexto y la pantalla del conductor lo consume. Los errores de `tsc` por dependencias nativas ausentes pasaron de 3 a 4 por eso, no por una regresión — en esta máquina faltan `react-native-maps` y `react-native-safe-area-context`, que CI sí instala.
 
 ### Lo que sigue faltando
 
