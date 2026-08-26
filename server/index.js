@@ -14,6 +14,19 @@ import { z } from "zod";
 import { SpanStatusCode, trace } from "@opentelemetry/api";
 import { config } from "./config.js";
 import { fail, ok, parseOrFail } from "./http/responses.js";
+import {
+  canActAsCustomer,
+  canActAsDriver,
+  canAdvanceOrder,
+  canAdvanceRide,
+  canManageRestaurant,
+  canMutateOrderStatus,
+  canMutateRideStatus,
+  hasRole,
+  isAdmin,
+  requireAnyRole,
+} from "./http/authorization.js";
+import { createAddressesRouter } from "./http/addresses-router.js";
 import { createMapsRouter } from "./http/maps-router.js";
 import { closeRedis, redisClient, redisReadiness } from "./redis.js";
 import { openApiDocument } from "./openapi.js";
@@ -38,8 +51,6 @@ import { observeHttpRequest, observeProviderCall, renderPrometheus } from "./obs
 import { ProviderCircuit } from "./provider-resilience.js";
 import {
   createPostgresSession,
-  createPostgresAddress,
-  deletePostgresAddress,
   findAuthUserByEmail,
   findAuthUserByPublicId,
   getPostgresAddresses,
@@ -61,9 +72,7 @@ import {
   revokeOwnedPostgresSession,
   revokeOtherPostgresSessions,
   rotatePostgresSession,
-  setPostgresDefaultAddress,
   setPostgresUserStatus,
-  updatePostgresAddress,
   updatePostgresAuthProfile,
   usesPostgresAuth,
 } from "./auth-repository.js";
@@ -619,80 +628,6 @@ async function requireAuth(req, res, next) {
   }
 }
 
-function hasRole(req, role) {
-  return Boolean(req.auth?.roles?.includes(role));
-}
-
-function isAdmin(req) {
-  return (
-    hasRole(req, "admin") &&
-    !((req.auth?.mfa?.enabled || config.requireAdminMfa) && !req.auth?.mfaVerified)
-  );
-}
-
-const requireAnyRole =
-  (...roles) =>
-  (req, res, next) => {
-    if (!req.auth) return fail(res, 401, "Token requerido");
-    if (!roles.some((role) => hasRole(req, role))) {
-      return fail(res, 403, "No tienes permisos para esta accion");
-    }
-    if (
-      roles.includes("admin") &&
-      hasRole(req, "admin") &&
-      (req.auth.mfa?.enabled || config.requireAdminMfa) &&
-      !req.auth.mfaVerified
-    ) {
-      return fail(res, 403, "Completa el segundo factor para usar privilegios administrativos");
-    }
-    return next();
-  };
-
-function canActAsCustomer(req, customerId) {
-  return isAdmin(req) || (hasRole(req, "customer") && req.auth.userId === customerId);
-}
-
-function canActAsDriver(req, driverId) {
-  return isAdmin(req) || (hasRole(req, "driver") && req.auth.user.driverId === driverId);
-}
-
-function canManageRestaurant(req, restaurant) {
-  return isAdmin(req) || (hasRole(req, "merchant") && restaurant.ownerId === req.auth.userId);
-}
-
-function canAdvanceOrder(req, db, order, nextStatus) {
-  if (isAdmin(req)) return true;
-  const restaurant = findRestaurant(db, order.restaurantId);
-  if (["preparing", "ready_for_pickup"].includes(nextStatus))
-    return Boolean(restaurant && canManageRestaurant(req, restaurant));
-  if (["picked_up", "delivering", "delivered"].includes(nextStatus))
-    return Boolean(order.courierId && canActAsDriver(req, order.courierId));
-  return false;
-}
-
-function canMutateOrderStatus(req, db, order, status) {
-  if (isAdmin(req)) return true;
-  if (status !== "cancelled") return false;
-  const restaurant = findRestaurant(db, order.restaurantId);
-  return (
-    canActAsCustomer(req, order.customerId) ||
-    (restaurant && canManageRestaurant(req, restaurant)) ||
-    (order.courierId && canActAsDriver(req, order.courierId))
-  );
-}
-
-function canAdvanceRide(req, ride) {
-  return isAdmin(req) || (ride.driverId && canActAsDriver(req, ride.driverId));
-}
-
-function canMutateRideStatus(req, ride, status) {
-  if (isAdmin(req)) return true;
-  if (status !== "cancelled") return false;
-  return (
-    canActAsCustomer(req, ride.customerId) || (ride.driverId && canActAsDriver(req, ride.driverId))
-  );
-}
-
 function audit(db, req, entityType, entityId, action, payload = {}) {
   const event = {
     id: createId("AUD"),
@@ -1083,13 +1018,6 @@ const driverDocumentReviewSchema = z
         message: "Explica el rechazo",
       });
   });
-const addressSchema = z.object({
-  label: z.string().trim().min(1).max(60),
-  address: z.string().trim().min(3).max(240),
-  lat: z.coerce.number().min(-90).max(90),
-  lng: z.coerce.number().min(-180).max(180),
-  isDefault: z.boolean().default(false),
-});
 const rideDestinationSchema = z.object({
   label: z.string().trim().min(1).max(80),
   address: z.string().trim().min(3).max(240),
@@ -4949,271 +4877,8 @@ app.get("/api/me", requireAuth, async (req, res) => {
   return ok(res, { account });
 });
 
-app.get("/api/addresses", requireAuth, async (req, res) => {
-  if (!usesPostgresAuth()) {
-    const db = readDb();
-    return ok(res, {
-      addresses: (db.addresses || []).filter((entry) => entry.userId === req.auth.userId),
-    });
-  }
-  return ok(res, { addresses: await getPostgresAddresses(req.auth.userId) });
-});
-app.post("/api/addresses", requireAuth, async (req, res) => {
-  const parsed = parseOrFail(addressSchema, req.body || {});
-  if (!parsed.ok) return fail(res, 400, parsed.message);
-  if (!usesPostgresAuth()) {
-    const db = readDb();
-    const user = db.users.find((entry) => entry.id === req.auth.userId);
-    if (!user) return fail(res, 404, "Usuario no encontrado");
-    const owned = (db.addresses || []).filter((entry) => entry.userId === user.id);
-    if (owned.length >= 20) return fail(res, 409, "Alcanzaste el límite de direcciones guardadas");
-    const address = {
-      id: createId("ADDR"),
-      userId: user.id,
-      ...parsed.data,
-      isDefault: parsed.data.isDefault || owned.length === 0,
-    };
-    if (address.isDefault) {
-      (db.addresses || []).forEach((entry) => {
-        if (entry.userId === user.id) entry.isDefault = false;
-      });
-      user.defaultAddress = address.address;
-    }
-    db.addresses = [...(db.addresses || []), address];
-    audit(db, req, "address", address.id, "address.created", {
-      label: address.label,
-      isDefault: address.isDefault,
-    });
-    writeDb(db);
-    await publishRealtimeEvent({
-      req,
-      type: "user.updated",
-      entityType: "address",
-      entityId: address.id,
-      action: "address.created",
-    });
-    return res.status(201).json({
-      ok: true,
-      requestId: req.requestId,
-      address,
-      addresses: db.addresses.filter((entry) => entry.userId === user.id),
-    });
-  }
-  try {
-    const address = await createPostgresAddress({
-      userPublicId: req.auth.userId,
-      ...parsed.data,
-    });
-    await recordPostgresAudit({
-      actorPublicId: req.auth.userId,
-      roles: req.auth.roles,
-      action: "address.created",
-      entityType: "address",
-      entityId: address.id,
-      requestId: req.requestId,
-      afterData: { label: address.label, isDefault: address.isDefault },
-    });
-    await publishRealtimeEvent({
-      req,
-      type: "user.updated",
-      entityType: "address",
-      entityId: address.id,
-      action: "address.created",
-    });
-    return res.status(201).json({
-      ok: true,
-      requestId: req.requestId,
-      address,
-      addresses: await getPostgresAddresses(req.auth.userId),
-    });
-  } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo guardar la dirección");
-  }
-});
-app.put("/api/addresses/:addressId", requireAuth, async (req, res) => {
-  const parsed = parseOrFail(addressSchema, req.body || {});
-  if (!parsed.ok) return fail(res, 400, parsed.message);
-  if (!usesPostgresAuth()) {
-    const db = readDb();
-    const address = (db.addresses || []).find(
-      (entry) => entry.id === req.params.addressId && entry.userId === req.auth.userId,
-    );
-    if (!address) return fail(res, 404, "Dirección no encontrada");
-    const nextIsDefault = parsed.data.isDefault || address.isDefault;
-    if (nextIsDefault) {
-      (db.addresses || []).forEach((entry) => {
-        if (entry.userId === req.auth.userId) entry.isDefault = false;
-      });
-      const user = db.users.find((entry) => entry.id === req.auth.userId);
-      if (user) user.defaultAddress = parsed.data.address;
-    }
-    Object.assign(address, { ...parsed.data, isDefault: nextIsDefault });
-    audit(db, req, "address", address.id, "address.updated", {
-      label: address.label,
-      isDefault: address.isDefault,
-    });
-    writeDb(db);
-    return ok(res, {
-      address,
-      addresses: db.addresses.filter((entry) => entry.userId === req.auth.userId),
-    });
-  }
-  try {
-    const address = await updatePostgresAddress({
-      userPublicId: req.auth.userId,
-      addressId: req.params.addressId,
-      ...parsed.data,
-    });
-    await recordPostgresAudit({
-      actorPublicId: req.auth.userId,
-      roles: req.auth.roles,
-      action: "address.updated",
-      entityType: "address",
-      entityId: address.id,
-      requestId: req.requestId,
-      afterData: { label: address.label, isDefault: address.isDefault },
-    });
-    return ok(res, {
-      address,
-      addresses: await getPostgresAddresses(req.auth.userId),
-    });
-  } catch (error) {
-    return fail(
-      res,
-      error.code === "22P02" ? 404 : error.status || 500,
-      error.code === "22P02"
-        ? "Dirección no encontrada"
-        : error.message || "No se pudo actualizar la dirección",
-    );
-  }
-});
-app.patch("/api/addresses/:addressId/default", requireAuth, async (req, res) => {
-  if (!usesPostgresAuth()) {
-    const db = readDb();
-    const address = (db.addresses || []).find(
-      (entry) => entry.id === req.params.addressId && entry.userId === req.auth.userId,
-    );
-    if (!address) return fail(res, 404, "Dirección no encontrada");
-    (db.addresses || []).forEach((entry) => {
-      if (entry.userId === req.auth.userId) entry.isDefault = false;
-    });
-    address.isDefault = true;
-    const user = db.users.find((entry) => entry.id === req.auth.userId);
-    if (user) user.defaultAddress = address.address;
-    audit(db, req, "address", address.id, "address.default_changed", {
-      isDefault: true,
-    });
-    writeDb(db);
-    await publishRealtimeEvent({
-      req,
-      type: "user.updated",
-      entityType: "address",
-      entityId: address.id,
-      action: "address.default_changed",
-    });
-    return ok(res, {
-      address,
-      addresses: db.addresses.filter((entry) => entry.userId === req.auth.userId),
-    });
-  }
-  try {
-    const address = await setPostgresDefaultAddress({
-      userPublicId: req.auth.userId,
-      addressId: req.params.addressId,
-    });
-    await recordPostgresAudit({
-      actorPublicId: req.auth.userId,
-      roles: req.auth.roles,
-      action: "address.default_changed",
-      entityType: "address",
-      entityId: address.id,
-      requestId: req.requestId,
-      afterData: { isDefault: true },
-    });
-    await publishRealtimeEvent({
-      req,
-      type: "user.updated",
-      entityType: "address",
-      entityId: address.id,
-      action: "address.default_changed",
-    });
-    return ok(res, {
-      address,
-      addresses: await getPostgresAddresses(req.auth.userId),
-    });
-  } catch (error) {
-    return fail(
-      res,
-      error.code === "22P02" ? 404 : error.status || 500,
-      error.code === "22P02"
-        ? "Dirección no encontrada"
-        : error.message || "No se pudo cambiar la dirección principal",
-    );
-  }
-});
-app.delete("/api/addresses/:addressId", requireAuth, async (req, res) => {
-  if (!usesPostgresAuth()) {
-    const db = readDb();
-    const addressIndex = (db.addresses || []).findIndex(
-      (entry) => entry.id === req.params.addressId && entry.userId === req.auth.userId,
-    );
-    if (addressIndex < 0) return fail(res, 404, "Dirección no encontrada");
-    const [deletedAddress] = db.addresses.splice(addressIndex, 1);
-    if (deletedAddress.isDefault) {
-      const nextDefault = db.addresses.find((entry) => entry.userId === req.auth.userId);
-      const user = db.users.find((entry) => entry.id === req.auth.userId);
-      if (nextDefault) {
-        nextDefault.isDefault = true;
-        if (user) user.defaultAddress = nextDefault.address;
-      } else if (user) {
-        user.defaultAddress = "";
-      }
-    }
-    audit(db, req, "address", deletedAddress.id, "address.deleted", {});
-    writeDb(db);
-    await publishRealtimeEvent({
-      req,
-      type: "user.updated",
-      entityType: "address",
-      entityId: deletedAddress.id,
-      action: "address.deleted",
-    });
-    return ok(res, {
-      deleted: true,
-      addresses: db.addresses.filter((entry) => entry.userId === req.auth.userId),
-    });
-  }
-  try {
-    const addresses = await deletePostgresAddress({
-      userPublicId: req.auth.userId,
-      addressId: req.params.addressId,
-    });
-    await recordPostgresAudit({
-      actorPublicId: req.auth.userId,
-      roles: req.auth.roles,
-      action: "address.deleted",
-      entityType: "address",
-      entityId: req.params.addressId,
-      requestId: req.requestId,
-    });
-    await publishRealtimeEvent({
-      req,
-      type: "user.updated",
-      entityType: "address",
-      entityId: req.params.addressId,
-      action: "address.deleted",
-    });
-    return ok(res, { deleted: true, addresses });
-  } catch (error) {
-    return fail(
-      res,
-      error.code === "22P02" ? 404 : error.status || 500,
-      error.code === "22P02"
-        ? "Dirección no encontrada"
-        : error.message || "No se pudo eliminar la dirección",
-    );
-  }
-});
+app.use(createAddressesRouter({ requireAuth, readDb, audit, publishRealtimeEvent }));
+
 app.get(
   "/api/ride-destinations",
   requireAuth,
@@ -7322,7 +6987,13 @@ app.post(
     if (index < 0) return fail(res, 404, "Pedido no encontrado");
     const next = nextOrderStatus(db.orders[index]);
     if (!next) return fail(res, 409, "El pedido no puede avanzar desde este estado");
-    if (!canAdvanceOrder(req, db, db.orders[index], next))
+    if (
+      !canAdvanceOrder(req, {
+        order: db.orders[index],
+        restaurant: findRestaurant(db, db.orders[index].restaurantId),
+        nextStatus: next,
+      })
+    )
       return fail(res, 403, "Esta etapa corresponde a otro participante del pedido");
     db.orders[index] = usesPostgresCommerce()
       ? await setPostgresOrderStatus(db.orders[index].id, next, req.auth.userId)
@@ -7371,7 +7042,13 @@ app.patch("/api/orders/:orderId/status", requireAuth, async (req, res) => {
     ]);
   const index = db.orders.findIndex((entry) => entry.id === req.params.orderId);
   if (index < 0) return fail(res, 404, "Pedido no encontrado");
-  if (!canMutateOrderStatus(req, db, db.orders[index], status)) {
+  if (
+    !canMutateOrderStatus(req, {
+      order: db.orders[index],
+      restaurant: findRestaurant(db, db.orders[index].restaurantId),
+      status,
+    })
+  ) {
     return fail(res, 403, "No puedes cambiar este estado de pedido");
   }
   if (usesPostgresCommerce() && status === "cancelled") {

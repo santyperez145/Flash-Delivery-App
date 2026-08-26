@@ -37,6 +37,7 @@
     "preview": "vite preview --host 127.0.0.1",
     "start": "node --env-file-if-exists=.env.local server/start.js",
     "test:security": "node scripts/security-smoke.mjs",
+    "test:authorization": "node scripts/authorization-contract.mjs",
     "test:realtime-audience": "node scripts/realtime-audience-smoke.mjs",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"server/**/*.js\" \"scripts/**/*.mjs\" \"apps/mobile/App.tsx\" \"apps/mobile/src/**/*.{ts,tsx}\"",
     "test:format": "prettier --check \"src/**/*.{ts,tsx,css}\" \"server/**/*.js\" \"scripts/**/*.mjs\" \"apps/mobile/App.tsx\" \"apps/mobile/src/**/*.{ts,tsx}\"",

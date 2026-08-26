@@ -41,6 +41,13 @@ jobs:
       - name: Check
         run: npm run check
 
+      # Las nueve reglas de autorización quedaron puras al extraerse a
+      # `server/http/authorization.js` (ARC-001). Antes sólo podían ejercitarse
+      # levantando la API entera, lo que cubre los caminos que alguien recordó
+      # probar y no la regla en sí. Este contrato afirma cada una directamente.
+      - name: Authorization contract
+        run: npm run test:authorization
+
       - name: Realtime audience contract
         run: npm run test:realtime-audience
 

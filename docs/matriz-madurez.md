@@ -74,7 +74,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Verificación telefónica | `CI` | `test:phone-verification` cubre el flujo sandbox · **sin prueba con cuenta Twilio habilitada** |
 | MFA administrativo | `CI` | `test:mfa` en `ci-critical-flows` |
 | Moderación y suspensión | `LOCAL` | Sin puerta CI |
-| RBAC y ownership | `CI` | `test:security` dentro de `check` |
+| RBAC y ownership | `CI` | `test:security` dentro de `check` (runtime) y `test:authorization` en `ci-fast` (las 9 reglas, una por una) |
 
 ## Datos y aislamiento
 
