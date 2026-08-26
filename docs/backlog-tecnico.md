@@ -40,7 +40,7 @@ Cinco archivos concentran más de 1,3 MB de código: `apps/mobile/App.tsx` (433 
 - [ ] Ningún módulo de dominio importa React.
 - [ ] El build de driver no incluye pantallas de comercio.
 - [ ] El build de customer no incluye backoffice.
-- [ ] `server/index.js` deja de contener lógica de dominio. **9 de 57 grupos de rutas extraídos**; quedan 189 rutas en 48 grupos.
+- [ ] `server/index.js` deja de contener lógica de dominio. **11 de 57 grupos de rutas extraídos**; quedan 177 rutas en 45 grupos. `index.js` bajó de 9.696 a 8.196 líneas.
 
 ### Verificación
 
