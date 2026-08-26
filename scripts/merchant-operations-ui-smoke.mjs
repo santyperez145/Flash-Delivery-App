@@ -1,30 +1,104 @@
 import fs from "node:fs/promises";
+import { containsAll, containsNone, section } from "./source-contract.mjs";
 
-const [desktop,desktopApi,desktopTypes,mobile,mobileApi,mobileTypes,styles]=await Promise.all([
-  fs.readFile("src/App.tsx","utf8"),
-  fs.readFile("src/api.ts","utf8"),
-  fs.readFile("src/types.ts","utf8"),
-  fs.readFile("apps/mobile/App.tsx","utf8"),
-  fs.readFile("apps/mobile/src/api.ts","utf8"),
-  fs.readFile("apps/mobile/src/types.ts","utf8"),
-  fs.readFile("src/styles.css","utf8"),
-]);
-const assert=(condition,label)=>{if(!condition)throw new Error(`failed: ${label}`);console.log(`ok - ${label}`);};
-const desktopMerchant=desktop.slice(desktop.indexOf("function MerchantDesktopConsole"),desktop.indexOf("function SuperAdminConsole"));
-const mobileMerchant=mobile.slice(mobile.indexOf("function MerchantScreen"),mobile.indexOf("function DriverScreen"));
+const [desktop, desktopApi, desktopTypes, mobile, mobileApi, mobileTypes, styles] =
+  await Promise.all([
+    fs.readFile("src/App.tsx", "utf8"),
+    fs.readFile("src/api.ts", "utf8"),
+    fs.readFile("src/types.ts", "utf8"),
+    fs.readFile("apps/mobile/App.tsx", "utf8"),
+    fs.readFile("apps/mobile/src/api.ts", "utf8"),
+    fs.readFile("apps/mobile/src/types.ts", "utf8"),
+    fs.readFile("src/styles.css", "utf8"),
+  ]);
+const assert = (condition, label) => {
+  if (!condition) throw new Error(`failed: ${label}`);
+  console.log(`ok - ${label}`);
+};
+const desktopMerchant = section(desktop, "function MerchantDesktopConsole", "function SuperAdminConsole");
+const mobileMerchant = section(mobile, "function MerchantScreen", "function DriverScreen");
 
-assert(desktopTypes.includes("export type MerchantOperationsDashboard")&&mobileTypes.includes("export type MerchantOperationsDashboard"),"desktop and Merchant App share the authoritative operations contract");
-assert(desktopApi.includes("getMerchantDashboard")&&mobileApi.includes("getMerchantDashboard")&&desktopMerchant.includes("api.getMerchantDashboard")&&mobileMerchant.includes("api.getMerchantDashboard"),"both merchant surfaces consume the private dashboard endpoint");
-assert(desktopApi.includes("getMerchantActiveOrders")&&mobileApi.includes("getMerchantActiveOrders")&&desktopMerchant.includes("merchantActiveOrders")&&mobileMerchant.includes("setActiveOrders(queue.orders)"),"desktop and Merchant App render the dedicated active queue instead of a partial activity slice");
-assert(desktopMerchant.includes("30_000")&&mobileMerchant.includes("30_000")&&desktopMerchant.includes("orderStatusSignature")&&mobileMerchant.includes("orderStatusSignature"),"live dashboards poll within a bounded interval and refresh on workflow changes");
-assert(!desktopMerchant.includes("deliveredOrders.reduce")&&!desktopMerchant.includes("restaurantOrders.reduce")&&!mobileMerchant.includes("restaurantOrders.reduce"),"merchant KPIs never reconstruct sales from a partial client activity list");
-assert(desktopMerchant.includes("grossSalesToday")&&desktopMerchant.includes("averageTicketToday")&&mobileMerchant.includes("grossSalesToday")&&mobileMerchant.includes("averageTicketToday"),"daily sales and ticket values come from the local-day PostgreSQL aggregate");
-assert(desktopMerchant.includes("operationsError")&&desktopMerchant.includes("operationsLoading")&&mobileMerchant.includes("operationsError")&&mobileMerchant.includes("operationsLoading"),"loading and transport failures remain visible instead of becoming false zeroes");
-assert(desktopMerchant.includes("Última lectura conservada")&&mobileMerchant.includes("Última lectura conservada"),"a failed refresh labels retained data as stale instead of silently presenting it as live");
-assert(desktopMerchant.includes("untrackedPrepOrders")&&mobileMerchant.includes("untrackedPrepOrders")&&desktopMerchant.includes("lateOrders")&&mobileMerchant.includes("lateOrders"),"both surfaces expose observed SLA debt and overdue preparation");
-assert(mobileMerchant.includes('["accepted","preparing"].includes(order.status)')&&desktopMerchant.includes('canAdvance={["accepted","preparing"].includes(order.status)}')&&mobile.includes("mobileOrderStatusLabel[order.status]"),"merchant surfaces only offer owned kitchen transitions and render human workflow labels");
-assert(mobileMerchant.includes('"today"|"orders"|"catalog"|"account"')&&mobileMerchant.includes("styles.merchantBottomNav")&&mobileMerchant.includes('accessibilityRole="tab"'),"Merchant App separates Today, Orders, Catalog and Account behind a fixed accessible navigation shell");
-assert(desktop.includes("function MerchantOrderDetailDialog")&&mobile.includes("function MerchantOrderDetailModal")&&desktop.includes("api.proposeOrderSubstitution")&&mobile.includes("api.proposeOrderSubstitution"),"desktop and Merchant App expose a real order detail with persisted substitutions");
-assert(desktop.includes("api.updateBranchInventory")&&mobile.includes("api.updateBranchInventory")&&desktop.includes("order.branchId")&&mobile.includes("order.branchId"),"out-of-stock actions are scoped to the persisted order branch instead of global client state");
-assert(desktop.includes("item.note")&&mobile.includes("item.note")&&desktop.includes("item.extras")&&mobile.includes("item.extras"),"both order details preserve kitchen notes and configured extras");
-assert(styles.includes("merchant-pulse-stages")&&styles.includes("@media (max-width: 720px)"),"desktop operations pulse has explicit narrow-layout behavior");
+assert(
+  containsAll(desktopTypes, ["export type MerchantOperationsDashboard"]) &&
+    containsAll(mobileTypes, ["export type MerchantOperationsDashboard"]),
+  "desktop and Merchant App share the authoritative operations contract",
+);
+assert(
+  containsAll(desktopApi, ["getMerchantDashboard"]) &&
+    containsAll(mobileApi, ["getMerchantDashboard"]) &&
+    containsAll(desktopMerchant, ["api.getMerchantDashboard"]) &&
+    containsAll(mobileMerchant, ["api.getMerchantDashboard"]),
+  "both merchant surfaces consume the private dashboard endpoint",
+);
+assert(
+  containsAll(desktopApi, ["getMerchantActiveOrders"]) &&
+    containsAll(mobileApi, ["getMerchantActiveOrders"]) &&
+    containsAll(desktopMerchant, ["merchantActiveOrders"]) &&
+    containsAll(mobileMerchant, ["setActiveOrders(queue.orders)"]),
+  "desktop and Merchant App render the dedicated active queue instead of a partial activity slice",
+);
+assert(
+  containsAll(desktopMerchant, ["30_000", "orderStatusSignature"]) &&
+    containsAll(mobileMerchant, ["30_000", "orderStatusSignature"]),
+  "live dashboards poll within a bounded interval and refresh on workflow changes",
+);
+assert(
+  containsNone(desktopMerchant, ["deliveredOrders.reduce", "restaurantOrders.reduce"]) &&
+    containsNone(mobileMerchant, ["restaurantOrders.reduce"]),
+  "merchant KPIs never reconstruct sales from a partial client activity list",
+);
+assert(
+  containsAll(desktopMerchant, ["grossSalesToday", "averageTicketToday"]) &&
+    containsAll(mobileMerchant, ["grossSalesToday", "averageTicketToday"]),
+  "daily sales and ticket values come from the local-day PostgreSQL aggregate",
+);
+assert(
+  containsAll(desktopMerchant, ["operationsError", "operationsLoading"]) &&
+    containsAll(mobileMerchant, ["operationsError", "operationsLoading"]),
+  "loading and transport failures remain visible instead of becoming false zeroes",
+);
+assert(
+  containsAll(desktopMerchant, ["Última lectura conservada"]) &&
+    containsAll(mobileMerchant, ["Última lectura conservada"]),
+  "a failed refresh labels retained data as stale instead of silently presenting it as live",
+);
+assert(
+  containsAll(desktopMerchant, ["untrackedPrepOrders", "lateOrders"]) &&
+    containsAll(mobileMerchant, ["untrackedPrepOrders", "lateOrders"]),
+  "both surfaces expose observed SLA debt and overdue preparation",
+);
+assert(
+  containsAll(mobileMerchant, ['["accepted", "preparing"].includes(order.status)']) &&
+    containsAll(desktopMerchant, [
+      'canAdvance={["accepted", "preparing"].includes(order.status)}',
+    ]) &&
+    containsAll(mobile, ["mobileOrderStatusLabel[order.status]"]),
+  "merchant surfaces only offer owned kitchen transitions and render human workflow labels",
+);
+assert(
+  containsAll(mobileMerchant, [
+    '"today" | "orders" | "catalog" | "account"',
+    "styles.merchantBottomNav",
+    'accessibilityRole="tab"',
+  ]),
+  "Merchant App separates Today, Orders, Catalog and Account behind a fixed accessible navigation shell",
+);
+assert(
+  containsAll(desktop, ["function MerchantOrderDetailDialog", "api.proposeOrderSubstitution"]) &&
+    containsAll(mobile, ["function MerchantOrderDetailModal", "api.proposeOrderSubstitution"]),
+  "desktop and Merchant App expose a real order detail with persisted substitutions",
+);
+assert(
+  containsAll(desktop, ["api.updateBranchInventory", "order.branchId"]) &&
+    containsAll(mobile, ["api.updateBranchInventory", "order.branchId"]),
+  "out-of-stock actions are scoped to the persisted order branch instead of global client state",
+);
+assert(
+  containsAll(desktop, ["item.note", "item.extras"]) &&
+    containsAll(mobile, ["item.note", "item.extras"]),
+  "both order details preserve kitchen notes and configured extras",
+);
+assert(
+  containsAll(styles, ["merchant-pulse-stages", "@media (max-width: 720px)"]),
+  "desktop operations pulse has explicit narrow-layout behavior",
+);
