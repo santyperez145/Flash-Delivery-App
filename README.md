@@ -8,21 +8,24 @@ Plataforma para operar comida, delivery y viajes tipo taxi/conductor en una sola
 
 La [auditoría integral del 25 de agosto de 2026](docs/auditoria-2026-08-25.md) evalúa el proyecto en **6,2/10** y lo declara apto para demo a inversores, desarrollo interno, staging serio y prueba cerrada de delivery una vez resueltos los P0. **No** está aprobado para lanzamiento público irrestricto, custodia de saldo real, pagos masivos sin supervisión, transporte público de pasajeros ni operación multiciudad.
 
-De 91 capacidades inventariadas en [`docs/matriz-madurez.md`](docs/matriz-madurez.md), el 81% de las que existen no está protegido por una puerta CI, y **ninguna fue probada todavía contra un proveedor real**.
+De 91 capacidades inventariadas en [`docs/matriz-madurez.md`](docs/matriz-madurez.md), el **73%** de las que existen no está protegido por una puerta CI, y **ninguna fue probada todavía contra un proveedor real**.
 
-### Bloqueadores P0 abiertos
+La Fase 0 está en marcha: ver el [plan de acción](docs/plan-de-accion.md) y el [backlog técnico](docs/backlog-tecnico.md).
+
+### Bloqueadores P0
 
 | Hallazgo | Ticket | Resumen |
 | --- | --- | --- |
-| H-01 | CI-001 | CI ejecuta 15 de 104 scripts y no levanta PostgreSQL |
+| H-01 | CI-001 | **En curso.** CI pasó de 15 a 24 scripts y ya levanta PostgreSQL; faltan los flujos críticos, que necesitan la API arriba |
 | H-02 | NOT-001 | Push productivo imposible: el enum de configuración sólo admite `disabled` y `sandbox` |
-| H-03 | SEC-001 | Realtime hace broadcast a todos los roles ante entidad desconocida |
+| H-03 | SEC-001 | **Corregido.** Default-deny activo y con puerta CI; queda la verificación de runtime contra PostgreSQL |
 | H-04 | DAT-001 | 20 tablas sin política RLS y cero `FORCE ROW LEVEL SECURITY` |
 | H-05 | INF-001 | La imagen Docker corre como root y arranca un entrypoint distinto al de Compose |
 | H-06 | DSP-001 | Dispatch sin `ST_DWithin` ni KNN: recalcula todo el padrón por oleada |
 | H-07 | GEO-001 | Nominatim y OSRM públicos como valores por defecto |
-| H-08 | ARC-001 | Cinco archivos concentran más de 1,3 MB de código |
+| H-08 | ARC-001 | Cinco archivos concentran más de 1,3 MB de código; un ratchet impide que crezca |
 | H-09 | PAY-001 | Mercado Pago integrado pero nunca validado contra el proveedor |
+| H-11 | — | **Corregido.** Una base desde cero no equivalía a una migrada: `db:seed:derived` reaplica los backfills derivados |
 
 **Congelamiento activo:** hasta el 20 de septiembre de 2026 no se agregan capacidades nuevas. Ver [`docs/plan-de-accion.md`](docs/plan-de-accion.md).
 
@@ -77,6 +80,7 @@ npm run db:check
 npm run db:seed:auth
 npm run db:seed:commerce
 npm run db:seed:orders
+npm run db:seed:derived
 ```
 
 `DATABASE_URL` y `DATABASE_SSL` se documentan en `.env.example`. El esquema

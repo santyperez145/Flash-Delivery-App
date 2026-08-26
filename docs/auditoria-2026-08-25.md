@@ -313,6 +313,42 @@ Restricción conocida del modelo Split Payments 1:1 de Mercado Pago: los refunds
 
 ---
 
+### H-11 · Una base creada desde cero no es equivalente a una migrada
+
+*Evidencia: [V]* — descubierto el 26 de agosto al levantar PostgreSQL en CI por primera vez.
+
+**Ocho migraciones hacen backfill de datos derivados de filas que ya existían** cuando se aplicaron:
+
+| Migración | Tabla | Deriva de |
+| --- | --- | --- |
+| `041_merchant_branches` | `merchant_branches` | Comercios |
+| `047_driver_kyc` | `driver_compliance` | Conductores |
+| `053_wallet_payment_methods` | `payment_methods` | Usuarios |
+| `057_catalog_modifiers` | `catalog_modifier_groups`, `catalog_modifiers` | `merchants.metadata->extras` |
+| `059_catalog_dietary_allergens` | `catalog_item_allergens`, `catalog_item_dietary_labels` | Ítems de catálogo |
+| `084_support_assignment_escalation` | `support_agent_profiles` | Usuarios con rol admin/support |
+| `087_driver_vehicle_registry` | `vehicles` | Conductores |
+| `107_driver_operational_sessions` | `driver_availability_sessions`, `driver_job_sessions` | Conductores y trabajos |
+
+En una base creada desde cero **el orden se invierte**: las migraciones corren antes que los seeds, así que las ocho tablas quedan vacías. Un ambiente nuevo no equivale a uno migrado en su momento.
+
+No es un problema exclusivo de CI: **un primer despliegue productivo arrancaría sin sucursales, sin vehículos aprobados y sin métodos de pago wallet.** El dispatch exige `vehicle.status='approved'`, así que ningún conductor sería elegible.
+
+Reproducir:
+
+```bash
+npm run db:migrate && npm run db:seed:auth && npm run db:seed:commerce
+psql "$DATABASE_URL" -c "SELECT count(*) FROM catalog_modifiers"   # → 0 sin db:seed:derived
+```
+
+Se descubrió porque `test:rls` afirma sobre modificadores de catálogo y alérgenos, y falló en la primera corrida desde cero.
+
+**Corregido** con `npm run db:seed:derived`, que repite las mismas derivaciones de forma idempotente. **La deuda pendiente** es que la reproducibilidad no está garantizada hacia adelante: cada migración futura que haga backfill sobre datos existentes vuelve a introducir el problema. Debe entrar en la definición de terminado de [DAT-001](backlog-tecnico.md#dat-001--matriz-rls-default-deny).
+
+**Severidad: P0.**
+
+---
+
 ### H-10 · Documentación desalineada del runtime
 
 *Evidencia: [V]*
