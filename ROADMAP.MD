@@ -8,7 +8,7 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
-## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 12, servidor y frente
+## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 13, servidor y frente
 
 Entregas novena a decimoquinta de la Fase 0. El paso 2 quedó sin registrar acá cuando se publicó, así que esta sección cubre los siete.
 
@@ -159,6 +159,30 @@ El paso 12 saca las tres pantallas que quedaban a `src/screens/`: conductor (2.4
 La pantalla de acceso quedó en archivo propio y no dentro de una audiencia porque **no pertenece a ninguna: es la que decide cuál sos**. Un entrypoint por audiencia va a necesitarla entera, sea cual sea.
 
 `SafeAreaView` se importa ahora en dos archivos, y está bien: el shell provee el contexto y la pantalla del conductor lo consume. Los errores de `tsc` por dependencias nativas ausentes pasaron de 3 a 4 por eso, no por una regresión — en esta máquina faltan `react-native-maps` y `react-native-safe-area-context`, que CI sí instala.
+
+### Lo que encontró el navegador y ningún contrato veía
+
+Con la aplicación corriendo por primera vez en esta sesión, `/api/admin/payouts` sobre el fallback SQLite devolvía al cliente:
+
+```
+Cannot read properties of null (reading query)
+```
+
+El manejador global de `server/index.js` **ya tenía la política correcta** —de 500 para arriba responde «Error interno del servidor» y nunca el texto del error—, pero **130 handlers capturaban el error ellos mismos** y escribían `fail(res, error.status || 500, error.message || "No se pudo X")`. Puenteaban la política justo en el caso que la motiva.
+
+`failFrom(res, error, mensajePropio)` la dice una sola vez: por debajo de 500 el mensaje del error es parte del contrato y se conserva; de 500 para arriba se responde el texto del handler —qué operación falló, no por qué— y el detalle queda en el log, correlacionable por `requestId`.
+
+El código no estaba roto. Era **indiscreto**, y eso no lo ve un `tsc` ni un contrato de forma.
+
+### Un cuarto argumento que se descartaba en silencio
+
+`fail` toma tres parámetros. La verificación del código de pickup le pasaba **cuatro**, con `attemptsRemaining` en el último. JavaScript lo ignoraba sin decir nada: **el pasajero nunca supo cuántos intentos le quedaban antes del bloqueo de diez minutos**, aunque el repositorio calculaba el número y el flujo gemelo de PIN de envío sí lo dice. Ahora va en el mensaje, con la misma convención.
+
+### Mi propia puerta tenía un punto ciego
+
+La primera versión del contrato buscaba la cadena `error.status || 500` línea por línea, y quedó en verde. **El navegador siguió mostrando la fuga en la sección de tarifas**: ese handler escribía `fail(res, 500, error.message || "...")`, con el 500 literal.
+
+La corrección no fue agregar un caso: fue cambiar la forma de comprobar. Ahora se cuentan paréntesis y se analiza **cada llamada entera** —316 de ellas—, no una forma de escribirla. Y el manejador global queda exento por su forma, no por su archivo, para que copiar el patrón no herede la excepción sin heredar el enmascarado.
 
 ### Lo que sigue faltando
 

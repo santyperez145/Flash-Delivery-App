@@ -29,7 +29,7 @@ import { recordPostgresAudit } from "../operations-repository.js";
 import { createId, writeDb } from "../store.js";
 import { requireAuth } from "./authentication.js";
 import { publishRealtimeEvent } from "./realtime.js";
-import { fail, ok, parseOrFail } from "./responses.js";
+import { fail, failFrom, ok, parseOrFail } from "./responses.js";
 
 // Un cliente no acumula direcciones sin límite: veinte cubre cualquier uso real
 // y acota lo que un abuso puede hacer crecer.
@@ -124,7 +124,7 @@ addressesRouter.post("/api/addresses", requireAuth, async (req, res) => {
       addresses: await getPostgresAddresses(req.auth.userId),
     });
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo guardar la dirección");
+    return failFrom(res, error, "No se pudo guardar la dirección");
   }
 });
 addressesRouter.put("/api/addresses/:addressId", requireAuth, async (req, res) => {
@@ -175,12 +175,11 @@ addressesRouter.put("/api/addresses/:addressId", requireAuth, async (req, res) =
       addresses: await getPostgresAddresses(req.auth.userId),
     });
   } catch (error) {
-    return fail(
+    return failFrom(
       res,
-      error.code === "22P02" ? 404 : error.status || 500,
-      error.code === "22P02"
-        ? "Dirección no encontrada"
-        : error.message || "No se pudo actualizar la dirección",
+      // Un uuid mal formado no es una falla del servidor: la dirección no existe.
+      error.code === "22P02" ? { status: 404, message: "Dirección no encontrada" } : error,
+      "No se pudo actualizar la dirección",
     );
   }
 });
@@ -239,12 +238,11 @@ addressesRouter.patch("/api/addresses/:addressId/default", requireAuth, async (r
       addresses: await getPostgresAddresses(req.auth.userId),
     });
   } catch (error) {
-    return fail(
+    return failFrom(
       res,
-      error.code === "22P02" ? 404 : error.status || 500,
-      error.code === "22P02"
-        ? "Dirección no encontrada"
-        : error.message || "No se pudo cambiar la dirección principal",
+      // Un uuid mal formado no es una falla del servidor: la dirección no existe.
+      error.code === "22P02" ? { status: 404, message: "Dirección no encontrada" } : error,
+      "No se pudo cambiar la dirección principal",
     );
   }
 });
@@ -302,12 +300,11 @@ addressesRouter.delete("/api/addresses/:addressId", requireAuth, async (req, res
     });
     return ok(res, { deleted: true, addresses });
   } catch (error) {
-    return fail(
+    return failFrom(
       res,
-      error.code === "22P02" ? 404 : error.status || 500,
-      error.code === "22P02"
-        ? "Dirección no encontrada"
-        : error.message || "No se pudo eliminar la dirección",
+      // Un uuid mal formado no es una falla del servidor: la dirección no existe.
+      error.code === "22P02" ? { status: 404, message: "Dirección no encontrada" } : error,
+      "No se pudo eliminar la dirección",
     );
   }
 });

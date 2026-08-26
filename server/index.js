@@ -13,7 +13,7 @@ import jwt from "jsonwebtoken";
 import { z } from "zod";
 import { SpanStatusCode, trace } from "@opentelemetry/api";
 import { config } from "./config.js";
-import { fail, ok, parseOrFail } from "./http/responses.js";
+import { fail, failFrom, ok, parseOrFail } from "./http/responses.js";
 import {
   canActAsCustomer,
   canActAsDriver,
@@ -2517,7 +2517,7 @@ app.get("/api/me/activity", requireAuth, async (req, res) => {
       }),
     );
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo cargar la actividad");
+    return failFrom(res, error, "No se pudo cargar la actividad");
   }
 });
 
@@ -2530,11 +2530,7 @@ app.get("/api/driver/me", requireAuth, requireAnyRole("driver"), async (req, res
     res.set("Cache-Control", "no-store, private");
     return ok(res, { driver });
   } catch (error) {
-    return fail(
-      res,
-      error.status || 500,
-      error.message || "No se pudo cargar el perfil del conductor",
-    );
+    return failFrom(res, error, "No se pudo cargar el perfil del conductor");
   }
 });
 
@@ -2641,7 +2637,7 @@ app.get("/api/driver/earnings", requireAuth, requireAnyRole("driver"), async (re
     res.set("Cache-Control", "no-store, private");
     return ok(res, { earnings });
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudieron cargar las ganancias");
+    return failFrom(res, error, "No se pudieron cargar las ganancias");
   }
 });
 
@@ -2654,11 +2650,7 @@ app.get("/api/driver/demand-zones", requireAuth, requireAnyRole("driver"), async
     res.set("Cache-Control", "no-store, private");
     return ok(res, { demand });
   } catch (error) {
-    return fail(
-      res,
-      error.status || 500,
-      error.message || "No se pudo calcular la demanda por zonas",
-    );
+    return failFrom(res, error, "No se pudo calcular la demanda por zonas");
   }
 });
 
@@ -2680,11 +2672,7 @@ app.get("/api/driver/preferences", requireAuth, requireAnyRole("driver"), async 
     res.set("Cache-Control", "no-store, private");
     return ok(res, { preferences });
   } catch (error) {
-    return fail(
-      res,
-      error.status || 500,
-      error.message || "No se pudieron cargar las preferencias",
-    );
+    return failFrom(res, error, "No se pudieron cargar las preferencias");
   }
 });
 
@@ -2723,11 +2711,7 @@ app.patch("/api/driver/preferences", requireAuth, requireAnyRole("driver"), asyn
     res.set("Cache-Control", "no-store, private");
     return ok(res, { preferences });
   } catch (error) {
-    return fail(
-      res,
-      error.status || 500,
-      error.message || "No se pudieron actualizar las preferencias",
-    );
+    return failFrom(res, error, "No se pudieron actualizar las preferencias");
   }
 });
 
@@ -2739,7 +2723,7 @@ app.get("/api/merchant/me", requireAuth, requireAnyRole("merchant"), async (req,
     res.set("Cache-Control", "no-store, private");
     return ok(res, { restaurants });
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo cargar el comercio");
+    return failFrom(res, error, "No se pudo cargar el comercio");
   }
 });
 
@@ -2768,11 +2752,7 @@ app.get(
       res.set("Cache-Control", "no-store, private");
       return ok(res, { drivers });
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudieron cargar los conductores asignados",
-      );
+      return failFrom(res, error, "No se pudieron cargar los conductores asignados");
     }
   },
 );
@@ -2827,7 +2807,7 @@ app.get("/api/catalog/restaurants", async (req, res) => {
     }
     return ok(res, await getPostgresRestaurantPage({ limit, cursor, query }));
   } catch (error) {
-    return fail(res, 500, error.message || "No se pudo cargar el catálogo");
+    return failFrom(res, error, "No se pudo cargar el catálogo");
   }
 });
 
@@ -2930,11 +2910,7 @@ app.get("/api/operations/restaurants", requireAuth, requireAnyRole("admin"), asy
     }
     return ok(res, await getPostgresOperationsRestaurantPage({ limit, cursor, query }));
   } catch (error) {
-    return fail(
-      res,
-      error.status || 500,
-      error.message || "No se pudieron cargar los comercios operativos",
-    );
+    return failFrom(res, error, "No se pudieron cargar los comercios operativos");
   }
 });
 app.get("/api/operations/drivers", requireAuth, requireAnyRole("admin"), async (req, res) => {
@@ -2956,7 +2932,7 @@ app.get("/api/operations/drivers", requireAuth, requireAnyRole("admin"), async (
     }
     return ok(res, await getPostgresOperationsDriverPage({ limit, cursor, query }));
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo cargar la flota operativa");
+    return failFrom(res, error, "No se pudo cargar la flota operativa");
   }
 });
 app.get("/api/operations/users", requireAuth, requireAnyRole("admin"), async (req, res) => {
@@ -2980,11 +2956,7 @@ app.get("/api/operations/users", requireAuth, requireAnyRole("admin"), async (re
     page.users = page.users.map((user) => ({ ...user, wallet: balances.get(user.id) || 0 }));
     return ok(res, page);
   } catch (error) {
-    return fail(
-      res,
-      error.status || 500,
-      error.message || "No se pudieron cargar los usuarios operativos",
-    );
+    return failFrom(res, error, "No se pudieron cargar los usuarios operativos");
   }
 });
 app.get(
@@ -3013,7 +2985,7 @@ app.get(
       }
       return ok(res, await getPostgresOperationsSupportTicketPage({ limit, cursor, query }));
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo cargar la mesa de ayuda");
+      return failFrom(res, error, "No se pudo cargar la mesa de ayuda");
     }
   },
 );
@@ -3041,7 +3013,7 @@ app.get("/api/operations/audit-events", requireAuth, requireAnyRole("admin"), as
     }
     return ok(res, await getPostgresAuditEventPage({ limit, cursor, query }));
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo cargar la auditoría");
+    return failFrom(res, error, "No se pudo cargar la auditoría");
   }
 });
 app.get("/api/features", requireAuth, async (req, res) => {
@@ -3069,11 +3041,7 @@ app.get(
       res.set("Cache-Control", "no-store, private");
       return ok(res, { flags: await getFeatureFlags() });
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudieron cargar los feature flags",
-      );
+      return failFrom(res, error, "No se pudieron cargar los feature flags");
     }
   },
 );
@@ -3100,11 +3068,7 @@ app.patch(
       });
       return ok(res, { flag });
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudo actualizar el feature flag",
-      );
+      return failFrom(res, error, "No se pudo actualizar el feature flag");
     }
   },
 );
@@ -3117,7 +3081,7 @@ app.post("/api/analytics/events", requireAuth, async (req, res) => {
       : createLocalProductEvents({ userId: req.auth.userId, events: parsed.data.events });
     return res.status(202).json({ ok: true, requestId: req.requestId, ...result });
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudieron registrar los eventos");
+    return failFrom(res, error, "No se pudieron registrar los eventos");
   }
 });
 app.get(
@@ -3133,11 +3097,7 @@ app.get(
         : getLocalProductMetrics({ days });
       return ok(res, { metrics });
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudieron calcular las métricas de producto",
-      );
+      return failFrom(res, error, "No se pudieron calcular las métricas de producto");
     }
   },
 );
@@ -3150,7 +3110,7 @@ app.get(
       res.set("Cache-Control", "no-store, private");
       return ok(res, { readiness: await getZoneReadiness(req.params.zoneId) });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo evaluar la zona");
+      return failFrom(res, error, "No se pudo evaluar la zona");
     }
   },
 );
@@ -3179,7 +3139,7 @@ app.post(
       });
       return res.status(201).json({ ok: true, requestId: req.requestId, assessment });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo registrar la evaluación");
+      return failFrom(res, error, "No se pudo registrar la evaluación");
     }
   },
 );
@@ -3196,7 +3156,7 @@ app.get("/api/public/rides/track/:token", async (req, res) => {
     res.set("Cache-Control", "no-store, private");
     return ok(res, { tracking: await getPublicRideTracking(token) });
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo consultar el viaje");
+    return failFrom(res, error, "No se pudo consultar el viaje");
   }
 });
 app.post(
@@ -3228,7 +3188,7 @@ app.post(
         link: { id: link.id, trackingUrl, expiresAt: link.expiresAt },
       });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo compartir el viaje");
+      return failFrom(res, error, "No se pudo compartir el viaje");
     }
   },
 );
@@ -3254,7 +3214,7 @@ app.delete(
       });
       return ok(res, result);
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo revocar el enlace");
+      return failFrom(res, error, "No se pudo revocar el enlace");
     }
   },
 );
@@ -3289,7 +3249,7 @@ app.post(
       });
       return res.status(201).json({ ok: true, requestId: req.requestId, incident });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo activar Seguridad Flash");
+      return failFrom(res, error, "No se pudo activar Seguridad Flash");
     }
   },
 );
@@ -3307,11 +3267,7 @@ app.get(
         }),
       );
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudo consultar el PIN de retiro",
-      );
+      return failFrom(res, error, "No se pudo consultar el PIN de retiro");
     }
   },
 );
@@ -3347,13 +3303,17 @@ app.post(
       });
       return ok(res, { verification });
     } catch (error) {
-      return fail(
+      // El repositorio adjunta cuántos intentos quedan antes del bloqueo, y se
+      // dice en el mensaje igual que en la verificación de PIN de envío. Antes
+      // viajaba como cuarto argumento de `fail`, que sólo toma tres: el dato se
+      // descartaba en silencio y el pasajero nunca supo cuántos le quedaban.
+      const restantes = error.attemptsRemaining;
+      return failFrom(
         res,
-        error.status || 500,
-        error.message || "No se pudo verificar el pasajero",
-        error.attemptsRemaining === undefined
-          ? undefined
-          : { attemptsRemaining: error.attemptsRemaining },
+        restantes === undefined
+          ? error
+          : { status: error.status, message: `${error.message}. Quedan ${restantes} intentos` },
+        "No se pudo verificar el pasajero",
       );
     }
   },
@@ -3372,7 +3332,7 @@ app.get(
         }),
       );
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo abrir la conversación");
+      return failFrom(res, error, "No se pudo abrir la conversación");
     }
   },
 );
@@ -3389,7 +3349,7 @@ app.post(
         }),
       });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo confirmar la lectura");
+      return failFrom(res, error, "No se pudo confirmar la lectura");
     }
   },
 );
@@ -3428,7 +3388,7 @@ app.post(
       });
       return res.status(201).json({ ok: true, requestId: req.requestId, message });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo enviar el mensaje");
+      return failFrom(res, error, "No se pudo enviar el mensaje");
     }
   },
 );
@@ -3447,7 +3407,7 @@ app.get(
         }),
       );
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo abrir el adjunto");
+      return failFrom(res, error, "No se pudo abrir el adjunto");
     }
   },
 );
@@ -3466,11 +3426,7 @@ app.get(
         }),
       );
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudieron cargar respuestas rápidas",
-      );
+      return failFrom(res, error, "No se pudieron cargar respuestas rápidas");
     }
   },
 );
@@ -3500,10 +3456,12 @@ app.post(
       });
       return res.status(201).json({ ok: true, requestId: req.requestId, quickReply });
     } catch (error) {
-      return fail(
+      return failFrom(
         res,
-        error.code === "23505" ? 409 : error.status || 500,
-        error.code === "23505" ? "La respuesta ya existe" : error.message,
+        // Una violación de unicidad es un conflicto del cliente, no una falla
+        // del servidor: conserva su 409 y su mensaje propio.
+        error.code === "23505" ? { status: 409, message: "La respuesta ya existe" } : error,
+        "La respuesta ya existe",
       );
     }
   },
@@ -3531,10 +3489,12 @@ app.patch(
       });
       return ok(res, { quickReply });
     } catch (error) {
-      return fail(
+      return failFrom(
         res,
-        error.code === "23505" ? 409 : error.status || 500,
-        error.code === "23505" ? "La respuesta ya existe" : error.message,
+        // Una violación de unicidad es un conflicto del cliente, no una falla
+        // del servidor: conserva su 409 y su mensaje propio.
+        error.code === "23505" ? { status: 409, message: "La respuesta ya existe" } : error,
+        "La respuesta ya existe",
       );
     }
   },
@@ -3568,11 +3528,7 @@ app.post(
       });
       return res.status(201).json({ ok: true, requestId: req.requestId, paymentMethod });
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudo registrar el método de pago",
-      );
+      return failFrom(res, error, "No se pudo registrar el método de pago");
     }
   },
 );
@@ -3596,11 +3552,7 @@ app.patch(
       });
       return ok(res, { paymentMethod });
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudo cambiar el método predeterminado",
-      );
+      return failFrom(res, error, "No se pudo cambiar el método predeterminado");
     }
   },
 );
@@ -3626,11 +3578,7 @@ app.delete(
         paymentMethods: paymentMethods.filter((entry) => entry.userId === req.auth.userId),
       });
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudo eliminar el método de pago",
-      );
+      return failFrom(res, error, "No se pudo eliminar el método de pago");
     }
   },
 );
@@ -3648,7 +3596,7 @@ app.get("/api/support/tickets", requireAuth, async (req, res) => {
       }),
     });
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo cargar soporte");
+    return failFrom(res, error, "No se pudo cargar soporte");
   }
 });
 app.post("/api/support/tickets", requireAuth, async (req, res) => {
@@ -3689,7 +3637,7 @@ app.post("/api/support/tickets", requireAuth, async (req, res) => {
       });
     return res.status(201).json({ ok: true, requestId: res.locals.requestId, ticket });
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo crear el ticket");
+    return failFrom(res, error, "No se pudo crear el ticket");
   }
 });
 app.post("/api/support/tickets/:ticketId/messages", requireAuth, async (req, res) => {
@@ -3728,7 +3676,7 @@ app.post("/api/support/tickets/:ticketId/messages", requireAuth, async (req, res
       });
     return ok(res, { ticket });
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo enviar el mensaje");
+    return failFrom(res, error, "No se pudo enviar el mensaje");
   }
 });
 app.patch(
@@ -3756,7 +3704,7 @@ app.patch(
       });
       return ok(res, { ticket });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo actualizar el ticket");
+      return failFrom(res, error, "No se pudo actualizar el ticket");
     }
   },
 );
@@ -3768,7 +3716,7 @@ app.get(
     try {
       return ok(res, { agents: await getSupportAgents() });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudieron cargar los agentes");
+      return failFrom(res, error, "No se pudieron cargar los agentes");
     }
   },
 );
@@ -3795,7 +3743,7 @@ app.patch(
       });
       return ok(res, { agent });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo actualizar el agente");
+      return failFrom(res, error, "No se pudo actualizar el agente");
     }
   },
 );
@@ -3823,11 +3771,7 @@ app.post(
         });
       return ok(res, { result });
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudo procesar la cola de soporte",
-      );
+      return failFrom(res, error, "No se pudo procesar la cola de soporte");
     }
   },
 );
@@ -3892,7 +3836,7 @@ app.post(
       });
       return ok(res, { rejected: true });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo rechazar la oferta");
+      return failFrom(res, error, "No se pudo rechazar la oferta");
     }
   },
 );
@@ -3935,11 +3879,7 @@ app.get(
     try {
       return ok(res, { deadLetters: await getNotificationDeadLetters() });
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudo cargar la cola de descarte",
-      );
+      return failFrom(res, error, "No se pudo cargar la cola de descarte");
     }
   },
 );
@@ -3967,11 +3907,7 @@ app.post(
       });
       return ok(res, { deadLetter });
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudo reintentar la notificación",
-      );
+      return failFrom(res, error, "No se pudo reintentar la notificación");
     }
   },
 );
@@ -4007,12 +3943,12 @@ app.post("/api/promotions", requireAuth, requireAnyRole("admin"), async (req, re
     });
     return res.status(201).json({ ok: true, requestId: res.locals.requestId, promotion });
   } catch (error) {
-    return fail(
+    return failFrom(
       res,
-      error.code === "23505" ? 409 : error.status || 500,
-      error.code === "23505"
-        ? "El código ya existe"
-        : error.message || "No se pudo crear la promoción",
+      // Una violación de unicidad es un conflicto del cliente, no una falla
+      // del servidor: conserva su 409 y su mensaje propio.
+      error.code === "23505" ? { status: 409, message: "El código ya existe" } : error,
+      "No se pudo crear la promoción",
     );
   }
 });
@@ -4036,12 +3972,12 @@ app.patch(
       });
       return ok(res, { promotion });
     } catch (error) {
-      return fail(
+      return failFrom(
         res,
-        error.code === "23505" ? 409 : error.status || 500,
-        error.code === "23505"
-          ? "El código ya existe"
-          : error.message || "No se pudo actualizar la promoción",
+        // Una violación de unicidad es un conflicto del cliente, no una falla
+        // del servidor: conserva su 409 y su mensaje propio.
+        error.code === "23505" ? { status: 409, message: "El código ya existe" } : error,
+        "No se pudo actualizar la promoción",
       );
     }
   },
@@ -4143,7 +4079,7 @@ app.patch(
       });
       return ok(res, { category });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo actualizar la categoría");
+      return failFrom(res, error, "No se pudo actualizar la categoría");
     }
   },
 );
@@ -4172,11 +4108,7 @@ app.patch(
       });
       return ok(res, { serviceLevel });
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudo actualizar el nivel de servicio",
-      );
+      return failFrom(res, error, "No se pudo actualizar el nivel de servicio");
     }
   },
 );
@@ -4184,7 +4116,7 @@ app.get("/api/admin/pricing-changes", requireAuth, requireAnyRole("admin"), asyn
   try {
     return ok(res, { requests: await getPostgresPricingChangeRequests() });
   } catch (error) {
-    return fail(res, 500, error.message || "No se pudo cargar la cola tarifaria");
+    return failFrom(res, error, "No se pudo cargar la cola tarifaria");
   }
 });
 app.post("/api/admin/pricing/:service", requireAuth, requireAnyRole("admin"), async (req, res) => {
@@ -4232,12 +4164,12 @@ app.post("/api/admin/pricing/:service", requireAuth, requireAnyRole("admin"), as
     });
     return res.status(201).json({ ok: true, requestId: req.requestId, changeRequest });
   } catch (error) {
-    return fail(
+    return failFrom(
       res,
-      error.code === "23505" ? 409 : error.status || 500,
-      error.code === "23505"
-        ? "La versión tarifaria ya existe"
-        : error.message || "No se pudo solicitar la tarifa",
+      // Una violación de unicidad es un conflicto del cliente, no una falla
+      // del servidor: conserva su 409 y su mensaje propio.
+      error.code === "23505" ? { status: 409, message: "La versión tarifaria ya existe" } : error,
+      "No se pudo solicitar la tarifa",
     );
   }
 });
@@ -4281,12 +4213,14 @@ app.post(
       });
       return res.status(201).json({ ok: true, requestId: req.requestId, changeRequest });
     } catch (error) {
-      return fail(
+      return failFrom(
         res,
-        error.code === "23505" ? 409 : error.status || 500,
+        // Una violación de unicidad es un conflicto del cliente, no una falla
+        // del servidor: conserva su 409 y su mensaje propio.
         error.code === "23505"
-          ? "La versión de rollback ya existe"
-          : error.message || "No se pudo solicitar el rollback",
+          ? { status: 409, message: "La versión de rollback ya existe" }
+          : error,
+        "No se pudo solicitar el rollback",
       );
     }
   },
@@ -4330,7 +4264,7 @@ app.patch(
       });
       return ok(res, { changeRequest });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo revisar la tarifa");
+      return failFrom(res, error, "No se pudo revisar la tarifa");
     }
   },
 );
@@ -4357,7 +4291,7 @@ app.patch("/api/zones/:zoneId", requireAuth, requireAnyRole("admin"), async (req
     });
     return ok(res, { zone });
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo actualizar la zona");
+    return failFrom(res, error, "No se pudo actualizar la zona");
   }
 });
 app.use(feedbackRouter);
@@ -4434,11 +4368,7 @@ app.post(
         destinations: await getPostgresRideDestinations(req.auth.userId),
       });
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudo guardar el destino reciente",
-      );
+      return failFrom(res, error, "No se pudo guardar el destino reciente");
     }
   },
 );
@@ -4462,12 +4392,11 @@ app.delete(
       });
       return ok(res, { deleted: true, destinations });
     } catch (error) {
-      return fail(
+      return failFrom(
         res,
-        error.code === "22P02" ? 404 : error.status || 500,
-        error.code === "22P02"
-          ? "Destino reciente no encontrado"
-          : error.message || "No se pudo eliminar el destino",
+        // Un uuid mal formado no es una falla del servidor: el recurso no existe.
+        error.code === "22P02" ? { status: 404, message: "Destino reciente no encontrado" } : error,
+        "No se pudo eliminar el destino",
       );
     }
   },
@@ -4514,11 +4443,7 @@ app.post(
         contacts: await getPostgresTrustedContacts(req.auth.userId),
       });
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudo guardar el contacto de confianza",
-      );
+      return failFrom(res, error, "No se pudo guardar el contacto de confianza");
     }
   },
 );
@@ -4542,12 +4467,13 @@ app.delete(
       });
       return ok(res, { deleted: true, contacts });
     } catch (error) {
-      return fail(
+      return failFrom(
         res,
-        error.code === "22P02" ? 404 : error.status || 500,
+        // Un uuid mal formado no es una falla del servidor: el recurso no existe.
         error.code === "22P02"
-          ? "Contacto de confianza no encontrado"
-          : error.message || "No se pudo eliminar el contacto",
+          ? { status: 404, message: "Contacto de confianza no encontrado" }
+          : error,
+        "No se pudo eliminar el contacto",
       );
     }
   },
@@ -4559,7 +4485,7 @@ app.post("/api/me/phone-verification/request", requireAuth, async (req, res) => 
     return ok(res, await requestPhoneVerification(req.auth.userId));
   } catch (error) {
     if (error.retryAfter) res.set("Retry-After", String(error.retryAfter));
-    return fail(res, error.status || 500, error.message || "No se pudo enviar el código");
+    return failFrom(res, error, "No se pudo enviar el código");
   }
 });
 
@@ -4573,7 +4499,7 @@ app.post("/api/me/phone-verification/confirm", requireAuth, async (req, res) => 
       await confirmPhoneVerification({ userPublicId: req.auth.userId, code: parsed.data.code }),
     );
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo verificar el teléfono");
+    return failFrom(res, error, "No se pudo verificar el teléfono");
   }
 });
 
@@ -4675,7 +4601,7 @@ app.get("/api/referrals/me", requireAuth, async (req, res) => {
   try {
     return ok(res, { referral: await getReferralSummary(req.auth.userId) });
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo cargar referidos");
+    return failFrom(res, error, "No se pudo cargar referidos");
   }
 });
 
@@ -4696,7 +4622,7 @@ app.post("/api/referrals/claim", requireAuth, async (req, res) => {
     });
     return ok(res, { referral });
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo aplicar el referido");
+    return failFrom(res, error, "No se pudo aplicar el referido");
   }
 });
 
@@ -4824,18 +4750,14 @@ app.post("/api/jobs/:jobId/tips", requireAuth, requireAnyRole("customer"), async
     });
     return res.status(201).json({ ok: true, requestId: req.requestId, tip });
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo enviar la propina");
+    return failFrom(res, error, "No se pudo enviar la propina");
   }
 });
 app.get("/api/admin/tip-adjustments", requireAuth, requireAnyRole("admin"), async (_req, res) => {
   try {
     return ok(res, { adjustments: await getTipAdjustments() });
   } catch (error) {
-    return fail(
-      res,
-      error.status || 500,
-      error.message || "No se pudieron cargar los ajustes de propinas",
-    );
+    return failFrom(res, error, "No se pudieron cargar los ajustes de propinas");
   }
 });
 app.post("/api/admin/tip-adjustments", requireAuth, requireAnyRole("admin"), async (req, res) => {
@@ -4866,7 +4788,7 @@ app.post("/api/admin/tip-adjustments", requireAuth, requireAnyRole("admin"), asy
     });
     return res.status(201).json({ ok: true, requestId: req.requestId, adjustment });
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo solicitar el ajuste");
+    return failFrom(res, error, "No se pudo solicitar el ajuste");
   }
 });
 app.patch(
@@ -4904,7 +4826,7 @@ app.patch(
       });
       return ok(res, { adjustment });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo revisar el ajuste");
+      return failFrom(res, error, "No se pudo revisar el ajuste");
     }
   },
 );
@@ -4944,7 +4866,7 @@ app.post(
       });
       return res.status(201).json({ ok: true, requestId: req.requestId, issue });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo crear la incidencia");
+      return failFrom(res, error, "No se pudo crear la incidencia");
     }
   },
 );
@@ -4958,7 +4880,7 @@ app.get("/api/orders/:orderId/issues", requireAuth, async (req, res) => {
       }),
     });
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudieron cargar las incidencias");
+    return failFrom(res, error, "No se pudieron cargar las incidencias");
   }
 });
 app.patch(
@@ -4995,7 +4917,7 @@ app.patch(
       });
       return ok(res, { issue });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo resolver la incidencia");
+      return failFrom(res, error, "No se pudo resolver la incidencia");
     }
   },
 );
@@ -5035,7 +4957,7 @@ app.post(
       });
       return res.status(201).json({ ok: true, requestId: req.requestId, substitution });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo proponer la sustitución");
+      return failFrom(res, error, "No se pudo proponer la sustitución");
     }
   },
 );
@@ -5049,11 +4971,7 @@ app.get("/api/orders/:orderId/substitutions", requireAuth, async (req, res) => {
       }),
     });
   } catch (error) {
-    return fail(
-      res,
-      error.status || 500,
-      error.message || "No se pudieron cargar las sustituciones",
-    );
+    return failFrom(res, error, "No se pudieron cargar las sustituciones");
   }
 });
 app.patch(
@@ -5090,7 +5008,7 @@ app.patch(
       });
       return ok(res, { substitution });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo responder la sustitución");
+      return failFrom(res, error, "No se pudo responder la sustitución");
     }
   },
 );
@@ -5120,7 +5038,7 @@ app.patch(
       });
       return ok(res, { restaurant });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo actualizar la sucursal");
+      return failFrom(res, error, "No se pudo actualizar la sucursal");
     }
   },
 );
@@ -5155,11 +5073,7 @@ app.patch(
       });
       return ok(res, { restaurant });
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudo actualizar el inventario de la sucursal",
-      );
+      return failFrom(res, error, "No se pudo actualizar el inventario de la sucursal");
     }
   },
 );
@@ -5189,7 +5103,7 @@ app.put(
       });
       return ok(res, { restaurant });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo guardar el horario");
+      return failFrom(res, error, "No se pudo guardar el horario");
     }
   },
 );
@@ -5219,7 +5133,7 @@ app.put(
       });
       return ok(res, { restaurant });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo guardar la excepción");
+      return failFrom(res, error, "No se pudo guardar la excepción");
     }
   },
 );
@@ -5250,7 +5164,7 @@ app.get(
         });
       return ok(res, { receipt: result.receipt });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo obtener el comprobante");
+      return failFrom(res, error, "No se pudo obtener el comprobante");
     }
   },
 );
@@ -5431,11 +5345,7 @@ app.patch(
       });
       return ok(res, { moderation });
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudo cambiar el estado de la cuenta",
-      );
+      return failFrom(res, error, "No se pudo cambiar el estado de la cuenta");
     }
   },
 );
@@ -5457,7 +5367,7 @@ app.post("/api/auth/mfa/enroll", requireAuth, requireAdminIdentity, async (req, 
     });
     return ok(res, { enrollment });
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo iniciar MFA");
+    return failFrom(res, error, "No se pudo iniciar MFA");
   }
 });
 
@@ -5490,7 +5400,7 @@ app.post("/api/auth/mfa/confirm", requireAuth, requireAdminIdentity, async (req,
       ),
     });
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo confirmar MFA");
+    return failFrom(res, error, "No se pudo confirmar MFA");
   }
 });
 
@@ -5526,16 +5436,18 @@ app.post("/api/auth/mfa/complete", async (req, res) => {
       ),
     });
   } catch (error) {
-    return fail(
+    // Un desafío vencido o mal firmado es un error del cliente y se le dice cuál
+    // de los dos; cualquier otra falla es interna y no describe su causa.
+    const jwtInvalido = { status: 401, message: "Desafío MFA inválido" };
+    const jwtVencido = { status: 401, message: "Desafío MFA expirado" };
+    return failFrom(
       res,
-      error.name === "JsonWebTokenError" || error.name === "TokenExpiredError"
-        ? 401
-        : error.status || 500,
       error.name === "TokenExpiredError"
-        ? "Desafío MFA expirado"
+        ? jwtVencido
         : error.name === "JsonWebTokenError"
-          ? "Desafío MFA inválido"
-          : error.message || "No se pudo verificar MFA",
+          ? jwtInvalido
+          : error,
+      "No se pudo verificar MFA",
     );
   }
 });
@@ -5569,7 +5481,7 @@ app.get(
     try {
       return ok(res, await getPaymentReconciliation());
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo cargar la conciliación");
+      return failFrom(res, error, "No se pudo cargar la conciliación");
     }
   },
 );
@@ -5594,7 +5506,7 @@ app.post(
       });
       return ok(res, reconciliation);
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo ejecutar la conciliación");
+      return failFrom(res, error, "No se pudo ejecutar la conciliación");
     }
   },
 );
@@ -5625,7 +5537,7 @@ app.patch(
       });
       return ok(res, { case: reconciliationCase });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo resolver el caso");
+      return failFrom(res, error, "No se pudo resolver el caso");
     }
   },
 );
@@ -5637,11 +5549,7 @@ app.get(
     try {
       return ok(res, { assessments: await getTransactionRisks() });
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudieron cargar las evaluaciones",
-      );
+      return failFrom(res, error, "No se pudieron cargar las evaluaciones");
     }
   },
 );
@@ -5673,7 +5581,7 @@ app.patch(
       });
       return ok(res, { assessment });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo revisar la evaluación");
+      return failFrom(res, error, "No se pudo revisar la evaluación");
     }
   },
 );
@@ -5739,7 +5647,7 @@ app.get("/api/me/sessions", requireAuth, async (req, res) => {
     res.set("Cache-Control", "no-store, private");
     return ok(res, { sessions: await getPostgresUserSessions(req.auth.userId) });
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudieron cargar las sesiones");
+    return failFrom(res, error, "No se pudieron cargar las sesiones");
   }
 });
 app.delete("/api/me/sessions/:sessionId", requireAuth, async (req, res) => {
@@ -5759,7 +5667,7 @@ app.delete("/api/me/sessions/:sessionId", requireAuth, async (req, res) => {
     });
     return ok(res, result);
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo cerrar la sesión");
+    return failFrom(res, error, "No se pudo cerrar la sesión");
   }
 });
 app.post(
@@ -5789,11 +5697,7 @@ app.post(
       });
       return ok(res, result);
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudieron cerrar las demás sesiones",
-      );
+      return failFrom(res, error, "No se pudieron cerrar las demás sesiones");
     }
   },
 );
@@ -5833,7 +5737,7 @@ app.post("/api/auth/password-recovery/confirm", async (req, res) => {
       revokedSessions: result.revokedSessions,
     });
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo cambiar la contraseña");
+    return failFrom(res, error, "No se pudo cambiar la contraseña");
   }
 });
 app.post("/api/auth/email-verification/resend", async (req, res) => {
@@ -5858,7 +5762,7 @@ app.post("/api/auth/email-verification/confirm", async (req, res) => {
     const user = await confirmEmailVerification(parsed.data);
     return ok(res, { verified: true, user: sanitizeUser(user) });
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo verificar el email");
+    return failFrom(res, error, "No se pudo verificar el email");
   }
 });
 
@@ -5954,7 +5858,7 @@ app.put("/api/cart", requireAuth, requireAnyRole("customer", "admin"), async (re
     );
     return ok(res, { cart });
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo guardar el carrito");
+    return failFrom(res, error, "No se pudo guardar el carrito");
   }
 });
 
@@ -5983,7 +5887,7 @@ app.post(
       });
       return ok(res, result);
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo reconstruir el carrito");
+      return failFrom(res, error, "No se pudo reconstruir el carrito");
     }
   },
 );
@@ -6144,11 +6048,7 @@ app.put(
       });
       return ok(res, { restaurant });
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudieron guardar los agregados",
-      );
+      return failFrom(res, error, "No se pudieron guardar los agregados");
     }
   },
 );
@@ -6184,11 +6084,7 @@ app.put(
       });
       return ok(res, { restaurant });
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudo guardar la información alimentaria",
-      );
+      return failFrom(res, error, "No se pudo guardar la información alimentaria");
     }
   },
 );
@@ -6231,7 +6127,7 @@ app.post(
         quote: { ...calculated, quoteId, quoteToken, expiresAt },
       });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo cotizar la entrega");
+      return failFrom(res, error, "No se pudo cotizar la entrega");
     }
   },
 );
@@ -6321,11 +6217,7 @@ app.post("/api/orders", requireAuth, requireAnyRole("customer", "admin"), async 
         );
       }
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudo verificar el riesgo de la operación",
-      );
+      return failFrom(res, error, "No se pudo verificar el riesgo de la operación");
     }
   }
 
@@ -6376,7 +6268,7 @@ app.post("/api/orders", requireAuth, requireAnyRole("customer", "admin"), async 
           entityPublicId: order.id,
         });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo crear el pedido");
+      return failFrom(res, error, "No se pudo crear el pedido");
     }
   } else {
     db.orders.unshift(order);
@@ -6431,7 +6323,7 @@ app.post(
       try {
         order = await assignPostgresOrderDriver(order.id, driverId, req.auth.userId);
       } catch (error) {
-        return fail(res, error.status || 500, error.message);
+        return failFrom(res, error, "No se pudo asignar el repartidor");
       }
     } else {
       order.courierId = driverId;
@@ -6624,11 +6516,7 @@ app.get(
         )[0];
         return ok(res, { dashboard: { ...dashboard, restaurant } });
       } catch (error) {
-        return fail(
-          res,
-          error.status || 500,
-          error.message || "No se pudo cargar la operación del comercio",
-        );
+        return failFrom(res, error, "No se pudo cargar la operación del comercio");
       }
     }
     const db = usesPostgresCommerce() ? {} : readDb();
@@ -6752,7 +6640,7 @@ app.get(
         hasMore: all.length > limit,
       });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo cargar la cola activa");
+      return failFrom(res, error, "No se pudo cargar la cola activa");
     }
   },
 );
@@ -6773,7 +6661,7 @@ app.get(
         }),
       });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudieron cargar las finanzas");
+      return failFrom(res, error, "No se pudieron cargar las finanzas");
     }
   },
 );
@@ -6827,7 +6715,7 @@ app.post(
         amount: parsed.data.amount,
       });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo autorizar el retiro");
+      return failFrom(res, error, "No se pudo autorizar el retiro");
     }
   },
 );
@@ -6847,7 +6735,7 @@ app.get(
         configured: config.paymentMarketplace.provider !== "disabled",
       });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo consultar la vinculación");
+      return failFrom(res, error, "No se pudo consultar la vinculación");
     }
   },
 );
@@ -6895,7 +6783,7 @@ app.post(
         }),
       );
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo iniciar la vinculación");
+      return failFrom(res, error, "No se pudo iniciar la vinculación");
     }
   },
 );
@@ -6920,7 +6808,7 @@ app.post(
         }),
       });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo revocar la vinculación");
+      return failFrom(res, error, "No se pudo revocar la vinculación");
     }
   },
 );
@@ -6978,7 +6866,7 @@ app.post("/api/webhooks/mercadopago", async (req, res) => {
       .status(event.duplicate ? 200 : 201)
       .json({ ok: true, requestId: req.requestId, accepted: true, duplicate: event.duplicate });
   } catch (error) {
-    return fail(res, error.status || 500, "No se pudo persistir el webhook");
+    return failFrom(res, error, "No se pudo persistir el webhook");
   }
 });
 app.post(
@@ -7033,7 +6921,7 @@ app.post(
       });
       return res.status(201).json({ ok: true, requestId: req.requestId, finance });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo solicitar el payout");
+      return failFrom(res, error, "No se pudo solicitar el payout");
     }
   },
 );
@@ -7041,7 +6929,7 @@ app.get("/api/admin/payouts", requireAuth, requireAnyRole("admin"), async (_req,
   try {
     return ok(res, { payouts: await getPayoutReviewQueue() });
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudieron cargar los payouts");
+    return failFrom(res, error, "No se pudieron cargar los payouts");
   }
 });
 app.patch(
@@ -7079,7 +6967,7 @@ app.patch(
       });
       return ok(res, { payout });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo revisar el payout");
+      return failFrom(res, error, "No se pudo revisar el payout");
     }
   },
 );
@@ -7208,11 +7096,7 @@ app.post("/api/rides", requireAuth, requireAnyRole("customer", "admin"), async (
         );
       }
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudo verificar el riesgo de la operación",
-      );
+      return failFrom(res, error, "No se pudo verificar el riesgo de la operación");
     }
   }
   const createdAt = getTimestamp();
@@ -7256,7 +7140,7 @@ app.post("/api/rides", requireAuth, requireAnyRole("customer", "admin"), async (
           entityPublicId: ride.id,
         });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo solicitar el viaje");
+      return failFrom(res, error, "No se pudo solicitar el viaje");
     }
   } else {
     ride = assignRideDriver(db, ride);
@@ -7505,11 +7389,7 @@ app.post("/api/shipments", requireAuth, requireAnyRole("customer", "admin"), asy
         );
       }
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudo verificar el riesgo de la operación",
-      );
+      return failFrom(res, error, "No se pudo verificar el riesgo de la operación");
     }
   }
   const createdAt = getTimestamp();
@@ -7554,7 +7434,7 @@ app.post("/api/shipments", requireAuth, requireAnyRole("customer", "admin"), asy
           entityPublicId: shipment.id,
         });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo crear el envío");
+      return failFrom(res, error, "No se pudo crear el envío");
     }
   } else {
     db.shipments ||= [];
@@ -7679,7 +7559,7 @@ app.get(
       });
       return ok(res, { deliveryCode: code });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo consultar el código");
+      return failFrom(res, error, "No se pudo consultar el código");
     }
   },
 );
@@ -7719,7 +7599,7 @@ app.post(
       res.status(201);
       return ok(res, { evidence });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo registrar la evidencia");
+      return failFrom(res, error, "No se pudo registrar la evidencia");
     }
   },
 );
@@ -7735,7 +7615,7 @@ app.get("/api/shipments/:shipmentId/delivery-evidence", requireAuth, async (req,
       }),
     });
   } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo consultar la evidencia");
+    return failFrom(res, error, "No se pudo consultar la evidencia");
   }
 });
 
@@ -7756,7 +7636,7 @@ app.get(
         }),
       );
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo abrir la evidencia");
+      return failFrom(res, error, "No se pudo abrir la evidencia");
     }
   },
 );
@@ -7825,7 +7705,7 @@ app.post(
         proof: { type: result.proofType, verified: true },
       });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo verificar la entrega");
+      return failFrom(res, error, "No se pudo verificar la entrega");
     }
   },
 );
@@ -7842,11 +7722,7 @@ app.get(
         }),
       });
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudieron cargar las devoluciones",
-      );
+      return failFrom(res, error, "No se pudieron cargar las devoluciones");
     }
   },
 );
@@ -7874,12 +7750,14 @@ app.post(
       });
       return res.status(201).json({ ok: true, requestId: req.requestId, return: shipmentReturn });
     } catch (error) {
-      return fail(
+      return failFrom(
         res,
-        error.code === "23505" ? 409 : error.status || 500,
+        // Una violación de unicidad es un conflicto del cliente, no una falla
+        // del servidor: conserva su 409 y su mensaje propio.
         error.code === "23505"
-          ? "Ya existe una devolución para este envío"
-          : error.message || "No se pudo solicitar la devolución",
+          ? { status: 409, message: "Ya existe una devolución para este envío" }
+          : error,
+        "No se pudo solicitar la devolución",
       );
     }
   },
@@ -7907,7 +7785,7 @@ app.patch(
       });
       return ok(res, { return: shipmentReturn });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo actualizar la devolución");
+      return failFrom(res, error, "No se pudo actualizar la devolución");
     }
   },
 );
@@ -7924,11 +7802,7 @@ app.get(
         }),
       });
     } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudieron cargar los siniestros",
-      );
+      return failFrom(res, error, "No se pudieron cargar los siniestros");
     }
   },
 );
@@ -7961,10 +7835,14 @@ app.post(
       });
       return res.status(201).json({ ok: true, requestId: req.requestId, claim });
     } catch (error) {
-      return fail(
+      return failFrom(
         res,
-        error.code === "23505" ? 409 : error.status || 500,
-        error.code === "23505" ? "Ya existe un siniestro para este envío" : error.message,
+        // Una violación de unicidad es un conflicto del cliente, no una falla
+        // del servidor: conserva su 409 y su mensaje propio.
+        error.code === "23505"
+          ? { status: 409, message: "Ya existe un siniestro para este envío" }
+          : error,
+        "Ya existe un siniestro para este envío",
       );
     }
   },
@@ -8000,7 +7878,7 @@ app.post(
       });
       return res.status(201).json({ ok: true, requestId: req.requestId, evidence });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo adjuntar la evidencia");
+      return failFrom(res, error, "No se pudo adjuntar la evidencia");
     }
   },
 );
@@ -8020,7 +7898,7 @@ app.get(
         }),
       );
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo abrir la evidencia");
+      return failFrom(res, error, "No se pudo abrir la evidencia");
     }
   },
 );
@@ -8051,7 +7929,7 @@ app.patch(
       });
       return ok(res, { claim });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo actualizar el siniestro");
+      return failFrom(res, error, "No se pudo actualizar el siniestro");
     }
   },
 );
@@ -8242,7 +8120,9 @@ app.patch(
         try {
           await assertDriverCanGoOnline(driver.id, body.activeService || driver.activeService);
         } catch (error) {
-          return fail(res, error.status || 409, error.message);
+          // El 409 explica por qué no puede ponerse en línea —documentación vencida,
+          // vehículo sin habilitar— y ese mensaje es parte del contrato con la app.
+          return failFrom(res, error, "No se pudo habilitar el turno");
         }
       driver = await updatePostgresDriver(driver.id, body);
     } else {
@@ -8280,7 +8160,7 @@ app.get(
         }),
       });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudieron cargar los vehículos");
+      return failFrom(res, error, "No se pudieron cargar los vehículos");
     }
   },
 );
@@ -8314,7 +8194,7 @@ app.post(
       });
       return res.status(201).json({ ok: true, requestId: req.requestId, vehicle });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo registrar el vehículo");
+      return failFrom(res, error, "No se pudo registrar el vehículo");
     }
   },
 );
@@ -8347,7 +8227,7 @@ app.patch(
       });
       return ok(res, { vehicle });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo actualizar el vehículo");
+      return failFrom(res, error, "No se pudo actualizar el vehículo");
     }
   },
 );
@@ -8373,7 +8253,7 @@ app.post(
       });
       return ok(res, { vehicle });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo activar el vehículo");
+      return failFrom(res, error, "No se pudo activar el vehículo");
     }
   },
 );
@@ -8399,7 +8279,7 @@ app.delete(
       });
       return ok(res, { vehicle });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo retirar el vehículo");
+      return failFrom(res, error, "No se pudo retirar el vehículo");
     }
   },
 );
@@ -8432,7 +8312,7 @@ app.patch(
       });
       return ok(res, { vehicle });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo revisar el vehículo");
+      return failFrom(res, error, "No se pudo revisar el vehículo");
     }
   },
 );
@@ -8451,7 +8331,7 @@ app.get(
         }),
       });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo cargar el legajo");
+      return failFrom(res, error, "No se pudo cargar el legajo");
     }
   },
 );
@@ -8487,7 +8367,7 @@ app.post(
       });
       return res.status(201).json({ ok: true, requestId: req.requestId, document });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo enviar el documento");
+      return failFrom(res, error, "No se pudo enviar el documento");
     }
   },
 );
@@ -8516,7 +8396,7 @@ app.get(
       });
       return ok(res, result);
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo leer el documento");
+      return failFrom(res, error, "No se pudo leer el documento");
     }
   },
 );
@@ -8549,7 +8429,7 @@ app.patch(
       });
       return ok(res, { compliance });
     } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo revisar el documento");
+      return failFrom(res, error, "No se pudo revisar el documento");
     }
   },
 );
