@@ -1080,6 +1080,24 @@ try {
         items: [{ ...payload.items[0], extras: ["extra_cheddar"] }],
       }),
     });
+  const residuo = Number(
+    (
+      await pool.query("SELECT count(*)::int count FROM idempotency_keys WHERE key=ANY($1)", [
+        [changedPriceKey, changedModifierKey],
+      ])
+    ).rows[0].count,
+  );
+  if (changedPrice.status !== 409 || changedModifier.status !== 409 || residuo !== 0) {
+    console.error(
+      `diagnostico checkout firmado: ${JSON.stringify({
+        changedPriceStatus: changedPrice.status,
+        changedPriceBody: changedPrice.body,
+        changedModifierStatus: changedModifier.status,
+        changedModifierBody: changedModifier.body,
+        residuoIdempotencia: residuo,
+      })}`,
+    );
+  }
   assert(
     changedPrice.status === 409 &&
       changedModifier.status === 409 &&
