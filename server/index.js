@@ -27,6 +27,12 @@ import {
   requireAnyRole,
 } from "./http/authorization.js";
 import { createAddressesRouter } from "./http/addresses-router.js";
+import {
+  createRealtimeRouter,
+  publishRealtimeEvent,
+  realtimeClients,
+  startRealtimeListener,
+} from "./http/realtime.js";
 import { createMapsRouter } from "./http/maps-router.js";
 import { closeRedis, redisClient, redisReadiness } from "./redis.js";
 import { openApiDocument } from "./openapi.js";
@@ -222,13 +228,6 @@ import {
   rejectPostgresDispatchOffer,
 } from "./dispatch-repository.js";
 import {
-  canReceiveRealtimeEvent,
-  getPostgresRealtimeCursor,
-  getPostgresRealtimeReplay,
-  persistPostgresRealtimeEvent,
-  startPostgresRealtimeListener,
-} from "./realtime-repository.js";
-import {
   getMerchantFinance,
   getPayoutReviewQueue,
   requestMerchantPayout,
@@ -336,7 +335,6 @@ const jwtSecret = config.jwtSecret;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const distDir = path.resolve(__dirname, "..", "dist");
-const realtimeClients = new Map();
 const processStartedAt = Date.now();
 const mapProviderCircuit = new ProviderCircuit(config.mapProvider);
 let sqliteRuntimeReads = 0;
@@ -398,56 +396,7 @@ function requestLogger(req, res, next) {
   return next();
 }
 
-function writeSseEvent(client, event, data, cursor = null) {
-  if (client.destroyed || client.writableEnded) return false;
-  client.write(
-    `${cursor ? `id: ${cursor}\n` : ""}event: ${event}\ndata: ${JSON.stringify(data)}\n\n`,
-  );
-  return true;
-}
-
-function fanoutRealtimeEvent(payload) {
-  for (const [client, context] of realtimeClients) {
-    if (!canReceiveRealtimeEvent(payload, context)) continue;
-    if (!writeSseEvent(client, "state.updated", payload, payload.cursor))
-      realtimeClients.delete(client);
-  }
-}
-
-async function publishRealtimeEvent({
-  req,
-  type,
-  entityType = null,
-  entityId = null,
-  action = null,
-}) {
-  if (postgresPool) {
-    await persistPostgresRealtimeEvent({
-      type,
-      entityType,
-      entityId,
-      action,
-      requestId: req?.requestId || null,
-      actorPublicId: req?.auth?.userId || null,
-    });
-    return;
-  }
-  const payload = {
-    id: createId("EVT"),
-    type,
-    entityType,
-    entityId,
-    action,
-    requestId: req?.requestId || null,
-    at: getTimestamp(),
-  };
-  for (const [client] of realtimeClients)
-    if (!writeSseEvent(client, "state.updated", payload)) realtimeClients.delete(client);
-}
-
-const stopRealtimeListener = postgresPool
-  ? await startPostgresRealtimeListener(fanoutRealtimeEvent)
-  : null;
+const stopRealtimeListener = await startRealtimeListener();
 
 function isSameOrigin(req, origin) {
   if (!origin) return false;
@@ -4877,7 +4826,7 @@ app.get("/api/me", requireAuth, async (req, res) => {
   return ok(res, { account });
 });
 
-app.use(createAddressesRouter({ requireAuth, readDb, audit, publishRealtimeEvent }));
+app.use(createAddressesRouter({ requireAuth, readDb, audit }));
 
 app.get(
   "/api/ride-destinations",
@@ -5264,49 +5213,7 @@ app.post("/api/wallet/topup", requireAuth, async (req, res) => {
   return ok(res, { account: accountSnapshot(readDb(), user.id) });
 });
 
-app.get("/api/events", requireAuth, async (req, res) => {
-  res.status(200);
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache, no-transform");
-  res.setHeader("Connection", "keep-alive");
-  res.setHeader("X-Accel-Buffering", "no");
-  res.flushHeaders?.();
-  const context = { userPublicId: req.auth.userId, roles: req.auth.roles };
-  realtimeClients.set(res, context);
-  const requestedCursor = Math.max(
-    0,
-    Number(req.get("last-event-id") || req.query.cursor || 0) || 0,
-  );
-  const cursor = postgresPool ? await getPostgresRealtimeCursor() : null;
-  writeSseEvent(
-    res,
-    "connected",
-    {
-      id: createId("EVT"),
-      type: "connected",
-      at: getTimestamp(),
-      cursor,
-    },
-    cursor,
-  );
-  if (postgresPool && requestedCursor) {
-    for (const event of await getPostgresRealtimeReplay({
-      after: requestedCursor,
-      ...context,
-    }))
-      writeSseEvent(res, "state.updated", event, event.cursor);
-  }
-  const heartbeat = setInterval(() => {
-    if (!writeSseEvent(res, "heartbeat", { at: getTimestamp() })) {
-      clearInterval(heartbeat);
-      realtimeClients.delete(res);
-    }
-  }, 25000);
-  req.on("close", () => {
-    clearInterval(heartbeat);
-    realtimeClients.delete(res);
-  });
-});
+app.use(createRealtimeRouter({ requireAuth }));
 
 app.get("/api/metrics", requireAuth, requireAnyRole("admin"), async (req, res) => {
   ok(res, { metrics: metrics(await loadRuntimeState(req)) });

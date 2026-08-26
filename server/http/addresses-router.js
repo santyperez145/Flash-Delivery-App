@@ -25,6 +25,8 @@ import {
   usesPostgresAuth,
 } from "../auth-repository.js";
 import { recordPostgresAudit } from "../operations-repository.js";
+import { publishRealtimeEvent } from "./realtime.js";
+
 import { createId, writeDb } from "../store.js";
 import { fail, ok, parseOrFail } from "./responses.js";
 
@@ -44,9 +46,8 @@ const addressSchema = z.object({
  * @param deps.requireAuth middleware de autenticación (vive en `index.js`)
  * @param deps.readDb lectura del fallback SQLite, contabilizada para métricas
  * @param deps.audit registro de auditoría del fallback SQLite
- * @param deps.publishRealtimeEvent publicación al canal de tiempo real
  */
-export function createAddressesRouter({ requireAuth, readDb, audit, publishRealtimeEvent }) {
+export function createAddressesRouter({ requireAuth, readDb, audit }) {
   const router = Router();
 
   router.get("/api/addresses", requireAuth, async (req, res) => {

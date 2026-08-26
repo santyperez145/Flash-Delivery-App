@@ -38,7 +38,7 @@ Cinco archivos concentran más de 1,3 MB de código: `apps/mobile/App.tsx` (433 
 - [ ] Ningún módulo de dominio importa React.
 - [ ] El build de driver no incluye pantallas de comercio.
 - [ ] El build de customer no incluye backoffice.
-- [ ] `server/index.js` deja de contener lógica de dominio. **2 de 57 grupos de rutas extraídos** (mapas, direcciones); quedan 203 rutas en 55 grupos.
+- [ ] `server/index.js` deja de contener lógica de dominio. **3 de 57 grupos de rutas extraídos** (mapas, direcciones, realtime); quedan 202 rutas en 54 grupos.
 
 ### Verificación
 
@@ -57,12 +57,16 @@ El criterio no es el tamaño del grupo, es **cuánto núcleo compartido necesita
 | `ok` / `fail` / `parseOrFail` | `http/responses.js` | casi todo handler |
 | autorización (9 predicados + `requireAnyRole`) | `http/authorization.js` | 81 usos |
 | `requireAuth` | en `index.js` | todo grupo autenticado |
-| `publishRealtimeEvent` + registro SSE | en `index.js` | 43 publicaciones |
+| `publishRealtimeEvent` + registro SSE | `http/realtime.js` | 43 publicaciones |
 | `audit` del fallback SQLite | en `index.js` | toda mutación |
 | `readDb` (contabiliza lecturas SQLite) | en `index.js` | todo el doble runtime |
 | esquemas Zod (≈20) | en `index.js` | por dominio, viajan con su grupo |
 
-Extraer un grupo antes que su núcleo funciona —lo demuestra `addresses-router.js`— pero deja una lista de dependencias larga en la factory. Esa lista es la medida honesta de cuánto núcleo falta, no un defecto del patrón.
+Extraer un grupo antes que su núcleo funciona —lo demuestra `addresses-router.js`— pero deja una lista de dependencias larga en la factory. Esa lista es la medida honesta de cuánto núcleo falta, no un defecto del patrón: al extraerse el hub de realtime, esa misma factory bajó de cuatro dependencias a tres sin tocar una sola de sus rutas.
+
+El registro de clientes SSE era el caso difícil, porque es **estado vivo**: un `Map` no se pasa por parámetro sin arrastrarlo entre archivos. Se resolvió haciéndolo estado del módulo `http/realtime.js`, con la ruta `/api/events` adentro, que es la única que lo escribe.
+
+De las siete, quedan tres: `requireAuth`, `audit` y `readDb`. Las tres dependen de decisiones que todavía viven en `index.js` —el secreto JWT, el contador de lecturas SQLite— así que su extracción va a mover más que código.
 
 ---
 

@@ -23,7 +23,7 @@ La Fase 0 está en marcha: ver el [plan de acción](docs/plan-de-accion.md) y el
 | H-05 | INF-001 | **Corregido.** Imagen multi-etapa, `uid=999(flash)` verificado en build real, mismo entrypoint que Compose |
 | H-06 | DSP-001 | **En curso.** Recorte espacial y KNN activos; falta medir el plan y el ETA vial |
 | H-07 | GEO-001 | **En curso.** Adapter con proveedor comercial y producción bloqueada para instancias públicas; falta una API key |
-| H-08 | ARC-001 | **En curso.** Reformateo hecho y núcleo compartido en marcha: `responses`, `authorization` y 2 de 57 grupos de rutas extraídos. Falta separar entrypoints y los 55 grupos restantes |
+| H-08 | ARC-001 | **En curso.** Reformateo hecho y núcleo compartido en marcha: `responses`, `authorization`, `realtime` y 3 de 57 grupos de rutas extraídos. Falta separar entrypoints y los 54 grupos restantes |
 | H-09 | PAY-001 | Mercado Pago integrado pero nunca validado contra el proveedor |
 | H-11 | — | **Corregido.** Una base desde cero no equivalía a una migrada y las cuentas sembradas no podían iniciar sesión: `db:seed:derived` reaplica los backfills |
 
