@@ -548,6 +548,40 @@ try {
       preferenceRows.rows[0].avoided === 0,
     "dietary preferences persist per customer with controlled vocabularies and private reads",
   );
+  // Cinco condiciones en una sola aserción daban un mensaje opaco: cuando
+  // fallaba no se sabía cuál. El detalle hace diagnosticable el fallo sin
+  // cambiar lo que se afirma.
+  const searchDetail = JSON.stringify({
+    excludedPizzaStatus: excludedPizzaSearch.status,
+    excludedPizzaTotal: excludedPizzaSearch.body?.total,
+    excludedPizzaResults: (excludedPizzaSearch.body?.results ?? []).map((r) => ({
+      merchant: r.restaurantName,
+      items: (r.matchedItems ?? []).map((i) => i.id),
+    })),
+    papasEncontradas: (compatibleFoodSearch.body?.results ?? []).some((entry) =>
+      (entry.matchedItems ?? []).some((item) => item.id === "item_papas_trufa"),
+    ),
+    rankedPrimero: rankedPizzaSearch.body?.results?.[0]?.restaurantName ?? null,
+    rankedItems: (rankedPizzaSearch.body?.results?.[0]?.matchedItems ?? []).map((i) => i.name),
+    pagedLength: pagedCatalogSearch.body?.results?.length,
+    pagedTotal: pagedCatalogSearch.body?.total,
+  });
+  if (
+    !(
+      excludedPizzaSearch.status === 200 &&
+      excludedPizzaSearch.body.total === 0 &&
+      compatibleFoodSearch.body.results.some((entry) =>
+        entry.matchedItems.some((item) => item.id === "item_papas_trufa"),
+      ) &&
+      rankedPizzaSearch.body.results[0]?.matchedItems.some((item) =>
+        item.name.toLowerCase().includes("pizza"),
+      ) &&
+      pagedCatalogSearch.body.results.length === 1 &&
+      pagedCatalogSearch.body.total >= pagedCatalogSearch.body.results.length
+    )
+  ) {
+    console.error(`diagnostico busqueda catalogo: ${searchDetail}`);
+  }
   assert(
     excludedPizzaSearch.status === 200 &&
       excludedPizzaSearch.body.total === 0 &&
@@ -1046,6 +1080,24 @@ try {
         items: [{ ...payload.items[0], extras: ["extra_cheddar"] }],
       }),
     });
+  const residuo = Number(
+    (
+      await pool.query("SELECT count(*)::int count FROM idempotency_keys WHERE key=ANY($1)", [
+        [changedPriceKey, changedModifierKey],
+      ])
+    ).rows[0].count,
+  );
+  if (changedPrice.status !== 409 || changedModifier.status !== 409 || residuo !== 0) {
+    console.error(
+      `diagnostico checkout firmado: ${JSON.stringify({
+        changedPriceStatus: changedPrice.status,
+        changedPriceBody: changedPrice.body,
+        changedModifierStatus: changedModifier.status,
+        changedModifierBody: changedModifier.body,
+        residuoIdempotencia: residuo,
+      })}`,
+    );
+  }
   assert(
     changedPrice.status === 409 &&
       changedModifier.status === 409 &&

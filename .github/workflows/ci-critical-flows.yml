@@ -115,6 +115,7 @@ jobs:
       - name: Critical flow suites
         run: |
           suites="
+          test:postgres
           test:audience-bootstrap
           test:activity-pagination
           test:catalog-pagination
@@ -175,7 +176,7 @@ jobs:
       - name: Quarantined suites (no bloqueante)
         continue-on-error: true
         run: |
-          for suite in test:postgres test:dietary-local test:notification-local test:support-routing; do
+          for suite in test:support-routing; do
             echo "---- CUARENTENA $suite ----"
             npm run "$suite" --silent || echo "---- sigue roja: $suite ----"
           done

@@ -8,6 +8,31 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 26 de agosto de 2026 — tres de cuatro suites fuera de cuarentena
+
+Sexta entrega de la Fase 0. Ninguna de las tres resultó ser fragilidad de la prueba: las cuatro causas eran defectos reales, y tres son variantes del hallazgo [H-11](docs/auditoria-2026-08-25.md#h-11--una-base-creada-desde-cero-no-es-equivalente-a-una-migrada).
+
+- [x] **`test:postgres` sale de cuarentena.** Fallaba por tres causas encadenadas.
+- [x] **`test:dietary-local` y `test:notification-local` salen de cuarentena.** Corren ahora en el job `local-fallback`.
+- [~] **`test:support-routing` sigue en cuarentena**, con su propio motivo.
+
+**Cobertura: 75 de 79 suites bloquean el merge, 1 en cuarentena.**
+
+### Lo que estaba roto de verdad
+
+1. **Un backfill que nombra filas por id envejece con el catálogo.** La migración `059` declaró alérgenos sobre `item_pizza_muzzarella` e `item_pizza_fugazzeta`; el catálogo cambió después y la pizza vigente, `item_pizza_burrata`, quedó sin declarar ninguno. `assertCatalogItemsExist` ahora falla ruidosamente ante esa deriva.
+2. **Un backfill puede depender de otro.** La `041` crea las sucursales principales y la `055` les siembra horarios, pero sólo a las existentes. Al reaplicar la primera sin la segunda, cada sucursal quedó sin horario, `app.branch_is_scheduled_open` devolvió `false` y **el catálogo entero se volvió invisible**. El escaneo original tampoco las había visto: buscaba backfills derivados de cinco tablas y estos derivan de `merchant_branches`.
+3. **El motor de riesgo trata como nueva a toda cuenta sembrada.** `new_account` suma 20 puntos por debajo de las 24 horas; en una base desde cero eso alcanza a todas, y se combina con velocidad y gasto hasta bloquear la operación con un `403`. En la base local de un desarrollador nunca se nota.
+4. **Las dos suites «local» probaban el runtime equivocado.** Afirman el contrato del fallback SQLite —etiquetas dietarias como strings donde PostgreSQL devuelve objetos con `.code`— y estaban apuntadas a la API de PostgreSQL. No era interferencia de estado, como suponía la nota de cuarentena.
+
+### Un punto que excede a CI
+
+Que `new_account` pese 20 puntos significa que **un primer despliegue productivo marcaría a sus propios primeros clientes**. Si esa regla debe pesar eso en una plataforma cuyos clientes son todos nuevos es una decisión de producto, no de fixture, y queda anotada.
+
+### Sobre las aserciones opacas
+
+Dos aserciones agrupaban varias condiciones en un único mensaje, así que un fallo no decía cuál. Se les agregó diagnóstico sin cambiar lo que afirman; sin eso, cada ronda de CI habría sido otra conjetura.
+
 ## Avance 26 de agosto de 2026 — NOT-001 y GEO-001 hasta donde llegan sin credenciales
 
 Quinta entrega de la Fase 0. Los dos bloqueadores dependían de proveedores externos; se llevaron hasta el límite de lo verificable sin credenciales.
