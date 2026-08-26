@@ -40,6 +40,7 @@
     "test:authorization": "node scripts/authorization-contract.mjs",
     "test:domain-purity": "node scripts/domain-purity-contract.mjs",
     "test:module-references": "node scripts/module-references-contract.mjs",
+    "test:money": "node scripts/money-contract.mjs",
     "test:user-view": "node scripts/user-view-contract.mjs",
     "test:error-disclosure": "node scripts/error-disclosure-smoke.mjs",
     "test:realtime-audience": "node scripts/realtime-audience-smoke.mjs",
