@@ -1,8 +1,7 @@
 import crypto from "node:crypto";
 import pg from "pg";
 const pool = new pg.Pool({
-    connectionString:
-      process.env.MIGRATION_DATABASE_URL || process.env.DATABASE_URL,
+    connectionString: process.env.MIGRATION_DATABASE_URL || process.env.DATABASE_URL,
     ssl: false,
   }),
   base = process.env.API_URL || "http://127.0.0.1:4000/api",
@@ -40,7 +39,13 @@ const login = async (email) =>
       }),
     })
   ).body.token;
-const authorize = async (amount) => (await call("/merchant/payouts/authorize",{method:"POST",body:JSON.stringify({merchantId:"rest_roja",amount,password:"demo123"})})).body.authorizationToken;
+const authorize = async (amount) =>
+  (
+    await call("/merchant/payouts/authorize", {
+      method: "POST",
+      body: JSON.stringify({ merchantId: "rest_roja", amount, password: "demo123" }),
+    })
+  ).body.authorizationToken;
 try {
   const fixture = await pool.connect();
   try {
@@ -83,11 +88,15 @@ try {
       .availableBalance,
     keyRejected = `${marker}-reject-${crypto.randomUUID()}`;
   payoutKeys.push(keyRejected);
-  const rejectedAuthorization=await authorize(40);
+  const rejectedAuthorization = await authorize(40);
   const requested = await call("/merchant/payouts", {
       method: "POST",
       headers: { "Idempotency-Key": keyRejected },
-      body: JSON.stringify({ merchantId: "rest_roja", amount: 40, authorizationToken:rejectedAuthorization }),
+      body: JSON.stringify({
+        merchantId: "rest_roja",
+        amount: 40,
+        authorizationToken: rejectedAuthorization,
+      }),
     }),
     rejectedId = requested.body.finance?.payouts?.find(
       (entry) => entry.amount === 40 && entry.status === "pending",
@@ -128,17 +137,18 @@ try {
   token = await login("comercio@flash.app");
   const afterReject = (await call("/merchant/finance?merchantId=rest_roja")).body.finance
     .availableBalance;
-  assert(
-    afterReject === before,
-    "rejection releases the exact reserved balance",
-  );
+  assert(afterReject === before, "rejection releases the exact reserved balance");
   const keyApproved = `${marker}-approve-${crypto.randomUUID()}`;
   payoutKeys.push(keyApproved);
-  const approvedAuthorization=await authorize(30);
+  const approvedAuthorization = await authorize(30);
   const requestedApproved = await call("/merchant/payouts", {
       method: "POST",
       headers: { "Idempotency-Key": keyApproved },
-      body: JSON.stringify({ merchantId: "rest_roja", amount: 30, authorizationToken:approvedAuthorization }),
+      body: JSON.stringify({
+        merchantId: "rest_roja",
+        amount: 30,
+        authorizationToken: approvedAuthorization,
+      }),
     }),
     approvedId = requestedApproved.body.finance?.payouts?.find(
       (entry) => entry.amount === 30 && entry.status === "pending",
@@ -169,28 +179,19 @@ try {
 } finally {
   await pool.query("SELECT set_config('app.audit_maintenance','on',false)");
   if (auditIds.length)
-    await pool.query("DELETE FROM audit_events WHERE request_id=ANY($1)", [
-      auditIds,
-    ]);
+    await pool.query("DELETE FROM audit_events WHERE request_id=ANY($1)", [auditIds]);
   for (const key of payoutKeys) {
     const payout = (
-      await pool.query(
-        "SELECT id,public_id FROM payouts WHERE idempotency_key=$1",
-        [key],
-      )
+      await pool.query("SELECT id,public_id FROM payouts WHERE idempotency_key=$1", [key])
     ).rows[0];
-    for (const transactionKey of [
-      `payout-release-${payout?.public_id}`,
-      `payout-reserve-${key}`,
-    ]) {
+    for (const transactionKey of [`payout-release-${payout?.public_id}`, `payout-reserve-${key}`]) {
       await pool.query(
         "DELETE FROM ledger_entries WHERE transaction_id=(SELECT id FROM ledger_transactions WHERE idempotency_key=$1)",
         [transactionKey],
       );
-      await pool.query(
-        "DELETE FROM ledger_transactions WHERE idempotency_key=$1",
-        [transactionKey],
-      );
+      await pool.query("DELETE FROM ledger_transactions WHERE idempotency_key=$1", [
+        transactionKey,
+      ]);
     }
     await pool.query("DELETE FROM payouts WHERE idempotency_key=$1", [key]);
   }
@@ -198,8 +199,6 @@ try {
     "DELETE FROM ledger_entries WHERE transaction_id=(SELECT id FROM ledger_transactions WHERE idempotency_key=$1)",
     [marker],
   );
-  await pool.query("DELETE FROM ledger_transactions WHERE idempotency_key=$1", [
-    marker,
-  ]);
+  await pool.query("DELETE FROM ledger_transactions WHERE idempotency_key=$1", [marker]);
   await pool.end();
 }

@@ -73,10 +73,10 @@ export type MenuItem = {
   tags: string[];
 };
 
-export type DietaryPreferences={
-  dietaryLabels:Array<{code:string;name:string}>;
-  avoidedAllergens:Array<{code:string;name:string}>;
-  hideIncompatible:boolean;
+export type DietaryPreferences = {
+  dietaryLabels: Array<{ code: string; name: string }>;
+  avoidedAllergens: Array<{ code: string; name: string }>;
+  hideIncompatible: boolean;
 };
 
 export type GeoPoint = {
@@ -319,8 +319,7 @@ export type Promotion = {
 export type SupportTicket = {
   id: string;
   service: Service;
-  status:
-    "open" | "waiting_customer" | "waiting_operations" | "resolved" | "closed";
+  status: "open" | "waiting_customer" | "waiting_operations" | "resolved" | "closed";
   title: string;
   priority: "low" | "medium" | "high" | "urgent";
   userId?: string;
@@ -328,8 +327,7 @@ export type SupportTicket = {
   firstResponseDueAt: string | null;
   resolutionDueAt: string | null;
   firstRespondedAt: string | null;
-  slaStatus:
-    "on_track" | "first_response_breached" | "resolution_breached" | "met";
+  slaStatus: "on_track" | "first_response_breached" | "resolution_breached" | "met";
   escalationLevel: number;
   lastEscalatedAt: string | null;
   assignmentHistory: Array<{
@@ -391,13 +389,7 @@ export type NotificationDeadLetter = {
 export type OrderIssue = {
   id: string;
   orderId: string;
-  category:
-    | "missing_item"
-    | "wrong_item"
-    | "damaged_item"
-    | "quality"
-    | "late"
-    | "other";
+  category: "missing_item" | "wrong_item" | "damaged_item" | "quality" | "late" | "other";
   description: string;
   status: "open" | "approved" | "rejected";
   requestedRefund: number;
@@ -625,10 +617,7 @@ export type CartLine = {
   note: string;
 };
 
-export type RideQuote = Pick<
-  Ride,
-  "service" | "distanceKm" | "etaMin" | "durationMin" | "fare"
-> & {
+export type RideQuote = Pick<Ride, "service" | "distanceKm" | "etaMin" | "durationMin" | "fare"> & {
   estimated: boolean;
   routingMode: "coordinates" | "text-estimate";
   quoteId: string;
@@ -715,13 +704,7 @@ export type ShipmentClaim = {
   requestedAmount: number;
   eligibleAmount: number;
   approvedAmount: number | null;
-  status:
-    | "submitted"
-    | "under_review"
-    | "approved"
-    | "rejected"
-    | "settlement_pending"
-    | "settled";
+  status: "submitted" | "under_review" | "approved" | "rejected" | "settlement_pending" | "settled";
   resolutionNote: string | null;
   evidence: ShipmentClaimEvidence[];
   createdAt: string;
@@ -805,12 +788,7 @@ export type PricingChangeRequest = {
 };
 export type DriverDocument = {
   id: string;
-  type:
-    | "identity"
-    | "driver_license"
-    | "vehicle_registration"
-    | "insurance"
-    | "background_check";
+  type: "identity" | "driver_license" | "vehicle_registration" | "insurance" | "background_check";
   mimeType: string;
   sha256: string;
   sizeBytes: number;
@@ -829,7 +807,23 @@ export type DriverCompliance = {
   requiredTypes: DriverDocument["type"][];
   documents: DriverDocument[];
 };
-export type DriverVehicle={id:string;driverId:string;kind:"bicycle"|"motorcycle"|"car"|"van";model:string;plate:string;color:string|null;seats:number|null;serviceModes:Array<"delivery"|"ride">;active:boolean;status:"pending"|"approved"|"rejected";rejectionReason:string|null;reviewedAt:string|null;retiredAt:string|null;createdAt:string;updatedAt:string};
+export type DriverVehicle = {
+  id: string;
+  driverId: string;
+  kind: "bicycle" | "motorcycle" | "car" | "van";
+  model: string;
+  plate: string;
+  color: string | null;
+  seats: number | null;
+  serviceModes: Array<"delivery" | "ride">;
+  active: boolean;
+  status: "pending" | "approved" | "rejected";
+  rejectionReason: string | null;
+  reviewedAt: string | null;
+  retiredAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
 
 export type ServiceTip = {
   id: string;
@@ -939,7 +933,15 @@ export type MerchantOperationsDashboard = {
   restaurant: Restaurant;
   metrics: MerchantOperationsMetrics;
 };
-export type MerchantPaymentConnection={provider:"mercadopago";externalAccountId:string;liveMode:boolean;scope:string|null;connectedAt:string;tokenExpiresAt:string|null;status:"connected"|"reconnect_required"|"revoked"};
+export type MerchantPaymentConnection = {
+  provider: "mercadopago";
+  externalAccountId: string;
+  liveMode: boolean;
+  scope: string | null;
+  connectedAt: string;
+  tokenExpiresAt: string | null;
+  status: "connected" | "reconnect_required" | "revoked";
+};
 export type PayoutReview = {
   id: string;
   merchantId: string;

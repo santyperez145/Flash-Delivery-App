@@ -60,8 +60,7 @@ try {
     "audit credentials are read-only on append-only history",
   );
   const auditChainInvalid = Number(
-      (await client.query("SELECT app.audit_chain_invalid_count() invalid"))
-        .rows[0].invalid,
+      (await client.query("SELECT app.audit_chain_invalid_count() invalid")).rows[0].invalid,
     ),
     auditVerifierSecurity = (
       await client.query(
@@ -71,9 +70,7 @@ try {
   assert(
     auditChainInvalid === 0 &&
       auditVerifierSecurity.prosecdef &&
-      auditVerifierSecurity.proconfig?.some((value) =>
-        value.startsWith("search_path="),
-      ),
+      auditVerifierSecurity.proconfig?.some((value) => value.startsWith("search_path=")),
     "read-only auditor verifies an intact hash chain through a fixed-search-path function",
   );
   const ids = await client.query("SELECT public_id,id FROM users");
@@ -83,10 +80,7 @@ try {
   } catch (error) {
     passwordHashDenied = error.code === "42501";
   }
-  assert(
-    passwordHashDenied,
-    "restricted audit role cannot read password hashes",
-  );
+  assert(passwordHashDenied, "restricted audit role cannot read password hashes");
   // RLS intentionally returns no rows before a user context exists.
   assert(ids.rowCount === 0, "RLS denies users without context");
   const visiblePricing = await client.query(
@@ -218,9 +212,7 @@ try {
     )
   ).rows[0];
   assert(
-    payoutPrivileges.review &&
-      !payoutPrivileges.metadata &&
-      !payoutPrivileges.idempotency,
+    payoutPrivileges.review && !payoutPrivileges.metadata && !payoutPrivileges.idempotency,
     "audit role inspects payout approvals without internal metadata or idempotency keys",
   );
   const tipAdjustmentPrivileges = (
@@ -270,12 +262,40 @@ try {
     documentPrivileges.metadata && !documentPrivileges.content,
     "audit role can inspect KYC posture but never encrypted document content",
   );
-  const vehiclePrivileges=(await client.query(`SELECT has_column_privilege(current_user,'vehicles','status','SELECT') posture,has_column_privilege(current_user,'vehicles','plate','SELECT') plate,has_column_privilege(current_user,'vehicles','model','SELECT') model,has_column_privilege(current_user,'vehicles','color','SELECT') color,has_table_privilege(current_user,'vehicles','UPDATE') can_update`)).rows[0];
-  assert(vehiclePrivileges.posture&&!vehiclePrivileges.plate&&!vehiclePrivileges.model&&!vehiclePrivileges.color&&!vehiclePrivileges.can_update,"audit role inspects vehicle approval posture without identity attributes or write access");
-  const driverPreferencePrivileges=(await client.query(`SELECT has_column_privilege(current_user,'driver_preferences','navigation_provider','SELECT') can_read,has_table_privilege(current_user,'driver_preferences','UPDATE') can_update`)).rows[0];
-  assert(driverPreferencePrivileges.can_read&&!driverPreferencePrivileges.can_update,"audit role inspects navigator posture but cannot change driver preference");
-  const driverTimePrivileges=(await client.query(`SELECT has_column_privilege(current_user,'driver_availability_sessions','started_at','SELECT') availability,has_column_privilege(current_user,'driver_job_sessions','ended_at','SELECT') active_time,has_table_privilege(current_user,'driver_availability_sessions','UPDATE') can_update_availability,has_table_privilege(current_user,'driver_job_sessions','UPDATE') can_update_active`)).rows[0];
-  assert(driverTimePrivileges.availability&&driverTimePrivileges.active_time&&!driverTimePrivileges.can_update_availability&&!driverTimePrivileges.can_update_active,"audit role inspects driver time provenance without changing operational intervals");
+  const vehiclePrivileges = (
+    await client.query(
+      `SELECT has_column_privilege(current_user,'vehicles','status','SELECT') posture,has_column_privilege(current_user,'vehicles','plate','SELECT') plate,has_column_privilege(current_user,'vehicles','model','SELECT') model,has_column_privilege(current_user,'vehicles','color','SELECT') color,has_table_privilege(current_user,'vehicles','UPDATE') can_update`,
+    )
+  ).rows[0];
+  assert(
+    vehiclePrivileges.posture &&
+      !vehiclePrivileges.plate &&
+      !vehiclePrivileges.model &&
+      !vehiclePrivileges.color &&
+      !vehiclePrivileges.can_update,
+    "audit role inspects vehicle approval posture without identity attributes or write access",
+  );
+  const driverPreferencePrivileges = (
+    await client.query(
+      `SELECT has_column_privilege(current_user,'driver_preferences','navigation_provider','SELECT') can_read,has_table_privilege(current_user,'driver_preferences','UPDATE') can_update`,
+    )
+  ).rows[0];
+  assert(
+    driverPreferencePrivileges.can_read && !driverPreferencePrivileges.can_update,
+    "audit role inspects navigator posture but cannot change driver preference",
+  );
+  const driverTimePrivileges = (
+    await client.query(
+      `SELECT has_column_privilege(current_user,'driver_availability_sessions','started_at','SELECT') availability,has_column_privilege(current_user,'driver_job_sessions','ended_at','SELECT') active_time,has_table_privilege(current_user,'driver_availability_sessions','UPDATE') can_update_availability,has_table_privilege(current_user,'driver_job_sessions','UPDATE') can_update_active`,
+    )
+  ).rows[0];
+  assert(
+    driverTimePrivileges.availability &&
+      driverTimePrivileges.active_time &&
+      !driverTimePrivileges.can_update_availability &&
+      !driverTimePrivileges.can_update_active,
+    "audit role inspects driver time provenance without changing operational intervals",
+  );
   const deliveryEvidencePrivileges = (
     await client.query(
       `SELECT has_column_privilege(current_user,'shipment_delivery_evidence','content_sha256','SELECT') metadata,has_column_privilege(current_user,'shipment_delivery_evidence','content_ciphertext','SELECT') content,has_column_privilege(current_user,'shipment_delivery_evidence','signer_name','SELECT') signer_identity,has_column_privilege(current_user,'shipment_delivery_evidence','consent_version','SELECT') consent_posture`,
@@ -473,17 +493,14 @@ try {
       [customer.id, "a".repeat(64)],
     )
   ).rows[0].id;
-  await owner.query(
-    "DELETE FROM job_cancellations WHERE public_id LIKE 'CAN-RLS-INVALID-%'",
-  );
+  await owner.query("DELETE FROM job_cancellations WHERE public_id LIKE 'CAN-RLS-INVALID-%'");
   const fixtureJob = (
       await owner.query(
         "SELECT j.id FROM jobs j WHERE j.customer_id=$1 AND NOT EXISTS(SELECT 1 FROM service_tips t WHERE t.job_id=j.id) AND NOT EXISTS(SELECT 1 FROM service_receipts r WHERE r.job_id=j.id) AND NOT EXISTS(SELECT 1 FROM job_cancellations c WHERE c.job_id=j.id) LIMIT 1",
         [customer.id],
       )
     ).rows[0],
-    fixtureMerchant = (await owner.query("SELECT id FROM merchants LIMIT 1"))
-      .rows[0];
+    fixtureMerchant = (await owner.query("SELECT id FROM merchants LIMIT 1")).rows[0];
   fixtureServiceMessageId = (
     await owner.query(
       `INSERT INTO service_messages(public_id,job_id,sender_id,body_ciphertext,body_sha256) VALUES($1,$2,$3,'rls-envelope',$4) RETURNING id`,
@@ -491,10 +508,9 @@ try {
     )
   ).rows[0].id;
   const rideFixture = (
-    await owner.query(
-      "SELECT id FROM jobs WHERE customer_id=$1 AND kind='ride' LIMIT 1",
-      [customer.id],
-    )
+    await owner.query("SELECT id FROM jobs WHERE customer_id=$1 AND kind='ride' LIMIT 1", [
+      customer.id,
+    ])
   ).rows[0];
   if (rideFixture) {
     fixtureRideVerificationJobId = rideFixture.id;
@@ -508,9 +524,7 @@ try {
     );
   }
   const ownedMerchant = (
-    await owner.query("SELECT id FROM merchants WHERE owner_id=$1 LIMIT 1", [
-      merchantUser.id,
-    ])
+    await owner.query("SELECT id FROM merchants WHERE owner_id=$1 LIMIT 1", [merchantUser.id])
   ).rows[0];
   fixturePayoutId = (
     await owner.query(
@@ -518,16 +532,31 @@ try {
       [`PAY-RLS-${Date.now()}`, ownedMerchant.id],
     )
   ).rows[0].id;
-  const driver = (
-    await owner.query("SELECT id FROM drivers WHERE user_id=$1", [
-      driverUser.id,
-    ])
-  ).rows[0];
-  fixtureDriverId=driver.id;
-  fixtureDriverPreferencePrevious=(await owner.query("SELECT navigation_provider FROM driver_preferences WHERE driver_id=$1",[driver.id])).rows[0]||null;
-  await owner.query("INSERT INTO driver_preferences(driver_id,navigation_provider) VALUES($1,'system') ON CONFLICT(driver_id) DO UPDATE SET navigation_provider='system'",[driver.id]);
-  fixtureAvailabilitySessionId=(await owner.query("INSERT INTO driver_availability_sessions(driver_id,service_mode,started_at,ended_at,start_reason,end_reason) VALUES($1,'delivery',now()-interval '2 minutes',now()-interval '1 minute','driver_online','offline') RETURNING id",[driver.id])).rows[0].id;
-  fixtureJobSessionId=(await owner.query("INSERT INTO driver_job_sessions(driver_id,job_id,service_mode,started_at,ended_at,start_reason,end_reason) VALUES($1,$2,'delivery',now()-interval '2 minutes',now()-interval '1 minute','offer_accepted','completed') RETURNING id",[driver.id,fixtureJob.id])).rows[0].id;
+  const driver = (await owner.query("SELECT id FROM drivers WHERE user_id=$1", [driverUser.id]))
+    .rows[0];
+  fixtureDriverId = driver.id;
+  fixtureDriverPreferencePrevious =
+    (
+      await owner.query("SELECT navigation_provider FROM driver_preferences WHERE driver_id=$1", [
+        driver.id,
+      ])
+    ).rows[0] || null;
+  await owner.query(
+    "INSERT INTO driver_preferences(driver_id,navigation_provider) VALUES($1,'system') ON CONFLICT(driver_id) DO UPDATE SET navigation_provider='system'",
+    [driver.id],
+  );
+  fixtureAvailabilitySessionId = (
+    await owner.query(
+      "INSERT INTO driver_availability_sessions(driver_id,service_mode,started_at,ended_at,start_reason,end_reason) VALUES($1,'delivery',now()-interval '2 minutes',now()-interval '1 minute','driver_online','offline') RETURNING id",
+      [driver.id],
+    )
+  ).rows[0].id;
+  fixtureJobSessionId = (
+    await owner.query(
+      "INSERT INTO driver_job_sessions(driver_id,job_id,service_mode,started_at,ended_at,start_reason,end_reason) VALUES($1,$2,'delivery',now()-interval '2 minutes',now()-interval '1 minute','offer_accepted','completed') RETURNING id",
+      [driver.id, fixtureJob.id],
+    )
+  ).rows[0].id;
   fixtureTipTransactionId = (
     await owner.query(
       `INSERT INTO ledger_transactions(idempotency_key,kind,actor_id,description) VALUES($1,'tip',$2,'RLS tip fixture') RETURNING id`,
@@ -599,23 +628,19 @@ try {
   );
   const customerUsers = await client.query("SELECT public_id FROM users");
   assert(
-    customerUsers.rowCount === 1 &&
-      customerUsers.rows[0].public_id === "usr_customer",
+    customerUsers.rowCount === 1 && customerUsers.rows[0].public_id === "usr_customer",
     "RLS exposes only current customer row",
   );
-  const customerAddresses = await client.query(
-    "SELECT DISTINCT user_id FROM addresses",
-  );
+  const customerAddresses = await client.query("SELECT DISTINCT user_id FROM addresses");
   assert(
     customerAddresses.rows.every((row) => row.user_id === customer.id),
     "RLS exposes only the current customer's saved addresses",
   );
   assert(
     (
-      await client.query(
-        "SELECT count(last4)::int count FROM payment_methods WHERE id=$1",
-        [fixturePaymentMethodId],
-      )
+      await client.query("SELECT count(last4)::int count FROM payment_methods WHERE id=$1", [
+        fixturePaymentMethodId,
+      ])
     ).rows[0].count === 1,
     "RLS exposes masked payment metadata to its owner",
   );
@@ -637,19 +662,17 @@ try {
   );
   assert(
     (
-      await client.query(
-        "SELECT count(*)::int count FROM ride_destination_history WHERE id=$1",
-        [fixtureRideDestinationId],
-      )
+      await client.query("SELECT count(*)::int count FROM ride_destination_history WHERE id=$1", [
+        fixtureRideDestinationId,
+      ])
     ).rows[0].count === 1,
     "RLS exposes geocoded ride recents only to their owner",
   );
   assert(
     (
-      await client.query(
-        "SELECT count(*)::int count FROM ride_trusted_contacts WHERE id=$1",
-        [fixtureTrustedContactId],
-      )
+      await client.query("SELECT count(*)::int count FROM ride_trusted_contacts WHERE id=$1", [
+        fixtureTrustedContactId,
+      ])
     ).rows[0].count === 1,
     "RLS exposes trusted-contact metadata only to its owner",
   );
@@ -663,16 +686,12 @@ try {
       ).rows[0].count === 1,
       "RLS exposes ride PIN posture only to a participant",
     );
-  const customerSessions = await client.query(
-    "SELECT DISTINCT user_id FROM refresh_sessions",
-  );
+  const customerSessions = await client.query("SELECT DISTINCT user_id FROM refresh_sessions");
   assert(
     customerSessions.rows.every((row) => row.user_id === customer.id),
     "RLS exposes session metadata only for the current customer",
   );
-  const customerJobs = await client.query(
-    "SELECT count(*)::int count FROM jobs",
-  );
+  const customerJobs = await client.query("SELECT count(*)::int count FROM jobs");
   assert(customerJobs.rows[0].count >= 1, "RLS exposes customer-owned jobs");
   const customerTickets = await client.query(
     "SELECT count(*)::int count FROM support_tickets WHERE id=$1",
@@ -686,86 +705,69 @@ try {
     "SELECT count(*)::int count FROM notifications WHERE template='rls_fixture'",
   );
   assert(
-    customerTickets.rows[0].count === 1 &&
-      customerNotifications.rows[0].count === 1,
+    customerTickets.rows[0].count === 1 && customerNotifications.rows[0].count === 1,
     "RLS exposes customer support and notifications",
   );
   assert(
     (
-      await client.query(
-        "SELECT count(*)::int count FROM user_devices WHERE id=$1",
-        [fixtureDeviceId],
-      )
+      await client.query("SELECT count(*)::int count FROM user_devices WHERE id=$1", [
+        fixtureDeviceId,
+      ])
     ).rows[0].count === 1,
     "RLS exposes the current customer's devices",
   );
   assert(
-    customerMessages.rowCount === 1 &&
-      customerMessages.rows[0].body === "visible",
+    customerMessages.rowCount === 1 && customerMessages.rows[0].body === "visible",
     "RLS hides internal support notes from customer",
   );
   const customerRatings = await client.query(
       "SELECT count(*)::int count FROM ratings WHERE id=$1",
       [fixtureRatingId],
     ),
-    customerFavorites = await client.query(
-      "SELECT count(*)::int count FROM favorites",
-    );
+    customerFavorites = await client.query("SELECT count(*)::int count FROM favorites");
   assert(
     customerRatings.rows[0].count === 1 && customerFavorites.rows[0].count >= 1,
     "RLS exposes customer ratings and favorites",
   );
   assert(
     (
-      await client.query(
-        "SELECT count(*)::int count FROM dispatch_offers WHERE id=$1",
-        [fixtureOfferId],
-      )
+      await client.query("SELECT count(*)::int count FROM dispatch_offers WHERE id=$1", [
+        fixtureOfferId,
+      ])
     ).rows[0].count === 0,
     "RLS hides dispatch offers from customers",
   );
   assert(
-    (
-      await client.query(
-        "SELECT count(*)::int count FROM payouts WHERE id=$1",
-        [fixturePayoutId],
-      )
-    ).rows[0].count === 0,
+    (await client.query("SELECT count(*)::int count FROM payouts WHERE id=$1", [fixturePayoutId]))
+      .rows[0].count === 0,
     "RLS hides merchant payouts from customers",
   );
   assert(
-    (
-      await client.query(
-        "SELECT count(*)::int count FROM service_tips WHERE id=$1",
-        [fixtureTipId],
-      )
-    ).rows[0].count === 1,
+    (await client.query("SELECT count(*)::int count FROM service_tips WHERE id=$1", [fixtureTipId]))
+      .rows[0].count === 1,
     "RLS exposes tip to its customer",
   );
   assert(
     (
-      await client.query(
-        "SELECT count(*)::int count FROM service_receipts WHERE id=$1",
-        [fixtureReceiptId],
-      )
+      await client.query("SELECT count(*)::int count FROM service_receipts WHERE id=$1", [
+        fixtureReceiptId,
+      ])
     ).rows[0].count === 1,
     "RLS exposes receipt to its customer",
   );
   assert(
     (
-      await client.query(
-        "SELECT count(*)::int count FROM job_cancellations WHERE id=$1",
-        [fixtureCancellationId],
-      )
+      await client.query("SELECT count(*)::int count FROM job_cancellations WHERE id=$1", [
+        fixtureCancellationId,
+      ])
     ).rows[0].count === 1,
     "RLS exposes cancellation outcome to its customer",
   );
   assert(
     (
-      await client.query(
-        "SELECT count(*)::int count FROM service_messages WHERE id=$1",
-        [fixtureServiceMessageId],
-      )
+      await client.query("SELECT count(*)::int count FROM service_messages WHERE id=$1", [
+        fixtureServiceMessageId,
+      ])
     ).rows[0].count === 1,
     "RLS exposes service-chat metadata only to a participant",
   );
@@ -774,12 +776,8 @@ try {
     [merchantUser.id],
   );
   assert(
-    (
-      await client.query(
-        "SELECT count(*)::int count FROM payouts WHERE id=$1",
-        [fixturePayoutId],
-      )
-    ).rows[0].count === 1,
+    (await client.query("SELECT count(*)::int count FROM payouts WHERE id=$1", [fixturePayoutId]))
+      .rows[0].count === 1,
     "RLS exposes payouts to the owning merchant",
   );
   await client.query(
@@ -788,44 +786,45 @@ try {
   );
   assert(
     (
-      await client.query(
-        "SELECT count(*)::int count FROM dispatch_offers WHERE id=$1",
-        [fixtureOfferId],
-      )
+      await client.query("SELECT count(*)::int count FROM dispatch_offers WHERE id=$1", [
+        fixtureOfferId,
+      ])
     ).rows[0].count === 1,
     "RLS exposes only the driver's dispatch offers",
   );
   assert(
-    (
-      await client.query(
-        "SELECT count(*)::int count FROM service_tips WHERE id=$1",
-        [fixtureTipId],
-      )
-    ).rows[0].count === 1,
+    (await client.query("SELECT count(*)::int count FROM service_tips WHERE id=$1", [fixtureTipId]))
+      .rows[0].count === 1,
     "RLS exposes received tip to its driver",
   );
   assert(
     (
-      await client.query(
-        "SELECT count(*)::int count FROM service_receipts WHERE id=$1",
-        [fixtureReceiptId],
-      )
+      await client.query("SELECT count(*)::int count FROM service_receipts WHERE id=$1", [
+        fixtureReceiptId,
+      ])
     ).rows[0].count === 0,
     "RLS hides the customer receipt from driver",
   );
   assert(
-    (await client.query("SELECT count(*)::int count FROM driver_compliance"))
-      .rows[0].count === 1,
+    (await client.query("SELECT count(*)::int count FROM driver_compliance")).rows[0].count === 1,
     "RLS exposes only the driver's own compliance posture",
   );
   assert(
-    (await client.query("SELECT count(*)::int count FROM driver_preferences"))
-      .rows[0].count === 1,
+    (await client.query("SELECT count(*)::int count FROM driver_preferences")).rows[0].count === 1,
     "RLS exposes only the driver's own navigation preference",
   );
   assert(
-    (await client.query("SELECT count(*)::int count FROM driver_availability_sessions WHERE id=$1",[fixtureAvailabilitySessionId])).rows[0].count===1&&
-      (await client.query("SELECT count(*)::int count FROM driver_job_sessions WHERE id=$1",[fixtureJobSessionId])).rows[0].count===1,
+    (
+      await client.query(
+        "SELECT count(*)::int count FROM driver_availability_sessions WHERE id=$1",
+        [fixtureAvailabilitySessionId],
+      )
+    ).rows[0].count === 1 &&
+      (
+        await client.query("SELECT count(*)::int count FROM driver_job_sessions WHERE id=$1", [
+          fixtureJobSessionId,
+        ])
+      ).rows[0].count === 1,
     "RLS exposes the driver's own online and active-time provenance",
   );
   await client.query(
@@ -835,16 +834,14 @@ try {
   const otherJobs = await client.query("SELECT count(*)::int count FROM jobs");
   assert(otherJobs.rows[0].count === 0, "RLS hides another customer's jobs");
   assert(
-    (await client.query("SELECT count(*)::int count FROM addresses")).rows[0]
-      .count === 0,
+    (await client.query("SELECT count(*)::int count FROM addresses")).rows[0].count === 0,
     "RLS hides another customer's saved addresses",
   );
   assert(
     (
-      await client.query(
-        "SELECT count(last4)::int count FROM payment_methods WHERE id=$1",
-        [fixturePaymentMethodId],
-      )
+      await client.query("SELECT count(last4)::int count FROM payment_methods WHERE id=$1", [
+        fixturePaymentMethodId,
+      ])
     ).rows[0].count === 0,
     "RLS hides another customer's payment methods",
   );
@@ -866,19 +863,17 @@ try {
   );
   assert(
     (
-      await client.query(
-        "SELECT count(*)::int count FROM ride_destination_history WHERE id=$1",
-        [fixtureRideDestinationId],
-      )
+      await client.query("SELECT count(*)::int count FROM ride_destination_history WHERE id=$1", [
+        fixtureRideDestinationId,
+      ])
     ).rows[0].count === 0,
     "RLS hides another customer's ride recents",
   );
   assert(
     (
-      await client.query(
-        "SELECT count(*)::int count FROM ride_trusted_contacts WHERE id=$1",
-        [fixtureTrustedContactId],
-      )
+      await client.query("SELECT count(*)::int count FROM ride_trusted_contacts WHERE id=$1", [
+        fixtureTrustedContactId,
+      ])
     ).rows[0].count === 0,
     "RLS hides another customer's trusted contacts",
   );
@@ -905,87 +900,79 @@ try {
   );
   assert(
     (
-      await client.query(
-        "SELECT count(*)::int count FROM user_devices WHERE id=$1",
-        [fixtureDeviceId],
-      )
+      await client.query("SELECT count(*)::int count FROM user_devices WHERE id=$1", [
+        fixtureDeviceId,
+      ])
     ).rows[0].count === 0,
     "RLS hides another customer's devices",
   );
   assert(
-    (await client.query("SELECT count(*)::int count FROM driver_preferences"))
-      .rows[0].count === 0,
+    (await client.query("SELECT count(*)::int count FROM driver_preferences")).rows[0].count === 0,
     "RLS hides driver navigation preference from unrelated users",
   );
   assert(
-    (await client.query("SELECT count(*)::int count FROM driver_availability_sessions WHERE id=$1",[fixtureAvailabilitySessionId])).rows[0].count===0&&
-      (await client.query("SELECT count(*)::int count FROM driver_job_sessions WHERE id=$1",[fixtureJobSessionId])).rows[0].count===0,
+    (
+      await client.query(
+        "SELECT count(*)::int count FROM driver_availability_sessions WHERE id=$1",
+        [fixtureAvailabilitySessionId],
+      )
+    ).rows[0].count === 0 &&
+      (
+        await client.query("SELECT count(*)::int count FROM driver_job_sessions WHERE id=$1", [
+          fixtureJobSessionId,
+        ])
+      ).rows[0].count === 0,
     "RLS hides driver work intervals from unrelated users",
   );
-  const otherRatings = await client.query(
-      "SELECT count(*)::int count FROM ratings WHERE id=$1",
-      [fixtureRatingId],
-    ),
-    otherFavorites = await client.query(
-      "SELECT count(*)::int count FROM favorites",
-    );
+  const otherRatings = await client.query("SELECT count(*)::int count FROM ratings WHERE id=$1", [
+      fixtureRatingId,
+    ]),
+    otherFavorites = await client.query("SELECT count(*)::int count FROM favorites");
   assert(
     otherRatings.rows[0].count === 0 && otherFavorites.rows[0].count === 0,
     "RLS hides another customer's ratings and favorites",
   );
   assert(
-    (
-      await client.query(
-        "SELECT count(*)::int count FROM service_tips WHERE id=$1",
-        [fixtureTipId],
-      )
-    ).rows[0].count === 0,
+    (await client.query("SELECT count(*)::int count FROM service_tips WHERE id=$1", [fixtureTipId]))
+      .rows[0].count === 0,
     "RLS hides another customer's tip",
   );
   assert(
     (
-      await client.query(
-        "SELECT count(*)::int count FROM service_receipts WHERE id=$1",
-        [fixtureReceiptId],
-      )
+      await client.query("SELECT count(*)::int count FROM service_receipts WHERE id=$1", [
+        fixtureReceiptId,
+      ])
     ).rows[0].count === 0,
     "RLS hides another customer's receipt",
   );
   assert(
     (
-      await client.query(
-        "SELECT count(*)::int count FROM job_cancellations WHERE id=$1",
-        [fixtureCancellationId],
-      )
+      await client.query("SELECT count(*)::int count FROM job_cancellations WHERE id=$1", [
+        fixtureCancellationId,
+      ])
     ).rows[0].count === 0,
     "RLS hides another customer's cancellation",
   );
   assert(
     (
-      await client.query(
-        "SELECT count(*)::int count FROM service_messages WHERE id=$1",
-        [fixtureServiceMessageId],
-      )
+      await client.query("SELECT count(*)::int count FROM service_messages WHERE id=$1", [
+        fixtureServiceMessageId,
+      ])
     ).rows[0].count === 0,
     "RLS hides another customer's service chat",
   );
 } finally {
   if (owner && fixtureDietaryPreference)
-    await owner.query(
-      "DELETE FROM user_avoided_allergens WHERE user_id=$1 AND allergen_code=$2",
-      [
-        fixtureDietaryPreference.user_id,
-        fixtureDietaryPreference.allergen_code,
-      ],
-    );
+    await owner.query("DELETE FROM user_avoided_allergens WHERE user_id=$1 AND allergen_code=$2", [
+      fixtureDietaryPreference.user_id,
+      fixtureDietaryPreference.allergen_code,
+    ]);
   if (owner && fixtureRideDestinationId)
     await owner.query("DELETE FROM ride_destination_history WHERE id=$1", [
       fixtureRideDestinationId,
     ]);
   if (owner && fixtureTrustedContactId)
-    await owner.query("DELETE FROM ride_trusted_contacts WHERE id=$1", [
-      fixtureTrustedContactId,
-    ]);
+    await owner.query("DELETE FROM ride_trusted_contacts WHERE id=$1", [fixtureTrustedContactId]);
   if (owner && fixtureRideVerificationCreated && fixtureRideVerificationJobId)
     await owner.query("DELETE FROM ride_pickup_verifications WHERE job_id=$1", [
       fixtureRideVerificationJobId,
@@ -1007,55 +994,45 @@ try {
       );
   }
   if (owner && fixturePaymentMethodId)
-    await owner.query("DELETE FROM payment_methods WHERE id=$1", [
-      fixturePaymentMethodId,
+    await owner.query("DELETE FROM payment_methods WHERE id=$1", [fixturePaymentMethodId]);
+  if (owner && fixtureAvailabilitySessionId)
+    await owner.query("DELETE FROM driver_availability_sessions WHERE id=$1", [
+      fixtureAvailabilitySessionId,
     ]);
-  if(owner&&fixtureAvailabilitySessionId)await owner.query("DELETE FROM driver_availability_sessions WHERE id=$1",[fixtureAvailabilitySessionId]);
-  if(owner&&fixtureJobSessionId)await owner.query("DELETE FROM driver_job_sessions WHERE id=$1",[fixtureJobSessionId]);
-  if(owner&&fixtureDriverId){if(fixtureDriverPreferencePrevious)await owner.query("UPDATE driver_preferences SET navigation_provider=$2,updated_at=now() WHERE driver_id=$1",[fixtureDriverId,fixtureDriverPreferencePrevious.navigation_provider]);else await owner.query("DELETE FROM driver_preferences WHERE driver_id=$1",[fixtureDriverId]);}
+  if (owner && fixtureJobSessionId)
+    await owner.query("DELETE FROM driver_job_sessions WHERE id=$1", [fixtureJobSessionId]);
+  if (owner && fixtureDriverId) {
+    if (fixtureDriverPreferencePrevious)
+      await owner.query(
+        "UPDATE driver_preferences SET navigation_provider=$2,updated_at=now() WHERE driver_id=$1",
+        [fixtureDriverId, fixtureDriverPreferencePrevious.navigation_provider],
+      );
+    else await owner.query("DELETE FROM driver_preferences WHERE driver_id=$1", [fixtureDriverId]);
+  }
   if (owner) {
     if (fixtureServiceMessageId)
-      await owner.query("DELETE FROM service_messages WHERE id=$1", [
-        fixtureServiceMessageId,
-      ]);
+      await owner.query("DELETE FROM service_messages WHERE id=$1", [fixtureServiceMessageId]);
     if (fixtureCancellationId)
-      await owner.query("DELETE FROM job_cancellations WHERE id=$1", [
-        fixtureCancellationId,
-      ]);
+      await owner.query("DELETE FROM job_cancellations WHERE id=$1", [fixtureCancellationId]);
     if (fixtureReceiptId)
-      await owner.query("DELETE FROM service_receipts WHERE id=$1", [
-        fixtureReceiptId,
-      ]);
-    if (fixtureTipId)
-      await owner.query("DELETE FROM service_tips WHERE id=$1", [fixtureTipId]);
+      await owner.query("DELETE FROM service_receipts WHERE id=$1", [fixtureReceiptId]);
+    if (fixtureTipId) await owner.query("DELETE FROM service_tips WHERE id=$1", [fixtureTipId]);
     if (fixtureTipTransactionId)
-      await owner.query("DELETE FROM ledger_transactions WHERE id=$1", [
-        fixtureTipTransactionId,
-      ]);
-    if (fixturePayoutId)
-      await owner.query("DELETE FROM payouts WHERE id=$1", [fixturePayoutId]);
+      await owner.query("DELETE FROM ledger_transactions WHERE id=$1", [fixtureTipTransactionId]);
+    if (fixturePayoutId) await owner.query("DELETE FROM payouts WHERE id=$1", [fixturePayoutId]);
     if (fixtureOfferId)
-      await owner.query("DELETE FROM dispatch_offers WHERE id=$1", [
-        fixtureOfferId,
-      ]);
+      await owner.query("DELETE FROM dispatch_offers WHERE id=$1", [fixtureOfferId]);
     if (fixtureDeviceId)
-      await owner.query("DELETE FROM user_devices WHERE id=$1", [
-        fixtureDeviceId,
-      ]);
-    if (fixtureRatingId)
-      await owner.query("DELETE FROM ratings WHERE id=$1", [fixtureRatingId]);
+      await owner.query("DELETE FROM user_devices WHERE id=$1", [fixtureDeviceId]);
+    if (fixtureRatingId) await owner.query("DELETE FROM ratings WHERE id=$1", [fixtureRatingId]);
     if (fixtureFavorite)
-      await owner.query(
-        "DELETE FROM favorites WHERE user_id=$1 AND merchant_id=$2",
-        [fixtureFavorite.userId, fixtureFavorite.merchantId],
-      );
-    if (fixtureTicketId) {
-      await owner.query(
-        "DELETE FROM notifications WHERE template='rls_fixture'",
-      );
-      await owner.query("DELETE FROM support_tickets WHERE id=$1", [
-        fixtureTicketId,
+      await owner.query("DELETE FROM favorites WHERE user_id=$1 AND merchant_id=$2", [
+        fixtureFavorite.userId,
+        fixtureFavorite.merchantId,
       ]);
+    if (fixtureTicketId) {
+      await owner.query("DELETE FROM notifications WHERE template='rls_fixture'");
+      await owner.query("DELETE FROM support_tickets WHERE id=$1", [fixtureTicketId]);
     }
     await owner.end();
   }

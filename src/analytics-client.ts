@@ -9,7 +9,7 @@ type AnalyticsModule = typeof import("./analytics");
 type AnalyticsSender = (events: AnalyticsEvent[]) => Promise<unknown>;
 
 let analyticsModule: Promise<AnalyticsModule> | null = null;
-const loadAnalytics = () => analyticsModule ||= import("./analytics");
+const loadAnalytics = () => (analyticsModule ||= import("./analytics"));
 
 export function configureAnalytics(sender: AnalyticsSender) {
   let disposed = false;

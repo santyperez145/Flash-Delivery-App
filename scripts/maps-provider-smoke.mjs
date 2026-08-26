@@ -49,7 +49,12 @@ const osmRoute = osm.parseRoute({
     {
       distance: 5400,
       duration: 900,
-      geometry: { coordinates: [[-58.38, -34.6], [-58.41, -34.55]] },
+      geometry: {
+        coordinates: [
+          [-58.38, -34.6],
+          [-58.41, -34.55],
+        ],
+      },
       legs: [
         {
           steps: [
@@ -77,7 +82,10 @@ ok("sin ruta transitable devuelve null en lugar de inventar una recta");
 
 // El demo público no ofrece matriz: decirlo es mejor que caer en silencio a
 // distancia geodésica, que es lo que el dispatch hace hoy.
-assert.throws(() => osm.describeRouteMatrix({ origins: [{}], destinations: [{}] }), /no ofrece matriz/);
+assert.throws(
+  () => osm.describeRouteMatrix({ origins: [{}], destinations: [{}] }),
+  /no ofrece matriz/,
+);
 ok("el proveedor de desarrollo declara que no tiene matriz en lugar de degradar callado");
 
 // --- Google: peticiones ------------------------------------------------------
@@ -158,7 +166,10 @@ ok("ambos proveedores devuelven exactamente las mismas claves");
 // --- Matriz de rutas: dependencia del dispatch v2 ---------------------------
 
 const matrix = g.describeRouteMatrix({
-  origins: [{ lat: -34.6, lng: -58.38 }, { lat: -34.61, lng: -58.39 }],
+  origins: [
+    { lat: -34.6, lng: -58.38 },
+    { lat: -34.61, lng: -58.39 },
+  ],
   destinations: [{ lat: -34.55, lng: -58.41 }],
 });
 assert.equal(matrix.body.origins.length, 2);
@@ -167,17 +178,32 @@ assert.ok(matrix.headers["x-goog-fieldmask"].includes("duration"));
 ok("la matriz pide varios orígenes contra un destino en una sola llamada");
 
 assert.throws(
-  () => g.describeRouteMatrix({ origins: new Array(626).fill({ lat: 0, lng: 0 }), destinations: [{ lat: 0, lng: 0 }] }),
+  () =>
+    g.describeRouteMatrix({
+      origins: new Array(626).fill({ lat: 0, lng: 0 }),
+      destinations: [{ lat: 0, lng: 0 }],
+    }),
   /625 elementos/,
 );
 ok("la matriz corta en el límite facturable antes de salir a la red");
 
 const parsedMatrix = g.parseRouteMatrix([
-  { originIndex: 0, destinationIndex: 0, distanceMeters: 4200, duration: "600s", condition: "ROUTE_EXISTS" },
+  {
+    originIndex: 0,
+    destinationIndex: 0,
+    distanceMeters: 4200,
+    duration: "600s",
+    condition: "ROUTE_EXISTS",
+  },
   { originIndex: 1, destinationIndex: 0, condition: "ROUTE_NOT_FOUND" },
 ]);
 assert.equal(parsedMatrix.length, 1);
-assert.deepEqual(parsedMatrix[0], { originIndex: 0, destinationIndex: 0, distanceM: 4200, durationSec: 600 });
+assert.deepEqual(parsedMatrix[0], {
+  originIndex: 0,
+  destinationIndex: 0,
+  distanceM: 4200,
+  durationSec: 600,
+});
 ok("un par sin ruta se descarta en lugar de contarse como alcanzable");
 
 // --- Polilínea ---------------------------------------------------------------
@@ -197,4 +223,6 @@ assert.throws(() => g.describeRoute(punto), /Falta la API key/);
 ok("sin API key el proveedor falla explícito y no expone la clave");
 
 console.log("\nok - contrato del adapter cartográfico verificado");
-console.log("     pendiente: calidad real de rutas y costo por consulta con una API key habilitada");
+console.log(
+  "     pendiente: calidad real de rutas y costo por consulta con una API key habilitada",
+);

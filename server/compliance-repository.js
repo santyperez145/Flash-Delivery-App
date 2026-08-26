@@ -1,16 +1,205 @@
 import crypto from "node:crypto";
-import {postgresPool} from "./postgres.js";
-import {decryptDocument,encryptDocument} from "./document-envelope.js";
-const requiredTypes=["identity","driver_license","vehicle_registration","insurance","background_check"];
-const publicId=()=>`DOC-${crypto.randomBytes(5).toString("hex").toUpperCase()}`;
-const staff=roles=>roles.includes("admin")||roles.includes("support");
-const mapDocument=row=>({id:row.public_id,type:row.document_type,mimeType:row.mime_type,sha256:row.content_sha256,sizeBytes:row.size_bytes,expiresAt:row.expires_at?new Date(row.expires_at).toISOString().slice(0,10):null,status:row.status,rejectionReason:row.rejection_reason||null,reviewedAt:row.reviewed_at?new Date(row.reviewed_at).toISOString():null,createdAt:new Date(row.created_at).toISOString()});
+import { postgresPool } from "./postgres.js";
+import { decryptDocument, encryptDocument } from "./document-envelope.js";
+const requiredTypes = [
+  "identity",
+  "driver_license",
+  "vehicle_registration",
+  "insurance",
+  "background_check",
+];
+const publicId = () => `DOC-${crypto.randomBytes(5).toString("hex").toUpperCase()}`;
+const staff = (roles) => roles.includes("admin") || roles.includes("support");
+const mapDocument = (row) => ({
+  id: row.public_id,
+  type: row.document_type,
+  mimeType: row.mime_type,
+  sha256: row.content_sha256,
+  sizeBytes: row.size_bytes,
+  expiresAt: row.expires_at ? new Date(row.expires_at).toISOString().slice(0, 10) : null,
+  status: row.status,
+  rejectionReason: row.rejection_reason || null,
+  reviewedAt: row.reviewed_at ? new Date(row.reviewed_at).toISOString() : null,
+  createdAt: new Date(row.created_at).toISOString(),
+});
 
-async function resolveDriver({actorPublicId,roles,driverPublicId,client=postgresPool}){const row=(await client.query(`SELECT d.id,d.public_id,d.user_id,u.public_id user_public_id FROM drivers d JOIN users u ON u.id=d.user_id WHERE d.public_id=$1`,[driverPublicId])).rows[0];if(!row)throw Object.assign(new Error("Conductor no encontrado"),{status:404});if(!staff(roles)&&row.user_public_id!==actorPublicId)throw Object.assign(new Error("No puedes acceder al legajo de otro conductor"),{status:403});return row;}
-export async function getDriverCompliance({actorPublicId,roles,driverPublicId}){const driver=await resolveDriver({actorPublicId,roles,driverPublicId});const [compliance,documents]=await Promise.all([postgresPool.query("SELECT * FROM driver_compliance WHERE driver_id=$1",[driver.id]),postgresPool.query("SELECT * FROM driver_documents WHERE driver_id=$1 ORDER BY created_at DESC",[driver.id])]);const row=compliance.rows[0]||{};return{driverId:driver.public_id,status:row.status||"pending",submittedAt:row.submitted_at?new Date(row.submitted_at).toISOString():null,reviewedAt:row.reviewed_at?new Date(row.reviewed_at).toISOString():null,rejectionReason:row.rejection_reason||null,requiredTypes,documents:documents.rows.map(mapDocument)};}
-export async function submitDriverDocument({actorPublicId,roles,driverPublicId,type,mimeType,contentBase64,expiresAt}){const content=Buffer.from(contentBase64,"base64");if(!content.length||content.length>750000)throw Object.assign(new Error("El archivo debe pesar entre 1 byte y 750 KB"),{status:400});const normalized=content.toString("base64").replace(/=+$/,""),input=contentBase64.replace(/\s/g,"").replace(/=+$/g,"");if(normalized!==input)throw Object.assign(new Error("Contenido base64 inválido"),{status:400});const hash=crypto.createHash("sha256").update(content).digest("hex"),client=await postgresPool.connect();try{await client.query("BEGIN");const driver=await resolveDriver({actorPublicId,roles,driverPublicId,client});await client.query("UPDATE driver_documents SET status='superseded' WHERE driver_id=$1 AND document_type=$2 AND status IN('pending','approved')",[driver.id,type]);const id=publicId();await client.query(`INSERT INTO driver_documents(public_id,driver_id,document_type,mime_type,content_ciphertext,content_sha256,size_bytes,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,[id,driver.id,type,mimeType,encryptDocument(content),hash,content.length,expiresAt||null]);await client.query(`INSERT INTO driver_compliance(driver_id,status,submitted_at,updated_at) VALUES($1,'in_review',now(),now()) ON CONFLICT(driver_id) DO UPDATE SET status='in_review',submitted_at=now(),reviewed_at=NULL,reviewed_by=NULL,rejection_reason=NULL,updated_at=now()`,[driver.id]);await client.query("UPDATE drivers SET online=false WHERE id=$1",[driver.id]);await client.query("COMMIT");return(await getDriverCompliance({actorPublicId,roles,driverPublicId})).documents.find(entry=>entry.id===id);}catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}}
-export async function reviewDriverDocument({actorPublicId,roles,documentPublicId,status,rejectionReason}){if(!roles.includes("admin"))throw Object.assign(new Error("La revisión requiere rol administrador"),{status:403});const client=await postgresPool.connect();try{await client.query("BEGIN");const actor=(await client.query("SELECT id FROM users WHERE public_id=$1",[actorPublicId])).rows[0],document=(await client.query("SELECT * FROM driver_documents WHERE public_id=$1 FOR UPDATE",[documentPublicId])).rows[0];if(!document)throw Object.assign(new Error("Documento no encontrado"),{status:404});if(document.status!=="pending")throw Object.assign(new Error("El documento ya fue revisado"),{status:409});await client.query("UPDATE driver_documents SET status=$2,rejection_reason=$3,reviewed_by=$4,reviewed_at=now() WHERE id=$1",[document.id,status,rejectionReason||null,actor?.id||null]);let complianceStatus="rejected";if(status==="approved"){const approved=await client.query(`SELECT count(DISTINCT document_type)::int count FROM driver_documents WHERE driver_id=$1 AND status='approved' AND (expires_at IS NULL OR expires_at>=current_date) AND document_type=ANY($2)`,[document.driver_id,requiredTypes]);complianceStatus=approved.rows[0].count===requiredTypes.length?"approved":"in_review";}await client.query("UPDATE driver_compliance SET status=$2,reviewed_at=now(),reviewed_by=$3,rejection_reason=$4,updated_at=now() WHERE driver_id=$1",[document.driver_id,complianceStatus,actor?.id||null,status==="rejected"?rejectionReason:null]);if(complianceStatus!=="approved")await client.query("UPDATE drivers SET online=false WHERE id=$1",[document.driver_id]);await client.query("COMMIT");const driver=(await postgresPool.query("SELECT public_id FROM drivers WHERE id=$1",[document.driver_id])).rows[0];return getDriverCompliance({actorPublicId,roles,driverPublicId:driver.public_id});}catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}}
-export async function getDriverDocumentContent({actorPublicId,roles,documentPublicId}){const row=(await postgresPool.query(`SELECT doc.*,d.public_id driver_public_id,u.public_id user_public_id FROM driver_documents doc JOIN drivers d ON d.id=doc.driver_id JOIN users u ON u.id=d.user_id WHERE doc.public_id=$1`,[documentPublicId])).rows[0];if(!row)throw Object.assign(new Error("Documento no encontrado"),{status:404});if(!staff(roles)&&row.user_public_id!==actorPublicId)throw Object.assign(new Error("Documento no autorizado"),{status:403});return{document:mapDocument(row),contentBase64:decryptDocument(row.content_ciphertext).toString("base64")};}
-export async function assertDriverCanGoOnline(driverPublicId,activeMode=null){const row=(await postgresPool.query(`SELECT c.status,EXISTS(SELECT 1 FROM driver_documents doc WHERE doc.driver_id=d.id AND doc.status='approved' AND doc.expires_at<current_date) expired,
+async function resolveDriver({ actorPublicId, roles, driverPublicId, client = postgresPool }) {
+  const row = (
+    await client.query(
+      `SELECT d.id,d.public_id,d.user_id,u.public_id user_public_id FROM drivers d JOIN users u ON u.id=d.user_id WHERE d.public_id=$1`,
+      [driverPublicId],
+    )
+  ).rows[0];
+  if (!row) throw Object.assign(new Error("Conductor no encontrado"), { status: 404 });
+  if (!staff(roles) && row.user_public_id !== actorPublicId)
+    throw Object.assign(new Error("No puedes acceder al legajo de otro conductor"), {
+      status: 403,
+    });
+  return row;
+}
+export async function getDriverCompliance({ actorPublicId, roles, driverPublicId }) {
+  const driver = await resolveDriver({ actorPublicId, roles, driverPublicId });
+  const [compliance, documents] = await Promise.all([
+    postgresPool.query("SELECT * FROM driver_compliance WHERE driver_id=$1", [driver.id]),
+    postgresPool.query(
+      "SELECT * FROM driver_documents WHERE driver_id=$1 ORDER BY created_at DESC",
+      [driver.id],
+    ),
+  ]);
+  const row = compliance.rows[0] || {};
+  return {
+    driverId: driver.public_id,
+    status: row.status || "pending",
+    submittedAt: row.submitted_at ? new Date(row.submitted_at).toISOString() : null,
+    reviewedAt: row.reviewed_at ? new Date(row.reviewed_at).toISOString() : null,
+    rejectionReason: row.rejection_reason || null,
+    requiredTypes,
+    documents: documents.rows.map(mapDocument),
+  };
+}
+export async function submitDriverDocument({
+  actorPublicId,
+  roles,
+  driverPublicId,
+  type,
+  mimeType,
+  contentBase64,
+  expiresAt,
+}) {
+  const content = Buffer.from(contentBase64, "base64");
+  if (!content.length || content.length > 750000)
+    throw Object.assign(new Error("El archivo debe pesar entre 1 byte y 750 KB"), { status: 400 });
+  const normalized = content.toString("base64").replace(/=+$/, ""),
+    input = contentBase64.replace(/\s/g, "").replace(/=+$/g, "");
+  if (normalized !== input)
+    throw Object.assign(new Error("Contenido base64 inválido"), { status: 400 });
+  const hash = crypto.createHash("sha256").update(content).digest("hex"),
+    client = await postgresPool.connect();
+  try {
+    await client.query("BEGIN");
+    const driver = await resolveDriver({ actorPublicId, roles, driverPublicId, client });
+    await client.query(
+      "UPDATE driver_documents SET status='superseded' WHERE driver_id=$1 AND document_type=$2 AND status IN('pending','approved')",
+      [driver.id, type],
+    );
+    const id = publicId();
+    await client.query(
+      `INSERT INTO driver_documents(public_id,driver_id,document_type,mime_type,content_ciphertext,content_sha256,size_bytes,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [
+        id,
+        driver.id,
+        type,
+        mimeType,
+        encryptDocument(content),
+        hash,
+        content.length,
+        expiresAt || null,
+      ],
+    );
+    await client.query(
+      `INSERT INTO driver_compliance(driver_id,status,submitted_at,updated_at) VALUES($1,'in_review',now(),now()) ON CONFLICT(driver_id) DO UPDATE SET status='in_review',submitted_at=now(),reviewed_at=NULL,reviewed_by=NULL,rejection_reason=NULL,updated_at=now()`,
+      [driver.id],
+    );
+    await client.query("UPDATE drivers SET online=false WHERE id=$1", [driver.id]);
+    await client.query("COMMIT");
+    return (await getDriverCompliance({ actorPublicId, roles, driverPublicId })).documents.find(
+      (entry) => entry.id === id,
+    );
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+export async function reviewDriverDocument({
+  actorPublicId,
+  roles,
+  documentPublicId,
+  status,
+  rejectionReason,
+}) {
+  if (!roles.includes("admin"))
+    throw Object.assign(new Error("La revisión requiere rol administrador"), { status: 403 });
+  const client = await postgresPool.connect();
+  try {
+    await client.query("BEGIN");
+    const actor = (await client.query("SELECT id FROM users WHERE public_id=$1", [actorPublicId]))
+        .rows[0],
+      document = (
+        await client.query("SELECT * FROM driver_documents WHERE public_id=$1 FOR UPDATE", [
+          documentPublicId,
+        ])
+      ).rows[0];
+    if (!document) throw Object.assign(new Error("Documento no encontrado"), { status: 404 });
+    if (document.status !== "pending")
+      throw Object.assign(new Error("El documento ya fue revisado"), { status: 409 });
+    await client.query(
+      "UPDATE driver_documents SET status=$2,rejection_reason=$3,reviewed_by=$4,reviewed_at=now() WHERE id=$1",
+      [document.id, status, rejectionReason || null, actor?.id || null],
+    );
+    let complianceStatus = "rejected";
+    if (status === "approved") {
+      const approved = await client.query(
+        `SELECT count(DISTINCT document_type)::int count FROM driver_documents WHERE driver_id=$1 AND status='approved' AND (expires_at IS NULL OR expires_at>=current_date) AND document_type=ANY($2)`,
+        [document.driver_id, requiredTypes],
+      );
+      complianceStatus = approved.rows[0].count === requiredTypes.length ? "approved" : "in_review";
+    }
+    await client.query(
+      "UPDATE driver_compliance SET status=$2,reviewed_at=now(),reviewed_by=$3,rejection_reason=$4,updated_at=now() WHERE driver_id=$1",
+      [
+        document.driver_id,
+        complianceStatus,
+        actor?.id || null,
+        status === "rejected" ? rejectionReason : null,
+      ],
+    );
+    if (complianceStatus !== "approved")
+      await client.query("UPDATE drivers SET online=false WHERE id=$1", [document.driver_id]);
+    await client.query("COMMIT");
+    const driver = (
+      await postgresPool.query("SELECT public_id FROM drivers WHERE id=$1", [document.driver_id])
+    ).rows[0];
+    return getDriverCompliance({ actorPublicId, roles, driverPublicId: driver.public_id });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+export async function getDriverDocumentContent({ actorPublicId, roles, documentPublicId }) {
+  const row = (
+    await postgresPool.query(
+      `SELECT doc.*,d.public_id driver_public_id,u.public_id user_public_id FROM driver_documents doc JOIN drivers d ON d.id=doc.driver_id JOIN users u ON u.id=d.user_id WHERE doc.public_id=$1`,
+      [documentPublicId],
+    )
+  ).rows[0];
+  if (!row) throw Object.assign(new Error("Documento no encontrado"), { status: 404 });
+  if (!staff(roles) && row.user_public_id !== actorPublicId)
+    throw Object.assign(new Error("Documento no autorizado"), { status: 403 });
+  return {
+    document: mapDocument(row),
+    contentBase64: decryptDocument(row.content_ciphertext).toString("base64"),
+  };
+}
+export async function assertDriverCanGoOnline(driverPublicId, activeMode = null) {
+  const row = (
+    await postgresPool.query(
+      `SELECT c.status,EXISTS(SELECT 1 FROM driver_documents doc WHERE doc.driver_id=d.id AND doc.status='approved' AND doc.expires_at<current_date) expired,
   EXISTS(SELECT 1 FROM vehicles v WHERE v.driver_id=d.id AND v.active AND v.retired_at IS NULL AND v.status='approved' AND COALESCE($2::job_kind,d.active_mode)=ANY(v.service_modes)) vehicle_ready
-  FROM drivers d LEFT JOIN driver_compliance c ON c.driver_id=d.id WHERE d.public_id=$1`,[driverPublicId,activeMode])).rows[0];if(!row||row.status!=="approved"||row.expired)throw Object.assign(new Error("Tu legajo debe estar aprobado y vigente para conectarte"),{status:409});if(!row.vehicle_ready)throw Object.assign(new Error("Necesitas un vehículo activo, aprobado y compatible con el servicio"),{status:409});}
+  FROM drivers d LEFT JOIN driver_compliance c ON c.driver_id=d.id WHERE d.public_id=$1`,
+      [driverPublicId, activeMode],
+    )
+  ).rows[0];
+  if (!row || row.status !== "approved" || row.expired)
+    throw Object.assign(new Error("Tu legajo debe estar aprobado y vigente para conectarte"), {
+      status: 409,
+    });
+  if (!row.vehicle_ready)
+    throw Object.assign(
+      new Error("Necesitas un vehículo activo, aprobado y compatible con el servicio"),
+      { status: 409 },
+    );
+}

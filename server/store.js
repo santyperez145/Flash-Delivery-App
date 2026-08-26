@@ -18,7 +18,7 @@ export const orderStatuses = [
   "picked_up",
   "delivering",
   "delivered",
-  "cancelled"
+  "cancelled",
 ];
 
 export const rideStatuses = [
@@ -27,7 +27,7 @@ export const rideStatuses = [
   "arriving",
   "in_progress",
   "completed",
-  "cancelled"
+  "cancelled",
 ];
 
 export const shipmentStatuses = [
@@ -37,7 +37,7 @@ export const shipmentStatuses = [
   "picked_up",
   "delivering",
   "delivered",
-  "cancelled"
+  "cancelled",
 ];
 
 const now = () => new Date().toISOString();
@@ -47,14 +47,13 @@ export const notificationPreferenceCategories = [
   "promotions",
   "support",
   "wallet",
-  "account"
+  "account",
 ];
 
 export const createId = (prefix) =>
   `${prefix}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
 
-const asset = (id) =>
-  `https://images.unsplash.com/${id}?auto=format&fit=crop&w=900&q=80`;
+const asset = (id) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=900&q=80`;
 
 function db() {
   if (!fs.existsSync(dataDir)) {
@@ -438,7 +437,7 @@ function ensureSchemaColumns() {
     ["rides", "pickup_lat", "REAL"],
     ["rides", "pickup_lng", "REAL"],
     ["rides", "destination_lat", "REAL"],
-    ["rides", "destination_lng", "REAL"]
+    ["rides", "destination_lng", "REAL"],
   ];
   for (const [table, column, type] of migrations) {
     const exists = database
@@ -458,7 +457,7 @@ function createSeed() {
       version: 4,
       createdAt,
       updatedAt: createdAt,
-      database: "sqlite"
+      database: "sqlite",
     },
     users: [
       {
@@ -469,7 +468,7 @@ function createSeed() {
         roles: ["customer"],
         phone: "+54 11 5555 0101",
         wallet: 18600,
-        defaultAddress: "Defensa 982, San Telmo"
+        defaultAddress: "Defensa 982, San Telmo",
       },
       {
         id: "usr_merchant",
@@ -479,7 +478,7 @@ function createSeed() {
         roles: ["merchant"],
         phone: "+54 11 5555 0202",
         wallet: 842000,
-        restaurantId: "rest_roja"
+        restaurantId: "rest_roja",
       },
       {
         id: "usr_driver",
@@ -489,7 +488,7 @@ function createSeed() {
         roles: ["driver"],
         phone: "+54 11 5555 0303",
         wallet: 38200,
-        driverId: "drv_lautaro"
+        driverId: "drv_lautaro",
       },
       {
         id: "usr_admin",
@@ -498,8 +497,8 @@ function createSeed() {
         password,
         roles: ["admin"],
         phone: "+54 11 5555 0404",
-        wallet: 0
-      }
+        wallet: 0,
+      },
     ],
     addresses: [
       {
@@ -509,7 +508,7 @@ function createSeed() {
         address: "Defensa 982, San Telmo",
         lat: -34.6177,
         lng: -58.3621,
-        isDefault: true
+        isDefault: true,
       },
       {
         id: "addr_customer_work",
@@ -518,8 +517,8 @@ function createSeed() {
         address: "Av. Corrientes 900, Microcentro",
         lat: -34.6037,
         lng: -58.3816,
-        isDefault: false
-      }
+        isDefault: false,
+      },
     ],
     paymentMethods: [
       {
@@ -529,7 +528,7 @@ function createSeed() {
         label: "Flash Wallet",
         last4: "",
         balance: 18600,
-        isDefault: true
+        isDefault: true,
       },
       {
         id: "pay_card_7234",
@@ -538,8 +537,8 @@ function createSeed() {
         label: "Mastercard",
         last4: "7234",
         balance: 0,
-        isDefault: false
-      }
+        isDefault: false,
+      },
     ],
     walletTransactions: [
       {
@@ -548,8 +547,8 @@ function createSeed() {
         kind: "credit",
         amount: 18600,
         description: "Saldo demo inicial",
-        createdAt
-      }
+        createdAt,
+      },
     ],
     restaurants: [
       {
@@ -580,7 +579,7 @@ function createSeed() {
             kcal: 780,
             stock: true,
             image: asset("photo-1568901346375-23c9450c58cd"),
-            tags: ["Picante", "Mas vendido"]
+            tags: ["Picante", "Mas vendido"],
           },
           {
             id: "item_papas_trufa",
@@ -593,7 +592,7 @@ function createSeed() {
             kcal: 520,
             stock: true,
             image: asset("photo-1576107232684-1279f390859f"),
-            tags: ["Combo"]
+            tags: ["Combo"],
           },
           {
             id: "item_limonada_roja",
@@ -606,15 +605,15 @@ function createSeed() {
             kcal: 160,
             stock: true,
             image: asset("photo-1497534446932-c925b458314e"),
-            tags: ["Fresco"]
-          }
+            tags: ["Fresco"],
+          },
         ],
         extras: [
           { id: "extra_cheddar", name: "Cheddar extra", price: 550 },
           { id: "extra_palta", name: "Palta", price: 700 },
           { id: "extra_picante", name: "Salsa picante", price: 350 },
-          { id: "extra_crispy", name: "Cebolla crispy", price: 320 }
-        ]
+          { id: "extra_crispy", name: "Cebolla crispy", price: 320 },
+        ],
       },
       {
         id: "rest_nori",
@@ -644,7 +643,7 @@ function createSeed() {
             kcal: 610,
             stock: true,
             image: asset("photo-1579871494447-9811cf80d66c"),
-            tags: ["12 piezas", "Fresco"]
+            tags: ["12 piezas", "Fresco"],
           },
           {
             id: "item_poke_verde",
@@ -657,14 +656,14 @@ function createSeed() {
             kcal: 560,
             stock: true,
             image: asset("photo-1547496502-affa22d38842"),
-            tags: ["Veggie"]
-          }
+            tags: ["Veggie"],
+          },
         ],
         extras: [
           { id: "extra_jengibre", name: "Jengibre extra", price: 280 },
           { id: "extra_wasabi", name: "Wasabi", price: 250 },
-          { id: "extra_soja", name: "Salsa soja", price: 180 }
-        ]
+          { id: "extra_soja", name: "Salsa soja", price: 180 },
+        ],
       },
       {
         id: "rest_forno",
@@ -694,7 +693,7 @@ function createSeed() {
             kcal: 840,
             stock: true,
             image: asset("photo-1574071318508-1cdbab80d002"),
-            tags: ["Nueva", "Cremosa"]
+            tags: ["Nueva", "Cremosa"],
           },
           {
             id: "item_tiramisu",
@@ -707,13 +706,13 @@ function createSeed() {
             kcal: 430,
             stock: true,
             image: asset("photo-1571877227200-a0d98ea607e9"),
-            tags: ["Postre"]
-          }
+            tags: ["Postre"],
+          },
         ],
         extras: [
           { id: "extra_muzza", name: "Mozzarella extra", price: 680 },
-          { id: "extra_albahaca", name: "Albahaca fresca", price: 220 }
-        ]
+          { id: "extra_albahaca", name: "Albahaca fresca", price: 220 },
+        ],
       },
       {
         id: "rest_huerta",
@@ -743,7 +742,7 @@ function createSeed() {
             kcal: 420,
             stock: true,
             image: asset("photo-1540420773420-3366772f4999"),
-            tags: ["Ligero", "Sin carne"]
+            tags: ["Ligero", "Sin carne"],
           },
           {
             id: "item_smoothie_rojo",
@@ -756,14 +755,14 @@ function createSeed() {
             kcal: 310,
             stock: true,
             image: asset("photo-1505252585461-04db1eb84625"),
-            tags: ["Bebida"]
-          }
+            tags: ["Bebida"],
+          },
         ],
         extras: [
           { id: "extra_granola", name: "Granola", price: 420 },
-          { id: "extra_proteina", name: "Proteina vegetal", price: 900 }
-        ]
-      }
+          { id: "extra_proteina", name: "Proteina vegetal", price: 900 },
+        ],
+      },
     ],
     drivers: [
       {
@@ -777,7 +776,7 @@ function createSeed() {
         plate: "A123BCD",
         rating: 4.96,
         location: { lat: -34.5886, lng: -58.4301, label: "Palermo" },
-        earningsToday: 38200
+        earningsToday: 38200,
       },
       {
         id: "drv_mica",
@@ -790,7 +789,7 @@ function createSeed() {
         plate: "AD456EF",
         rating: 4.91,
         location: { lat: -34.6037, lng: -58.3816, label: "Centro" },
-        earningsToday: 51700
+        earningsToday: 51700,
       },
       {
         id: "drv_nico",
@@ -803,8 +802,8 @@ function createSeed() {
         plate: "BIKE-19",
         rating: 4.82,
         location: { lat: -34.6177, lng: -58.3621, label: "San Telmo" },
-        earningsToday: 18400
-      }
+        earningsToday: 18400,
+      },
     ],
     orders: [
       {
@@ -822,7 +821,7 @@ function createSeed() {
             quantity: 1,
             unitPrice: 8200,
             extras: ["Wasabi"],
-            note: "Salsa aparte"
+            note: "Salsa aparte",
           },
           {
             menuItemId: "item_poke_verde",
@@ -830,8 +829,8 @@ function createSeed() {
             quantity: 1,
             unitPrice: 7200,
             extras: [],
-            note: ""
-          }
+            note: "",
+          },
         ],
         subtotal: 15400,
         deliveryFee: 890,
@@ -842,8 +841,8 @@ function createSeed() {
         timeline: [
           { status: "accepted", at: createdAt },
           { status: "preparing", at: createdAt },
-          { status: "ready_for_pickup", at: createdAt }
-        ]
+          { status: "ready_for_pickup", at: createdAt },
+        ],
       },
       {
         id: "ORD-7302",
@@ -860,8 +859,8 @@ function createSeed() {
             quantity: 2,
             unitPrice: 6500,
             extras: ["Cheddar extra"],
-            note: ""
-          }
+            note: "",
+          },
         ],
         subtotal: 13550,
         deliveryFee: 790,
@@ -875,9 +874,9 @@ function createSeed() {
           { status: "ready_for_pickup", at: createdAt },
           { status: "courier_assigned", at: createdAt },
           { status: "picked_up", at: createdAt },
-          { status: "delivering", at: createdAt }
-        ]
-      }
+          { status: "delivering", at: createdAt },
+        ],
+      },
     ],
     rides: [
       {
@@ -897,9 +896,9 @@ function createSeed() {
         timeline: [
           { status: "requested", at: createdAt },
           { status: "driver_assigned", at: createdAt },
-          { status: "arriving", at: createdAt }
-        ]
-      }
+          { status: "arriving", at: createdAt },
+        ],
+      },
     ],
     promotions: [
       {
@@ -908,7 +907,7 @@ function createSeed() {
         description: "Tope de reintegro $4.000 con Flash Wallet.",
         service: "food",
         discountPercent: 40,
-        active: true
+        active: true,
       },
       {
         id: "promo_ride_airport",
@@ -916,8 +915,8 @@ function createSeed() {
         description: "Precio dinamico protegido hasta las 20:00.",
         service: "ride",
         discountPercent: 15,
-        active: true
-      }
+        active: true,
+      },
     ],
     supportTickets: [
       {
@@ -925,15 +924,15 @@ function createSeed() {
         service: "food",
         status: "open",
         title: "Pedido demorado",
-        priority: "medium"
+        priority: "medium",
       },
       {
         id: "TCK-4402",
         service: "ride",
         status: "open",
         title: "Objeto olvidado",
-        priority: "high"
-      }
+        priority: "high",
+      },
     ],
     notifications: [
       {
@@ -944,7 +943,7 @@ function createSeed() {
         payload: { orderId: "ORD-7301", status: "delivering", etaMin: 18 },
         status: "sent",
         readAt: null,
-        createdAt
+        createdAt,
       },
       {
         id: "NTF-DEMO-RIDE",
@@ -954,15 +953,15 @@ function createSeed() {
         payload: { rideId: "RIDE-2201", status: "arriving", etaMin: 6 },
         status: "sent",
         readAt: createdAt,
-        createdAt
-      }
+        createdAt,
+      },
     ],
     notificationPreferences: notificationPreferenceCategories.map((category) => ({
       userId: "usr_customer",
       category,
       pushEnabled: category !== "promotions",
       emailEnabled: false,
-      updatedAt: null
+      updatedAt: null,
     })),
     ratings: [
       {
@@ -972,8 +971,8 @@ function createSeed() {
         userId: "usr_customer",
         score: 5,
         comment: "Muy rapido",
-        createdAt
-      }
+        createdAt,
+      },
     ],
     zones: [
       {
@@ -983,7 +982,7 @@ function createSeed() {
         deliveryMultiplier: 1.2,
         rideMultiplier: 1.15,
         activeOrders: 18,
-        activeRides: 9
+        activeRides: 9,
       },
       {
         id: "zone_centro",
@@ -992,7 +991,7 @@ function createSeed() {
         deliveryMultiplier: 1.05,
         rideMultiplier: 1.12,
         activeOrders: 12,
-        activeRides: 14
+        activeRides: 14,
       },
       {
         id: "zone_santelmo",
@@ -1001,8 +1000,8 @@ function createSeed() {
         deliveryMultiplier: 1.08,
         rideMultiplier: 1.04,
         activeOrders: 8,
-        activeRides: 5
-      }
+        activeRides: 5,
+      },
     ],
     auditEvents: [
       {
@@ -1012,9 +1011,9 @@ function createSeed() {
         entityId: "seed",
         action: "seed_database",
         payload: { version: 3 },
-        createdAt
-      }
-    ]
+        createdAt,
+      },
+    ],
   };
 }
 
@@ -1028,7 +1027,10 @@ function rowBool(value) {
 
 function getMeta() {
   return Object.fromEntries(
-    database.prepare("SELECT key, value FROM meta").all().map((row) => [row.key, JSON.parse(row.value)])
+    database
+      .prepare("SELECT key, value FROM meta")
+      .all()
+      .map((row) => [row.key, JSON.parse(row.value)]),
   );
 }
 
@@ -1106,7 +1108,7 @@ const replaceTransaction = database.transaction((state) => {
       defaultAddress: user.defaultAddress || null,
       restaurantId: user.restaurantId || null,
       driverId: user.driverId || null,
-      createdAt: user.createdAt || state.meta.createdAt || now()
+      createdAt: user.createdAt || state.meta.createdAt || now(),
     });
     for (const role of user.roles || []) {
       insertRole.run(user.id, role);
@@ -1147,7 +1149,9 @@ const replaceTransaction = database.transaction((state) => {
       @id, @restaurantId, @name, @description, @category, @price, @rating, @timeMin, @kcal, @stock, @image, @createdAt
     )
   `);
-  const insertTag = database.prepare("INSERT INTO menu_item_tags (menu_item_id, tag) VALUES (?, ?)");
+  const insertTag = database.prepare(
+    "INSERT INTO menu_item_tags (menu_item_id, tag) VALUES (?, ?)",
+  );
 
   for (const restaurant of state.restaurants) {
     insertRestaurant.run({
@@ -1155,7 +1159,7 @@ const replaceTransaction = database.transaction((state) => {
       open: boolToInt(restaurant.open),
       lat: restaurant.lat || null,
       lng: restaurant.lng || null,
-      createdAt: restaurant.createdAt || state.meta.createdAt || now()
+      createdAt: restaurant.createdAt || state.meta.createdAt || now(),
     });
     for (let weekday = 0; weekday < 7; weekday += 1) {
       insertHour.run({
@@ -1163,7 +1167,7 @@ const replaceTransaction = database.transaction((state) => {
         restaurantId: restaurant.id,
         weekday,
         opensAt: "10:00",
-        closesAt: "23:30"
+        closesAt: "23:30",
       });
     }
     for (const extra of restaurant.extras || []) {
@@ -1174,7 +1178,7 @@ const replaceTransaction = database.transaction((state) => {
         ...item,
         restaurantId: restaurant.id,
         stock: boolToInt(item.stock),
-        createdAt: item.createdAt || state.meta.createdAt || now()
+        createdAt: item.createdAt || state.meta.createdAt || now(),
       });
       for (const tag of item.tags || []) {
         insertTag.run(item.id, tag);
@@ -1208,9 +1212,10 @@ const replaceTransaction = database.transaction((state) => {
       lat: driver.location?.lat || 0,
       lng: driver.location?.lng || 0,
       locationLabel: driver.location?.label || "",
-      locationUpdatedAt: driver.location?.updatedAt || driver.createdAt || state.meta.createdAt || now(),
+      locationUpdatedAt:
+        driver.location?.updatedAt || driver.createdAt || state.meta.createdAt || now(),
       earningsToday: driver.earningsToday || 0,
-      createdAt: driver.createdAt || state.meta.createdAt || now()
+      createdAt: driver.createdAt || state.meta.createdAt || now(),
     });
     insertVehicle.run({
       id: `${driver.id}_vehicle`,
@@ -1219,7 +1224,7 @@ const replaceTransaction = database.transaction((state) => {
       model: driver.vehicle,
       plate: driver.plate,
       color: "Negro",
-      active: 1
+      active: 1,
     });
   }
 
@@ -1250,7 +1255,7 @@ const replaceTransaction = database.transaction((state) => {
       insertOrderItem.run({
         id: orderItemId,
         orderId: order.id,
-        ...item
+        ...item,
       });
       for (const extra of item.extras || []) {
         insertOrderExtra.run(orderItemId, extra);
@@ -1261,7 +1266,7 @@ const replaceTransaction = database.transaction((state) => {
         id: `${order.id}_timeline_${index}`,
         orderId: order.id,
         status: entry.status,
-        at: entry.at
+        at: entry.at,
       });
     }
   }
@@ -1285,14 +1290,14 @@ const replaceTransaction = database.transaction((state) => {
       pickupLat: ride.pickupLocation?.lat ?? null,
       pickupLng: ride.pickupLocation?.lng ?? null,
       destinationLat: ride.destinationLocation?.lat ?? null,
-      destinationLng: ride.destinationLocation?.lng ?? null
+      destinationLng: ride.destinationLocation?.lng ?? null,
     });
     for (const [index, entry] of (ride.timeline || []).entries()) {
       insertRideTimeline.run({
         id: `${ride.id}_timeline_${index}`,
         rideId: ride.id,
         status: entry.status,
-        at: entry.at
+        at: entry.at,
       });
     }
   }
@@ -1322,14 +1327,14 @@ const replaceTransaction = database.transaction((state) => {
       pickupLng: shipment.pickupLocation?.lng ?? null,
       destinationLat: shipment.destinationLocation?.lat ?? null,
       destinationLng: shipment.destinationLocation?.lng ?? null,
-      deliveryNotes: shipment.deliveryNotes || ""
+      deliveryNotes: shipment.deliveryNotes || "",
     });
     for (const [index, entry] of (shipment.timeline || []).entries()) {
       insertShipmentTimeline.run({
         id: `${shipment.id}_timeline_${index}`,
         shipmentId: shipment.id,
         status: entry.status,
-        at: entry.at
+        at: entry.at,
       });
     }
   }
@@ -1377,7 +1382,7 @@ const replaceTransaction = database.transaction((state) => {
     insertAudit.run({
       ...event,
       actorId: event.actorId || null,
-      payloadJson: JSON.stringify(event.payload || {})
+      payloadJson: JSON.stringify(event.payload || {}),
     });
   }
 
@@ -1389,7 +1394,7 @@ const replaceTransaction = database.transaction((state) => {
     insertNotification.run({
       ...notification,
       payloadJson: JSON.stringify(notification.payload || {}),
-      readAt: notification.readAt || null
+      readAt: notification.readAt || null,
     });
   }
 
@@ -1402,7 +1407,7 @@ const replaceTransaction = database.transaction((state) => {
       ...preference,
       pushEnabled: boolToInt(preference.pushEnabled),
       emailEnabled: boolToInt(preference.emailEnabled),
-      updatedAt: preference.updatedAt || null
+      updatedAt: preference.updatedAt || null,
     });
   }
 
@@ -1417,7 +1422,7 @@ const replaceTransaction = database.transaction((state) => {
       dietaryLabelsJson: JSON.stringify(preference.dietaryLabels || []),
       avoidedAllergensJson: JSON.stringify(preference.avoidedAllergens || []),
       hideIncompatible: boolToInt(preference.hideIncompatible),
-      updatedAt: preference.updatedAt || null
+      updatedAt: preference.updatedAt || null,
     });
   }
 });
@@ -1434,7 +1439,10 @@ function seedIfNeeded() {
 
 function ensureLocalNotificationData() {
   const customer = database.prepare("SELECT id FROM users WHERE id = ?").get("usr_customer");
-  if (customer && database.prepare("SELECT COUNT(*) AS total FROM notifications").get().total === 0) {
+  if (
+    customer &&
+    database.prepare("SELECT COUNT(*) AS total FROM notifications").get().total === 0
+  ) {
     const seed = createSeed();
     const insert = database.prepare(`
       INSERT OR IGNORE INTO notifications (id, user_id, channel, template, payload_json, status, read_at, created_at)
@@ -1449,7 +1457,7 @@ function ensureLocalNotificationData() {
         JSON.stringify(notification.payload || {}),
         notification.status,
         notification.readAt || null,
-        notification.createdAt
+        notification.createdAt,
       );
     }
   }
@@ -1459,193 +1467,214 @@ seedIfNeeded();
 
 function readUsers() {
   const roles = database.prepare("SELECT user_id, role FROM user_roles").all();
-  return database.prepare("SELECT * FROM users ORDER BY created_at").all().map((row) => ({
-    id: row.id,
-    name: row.name,
-    email: row.email,
-    password: row.password_hash,
-    roles: roles.filter((role) => role.user_id === row.id).map((role) => role.role),
-    phone: row.phone || "",
-    wallet: row.wallet,
-    defaultAddress: row.default_address || "",
-    restaurantId: row.restaurant_id || undefined,
-    driverId: row.driver_id || undefined
-  }));
+  return database
+    .prepare("SELECT * FROM users ORDER BY created_at")
+    .all()
+    .map((row) => ({
+      id: row.id,
+      name: row.name,
+      email: row.email,
+      password: row.password_hash,
+      roles: roles.filter((role) => role.user_id === row.id).map((role) => role.role),
+      phone: row.phone || "",
+      wallet: row.wallet,
+      defaultAddress: row.default_address || "",
+      restaurantId: row.restaurant_id || undefined,
+      driverId: row.driver_id || undefined,
+    }));
 }
 
 function readRestaurants() {
   const extras = database.prepare("SELECT * FROM restaurant_extras ORDER BY rowid").all();
   const menuRows = database.prepare("SELECT * FROM menu_items ORDER BY created_at, rowid").all();
   const tags = database.prepare("SELECT * FROM menu_item_tags").all();
-  return database.prepare("SELECT * FROM restaurants ORDER BY rowid").all().map((row) => ({
-    id: row.id,
-    ownerId: row.owner_id,
-    name: row.name,
-    cuisine: row.cuisine,
-    rating: row.rating,
-    distanceKm: row.distance_km,
-    etaMin: row.eta_min,
-    deliveryFee: row.delivery_fee,
-    open: rowBool(row.open),
-    image: row.image,
-    cover: row.cover,
-    badge: row.badge,
-    address: row.address,
-    lat: row.lat,
-    lng: row.lng,
-    menu: menuRows
-      .filter((item) => item.restaurant_id === row.id)
-      .map((item) => ({
-        id: item.id,
-        name: item.name,
-        description: item.description || "",
-        category: item.category,
-        price: item.price,
-        rating: item.rating,
-        timeMin: item.time_min,
-        kcal: item.kcal,
-        stock: rowBool(item.stock),
-        image: item.image,
-        tags: tags.filter((tag) => tag.menu_item_id === item.id).map((tag) => tag.tag)
-      })),
-    extras: extras
-      .filter((extra) => extra.restaurant_id === row.id)
-      .map((extra) => ({
-        id: extra.id,
-        name: extra.name,
-        price: extra.price
-      }))
-  }));
+  return database
+    .prepare("SELECT * FROM restaurants ORDER BY rowid")
+    .all()
+    .map((row) => ({
+      id: row.id,
+      ownerId: row.owner_id,
+      name: row.name,
+      cuisine: row.cuisine,
+      rating: row.rating,
+      distanceKm: row.distance_km,
+      etaMin: row.eta_min,
+      deliveryFee: row.delivery_fee,
+      open: rowBool(row.open),
+      image: row.image,
+      cover: row.cover,
+      badge: row.badge,
+      address: row.address,
+      lat: row.lat,
+      lng: row.lng,
+      menu: menuRows
+        .filter((item) => item.restaurant_id === row.id)
+        .map((item) => ({
+          id: item.id,
+          name: item.name,
+          description: item.description || "",
+          category: item.category,
+          price: item.price,
+          rating: item.rating,
+          timeMin: item.time_min,
+          kcal: item.kcal,
+          stock: rowBool(item.stock),
+          image: item.image,
+          tags: tags.filter((tag) => tag.menu_item_id === item.id).map((tag) => tag.tag),
+        })),
+      extras: extras
+        .filter((extra) => extra.restaurant_id === row.id)
+        .map((extra) => ({
+          id: extra.id,
+          name: extra.name,
+          price: extra.price,
+        })),
+    }));
 }
 
 function readDrivers() {
   const vehicles = database.prepare("SELECT * FROM vehicles WHERE active = 1").all();
-  return database.prepare("SELECT * FROM drivers ORDER BY rowid").all().map((row) => {
-    const vehicle = vehicles.find((entry) => entry.driver_id === row.id);
-    return {
-      id: row.id,
-      userId: row.user_id,
-      name: row.name,
-      online: rowBool(row.online),
-      serviceModes: JSON.parse(row.service_modes || "[]"),
-      activeService: row.active_service,
-      vehicle: vehicle?.model || "",
-      plate: vehicle?.plate || "",
-      rating: row.rating,
-      location: {
-        lat: row.lat,
-        lng: row.lng,
-        label: row.location_label,
-        updatedAt: row.location_updated_at || null
-      },
-      earningsToday: row.earnings_today
-    };
-  });
+  return database
+    .prepare("SELECT * FROM drivers ORDER BY rowid")
+    .all()
+    .map((row) => {
+      const vehicle = vehicles.find((entry) => entry.driver_id === row.id);
+      return {
+        id: row.id,
+        userId: row.user_id,
+        name: row.name,
+        online: rowBool(row.online),
+        serviceModes: JSON.parse(row.service_modes || "[]"),
+        activeService: row.active_service,
+        vehicle: vehicle?.model || "",
+        plate: vehicle?.plate || "",
+        rating: row.rating,
+        location: {
+          lat: row.lat,
+          lng: row.lng,
+          label: row.location_label,
+          updatedAt: row.location_updated_at || null,
+        },
+        earningsToday: row.earnings_today,
+      };
+    });
 }
 
 function readOrders() {
   const items = database.prepare("SELECT * FROM order_items ORDER BY rowid").all();
   const extras = database.prepare("SELECT * FROM order_item_extras").all();
   const timelines = database.prepare("SELECT * FROM order_timeline ORDER BY at, rowid").all();
-  return database.prepare("SELECT * FROM orders ORDER BY created_at DESC, rowid DESC").all().map((row) => ({
-    id: row.id,
-    customerId: row.customer_id,
-    restaurantId: row.restaurant_id,
-    courierId: row.courier_id,
-    status: row.status,
-    deliveryAddress: row.delivery_address,
-    paymentMethod: row.payment_method,
-    items: items
-      .filter((item) => item.order_id === row.id)
-      .map((item) => ({
-        menuItemId: item.menu_item_id,
-        name: item.name,
-        quantity: item.quantity,
-        unitPrice: item.unit_price,
-        extras: extras
-          .filter((extra) => extra.order_item_id === item.id)
-          .map((extra) => extra.extra_name),
-        note: item.note || ""
-      })),
-    subtotal: row.subtotal,
-    deliveryFee: row.delivery_fee,
-    serviceFee: row.service_fee,
-    total: row.total,
-    etaMin: row.eta_min,
-    createdAt: row.created_at,
-    timeline: timelines
-      .filter((entry) => entry.order_id === row.id)
-      .map((entry) => ({
-        status: entry.status,
-        at: entry.at
-      }))
-  }));
+  return database
+    .prepare("SELECT * FROM orders ORDER BY created_at DESC, rowid DESC")
+    .all()
+    .map((row) => ({
+      id: row.id,
+      customerId: row.customer_id,
+      restaurantId: row.restaurant_id,
+      courierId: row.courier_id,
+      status: row.status,
+      deliveryAddress: row.delivery_address,
+      paymentMethod: row.payment_method,
+      items: items
+        .filter((item) => item.order_id === row.id)
+        .map((item) => ({
+          menuItemId: item.menu_item_id,
+          name: item.name,
+          quantity: item.quantity,
+          unitPrice: item.unit_price,
+          extras: extras
+            .filter((extra) => extra.order_item_id === item.id)
+            .map((extra) => extra.extra_name),
+          note: item.note || "",
+        })),
+      subtotal: row.subtotal,
+      deliveryFee: row.delivery_fee,
+      serviceFee: row.service_fee,
+      total: row.total,
+      etaMin: row.eta_min,
+      createdAt: row.created_at,
+      timeline: timelines
+        .filter((entry) => entry.order_id === row.id)
+        .map((entry) => ({
+          status: entry.status,
+          at: entry.at,
+        })),
+    }));
 }
 
 function readRides() {
   const timelines = database.prepare("SELECT * FROM ride_timeline ORDER BY at, rowid").all();
-  return database.prepare("SELECT * FROM rides ORDER BY created_at DESC, rowid DESC").all().map((row) => ({
-    id: row.id,
-    customerId: row.customer_id,
-    driverId: row.driver_id,
-    status: row.status,
-    service: row.service,
-    pickup: row.pickup,
-    destination: row.destination,
-    pickupLocation:
-      row.pickup_lat == null || row.pickup_lng == null
-        ? null
-        : { lat: row.pickup_lat, lng: row.pickup_lng },
-    destinationLocation:
-      row.destination_lat == null || row.destination_lng == null
-        ? null
-        : { lat: row.destination_lat, lng: row.destination_lng },
-    distanceKm: row.distance_km,
-    etaMin: row.eta_min,
-    durationMin: row.duration_min,
-    fare: row.fare,
-    paymentMethod: row.payment_method,
-    createdAt: row.created_at,
-    timeline: timelines
-      .filter((entry) => entry.ride_id === row.id)
-      .map((entry) => ({
-        status: entry.status,
-        at: entry.at
-      }))
-  }));
+  return database
+    .prepare("SELECT * FROM rides ORDER BY created_at DESC, rowid DESC")
+    .all()
+    .map((row) => ({
+      id: row.id,
+      customerId: row.customer_id,
+      driverId: row.driver_id,
+      status: row.status,
+      service: row.service,
+      pickup: row.pickup,
+      destination: row.destination,
+      pickupLocation:
+        row.pickup_lat == null || row.pickup_lng == null
+          ? null
+          : { lat: row.pickup_lat, lng: row.pickup_lng },
+      destinationLocation:
+        row.destination_lat == null || row.destination_lng == null
+          ? null
+          : { lat: row.destination_lat, lng: row.destination_lng },
+      distanceKm: row.distance_km,
+      etaMin: row.eta_min,
+      durationMin: row.duration_min,
+      fare: row.fare,
+      paymentMethod: row.payment_method,
+      createdAt: row.created_at,
+      timeline: timelines
+        .filter((entry) => entry.ride_id === row.id)
+        .map((entry) => ({
+          status: entry.status,
+          at: entry.at,
+        })),
+    }));
 }
 
 function readShipments() {
   const timelines = database.prepare("SELECT * FROM shipment_timeline ORDER BY at, rowid").all();
-  return database.prepare("SELECT * FROM shipments ORDER BY created_at DESC, rowid DESC").all().map((row) => ({
-    id: row.id,
-    customerId: row.customer_id,
-    driverId: row.driver_id,
-    status: row.status,
-    pickup: row.pickup,
-    destination: row.destination,
-    pickupLocation: row.pickup_lat == null ? null : { lat: row.pickup_lat, lng: row.pickup_lng },
-    destinationLocation: row.destination_lat == null ? null : { lat: row.destination_lat, lng: row.destination_lng },
-    recipientName: row.recipient_name,
-    recipientPhone: row.recipient_phone,
-    packageSize: row.package_size,
-    description: row.description,
-    weightKg: row.weight_kg,
-    deliveryNotes: row.delivery_notes || "",
-    distanceKm: row.distance_km,
-    etaMin: row.eta_min,
-    fare: row.fare,
-    paymentMethod: row.payment_method,
-    deliveryPin: row.delivery_pin,
-    createdAt: row.created_at,
-    timeline: timelines.filter((entry) => entry.shipment_id === row.id).map((entry) => ({ status: entry.status, at: entry.at }))
-  }));
+  return database
+    .prepare("SELECT * FROM shipments ORDER BY created_at DESC, rowid DESC")
+    .all()
+    .map((row) => ({
+      id: row.id,
+      customerId: row.customer_id,
+      driverId: row.driver_id,
+      status: row.status,
+      pickup: row.pickup,
+      destination: row.destination,
+      pickupLocation: row.pickup_lat == null ? null : { lat: row.pickup_lat, lng: row.pickup_lng },
+      destinationLocation:
+        row.destination_lat == null ? null : { lat: row.destination_lat, lng: row.destination_lng },
+      recipientName: row.recipient_name,
+      recipientPhone: row.recipient_phone,
+      packageSize: row.package_size,
+      description: row.description,
+      weightKg: row.weight_kg,
+      deliveryNotes: row.delivery_notes || "",
+      distanceKm: row.distance_km,
+      etaMin: row.eta_min,
+      fare: row.fare,
+      paymentMethod: row.payment_method,
+      deliveryPin: row.delivery_pin,
+      createdAt: row.created_at,
+      timeline: timelines
+        .filter((entry) => entry.shipment_id === row.id)
+        .map((entry) => ({ status: entry.status, at: entry.at })),
+    }));
 }
 
 function sanitize(dbState) {
   return {
     ...dbState,
-    users: dbState.users.map(({ password, ...user }) => user)
+    users: dbState.users.map(({ password, ...user }) => user),
   };
 }
 
@@ -1654,103 +1683,136 @@ export function readDb() {
   return {
     meta: getMeta(),
     users: readUsers(),
-    addresses: database.prepare("SELECT * FROM user_addresses ORDER BY rowid").all().map((row) => ({
-      id: row.id,
-      userId: row.user_id,
-      label: row.label,
-      address: row.address,
-      lat: row.lat,
-      lng: row.lng,
-      isDefault: rowBool(row.is_default)
-    })),
-    paymentMethods: database.prepare("SELECT * FROM payment_methods ORDER BY rowid").all().map((row) => ({
-      id: row.id,
-      userId: row.user_id,
-      type: row.type,
-      label: row.label,
-      last4: row.last4,
-      balance: row.balance,
-      isDefault: rowBool(row.is_default)
-    })),
-    walletTransactions: database.prepare("SELECT * FROM wallet_transactions ORDER BY created_at DESC").all().map((row) => ({
-      id: row.id,
-      userId: row.user_id,
-      kind: row.kind,
-      amount: row.amount,
-      description: row.description,
-      createdAt: row.created_at
-    })),
+    addresses: database
+      .prepare("SELECT * FROM user_addresses ORDER BY rowid")
+      .all()
+      .map((row) => ({
+        id: row.id,
+        userId: row.user_id,
+        label: row.label,
+        address: row.address,
+        lat: row.lat,
+        lng: row.lng,
+        isDefault: rowBool(row.is_default),
+      })),
+    paymentMethods: database
+      .prepare("SELECT * FROM payment_methods ORDER BY rowid")
+      .all()
+      .map((row) => ({
+        id: row.id,
+        userId: row.user_id,
+        type: row.type,
+        label: row.label,
+        last4: row.last4,
+        balance: row.balance,
+        isDefault: rowBool(row.is_default),
+      })),
+    walletTransactions: database
+      .prepare("SELECT * FROM wallet_transactions ORDER BY created_at DESC")
+      .all()
+      .map((row) => ({
+        id: row.id,
+        userId: row.user_id,
+        kind: row.kind,
+        amount: row.amount,
+        description: row.description,
+        createdAt: row.created_at,
+      })),
     restaurants: readRestaurants(),
     drivers: readDrivers(),
     orders: readOrders(),
     rides: readRides(),
     shipments: readShipments(),
-    promotions: database.prepare("SELECT * FROM promotions ORDER BY rowid").all().map((row) => ({
-      id: row.id,
-      title: row.title,
-      description: row.description,
-      service: row.service,
-      discountPercent: row.discount_percent,
-      active: rowBool(row.active)
-    })),
-    supportTickets: database.prepare("SELECT * FROM support_tickets ORDER BY rowid").all().map((row) => ({
-      id: row.id,
-      service: row.service,
-      status: row.status,
-      title: row.title,
-      priority: row.priority
-    })),
-    notifications: database.prepare("SELECT * FROM notifications ORDER BY created_at DESC, rowid DESC").all().map((row) => ({
-      id: row.id,
-      userId: row.user_id,
-      channel: row.channel,
-      template: row.template,
-      payload: JSON.parse(row.payload_json || "{}"),
-      status: row.status,
-      readAt: row.read_at,
-      createdAt: row.created_at
-    })),
-    notificationPreferences: database.prepare("SELECT * FROM notification_preferences ORDER BY user_id, category").all().map((row) => ({
-      userId: row.user_id,
-      category: row.category,
-      pushEnabled: rowBool(row.push_enabled),
-      emailEnabled: rowBool(row.email_enabled),
-      updatedAt: row.updated_at
-    })),
-    dietaryPreferences: database.prepare("SELECT * FROM dietary_preferences ORDER BY user_id").all().map((row) => ({
-      userId: row.user_id,
-      dietaryLabels: JSON.parse(row.dietary_labels_json || "[]"),
-      avoidedAllergens: JSON.parse(row.avoided_allergens_json || "[]"),
-      hideIncompatible: rowBool(row.hide_incompatible),
-      updatedAt: row.updated_at
-    })),
-    ratings: database.prepare("SELECT * FROM ratings ORDER BY created_at DESC").all().map((row) => ({
-      id: row.id,
-      targetType: row.target_type,
-      targetId: row.target_id,
-      userId: row.user_id,
-      score: row.score,
-      comment: row.comment,
-      createdAt: row.created_at
-    })),
-    zones: database.prepare("SELECT * FROM zones ORDER BY rowid").all().map((row) => ({
-      id: row.id,
-      name: row.name,
-      demandLevel: row.demand_level,
-      deliveryMultiplier: row.delivery_multiplier,
-      rideMultiplier: row.ride_multiplier,
-      activeOrders: row.active_orders,
-      activeRides: row.active_rides
-    })),
-    auditEvents: database.prepare("SELECT * FROM audit_events ORDER BY created_at DESC").all().map((row) => ({
-      id: row.id,
-      actorId: row.actor_id,
-      entityType: row.entity_type,
-      entityId: row.entity_id,
-      action: row.action,
-      payload: JSON.parse(row.payload_json || "{}"),
-      createdAt: row.created_at
-    }))
+    promotions: database
+      .prepare("SELECT * FROM promotions ORDER BY rowid")
+      .all()
+      .map((row) => ({
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        service: row.service,
+        discountPercent: row.discount_percent,
+        active: rowBool(row.active),
+      })),
+    supportTickets: database
+      .prepare("SELECT * FROM support_tickets ORDER BY rowid")
+      .all()
+      .map((row) => ({
+        id: row.id,
+        service: row.service,
+        status: row.status,
+        title: row.title,
+        priority: row.priority,
+      })),
+    notifications: database
+      .prepare("SELECT * FROM notifications ORDER BY created_at DESC, rowid DESC")
+      .all()
+      .map((row) => ({
+        id: row.id,
+        userId: row.user_id,
+        channel: row.channel,
+        template: row.template,
+        payload: JSON.parse(row.payload_json || "{}"),
+        status: row.status,
+        readAt: row.read_at,
+        createdAt: row.created_at,
+      })),
+    notificationPreferences: database
+      .prepare("SELECT * FROM notification_preferences ORDER BY user_id, category")
+      .all()
+      .map((row) => ({
+        userId: row.user_id,
+        category: row.category,
+        pushEnabled: rowBool(row.push_enabled),
+        emailEnabled: rowBool(row.email_enabled),
+        updatedAt: row.updated_at,
+      })),
+    dietaryPreferences: database
+      .prepare("SELECT * FROM dietary_preferences ORDER BY user_id")
+      .all()
+      .map((row) => ({
+        userId: row.user_id,
+        dietaryLabels: JSON.parse(row.dietary_labels_json || "[]"),
+        avoidedAllergens: JSON.parse(row.avoided_allergens_json || "[]"),
+        hideIncompatible: rowBool(row.hide_incompatible),
+        updatedAt: row.updated_at,
+      })),
+    ratings: database
+      .prepare("SELECT * FROM ratings ORDER BY created_at DESC")
+      .all()
+      .map((row) => ({
+        id: row.id,
+        targetType: row.target_type,
+        targetId: row.target_id,
+        userId: row.user_id,
+        score: row.score,
+        comment: row.comment,
+        createdAt: row.created_at,
+      })),
+    zones: database
+      .prepare("SELECT * FROM zones ORDER BY rowid")
+      .all()
+      .map((row) => ({
+        id: row.id,
+        name: row.name,
+        demandLevel: row.demand_level,
+        deliveryMultiplier: row.delivery_multiplier,
+        rideMultiplier: row.ride_multiplier,
+        activeOrders: row.active_orders,
+        activeRides: row.active_rides,
+      })),
+    auditEvents: database
+      .prepare("SELECT * FROM audit_events ORDER BY created_at DESC")
+      .all()
+      .map((row) => ({
+        id: row.id,
+        actorId: row.actor_id,
+        entityType: row.entity_type,
+        entityId: row.entity_id,
+        action: row.action,
+        payload: JSON.parse(row.payload_json || "{}"),
+        createdAt: row.created_at,
+      })),
   };
 }
 
@@ -1761,8 +1823,8 @@ export function writeDb(dbState) {
       ...dbState.meta,
       version: Math.max(Number(dbState.meta?.version || 0), 5),
       updatedAt: now(),
-      database: "sqlite"
-    }
+      database: "sqlite",
+    },
   };
   replaceTransaction(next);
   return next;
@@ -1804,26 +1866,35 @@ function mapLocalNotification(row) {
     payload: JSON.parse(row.payload_json || "{}"),
     status: row.status,
     createdAt: row.created_at,
-    readAt: row.read_at ? new Date(row.read_at).toISOString() : null
+    readAt: row.read_at ? new Date(row.read_at).toISOString() : null,
   };
 }
 
 export function getLocalNotifications(userId) {
-  return database.prepare(`
+  return database
+    .prepare(
+      `
     SELECT id, channel, template, payload_json, status, created_at, read_at
     FROM notifications
     WHERE user_id = ?
     ORDER BY created_at DESC, rowid DESC
     LIMIT 100
-  `).all(userId).map(mapLocalNotification);
+  `,
+    )
+    .all(userId)
+    .map(mapLocalNotification);
 }
 
 export function markLocalNotificationRead({ userId, notificationId }) {
-  const result = database.prepare(`
+  const result = database
+    .prepare(
+      `
     UPDATE notifications
     SET status = 'read', read_at = COALESCE(read_at, ?)
     WHERE id = ? AND user_id = ?
-  `).run(now(), notificationId, userId);
+  `,
+    )
+    .run(now(), notificationId, userId);
   if (result.changes === 0) {
     throw Object.assign(new Error("Notificación no encontrada"), { status: 404 });
   }
@@ -1832,45 +1903,65 @@ export function markLocalNotificationRead({ userId, notificationId }) {
 
 export function getLocalNotificationPreferences(userId) {
   ensureLocalNotificationPreferences(userId);
-  return database.prepare(`
+  return database
+    .prepare(
+      `
     SELECT category, push_enabled, email_enabled, updated_at
     FROM notification_preferences
     WHERE user_id = ?
     ORDER BY category
-  `).all(userId).map((row) => ({
-    category: row.category,
-    pushEnabled: rowBool(row.push_enabled),
-    emailEnabled: rowBool(row.email_enabled),
-    updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : null
-  }));
+  `,
+    )
+    .all(userId)
+    .map((row) => ({
+      category: row.category,
+      pushEnabled: rowBool(row.push_enabled),
+      emailEnabled: rowBool(row.email_enabled),
+      updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : null,
+    }));
 }
 
 export function updateLocalNotificationPreference({ userId, category, pushEnabled, emailEnabled }) {
   ensureLocalNotificationPreferences(userId);
-  database.prepare(`
+  database
+    .prepare(
+      `
     UPDATE notification_preferences
     SET push_enabled = ?, email_enabled = ?, updated_at = ?
     WHERE user_id = ? AND category = ?
-  `).run(boolToInt(pushEnabled), boolToInt(emailEnabled), now(), userId, category);
+  `,
+    )
+    .run(boolToInt(pushEnabled), boolToInt(emailEnabled), now(), userId, category);
   return getLocalNotificationPreferences(userId);
 }
 
 export function getLocalDietaryPreferences(userId) {
-  const row = database.prepare(`
+  const row = database
+    .prepare(
+      `
     SELECT dietary_labels_json, avoided_allergens_json, hide_incompatible
     FROM dietary_preferences
     WHERE user_id = ?
-  `).get(userId);
+  `,
+    )
+    .get(userId);
   if (!row) return { dietaryLabels: [], avoidedAllergens: [], hideIncompatible: false };
   return {
     dietaryLabels: JSON.parse(row.dietary_labels_json || "[]"),
     avoidedAllergens: JSON.parse(row.avoided_allergens_json || "[]"),
-    hideIncompatible: rowBool(row.hide_incompatible)
+    hideIncompatible: rowBool(row.hide_incompatible),
   };
 }
 
-export function replaceLocalDietaryPreferences({ userId, dietaryLabels, avoidedAllergens, hideIncompatible }) {
-  database.prepare(`
+export function replaceLocalDietaryPreferences({
+  userId,
+  dietaryLabels,
+  avoidedAllergens,
+  hideIncompatible,
+}) {
+  database
+    .prepare(
+      `
     INSERT INTO dietary_preferences (
       user_id, dietary_labels_json, avoided_allergens_json, hide_incompatible, updated_at
     ) VALUES (?, ?, ?, ?, ?)
@@ -1879,13 +1970,15 @@ export function replaceLocalDietaryPreferences({ userId, dietaryLabels, avoidedA
       avoided_allergens_json = excluded.avoided_allergens_json,
       hide_incompatible = excluded.hide_incompatible,
       updated_at = excluded.updated_at
-  `).run(
-    userId,
-    JSON.stringify(dietaryLabels),
-    JSON.stringify(avoidedAllergens),
-    boolToInt(hideIncompatible),
-    now()
-  );
+  `,
+    )
+    .run(
+      userId,
+      JSON.stringify(dietaryLabels),
+      JSON.stringify(avoidedAllergens),
+      boolToInt(hideIncompatible),
+      now(),
+    );
   return getLocalDietaryPreferences(userId);
 }
 
@@ -1906,7 +1999,7 @@ export function createLocalProductEvents({ userId, events }) {
         event.sessionId,
         JSON.stringify(event.properties || {}),
         event.occurredAt,
-        now()
+        now(),
       ).changes;
     }
     return accepted;
@@ -1917,11 +2010,15 @@ export function createLocalProductEvents({ userId, events }) {
 
 export function getLocalProductMetrics({ days = 7 } = {}) {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
-  const rows = database.prepare(`
+  const rows = database
+    .prepare(
+      `
     SELECT name, user_id
     FROM product_events
     WHERE occurred_at >= ?
-  `).all(since);
+  `,
+    )
+    .all(since);
   const byName = {};
   for (const row of rows) {
     const metric = byName[row.name] || { events: 0, users: new Set() };
@@ -1929,10 +2026,12 @@ export function getLocalProductMetrics({ days = 7 } = {}) {
     metric.users.add(row.user_id);
     byName[row.name] = metric;
   }
-  const events = Object.fromEntries(Object.entries(byName).map(([name, metric]) => [
-    name,
-    { events: metric.events, users: metric.users.size }
-  ]));
+  const events = Object.fromEntries(
+    Object.entries(byName).map(([name, metric]) => [
+      name,
+      { events: metric.events, users: metric.users.size },
+    ]),
+  );
   const usersFor = (name) => events[name]?.users || 0;
   const homeUsers = usersFor("home_viewed");
   const checkoutUsers = usersFor("checkout_started");
@@ -1945,15 +2044,19 @@ export function getLocalProductMetrics({ days = 7 } = {}) {
       checkoutUsers,
       createdUsers,
       homeToCheckoutPercent: homeUsers ? Math.round((checkoutUsers / homeUsers) * 1000) / 10 : 0,
-      checkoutToCreatedPercent: checkoutUsers ? Math.round((createdUsers / checkoutUsers) * 1000) / 10 : 0
-    }
+      checkoutToCreatedPercent: checkoutUsers
+        ? Math.round((createdUsers / checkoutUsers) * 1000) / 10
+        : 0,
+    },
   };
 }
 
 export function deleteLocalProductEvents(ids) {
   if (!ids.length) return 0;
   const placeholders = ids.map(() => "?").join(",");
-  return database.prepare(`DELETE FROM product_events WHERE public_id IN (${placeholders})`).run(...ids).changes;
+  return database
+    .prepare(`DELETE FROM product_events WHERE public_id IN (${placeholders})`)
+    .run(...ids).changes;
 }
 
 export function pruneLocalProductEvents({ retentionDays = 90 } = {}) {
@@ -1968,17 +2071,25 @@ export function createLocalNotification({
   template,
   payload = {},
   status = "sent",
-  deduplicationKey
+  deduplicationKey,
 }) {
   if (deduplicationKey) {
-    const existing = database.prepare("SELECT id FROM notifications WHERE user_id = ? AND template = ? AND payload_json = ? LIMIT 1").get(userId, template, JSON.stringify(payload));
+    const existing = database
+      .prepare(
+        "SELECT id FROM notifications WHERE user_id = ? AND template = ? AND payload_json = ? LIMIT 1",
+      )
+      .get(userId, template, JSON.stringify(payload));
     if (existing) return existing.id;
   }
   const id = createId("NTF");
-  database.prepare(`
+  database
+    .prepare(
+      `
     INSERT INTO notifications (id, user_id, channel, template, payload_json, status, read_at, created_at)
     VALUES (?, ?, ?, ?, ?, ?, NULL, ?)
-  `).run(id, userId, channel, template, JSON.stringify(payload), status, now());
+  `,
+    )
+    .run(id, userId, channel, template, JSON.stringify(payload), status, now());
   return id;
 }
 
@@ -1989,19 +2100,34 @@ export function createAuthSession(userId, deviceName = "unknown") {
   const refreshToken = crypto.randomBytes(48).toString("base64url");
   const createdAt = now();
   const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-  database.prepare(`
+  database
+    .prepare(
+      `
     INSERT INTO auth_sessions (id, user_id, refresh_token_hash, device_name, expires_at, revoked_at, created_at)
     VALUES (?, ?, ?, ?, ?, NULL, ?)
-  `).run(id, userId, hashRefreshToken(refreshToken), String(deviceName).slice(0, 160), expiresAt, createdAt);
+  `,
+    )
+    .run(
+      id,
+      userId,
+      hashRefreshToken(refreshToken),
+      String(deviceName).slice(0, 160),
+      expiresAt,
+      createdAt,
+    );
   return { id, refreshToken, expiresAt };
 }
 
 export function consumeAuthSession(refreshToken, deviceName = "unknown") {
   const tokenHash = hashRefreshToken(String(refreshToken || ""));
-  const session = database.prepare(`
+  const session = database
+    .prepare(
+      `
     SELECT * FROM auth_sessions
     WHERE refresh_token_hash = ? AND revoked_at IS NULL AND expires_at > ?
-  `).get(tokenHash, now());
+  `,
+    )
+    .get(tokenHash, now());
   if (!session) return null;
   const replacement = database.transaction(() => {
     database.prepare("UPDATE auth_sessions SET revoked_at = ? WHERE id = ?").run(now(), session.id);
@@ -2011,9 +2137,13 @@ export function consumeAuthSession(refreshToken, deviceName = "unknown") {
 }
 
 export function revokeAuthSession(refreshToken) {
-  const result = database.prepare(`
+  const result = database
+    .prepare(
+      `
     UPDATE auth_sessions SET revoked_at = ?
     WHERE refresh_token_hash = ? AND revoked_at IS NULL
-  `).run(now(), hashRefreshToken(String(refreshToken || "")));
+  `,
+    )
+    .run(now(), hashRefreshToken(String(refreshToken || "")));
   return result.changes > 0;
 }

@@ -108,11 +108,15 @@ export default function FlashNativeMap({
     Constants.expoConfig?.extra?.maps?.androidGoogleMapsConfigured !== true
   ) {
     return (
-      <View style={[styles.shell, styles.webFallback, { height }]} accessibilityLabel={accessibilityLabel}>
+      <View
+        style={[styles.shell, styles.webFallback, { height }]}
+        accessibilityLabel={accessibilityLabel}
+      >
         <Ionicons name="map-outline" size={28} color="#7c3cff" />
         <Text style={styles.webFallbackTitle}>Mapa Android pendiente de configuración</Text>
         <Text style={styles.webFallbackText}>
-          Configurá la clave restringida de Google Maps y generá un nuevo build. {caption} · {detail}
+          Configurá la clave restringida de Google Maps y generá un nuevo build. {caption} ·{" "}
+          {detail}
         </Text>
       </View>
     );
@@ -143,31 +147,72 @@ export default function FlashNativeMap({
       >
         {validRoute.length > 1 && (
           <>
-            <Polyline coordinates={validRoute.map(coordinate)} strokeColor="rgba(255,255,255,.98)" strokeWidth={10} lineCap="round" lineJoin="round" />
-            <Polyline coordinates={validRoute.map(coordinate)} strokeColor={routeColor} strokeWidth={5} lineCap="round" lineJoin="round" />
+            <Polyline
+              coordinates={validRoute.map(coordinate)}
+              strokeColor="rgba(255,255,255,.98)"
+              strokeWidth={10}
+              lineCap="round"
+              lineJoin="round"
+            />
+            <Polyline
+              coordinates={validRoute.map(coordinate)}
+              strokeColor={routeColor}
+              strokeWidth={5}
+              lineCap="round"
+              lineJoin="round"
+            />
           </>
         )}
-        <Marker coordinate={coordinate(origin)} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
+        <Marker
+          coordinate={coordinate(origin)}
+          anchor={{ x: 0.5, y: 0.5 }}
+          tracksViewChanges={false}
+        >
           {originRole === "driver" ? (
-            <View style={styles.driverMarker}><Ionicons name={driverIcon} size={20} color="#fff" /></View>
+            <View style={styles.driverMarker}>
+              <Ionicons name={driverIcon} size={20} color="#fff" />
+            </View>
           ) : (
-            <View style={styles.originMarker}><View style={styles.originCore} /></View>
+            <View style={styles.originMarker}>
+              <View style={styles.originCore} />
+            </View>
           )}
         </Marker>
-        <Marker coordinate={coordinate(destination)} anchor={{ x: 0.5, y: 0.84 }} tracksViewChanges={false}>
-          <View style={styles.destinationMarker}><Ionicons name="flag" size={16} color="#fff" /></View>
+        <Marker
+          coordinate={coordinate(destination)}
+          anchor={{ x: 0.5, y: 0.84 }}
+          tracksViewChanges={false}
+        >
+          <View style={styles.destinationMarker}>
+            <Ionicons name="flag" size={16} color="#fff" />
+          </View>
         </Marker>
         {valid(driver) && (
-          <Marker coordinate={coordinate(driver)} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges={false}>
-            <View style={styles.driverMarker}><Ionicons name={driverIcon} size={20} color="#fff" /></View>
+          <Marker
+            coordinate={coordinate(driver)}
+            anchor={{ x: 0.5, y: 0.5 }}
+            tracksViewChanges={false}
+          >
+            <View style={styles.driverMarker}>
+              <Ionicons name={driverIcon} size={20} color="#fff" />
+            </View>
           </Marker>
         )}
       </MapView>
       <View style={styles.caption} pointerEvents="none">
-        <Text style={styles.captionTitle} numberOfLines={1}>{caption}</Text>
-        <Text style={styles.captionDetail} numberOfLines={1}>{detail}</Text>
+        <Text style={styles.captionTitle} numberOfLines={1}>
+          {caption}
+        </Text>
+        <Text style={styles.captionDetail} numberOfLines={1}>
+          {detail}
+        </Text>
       </View>
-      <Pressable style={styles.recenter} onPress={() => fit(true)} accessibilityRole="button" accessibilityLabel="Reencuadrar todo el recorrido">
+      <Pressable
+        style={styles.recenter}
+        onPress={() => fit(true)}
+        accessibilityRole="button"
+        accessibilityLabel="Reencuadrar todo el recorrido"
+      >
         <Ionicons name="scan-outline" size={21} color="#7c3cff" />
       </Pressable>
     </View>
@@ -258,5 +303,11 @@ const styles = StyleSheet.create({
   },
   webFallback: { alignItems: "center", justifyContent: "center", gap: 7, padding: 24 },
   webFallbackTitle: { color: "#17131c", fontSize: 13, fontWeight: "900", textAlign: "center" },
-  webFallbackText: { color: "#716a76", fontSize: 11, fontWeight: "600", lineHeight: 16, textAlign: "center" },
+  webFallbackText: {
+    color: "#716a76",
+    fontSize: 11,
+    fontWeight: "600",
+    lineHeight: 16,
+    textAlign: "center",
+  },
 });

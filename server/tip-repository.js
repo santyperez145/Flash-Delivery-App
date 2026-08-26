@@ -2,8 +2,7 @@ import crypto from "node:crypto";
 import { postgresPool } from "./postgres.js";
 import { enqueueNotificationForInternalUser } from "./notification-repository.js";
 
-const publicId = () =>
-  `TIP-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
+const publicId = () => `TIP-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
 const mapTip = (row) => ({
   id: row.public_id,
   jobId: row.job_public_id,
@@ -13,8 +12,7 @@ const mapTip = (row) => ({
   createdAt: new Date(row.created_at).toISOString(),
 });
 const tipSelect = `SELECT t.*,j.public_id job_public_id,c.public_id customer_public_id,d.public_id driver_public_id FROM service_tips t JOIN jobs j ON j.id=t.job_id JOIN users c ON c.id=t.customer_id JOIN drivers d ON d.id=t.driver_id`;
-const adjustmentId = () =>
-  `TADJ-${crypto.randomBytes(5).toString("hex").toUpperCase()}`;
+const adjustmentId = () => `TADJ-${crypto.randomBytes(5).toString("hex").toUpperCase()}`;
 const adjustmentSelect = `SELECT a.*,t.public_id tip_public_id,t.amount_cents tip_amount_cents,j.public_id job_public_id,c.public_id customer_public_id,d.public_id driver_public_id,requester.public_id requested_by_public_id,reviewer.public_id reviewed_by_public_id
   FROM service_tip_adjustments a JOIN service_tips t ON t.id=a.tip_id JOIN jobs j ON j.id=t.job_id JOIN users c ON c.id=t.customer_id JOIN drivers d ON d.id=t.driver_id JOIN users requester ON requester.id=a.requested_by LEFT JOIN users reviewer ON reviewer.id=a.reviewed_by`;
 const mapAdjustment = (row) => ({
@@ -42,19 +40,12 @@ export async function getPostgresTips({ userPublicId, roles = [] }) {
   return result.rows.map(mapTip);
 }
 
-export async function createPostgresTip({
-  jobPublicId,
-  customerPublicId,
-  amount,
-  idempotencyKey,
-}) {
+export async function createPostgresTip({ jobPublicId, customerPublicId, amount, idempotencyKey }) {
   const client = await postgresPool.connect();
   try {
     await client.query("BEGIN");
     const existing = (
-      await client.query(`${tipSelect} WHERE t.idempotency_key=$1`, [
-        idempotencyKey,
-      ])
+      await client.query(`${tipSelect} WHERE t.idempotency_key=$1`, [idempotencyKey])
     ).rows[0];
     if (existing) {
       await client.query("ROLLBACK");
@@ -71,15 +62,11 @@ export async function createPostgresTip({
         status: 404,
       });
     if (job.status !== "completed" || !job.driver_id)
-      throw Object.assign(
-        new Error("Sólo puedes dar propina después de completar el servicio"),
-        { status: 409 },
-      );
+      throw Object.assign(new Error("Sólo puedes dar propina después de completar el servicio"), {
+        status: 409,
+      });
     if (String(job.customer_id) === String(job.driver_user_id))
-      throw Object.assign(
-        new Error("No puedes enviarte una propina a ti mismo"),
-        { status: 409 },
-      );
+      throw Object.assign(new Error("No puedes enviarte una propina a ti mismo"), { status: 409 });
     const amountCents = Math.round(amount * 100),
       maxCents = Math.min(
         10000000,
@@ -87,15 +74,11 @@ export async function createPostgresTip({
       );
     if (amountCents > maxCents)
       throw Object.assign(
-        new Error(
-          `La propina máxima para este servicio es $${(maxCents / 100).toFixed(0)}`,
-        ),
+        new Error(`La propina máxima para este servicio es $${(maxCents / 100).toFixed(0)}`),
         { status: 409 },
       );
     const duplicate = (
-      await client.query("SELECT public_id FROM service_tips WHERE job_id=$1", [
-        job.id,
-      ])
+      await client.query("SELECT public_id FROM service_tips WHERE job_id=$1", [job.id])
     ).rows[0];
     if (duplicate)
       throw Object.assign(new Error("Este servicio ya tiene propina"), {
@@ -111,10 +94,9 @@ export async function createPostgresTip({
       driverAccount = accounts.rows.find(
         (row) => String(row.owner_id) === String(job.driver_user_id),
       );
-    await client.query(
-      "SELECT id FROM ledger_accounts WHERE id=ANY($1) ORDER BY id FOR UPDATE",
-      [[customerAccount.id, driverAccount.id]],
-    );
+    await client.query("SELECT id FROM ledger_accounts WHERE id=ANY($1) ORDER BY id FOR UPDATE", [
+      [customerAccount.id, driverAccount.id],
+    ]);
     const balance = Number(
       (
         await client.query(
@@ -203,22 +185,18 @@ export async function requestTipAdjustment({
   try {
     await client.query("BEGIN");
     const existing = (
-      await client.query(`${adjustmentSelect} WHERE a.idempotency_key=$1`, [
-        idempotencyKey,
-      ])
+      await client.query(`${adjustmentSelect} WHERE a.idempotency_key=$1`, [idempotencyKey])
     ).rows[0];
     if (existing) {
       await client.query("ROLLBACK");
       return mapAdjustment(existing);
     }
     const tip = (
-      await client.query(
-        "SELECT id,amount_cents FROM service_tips WHERE public_id=$1 FOR UPDATE",
-        [tipPublicId],
-      )
+      await client.query("SELECT id,amount_cents FROM service_tips WHERE public_id=$1 FOR UPDATE", [
+        tipPublicId,
+      ])
     ).rows[0];
-    if (!tip)
-      throw Object.assign(new Error("Propina no encontrada"), { status: 404 });
+    if (!tip) throw Object.assign(new Error("Propina no encontrada"), { status: 404 });
     const amountCents = Math.round(amount * 100),
       alreadyRequested = Number(
         (
@@ -229,21 +207,13 @@ export async function requestTipAdjustment({
         ).rows[0].cents,
       );
     if (alreadyRequested + amountCents > Number(tip.amount_cents))
-      throw Object.assign(
-        new Error("El ajuste supera el saldo corregible de la propina"),
-        { status: 409 },
-      );
+      throw Object.assign(new Error("El ajuste supera el saldo corregible de la propina"), {
+        status: 409,
+      });
     const row = (
       await client.query(
         `INSERT INTO service_tip_adjustments(public_id,tip_id,amount_cents,reason,requested_by,idempotency_key) SELECT $1,$2,$3,$4,u.id,$5 FROM users u WHERE u.public_id=$6 RETURNING *`,
-        [
-          adjustmentId(),
-          tip.id,
-          amountCents,
-          reason,
-          idempotencyKey,
-          actorPublicId,
-        ],
+        [adjustmentId(), tip.id, amountCents, reason, idempotencyKey, actorPublicId],
       )
     ).rows[0];
     if (!row)
@@ -252,8 +222,7 @@ export async function requestTipAdjustment({
       });
     await client.query("COMMIT");
     return mapAdjustment(
-      (await postgresPool.query(`${adjustmentSelect} WHERE a.id=$1`, [row.id]))
-        .rows[0],
+      (await postgresPool.query(`${adjustmentSelect} WHERE a.id=$1`, [row.id])).rows[0],
     );
   } catch (error) {
     await client.query("ROLLBACK");
@@ -263,28 +232,20 @@ export async function requestTipAdjustment({
   }
 }
 
-export async function reviewTipAdjustment({
-  adjustmentPublicId,
-  actorPublicId,
-  decision,
-  note,
-}) {
+export async function reviewTipAdjustment({ adjustmentPublicId, actorPublicId, decision, note }) {
   const client = await postgresPool.connect();
   try {
     await client.query("BEGIN");
     const adjustment = (
-      await client.query(
-        `${adjustmentSelect} WHERE a.public_id=$1 FOR UPDATE OF a`,
-        [adjustmentPublicId],
-      )
+      await client.query(`${adjustmentSelect} WHERE a.public_id=$1 FOR UPDATE OF a`, [
+        adjustmentPublicId,
+      ])
     ).rows[0];
-    if (!adjustment)
-      throw Object.assign(new Error("Ajuste no encontrado"), { status: 404 });
+    if (!adjustment) throw Object.assign(new Error("Ajuste no encontrado"), { status: 404 });
     if (adjustment.requested_by_public_id === actorPublicId)
-      throw Object.assign(
-        new Error("Quien solicita no puede revisar su propio ajuste"),
-        { status: 409 },
-      );
+      throw Object.assign(new Error("Quien solicita no puede revisar su propio ajuste"), {
+        status: 409,
+      });
     if (adjustment.status !== "pending") {
       if ((adjustment.status === "approved") === (decision === "approved")) {
         await client.query("ROLLBACK");
@@ -295,12 +256,9 @@ export async function reviewTipAdjustment({
       });
     }
     const reviewer = (
-      await client.query("SELECT id FROM users WHERE public_id=$1", [
-        actorPublicId,
-      ])
+      await client.query("SELECT id FROM users WHERE public_id=$1", [actorPublicId])
     ).rows[0];
-    if (!reviewer)
-      throw Object.assign(new Error("Revisor no encontrado"), { status: 404 });
+    if (!reviewer) throw Object.assign(new Error("Revisor no encontrado"), { status: 404 });
     if (decision === "rejected")
       await client.query(
         "UPDATE service_tip_adjustments SET status='rejected',reviewed_by=$2,review_note=$3,reviewed_at=now() WHERE id=$1",
@@ -323,10 +281,9 @@ export async function reviewTipAdjustment({
         driverAccount = accounts.rows.find(
           (row) => String(row.owner_id) === String(participants.driver_user_id),
         );
-      await client.query(
-        "SELECT id FROM ledger_accounts WHERE id=ANY($1) ORDER BY id FOR UPDATE",
-        [[customerAccount.id, driverAccount.id]],
-      );
+      await client.query("SELECT id FROM ledger_accounts WHERE id=ANY($1) ORDER BY id FOR UPDATE", [
+        [customerAccount.id, driverAccount.id],
+      ]);
       const transaction = (
         await client.query(
           "INSERT INTO ledger_transactions(idempotency_key,kind,actor_id,description,metadata) VALUES($1,'tip_adjustment',$2,$3,$4) RETURNING id",
@@ -382,11 +339,8 @@ export async function reviewTipAdjustment({
     }
     await client.query("COMMIT");
     return mapAdjustment(
-      (
-        await postgresPool.query(`${adjustmentSelect} WHERE a.public_id=$1`, [
-          adjustmentPublicId,
-        ])
-      ).rows[0],
+      (await postgresPool.query(`${adjustmentSelect} WHERE a.public_id=$1`, [adjustmentPublicId]))
+        .rows[0],
     );
   } catch (error) {
     await client.query("ROLLBACK");
