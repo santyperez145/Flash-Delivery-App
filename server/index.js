@@ -27,7 +27,7 @@ import {
   requireAnyRole,
 } from "./http/authorization.js";
 import { auditRuntime } from "./audit-trail.js";
-import { audit, readDb, sqliteReadCount } from "./fallback-runtime.js";
+import { audit, readDb, scopeStateForRequest, sqliteReadCount } from "./fallback-runtime.js";
 import { requireAuth } from "./http/authentication.js";
 import { addressesRouter } from "./http/addresses-router.js";
 import { dietaryRouter } from "./http/dietary-router.js";
@@ -43,6 +43,8 @@ import { mapsRouter } from "./http/maps-router.js";
 import { rideContextRouter } from "./http/ride-context-router.js";
 import { driverFleetRouter } from "./http/driver-fleet-router.js";
 import { shipmentProtectionRouter } from "./http/shipment-protection-router.js";
+import { paymentMethodsRouter } from "./http/payment-methods-router.js";
+import { supportRouter } from "./http/support-router.js";
 import {
   createLimiter,
   deliveryProofLimiter,
@@ -75,9 +77,6 @@ import {
   findAuthUserByPublicId,
   getPostgresAddresses,
   getPostgresPaymentMethods,
-  createSandboxPaymentMethod,
-  setDefaultPostgresPaymentMethod,
-  revokePostgresPaymentMethod,
   getPostgresUsers,
   getPostgresOperationsUserPage,
   getPostgresUserSessions,
@@ -182,8 +181,6 @@ import {
   setRiskEntity,
 } from "./risk-repository.js";
 import {
-  addPostgresSupportMessage,
-  createPostgresSupportTicket,
   getPostgresAdminFinancials,
   getPostgresAuditEvents,
   getPostgresAuditEventPage,
@@ -193,7 +190,6 @@ import {
   processSupportQueue,
   recordPostgresAudit,
   updateSupportAgent,
-  updatePostgresSupportTicket,
 } from "./operations-repository.js";
 import {
   createPostgresPricingChangeRequest,
@@ -767,28 +763,6 @@ const driverDocumentReviewSchema = z
         message: "Explica el rechazo",
       });
   });
-const sandboxPaymentMethodSchema = z
-  .object({
-    providerToken: z.string().regex(/^pm_test_[A-Za-z0-9_-]{8,120}$/, "Token sandbox inválido"),
-    brand: z.enum(["visa", "mastercard", "amex", "cabal"]),
-    last4: z.string().regex(/^\d{4}$/),
-    expiryMonth: z.coerce.number().int().min(1).max(12),
-    expiryYear: z.coerce
-      .number()
-      .int()
-      .min(new Date().getUTCFullYear())
-      .max(new Date().getUTCFullYear() + 25),
-    isDefault: z.boolean().default(false),
-  })
-  .superRefine((value, ctx) => {
-    const now = new Date();
-    if (value.expiryYear === now.getUTCFullYear() && value.expiryMonth < now.getUTCMonth() + 1)
-      ctx.addIssue({
-        code: "custom",
-        path: ["expiryMonth"],
-        message: "La tarjeta está vencida",
-      });
-  });
 const paymentReconciliationResolutionSchema = z.object({
   status: z.enum(["resolved", "ignored"]),
   resolutionNote: z.string().trim().min(5).max(1000),
@@ -798,13 +772,6 @@ const transactionRiskReviewSchema = z.object({
   reviewNote: z.string().trim().min(5).max(1000),
 });
 
-const supportTicketCreateSchema = z.object({
-  category: z.enum(["food", "ride", "shipment", "payment", "account", "safety", "other"]),
-  priority: z.enum(["low", "normal", "high", "urgent"]).default("normal"),
-  subject: z.string().trim().min(4).max(160),
-  body: z.string().trim().min(4).max(5000),
-  jobId: z.string().trim().max(64).optional(),
-});
 const rideTrackingCreateSchema = z.object({
   ttlMinutes: z.coerce.number().int().min(15).max(1440).default(180),
 });
@@ -852,19 +819,6 @@ const serviceQuickReplyCreateSchema = z.object(serviceQuickReplyFields),
       ),
     )
     .refine((value) => Object.keys(value).length > 0, "No hay cambios");
-const supportMessageSchema = z.object({
-  body: z.string().trim().min(1).max(5000),
-  internal: z.boolean().default(false),
-});
-const supportTicketUpdateSchema = z
-  .object({
-    status: z
-      .enum(["open", "waiting_customer", "waiting_operations", "resolved", "closed"])
-      .optional(),
-    priority: z.enum(["low", "normal", "high", "urgent"]).optional(),
-    assignedTo: z.string().trim().max(64).optional(),
-  })
-  .refine((value) => Object.keys(value).length > 0, "Debes indicar un cambio");
 const supportAgentUpdateSchema = z
   .object({
     availability: z.enum(["available", "busy", "offline"]).optional(),
@@ -1462,82 +1416,6 @@ function calculateRideQuote(
     estimated: coordinateDistance === null,
     routingMode: coordinateDistance === null ? "text-estimate" : "coordinates",
   };
-}
-
-function scopeStateForRequest(state, req) {
-  if (isAdmin(req) || hasRole(req, "support")) return state;
-  const userId = req.auth.userId;
-  const scoped = { ...state };
-  scoped.users = state.users.filter((user) => user.id === userId);
-  scoped.addresses = (state.addresses || []).filter((entry) => entry.userId === userId);
-  scoped.paymentMethods = (state.paymentMethods || []).filter((entry) => entry.userId === userId);
-  scoped.walletTransactions = (state.walletTransactions || []).filter(
-    (entry) => entry.userId === userId,
-  );
-  scoped.supportTickets = (state.supportTickets || []).filter(
-    (entry) => !entry.userId || entry.userId === userId,
-  );
-  scoped.ratings = (state.ratings || []).filter((entry) => entry.userId === userId);
-  scoped.auditEvents = [];
-
-  if (hasRole(req, "customer")) {
-    scoped.orders = state.orders.filter((entry) => entry.customerId === userId);
-    scoped.rides = state.rides.filter((entry) => entry.customerId === userId);
-    scoped.shipments = (state.shipments || []).filter((entry) => entry.customerId === userId);
-    const assignedDriverIds = new Set(
-      [
-        ...scoped.orders.map((entry) => entry.courierId),
-        ...scoped.rides.map((entry) => entry.driverId),
-        ...scoped.shipments.map((entry) => entry.driverId),
-      ].filter(Boolean),
-    );
-    scoped.drivers = state.drivers.filter((entry) => assignedDriverIds.has(entry.id));
-  } else if (hasRole(req, "merchant")) {
-    scoped.restaurants = state.restaurants.filter((entry) => entry.ownerId === userId);
-    const merchantIds = new Set(scoped.restaurants.map((entry) => entry.id));
-    scoped.orders = state.orders.filter((entry) => merchantIds.has(entry.restaurantId));
-    scoped.rides = [];
-    scoped.shipments = [];
-    const courierIds = new Set(scoped.orders.map((entry) => entry.courierId).filter(Boolean));
-    scoped.drivers = state.drivers.filter((entry) => courierIds.has(entry.id));
-  } else if (hasRole(req, "driver")) {
-    const driverId = req.auth.user.driverId;
-    scoped.orders = state.orders
-      .filter((entry) => !entry.courierId || entry.courierId === driverId)
-      .map((entry) =>
-        entry.courierId === driverId
-          ? entry
-          : {
-              ...entry,
-              customerId: "private",
-              deliveryAddress: "Disponible después de aceptar",
-              items: entry.items.map((item) => ({ ...item, note: "" })),
-            },
-      );
-    scoped.rides = state.rides
-      .filter((entry) => !entry.driverId || entry.driverId === driverId)
-      .map((entry) => (entry.driverId === driverId ? entry : { ...entry, customerId: "private" }));
-    scoped.shipments = (state.shipments || [])
-      .filter((entry) => !entry.driverId || entry.driverId === driverId)
-      .map((entry) =>
-        entry.driverId === driverId
-          ? entry
-          : {
-              ...entry,
-              customerId: "private",
-              recipientName: "Oculto hasta aceptar",
-              recipientPhone: "Oculto",
-              deliveryNotes: "",
-            },
-      );
-    scoped.drivers = state.drivers.filter((entry) => entry.id === driverId);
-  } else {
-    scoped.orders = [];
-    scoped.rides = [];
-    scoped.shipments = [];
-    scoped.drivers = [];
-  }
-  return scoped;
 }
 
 async function loadRuntimeState(req) {
@@ -3373,214 +3251,9 @@ app.patch(
   },
 );
 
-app.post(
-  "/api/payment-methods/sandbox",
-  requireAuth,
-  requireAnyRole("customer", "admin"),
-  async (req, res) => {
-    if (config.isProduction) return fail(res, 404, "Ruta no disponible");
-    const parsed = parseOrFail(sandboxPaymentMethodSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const paymentMethod = await createSandboxPaymentMethod({
-        userPublicId: req.auth.userId,
-        ...parsed.data,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "payment_method.created",
-        entityType: "payment_method",
-        entityId: paymentMethod.id,
-        requestId: req.requestId,
-        afterData: {
-          provider: "sandbox",
-          brand: paymentMethod.brand,
-          last4: paymentMethod.last4,
-        },
-      });
-      return res.status(201).json({ ok: true, requestId: req.requestId, paymentMethod });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo registrar el método de pago");
-    }
-  },
-);
-app.patch(
-  "/api/payment-methods/:paymentMethodId/default",
-  requireAuth,
-  requireAnyRole("customer", "admin"),
-  async (req, res) => {
-    try {
-      const paymentMethod = await setDefaultPostgresPaymentMethod({
-        userPublicId: req.auth.userId,
-        paymentMethodId: req.params.paymentMethodId,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "payment_method.default_changed",
-        entityType: "payment_method",
-        entityId: paymentMethod.id,
-        requestId: req.requestId,
-      });
-      return ok(res, { paymentMethod });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo cambiar el método predeterminado");
-    }
-  },
-);
-app.delete(
-  "/api/payment-methods/:paymentMethodId",
-  requireAuth,
-  requireAnyRole("customer", "admin"),
-  async (req, res) => {
-    try {
-      const paymentMethods = await revokePostgresPaymentMethod({
-        userPublicId: req.auth.userId,
-        paymentMethodId: req.params.paymentMethodId,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "payment_method.revoked",
-        entityType: "payment_method",
-        entityId: req.params.paymentMethodId,
-        requestId: req.requestId,
-      });
-      return ok(res, {
-        paymentMethods: paymentMethods.filter((entry) => entry.userId === req.auth.userId),
-      });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo eliminar el método de pago");
-    }
-  },
-);
+app.use(paymentMethodsRouter);
 
-app.get("/api/support/tickets", requireAuth, async (req, res) => {
-  if (!usesPostgresCommerce())
-    return ok(res, {
-      tickets: scopeStateForRequest(getPublicState(), req).supportTickets || [],
-    });
-  try {
-    return ok(res, {
-      tickets: await getPostgresSupportTickets({
-        userPublicId: req.auth.userId,
-        roles: req.auth.roles,
-      }),
-    });
-  } catch (error) {
-    return failFrom(res, error, "No se pudo cargar soporte");
-  }
-});
-app.post("/api/support/tickets", requireAuth, async (req, res) => {
-  if (!usesPostgresCommerce()) return fail(res, 503, "Soporte real requiere PostgreSQL");
-  const idempotencyKey = String(req.get("idempotency-key") || "");
-  if (!/^[a-zA-Z0-9._:-]{16,128}$/.test(idempotencyKey))
-    return fail(res, 400, "Idempotency-Key válido es obligatorio");
-  const parsed = parseOrFail(supportTicketCreateSchema, req.body || {});
-  if (!parsed.ok) return fail(res, 400, parsed.message);
-  try {
-    const created = await createPostgresSupportTicket({
-      userPublicId: req.auth.userId,
-      idempotencyKey,
-      ...parsed.data,
-      jobPublicId: parsed.data.jobId,
-    });
-    const ticket = created.ticket;
-    if (!created.replayed)
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "support.created",
-        entityType: "support_ticket",
-        entityId: ticket.id,
-        requestId: req.requestId,
-        afterData: {
-          category: parsed.data.category,
-          priority: parsed.data.priority,
-        },
-      });
-    if (!created.replayed)
-      await publishRealtimeEvent({
-        req,
-        type: "support.updated",
-        entityType: "support_ticket",
-        entityId: ticket.id,
-        action: "support.created",
-      });
-    return res.status(201).json({ ok: true, requestId: res.locals.requestId, ticket });
-  } catch (error) {
-    return failFrom(res, error, "No se pudo crear el ticket");
-  }
-});
-app.post("/api/support/tickets/:ticketId/messages", requireAuth, async (req, res) => {
-  if (!usesPostgresCommerce()) return fail(res, 503, "Soporte real requiere PostgreSQL");
-  const idempotencyKey = String(req.get("idempotency-key") || "");
-  if (!/^[a-zA-Z0-9._:-]{16,128}$/.test(idempotencyKey))
-    return fail(res, 400, "Idempotency-Key válido es obligatorio");
-  const parsed = parseOrFail(supportMessageSchema, req.body || {});
-  if (!parsed.ok) return fail(res, 400, parsed.message);
-  try {
-    const created = await addPostgresSupportMessage({
-      ticketPublicId: req.params.ticketId,
-      senderPublicId: req.auth.userId,
-      roles: req.auth.roles,
-      idempotencyKey,
-      ...parsed.data,
-    });
-    const ticket = created.ticket;
-    if (!created.replayed)
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: parsed.data.internal ? "support.internal_note_created" : "support.message_created",
-        entityType: "support_ticket",
-        entityId: ticket.id,
-        requestId: req.requestId,
-        afterData: { internal: parsed.data.internal },
-      });
-    if (!created.replayed)
-      await publishRealtimeEvent({
-        req,
-        type: "support.updated",
-        entityType: "support_ticket",
-        entityId: ticket.id,
-        action: "support.message_created",
-      });
-    return ok(res, { ticket });
-  } catch (error) {
-    return failFrom(res, error, "No se pudo enviar el mensaje");
-  }
-});
-app.patch(
-  "/api/support/tickets/:ticketId",
-  requireAuth,
-  requireAnyRole("support", "admin"),
-  async (req, res) => {
-    const parsed = parseOrFail(supportTicketUpdateSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const ticket = await updatePostgresSupportTicket({
-        ticketPublicId: req.params.ticketId,
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        ...parsed.data,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "support.updated",
-        entityType: "support_ticket",
-        entityId: ticket.id,
-        requestId: req.requestId,
-        afterData: parsed.data,
-      });
-      return ok(res, { ticket });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo actualizar el ticket");
-    }
-  },
-);
+app.use(supportRouter);
 app.get(
   "/api/admin/support/agents",
   requireAuth,
