@@ -31,7 +31,8 @@ Cinco archivos concentran más de 1,3 MB de código: `apps/mobile/App.tsx` (433 
 - [x] **Reformateo mecánico aplicado.** Línea máxima 4.061 → 206; líneas largas 1.543 → 262.
 - [x] Los contratos que leen código fuente dejaron de depender del formato.
 - [x] Una puerta de formato impide que el código vuelva a derivar.
-- [x] **Los contratos que leen código fuente dejaron de depender de dónde vive.** Un contrato con un archivo hardcodeado pierde cobertura en silencio cuando la extracción mueve el código: `test:realtime-audience` pasó de 43 a 37 publicaciones y siguió en verde. Ahora recorre el árbol y tiene piso explícito.
+- [x] **Los contratos que leen código fuente dejaron de depender de dónde vive.** Un contrato con un archivo hardcodeado pierde cobertura en silencio cuando la extracción mueve el código: `test:realtime-audience` pasó de 43 a 37 publicaciones y siguió en verde, y `test:web-tracking-maps` contaba 4 de 5 usos del mapa desde que `RideHome` se extrajo. Las suites de servidor y las nueve del frente leen ahora el árbol de su audiencia, con piso explícito.
+- [x] **Una aserción no puede pasar sobre una región vacía.** `section` lanza si el marcador falta o si la región colapsa; `containsNone` se niega a responder por debajo de un piso. Sin eso, partir los dos `App.tsx` apagaba nueve contratos en silencio.
 - [x] **La autorización es un módulo propio, puro y con contrato.** `server/http/authorization.js`, 9 reglas, 81 usos, `test:authorization` en `ci-fast.yml`.
 - [x] **El núcleo compartido de HTTP está extraído.** Respuestas, autorización, autenticación, transporte realtime y runtime del fallback. Un grupo de rutas nuevo no necesita nada de `server/index.js`.
 - [ ] Ningún `App.tsx` supera 1.500 líneas.

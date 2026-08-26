@@ -1,7 +1,10 @@
 import fs from "node:fs/promises";
-import { contains, containsAll, containsNone, section } from "./source-contract.mjs";
+import { contains, containsAll, containsNone, readWebSource, section } from "./source-contract.mjs";
 
-const app = await fs.readFile("src/App.tsx", "utf8");
+// La fuente se lee por audiencia y no por archivo (ARC-001 paso 8): la mitad del
+// trabajo que queda del ticket es partir `App.tsx`, y un contrato con la ruta
+// fija se rompe —o se vacía— en cuanto un componente cambia de archivo.
+const { source: app } = await readWebSource();
 const api = await fs.readFile("src/api.ts", "utf8");
 const checkout = section(app, "function CartScreen(", "type ProviderPaymentInput");
 if (!checkout) throw new Error("No se encontró el checkout web");

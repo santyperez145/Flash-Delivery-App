@@ -1,9 +1,12 @@
 import fs from "node:fs";
-import { contains } from "./source-contract.mjs";
+import { contains, readMobileSource } from "./source-contract.mjs";
 import nodeAssert from "node:assert/strict";
 import { buildExternalNavigationUrl } from "../apps/mobile/src/navigation-links.ts";
 
-const app = fs.readFileSync("apps/mobile/App.tsx", "utf8");
+// La fuente se lee por audiencia y no por archivo (ARC-001 paso 8): la mitad del
+// trabajo que queda del ticket es partir `App.tsx`, y un contrato con la ruta
+// fija se rompe —o se vacía— en cuanto un componente cambia de archivo.
+const { source: app } = await readMobileSource();
 const map = fs.readFileSync("apps/mobile/src/FlashNativeMap.native.tsx", "utf8");
 const webMap = fs.readFileSync("apps/mobile/src/FlashNativeMap.web.tsx", "utf8");
 const demandMap = fs.readFileSync("apps/mobile/src/DriverDemandMap.native.tsx", "utf8");

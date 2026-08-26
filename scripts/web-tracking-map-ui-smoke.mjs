@@ -1,6 +1,10 @@
 import fs from "node:fs/promises";
+import { readAudienceSource, readWebSource } from "./source-contract.mjs";
 
-const app = await fs.readFile("src/App.tsx", "utf8");
+// La fuente se lee por audiencia y no por archivo (ARC-001 paso 8): la mitad del
+// trabajo que queda del ticket es partir `App.tsx`, y un contrato con la ruta
+// fija se rompe —o se vacía— en cuanto un componente cambia de archivo.
+const { source: app } = await readWebSource();
 const publicTracking = await fs.readFile("src/PublicRideTrackingPage.tsx", "utf8");
 const entry = await fs.readFile("src/main.tsx", "utf8");
 const map = await fs.readFile("src/maps/FlashMap.tsx", "utf8");
@@ -10,12 +14,33 @@ const assert = (condition, message) => {
   console.log(`ok - ${message}`);
 };
 
-const mapUsages = [...`${app}\n${publicTracking}`.matchAll(/<FlashMap\b/g)].length;
-assert(mapUsages === 4, "tracking público, comida, viajes y envíos comparten el mapa interactivo");
+// Cinco usos, no cuatro.
+//
+// Contaba sobre `src/App.tsx` más `src/PublicRideTrackingPage.tsx` y exigía
+// exactamente 4. Cuando `RideHome` se extrajo a su propio archivo, su uso del
+// mapa **dejó de contarse y el contrato siguió en verde**: afirmaba una
+// cobertura de cuatro verticales mientras miraba tres. Es el mismo defecto que
+// ARC-001 encontró en `test:realtime-audience`, ya consumado acá.
+//
+// Ahora cuenta sobre el árbol web entero, así que un componente que cambie de
+// archivo sigue contando. Y el número es un piso además de una igualdad: si
+// alguien agrega una vertical con mapa, esto falla y le pide declararla.
+const mapUsages = [...app.matchAll(/<FlashMap\b/g)].length;
 assert(
-  !`${app}\n${publicTracking}`.includes("buildWebTrackingMap") &&
-    !`${app}\n${publicTracking}`.includes("tile.openstreetmap.org"),
-  "App elimina la proyección y grilla raster legacy",
+  mapUsages === 5,
+  `tracking público, comida, viajes y envíos comparten el mapa interactivo (${mapUsages} usos)`,
+);
+// La prohibición es para las **pantallas**, no para el renderer.
+//
+// `src/maps/FlashMap.tsx` declara su capa base de tiles, que es exactamente
+// donde corresponde y es el punto del contrato: la plomería cartográfica vive en
+// un módulo aislado. Al pasar a leer el árbol entero, la aserción empezaba a
+// atrapar ese uso legítimo, así que la exclusión se declara en vez de aflojar la
+// regla.
+const { source: pantallas } = await readAudienceSource(["src"], { exclude: ["src/maps/"] });
+assert(
+  !pantallas.includes("buildWebTrackingMap") && !pantallas.includes("tile.openstreetmap.org"),
+  "las pantallas no reimplementan la proyección ni la grilla raster legacy",
 );
 assert(
   app.includes('routeColor="#f4511e"') &&

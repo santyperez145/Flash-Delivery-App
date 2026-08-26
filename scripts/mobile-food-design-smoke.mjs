@@ -1,7 +1,10 @@
 import fs from "node:fs";
-import { contains } from "./source-contract.mjs";
+import { contains, readMobileSource } from "./source-contract.mjs";
 
-const app = fs.readFileSync("apps/mobile/App.tsx", "utf8");
+// La fuente se lee por audiencia y no por archivo (ARC-001 paso 8): la mitad del
+// trabajo que queda del ticket es partir `App.tsx`, y un contrato con la ruta
+// fija se rompe —o se vacía— en cuanto un componente cambia de archivo.
+const { source: app } = await readMobileSource();
 const api = fs.readFileSync("apps/mobile/src/api.ts", "utf8");
 const types = fs.readFileSync("apps/mobile/src/types.ts", "utf8");
 const design = fs.readFileSync("apps/mobile/src/design-system.ts", "utf8");
