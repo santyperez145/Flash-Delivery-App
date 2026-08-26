@@ -8,9 +8,9 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
-## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 5, el núcleo compartido
+## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 6, el núcleo compartido
 
-Entregas novena a duodécima de la Fase 0. El paso 2 quedó sin registrar acá cuando se publicó, así que esta sección cubre los cuatro.
+Entregas novena a decimotercera de la Fase 0. El paso 2 quedó sin registrar acá cuando se publicó, así que esta sección cubre los cinco.
 
 ### Lo que se extrajo
 
@@ -23,8 +23,11 @@ Entregas novena a duodécima de la Fase 0. El paso 2 quedó sin registrar acá c
 | `server/http/realtime.js` | transporte SSE, registro de clientes y `/api/events` | 4 |
 | `server/http/authentication.js` | `requireAuth` y la lectura del token | 5 |
 | `server/fallback-runtime.js` | `readDb` instrumentada y `audit` del fallback SQLite | 5 |
+| `server/audit-trail.js` | `auditRuntime`, la auditoría que sirve a los dos runtimes | 6 |
+| `server/http/notifications-router.js` | notificaciones, preferencias y dispositivos — 7 rutas | 6 |
+| `server/http/dietary-router.js` | preferencias alimentarias — 2 rutas | 6 |
 
-`server/index.js`: 9.696 → **9.064 líneas**, 210 → **202 rutas**, 172 → **160 declaraciones de nivel superior**. Son 3 de 57 grupos de rutas. **Lo que importa no es cuánto se movió, sino qué quedó establecido.**
+`server/index.js`: 9.696 → **8.780 líneas**, 210 → **193 rutas**, 172 → **156 declaraciones de nivel superior**. Son 7 de 57 grupos de rutas. **Lo que importa no es cuánto se movió, sino qué quedó establecido.**
 
 ### La autorización deja de tocar la base de datos
 
@@ -74,9 +77,19 @@ El circuit breaker del proveedor cartográfico se fue con sus rutas por el mismo
 
 La asimetría entre las dos es la razón del orden en que se extrajeron: la autenticación **no puede ser pura** —tiene que consultar el usuario y, si es administrador, su estado de MFA—, mientras que los permisos sí. Resolver `mfa` una vez por request en `requireAuth` es lo que permite que `isAdmin` sea una función sin efectos, verificable sin levantar nada. Sacar los permisos primero era la única forma de que quedaran así.
 
+### El primer paso que no tuvo que decidir nada
+
+El paso 6 sacó dos grupos —notificaciones con dispositivos, y preferencias alimentarias— y **no hubo ninguna decisión de diseño que tomar**. Los archivos no reciben nada por parámetro: importan lo que usan. Eso era el objetivo de los cuatro pasos anteriores, y es la señal de que lo que queda es volumen y no arquitectura.
+
+Lo único que hizo falta extraer de paso fue `auditRuntime`, que elige entre la cadena inmutable de PostgreSQL y la ventana en memoria del fallback. Vivía en `index.js`, donde cada handler que lo usaba quedaba a un `if` de distancia de auditar en el runtime equivocado.
+
+Los tres subgrupos de notificaciones viajan juntos porque son un dominio visto de punta a punta: **qué se te notifica**, **qué se te notificó** y **a dónde se entrega**. Separar el token de dispositivo de la preferencia que decide si se usa dejaría dos archivos que nadie puede leer por separado.
+
+Los dos grupos elegidos tienen suite propia sobre el fallback —`test:dietary-local` y `test:notification-local`—, así que la extracción se verificó contra el contrato que ya existía en lugar de contra uno escrito para la ocasión.
+
 ### Lo que sigue faltando
 
-Idéntico al paso 1, menos tres grupos: separar entrypoints customer/driver/merchant, extraer features de los dos `App.tsx`, dividir `commerce-repository.js`, y los 54 grupos de rutas restantes. **El núcleo compartido está completo**: un grupo nuevo ya no necesita nada de `index.js`, así que lo que queda es trabajo repetitivo y no de diseño. Ninguna línea larga se corrigió: siguen 262, casi todas SQL en template literals.
+Idéntico al paso 1, menos siete grupos: separar entrypoints customer/driver/merchant, extraer features de los dos `App.tsx`, dividir `commerce-repository.js`, y los 50 grupos de rutas restantes. **El núcleo compartido está completo**: un grupo nuevo ya no necesita nada de `index.js`, así que lo que queda es trabajo repetitivo y no de diseño. Ninguna línea larga se corrigió: siguen 262, casi todas SQL en template literals.
 
 ## Avance 26 de agosto de 2026 — ARC-001 paso 1, reformateo mecánico
 

@@ -26,9 +26,12 @@ import {
   isAdmin,
   requireAnyRole,
 } from "./http/authorization.js";
+import { auditRuntime } from "./audit-trail.js";
 import { audit, readDb, sqliteReadCount } from "./fallback-runtime.js";
 import { requireAuth } from "./http/authentication.js";
 import { addressesRouter } from "./http/addresses-router.js";
+import { dietaryRouter } from "./http/dietary-router.js";
+import { notificationsRouter } from "./http/notifications-router.js";
 import {
   publishRealtimeEvent,
   realtimeClients,
@@ -182,11 +185,9 @@ import {
   getPostgresAdminFinancials,
   getPostgresAuditEvents,
   getPostgresAuditEventPage,
-  getPostgresNotifications,
   getPostgresSupportTickets,
   getPostgresOperationsSupportTicketPage,
   getSupportAgents,
-  markPostgresNotificationRead,
   processSupportQueue,
   recordPostgresAudit,
   updateSupportAgent,
@@ -215,13 +216,8 @@ import {
 import {
   enqueuePostgresNotification,
   getNotificationDeadLetters,
-  getPostgresDevices,
-  getPostgresNotificationPreferences,
   processPostgresNotificationBatch,
-  registerPostgresDevice,
   replayNotificationDeadLetter,
-  revokePostgresDevice,
-  updatePostgresNotificationPreference,
 } from "./notification-repository.js";
 import {
   getPostgresDispatchOffers,
@@ -235,10 +231,6 @@ import {
   createPayoutStepUp,
   reviewMerchantPayout,
 } from "./merchant-finance-repository.js";
-import {
-  getUserDietaryPreferences,
-  replaceUserDietaryPreferences,
-} from "./dietary-preference-repository.js";
 import { searchPostgresCatalog } from "./catalog-search-repository.js";
 import {
   createPostgresTip,
@@ -311,20 +303,14 @@ import {
   createId,
   createLocalNotification,
   createLocalProductEvents,
-  getLocalNotificationPreferences,
-  getLocalNotifications,
   getLocalProductMetrics,
-  getLocalDietaryPreferences,
   getPublicState,
   getDatabasePath,
   getTimestamp,
   orderStatuses,
-  markLocalNotificationRead,
   revokeAuthSession,
   resetDb,
   rideStatuses,
-  updateLocalNotificationPreference,
-  replaceLocalDietaryPreferences,
   shipmentStatuses,
   writeDb,
 } from "./store.js";
@@ -549,23 +535,6 @@ const serviceChatLimiter = createLimiter({
   prefix: "service-chat",
   message: "Demasiados mensajes. Espera antes de continuar.",
 });
-
-async function auditRuntime(db, req, entityType, entityId, action, payload = {}) {
-  if (usesPostgresCommerce())
-    await recordPostgresAudit({
-      actorPublicId: req.auth?.userId,
-      roles: req.auth?.roles || [],
-      action,
-      entityType,
-      entityId,
-      requestId: req.requestId,
-      afterData: payload,
-    });
-  else {
-    audit(db, req, entityType, entityId, action, payload);
-    writeDb(db);
-  }
-}
 
 const loginSchema = z.object({
   email: z.string().email("Email invalido"),
@@ -1082,16 +1051,6 @@ const ratingSchema = z.object({
   tags: z.array(z.string().trim().min(1).max(40)).max(10).default([]),
   comment: z.string().trim().max(1000).default(""),
 });
-const deviceSchema = z.object({
-  platform: z.enum(["ios", "android", "web"]),
-  pushToken: z.string().trim().min(16).max(512),
-  appVersion: z.string().trim().max(40).optional(),
-  deviceFingerprint: z.string().trim().min(8).max(256),
-});
-const notificationPreferenceSchema = z.object({
-  pushEnabled: z.boolean(),
-  emailEnabled: z.boolean(),
-});
 const deliveryPinSchema = z.object({
   pin: z.string().regex(/^\d{4}$/, "El PIN debe tener cuatro dígitos"),
 });
@@ -1349,29 +1308,6 @@ const itemDietarySchema = z.object({
       (values) => new Set(values.map((value) => value.code)).size === values.length,
       "No repitas alérgenos",
     ),
-});
-const userDietaryPreferenceSchema = z.object({
-  dietaryLabels: z
-    .array(z.enum(["vegetarian", "vegan", "gluten_free", "halal", "kosher"]))
-    .max(5)
-    .refine((values) => new Set(values).size === values.length, "No repitas preferencias"),
-  avoidedAllergens: z
-    .array(
-      z.enum([
-        "gluten",
-        "milk",
-        "eggs",
-        "peanuts",
-        "tree_nuts",
-        "soy",
-        "fish",
-        "shellfish",
-        "sesame",
-      ]),
-    )
-    .max(9)
-    .refine((values) => new Set(values).size === values.length, "No repitas alérgenos"),
-  hideIncompatible: z.boolean(),
 });
 const catalogSearchSchema = z.object({
   q: z.string().trim().max(120).default(""),
@@ -3907,173 +3843,8 @@ app.post(
     }
   },
 );
-app.get("/api/notifications", requireAuth, async (req, res) => {
-  if (!usesPostgresCommerce())
-    return ok(res, { notifications: getLocalNotifications(req.auth.userId) });
-  try {
-    return ok(res, {
-      notifications: await getPostgresNotifications(req.auth.userId),
-    });
-  } catch (_error) {
-    return fail(res, 500, "No se pudieron cargar las notificaciones");
-  }
-});
-app.patch("/api/notifications/:notificationId/read", requireAuth, async (req, res) => {
-  if (!usesPostgresCommerce()) {
-    try {
-      return ok(res, {
-        notifications: markLocalNotificationRead({
-          userId: req.auth.userId,
-          notificationId: req.params.notificationId,
-        }),
-      });
-    } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo marcar la notificación");
-    }
-  }
-  try {
-    return ok(res, {
-      notifications: await markPostgresNotificationRead({
-        publicId: req.params.notificationId,
-        userPublicId: req.auth.userId,
-      }),
-    });
-  } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo marcar la notificación");
-  }
-});
-app.get("/api/notification-preferences", requireAuth, async (req, res) => {
-  if (!usesPostgresCommerce())
-    return ok(res, { preferences: getLocalNotificationPreferences(req.auth.userId) });
-  try {
-    return ok(res, {
-      preferences: await getPostgresNotificationPreferences(req.auth.userId),
-    });
-  } catch (_error) {
-    return fail(res, 500, "No se pudieron cargar las preferencias");
-  }
-});
-app.patch("/api/notification-preferences/:category", requireAuth, async (req, res) => {
-  const category = String(req.params.category);
-  if (!["service_updates", "promotions", "support", "wallet", "account"].includes(category))
-    return fail(res, 400, "Categoría inválida");
-  const parsed = parseOrFail(notificationPreferenceSchema, req.body || {});
-  if (!parsed.ok) return fail(res, 400, parsed.message);
-  if (!usesPostgresCommerce()) {
-    const preferences = updateLocalNotificationPreference({
-      userId: req.auth.userId,
-      category,
-      ...parsed.data,
-    });
-    await auditRuntime(
-      readDb(),
-      req,
-      "notification_preference",
-      category,
-      "notification_preference.updated",
-      parsed.data,
-    );
-    return ok(res, {
-      preferences,
-    });
-  }
-  try {
-    const preferences = await updatePostgresNotificationPreference({
-      userPublicId: req.auth.userId,
-      category,
-      ...parsed.data,
-    });
-    await recordPostgresAudit({
-      actorPublicId: req.auth.userId,
-      roles: req.auth.roles,
-      action: "notification_preference.updated",
-      entityType: "notification_preference",
-      entityId: category,
-      requestId: req.requestId,
-      afterData: parsed.data,
-    });
-    return ok(res, { preferences });
-  } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo actualizar la preferencia");
-  }
-});
-app.get(
-  "/api/dietary-preferences",
-  requireAuth,
-  requireAnyRole("customer", "admin"),
-  async (req, res) => {
-    try {
-      if (!usesPostgresAuth()) {
-        return ok(res, {
-          preferences: getLocalDietaryPreferences(req.auth.userId),
-        });
-      }
-      return ok(res, {
-        preferences: await getUserDietaryPreferences(req.auth.userId),
-      });
-    } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudieron cargar las preferencias alimentarias",
-      );
-    }
-  },
-);
-app.put(
-  "/api/dietary-preferences",
-  requireAuth,
-  requireAnyRole("customer", "admin"),
-  async (req, res) => {
-    const parsed = parseOrFail(userDietaryPreferenceSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      if (!usesPostgresAuth()) {
-        const preferences = replaceLocalDietaryPreferences({
-          userId: req.auth.userId,
-          ...parsed.data,
-        });
-        await auditRuntime(
-          readDb(),
-          req,
-          "user",
-          req.auth.userId,
-          "user.dietary_preferences_updated",
-          {
-            dietaryCount: parsed.data.dietaryLabels.length,
-            allergenCount: parsed.data.avoidedAllergens.length,
-            hideIncompatible: parsed.data.hideIncompatible,
-          },
-        );
-        return ok(res, { preferences });
-      }
-      const preferences = await replaceUserDietaryPreferences({
-        userPublicId: req.auth.userId,
-        ...parsed.data,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "user.dietary_preferences_updated",
-        entityType: "user",
-        entityId: req.auth.userId,
-        requestId: req.requestId,
-        afterData: {
-          dietaryCount: parsed.data.dietaryLabels.length,
-          allergenCount: parsed.data.avoidedAllergens.length,
-          hideIncompatible: parsed.data.hideIncompatible,
-        },
-      });
-      return ok(res, { preferences });
-    } catch (error) {
-      return fail(
-        res,
-        error.status || 500,
-        error.message || "No se pudieron actualizar las preferencias alimentarias",
-      );
-    }
-  },
-);
+app.use(notificationsRouter);
+app.use(dietaryRouter);
 app.get(
   "/api/catalog/search",
   requireAuth,
@@ -4098,61 +3869,6 @@ app.get(
     }
   },
 );
-app.get("/api/devices", requireAuth, async (req, res) => {
-  try {
-    return ok(res, { devices: await getPostgresDevices(req.auth.userId) });
-  } catch (_error) {
-    return fail(res, 500, "No se pudieron cargar los dispositivos");
-  }
-});
-app.post("/api/devices", requireAuth, async (req, res) => {
-  const parsed = parseOrFail(deviceSchema, req.body || {});
-  if (!parsed.ok) return fail(res, 400, parsed.message);
-  try {
-    const fingerprint = crypto
-        .createHmac("sha256", jwtSecret)
-        .update(parsed.data.deviceFingerprint)
-        .digest("hex"),
-      device = await registerPostgresDevice({
-        userPublicId: req.auth.userId,
-        platform: parsed.data.platform,
-        pushToken: parsed.data.pushToken,
-        appVersion: parsed.data.appVersion,
-        fingerprint,
-      });
-    await recordPostgresAudit({
-      actorPublicId: req.auth.userId,
-      roles: req.auth.roles,
-      action: "device.registered",
-      entityType: "user_device",
-      entityId: device.id,
-      requestId: req.requestId,
-      afterData: { platform: device.platform, appVersion: device.appVersion },
-    });
-    return res.status(201).json({ ok: true, requestId: res.locals.requestId, device });
-  } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo registrar el dispositivo");
-  }
-});
-app.delete("/api/devices/:deviceId", requireAuth, async (req, res) => {
-  try {
-    await revokePostgresDevice({
-      userPublicId: req.auth.userId,
-      devicePublicId: req.params.deviceId,
-    });
-    await recordPostgresAudit({
-      actorPublicId: req.auth.userId,
-      roles: req.auth.roles,
-      action: "device.revoked",
-      entityType: "user_device",
-      entityId: req.params.deviceId,
-      requestId: req.requestId,
-    });
-    return ok(res, { revoked: true });
-  } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo revocar el dispositivo");
-  }
-});
 app.get("/api/driver/offers", requireAuth, requireAnyRole("driver", "admin"), async (req, res) => {
   const driverId = isAdmin(req)
     ? String(req.query.driverId || req.auth.user.driverId || "")

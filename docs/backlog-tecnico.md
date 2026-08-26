@@ -39,7 +39,7 @@ Cinco archivos concentran más de 1,3 MB de código: `apps/mobile/App.tsx` (433 
 - [ ] Ningún módulo de dominio importa React.
 - [ ] El build de driver no incluye pantallas de comercio.
 - [ ] El build de customer no incluye backoffice.
-- [ ] `server/index.js` deja de contener lógica de dominio. **3 de 57 grupos de rutas extraídos** (mapas, direcciones, realtime); quedan 202 rutas en 54 grupos.
+- [ ] `server/index.js` deja de contener lógica de dominio. **7 de 57 grupos de rutas extraídos** (mapas, direcciones, realtime, notificaciones, preferencias de notificación, dispositivos y preferencias alimentarias); quedan 193 rutas en 50 grupos.
 
 ### Verificación
 
@@ -62,6 +62,7 @@ El criterio no fue el tamaño del grupo, sino **cuánto núcleo compartido neces
 | `audit` del fallback SQLite | `fallback-runtime.js` | toda mutación |
 | `readDb` (contabiliza lecturas SQLite) | `fallback-runtime.js` | todo el doble runtime |
 | esquemas Zod (≈20) | en `index.js` | por dominio, viajan con su grupo |
+| `auditRuntime` (auditoría sobre los dos runtimes) | `audit-trail.js` | toda mutación auditada |
 
 Extraer un grupo antes que su núcleo funciona —lo demuestra `addresses-router.js`— pero deja una lista de dependencias larga en la factory. **La factory era andamio**: existe para recibir lo que todavía no es un módulo, y se cae sola cuando ya no queda nada que recibir. Esa misma factory pasó de cuatro dependencias a cero en dos pasos, sin que se tocara una sola de sus cinco rutas. Los tres routers se importan y se montan.
 
