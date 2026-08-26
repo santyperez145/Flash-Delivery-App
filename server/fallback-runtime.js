@@ -145,3 +145,46 @@ export function scopeStateForRequest(state, req) {
   }
   return scoped;
 }
+
+/**
+ * Tarifas del fallback SQLite.
+ *
+ * Llevan `version: "sqlite-test-fallback"` a propósito: cualquier cotización
+ * emitida con ellas queda marcada como no productiva. El fallback no lee
+ * `pricing_plans`, así que sin estos valores no podría cotizar — pero tampoco
+ * debe poder hacerse pasar por una tarifa real.
+ */
+export const fallbackRidePricing = {
+  version: "sqlite-test-fallback",
+  config: {
+    baseFare: 850,
+    distancePerKm: 420,
+    timePerMin: 48,
+    serviceFee: 390,
+    tollThresholdKm: 18,
+    tollAmount: 850,
+    roadFactor: 1.22,
+    minDistanceKm: 1.2,
+    maxDistanceKm: 50,
+    durationBaseMin: 8,
+    durationPerKm: 2.1,
+    etaBaseMin: 4,
+    etaPerKm: 0.55,
+    serviceMultipliers: { moto: 0.78, economy: 1, comfort: 1.28, xl: 1.65 },
+  },
+};
+export const fallbackShipmentPricing = {
+  version: "sqlite-test-fallback",
+  config: {
+    baseFare: 1200,
+    distancePerKm: 540,
+    weightPerKg: 85,
+    roadFactor: 1.22,
+    minDistanceKm: 1,
+    maxDistanceKm: 45,
+    etaBaseMin: 12,
+    etaPerKm: 2.2,
+    minimumEtaMin: 15,
+    sizeMultipliers: { small: 1, medium: 1.18, large: 1.42 },
+  },
+};
