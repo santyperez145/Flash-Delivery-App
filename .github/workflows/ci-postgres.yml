@@ -77,6 +77,10 @@ jobs:
       # Las suites de aislamiento afirman sobre catálogo, direcciones y trabajos
       # reales: sin datos no pueden demostrar que un rol ve lo suyo y sólo lo
       # suyo. Las cuentas demo viven en un contenedor efímero, nunca desplegado.
+      #
+      # `db:seed:derived` es obligatorio y va último: reaplica los backfills que
+      # ocho migraciones hicieron sobre datos preexistentes y que en una base
+      # desde cero quedarían vacíos.
       - name: Seed reproducible fixtures
         run: |
           npm run db:seed:auth
@@ -84,6 +88,7 @@ jobs:
           npm run db:seed:commerce
           npm run db:seed:orders
           npm run db:seed:mobility
+          npm run db:seed:derived
 
       - name: Row-Level Security isolation
         run: npm run test:rls

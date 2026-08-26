@@ -16,6 +16,7 @@
     "db:seed:commerce": "node --env-file-if-exists=.env.local scripts/db-seed-commerce.mjs",
     "db:seed:orders": "node --env-file-if-exists=.env.local scripts/db-seed-orders.mjs",
     "db:seed:mobility": "node --env-file-if-exists=.env.local scripts/db-seed-mobility.mjs",
+    "db:seed:derived": "node --env-file-if-exists=.env.local scripts/db-seed-derived.mjs",
     "db:seed:wallet": "node --env-file-if-exists=.env.local scripts/db-seed-wallet.mjs",
     "db:check": "node --env-file-if-exists=.env.local scripts/db-check.mjs",
     "db:backup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/backup-local-db.ps1",
