@@ -19,8 +19,36 @@
 // base nueva no existían.
 import { createPool } from "./db-client.mjs";
 
+// Declaraciones sobre el catálogo sembrado. No son datos inventados: se
+// corresponden con la composición real de cada plato.
+const GLUTEN_ITEMS = ["item_burger_brava", "item_pizza_burrata", "item_tiramisu", "item_salmon_furai"];
+const MILK_ITEMS = ["item_burger_brava", "item_pizza_burrata", "item_tiramisu", "item_caesar_veggie"];
+const VEGETARIAN_ITEMS = ["item_papas_trufa", "item_pizza_burrata", "item_caesar_veggie", "item_tiramisu"];
+
 const pool = createPool();
 const client = await pool.connect();
+
+/**
+ * Falla si una declaración apunta a un ítem que ya no está en el catálogo.
+ *
+ * Sin esto la deriva es silenciosa: la migración 059 quedó apuntando a dos
+ * pizzas que dejaron de existir y el catálogo se quedó sin alérgenos sin que
+ * nada lo dijera.
+ */
+async function assertCatalogItemsExist(referenced) {
+  const present = (
+    await client.query("SELECT public_id FROM catalog_items WHERE public_id = ANY($1::text[])", [
+      referenced,
+    ])
+  ).rows.map((row) => row.public_id);
+  const missing = referenced.filter((id) => !present.includes(id));
+  if (missing.length) {
+    throw new Error(
+      `Estas declaraciones apuntan a ítems que no existen en el catálogo: ${missing.join(", ")}. ` +
+        "Actualizá las listas de scripts/db-seed-derived.mjs o el seed del catálogo.",
+    );
+  }
+}
 
 const steps = [
   {
@@ -36,6 +64,22 @@ const steps = [
           WHERE email_verified_at IS NULL`,
   },
   {
+    // El motor de riesgo suma 20 puntos por `new_account` cuando la cuenta tiene
+    // menos de 24 horas. En una base creada desde cero **todas** las cuentas
+    // sembradas son nuevas, así que cualquier pedido arranca con esos puntos y
+    // se combina con velocidad y gasto hasta bloquear la operación.
+    //
+    // En la base local de un desarrollador esto nunca se nota: las cuentas se
+    // crearon hace semanas. Es dependencia del ambiente, no del código.
+    //
+    // Envejecer las cuentas de fixture las vuelve representativas de una cuenta
+    // establecida, que es lo que los flujos asumen. Sólo alcanza a las cuentas
+    // sembradas (`usr_*`), nunca a las que crea una prueba.
+    label: "antigüedad de las cuentas de fixture",
+    sql: `UPDATE users SET created_at=now()-interval '90 days'
+          WHERE public_id LIKE 'usr\_%' AND created_at > now()-interval '1 day'`,
+  },
+  {
     // 089_driver_location_telemetry clasificó como 'legacy' las posiciones que
     // ya existían. Una posición sembrada sin origen queda sin clasificar.
     label: "origen de ubicación de conductores",
@@ -49,6 +93,30 @@ const steps = [
                  CASE WHEN m.status='active' THEN 'active' ELSE 'paused' END,m.open,m.eta_min,m.service_radius_m,true
           FROM merchants m
           ON CONFLICT (public_id) DO NOTHING`,
+  },
+  {
+    // La migración 055 sembró horarios sólo para las sucursales que existían al
+    // aplicarse. Una sucursal sin horario hace que `branch_is_scheduled_open`
+    // devuelva false, y la búsqueda de catálogo filtra por esa función: **sin
+    // horarios, el catálogo entero es invisible**.
+    //
+    // 00:00–00:00 significa abierto todo el día, igual que en la migración.
+    label: "horarios de sucursal",
+    sql: `INSERT INTO branch_operating_hours(branch_id,weekday,opens_at,closes_at)
+          SELECT b.id,d,'00:00','00:00' FROM merchant_branches b CROSS JOIN generate_series(0,6) d
+          ON CONFLICT DO NOTHING`,
+  },
+  {
+    label: "inventario por sucursal",
+    sql: `INSERT INTO catalog_branch_inventory(branch_id,catalog_item_id,available,stock_quantity)
+          SELECT b.id,c.id,c.available,c.inventory_quantity
+          FROM merchant_branches b JOIN catalog_items c ON c.merchant_id=b.merchant_id
+          ON CONFLICT DO NOTHING`,
+  },
+  {
+    label: "sucursal de los trabajos existentes",
+    sql: `UPDATE jobs j SET branch_id=b.id FROM merchant_branches b
+          WHERE b.merchant_id=j.merchant_id AND b.is_primary AND j.branch_id IS NULL`,
   },
   {
     label: "cumplimiento de conductores",
@@ -84,26 +152,37 @@ const steps = [
           WHERE g.public_id='extras'
           ON CONFLICT (group_id,public_id) DO NOTHING`,
   },
+  // La migración 059 fijó estos alérgenos sobre `item_pizza_muzzarella` e
+  // `item_pizza_fugazzeta`, que **ya no existen**: el catálogo sembrado cambió
+  // después y nada conectaba ambas cosas. La pizza actual es
+  // `item_pizza_burrata`, que quedaba sin declarar ningún alérgeno.
+  //
+  // Es una tercera cara de H-11: no basta con reaplicar el backfill, hay que
+  // hacerlo sobre el catálogo que existe. `assertCatalogItemsExist` levanta la
+  // deriva en lugar de dejar que vuelva a pasar en silencio.
   {
     label: "alérgenos declarados (gluten)",
     sql: `INSERT INTO catalog_item_allergens(catalog_item_id,allergen_code,presence)
           SELECT id,'gluten','contains' FROM catalog_items
-          WHERE public_id IN ('item_burger_brava','item_pizza_muzzarella','item_pizza_fugazzeta')
+          WHERE public_id = ANY($1::text[])
           ON CONFLICT DO NOTHING`,
+    params: [GLUTEN_ITEMS],
   },
   {
     label: "alérgenos declarados (leche)",
     sql: `INSERT INTO catalog_item_allergens(catalog_item_id,allergen_code,presence)
           SELECT id,'milk','contains' FROM catalog_items
-          WHERE public_id IN ('item_burger_brava','item_pizza_muzzarella','item_pizza_fugazzeta')
+          WHERE public_id = ANY($1::text[])
           ON CONFLICT DO NOTHING`,
+    params: [MILK_ITEMS],
   },
   {
     label: "etiquetas dietarias",
     sql: `INSERT INTO catalog_item_dietary_labels(catalog_item_id,dietary_code)
           SELECT id,'vegetarian' FROM catalog_items
-          WHERE public_id IN ('item_papas_trufa','item_pizza_muzzarella','item_pizza_fugazzeta')
+          WHERE public_id = ANY($1::text[])
           ON CONFLICT DO NOTHING`,
+    params: [VEGETARIAN_ITEMS],
   },
   {
     label: "perfiles de agentes de soporte",
@@ -146,9 +225,12 @@ const steps = [
 
 try {
   await client.query("BEGIN");
+  await assertCatalogItemsExist([
+    ...new Set([...GLUTEN_ITEMS, ...MILK_ITEMS, ...VEGETARIAN_ITEMS]),
+  ]);
   const applied = [];
   for (const step of steps) {
-    const result = await client.query(step.sql);
+    const result = await client.query(step.sql, step.params);
     applied.push(`${step.label}: ${result.rowCount}`);
   }
   await client.query("COMMIT");

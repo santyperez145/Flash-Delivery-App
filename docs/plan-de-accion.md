@@ -341,8 +341,14 @@ orden de ejecución.
 queda fuera de todo workflow. Sin ella, la próxima se suma en silencio a las 89
 que nadie corría.
 
-Faltan `ci-nightly.yml`, cerrar las **cuatro suites en cuarentena** y la
-protección de rama, que es configuración manual en GitHub.
+Quedan `ci-nightly.yml`, **una** suite en cuarentena (`test:support-routing`) y
+la protección de rama, que es configuración manual en GitHub.
+
+Cerrar tres de las cuatro suites en cuarentena destapó cuatro defectos reales
+—ninguno era fragilidad de la prueba—, tres de ellos variantes de H-11. Uno
+excede a CI: el motor de riesgo trata como nueva a toda cuenta sembrada, lo que
+significa que **un primer despliegue productivo marcaría a sus propios primeros
+clientes**.
 
 **INF-001.** La imagen es multi-etapa, corre como `uid=999(flash)`, arranca el
 entrypoint instrumentado y no lleva devDependencies ni el árbol de fuentes. El

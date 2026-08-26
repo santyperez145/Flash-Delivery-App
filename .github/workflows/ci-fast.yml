@@ -128,6 +128,71 @@ jobs:
       - name: Distributed Redis rate limit
         run: npm run test:redis-rate-limit
 
+  local-fallback:
+    name: Contrato del fallback local
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # `test:dietary-local` y `test:notification-local` prueban el fallback
+    # SQLite, cuyo contrato NO es el de PostgreSQL: devuelve etiquetas dietarias
+    # como strings donde el runtime PostgreSQL devuelve objetos con `.code`.
+    #
+    # Correrlas contra la API de PostgreSQL es sencillamente la prueba
+    # equivocada. Acá no hay `DATABASE_URL`, así que la API arranca sobre el
+    # fallback y es el contrato que estas suites afirman.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web assets
+        run: npm run build
+
+      - name: Start API on the SQLite fallback
+        env:
+          NODE_ENV: test
+        run: |
+          node server/start.js > /tmp/local-api.log 2>&1 &
+          echo $! > /tmp/local-api.pid
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4000/api/ready > /dev/null 2>&1; then
+              echo "API local lista tras ${attempt}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::La API del fallback no alcanzó readiness"
+          cat /tmp/local-api.log
+          exit 1
+
+      - name: Seed local fixtures
+        run: npm run db:seed:auth || echo "seed no aplicable al fallback"
+        continue-on-error: true
+
+      - name: Local fallback contracts
+        run: |
+          npm run test:dietary-local
+          npm run test:notification-local
+
+      - name: API log
+        if: failure()
+        run: tail -200 /tmp/local-api.log
+
+      - name: Stop API
+        if: always()
+        run: |
+          if [ -f /tmp/local-api.pid ]; then
+            kill "$(cat /tmp/local-api.pid)" 2>/dev/null || true
+          fi
+
   container-image:
     name: Imagen productiva endurecida
     runs-on: ubuntu-latest
