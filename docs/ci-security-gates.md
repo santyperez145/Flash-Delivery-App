@@ -14,7 +14,8 @@ Además, `main` llevaba en rojo desde el 23 de agosto sin que nadie estuviera bl
 | --- | --- | --- | --- |
 | `ci-fast.yml` | Cada PR | Build · contratos estáticos · contratos de pago sin proveedor · web y sesión · superficies mobile · secret scan · dependency gate · telemetría · alertas · resiliencia · contenedor · rate limit Redis · audiencias realtime · ratchet de línea · cobertura CI | **Verde** |
 | `ci-postgres.yml` | Cada PR | PostGIS 17 · roles separados · migraciones desde cero · migración incremental sobre la base del PR · seeds reproducibles · RLS · cadena de auditoría · aislamiento por ciudad · datos sensibles · idempotencia · comercio, zonas y configuración | **Verde** |
-| `ci-critical-flows.yml` | Cada PR | API levantada contra PostgreSQL · pagos · conciliación · riesgo · payouts · propinas · KYC · vehículos · ganancias · safety · chat · siniestros · SLA · notificaciones · recursos por audiencia | **Verde** |
+| `ci-critical-flows.yml` | Cada PR | API levantada contra PostgreSQL · runtime smoke · pagos · conciliación · riesgo · payouts · propinas · KYC · vehículos · ganancias · safety · chat · siniestros · SLA · notificaciones · recursos por audiencia | **Verde** |
+| `local-fallback` (en `ci-fast`) | Cada PR | API sobre el fallback SQLite · contratos que no son los de PostgreSQL | **Verde** |
 | `ci-nightly.yml` | Cada noche | Playwright E2E · performance · carga k6 · provider sandbox · restore drill · dependency scan completo · mobile build preview | Pendiente |
 
 ### Qué descubrió cada primera corrida
@@ -54,18 +55,18 @@ El job `migrate-from-base` existe porque **una migración puede pasar desde cero
 
 ## Cuarentena
 
-Cuatro suites corren en cada push pero **no bloquean el merge**, con causa conocida:
+Una sola suite corre en cada push **sin bloquear** el merge:
 
 | Suite | Causa |
 | --- | --- |
-| `test:postgres` | Una aserción de búsqueda de catálogo con perfil dietario autenticado |
 | `test:support-routing` | Ruteo atómico de un caso de safety a un agente con skill |
-| `test:dietary-local` | Probable interferencia de estado con `test:postgres` |
-| `test:notification-local` | Probable interferencia de estado con `test:postgres` |
 
-La cuarentena **no es una forma de esconderlas**: siguen corriendo, su salida se publica en cada corrida, y `test:ci-coverage` imprime cada una con su motivo. Cerrarlas es condición para dar CI-001 por terminado.
+Eran cuatro. Las otras tres se cerraron el 26 de agosto y sus causas resultaron ser defectos reales, no fragilidad de las pruebas:
 
-La alternativa —dejar la puerta entera en rojo— habría significado que nadie pudiera distinguir una regresión nueva de las cuatro conocidas, que es exactamente cómo `main` terminó tres días en rojo.
+- **`test:postgres`** fallaba por tres causas encadenadas, todas variantes de [H-11](auditoria-2026-08-25.md#h-11--una-base-creada-desde-cero-no-es-equivalente-a-una-migrada): declaraciones de alérgenos sobre ítems de catálogo que ya no existían, sucursales sin horario —que dejaban **todo el catálogo invisible**— y cuentas de fixture recién creadas que el motor de riesgo trataba como nuevas y bloqueaba.
+- **`test:dietary-local`** y **`test:notification-local`** afirman el contrato del **fallback SQLite**, que no es el de PostgreSQL: devuelven etiquetas dietarias como strings donde el runtime PostgreSQL devuelve objetos con `.code`. No era interferencia de estado, como suponía la nota de cuarentena: era la prueba equivocada contra el runtime equivocado. Ahora corren en el job `local-fallback`, sin `DATABASE_URL`.
+
+La cuarentena **no es una forma de esconder suites**: siguen corriendo, su salida se publica y `test:ci-coverage` imprime cada una con su motivo. Cerrarlas es condición para dar CI-001 por terminado.
 
 ## Contratos individuales
 

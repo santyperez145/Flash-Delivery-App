@@ -197,6 +197,15 @@ Dos cosas que la clasificación destapó:
 - **`user_roles` se lee antes de autenticar.** `findAuthUserByEmail` hace `JOIN` a `user_roles` sin contexto de usuario, con `postgresPool.query` directo. Una política `user_id = app.current_user_id()` devolvería cero filas y **rompería el login de toda la plataforma**. Aplicar RLS ahí exige mover el camino de login a una función `SECURITY DEFINER` primero: es un cambio de diseño, no una migración mecánica.
 - **`user_security_factors` es esquema muerto.** Ningún archivo de `server/` ni `scripts/` la referencia; la MFA real usa `user_mfa`. Declara columnas para secretos TOTP y credenciales WebAuthn que nada escribe ni lee, sin política RLS y con DML abierto al rol de runtime. Superficie de ataque gratuita que existe sólo porque nadie la borró. `outbox_events` está en la misma situación.
 
+### Tercera y cuarta cara, encontradas al cerrar la cuarentena
+
+Sacar `test:postgres` de cuarentena destapó dos variantes más, y ninguna era fragilidad de la prueba:
+
+- **Un backfill que nombra filas por id envejece con el catálogo.** La migración `059` declaró alérgenos sobre `item_pizza_muzzarella` e `item_pizza_fugazzeta`; el catálogo sembrado cambió después y la pizza actual, `item_pizza_burrata`, quedó sin ninguna declaración. Reaplicar el backfill no alcanza: hay que reaplicarlo **sobre el catálogo que existe**.
+- **Un backfill puede depender de otro.** La migración `041` crea las sucursales principales y la `055` les siembra horarios, pero sólo a las que existían al aplicarse. Al reaplicar la primera sin la segunda, cada sucursal quedó sin horario, `app.branch_is_scheduled_open` devolvió `false` y **el catálogo entero se volvió invisible**. El primer escaneo tampoco las vio: buscaba backfills derivados de cinco tablas y estos derivan de `merchant_branches`.
+
+Hay además un caso vecino que no es un backfill pero comparte la raíz: el motor de riesgo suma 20 puntos por `new_account` a toda cuenta de menos de 24 horas. En una base creada desde cero **todas** las cuentas sembradas son nuevas, y esos puntos se combinan con velocidad y gasto hasta bloquear la operación. En la base local de un desarrollador nunca se nota. Vale señalar que **un primer despliegue productivo marcaría igual a sus propios primeros clientes**: si `new_account` debe pesar 20 puntos en una plataforma cuyos clientes son todos nuevos es una decisión de producto, no de fixture.
+
 **Deuda abierta:** cinco tablas `por-usuario` sin política, `FORCE ROW LEVEL SECURITY` todavía en cero, los grants siguen siendo `ON ALL TABLES`, y el esquema muerto sin eliminar.
 
 **Severidad: P0.** Ticket [DAT-001](backlog-tecnico.md#dat-001--matriz-rls-default-deny).

@@ -32,17 +32,17 @@ Al **26 de agosto de 2026**, sobre **94 capacidades inventariadas**:
 
 | Estado | Capacidades | Proporción | Al 25-08 |
 | --- | ---: | ---: | ---: |
-| `IMPL` | 6 | 6,5% | 9 |
-| `LOCAL` | 14 | 15,2% | 50 |
-| `CI` | 57 | 62,0% | 14 |
+| `IMPL` | 6 | 6,4% | 9 |
+| `LOCAL` | 9 | 9,6% | 50 |
+| `CI` | 62 | 66,0% | 14 |
 | `PROV` | 0 | 0% | 0 |
 | `STG` | 0 | 0% | 0 |
 | `PROD` | 0 | 0% | 0 |
-| No existe | 17 | 18,5% | 18 |
+| No existe | 17 | 18,1% | 18 |
 
-**Lectura:** de las 77 capacidades que existen, **20 (26%) siguen en `IMPL` o `LOCAL`** — sin puerta automática que las proteja de una regresión. Eran 59 sobre 73 (81%) el 25 de agosto.
+**Lectura:** de las 77 capacidades que existen, **15 (19%) siguen en `IMPL` o `LOCAL`** — sin puerta automática que las proteja de una regresión. Eran 59 sobre 73 (81%) el 25 de agosto.
 
-El salto viene de las tres puertas del ticket CI-001. Las 57 en `CI` ya no son infraestructura: incluyen migraciones, RLS, cadena de auditoría, aislamiento por ciudad, audiencia realtime, ledger, conciliación, riesgo, payouts, KYC, vehículos, safety, chat, soporte, notificaciones, push y mapas.
+El salto viene de las puertas del ticket CI-001. Las 62 en `CI` ya no son infraestructura: incluyen migraciones, RLS, cadena de auditoría, aislamiento por ciudad, audiencia realtime, ledger, conciliación, riesgo, payouts, KYC, vehículos, safety, chat, soporte, notificaciones, push y mapas.
 
 **Ninguna capacidad alcanzó `PROV`.** Ni pagos, ni push, ni mapas, ni KYC fueron probados contra un proveedor real. Ese es el objetivo de la Fase 1, y es la distancia que esta matriz existe para no dejar olvidar: **una capacidad en `CI` está protegida contra regresiones, no demostrada contra el mundo real.**
 
@@ -52,7 +52,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 
 | Capacidad | Motivo |
 | --- | --- |
-| Ofertas privadas, aceptación atómica, ranking | `test:postgres` está en cuarentena |
+| Ranking de dispatch con recorte espacial | No existe — ticket DSP-001 |
 | SSE, event log, retención realtime | Sin suite dedicada |
 | Geocoding y routing | Proveedores públicos — ticket GEO-001 |
 | Backup y restore drill | Scripts PowerShell, van a `ci-nightly` |
@@ -65,7 +65,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 
 | Capacidad | Estado | Evidencia / bloqueo |
 | --- | --- | --- |
-| Registro y login | `LOCAL` | `test:security` corre en CI vía `check`, pero sin PostgreSQL |
+| Registro y login | `CI` | `test:security` vía `check` sobre el fallback y `test:postgres` sobre PostgreSQL |
 | Access/refresh rotativo | `CI` | `test:web-auth-session` en `ci-fast` |
 | Refresh en cookie HttpOnly | `CI` | `test:web-auth-session` en `ci-fast` |
 | Sesiones remotas | `CI` | `test:remote-sessions` en `ci-critical-flows` |
@@ -86,7 +86,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Matriz de clasificación RLS | `CI` | `test:rls-matrix`: las 106 tablas clasificadas, deuda declarada que sólo puede achicarse |
 | `FORCE ROW LEVEL SECURITY` | — | **Cero sentencias** — ticket DAT-001 |
 | Auditoría encadenada SHA-256 | `CI` | `test:audit-immutability` en `ci-postgres.yml` |
-| Idempotencia y locks | `LOCAL` | `test:idempotency-prune` en CI; `test:postgres` necesita API levantada |
+| Idempotencia y locks | `CI` | `test:idempotency-prune` y `test:postgres` bloquean el merge |
 | Aislamiento por ciudad | `CI` | `test:city-isolation` en `ci-postgres.yml` |
 | Backup y restore drill | `LOCAL` | `db:restore:drill` fuera de CI · sin cronometrar contra RTO |
 | Separación de roles PostgreSQL | `CI` | `test:container-security` |
@@ -98,7 +98,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | --- | --- | --- |
 | Ledger de doble entrada | `CI` | `test:marketplace-ledger` en `ci-fast` |
 | Payment intents | `CI` | `test:payment-methods` en `ci-critical-flows` |
-| Wallet sandbox | `LOCAL` | Sandbox interno · **no custodial por decisión** |
+| Wallet sandbox | `CI` | `test:postgres` cubre captura y reintegro · **no custodial por decisión** |
 | Mercado Pago OAuth PKCE | `CI` | `test:payment-oauth` cubre el contrato · **sin sellers de prueba vinculados** — ticket PAY-001 |
 | Creación de pago con `application_fee` | `CI` | `test:mercadopago-payment` con fetch interceptado · **sin credenciales del proveedor** |
 | Webhook firmado | `CI` | `test:mercadopago-webhook` en `ci-fast` · sin webhook real |
@@ -112,8 +112,8 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 
 | Capacidad | Estado | Evidencia / bloqueo |
 | --- | --- | --- |
-| Ofertas privadas con TTL | `LOCAL` | Sin puerta CI |
-| Aceptación atómica `SKIP LOCKED` | `LOCAL` | `test:postgres` está **en cuarentena**: corre pero no bloquea |
+| Ofertas privadas con TTL | `CI` | `test:postgres` bloquea el merge |
+| Aceptación atómica `SKIP LOCKED` | `CI` | `test:postgres` bloquea el merge |
 | Ranking explicable | `LOCAL` | Sin recorte espacial previo — ticket DSP-001 |
 | Recorte `ST_DWithin` + KNN | — | **Cero ocurrencias en el repositorio** |
 | Stats precomputadas de conductor | — | **No existe** · se recalcula historial de 30 días por oferta |
@@ -169,7 +169,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Capacidad | Estado | Evidencia / bloqueo |
 | --- | --- | --- |
 | Backoffice de operaciones | `CI` | `test:operations-resources` bloquea el merge |
-| Routing de tickets y SLA | `CI` | `test:support-sla` bloquea · `test:support-routing` **en cuarentena** |
+| Routing de tickets y SLA | `CI` | `test:support-sla` bloquea · `test:support-routing` sigue **en cuarentena** |
 | Chat operativo cifrado | `CI` | `test:service-chat` en `ci-critical-flows` |
 | KYC de conductores | `CI` | `test:driver-kyc` bloquea el merge · sin proveedor KYC |
 | Revisión de vehículos | `CI` | `test:driver-vehicles` en `ci-critical-flows` |
