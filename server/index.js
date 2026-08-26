@@ -5848,6 +5848,15 @@ app.get("/api/cart", requireAuth, requireAnyRole("customer", "admin"), async (re
 });
 
 app.put("/api/cart", requireAuth, requireAnyRole("customer", "admin"), async (req, res) => {
+  // El GET de al lado devuelve un carrito vacío sobre el fallback; este PUT no
+  // tenía la guarda equivalente e iba directo a PostgreSQL. Sobre SQLite eso
+  // reventaba con un TypeError, así que se podía leer un carrito vacío pero no
+  // agregarle nada: el flujo de pedir comida quedaba muerto en el runtime que
+  // corre el job local-fallback de CI y la máquina de cualquier desarrollador.
+  //
+  // Degradar explícito es lo que hacen las otras 136 rutas que dependen de
+  // PostgreSQL. Un 503 que dice por qué es honesto; un 500 con un TypeError no.
+  if (!usesPostgresCommerce()) return fail(res, 503, "El carrito persistente requiere PostgreSQL");
   const parsed = parseOrFail(cartSchema, req.body || {});
   if (!parsed.ok) return fail(res, 400, parsed.message);
   try {

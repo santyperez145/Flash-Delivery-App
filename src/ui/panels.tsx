@@ -7,7 +7,8 @@
 //
 // Están acá y no en la consola porque un módulo compartido que importara de
 // vuelta a la consola —o a `App.tsx`— cerraría un ciclo de imports.
-import { PackageCheck, ReceiptText } from "lucide-react";
+import { ArrowLeft, PackageCheck, ReceiptText } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 import { money } from "../format";
 import { orderStatusLabel } from "../labels";
@@ -95,5 +96,73 @@ export function OrderOpsCard({
         </div>
       )}
     </article>
+  );
+}
+
+// --- Primitivas de navegación --------------------------------------------
+//
+// Las tres las usan el cliente y las consolas de operaciones: `SectionTitle` en
+// 11 lugares, `TopBar` en 4, y `IconButton` tanto suelto como dentro de
+// `TopBar`. Se clasificaron contando usos por zona del archivo, que es como se
+// decidió cada corte de ARC-001 en el frente.
+
+export function SectionTitle({ title, action }: { title: string; action?: string }) {
+  return (
+    <div className="section-title">
+      <h2>{title}</h2>
+      {action && <span className="section-action">{action}</span>}
+    </div>
+  );
+}
+
+export function TopBar({
+  title,
+  onBack,
+  actionIcon,
+}: {
+  title: string;
+  onBack?: () => void;
+  actionIcon?: LucideIcon;
+}) {
+  const ActionIcon = actionIcon;
+  return (
+    <header className="topbar">
+      {onBack ? (
+        <IconButton icon={ArrowLeft} label="Volver" onClick={onBack} />
+      ) : (
+        <span className="topbar-spacer" />
+      )}
+      <h1>{title}</h1>
+      {ActionIcon ? (
+        <IconButton icon={ActionIcon} label={title} />
+      ) : (
+        <span className="topbar-spacer" />
+      )}
+    </header>
+  );
+}
+
+export function IconButton({
+  icon: Icon,
+  label,
+  onClick,
+  badge,
+}: {
+  icon: LucideIcon;
+  label: string;
+  onClick?: () => void;
+  badge?: number;
+}) {
+  return (
+    <button
+      className="icon-button"
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+    >
+      <Icon size={18} />
+      {!!badge && <span className="mini-badge">{badge}</span>}
+    </button>
   );
 }

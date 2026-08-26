@@ -959,3 +959,39 @@ export type PayoutReview = {
   reviewedAt: string | null;
   paidAt: string | null;
 };
+
+// --- Formas que vivían en el entrypoint (ARC-001, paso 15) ----------------
+//
+// Las dos las comparten `App.tsx`, que arma la petición, y la superficie de
+// cliente, que la compone en pantalla.
+
+/** Lo que el checkout de comida confirma: la cotización firmada y su elección. */
+export type FoodCheckoutSelection = {
+  deliveryAddressId: string;
+  deliveryAddress: string;
+  paymentMethod: string;
+  paymentMethodId?: string;
+  quoteToken: string;
+};
+
+/** Lo que la pantalla de envíos manda para crear uno. */
+export type ShipmentCreatePayload = {
+  pickup: string;
+  destination: string;
+  recipientName: string;
+  recipientPhone: string;
+  packageSize: Shipment["packageSize"];
+  description: string;
+  weightKg: number;
+  declaredValue: number;
+  protection: NonNullable<Shipment["protection"]>;
+  signatureRequired: boolean;
+  itemCategory: NonNullable<Shipment["itemCategory"]>;
+  serviceLevel: NonNullable<Shipment["serviceLevel"]>;
+  deliveryNotes: string;
+  paymentMethod: string;
+  termsAccepted: true;
+  pickupCoords: GeoPoint;
+  destinationCoords: GeoPoint;
+  quoteToken: string;
+};
