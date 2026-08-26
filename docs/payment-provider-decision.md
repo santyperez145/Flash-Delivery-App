@@ -1,6 +1,28 @@
 # ADR — PSP de marketplace para el piloto argentino
 
-Estado: **aceptado para implementación condicionada**. Fecha: 22 de agosto de 2026.
+Estado: **aceptado para implementación condicionada**. Fecha: 22 de agosto de 2026. **Revisado el 25 de agosto de 2026.**
+
+> **Nada de lo implementado fue probado todavía contra el proveedor real.**
+>
+> `PAYMENT_MARKETPLACE_PROVIDER` está deshabilitado por defecto. No hay cuentas de vendedor de prueba vinculadas, no hay credenciales productivas, no se probaron expiración ni rotación de OAuth contra Mercado Pago, no se simularon duplicados, timeouts ni webhooks fuera de orden contra el sandbox real, no hay conciliación diaria operada, no existen procedimientos humanos para diferencias y **no se probó el refund con saldo insuficiente del vendedor**, que es una restricción conocida del modelo Split 1:1.
+>
+> En la escala de [`docs/matriz-madurez.md`](matriz-madurez.md), toda la integración está en `IMPL` o `LOCAL`. Ninguna parte alcanzó `PROV`.
+>
+> Hallazgo [H-09](auditoria-2026-08-25.md#h-09--mercado-pago-preparado-pero-no-validado), ticket [PAY-001](backlog-tecnico.md#pay-001--validación-marketplace). Prioridad P0, Fase 1.
+
+## Decisión sobre wallet — no avanzar
+
+**Flash no se convierte en una wallet custodial en esta etapa.** El BCRA mantiene registros para proveedores de servicios de pago y billeteras digitales interoperables; ofrecer una cuenta de pago o una billetera propia puede implicar inscripción y obligaciones regulatorias específicas.
+
+Estructura vigente:
+
+- El dinero real permanece en el PSP.
+- Flash mantiene un ledger interno de representación y conciliación.
+- Los «créditos Flash» son promocionales, limitados y **no retirables**.
+- No se custodian depósitos de clientes.
+- Los payouts se ejecutan a través del proveedor habilitado.
+
+Referencia: [Registro de Billeteras Digitales Interoperables del BCRA](https://www.bcra.gob.ar/inscripcion-registro-billeteras-digitales-interoperables/).
 
 ## Decisión
 

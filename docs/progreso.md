@@ -1,10 +1,16 @@
 # Progreso de desarrollo
 
-Fecha: 22 de agosto de 2026.
+Fecha de la última revisión: **25 de agosto de 2026**.
+
+> Este documento es un **registro histórico acumulativo**. Las entradas de «Entregado» conservan la fecha en que se escribieron y varias describen un estado ya superado (por ejemplo, SQLite como base principal). Para el estado real y verificado de cada capacidad, la fuente es [`docs/matriz-madurez.md`](matriz-madurez.md).
 
 ## Resumen actual
 
-Flash Delivery Mobility ya es una app fullstack local con cuatro superficies: cliente, comercio, conductor/repartidor y superadmin. La experiencia mobile funciona como PWA para validacion; la experiencia desktop queda reservada para gestion de plataforma.
+Flash es una **plataforma de preproducción avanzada** con cuatro superficies: cliente, comercio, conductor/repartidor y operaciones. El runtime principal es PostgreSQL/PostGIS con 110 migraciones versionadas; SQLite quedó reducido a fallback aislado de tests.
+
+La [auditoría del 25 de agosto de 2026](auditoria-2026-08-25.md) la evalúa en 6,2/10 y define nueve bloqueadores P0. De 91 capacidades inventariadas, el 81% de las existentes no está protegido por una puerta CI y ninguna fue probada contra un proveedor real.
+
+**Congelamiento de funcionalidades activo** hasta el 20 de septiembre de 2026. Ver [`docs/plan-de-accion.md`](plan-de-accion.md).
 
 ## Entregado
 
@@ -111,14 +117,20 @@ Flash Delivery Mobility ya es una app fullstack local con cuatro superficies: cl
 9. Probar que `/api/reset` solo responde con token admin.
 10. Ejecutar `npm run test:security`.
 
-## Pendiente critico
+## Pendiente crítico
 
-- Suite completa de tests unitarios/integracion/e2e.
-- Migracion a Postgres/PostGIS.
-- Filtrado realtime por audiencia, Redis Pub/Sub y WebSocket para presencia/chat.
-- Integracion real de mapas/geocoding/rutas.
-- Geocoding y rutas viales con proveedor externo; hoy existe distancia geodesica por coordenadas y fallback por texto.
-- Integracion real de pagos y ledger.
-- Expo/React Native para apps mobile publicables.
-- Push notifications.
-- Observabilidad y CI/CD.
+Reemplaza la lista anterior, cuyos ítems de PostgreSQL/PostGIS, ledger y realtime ya están implementados. Los bloqueadores vigentes son los P0 de la auditoría del 25 de agosto:
+
+| Hallazgo | Ticket | Bloqueador |
+| --- | --- | --- |
+| H-01 | CI-001 | CI ejecuta 15 de 104 scripts y no levanta PostgreSQL: pagos, RLS, ledger, dispatch, KYC y safety no bloquean ningún merge |
+| H-02 | NOT-001 | Push productivo imposible: `NOTIFICATION_PROVIDER` sólo admite `disabled` y `sandbox`, y producción prohíbe `sandbox` |
+| H-03 | SEC-001 | Realtime hace broadcast a todos los roles ante `entityType` desconocido |
+| H-04 | DAT-001 | 20 de 106 tablas sin política RLS y cero `FORCE ROW LEVEL SECURITY` |
+| H-05 | INF-001 | La imagen Docker corre como root y arranca `server/index.js` en lugar de `server/start.js` |
+| H-06 | DSP-001 | Dispatch sin `ST_DWithin` ni KNN: recalcula historial de 30 días de todo el padrón por oleada |
+| H-07 | GEO-001 | Nominatim y OSRM públicos como valores por defecto |
+| H-08 | ARC-001 | Cinco archivos concentran más de 1,3 MB, con líneas de hasta 4.061 caracteres |
+| H-09 | PAY-001 | Mercado Pago integrado pero nunca validado contra el proveedor |
+
+Además, sin ticket P0 asignado pero bloqueantes para las fases posteriores: framework estándar de pruebas (Vitest/Testcontainers/Playwright/k6), builds EAS firmados, crash reporting, error tracking, colector y dashboards administrados, Safety Operating System, y seguros y habilitación para movilidad.
