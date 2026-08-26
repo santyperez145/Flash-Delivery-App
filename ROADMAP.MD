@@ -8,7 +8,7 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
-## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 9, servidor y primer corte del frente
+## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 10, servidor y frente
 
 Entregas novena a decimoquinta de la Fase 0. El paso 2 quedó sin registrar acá cuando se publicó, así que esta sección cubre los siete.
 
@@ -123,6 +123,16 @@ Un análisis por regex dijo que el bloque no dependía de nada externo. Era fals
 El paso 7 arregló esa carrera en dos scripts. Al correr la batería del frente aparecieron dos más, y al buscar la clase entera había **ocho**, con presupuestos de 10 a 12 segundos. Todas contaban intentos en lugar de tiempo, y varias dormían dentro del `catch`, así que una respuesta distinta de 200 que no lanzara quemaba los intentos de corrido.
 
 `scripts/wait-for-api.mjs` las reemplaza: un presupuesto, un lugar, y un error que dice si lo último fue `ECONNREFUSED` o `HTTP 503`. En una sola sesión esta clase costó cuatro verificaciones perdidas, una reportada como regresión inexistente.
+
+### El móvil: 15.374 → 10.876 líneas, y una deuda que se pagó sola
+
+`apps/mobile/App.tsx` era el archivo más grande del repositorio. Casi un tercio —**4.445 líneas**— era el objeto `styles`, usado en 1.746 lugares. Ninguna pantalla se podía mover mientras eso viviera en el entrypoint, así que salió primero a `apps/mobile/src/styles.ts`, junto con el formateo compartido en `apps/mobile/src/format.ts`.
+
+Las etiquetas de estado del móvil **no** se unificaron con las de la web aunque compartan forma: el móvil dice «Nuevo · aceptar» donde la web dice «Aceptado», porque ahí la pantalla es del comercio y la etiqueta es una acción. Unificarlas sería perder la distinción.
+
+**El paso 8 se pagó una entrega después, y se puede medir.** `test:responsive-layout` afirma `contains(mobile, "customerViewport: { maxWidth: 430")`. Tras mover la hoja de estilos, ese texto existe **sólo** en `styles.ts` y ya no en `App.tsx`: con la lectura por ruta fija que había antes, la aserción se rompía hoy. Con la lectura por árbol, encontró el código en su lugar nuevo y pasó.
+
+**Y el compilador ganó de nuevo.** Un grep dijo que el bloque de estilos no dependía de nada externo. Dependía de `flashDesign` y de `Platform`. Es la tercera vez en la sesión que un análisis por texto se equivoca y `tsc` lo corrige: para dependencias, el compilador es la herramienta, no la expresión regular.
 
 ### Lo que sigue faltando
 
