@@ -40,6 +40,7 @@ import { requireAuth } from "./http/authentication.js";
 import { backofficeReportsRouter } from "./http/backoffice-reports-router.js";
 import { addressesRouter } from "./http/addresses-router.js";
 import { dietaryRouter } from "./http/dietary-router.js";
+import { featureFlagsRouter } from "./http/feature-flags-router.js";
 import { feedbackRouter } from "./http/feedback-router.js";
 import { financialReviewRouter } from "./http/financial-review-router.js";
 import { notificationsRouter } from "./http/notifications-router.js";
@@ -53,6 +54,7 @@ import { mapsRouter } from "./http/maps-router.js";
 import { rideContextRouter } from "./http/ride-context-router.js";
 import { driverFleetRouter } from "./http/driver-fleet-router.js";
 import { shipmentProtectionRouter } from "./http/shipment-protection-router.js";
+import { productAnalyticsRouter } from "./http/product-analytics-router.js";
 import { queueTriggersRouter } from "./http/queue-triggers-router.js";
 import { paymentMethodsRouter } from "./http/payment-methods-router.js";
 import { pricingRouter } from "./http/pricing-router.js";
@@ -843,55 +845,6 @@ const userStatusSchema = z.object({
   status: z.enum(["active", "suspended"]),
   reason: z.string().trim().min(5).max(240),
 });
-const featureFlagUpdateSchema = z
-  .object({
-    enabled: z.boolean().optional(),
-    rolloutPercentage: z.coerce.number().int().min(0).max(100).optional(),
-    allowedRoles: z
-      .array(z.enum(["customer", "merchant", "driver", "admin", "support"]))
-      .max(5)
-      .optional(),
-    startsAt: z.string().datetime().nullable().optional(),
-    endsAt: z.string().datetime().nullable().optional(),
-    variant: z
-      .record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()]))
-      .optional(),
-  })
-  .refine((value) => Object.keys(value).length > 0, "Indicá al menos un cambio")
-  .refine(
-    (value) =>
-      !value.startsAt || !value.endsAt || new Date(value.endsAt) > new Date(value.startsAt),
-    "La fecha final debe ser posterior al inicio",
-  );
-const productEventSchema = z
-  .object({
-    id: z.string().uuid(),
-    name: z.enum([
-      "home_viewed",
-      "search_started",
-      "merchant_viewed",
-      "cart_updated",
-      "checkout_started",
-      "quote_received",
-      "job_created",
-      "activity_viewed",
-    ]),
-    surface: z.enum(["web", "customer_app", "driver_app", "merchant_app"]),
-    sessionId: z.string().uuid(),
-    occurredAt: z.string().datetime(),
-    properties: z
-      .record(z.string(), z.union([z.string().max(80), z.number().finite(), z.boolean(), z.null()]))
-      .default({}),
-  })
-  .superRefine((event, ctx) => {
-    const timestamp = new Date(event.occurredAt).getTime();
-    if (timestamp < Date.now() - 86400000 || timestamp > Date.now() + 300000)
-      ctx.addIssue({ code: "custom", message: "Fecha de analytics fuera de ventana" });
-    for (const key of Object.keys(event.properties))
-      if (/email|phone|address|coord|lat|lng|token|name|note|query|text/i.test(key))
-        ctx.addIssue({ code: "custom", message: `Propiedad sensible no permitida: ${key}` });
-  });
-const productEventsSchema = z.object({ events: z.array(productEventSchema).min(1).max(20) });
 const tipSchema = z.object({
   amount: z.coerce.number().int().min(100).max(100000),
 });
@@ -2378,117 +2331,8 @@ app.get("/api/catalog/restaurants", async (req, res) => {
 });
 
 app.use(backofficeReportsRouter);
-app.get("/api/features", requireAuth, async (req, res) => {
-  try {
-    res.set("Cache-Control", "no-store, private");
-    return ok(res, {
-      features: usesPostgresAuth()
-        ? await evaluateFeatureFlags({ userId: req.auth.userId, roles: req.auth.roles })
-        : {
-            delivery_beta: { active: true, variant: { phase: "local_demo" } },
-            shipment_beta: { active: true, variant: { phase: "local_demo" } },
-            public_rides: { active: false, variant: {} },
-          },
-    });
-  } catch (_error) {
-    return ok(res, { features: {}, degraded: true });
-  }
-});
-app.get(
-  "/api/operations/feature-flags",
-  requireAuth,
-  requireAnyRole("admin"),
-  async (_req, res) => {
-    try {
-      res.set("Cache-Control", "no-store, private");
-      return ok(res, { flags: await getFeatureFlags() });
-    } catch (error) {
-      return failFrom(res, error, "No se pudieron cargar los feature flags");
-    }
-  },
-);
-app.patch(
-  "/api/operations/feature-flags/:flagId",
-  requireAuth,
-  requireAnyRole("admin"),
-  async (req, res) => {
-    const parsed = parseOrFail(featureFlagUpdateSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const before = (await getFeatureFlags()).find((flag) => flag.id === req.params.flagId);
-      if (!before) return fail(res, 404, "Feature flag no encontrado");
-      const flag = await updateFeatureFlag({ publicId: req.params.flagId, changes: parsed.data });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "feature_flag.updated",
-        entityType: "feature_flag",
-        entityId: flag.id,
-        requestId: req.requestId,
-        beforeData: before,
-        afterData: flag,
-      });
-      return ok(res, { flag });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo actualizar el feature flag");
-    }
-  },
-);
-app.post("/api/analytics/events", requireAuth, async (req, res) => {
-  const parsed = parseOrFail(productEventsSchema, req.body || {});
-  if (!parsed.ok) return fail(res, 400, parsed.message);
-  try {
-    const result = usesPostgresAuth()
-      ? await ingestProductEvents({ userPublicId: req.auth.userId, events: parsed.data.events })
-      : createLocalProductEvents({ userId: req.auth.userId, events: parsed.data.events });
-    return res.status(202).json({ ok: true, requestId: req.requestId, ...result });
-  } catch (error) {
-    return failFrom(res, error, "No se pudieron registrar los eventos");
-  }
-});
-app.get(
-  "/api/operations/zones/:zoneId/readiness",
-  requireAuth,
-  requireAnyRole("admin"),
-  async (req, res) => {
-    try {
-      res.set("Cache-Control", "no-store, private");
-      return ok(res, { readiness: await getZoneReadiness(req.params.zoneId) });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo evaluar la zona");
-    }
-  },
-);
-app.post(
-  "/api/operations/zones/:zoneId/readiness-assessments",
-  requireAuth,
-  requireAnyRole("admin"),
-  async (req, res) => {
-    try {
-      const assessment = await assessZoneReadiness({
-        zonePublicId: req.params.zoneId,
-        actorPublicId: req.auth.userId,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "zone.readiness_assessed",
-        entityType: "service_zone",
-        entityId: req.params.zoneId,
-        requestId: req.requestId,
-        afterData: {
-          assessmentId: assessment.id,
-          decision: assessment.decision,
-          checks: assessment.checks,
-        },
-      });
-      return res.status(201).json({ ok: true, requestId: req.requestId, assessment });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo registrar la evaluación");
-    }
-  },
-);
-
+app.use(featureFlagsRouter);
+app.use(productAnalyticsRouter);
 app.get("/api/state", requireAuth, (_req, res) => {
   res.set("Cache-Control", "no-store");
   return fail(res, 410, "El estado global fue retirado; usa bootstrap y recursos segmentados");
