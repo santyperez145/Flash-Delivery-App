@@ -36,3 +36,21 @@ export function initials(name: string) {
     .join("")
     .toUpperCase();
 }
+
+/**
+ * Una duración en minutos, dicha como la diría una persona.
+ *
+ * Escala de minutos a horas a días y omite el resto cuando es cero: «2 h» y no
+ * «2 h 0 min». Un valor negativo se trata como cero, porque un ETA en el pasado
+ * es un dato viejo, no un tiempo negativo.
+ */
+export function compactMinutes(totalMinutes: number) {
+  const minutes = Math.max(0, Math.round(totalMinutes));
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60),
+    remainingMinutes = minutes % 60;
+  if (hours < 24) return remainingMinutes ? `${hours} h ${remainingMinutes} min` : `${hours} h`;
+  const days = Math.floor(hours / 24),
+    remainingHours = hours % 24;
+  return remainingHours ? `${days} d ${remainingHours} h` : `${days} d`;
+}

@@ -8,7 +8,7 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
-## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 13, servidor y frente
+## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 14, servidor y frente
 
 Entregas novena a decimoquinta de la Fase 0. El paso 2 quedó sin registrar acá cuando se publicó, así que esta sección cubre los siete.
 
@@ -183,6 +183,16 @@ El código no estaba roto. Era **indiscreto**, y eso no lo ve un `tsc` ni un con
 La primera versión del contrato buscaba la cadena `error.status || 500` línea por línea, y quedó en verde. **El navegador siguió mostrando la fuga en la sección de tarifas**: ese handler escribía `fail(res, 500, error.message || "...")`, con el 500 literal.
 
 La corrección no fue agregar un caso: fue cambiar la forma de comprobar. Ahora se cuentan paréntesis y se analiza **cada llamada entera** —316 de ellas—, no una forma de escribirla. Y el manejador global queda exento por su forma, no por su archivo, para que copiar el patrón no herede la excepción sin heredar el enmascarado.
+
+### La superficie de comercio, y el navegador dentro del bucle
+
+`src/App.tsx`: **7.420 → 5.645 líneas**. El paso 14 saca la consola de comercio de escritorio y sus cuatro editores —horarios de sucursal, catálogo de modificadores, catálogo dietario y detalle de pedido— a `src/merchant/MerchantConsole.tsx`.
+
+De las cinco piezas **sólo `MerchantDesktopConsole` cruza la frontera**. `OrderOpsCard` iba en sentido contrario: la usa este bloque y también el conductor y operaciones, así que salió antes a `src/ui/panels.tsx`. `compactMinutes` siguió el mismo camino hacia `src/format.ts`. Kernel primero, otra vez.
+
+Es la superficie que el criterio «el build de driver no incluye pantallas de comercio» nombra literalmente.
+
+**La diferencia con las trece entregas anteriores es que ésta se verificó corriendo.** Entré como comercio y recorrí las cinco pestañas de la consola: 855, 915, 607, 793 y 1.101 caracteres de contenido real, sin un solo error. Eso no lo dice `tsc`, que sólo afirma que los tipos cierran.
 
 ### Lo que sigue faltando
 
