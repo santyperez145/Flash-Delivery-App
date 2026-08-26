@@ -78,9 +78,7 @@ for (const [table, entry] of Object.entries(classification)) {
   if (!declared.has(table)) continue;
   const real = withRls.has(table);
   if (entry.rls !== real) {
-    problems.push(
-      `${table}: la matriz dice rls=${entry.rls} y las migraciones dicen ${real}`,
-    );
+    problems.push(`${table}: la matriz dice rls=${entry.rls} y las migraciones dicen ${real}`);
   }
 }
 

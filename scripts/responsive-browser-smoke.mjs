@@ -48,10 +48,7 @@ async function assertReachable(url, label) {
 async function assertNoPageOverflow(page, label) {
   const metrics = await page.evaluate(() => ({
     viewportWidth: document.documentElement.clientWidth,
-    documentWidth: Math.max(
-      document.documentElement.scrollWidth,
-      document.body?.scrollWidth ?? 0,
-    ),
+    documentWidth: Math.max(document.documentElement.scrollWidth, document.body?.scrollWidth ?? 0),
   }));
   assert.ok(
     metrics.documentWidth <= metrics.viewportWidth + 1,
@@ -121,51 +118,37 @@ async function auditMobile(browser) {
     const offerAction = page.getByText("ENTENDIDO", { exact: true });
     if (await offerAction.isVisible().catch(() => false)) {
       await assertNoPageOverflow(page, "customer offer sheet at 320px");
-      await assertLocatorInsideViewport(
-        page,
-        offerAction,
-        "customer offer action at 320px",
-      );
+      await assertLocatorInsideViewport(page, offerAction, "customer offer action at 320px");
       await offerAction.click();
     }
   }
 
   for (const viewport of compactViewports) {
     await page.setViewportSize(viewport);
-    await withAuditScreenshot(
-      page,
-      `${mobileVariant}-${viewport.width}`,
-      async () => {
-        for (const tab of audience.tabs) {
-          const tabLocator =
-            mobileVariant === "customer"
-              ? page.getByText(tab, { exact: true }).last()
-              : page.getByRole("tab", { name: new RegExp(tab, "i") });
-          await tabLocator.click();
-          await page.waitForTimeout(120);
-          await assertNoPageOverflow(
-            page,
-            `${mobileVariant} ${tab} at ${viewport.width}px`,
-          );
-          await assertLocatorInsideViewport(
-            page,
-            tabLocator,
-            `${mobileVariant} ${tab} navigation at ${viewport.width}px`,
-          );
-        }
+    await withAuditScreenshot(page, `${mobileVariant}-${viewport.width}`, async () => {
+      for (const tab of audience.tabs) {
+        const tabLocator =
+          mobileVariant === "customer"
+            ? page.getByText(tab, { exact: true }).last()
+            : page.getByRole("tab", { name: new RegExp(tab, "i") });
+        await tabLocator.click();
+        await page.waitForTimeout(120);
+        await assertNoPageOverflow(page, `${mobileVariant} ${tab} at ${viewport.width}px`);
+        await assertLocatorInsideViewport(
+          page,
+          tabLocator,
+          `${mobileVariant} ${tab} navigation at ${viewport.width}px`,
+        );
+      }
 
-        if (mobileVariant === "customer") {
-          for (const service of ["Comidas", "Viajes", "Envios"]) {
-            await page.getByText(service, { exact: true }).first().click();
-            await page.waitForTimeout(120);
-            await assertNoPageOverflow(
-              page,
-              `customer ${service} at ${viewport.width}px`,
-            );
-          }
+      if (mobileVariant === "customer") {
+        for (const service of ["Comidas", "Viajes", "Envios"]) {
+          await page.getByText(service, { exact: true }).first().click();
+          await page.waitForTimeout(120);
+          await assertNoPageOverflow(page, `customer ${service} at ${viewport.width}px`);
         }
-      },
-    );
+      }
+    });
     ok(`${mobileVariant} navigation fits ${viewport.width}x${viewport.height}`);
   }
 
@@ -183,9 +166,7 @@ async function auditMobile(browser) {
 async function auditDesktopRole(browser, role) {
   const isMerchant = role === "merchant";
   const shellSelector = isMerchant ? ".merchant-desktop-shell" : ".admin-shell";
-  const sidebarSelector = isMerchant
-    ? ".merchant-desktop-sidebar"
-    : ".admin-sidebar";
+  const sidebarSelector = isMerchant ? ".merchant-desktop-sidebar" : ".admin-sidebar";
   const email = isMerchant ? "comercio@flash.app" : "ops@flash.app";
   const context = await browser.newContext({
     viewport: desktopViewports.at(-1),
@@ -226,9 +207,9 @@ async function auditDesktopRole(browser, role) {
         assert.equal(composition.display, "block", `${role} compact shell must stack`);
         assert.equal(sidebar.position, "sticky", `${role} compact nav must stay sticky`);
         assert.ok(sidebar.width <= viewport.width + 1, `${role} compact nav exceeds viewport`);
-        const navTargets = await page.locator(".admin-nav button:visible").evaluateAll((buttons) =>
-          buttons.map((button) => button.getBoundingClientRect().height),
-        );
+        const navTargets = await page
+          .locator(".admin-nav button:visible")
+          .evaluateAll((buttons) => buttons.map((button) => button.getBoundingClientRect().height));
         assert.ok(navTargets.length > 0, `${role} compact nav has no visible targets`);
         assert.ok(
           navTargets.every((height) => height >= 43),

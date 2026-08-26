@@ -46,18 +46,21 @@ function publishedEvents(src) {
 }
 
 const events = publishedEvents(source);
-check(events.length > 0, `se inventariaron ${events.length} publicaciones realtime en server/index.js`);
+check(
+  events.length > 0,
+  `se inventariaron ${events.length} publicaciones realtime en server/index.js`,
+);
 
 // --- 2. Ninguna publicación real puede quedar sin clasificar -----------------
 
-const unclassified = events.filter(
-  (event) => classifyRealtimeAudience(event) === "unclassified",
-);
+const unclassified = events.filter((event) => classifyRealtimeAudience(event) === "unclassified");
 check(
   unclassified.length === 0,
   "toda publicación realtime resuelve una audiencia explícita",
   unclassified
-    .map((e) => `server/index.js:${e.line} entityType=${e.entityType ?? "(ninguno)"} type=${e.type}`)
+    .map(
+      (e) => `server/index.js:${e.line} entityType=${e.entityType ?? "(ninguno)"} type=${e.type}`,
+    )
     .join(" | "),
 );
 
@@ -65,7 +68,9 @@ check(
 
 const globals = events.filter((event) => classifyRealtimeAudience(event) === "global");
 const globalEntityTypes = [...new Set(globals.map((e) => e.entityType).filter(Boolean))].sort();
-const globalEventTypes = [...new Set(globals.filter((e) => !e.entityType).map((e) => e.type))].sort();
+const globalEventTypes = [
+  ...new Set(globals.filter((e) => !e.entityType).map((e) => e.type)),
+].sort();
 
 // Cambiar estas listas es una decisión de privacidad: exige revisión explícita.
 const APPROVED_GLOBAL_ENTITY_TYPES = ["pricing_change_request", "service_zone"];
@@ -84,13 +89,7 @@ check(
 
 // --- 4. Default-deny ante entidades desconocidas -----------------------------
 
-const invented = [
-  "entidad_inventada",
-  "order_v2",
-  "ORDER",
-  "driver_payout_secret",
-  "",
-];
+const invented = ["entidad_inventada", "order_v2", "ORDER", "driver_payout_secret", ""];
 for (const entityType of invented) {
   check(
     classifyRealtimeAudience({ type: "algo.paso", entityType }) === "unclassified",
@@ -151,4 +150,6 @@ if (failures.length) {
   for (const failure of failures) console.error(`  - ${failure}`);
   process.exit(1);
 }
-console.log(`\nok - contrato de audiencias realtime verificado sobre ${events.length} publicaciones`);
+console.log(
+  `\nok - contrato de audiencias realtime verificado sobre ${events.length} publicaciones`,
+);

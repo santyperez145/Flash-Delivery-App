@@ -9,59 +9,119 @@ const server = spawn(process.execPath, ["server/start.js"], {
 });
 server.stderr.on("data", (data) => process.stderr.write(data));
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const assert = (condition, message) => { if (!condition) throw new Error(message); console.log(`ok - ${message}`); };
+const assert = (condition, message) => {
+  if (!condition) throw new Error(message);
+  console.log(`ok - ${message}`);
+};
 
 try {
   let online = false;
   for (let attempt = 0; attempt < 60; attempt += 1) {
-    try { if ((await fetch(`${origin}/api/health`)).ok) { online = true; break; } } catch {}
+    try {
+      if ((await fetch(`${origin}/api/health`)).ok) {
+        online = true;
+        break;
+      }
+    } catch {}
     await sleep(200);
   }
   assert(online, "la API de prueba inició");
   const indexResponse = await fetch(origin, { headers: { "Accept-Encoding": "gzip" } });
   const html = await indexResponse.text();
-  assert(indexResponse.ok && indexResponse.headers.get("cache-control") === "no-cache", "index.html siempre revalida despliegues");
+  assert(
+    indexResponse.ok && indexResponse.headers.get("cache-control") === "no-cache",
+    "index.html siempre revalida despliegues",
+  );
   const csp = indexResponse.headers.get("content-security-policy") || "";
-  assert(csp.includes("default-src 'self'") && csp.includes("object-src 'none'") && csp.includes("frame-ancestors 'none'") && !csp.includes("unsafe-eval"), "CSP bloquea ejecución, objetos y framing no autorizados");
-  assert(csp.includes("worker-src 'self' blob:") && csp.includes("https://tile.openstreetmap.org") && !csp.includes("connect-src 'self' https:"), "CSP habilita workers y orígenes cartográficos explícitos sin abrir todo HTTPS");
+  assert(
+    csp.includes("default-src 'self'") &&
+      csp.includes("object-src 'none'") &&
+      csp.includes("frame-ancestors 'none'") &&
+      !csp.includes("unsafe-eval"),
+    "CSP bloquea ejecución, objetos y framing no autorizados",
+  );
+  assert(
+    csp.includes("worker-src 'self' blob:") &&
+      csp.includes("https://tile.openstreetmap.org") &&
+      !csp.includes("connect-src 'self' https:"),
+    "CSP habilita workers y orígenes cartográficos explícitos sin abrir todo HTTPS",
+  );
   const assetPath = html.match(/<script[^>]+src="([^"]+\.js)"/)?.[1];
   assert(assetPath, "index.html referencia el entry versionado");
   const browserHeaders = { "Accept-Encoding": "gzip", Origin: origin };
   const assetResponse = await fetch(new URL(assetPath, origin), { headers: browserHeaders });
   await assetResponse.arrayBuffer();
-  assert(assetResponse.headers.get("content-encoding") === "gzip", "JavaScript productivo se entrega comprimido");
-  assert(assetResponse.headers.get("cache-control")?.includes("immutable"), "assets con hash usan cache inmutable anual");
+  assert(
+    assetResponse.headers.get("content-encoding") === "gzip",
+    "JavaScript productivo se entrega comprimido",
+  );
+  assert(
+    assetResponse.headers.get("cache-control")?.includes("immutable"),
+    "assets con hash usan cache inmutable anual",
+  );
   const stylesheetPath = html.match(/<link[^>]+href="([^"]+\.css)"/)?.[1];
   assert(stylesheetPath, "index.html referencia la hoja de estilos versionada");
-  const stylesheetResponse = await fetch(new URL(stylesheetPath, origin), { headers: browserHeaders });
+  const stylesheetResponse = await fetch(new URL(stylesheetPath, origin), {
+    headers: browserHeaders,
+  });
   await stylesheetResponse.arrayBuffer();
-  assert(stylesheetResponse.ok && stylesheetResponse.headers.get("content-type")?.includes("text/css"), "CSS productivo conserva su MIME correcto");
-  const staleAssetResponse = await fetch(`${origin}/assets/flash-missing-asset.css`, { headers: { Origin: origin } });
-  assert(staleAssetResponse.status === 404 && staleAssetResponse.headers.get("content-type")?.includes("application/json"), "assets obsoletos no reciben el shell HTML");
+  assert(
+    stylesheetResponse.ok && stylesheetResponse.headers.get("content-type")?.includes("text/css"),
+    "CSS productivo conserva su MIME correcto",
+  );
+  const staleAssetResponse = await fetch(`${origin}/assets/flash-missing-asset.css`, {
+    headers: { Origin: origin },
+  });
+  assert(
+    staleAssetResponse.status === 404 &&
+      staleAssetResponse.headers.get("content-type")?.includes("application/json"),
+    "assets obsoletos no reciben el shell HTML",
+  );
   const invalidMediaResponse = await fetch(`${origin}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "text/plain" },
     body: JSON.stringify({ email: "cliente@flash.app", password: "demo123" }),
   });
-  assert(invalidMediaResponse.status === 415, "mutaciones con payload rechazan tipos de contenido ambiguos");
+  assert(
+    invalidMediaResponse.status === 415,
+    "mutaciones con payload rechazan tipos de contenido ambiguos",
+  );
   const loginResponse = await fetch(`${origin}/api/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email: "cliente@flash.app", password: "demo123", deviceName: "web-delivery-smoke" }),
+    body: JSON.stringify({
+      email: "cliente@flash.app",
+      password: "demo123",
+      deviceName: "web-delivery-smoke",
+    }),
   });
   const { token, refreshToken } = await loginResponse.json();
   assert(loginResponse.ok && token, "la prueba obtuvo una sesión efímera");
-  assert(loginResponse.headers.get("cache-control") === "no-store, private", "login nativo no puede almacenarse en caches");
-  const accountResponse = await fetch(`${origin}/api/me`, { headers: { Authorization: `Bearer ${token}` } });
-  assert(accountResponse.ok && accountResponse.headers.get("cache-control") === "no-store, private", "respuestas autenticadas son privadas y no almacenables");
+  assert(
+    loginResponse.headers.get("cache-control") === "no-store, private",
+    "login nativo no puede almacenarse en caches",
+  );
+  const accountResponse = await fetch(`${origin}/api/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  assert(
+    accountResponse.ok && accountResponse.headers.get("cache-control") === "no-store, private",
+    "respuestas autenticadas son privadas y no almacenables",
+  );
   const citiesResponse = await fetch(`${origin}/api/cities`);
-  assert(citiesResponse.ok && citiesResponse.headers.get("cache-control")?.startsWith("public"), "catálogo público conserva su política de cache independiente");
+  assert(
+    citiesResponse.ok && citiesResponse.headers.get("cache-control")?.startsWith("public"),
+    "catálogo público conserva su política de cache independiente",
+  );
   const streamController = new AbortController();
   const streamResponse = await fetch(`${origin}/api/events`, {
     headers: { Authorization: `Bearer ${token}`, "Accept-Encoding": "gzip" },
     signal: streamController.signal,
   });
-  assert(streamResponse.ok && !streamResponse.headers.get("content-encoding"), "SSE queda sin compresión ni buffering");
+  assert(
+    streamResponse.ok && !streamResponse.headers.get("content-encoding"),
+    "SSE queda sin compresión ni buffering",
+  );
   streamController.abort();
   await fetch(`${origin}/api/auth/logout`, {
     method: "POST",
@@ -70,42 +130,102 @@ try {
   });
   const webLoginResponse = await fetch(`${origin}/api/auth/login`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Flash-Client": "web", Origin: origin, "Sec-Fetch-Site": "same-origin" },
-    body: JSON.stringify({ email: "cliente@flash.app", password: "demo123", deviceName: "web-cookie-smoke" }),
+    headers: {
+      "Content-Type": "application/json",
+      "X-Flash-Client": "web",
+      Origin: origin,
+      "Sec-Fetch-Site": "same-origin",
+    },
+    body: JSON.stringify({
+      email: "cliente@flash.app",
+      password: "demo123",
+      deviceName: "web-cookie-smoke",
+    }),
   });
   const webLogin = await webLoginResponse.json(),
     firstSetCookie = webLoginResponse.headers.get("set-cookie") || "",
     firstCookie = firstSetCookie.split(";")[0];
-  assert(webLoginResponse.ok && webLogin.token && !webLogin.refreshToken && firstSetCookie.includes("HttpOnly") && firstSetCookie.includes("SameSite=Strict"), "web recibe refresh token sólo en cookie HttpOnly SameSite");
-  assert(webLoginResponse.headers.get("cache-control") === "no-store, private", "login web con cookie no puede almacenarse en caches");
+  assert(
+    webLoginResponse.ok &&
+      webLogin.token &&
+      !webLogin.refreshToken &&
+      firstSetCookie.includes("HttpOnly") &&
+      firstSetCookie.includes("SameSite=Strict"),
+    "web recibe refresh token sólo en cookie HttpOnly SameSite",
+  );
+  assert(
+    webLoginResponse.headers.get("cache-control") === "no-store, private",
+    "login web con cookie no puede almacenarse en caches",
+  );
   const crossSiteRefreshResponse = await fetch(`${origin}/api/auth/refresh`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Flash-Client": "web", Origin: "https://evil.example", "Sec-Fetch-Site": "cross-site", Cookie: firstCookie },
+    headers: {
+      "Content-Type": "application/json",
+      "X-Flash-Client": "web",
+      Origin: "https://evil.example",
+      "Sec-Fetch-Site": "cross-site",
+      Cookie: firstCookie,
+    },
     body: "{}",
   });
-  assert(crossSiteRefreshResponse.status === 403, "refresh web rechaza navegación cross-site antes de usar la cookie");
+  assert(
+    crossSiteRefreshResponse.status === 403,
+    "refresh web rechaza navegación cross-site antes de usar la cookie",
+  );
   const webRefreshResponse = await fetch(`${origin}/api/auth/refresh`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Flash-Client": "web", Origin: origin, "Sec-Fetch-Site": "same-origin", Cookie: firstCookie },
+    headers: {
+      "Content-Type": "application/json",
+      "X-Flash-Client": "web",
+      Origin: origin,
+      "Sec-Fetch-Site": "same-origin",
+      Cookie: firstCookie,
+    },
     body: JSON.stringify({ deviceName: "web-cookie-smoke" }),
   });
   const webRefresh = await webRefreshResponse.json(),
     rotatedSetCookie = webRefreshResponse.headers.get("set-cookie") || "",
     rotatedCookie = rotatedSetCookie.split(";")[0];
-  assert(webRefreshResponse.ok && webRefresh.token && !webRefresh.refreshToken && rotatedCookie && rotatedCookie !== firstCookie, "cookie web rota sin exponer credencial en JSON");
-  assert(webRefreshResponse.headers.get("cache-control") === "no-store, private", "rotación web nunca queda en cache");
+  assert(
+    webRefreshResponse.ok &&
+      webRefresh.token &&
+      !webRefresh.refreshToken &&
+      rotatedCookie &&
+      rotatedCookie !== firstCookie,
+    "cookie web rota sin exponer credencial en JSON",
+  );
+  assert(
+    webRefreshResponse.headers.get("cache-control") === "no-store, private",
+    "rotación web nunca queda en cache",
+  );
   const replayResponse = await fetch(`${origin}/api/auth/refresh`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Flash-Client": "web", Origin: origin, "Sec-Fetch-Site": "same-origin", Cookie: firstCookie },
+    headers: {
+      "Content-Type": "application/json",
+      "X-Flash-Client": "web",
+      Origin: origin,
+      "Sec-Fetch-Site": "same-origin",
+      Cookie: firstCookie,
+    },
     body: "{}",
   });
   assert(replayResponse.status === 401, "cookie rotada no puede reutilizarse");
   const webLogoutResponse = await fetch(`${origin}/api/auth/logout`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Flash-Client": "web", Origin: origin, "Sec-Fetch-Site": "same-origin", Cookie: rotatedCookie },
+    headers: {
+      "Content-Type": "application/json",
+      "X-Flash-Client": "web",
+      Origin: origin,
+      "Sec-Fetch-Site": "same-origin",
+      Cookie: rotatedCookie,
+    },
     body: "{}",
   });
-  assert(webLogoutResponse.ok && (webLogoutResponse.headers.get("set-cookie") || "").includes("Expires=Thu, 01 Jan 1970"), "logout web revoca sesión y elimina cookie");
+  assert(
+    webLogoutResponse.ok &&
+      (webLogoutResponse.headers.get("set-cookie") || "").includes("Expires=Thu, 01 Jan 1970"),
+    "logout web revoca sesión y elimina cookie",
+  );
 } finally {
   server.kill("SIGTERM");
 }

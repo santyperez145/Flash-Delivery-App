@@ -1,2 +1,79 @@
-import{spawn}from"node:child_process";const port=4214,base=`http://127.0.0.1:${port}/api`,api=spawn(process.execPath,["server/start.js"],{cwd:process.cwd(),env:{...process.env,NODE_ENV:"test",LOG_LEVEL:"silent",PORT:String(port)},stdio:["ignore","ignore","pipe"]});api.stderr.on("data",d=>process.stderr.write(d));const sleep=ms=>new Promise(r=>setTimeout(r,ms)),call=async(path,{token,method="GET",body}={})=>{const response=await fetch(`${base}${path}`,{method,headers:{...(token?{authorization:`Bearer ${token}`}:{}) ,...(body?{"content-type":"application/json"}:{})},body:body?JSON.stringify(body):undefined});return{response,payload:await response.json()};},login=async device=>(await call("/auth/login",{method:"POST",body:{email:"cliente@flash.app",password:"demo123",deviceName:device}})).payload,assert=(v,m)=>{if(!v)throw new Error(m);};
-try{for(let i=0;i<50;i++){try{if((await fetch(`${base}/health`)).ok)break;}catch{}await sleep(200);}const first=await login("Sesión principal smoke"),second=await login("Sesión remota smoke");let sessions=(await call("/me/sessions",{token:first.token})).payload.sessions;const remote=sessions.find(s=>s.deviceName==="Sesión remota smoke");assert(remote&&!JSON.stringify(sessions).includes("token_hash"),"Inventario inseguro o incompleto");assert((await call(`/me/sessions/${remote.id}`,{token:first.token,method:"DELETE"})).response.ok,"No se revocó sesión propia");assert((await call("/auth/refresh",{method:"POST",body:{refreshToken:second.refreshToken}})).response.status===401,"Refresh remoto siguió vigente");const third=await login("Tercera sesión smoke");const revoked=await call("/me/sessions/revoke-others",{token:first.token,method:"POST",body:{refreshToken:first.refreshToken}});assert(revoked.response.ok&&revoked.payload.revokedSessions>=1,"No se cerraron las demás sesiones");assert((await call("/auth/refresh",{method:"POST",body:{refreshToken:third.refreshToken}})).response.status===401,"Otra sesión conservó refresh");sessions=(await call("/me/sessions",{token:first.token})).payload.sessions;assert(sessions.length===1&&sessions[0].deviceName==="Sesión principal smoke","El dispositivo actual no quedó aislado");console.log("ok - inventario, ownership y revocación remota de sesiones verificados");}finally{api.kill("SIGTERM");}
+import { spawn } from "node:child_process";
+const port = 4214,
+  base = `http://127.0.0.1:${port}/api`,
+  api = spawn(process.execPath, ["server/start.js"], {
+    cwd: process.cwd(),
+    env: { ...process.env, NODE_ENV: "test", LOG_LEVEL: "silent", PORT: String(port) },
+    stdio: ["ignore", "ignore", "pipe"],
+  });
+api.stderr.on("data", (d) => process.stderr.write(d));
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
+  call = async (path, { token, method = "GET", body } = {}) => {
+    const response = await fetch(`${base}${path}`, {
+      method,
+      headers: {
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+        ...(body ? { "content-type": "application/json" } : {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return { response, payload: await response.json() };
+  },
+  login = async (device) =>
+    (
+      await call("/auth/login", {
+        method: "POST",
+        body: { email: "cliente@flash.app", password: "demo123", deviceName: device },
+      })
+    ).payload,
+  assert = (v, m) => {
+    if (!v) throw new Error(m);
+  };
+try {
+  for (let i = 0; i < 50; i++) {
+    try {
+      if ((await fetch(`${base}/health`)).ok) break;
+    } catch {}
+    await sleep(200);
+  }
+  const first = await login("Sesión principal smoke"),
+    second = await login("Sesión remota smoke");
+  let sessions = (await call("/me/sessions", { token: first.token })).payload.sessions;
+  const remote = sessions.find((s) => s.deviceName === "Sesión remota smoke");
+  assert(
+    remote && !JSON.stringify(sessions).includes("token_hash"),
+    "Inventario inseguro o incompleto",
+  );
+  assert(
+    (await call(`/me/sessions/${remote.id}`, { token: first.token, method: "DELETE" })).response.ok,
+    "No se revocó sesión propia",
+  );
+  assert(
+    (await call("/auth/refresh", { method: "POST", body: { refreshToken: second.refreshToken } }))
+      .response.status === 401,
+    "Refresh remoto siguió vigente",
+  );
+  const third = await login("Tercera sesión smoke");
+  const revoked = await call("/me/sessions/revoke-others", {
+    token: first.token,
+    method: "POST",
+    body: { refreshToken: first.refreshToken },
+  });
+  assert(
+    revoked.response.ok && revoked.payload.revokedSessions >= 1,
+    "No se cerraron las demás sesiones",
+  );
+  assert(
+    (await call("/auth/refresh", { method: "POST", body: { refreshToken: third.refreshToken } }))
+      .response.status === 401,
+    "Otra sesión conservó refresh",
+  );
+  sessions = (await call("/me/sessions", { token: first.token })).payload.sessions;
+  assert(
+    sessions.length === 1 && sessions[0].deviceName === "Sesión principal smoke",
+    "El dispositivo actual no quedó aislado",
+  );
+  console.log("ok - inventario, ownership y revocación remota de sesiones verificados");
+} finally {
+  api.kill("SIGTERM");
+}

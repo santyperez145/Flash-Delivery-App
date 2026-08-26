@@ -1,5 +1,67 @@
-import {postgresPool} from "./postgres.js";
+import { postgresPool } from "./postgres.js";
 
-export async function getUserDietaryPreferences(userPublicId){const result=await postgresPool.query(`SELECT COALESCE(p.hide_incompatible,false) hide_incompatible,COALESCE((SELECT jsonb_agg(jsonb_build_object('code',d.code,'name',d.name) ORDER BY d.name) FROM user_dietary_preferences x JOIN dietary_labels d ON d.code=x.dietary_code WHERE x.user_id=u.id),'[]') dietary_labels,COALESCE((SELECT jsonb_agg(jsonb_build_object('code',a.code,'name',a.name) ORDER BY a.name) FROM user_avoided_allergens x JOIN allergens a ON a.code=x.allergen_code WHERE x.user_id=u.id),'[]') avoided_allergens FROM users u LEFT JOIN user_dietary_profiles p ON p.user_id=u.id WHERE u.public_id=$1`,[userPublicId]);if(!result.rows[0])throw Object.assign(new Error("Usuario no encontrado"),{status:404});const row=result.rows[0];return{dietaryLabels:row.dietary_labels,avoidedAllergens:row.avoided_allergens,hideIncompatible:row.hide_incompatible};}
+export async function getUserDietaryPreferences(userPublicId) {
+  const result = await postgresPool.query(
+    `SELECT COALESCE(p.hide_incompatible,false) hide_incompatible,COALESCE((SELECT jsonb_agg(jsonb_build_object('code',d.code,'name',d.name) ORDER BY d.name) FROM user_dietary_preferences x JOIN dietary_labels d ON d.code=x.dietary_code WHERE x.user_id=u.id),'[]') dietary_labels,COALESCE((SELECT jsonb_agg(jsonb_build_object('code',a.code,'name',a.name) ORDER BY a.name) FROM user_avoided_allergens x JOIN allergens a ON a.code=x.allergen_code WHERE x.user_id=u.id),'[]') avoided_allergens FROM users u LEFT JOIN user_dietary_profiles p ON p.user_id=u.id WHERE u.public_id=$1`,
+    [userPublicId],
+  );
+  if (!result.rows[0]) throw Object.assign(new Error("Usuario no encontrado"), { status: 404 });
+  const row = result.rows[0];
+  return {
+    dietaryLabels: row.dietary_labels,
+    avoidedAllergens: row.avoided_allergens,
+    hideIncompatible: row.hide_incompatible,
+  };
+}
 
-export async function replaceUserDietaryPreferences({userPublicId,dietaryLabels,avoidedAllergens,hideIncompatible}){const client=await postgresPool.connect();try{await client.query("BEGIN");const user=(await client.query("SELECT id FROM users WHERE public_id=$1 FOR UPDATE",[userPublicId])).rows[0];if(!user)throw Object.assign(new Error("Usuario no encontrado"),{status:404});const validDietary=(await client.query("SELECT code FROM dietary_labels WHERE active AND code=ANY($1::text[])",[dietaryLabels])).rowCount,validAllergens=(await client.query("SELECT code FROM allergens WHERE active AND code=ANY($1::text[])",[avoidedAllergens])).rowCount;if(validDietary!==dietaryLabels.length||validAllergens!==avoidedAllergens.length)throw Object.assign(new Error("Existe una preferencia no reconocida"),{status:400});await client.query("INSERT INTO user_dietary_profiles(user_id,hide_incompatible) VALUES($1,$2) ON CONFLICT(user_id) DO UPDATE SET hide_incompatible=excluded.hide_incompatible,updated_at=now()",[user.id,hideIncompatible]);await client.query("DELETE FROM user_dietary_preferences WHERE user_id=$1",[user.id]);await client.query("DELETE FROM user_avoided_allergens WHERE user_id=$1",[user.id]);for(const code of dietaryLabels)await client.query("INSERT INTO user_dietary_preferences(user_id,dietary_code) VALUES($1,$2)",[user.id,code]);for(const code of avoidedAllergens)await client.query("INSERT INTO user_avoided_allergens(user_id,allergen_code) VALUES($1,$2)",[user.id,code]);await client.query("COMMIT");return getUserDietaryPreferences(userPublicId);}catch(error){await client.query("ROLLBACK");throw error;}finally{client.release();}}
+export async function replaceUserDietaryPreferences({
+  userPublicId,
+  dietaryLabels,
+  avoidedAllergens,
+  hideIncompatible,
+}) {
+  const client = await postgresPool.connect();
+  try {
+    await client.query("BEGIN");
+    const user = (
+      await client.query("SELECT id FROM users WHERE public_id=$1 FOR UPDATE", [userPublicId])
+    ).rows[0];
+    if (!user) throw Object.assign(new Error("Usuario no encontrado"), { status: 404 });
+    const validDietary = (
+        await client.query(
+          "SELECT code FROM dietary_labels WHERE active AND code=ANY($1::text[])",
+          [dietaryLabels],
+        )
+      ).rowCount,
+      validAllergens = (
+        await client.query("SELECT code FROM allergens WHERE active AND code=ANY($1::text[])", [
+          avoidedAllergens,
+        ])
+      ).rowCount;
+    if (validDietary !== dietaryLabels.length || validAllergens !== avoidedAllergens.length)
+      throw Object.assign(new Error("Existe una preferencia no reconocida"), { status: 400 });
+    await client.query(
+      "INSERT INTO user_dietary_profiles(user_id,hide_incompatible) VALUES($1,$2) ON CONFLICT(user_id) DO UPDATE SET hide_incompatible=excluded.hide_incompatible,updated_at=now()",
+      [user.id, hideIncompatible],
+    );
+    await client.query("DELETE FROM user_dietary_preferences WHERE user_id=$1", [user.id]);
+    await client.query("DELETE FROM user_avoided_allergens WHERE user_id=$1", [user.id]);
+    for (const code of dietaryLabels)
+      await client.query(
+        "INSERT INTO user_dietary_preferences(user_id,dietary_code) VALUES($1,$2)",
+        [user.id, code],
+      );
+    for (const code of avoidedAllergens)
+      await client.query(
+        "INSERT INTO user_avoided_allergens(user_id,allergen_code) VALUES($1,$2)",
+        [user.id, code],
+      );
+    await client.query("COMMIT");
+    return getUserDietaryPreferences(userPublicId);
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}

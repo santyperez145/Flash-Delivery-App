@@ -24,7 +24,8 @@ export const contains = (source, needle) => squeeze(source).includes(squeeze(nee
 export const containsAll = (source, needles) => needles.every((needle) => contains(source, needle));
 
 /** ¿No contiene ninguno? Útil para prohibir datos ficticios o rutas semilla. */
-export const containsNone = (source, needles) => needles.every((needle) => !contains(source, needle));
+export const containsNone = (source, needles) =>
+  needles.every((needle) => !contains(source, needle));
 
 /**
  * Recorta la sección entre dos marcadores, tolerando el espaciado.

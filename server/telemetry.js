@@ -17,11 +17,7 @@ export async function startTelemetry() {
     { getNodeAutoInstrumentations },
     { OTLPTraceExporter },
     { resourceFromAttributes },
-    {
-      ATTR_SERVICE_NAME,
-      ATTR_SERVICE_VERSION,
-      ATTR_DEPLOYMENT_ENVIRONMENT_NAME,
-    },
+    { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION, ATTR_DEPLOYMENT_ENVIRONMENT_NAME },
   ] = await Promise.all([
     import("@opentelemetry/sdk-node"),
     import("@opentelemetry/auto-instrumentations-node"),

@@ -93,10 +93,9 @@ const openstreetmap = {
   describeRouteMatrix() {
     // El demo público no ofrece matriz utilizable. Dejar que el dispatch caiga
     // en distancia geodésica en silencio sería peor que decir que no está.
-    throw Object.assign(
-      new Error("El proveedor de desarrollo no ofrece matriz de rutas"),
-      { status: 503 },
-    );
+    throw Object.assign(new Error("El proveedor de desarrollo no ofrece matriz de rutas"), {
+      status: 503,
+    });
   },
 
   parseRouteMatrix() {
@@ -108,7 +107,8 @@ const openstreetmap = {
 
 function googleKey() {
   const key = config.maps?.googleServerApiKey;
-  if (!key) throw Object.assign(new Error("Falta la API key de servidor de Google Maps"), { status: 503 });
+  if (!key)
+    throw Object.assign(new Error("Falta la API key de servidor de Google Maps"), { status: 503 });
   return key;
 }
 
@@ -128,7 +128,9 @@ const google = {
 
   parseGeocode(payload) {
     if (payload?.status && payload.status !== "OK" && payload.status !== "ZERO_RESULTS") {
-      throw Object.assign(new Error(`Google Geocoding devolvió ${payload.status}`), { status: 502 });
+      throw Object.assign(new Error(`Google Geocoding devolvió ${payload.status}`), {
+        status: 502,
+      });
     }
     return (payload?.results ?? [])
       .map((entry) => ({
@@ -207,7 +209,8 @@ const google = {
    * en lugar de una por candidato.
    */
   describeRouteMatrix({ origins, destinations }) {
-    if (!origins?.length || !destinations?.length) throw new Error("La matriz necesita orígenes y destinos");
+    if (!origins?.length || !destinations?.length)
+      throw new Error("La matriz necesita orígenes y destinos");
     // Google factura por elemento: orígenes × destinos.
     if (origins.length * destinations.length > 625)
       throw new Error("La matriz de rutas admite hasta 625 elementos");
@@ -217,8 +220,7 @@ const google = {
       headers: {
         "content-type": "application/json",
         "x-goog-api-key": googleKey(),
-        "x-goog-fieldmask":
-          "originIndex,destinationIndex,duration,distanceMeters,condition",
+        "x-goog-fieldmask": "originIndex,destinationIndex,duration,distanceMeters,condition",
       },
       body: {
         origins: origins.map((point) => ({

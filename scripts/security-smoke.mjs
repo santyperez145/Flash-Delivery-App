@@ -5,7 +5,7 @@ const base = `http://127.0.0.1:${port}/api`;
 const server = spawn(process.execPath, ["server/start.js"], {
   cwd: process.cwd(),
   env: { ...process.env, NODE_ENV: "test", LOG_LEVEL: "silent", PORT: port },
-  stdio: ["ignore", "pipe", "pipe"]
+  stdio: ["ignore", "pipe", "pipe"],
 });
 
 server.stderr.on("data", (data) => process.stderr.write(data));
@@ -18,8 +18,8 @@ async function request(path, options = {}) {
     ...options,
     headers: {
       "Content-Type": "application/json",
-      ...(options.headers || {})
-    }
+      ...(options.headers || {}),
+    },
   });
   const text = await response.text();
   let body = null;
@@ -49,7 +49,7 @@ async function readRealtimeUntil(reader, expected) {
 async function login(email) {
   const response = await request("/auth/login", {
     method: "POST",
-    body: JSON.stringify({ email, password: "demo123" })
+    body: JSON.stringify({ email, password: "demo123" }),
   });
   assert(response.status === 200 && response.body?.token, `login ${email}`, response.text);
   return response.body.token;
@@ -72,16 +72,23 @@ async function run() {
 
   const ready = await request("/ready");
   assert(
-    ready.status === 200 && ready.body?.requestId && ready.body?.database && ["sqlite-demo", "transition"].includes(ready.body?.runtimeStore),
+    ready.status === 200 &&
+      ready.body?.requestId &&
+      ready.body?.database &&
+      ["sqlite-demo", "transition"].includes(ready.body?.runtimeStore),
     "ready endpoint exposes request id",
-    ready.text
+    ready.text,
   );
 
   const stateNoToken = await request("/bootstrap/customer");
   assert(stateNoToken.status === 401, "bootstrap rejects anonymous", stateNoToken.text);
 
   const retiredStateNoToken = await request("/state");
-  assert(retiredStateNoToken.status === 401, "retired global state still rejects anonymous", retiredStateNoToken.text);
+  assert(
+    retiredStateNoToken.status === 401,
+    "retired global state still rejects anonymous",
+    retiredStateNoToken.text,
+  );
 
   const eventsNoToken = await request("/events");
   assert(eventsNoToken.status === 401, "realtime rejects anonymous", eventsNoToken.text);
@@ -93,41 +100,66 @@ async function run() {
   const merchantToken = await login("comercio@flash.app");
   const driverToken = await login("conductor@flash.app");
   const adminToken = await login("ops@flash.app");
-  const metricsWithoutToken=await request("/internal/metrics"),metricsWithAdminJwt=await request("/internal/metrics",{headers:auth(adminToken)});
-  assert(metricsWithoutToken.status===401&&metricsWithAdminJwt.status===401,"metrics require dedicated scrape token",metricsWithAdminJwt.text);
+  const metricsWithoutToken = await request("/internal/metrics"),
+    metricsWithAdminJwt = await request("/internal/metrics", { headers: auth(adminToken) });
+  assert(
+    metricsWithoutToken.status === 401 && metricsWithAdminJwt.status === 401,
+    "metrics require dedicated scrape token",
+    metricsWithAdminJwt.text,
+  );
 
   const sessionLogin = await request("/auth/login", {
     method: "POST",
-    body: JSON.stringify({ email: "cliente@flash.app", password: "demo123", deviceName: "security-smoke" })
+    body: JSON.stringify({
+      email: "cliente@flash.app",
+      password: "demo123",
+      deviceName: "security-smoke",
+    }),
   });
-  assert(sessionLogin.status === 200 && sessionLogin.body?.refreshToken, "login issues refresh session", sessionLogin.text);
+  assert(
+    sessionLogin.status === 200 && sessionLogin.body?.refreshToken,
+    "login issues refresh session",
+    sessionLogin.text,
+  );
   const firstRefreshToken = sessionLogin.body.refreshToken;
   const rotatedSession = await request("/auth/refresh", {
     method: "POST",
-    body: JSON.stringify({ refreshToken: firstRefreshToken, deviceName: "security-smoke" })
+    body: JSON.stringify({ refreshToken: firstRefreshToken, deviceName: "security-smoke" }),
   });
-  assert(rotatedSession.status === 200 && rotatedSession.body?.refreshToken !== firstRefreshToken, "refresh token rotates", rotatedSession.text);
+  assert(
+    rotatedSession.status === 200 && rotatedSession.body?.refreshToken !== firstRefreshToken,
+    "refresh token rotates",
+    rotatedSession.text,
+  );
   const reusedSession = await request("/auth/refresh", {
     method: "POST",
-    body: JSON.stringify({ refreshToken: firstRefreshToken })
+    body: JSON.stringify({ refreshToken: firstRefreshToken }),
   });
-  assert(reusedSession.status === 401, "rotated refresh token cannot be reused", reusedSession.text);
+  assert(
+    reusedSession.status === 401,
+    "rotated refresh token cannot be reused",
+    reusedSession.text,
+  );
   const logoutSession = await request("/auth/logout", {
     method: "POST",
-    body: JSON.stringify({ refreshToken: rotatedSession.body.refreshToken })
+    body: JSON.stringify({ refreshToken: rotatedSession.body.refreshToken }),
   });
   assert(logoutSession.status === 200, "logout revokes session", logoutSession.text);
   const refreshAfterLogout = await request("/auth/refresh", {
     method: "POST",
-    body: JSON.stringify({ refreshToken: rotatedSession.body.refreshToken })
+    body: JSON.stringify({ refreshToken: rotatedSession.body.refreshToken }),
   });
-  assert(refreshAfterLogout.status === 401, "revoked session cannot refresh", refreshAfterLogout.text);
+  assert(
+    refreshAfterLogout.status === 401,
+    "revoked session cannot refresh",
+    refreshAfterLogout.text,
+  );
 
   const account = await request("/me", { headers: auth(customerToken) });
   assert(
     account.status === 200 && account.body?.account?.user?.email === "cliente@flash.app",
     "customer reads own account",
-    account.text
+    account.text,
   );
 
   const profile = await request("/me", {
@@ -136,20 +168,26 @@ async function run() {
     body: JSON.stringify({
       name: "Lucia Flash",
       phone: "+5491100000000",
-      defaultAddress: "Defensa 982, San Telmo"
-    })
+      defaultAddress: "Defensa 982, San Telmo",
+    }),
   });
-  assert(profile.status === 200 && profile.body?.account?.user?.name === "Lucia Flash", "customer updates own profile", profile.text);
+  assert(
+    profile.status === 200 && profile.body?.account?.user?.name === "Lucia Flash",
+    "customer updates own profile",
+    profile.text,
+  );
 
   const topUp = await request("/wallet/topup", {
     method: "POST",
     headers: auth(customerToken),
-    body: JSON.stringify({ amount: 10000 })
+    body: JSON.stringify({ amount: 10000 }),
   });
   assert(
-    topUp.status === 200 && topUp.body?.account?.user?.wallet >= 28600 && topUp.body?.account?.walletTransactions?.[0]?.kind === "credit",
+    topUp.status === 200 &&
+      topUp.body?.account?.user?.wallet >= 28600 &&
+      topUp.body?.account?.walletTransactions?.[0]?.kind === "credit",
     "customer tops up wallet in sandbox",
-    topUp.text
+    topUp.text,
   );
 
   const savedAddress = await request("/addresses", {
@@ -160,10 +198,14 @@ async function run() {
       address: "Av. Corrientes 1234",
       lat: -34.6037,
       lng: -58.3816,
-      isDefault: false
-    })
+      isDefault: false,
+    }),
   });
-  assert(savedAddress.status === 201 && savedAddress.body?.address?.userId === "usr_customer", "customer creates owned address", savedAddress.text);
+  assert(
+    savedAddress.status === 201 && savedAddress.body?.address?.userId === "usr_customer",
+    "customer creates owned address",
+    savedAddress.text,
+  );
   const savedAddressId = savedAddress.body.address.id;
   const foreignAddressUpdate = await request(`/addresses/${savedAddressId}`, {
     method: "PUT",
@@ -173,10 +215,14 @@ async function run() {
       address: "Av. Corrientes 1234",
       lat: -34.6037,
       lng: -58.3816,
-      isDefault: false
-    })
+      isDefault: false,
+    }),
   });
-  assert(foreignAddressUpdate.status === 404, "address ownership rejects foreign update", foreignAddressUpdate.text);
+  assert(
+    foreignAddressUpdate.status === 404,
+    "address ownership rejects foreign update",
+    foreignAddressUpdate.text,
+  );
   const updatedAddress = await request(`/addresses/${savedAddressId}`, {
     method: "PUT",
     headers: auth(customerToken),
@@ -185,51 +231,96 @@ async function run() {
       address: "Av. Corrientes 1234, CABA",
       lat: -34.6037,
       lng: -58.3816,
-      isDefault: false
-    })
+      isDefault: false,
+    }),
   });
-  assert(updatedAddress.status === 200 && updatedAddress.body?.address?.label === "Trabajo", "customer edits owned address", updatedAddress.text);
+  assert(
+    updatedAddress.status === 200 && updatedAddress.body?.address?.label === "Trabajo",
+    "customer edits owned address",
+    updatedAddress.text,
+  );
   const defaultAddress = await request(`/addresses/${savedAddressId}/default`, {
     method: "PATCH",
     headers: auth(customerToken),
-    body: "{}"
+    body: "{}",
   });
-  assert(defaultAddress.status === 200 && defaultAddress.body?.addresses?.find((entry) => entry.id === savedAddressId)?.isDefault === true, "customer selects default address", defaultAddress.text);
+  assert(
+    defaultAddress.status === 200 &&
+      defaultAddress.body?.addresses?.find((entry) => entry.id === savedAddressId)?.isDefault ===
+        true,
+    "customer selects default address",
+    defaultAddress.text,
+  );
   const deletedAddress = await request(`/addresses/${savedAddressId}`, {
     method: "DELETE",
-    headers: auth(customerToken)
+    headers: auth(customerToken),
   });
-  assert(deletedAddress.status === 200 && deletedAddress.body?.deleted === true, "customer deletes owned address", deletedAddress.text);
+  assert(
+    deletedAddress.status === 200 && deletedAddress.body?.deleted === true,
+    "customer deletes owned address",
+    deletedAddress.text,
+  );
 
   const state = await request("/bootstrap/customer", { headers: auth(customerToken) });
-  const customerActivity=await request("/me/activity?limit=50",{headers:auth(customerToken)}),customerCatalog=await request("/catalog/restaurants?limit=50",{headers:auth(customerToken)});
+  const customerActivity = await request("/me/activity?limit=50", { headers: auth(customerToken) }),
+    customerCatalog = await request("/catalog/restaurants?limit=50", {
+      headers: auth(customerToken),
+    });
   assert(
     state.status === 200 && customerCatalog.body?.restaurants?.length > 0,
     "segmented resources accept authenticated user",
-    state.text
+    state.text,
   );
 
   const retiredState = await request("/state", { headers: auth(customerToken) });
-  assert(retiredState.status === 410, "authenticated clients cannot regress to global state", retiredState.text);
+  assert(
+    retiredState.status === 410,
+    "authenticated clients cannot regress to global state",
+    retiredState.text,
+  );
   assert(state.body?.state?.meta?.version >= 4, "database schema version is current", state.text);
-  assert(state.body?.state?.users?.length === 1 && state.body.state.users[0].id === "usr_customer", "customer state hides other users", state.text);
-  assert(customerActivity.body?.items?.every(entry=>entry.resource?.customerId==="usr_customer"), "customer activity enforces job ownership", customerActivity.text);
+  assert(
+    state.body?.state?.users?.length === 1 && state.body.state.users[0].id === "usr_customer",
+    "customer state hides other users",
+    state.text,
+  );
+  assert(
+    customerActivity.body?.items?.every((entry) => entry.resource?.customerId === "usr_customer"),
+    "customer activity enforces job ownership",
+    customerActivity.text,
+  );
 
   const merchantState = await request("/merchant/me", { headers: auth(merchantToken) });
-  const merchantActivity=await request("/me/activity?limit=50",{headers:auth(merchantToken)});
-  assert(merchantState.body?.restaurants?.every((entry) => entry.ownerId === "usr_merchant")&&merchantActivity.body?.items?.every(entry=>entry.kind==="order"), "merchant resources are scoped to owned commerce", merchantState.text);
+  const merchantActivity = await request("/me/activity?limit=50", { headers: auth(merchantToken) });
+  assert(
+    merchantState.body?.restaurants?.every((entry) => entry.ownerId === "usr_merchant") &&
+      merchantActivity.body?.items?.every((entry) => entry.kind === "order"),
+    "merchant resources are scoped to owned commerce",
+    merchantState.text,
+  );
   const driverState = await request("/me/activity?limit=50", { headers: auth(driverToken) });
-  const unassignedOffer=driverState.body?.items?.find(entry=>entry.kind==="order"&&!entry.resource?.courierId);
-  assert(driverState.status===200&&(!unassignedOffer||unassignedOffer.resource.customerId==="private"), "driver offers redact customer identity", driverState.text);
+  const unassignedOffer = driverState.body?.items?.find(
+    (entry) => entry.kind === "order" && !entry.resource?.courierId,
+  );
+  assert(
+    driverState.status === 200 &&
+      (!unassignedOffer || unassignedOffer.resource.customerId === "private"),
+    "driver offers redact customer identity",
+    driverState.text,
+  );
 
   const customerDashboard = await request("/admin/dashboard", { headers: auth(customerToken) });
-  assert(customerDashboard.status === 403, "customer cannot read admin dashboard", customerDashboard.text);
+  assert(
+    customerDashboard.status === 403,
+    "customer cannot read admin dashboard",
+    customerDashboard.text,
+  );
 
   const adminDashboard = await request("/admin/dashboard", { headers: auth(adminToken) });
   assert(
     adminDashboard.status === 200 && adminDashboard.body?.dashboard?.investor?.readinessScore,
     "admin reads investor dashboard",
-    adminDashboard.text
+    adminDashboard.text,
   );
 
   const coordinateQuote = await request("/rides/quote", {
@@ -239,66 +330,90 @@ async function run() {
       destination: "Aeroparque Jorge Newbery",
       service: "economy",
       pickupCoords: { lat: -34.6177, lng: -58.3621 },
-      destinationCoords: { lat: -34.5596, lng: -58.4156 }
-    })
+      destinationCoords: { lat: -34.5596, lng: -58.4156 },
+    }),
   });
   assert(
-    coordinateQuote.status === 200 && coordinateQuote.body?.quote?.routingMode === "coordinates" && coordinateQuote.body.quote.quoteToken && coordinateQuote.body.quote.expiresAt,
+    coordinateQuote.status === 200 &&
+      coordinateQuote.body?.quote?.routingMode === "coordinates" &&
+      coordinateQuote.body.quote.quoteToken &&
+      coordinateQuote.body.quote.expiresAt,
     "ride quote uses coordinates and returns a signed expiring token",
-    coordinateQuote.text
+    coordinateQuote.text,
   );
 
   const forbiddenLocation = await request("/drivers/drv_lautaro/location", {
     method: "PATCH",
     headers: auth(customerToken),
-    body: JSON.stringify({ lat: -34.6, lng: -58.4, label: "Intento" })
+    body: JSON.stringify({ lat: -34.6, lng: -58.4, label: "Intento" }),
   });
-  assert(forbiddenLocation.status === 403, "customer cannot update driver location", forbiddenLocation.text);
+  assert(
+    forbiddenLocation.status === 403,
+    "customer cannot update driver location",
+    forbiddenLocation.text,
+  );
 
   const driverLocation = await request("/drivers/drv_lautaro/location", {
     method: "PATCH",
     headers: auth(driverToken),
-    body: JSON.stringify({ lat: -34.6177, lng: -58.3621, label: "San Telmo GPS" })
+    body: JSON.stringify({ lat: -34.6177, lng: -58.3621, label: "San Telmo GPS" }),
   });
   assert(
-    driverLocation.status === 200 && driverLocation.body?.driver?.location?.label === "San Telmo GPS",
+    driverLocation.status === 200 &&
+      driverLocation.body?.driver?.location?.label === "San Telmo GPS",
     "driver updates own location",
-    driverLocation.text
+    driverLocation.text,
   );
 
   const realtimeController = new AbortController();
   const realtimeResponse = await fetch(`${base}/events`, {
     headers: auth(adminToken),
-    signal: realtimeController.signal
+    signal: realtimeController.signal,
   });
   assert(
-    realtimeResponse.status === 200 && realtimeResponse.headers.get("content-type")?.includes("text/event-stream"),
+    realtimeResponse.status === 200 &&
+      realtimeResponse.headers.get("content-type")?.includes("text/event-stream"),
     "admin opens realtime stream",
-    `status=${realtimeResponse.status}`
+    `status=${realtimeResponse.status}`,
   );
   const realtimeReader = realtimeResponse.body.getReader();
-  const firstRealtimeFrame = new TextDecoder().decode((await realtimeReader.read()).value || new Uint8Array());
-  assert(firstRealtimeFrame.includes("event: connected"), "realtime sends connected frame", firstRealtimeFrame);
+  const firstRealtimeFrame = new TextDecoder().decode(
+    (await realtimeReader.read()).value || new Uint8Array(),
+  );
+  assert(
+    firstRealtimeFrame.includes("event: connected"),
+    "realtime sends connected frame",
+    firstRealtimeFrame,
+  );
 
   const forbiddenRestaurant = await request("/restaurants/rest_roja", {
     method: "PATCH",
     headers: auth(customerToken),
-    body: JSON.stringify({ open: false })
+    body: JSON.stringify({ open: false }),
   });
-  assert(forbiddenRestaurant.status === 403, "customer cannot manage restaurant", forbiddenRestaurant.text);
+  assert(
+    forbiddenRestaurant.status === 403,
+    "customer cannot manage restaurant",
+    forbiddenRestaurant.text,
+  );
 
   const merchantRestaurant = await request("/restaurants/rest_roja", {
     method: "PATCH",
     headers: auth(merchantToken),
-    body: JSON.stringify({ open: true, etaMin: 24 })
+    body: JSON.stringify({ open: true, etaMin: 24 }),
   });
-  assert(merchantRestaurant.status === 200, "merchant manages owned restaurant", merchantRestaurant.text);
+  assert(
+    merchantRestaurant.status === 200,
+    "merchant manages owned restaurant",
+    merchantRestaurant.text,
+  );
 
   const merchantDashboard = await request("/merchant/dashboard", { headers: auth(merchantToken) });
   assert(
-    merchantDashboard.status === 200 && merchantDashboard.body?.dashboard?.restaurant?.id === "rest_roja",
+    merchantDashboard.status === 200 &&
+      merchantDashboard.body?.dashboard?.restaurant?.id === "rest_roja",
     "merchant reads owned operational dashboard",
-    merchantDashboard.text
+    merchantDashboard.text,
   );
 
   const forbiddenOrder = await request("/orders", {
@@ -309,8 +424,8 @@ async function run() {
       restaurantId: "rest_roja",
       deliveryAddress: "Defensa 982",
       paymentMethod: "Flash Wallet",
-      items: [{ menuItemId: "item_burger_brava", quantity: 1, extras: [], note: "" }]
-    })
+      items: [{ menuItemId: "item_burger_brava", quantity: 1, extras: [], note: "" }],
+    }),
   });
   assert(forbiddenOrder.status === 403, "driver cannot create customer order", forbiddenOrder.text);
 
@@ -322,50 +437,83 @@ async function run() {
       restaurantId: "rest_roja",
       deliveryAddress: "Defensa 982",
       paymentMethod: "Flash Wallet",
-      items: [{ menuItemId: "item_burger_brava", quantity: 1, extras: [], note: "sin cebolla" }]
-    })
+      items: [{ menuItemId: "item_burger_brava", quantity: 1, extras: [], note: "sin cebolla" }],
+    }),
   });
   assert(order.status === 200 && order.body?.order?.id, "customer creates order", order.text);
 
   const orderRealtimeFrame = await readRealtimeUntil(realtimeReader, "order.created");
-  assert(orderRealtimeFrame.includes("order.created"), "realtime publishes order mutation", orderRealtimeFrame);
+  assert(
+    orderRealtimeFrame.includes("order.created"),
+    "realtime publishes order mutation",
+    orderRealtimeFrame,
+  );
   realtimeController.abort();
 
   const prematureAcceptance = await request(`/orders/${order.body.order.id}/accept-delivery`, {
     method: "POST",
     headers: auth(driverToken),
-    body: JSON.stringify({ driverId: "drv_lautaro" })
+    body: JSON.stringify({ driverId: "drv_lautaro" }),
   });
-  assert(prematureAcceptance.status === 409, "driver waits for merchant readiness", prematureAcceptance.text);
-  const preparing = await request(`/orders/${order.body.order.id}/advance`, { method: "POST", headers: auth(merchantToken) });
-  const readyForPickup = await request(`/orders/${order.body.order.id}/advance`, { method: "POST", headers: auth(merchantToken) });
-  assert(preparing.status === 200 && preparing.body?.order?.status === "preparing" && readyForPickup.status === 200 && readyForPickup.body?.order?.status === "ready_for_pickup", "merchant owns preparation stages", readyForPickup.text);
+  assert(
+    prematureAcceptance.status === 409,
+    "driver waits for merchant readiness",
+    prematureAcceptance.text,
+  );
+  const preparing = await request(`/orders/${order.body.order.id}/advance`, {
+    method: "POST",
+    headers: auth(merchantToken),
+  });
+  const readyForPickup = await request(`/orders/${order.body.order.id}/advance`, {
+    method: "POST",
+    headers: auth(merchantToken),
+  });
+  assert(
+    preparing.status === 200 &&
+      preparing.body?.order?.status === "preparing" &&
+      readyForPickup.status === 200 &&
+      readyForPickup.body?.order?.status === "ready_for_pickup",
+    "merchant owns preparation stages",
+    readyForPickup.text,
+  );
 
   const accepted = await request(`/orders/${order.body.order.id}/accept-delivery`, {
     method: "POST",
     headers: auth(driverToken),
-    body: JSON.stringify({ driverId: "drv_lautaro" })
+    body: JSON.stringify({ driverId: "drv_lautaro" }),
   });
   assert(accepted.status === 200, "driver accepts ready delivery", accepted.text);
 
   const advanced = await request(`/orders/${order.body.order.id}/advance`, {
     method: "POST",
-    headers: auth(driverToken)
+    headers: auth(driverToken),
   });
   assert(
     advanced.status === 200 && advanced.body?.order?.status === "picked_up",
     "assigned driver advances order",
-    advanced.text
+    advanced.text,
   );
 
-  await request(`/orders/${order.body.order.id}/advance`, { method: "POST", headers: auth(driverToken) });
-  const delivered = await request(`/orders/${order.body.order.id}/advance`, { method: "POST", headers: auth(driverToken) });
-  assert(delivered.status === 200 && delivered.body?.order?.status === "delivered", "driver completes delivery", delivered.text);
+  await request(`/orders/${order.body.order.id}/advance`, {
+    method: "POST",
+    headers: auth(driverToken),
+  });
+  const delivered = await request(`/orders/${order.body.order.id}/advance`, {
+    method: "POST",
+    headers: auth(driverToken),
+  });
+  assert(
+    delivered.status === 200 && delivered.body?.order?.status === "delivered",
+    "driver completes delivery",
+    delivered.text,
+  );
   const driverAccount = await request("/me", { headers: auth(driverToken) });
   assert(
-    driverAccount.status === 200 && driverAccount.body?.account?.user?.wallet > 38200 && driverAccount.body?.account?.walletTransactions?.[0]?.kind === "credit",
+    driverAccount.status === 200 &&
+      driverAccount.body?.account?.user?.wallet > 38200 &&
+      driverAccount.body?.account?.walletTransactions?.[0]?.kind === "credit",
     "completed delivery credits driver wallet",
-    driverAccount.text
+    driverAccount.text,
   );
 
   const shipmentQuote = await request("/shipments/quote", {
@@ -374,17 +522,25 @@ async function run() {
       pickup: "Defensa 982, San Telmo",
       destination: "Av. Santa Fe 1800, Recoleta",
       packageSize: "small",
-      weightKg: 2
-    })
+      weightKg: 2,
+    }),
   });
-  assert(shipmentQuote.status === 200 && shipmentQuote.body?.quote?.fare > 0, "shipment quote calculates fare", shipmentQuote.text);
+  assert(
+    shipmentQuote.status === 200 && shipmentQuote.body?.quote?.fare > 0,
+    "shipment quote calculates fare",
+    shipmentQuote.text,
+  );
 
   const forbiddenShipment = await request("/shipments", {
     method: "POST",
     headers: auth(driverToken),
-    body: JSON.stringify({ customerId: "usr_customer" })
+    body: JSON.stringify({ customerId: "usr_customer" }),
   });
-  assert(forbiddenShipment.status === 403, "driver cannot create customer shipment", forbiddenShipment.text);
+  assert(
+    forbiddenShipment.status === 403,
+    "driver cannot create customer shipment",
+    forbiddenShipment.text,
+  );
 
   const shipment = await request("/shipments", {
     method: "POST",
@@ -400,17 +556,25 @@ async function run() {
       weightKg: 1.5,
       deliveryNotes: "Entregar en mano",
       paymentMethod: "Flash Wallet",
-      termsAccepted: true
-    })
+      termsAccepted: true,
+    }),
   });
-  assert(shipment.status === 200 && shipment.body?.shipment?.deliveryPin, "customer creates tracked shipment", shipment.text);
+  assert(
+    shipment.status === 200 && shipment.body?.shipment?.deliveryPin,
+    "customer creates tracked shipment",
+    shipment.text,
+  );
 
   const cancelShipment = await request(`/shipments/${shipment.body.shipment.id}/status`, {
     method: "PATCH",
     headers: auth(customerToken),
-    body: JSON.stringify({ status: "cancelled", reason: "changed_mind" })
+    body: JSON.stringify({ status: "cancelled", reason: "changed_mind" }),
   });
-  assert(cancelShipment.status === 200 && cancelShipment.body?.shipment?.status === "cancelled", "customer cancels own shipment", cancelShipment.text);
+  assert(
+    cancelShipment.status === 200 && cancelShipment.body?.shipment?.status === "cancelled",
+    "customer cancels own shipment",
+    cancelShipment.text,
+  );
 
   const customerReset = await request("/reset", { method: "POST", headers: auth(customerToken) });
   assert(customerReset.status === 403, "customer cannot reset platform", customerReset.text);

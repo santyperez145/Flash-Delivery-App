@@ -24,12 +24,7 @@ assert(
   "vista previa usa rutas reales y un motor cartográfico aislado",
 );
 assert(
-  containsAll(map, [
-    "new maplibregl.Map",
-    "fitBounds",
-    "NavigationControl",
-    "AttributionControl",
-  ]),
+  containsAll(map, ["new maplibregl.Map", "fitBounds", "NavigationControl", "AttributionControl"]),
   "mapa permite explorar, reencuadrar y conserva atribución",
 );
 assert(

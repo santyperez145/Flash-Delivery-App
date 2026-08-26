@@ -1,7 +1,12 @@
 const dayKey = (timestamp) => new Date(timestamp).toISOString().slice(0, 10);
 
 export class ProviderCircuit {
-  constructor({ failureThreshold = 5, resetMs = 30_000, dailyBudget = 10_000, now = Date.now } = {}) {
+  constructor({
+    failureThreshold = 5,
+    resetMs = 30_000,
+    dailyBudget = 10_000,
+    now = Date.now,
+  } = {}) {
     this.failureThreshold = failureThreshold;
     this.resetMs = resetMs;
     this.dailyBudget = dailyBudget;
@@ -24,16 +29,25 @@ export class ProviderCircuit {
   async execute({ provider, operation, timeoutMs, call }) {
     const current = this.state(provider);
     const timestamp = this.now();
-    if (current.calls >= this.dailyBudget) throw Object.assign(new Error(`Presupuesto diario agotado para ${provider}`), { code: "provider_budget_exhausted" });
+    if (current.calls >= this.dailyBudget)
+      throw Object.assign(new Error(`Presupuesto diario agotado para ${provider}`), {
+        code: "provider_budget_exhausted",
+      });
     if (current.openedAt !== null) {
-      if (timestamp - current.openedAt < this.resetMs || current.probeInFlight) throw Object.assign(new Error(`Circuito abierto para ${provider}`), { code: "provider_circuit_open" });
+      if (timestamp - current.openedAt < this.resetMs || current.probeInFlight)
+        throw Object.assign(new Error(`Circuito abierto para ${provider}`), {
+          code: "provider_circuit_open",
+        });
       current.probeInFlight = true;
     }
     current.calls += 1;
     const startedAt = this.now();
     try {
       const response = await call(AbortSignal.timeout(timeoutMs));
-      if (!response.ok) throw Object.assign(new Error(`${provider} respondió ${response.status}`), { status: response.status });
+      if (!response.ok)
+        throw Object.assign(new Error(`${provider} respondió ${response.status}`), {
+          status: response.status,
+        });
       current.failures = 0;
       current.openedAt = null;
       return { response, durationMs: Math.max(0, this.now() - startedAt), operation };
@@ -48,6 +62,10 @@ export class ProviderCircuit {
 
   snapshot(provider) {
     const state = this.state(provider);
-    return { calls: state.calls, failures: state.failures, status: state.openedAt === null ? "closed" : "open" };
+    return {
+      calls: state.calls,
+      failures: state.failures,
+      status: state.openedAt === null ? "closed" : "open",
+    };
   }
 }

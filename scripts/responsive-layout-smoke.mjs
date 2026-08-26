@@ -2,9 +2,7 @@ import fs from "node:fs";
 
 const mobile = fs.readFileSync("apps/mobile/App.tsx", "utf8");
 const webApp = fs.readFileSync("src/App.tsx", "utf8");
-const mobilePackage = JSON.parse(
-  fs.readFileSync("apps/mobile/package.json", "utf8"),
-);
+const mobilePackage = JSON.parse(fs.readFileSync("apps/mobile/package.json", "utf8"));
 const rootPackage = JSON.parse(fs.readFileSync("package.json", "utf8"));
 const desktop = fs.readFileSync("src/styles.css", "utf8");
 const adaptive = fs.readFileSync("src/adaptive.css", "utf8");
@@ -33,11 +31,8 @@ assert(
 );
 
 assert(
-  ["issueModalSheet", "productCustomizerSheet", "trackingSheet", "signatureSheet"].every(
-    (name) =>
-      new RegExp(`${name}:\\{[^\\n]*width:\"100%\"[^\\n]*maxWidth:620`).test(
-        mobile,
-      ),
+  ["issueModalSheet", "productCustomizerSheet", "trackingSheet", "signatureSheet"].every((name) =>
+    new RegExp(`${name}:\\{[^\\n]*width:\"100%\"[^\\n]*maxWidth:620`).test(mobile),
   ),
   "shared task sheets stay bounded instead of stretching across wide windows",
 );
@@ -46,8 +41,8 @@ assert(
   ["foodBottomNav", "merchantBottomNav", "driverBottomNav"].every((name) =>
     mobile.includes(`${name}:`),
   ) &&
-    ["merchantBottomItem", "driverBottomItem", "foodBottomItem"].every(
-      (name) => mobile.includes(`${name}:`),
+    ["merchantBottomItem", "driverBottomItem", "foodBottomItem"].every((name) =>
+      mobile.includes(`${name}:`),
     ),
   "every mobile audience retains a dedicated bottom navigation contract",
 );

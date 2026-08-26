@@ -1,8 +1,7 @@
 import crypto from "node:crypto";
 import pg from "pg";
 const pool = new pg.Pool({
-    connectionString:
-      process.env.MIGRATION_DATABASE_URL || process.env.DATABASE_URL,
+    connectionString: process.env.MIGRATION_DATABASE_URL || process.env.DATABASE_URL,
     ssl: false,
   }),
   base = process.env.API_URL || "http://127.0.0.1:4000/api",
@@ -43,21 +42,15 @@ const login = async (address) =>
     })
   ).body.token;
 try {
-  const admin = (
-      await pool.query(
-        "SELECT password_hash FROM users WHERE public_id='usr_admin'",
-      )
-    ).rows[0],
+  const admin = (await pool.query("SELECT password_hash FROM users WHERE public_id='usr_admin'"))
+      .rows[0],
     user = (
       await pool.query(
         "INSERT INTO users(public_id,email,password_hash,name,email_verified_at) VALUES($1,$2,$3,'Usuario Notificaciones',now()) RETURNING id",
         [userId, email, admin.password_hash],
       )
     ).rows[0];
-  await pool.query(
-    "INSERT INTO user_roles(user_id,role) VALUES($1,'customer')",
-    [user.id],
-  );
+  await pool.query("INSERT INTO user_roles(user_id,role) VALUES($1,'customer')", [user.id]);
   token = await login(email);
   const invalidToken = `sandbox-invalid:${crypto.randomUUID()}`,
     invalidDevice = await call("/devices", {
@@ -102,22 +95,17 @@ try {
   const queue = await call("/admin/notifications/dead-letters");
   assert(
     queue.body.deadLetters?.some(
-      (entry) =>
-        entry.id === notificationId &&
-        entry.reason === "all_tokens_unregistered",
+      (entry) => entry.id === notificationId && entry.reason === "all_tokens_unregistered",
     ) &&
       !JSON.stringify(queue.body).includes("payload") &&
       !JSON.stringify(queue.body).includes(invalidToken),
     "admin queue exposes operational facts without token or payload",
   );
-  const noDeviceReplay = await call(
-    `/admin/notifications/dead-letters/${notificationId}/replay`,
-    { method: "POST", body: "{}" },
-  );
-  assert(
-    noDeviceReplay.status === 409,
-    "replay requires a newly active delivery destination",
-  );
+  const noDeviceReplay = await call(`/admin/notifications/dead-letters/${notificationId}/replay`, {
+    method: "POST",
+    body: "{}",
+  });
+  assert(noDeviceReplay.status === 409, "replay requires a newly active delivery destination");
   token = await login(email);
   const validDevice = await call("/devices", {
     method: "POST",
@@ -130,14 +118,14 @@ try {
   });
   requestIds.push(validDevice.body.requestId);
   token = await login("ops@flash.app");
-  const replay = await call(
-      `/admin/notifications/dead-letters/${notificationId}/replay`,
-      { method: "POST", body: "{}" },
-    ),
-    replayAgain = await call(
-      `/admin/notifications/dead-letters/${notificationId}/replay`,
-      { method: "POST", body: "{}" },
-    );
+  const replay = await call(`/admin/notifications/dead-letters/${notificationId}/replay`, {
+      method: "POST",
+      body: "{}",
+    }),
+    replayAgain = await call(`/admin/notifications/dead-letters/${notificationId}/replay`, {
+      method: "POST",
+      body: "{}",
+    });
   requestIds.push(replay.body.requestId, replayAgain.body.requestId);
   const afterReplay = await pool.query(
     "SELECT status,replay_count,last_replayed_by IS NOT NULL attributed FROM notifications WHERE public_id=$1",
@@ -172,9 +160,7 @@ try {
     await pool.query("DELETE FROM audit_events WHERE request_id=ANY($1)", [
       requestIds.filter(Boolean),
     ]);
-  await pool.query("DELETE FROM notifications WHERE public_id=$1", [
-    notificationId,
-  ]);
+  await pool.query("DELETE FROM notifications WHERE public_id=$1", [notificationId]);
   await pool.query(
     "DELETE FROM refresh_sessions WHERE user_id=(SELECT id FROM users WHERE public_id=$1)",
     [userId],

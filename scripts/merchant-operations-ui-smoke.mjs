@@ -15,7 +15,11 @@ const assert = (condition, label) => {
   if (!condition) throw new Error(`failed: ${label}`);
   console.log(`ok - ${label}`);
 };
-const desktopMerchant = section(desktop, "function MerchantDesktopConsole", "function SuperAdminConsole");
+const desktopMerchant = section(
+  desktop,
+  "function MerchantDesktopConsole",
+  "function SuperAdminConsole",
+);
 const mobileMerchant = section(mobile, "function MerchantScreen", "function DriverScreen");
 
 assert(
