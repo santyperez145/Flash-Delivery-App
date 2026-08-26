@@ -18,60 +18,50 @@ Las ofertas expiradas cuentan como no aceptación; las retiradas por el sistema 
 La suite PostgreSQL crea historial controlado, abre una nueva oleada con el worker real activo y comprueba que la tasa y el tiempo persistidos coincidan con los agregados históricos.
 La consulta usa un índice parcial por conductor y fecha sobre ofertas con resultado, incluyendo estado, respuesta y job para evitar escaneos completos a medida que crece el historial.
 
-## Defecto abierto — sin recorte espacial previo
+## Selección en dos etapas (DSP-001, 26 de agosto de 2026)
 
-La consulta de candidatos calcula, **para cada conductor online del sistema**, `ST_Distance` (tres veces en la misma fila), el `count(*)` de trabajos activos vía `CROSS JOIN LATERAL`, y la tasa de aceptación de 30 días más el tiempo medio de respuesta vía `LEFT JOIN LATERAL` sobre `dispatch_offers`.
+La versión anterior calculaba, **para cada conductor online del sistema**, `ST_Distance` tres veces, el conteo de trabajos activos y los agregados de aceptación y respuesta de 30 días. No había `ST_DWithin` ni orden KNN `<->` en todo el repositorio.
 
-**No hay `ST_DWithin` para recortar el conjunto ni orden KNN `<->` para aprovechar el índice GiST.** Verificado: cero ocurrencias de ambos en todo el repositorio.
+Con decenas de conductores da igual. Con cientos o miles por ciudad, cada oleada recorre el padrón entero: **el costo crece justo cuando la plataforma empieza a funcionar.**
 
-```bash
-grep -rn "ST_DWithin\|<->" server/ database/ | wc -l   # → 0
-```
-
-Con decenas de conductores es irrelevante. Con cientos o miles por ciudad, cada oleada recalcula historial de 30 días para todo el padrón online, y el costo crece justo cuando la plataforma empieza a funcionar. El índice parcial por conductor y fecha sobre ofertas con resultado ayuda, pero no evita recorrer todos los candidatos.
-
-Hallazgo [H-06](auditoria-2026-08-25.md#h-06--dispatch-sin-recorte-espacial-previo), ticket [DSP-001](backlog-tecnico.md#dsp-001--dispatch-v2). Prioridad P0.
-
-## Arquitectura objetivo — dos etapas
-
-### Etapa 1: generación rápida de candidatos
+### Etapa 1 — lista corta por cercanía
 
 ```sql
-WHERE ST_DWithin(
-  driver.current_location,
-  job.pickup_location,
-  :search_radius_m
-)
-ORDER BY driver.current_location <-> job.pickup_location
-LIMIT 30
+WHERE ST_DWithin(d.current_location, $1::geography, $3)
+ORDER BY d.current_location <-> $1::geography
+LIMIT $4
 ```
 
-### Etapa 2: scoring avanzado
+El punto de pickup entra **como parámetro, no como columna de un join**: el planificador sólo usa el índice para KNN cuando uno de los operandos es constante en la consulta. Si viniera de un join, el recorte existiría en el texto y no en el plan.
 
-Sólo sobre esos 20–30 candidatos: ruta vial · ETA al pickup · espera prevista · ganancia neta · acceptance rate · cancelación · capacidad · preferencias · riesgo · SLA. El ETA y la distancia vial provienen de una Route Matrix del proveedor comercial, no de distancia geodésica.
+El filtro por `d.online` no es decorativo: el índice `drivers_available_location_gix` es parcial `WHERE online`, y sin esa condición no aplica.
 
-### Estadísticas precomputadas
+Esta etapa **no** toca `dispatch_offers` ni historial. Para eso está la segunda.
 
-En lugar de recalcular el historial completo en cada oferta:
+### Etapa 2 — puntuación explicable sobre la lista corta
 
-```text
-driver_dispatch_stats
-- driver_id
-- service
-- acceptance_rate_7d
-- acceptance_rate_30d
-- cancellation_rate_30d
-- median_response_seconds
-- completed_jobs_30d
-- incident_score
-- current_capacity
-- updated_at
-```
+Los componentes del score son exactamente los de antes. **La optimización cambia a cuántos conductores se evalúa, no a quién se le ofrece el trabajo.**
+
+### Radio dinámico y protección contra inanición
+
+Un radio fijo deja trabajos sin ofrecer en zonas de baja densidad: el conductor más cercano existe, pero cae fuera del corte. La escalera parte de `DISPATCH_SEARCH_RADIUS_M` (8 km por defecto) y duplica hasta `DISPATCH_MAX_RADIUS_M` (25 km), **sólo si la lista corta no alcanza para llenar las ofertas pedidas**.
+
+El radio usado y si hubo expansión quedan en `score_breakdown`, así que una zona que necesita expandir siempre es visible en lugar de degradar en silencio.
+
+### Qué verifica cada puerta
+
+`npm run test:dispatch-candidates` comprueba la forma de las consultas sin base de datos: que el recorte y el KNN existan, que el operando sea constante, que la etapa 1 no arrastre agregados y que la etapa 2 quede acotada a la lista corta. Incluye una regresión sobre el hallazgo original, cuya evidencia fue exactamente que no había ninguna ocurrencia de `ST_DWithin` ni de `<->`.
+
+`npm run test:postgres` prueba el comportamiento de runtime contra PostgreSQL y bloquea el merge.
 
 ## Pendientes
 
-- **P0 —** Recorte `ST_DWithin` + KNN, stats precomputadas y Route Matrix (ticket DSP-001).
-- **P0 —** Oleadas de oferta, radio dinámico, protección contra inanición, prep time del comercio y dispatch manual desde backoffice.
+- [x] Recorte `ST_DWithin` + KNN sobre el índice GiST parcial.
+- [x] Radio dinámico con protección contra inanición, visible en el desglose.
+- [ ] **`EXPLAIN ANALYZE` con un padrón sintético de al menos 1.000 conductores.** El contrato prueba la forma de la consulta; el plan hay que medirlo.
+- [ ] **Stats precomputadas** (`driver_dispatch_stats`). La lista corta ya acota el historial a 30 conductores, así que dejó de ser urgente; pasa a ser optimización, no corrección.
+- [ ] **ETA vial por Route Matrix.** `computeRouteMatrix()` existe y está verificado en el adapter de mapas; falta conectarlo al scoring y **requiere una API key habilitada**.
+- [ ] Prep time del comercio y dispatch manual desde backoffice.
 - Antes de producción multiciudad deben incorporarse SLA comercial por comercio, tráfico vial actual, límites de equidad y monitoreo de sesgo por zona. Esos factores deben agregarse como componentes versionados, nunca como constantes opacas.
 
 ### SLO asociado

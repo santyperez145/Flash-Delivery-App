@@ -8,6 +8,20 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 26 de agosto de 2026 — DSP-001, selección de dispatch en dos etapas
+
+Séptima entrega de la Fase 0. Cierra el núcleo del hallazgo [H-06](docs/auditoria-2026-08-25.md#h-06--dispatch-sin-recorte-espacial-previo).
+
+- [x] **Etapa 1: recorte espacial.** `ST_DWithin` más orden KNN `<->` sobre el índice GiST parcial `drivers_available_location_gix ... WHERE online`. Antes no había **ninguna** ocurrencia de `ST_DWithin` ni de `<->` en todo el repositorio.
+- [x] **Etapa 2: puntuación acotada.** El scoring conserva exactamente sus componentes y sólo evalúa la lista corta. **La optimización cambia a cuántos conductores se evalúa, no a quién se le ofrece el trabajo.**
+- [x] **El punto de pickup entra como parámetro, no como columna de un join.** El planificador sólo usa el índice para KNN cuando un operando es constante; si viniera de un join, el recorte existiría en el texto y no en el plan.
+- [x] **Radio dinámico con protección contra inanición.** Un radio fijo deja trabajos sin ofrecer en zonas de baja densidad. La escalera duplica de 8 km a 25 km, y sólo si la lista corta no alcanza. El radio usado y si hubo expansión quedan en `score_breakdown`: una zona que necesita expandir es visible en lugar de degradar en silencio.
+- [x] `test:dispatch-candidates` incluye una **regresión sobre el hallazgo original**, cuya evidencia fue exactamente la ausencia de ambos operadores.
+- [ ] **`EXPLAIN ANALYZE` con padrón sintético de al menos 1.000 conductores.** El contrato prueba la forma de la consulta; el plan hay que medirlo.
+- [ ] **ETA vial por Route Matrix.** `computeRouteMatrix()` existe y está verificado; falta conectarlo al scoring y **depende de una API key**.
+- [ ] **Stats precomputadas.** Con la lista corta, el historial de 30 días quedó acotado a 30 conductores: dejó de ser corrección para pasar a ser optimización.
+- [ ] Prep time del comercio y dispatch manual desde backoffice.
+
 ## Avance 26 de agosto de 2026 — tres de cuatro suites fuera de cuarentena
 
 Sexta entrega de la Fase 0. Ninguna de las tres resultó ser fragilidad de la prueba: las cuatro causas eran defectos reales, y tres son variantes del hallazgo [H-11](docs/auditoria-2026-08-25.md#h-11--una-base-creada-desde-cero-no-es-equivalente-a-una-migrada).

@@ -42,6 +42,7 @@
     "test:rls-matrix": "node scripts/rls-matrix-check.mjs",
     "test:push-provider": "node scripts/push-provider-smoke.mjs",
     "test:maps-provider": "node scripts/maps-provider-smoke.mjs",
+    "test:dispatch-candidates": "node scripts/dispatch-candidates-smoke.mjs",
     "test:ci-coverage": "node scripts/ci-coverage-check.mjs",
     "test:postgres": "node --env-file-if-exists=.env.local scripts/postgres-runtime-smoke.mjs",
     "test:rls": "node --env-file-if-exists=.env.local scripts/rls-smoke.mjs",
