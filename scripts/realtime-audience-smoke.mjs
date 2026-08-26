@@ -17,9 +17,30 @@ function check(condition, label, detail = "") {
 
 // --- 1. Inventario real de eventos publicados por la API ---------------------
 
-const source = await fs.readFile("server/index.js", "utf8");
+// El inventario recorre **todo el árbol del servidor**, no un archivo.
+//
+// Leía sólo `server/index.js`. Cuando ARC-001 empezó a extraer grupos de rutas,
+// las publicaciones que se mudaban dejaban de inventariarse y el contrato seguía
+// en verde con menos cobertura: al sacar las direcciones pasó de 43 a 37
+// publicaciones sin decir una palabra. Un contrato acoplado a **dónde vive** el
+// código falla igual que uno acoplado a **cómo está escrito**, sólo que en
+// silencio, que es peor.
+async function serverSources(dir = "server") {
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const full = `${dir}/${entry.name}`;
+    if (entry.isDirectory()) files.push(...(await serverSources(full)));
+    else if (entry.name.endsWith(".js")) files.push(full);
+  }
+  return files.sort();
+}
 
-function publishedEvents(src) {
+const sources = await Promise.all(
+  (await serverSources()).map(async (file) => ({ file, src: await fs.readFile(file, "utf8") })),
+);
+
+function publishedEvents(src, file) {
   const events = [];
   const opener = /publishRealtimeEvent\(\{/g;
   let match;
@@ -37,6 +58,7 @@ function publishedEvents(src) {
     // La definición de la propia función usa parámetros por defecto, no literales.
     if (!entityType && !type) continue;
     events.push({
+      file,
       line: src.slice(0, match.index).split("\n").length,
       type: type ? type[1] : null,
       entityType: entityType ? entityType[1] : null,
@@ -45,10 +67,23 @@ function publishedEvents(src) {
   return events;
 }
 
-const events = publishedEvents(source);
+const events = sources.flatMap(({ file, src }) => publishedEvents(src, file));
+const inventariados = [...new Set(events.map((event) => event.file))];
 check(
   events.length > 0,
-  `se inventariaron ${events.length} publicaciones realtime en server/index.js`,
+  `se inventariaron ${events.length} publicaciones realtime en ${inventariados.length} archivo(s)`,
+  inventariados.join(", "),
+);
+
+// Un piso explícito. Sin él, la próxima extracción que mueva publicaciones a un
+// lugar no cubierto vuelve a bajar la cobertura en silencio: `events.length > 0`
+// pasa igual con una publicación que con cuarenta y tres. Bajar este número es
+// una decisión que hay que escribir, igual que el ratchet de longitud de línea.
+const PISO_PUBLICACIONES = 43;
+check(
+  events.length >= PISO_PUBLICACIONES,
+  `el inventario no perdió publicaciones (${events.length} ≥ ${PISO_PUBLICACIONES})`,
+  "si una publicación se eliminó de verdad, bajá PISO_PUBLICACIONES en este archivo y decí por qué",
 );
 
 // --- 2. Ninguna publicación real puede quedar sin clasificar -----------------
@@ -58,9 +93,7 @@ check(
   unclassified.length === 0,
   "toda publicación realtime resuelve una audiencia explícita",
   unclassified
-    .map(
-      (e) => `server/index.js:${e.line} entityType=${e.entityType ?? "(ninguno)"} type=${e.type}`,
-    )
+    .map((e) => `${e.file}:${e.line} entityType=${e.entityType ?? "(ninguno)"} type=${e.type}`)
     .join(" | "),
 );
 

@@ -31,12 +31,14 @@ Cinco archivos concentran más de 1,3 MB de código: `apps/mobile/App.tsx` (433 
 - [x] **Reformateo mecánico aplicado.** Línea máxima 4.061 → 206; líneas largas 1.543 → 262.
 - [x] Los contratos que leen código fuente dejaron de depender del formato.
 - [x] Una puerta de formato impide que el código vuelva a derivar.
+- [x] **Los contratos que leen código fuente dejaron de depender de dónde vive.** Un contrato con un archivo hardcodeado pierde cobertura en silencio cuando la extracción mueve el código: `test:realtime-audience` pasó de 43 a 37 publicaciones y siguió en verde. Ahora recorre el árbol y tiene piso explícito.
+- [x] **La autorización es un módulo propio, puro y con contrato.** `server/http/authorization.js`, 9 reglas, 81 usos, `test:authorization` en `ci-fast.yml`.
 - [ ] Ningún `App.tsx` supera 1.500 líneas.
 - [ ] Ninguna línea de más de 200 caracteres. Las 262 restantes son casi todas SQL en template literals.
 - [ ] Ningún módulo de dominio importa React.
 - [ ] El build de driver no incluye pantallas de comercio.
 - [ ] El build de customer no incluye backoffice.
-- [ ] `server/index.js` deja de contener lógica de dominio.
+- [ ] `server/index.js` deja de contener lógica de dominio. **2 de 57 grupos de rutas extraídos** (mapas, direcciones); quedan 203 rutas en 55 grupos.
 
 ### Verificación
 
@@ -45,6 +47,22 @@ find src apps/mobile/src server -type f \( -name "*.ts" -o -name "*.tsx" -o -nam
 ```
 
 Debe devolver vacío. Añadir este control como puerta en `ci-fast.yml`.
+
+### Orden de extracción
+
+El criterio no es el tamaño del grupo, es **cuánto núcleo compartido necesita**. Un grupo de rutas depende hoy de siete cosas que siguen viviendo en `server/index.js`, y hasta que esas siete no sean módulos, cada router nuevo las recibe por parámetro.
+
+| Dependencia | Estado | Quién la necesita |
+| --- | --- | --- |
+| `ok` / `fail` / `parseOrFail` | `http/responses.js` | casi todo handler |
+| autorización (9 predicados + `requireAnyRole`) | `http/authorization.js` | 81 usos |
+| `requireAuth` | en `index.js` | todo grupo autenticado |
+| `publishRealtimeEvent` + registro SSE | en `index.js` | 43 publicaciones |
+| `audit` del fallback SQLite | en `index.js` | toda mutación |
+| `readDb` (contabiliza lecturas SQLite) | en `index.js` | todo el doble runtime |
+| esquemas Zod (≈20) | en `index.js` | por dominio, viajan con su grupo |
+
+Extraer un grupo antes que su núcleo funciona —lo demuestra `addresses-router.js`— pero deja una lista de dependencias larga en la factory. Esa lista es la medida honesta de cuánto núcleo falta, no un defecto del patrón.
 
 ---
 

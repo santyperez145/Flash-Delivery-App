@@ -109,7 +109,7 @@ La matriz vive en `docs/matriz-madurez.md` y se actualiza en el mismo PR que cam
 | --- | --- | --- |
 | Separación de `src/App.tsx` | ARC-001 | Ningún `App.tsx` supera 1.500 líneas |
 | Separación de `apps/mobile/App.tsx` | ARC-001 | Entrypoints customer/driver/merchant independientes |
-| Descomposición de `server/index.js` | ARC-001 | Controllers separados de use cases y repositories |
+| Descomposición de `server/index.js` | ARC-001 | Controllers separados de use cases y repositories. **2 de 57 grupos extraídos**; núcleo compartido: `responses` y `authorization` hechos, faltan `requireAuth`, realtime, auditoría y `readDb` |
 | ~~Reformateo de archivos comprimidos~~ **hecho** | ARC-001 | Línea máxima 4.061 → 206; quedan 262 líneas largas, casi todas SQL |
 | ~~Dispatch v2 etapa 1~~ **hecho** | DSP-001 | `ST_DWithin` + KNN recortan candidatos antes del scoring |
 | SLOs documentados | — | Objetivos técnicos de la auditoría publicados y medibles |
@@ -382,11 +382,22 @@ a 206 caracteres y las líneas largas de 1.543 a 262. Antes de eso hubo que
 liberar a ocho contratos que afirmaban sobre texto fuente sin formatear, porque
 bloqueaban el propio refactor que debían proteger.
 
-Falta la modularización en sí: extraer features de los dos `App.tsx`, separar
-entrypoints por audiencia, descomponer `server/index.js` y dividir
-`commerce-repository.js`. Ninguno era revisable antes del reformateo. Sí quedó activo un ratchet que
-impide que el problema crezca: `test:line-length` fija una línea base de **1.543
-líneas de más de 200 caracteres en 120 archivos** y sólo admite bajarla.
+La extracción empezó por el núcleo compartido, no por los grupos grandes:
+`http/responses.js` (697 llamadas) y `http/authorization.js` (81 usos, 9 reglas
+ahora puras y con contrato propio). Con eso salieron dos grupos de rutas de 57,
+mapas y direcciones. `server/index.js`: 9.696 → 9.209 líneas.
+
+El segundo paso reveló el mismo defecto que el primero, en otra forma: un
+contrato con un archivo hardcodeado **pierde cobertura en silencio** cuando la
+extracción mueve el código. `test:realtime-audience` pasó de 43 a 37
+publicaciones y siguió en verde. Un contrato acoplado a *dónde vive* el código
+es tan frágil como uno acoplado a *cómo está escrito*, y falla peor.
+
+Falta el resto: extraer features de los dos `App.tsx`, separar entrypoints por
+audiencia, los 55 grupos de rutas restantes y dividir `commerce-repository.js`.
+Sí quedó activo un ratchet que impide que el problema crezca:
+`test:line-length` fija una línea base de **1.543 líneas de más de 200
+caracteres en 120 archivos** y sólo admite bajarla.
 
 Valores admitidos para **Estado**: `Pendiente` · `En curso` · `Bloqueado por externo` · `Cerrado`.
 

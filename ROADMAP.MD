@@ -8,6 +8,49 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 26 de agosto de 2026 — ARC-001 pasos 2 y 3, el núcleo compartido
+
+Novena y décima entrega de la Fase 0. El paso 2 quedó sin registrar acá cuando se publicó, así que esta sección cubre los dos.
+
+### Lo que se extrajo
+
+| Módulo | Qué se lleva | Paso |
+| --- | --- | ---: |
+| `server/http/responses.js` | `ok`, `fail`, `parseOrFail` — 697 llamadas | 2 |
+| `server/http/maps-router.js` | 2 rutas de mapas | 2 |
+| `server/http/authorization.js` | 9 predicados + `requireAnyRole` — 81 usos | 3 |
+| `server/http/addresses-router.js` | 5 rutas de direcciones, con esquema Zod propio | 3 |
+
+`server/index.js`: 9.696 → **9.209 líneas**, 210 → **203 rutas**, 172 → **170 declaraciones de nivel superior**. Son 2 de 57 grupos de rutas. **Lo que importa no es cuánto se movió, sino qué quedó establecido.**
+
+### La autorización deja de tocar la base de datos
+
+Nueve reglas decidían quién puede hacer qué desde adentro de un archivo de 9.500 líneas, y **ninguna tenía una prueba directa**: la única forma de ejercitarlas era levantar la API y pegarle a un endpoint. Eso cubre los caminos que alguien se acordó de probar, no la regla.
+
+Dos de ellas, `canAdvanceOrder` y `canMutateOrderStatus`, recibían el `db` completo y buscaban el comercio adentro. Esa dependencia era la que hacía imposible verificar un permiso sin un runtime. Ahora reciben el comercio ya resuelto y las nueve son puras.
+
+`test:authorization` afirma cada una por separado, sin red ni base, incluidos tres casos que un smoke de extremo a extremo no llega a montar: **el administrador con MFA habilitado y sin verificar**, el pedido cuyo comercio ya no existe, y el conductor que no es el asignado. El contrato encontró de paso que tres predicados devolvían `null` en vez de `false`; todos los sitios de llamada los usan en contexto booleano, así que la corrección es equivalente.
+
+La suite además afirma que **el propio módulo no vuelve a depender de la base**: si un predicado recibe otra vez el `db`, el contrato falla. Sin esa aserción, la propiedad que hace verificable a todo lo demás se pierde en el primer PR que la olvide.
+
+### Un contrato que pierde cobertura en silencio es peor que uno que falla
+
+`test:realtime-audience` leía `server/index.js` y nada más. Al mudarse las direcciones, sus 6 publicaciones dejaron de inventariarse: el contrato pasó de **43 a 37 publicaciones y siguió en verde**, con un `entityType` menos cubierto y sin decir una palabra.
+
+Es la misma clase de defecto que el paso 1 encontró en ocho suites acopladas al formato, pero peor: aquélla fallaba ruidosamente y bloqueaba el refactor; ésta lo acompaña degradando la protección. **Un contrato acoplado a dónde vive el código es tan frágil como uno acoplado a cómo está escrito.**
+
+Ahora recorre todo `server/` y tiene un piso explícito de 43 publicaciones. Bajarlo exige escribir por qué, igual que el ratchet de longitud de línea.
+
+### El patrón, y su precio
+
+`addresses-router.js` es el primer grupo con la superficie completa que tienen los otros 54: autenticación, doble runtime PostgreSQL/SQLite, auditoría y evento de tiempo real. El de mapas no la tenía, así que no probaba que el patrón sirva para el resto.
+
+Su factory recibe cuatro dependencias del núcleo —`requireAuth`, `readDb`, `audit`, `publishRealtimeEvent`— porque las cuatro siguen viviendo en `index.js`. **Esa lista es la medida de cuánto núcleo falta extraer**, y está escrita en un lugar en vez de dispersa en 265 líneas de un archivo de 9.500. El orden que se deriva de eso está en el ticket.
+
+### Lo que sigue faltando
+
+Idéntico al paso 1, menos dos grupos: separar entrypoints customer/driver/merchant, extraer features de los dos `App.tsx`, dividir `commerce-repository.js`, y los 55 grupos de rutas restantes. Ninguna línea larga se corrigió: siguen 262, casi todas SQL en template literals.
+
 ## Avance 26 de agosto de 2026 — ARC-001 paso 1, reformateo mecánico
 
 Octava entrega de la Fase 0. **Sin cambios de comportamiento:** Prettier sólo reescribe espaciado, el build pasa y las siete puertas de CI pasan.

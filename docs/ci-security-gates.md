@@ -2,7 +2,7 @@
 
 ## Estado al 26 de agosto de 2026
 
-`ci.yml` se dividió en tres workflows y **los cinco jobs están en verde**. La cobertura pasó de **15 a 73 de 76 suites** detrás de una puerta, 69 de ellas bloqueantes.
+`ci.yml` se dividió en tres workflows y **los cinco jobs están en verde**. La cobertura pasó de **15 a 79 de 82 suites** detrás de una puerta, 78 de ellas bloqueantes.
 
 Contexto: hasta el 25 de agosto, `package.json` declaraba 104 scripts y el workflow ejecutaba 15. La causa raíz era que CI sólo declaraba un servicio Redis, así que ninguna suite que necesitara base de datos podía correr. Hallazgo [H-01](auditoria-2026-08-25.md#h-01--ci-no-ejecuta-el-86-de-su-propia-matriz-de-pruebas), ticket [CI-001](backlog-tecnico.md#ci-001--pipeline-productivo).
 
@@ -81,6 +81,16 @@ Bloquea vulnerabilidades **altas o críticas** en runtime web/API y mobile. Al 2
 ### Audiencias realtime
 
 `test:realtime-audience` extrae del código todas las publicaciones de `publishRealtimeEvent` y exige que cada una resuelva una audiencia explícita. La difusión a todos los roles se compara contra una lista aprobada: **ampliarla exige tocar el test**, lo que la convierte en una decisión revisable en lugar de un efecto secundario. Es un contrato estático, así que corre en la puerta rápida sin necesidad de PostgreSQL. Ver [`docs/realtime.md`](realtime.md).
+
+El inventario recorre **todo el árbol de `server/`, no un archivo**. Leía sólo `server/index.js`, y cuando ARC-001 empezó a extraer grupos de rutas las publicaciones que se mudaban dejaban de contarse: al sacar las direcciones pasó de 43 a 37 publicaciones **y siguió en verde**, con un `entityType` menos cubierto. Un contrato acoplado a *dónde vive* el código es tan frágil como uno acoplado a *cómo está escrito*, sólo que degrada en silencio en lugar de fallar. El piso de publicaciones es explícito y bajarlo exige escribir por qué.
+
+### Autorización
+
+`test:authorization` afirma directamente las nueve reglas de permisos que viven en `server/http/authorization.js`: quién puede actuar como cliente, conductor o comercio, y quién puede avanzar o cancelar un pedido o un viaje.
+
+Existe porque hasta [ARC-001](backlog-tecnico.md#arc-001--modularización) paso 3 esas reglas estaban dentro de un archivo de 9.500 líneas y **la única forma de ejercitarlas era levantar la API entera**. Eso cubre los caminos que alguien recordó probar, no la regla. Al quedar puras —sin base de datos, sin Express— se afirman una por una sin red ni credenciales, incluidos los casos que un smoke de extremo a extremo no llega a montar: el administrador con MFA habilitado y sin verificar, el pedido cuyo comercio ya no existe, y el conductor que no es el asignado.
+
+La suite también afirma que **el módulo no vuelve a depender de la base**. Sin esa aserción, la propiedad que hace verificable a todo lo demás se pierde en el primer PR que la olvide.
 
 ### Formato
 
