@@ -28,8 +28,11 @@ Cinco archivos concentran más de 1,3 MB de código: `apps/mobile/App.tsx` (433 
 
 ### Criterios de aceptación
 
+- [x] **Reformateo mecánico aplicado.** Línea máxima 4.061 → 206; líneas largas 1.543 → 262.
+- [x] Los contratos que leen código fuente dejaron de depender del formato.
+- [x] Una puerta de formato impide que el código vuelva a derivar.
 - [ ] Ningún `App.tsx` supera 1.500 líneas.
-- [ ] Ningún archivo fuente contiene líneas de más de 200 caracteres.
+- [ ] Ninguna línea de más de 200 caracteres. Las 262 restantes son casi todas SQL en template literals.
 - [ ] Ningún módulo de dominio importa React.
 - [ ] El build de driver no incluye pantallas de comercio.
 - [ ] El build de customer no incluye backoffice.

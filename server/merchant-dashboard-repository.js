@@ -67,7 +67,8 @@ export async function getPostgresMerchantDashboard({
     [actorPublicId, merchantPublicId, admin],
   );
   const row = result.rows[0];
-  if (!row) throw Object.assign(new Error("Comercio no encontrado o no autorizado"), { status: 404 });
+  if (!row)
+    throw Object.assign(new Error("Comercio no encontrado o no autorizado"), { status: 404 });
   const completedToday = Number(row.completed_today);
   const grossSalesToday = money(row.gross_sales_today_cents);
   return {

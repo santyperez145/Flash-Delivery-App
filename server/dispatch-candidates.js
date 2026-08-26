@@ -92,7 +92,10 @@ const SCORE_SQL = `
  * la lista corta no alcanza mantiene barato el caso normal y evita que un
  * trabajo se quede sin candidatos por un umbral arbitrario.
  */
-export function radiusLadder({ base = config.dispatch.searchRadiusM, max = config.dispatch.maxRadiusM } = {}) {
+export function radiusLadder({
+  base = config.dispatch.searchRadiusM,
+  max = config.dispatch.maxRadiusM,
+} = {}) {
   const ladder = [base];
   let radius = base;
   while (radius < max) {
@@ -109,11 +112,18 @@ export function radiusLadder({ base = config.dispatch.searchRadiusM, max = confi
  * pedidas. El radio usado se registra en la oferta, así que una zona que
  * necesita expandir siempre queda visible en lugar de degradar en silencio.
  */
-export async function shortlistDrivers(client, { pickup, mode, needed, shortlistSize = config.dispatch.shortlistSize }) {
+export async function shortlistDrivers(
+  client,
+  { pickup, mode, needed, shortlistSize = config.dispatch.shortlistSize },
+) {
   for (const radius of radiusLadder()) {
     const rows = (await client.query(SHORTLIST_SQL, [pickup, mode, radius, shortlistSize])).rows;
     if (rows.length >= needed || radius === config.dispatch.maxRadiusM) {
-      return { driverIds: rows.map((row) => row.id), radiusM: radius, expanded: radius !== config.dispatch.searchRadiusM };
+      return {
+        driverIds: rows.map((row) => row.id),
+        radiusM: radius,
+        expanded: radius !== config.dispatch.searchRadiusM,
+      };
     }
   }
   return { driverIds: [], radiusM: config.dispatch.maxRadiusM, expanded: true };

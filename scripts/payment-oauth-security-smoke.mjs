@@ -1,33 +1,179 @@
-process.env.NODE_ENV="test";
-process.env.PAYMENT_MARKETPLACE_PROVIDER="mercadopago";
-process.env.PAYMENT_OAUTH_ENCRYPTION_KEY="test-payment-oauth-encryption-key-32-characters";
-process.env.MERCADOPAGO_CLIENT_ID="123456789";
-process.env.MERCADOPAGO_CLIENT_SECRET="test-client-secret-never-production";
-process.env.MERCADOPAGO_REDIRECT_URI="https://api.flash.test/api/payment-provider/mercadopago/callback";
-const assert=(condition,label)=>{if(!condition)throw new Error(`failed: ${label}`);console.log(`ok - ${label}`);};
-let captured=null;
-globalThis.fetch=async(url,init)=>{captured={url:String(url),init};return new Response(JSON.stringify({access_token:"APP_USR-access-secret",refresh_token:"TG-refresh-secret",user_id:12345,expires_in:3600,scope:"offline_access payments write",live_mode:false}),{status:200,headers:{"content-type":"application/json"}});};
-const {mercadoPagoAuthorizationUrl,exchangeMercadoPagoCode,refreshMercadoPagoCredential,fetchMercadoPagoResource}=await import("../server/payment-marketplace-provider.js"),{encryptPaymentOAuthToken,decryptPaymentOAuthToken}=await import("../server/secret-envelope.js"),{merchantPaymentConnectionStatus}=await import("../server/payment-oauth-repository.js");
-const state="opaque-state-with-more-than-128-bits",verifier="pkce-verifier-with-at-least-forty-three-random-characters-123456",challenge="pkce-s256-challenge",authorization=new URL(mercadoPagoAuthorizationUrl(state,challenge));
-assert(authorization.origin==="https://auth.mercadopago.com.ar"&&authorization.searchParams.get("state")===state&&authorization.searchParams.get("redirect_uri")===process.env.MERCADOPAGO_REDIRECT_URI&&authorization.searchParams.get("code_challenge")===challenge&&authorization.searchParams.get("code_challenge_method")==="S256","authorization URL binds opaque state, PKCE S256 and exact callback");
-const credential=await exchangeMercadoPagoCode("one-time-provider-code",verifier),body=new URLSearchParams(captured.init.body);
-assert(captured.url==="https://api.mercadopago.com/oauth/token"&&captured.init.method==="POST"&&body.get("client_secret")===process.env.MERCADOPAGO_CLIENT_SECRET&&body.get("code_verifier")===verifier&&!captured.url.includes(process.env.MERCADOPAGO_CLIENT_SECRET),"code exchange keeps client secret and PKCE verifier in TLS form body");
-assert(credential.externalAccountId==="12345"&&!JSON.stringify(credential).includes("client-secret"),"provider response is normalized without integration credentials");
-const envelope=encryptPaymentOAuthToken(credential.accessToken);
-assert(envelope!==credential.accessToken&&!envelope.includes(credential.accessToken)&&decryptPaymentOAuthToken(envelope)===credential.accessToken,"seller access token uses authenticated AES-256-GCM envelope");
-globalThis.fetch=async(url,init)=>{captured={url:String(url),init};return new Response(JSON.stringify({access_token:"APP_USR-rotated-access",refresh_token:"TG-rotated-refresh",user_id:12345,expires_in:15552000,scope:"offline_access payments write",live_mode:true}),{status:200,headers:{"content-type":"application/json"}});};
-const rotated=await refreshMercadoPagoCredential("TG-old-refresh"),refreshBody=JSON.parse(captured.init.body);
-assert(refreshBody.grant_type==="refresh_token"&&refreshBody.refresh_token==="TG-old-refresh"&&rotated.refreshToken==="TG-rotated-refresh"&&rotated.externalAccountId==="12345","refresh grant rotates both seller tokens and preserves seller identity");
-globalThis.fetch=async()=>new Response(JSON.stringify({access_token:"APP_USR-incomplete",refresh_token:"TG-incomplete",user_id:12345}),{status:200,headers:{"content-type":"application/json"}});
-let rejectedIncomplete=false;try{await refreshMercadoPagoCredential("TG-old-refresh");}catch(error){rejectedIncomplete=error.providerCode==="incomplete_oauth_credential";}
-assert(rejectedIncomplete,"refresh rejects credentials without an enforceable expiration");
-const timeout=Object.assign(new Error("provider leaked TG-secret"),{name:"TimeoutError"});globalThis.fetch=async()=>{throw timeout;};
-let rejectedTimeout=false;try{await refreshMercadoPagoCredential("TG-old-refresh");}catch(error){rejectedTimeout=error.status===504&&error.providerCode==="provider_timeout"&&!error.message.includes("TG-secret");}
-assert(rejectedTimeout,"OAuth refresh sanitizes and classifies provider timeout");
-globalThis.fetch=async(url,init)=>{captured={url:String(url),init};return new Response(JSON.stringify({id:"PAY-1",status:"approved",status_detail:"accredited",external_reference:"JOB-1",transaction_amount:1200,currency_id:"ARS",application_fee:120,collector_id:12345,payer:{email:"must-not-persist@example.test"},card:{last_four_digits:"1234"}}),{status:200,headers:{"content-type":"application/json"}});};
-const snapshot=await fetchMercadoPagoResource({topic:"payment",resourceId:"PAY-1",accessToken:credential.accessToken});
-assert(captured.init.headers.authorization===`Bearer ${credential.accessToken}`&&snapshot.status==="approved","worker fetches authoritative resource with seller bearer token");
-assert(!("payer" in snapshot)&&!("card" in snapshot)&&!JSON.stringify(snapshot).includes("example.test"),"normalized reconciliation snapshot excludes payer and card data");
-const future=new Date(Date.now()+3600000),past=new Date(Date.now()-1000);
-assert(merchantPaymentConnectionStatus({token_expires_at:future,refresh_failures:0,revoked_at:null})==="connected","known valid seller expiry keeps checkout connected");
-assert(merchantPaymentConnectionStatus({token_expires_at:null,refresh_failures:0,revoked_at:null})==="reconnect_required"&&merchantPaymentConnectionStatus({token_expires_at:past,refresh_failures:0,revoked_at:null})==="reconnect_required","unknown or expired seller credential fails closed");
+process.env.NODE_ENV = "test";
+process.env.PAYMENT_MARKETPLACE_PROVIDER = "mercadopago";
+process.env.PAYMENT_OAUTH_ENCRYPTION_KEY = "test-payment-oauth-encryption-key-32-characters";
+process.env.MERCADOPAGO_CLIENT_ID = "123456789";
+process.env.MERCADOPAGO_CLIENT_SECRET = "test-client-secret-never-production";
+process.env.MERCADOPAGO_REDIRECT_URI =
+  "https://api.flash.test/api/payment-provider/mercadopago/callback";
+const assert = (condition, label) => {
+  if (!condition) throw new Error(`failed: ${label}`);
+  console.log(`ok - ${label}`);
+};
+let captured = null;
+globalThis.fetch = async (url, init) => {
+  captured = { url: String(url), init };
+  return new Response(
+    JSON.stringify({
+      access_token: "APP_USR-access-secret",
+      refresh_token: "TG-refresh-secret",
+      user_id: 12345,
+      expires_in: 3600,
+      scope: "offline_access payments write",
+      live_mode: false,
+    }),
+    { status: 200, headers: { "content-type": "application/json" } },
+  );
+};
+const {
+    mercadoPagoAuthorizationUrl,
+    exchangeMercadoPagoCode,
+    refreshMercadoPagoCredential,
+    fetchMercadoPagoResource,
+  } = await import("../server/payment-marketplace-provider.js"),
+  { encryptPaymentOAuthToken, decryptPaymentOAuthToken } = await import(
+    "../server/secret-envelope.js"
+  ),
+  { merchantPaymentConnectionStatus } = await import("../server/payment-oauth-repository.js");
+const state = "opaque-state-with-more-than-128-bits",
+  verifier = "pkce-verifier-with-at-least-forty-three-random-characters-123456",
+  challenge = "pkce-s256-challenge",
+  authorization = new URL(mercadoPagoAuthorizationUrl(state, challenge));
+assert(
+  authorization.origin === "https://auth.mercadopago.com.ar" &&
+    authorization.searchParams.get("state") === state &&
+    authorization.searchParams.get("redirect_uri") === process.env.MERCADOPAGO_REDIRECT_URI &&
+    authorization.searchParams.get("code_challenge") === challenge &&
+    authorization.searchParams.get("code_challenge_method") === "S256",
+  "authorization URL binds opaque state, PKCE S256 and exact callback",
+);
+const credential = await exchangeMercadoPagoCode("one-time-provider-code", verifier),
+  body = new URLSearchParams(captured.init.body);
+assert(
+  captured.url === "https://api.mercadopago.com/oauth/token" &&
+    captured.init.method === "POST" &&
+    body.get("client_secret") === process.env.MERCADOPAGO_CLIENT_SECRET &&
+    body.get("code_verifier") === verifier &&
+    !captured.url.includes(process.env.MERCADOPAGO_CLIENT_SECRET),
+  "code exchange keeps client secret and PKCE verifier in TLS form body",
+);
+assert(
+  credential.externalAccountId === "12345" && !JSON.stringify(credential).includes("client-secret"),
+  "provider response is normalized without integration credentials",
+);
+const envelope = encryptPaymentOAuthToken(credential.accessToken);
+assert(
+  envelope !== credential.accessToken &&
+    !envelope.includes(credential.accessToken) &&
+    decryptPaymentOAuthToken(envelope) === credential.accessToken,
+  "seller access token uses authenticated AES-256-GCM envelope",
+);
+globalThis.fetch = async (url, init) => {
+  captured = { url: String(url), init };
+  return new Response(
+    JSON.stringify({
+      access_token: "APP_USR-rotated-access",
+      refresh_token: "TG-rotated-refresh",
+      user_id: 12345,
+      expires_in: 15552000,
+      scope: "offline_access payments write",
+      live_mode: true,
+    }),
+    { status: 200, headers: { "content-type": "application/json" } },
+  );
+};
+const rotated = await refreshMercadoPagoCredential("TG-old-refresh"),
+  refreshBody = JSON.parse(captured.init.body);
+assert(
+  refreshBody.grant_type === "refresh_token" &&
+    refreshBody.refresh_token === "TG-old-refresh" &&
+    rotated.refreshToken === "TG-rotated-refresh" &&
+    rotated.externalAccountId === "12345",
+  "refresh grant rotates both seller tokens and preserves seller identity",
+);
+globalThis.fetch = async () =>
+  new Response(
+    JSON.stringify({
+      access_token: "APP_USR-incomplete",
+      refresh_token: "TG-incomplete",
+      user_id: 12345,
+    }),
+    { status: 200, headers: { "content-type": "application/json" } },
+  );
+let rejectedIncomplete = false;
+try {
+  await refreshMercadoPagoCredential("TG-old-refresh");
+} catch (error) {
+  rejectedIncomplete = error.providerCode === "incomplete_oauth_credential";
+}
+assert(rejectedIncomplete, "refresh rejects credentials without an enforceable expiration");
+const timeout = Object.assign(new Error("provider leaked TG-secret"), { name: "TimeoutError" });
+globalThis.fetch = async () => {
+  throw timeout;
+};
+let rejectedTimeout = false;
+try {
+  await refreshMercadoPagoCredential("TG-old-refresh");
+} catch (error) {
+  rejectedTimeout =
+    error.status === 504 &&
+    error.providerCode === "provider_timeout" &&
+    !error.message.includes("TG-secret");
+}
+assert(rejectedTimeout, "OAuth refresh sanitizes and classifies provider timeout");
+globalThis.fetch = async (url, init) => {
+  captured = { url: String(url), init };
+  return new Response(
+    JSON.stringify({
+      id: "PAY-1",
+      status: "approved",
+      status_detail: "accredited",
+      external_reference: "JOB-1",
+      transaction_amount: 1200,
+      currency_id: "ARS",
+      application_fee: 120,
+      collector_id: 12345,
+      payer: { email: "must-not-persist@example.test" },
+      card: { last_four_digits: "1234" },
+    }),
+    { status: 200, headers: { "content-type": "application/json" } },
+  );
+};
+const snapshot = await fetchMercadoPagoResource({
+  topic: "payment",
+  resourceId: "PAY-1",
+  accessToken: credential.accessToken,
+});
+assert(
+  captured.init.headers.authorization === `Bearer ${credential.accessToken}` &&
+    snapshot.status === "approved",
+  "worker fetches authoritative resource with seller bearer token",
+);
+assert(
+  !("payer" in snapshot) &&
+    !("card" in snapshot) &&
+    !JSON.stringify(snapshot).includes("example.test"),
+  "normalized reconciliation snapshot excludes payer and card data",
+);
+const future = new Date(Date.now() + 3600000),
+  past = new Date(Date.now() - 1000);
+assert(
+  merchantPaymentConnectionStatus({
+    token_expires_at: future,
+    refresh_failures: 0,
+    revoked_at: null,
+  }) === "connected",
+  "known valid seller expiry keeps checkout connected",
+);
+assert(
+  merchantPaymentConnectionStatus({
+    token_expires_at: null,
+    refresh_failures: 0,
+    revoked_at: null,
+  }) === "reconnect_required" &&
+    merchantPaymentConnectionStatus({
+      token_expires_at: past,
+      refresh_failures: 0,
+      revoked_at: null,
+    }) === "reconnect_required",
+  "unknown or expired seller credential fails closed",
+);

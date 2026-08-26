@@ -24,10 +24,7 @@ do {
     );
   if (process.env.WORKER_ONCE === "true") break;
   await new Promise((resolve) =>
-    setTimeout(
-      resolve,
-      result.assigned.length || result.escalated.length ? 1000 : 15000,
-    ),
+    setTimeout(resolve, result.assigned.length || result.escalated.length ? 1000 : 15000),
   );
 } while (!stopping);
 

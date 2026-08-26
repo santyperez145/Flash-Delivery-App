@@ -23,8 +23,7 @@
     width: 100%;
     height: auto;
     min-height: calc(66px + var(--layout-safe-top));
-    padding: calc(10px + var(--layout-safe-top))
-      calc(12px + var(--layout-safe-right)) 10px
+    padding: calc(10px + var(--layout-safe-top)) calc(12px + var(--layout-safe-right)) 10px
       calc(12px + var(--layout-safe-left));
     box-shadow: 0 10px 26px rgba(10, 14, 20, 0.18);
   }
@@ -70,8 +69,7 @@
   .admin-main,
   .merchant-desktop-main {
     gap: 16px;
-    padding: 18px var(--layout-gutter)
-      calc(42px + var(--layout-safe-bottom));
+    padding: 18px var(--layout-gutter) calc(42px + var(--layout-safe-bottom));
   }
 
   .admin-topbar {

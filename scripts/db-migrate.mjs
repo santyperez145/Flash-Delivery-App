@@ -12,7 +12,9 @@ try {
     version text PRIMARY KEY,
     applied_at timestamptz NOT NULL DEFAULT now()
   )`);
-  const applied = new Set((await pool.query("SELECT version FROM schema_migrations")).rows.map((row) => row.version));
+  const applied = new Set(
+    (await pool.query("SELECT version FROM schema_migrations")).rows.map((row) => row.version),
+  );
   const files = (await fs.readdir(migrationsDir)).filter((name) => name.endsWith(".sql")).sort();
   for (const file of files) {
     if (applied.has(file)) continue;

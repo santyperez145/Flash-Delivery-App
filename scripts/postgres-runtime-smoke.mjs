@@ -81,10 +81,7 @@ async function readSseUntil(reader, needle, timeoutMs = 4000) {
     const chunk = await Promise.race([
       reader.read(),
       new Promise((_, reject) =>
-        setTimeout(
-          () => reject(new Error(`SSE timeout: ${needle}`)),
-          remaining,
-        ),
+        setTimeout(() => reject(new Error(`SSE timeout: ${needle}`)), remaining),
       ),
     ]);
     if (chunk.done) break;
@@ -101,9 +98,7 @@ try {
   await pool.query(
     "DELETE FROM users WHERE email LIKE 'runtime-%@flash.test' AND NOT EXISTS(SELECT 1 FROM jobs WHERE customer_id=users.id)",
   );
-  await pool.query(
-    "UPDATE catalog_items SET available=true WHERE public_id='item_burger_brava'",
-  );
+  await pool.query("UPDATE catalog_items SET available=true WHERE public_id='item_burger_brava'");
   await pool.query(
     "UPDATE catalog_branch_inventory SET available=true,stock_quantity=NULL WHERE catalog_item_id=(SELECT id FROM catalog_items WHERE public_id='item_burger_brava')",
   );
@@ -115,9 +110,7 @@ try {
   );
   const ready = await request("/ready");
   assert(
-    ready.status === 200 &&
-      ready.body.database?.ready &&
-      ready.body.authStore === "postgres",
+    ready.status === 200 && ready.body.database?.ready && ready.body.authStore === "postgres",
     "PostgreSQL runtime ready",
   );
   assert(
@@ -132,7 +125,7 @@ try {
     }),
     metricsText = await metricsAllowed.text();
   assert(
-    [401,429].includes(metricsDenied.status) &&
+    [401, 429].includes(metricsDenied.status) &&
       metricsAllowed.status === 200 &&
       metricsText.includes("flash_http_requests_total") &&
       metricsText.includes("flash_http_request_duration_seconds_bucket") &&
@@ -166,29 +159,21 @@ try {
     }),
     liveReader = liveResponse.body.getReader();
   const connectedFrame = await readSseUntil(liveReader, "event: connected");
-  assert(
-    connectedFrame.includes("cursor"),
-    "realtime connects with a durable PostgreSQL cursor",
-  );
+  assert(connectedFrame.includes("cursor"), "realtime connects with a durable PostgreSQL cursor");
   const liveEventId = `EVT-SMOKE-LIVE-${Date.now()}`;
   realtimeFixtureIds.push(liveEventId);
   await pool.query(
     `INSERT INTO realtime_events(public_id,type,audience_user_ids) VALUES($1,'cross_instance_fixture',ARRAY['usr_customer'])`,
     [liveEventId],
   );
-  const externalFrame = await readSseUntil(
-    liveReader,
-    "cross_instance_fixture",
-  );
+  const externalFrame = await readSseUntil(liveReader, "cross_instance_fixture");
   assert(
     externalFrame.includes(liveEventId),
     "LISTEN/NOTIFY fans out an event written by another PostgreSQL connection",
   );
   liveController.abort();
   const replayCursor = (
-    await pool.query(
-      "SELECT max(sequence_id)::bigint cursor FROM realtime_events",
-    )
+    await pool.query("SELECT max(sequence_id)::bigint cursor FROM realtime_events")
   ).rows[0].cursor;
   const privateEventId = `EVT-SMOKE-PRIVATE-${Date.now()}`,
     replayEventId = `EVT-SMOKE-REPLAY-${Date.now()}`;
@@ -206,13 +191,9 @@ try {
       signal: replayController.signal,
     }),
     replayReader = replayResponse.body.getReader();
-  const replayFrame = await readSseUntil(
-    replayReader,
-    "replay_customer_fixture",
-  );
+  const replayFrame = await readSseUntil(replayReader, "replay_customer_fixture");
   assert(
-    replayFrame.includes(replayEventId) &&
-      !replayFrame.includes(privateEventId),
+    replayFrame.includes(replayEventId) && !replayFrame.includes(privateEventId),
     "reconnect replays only events authorized for the current user",
   );
   replayController.abort();
@@ -255,9 +236,7 @@ try {
       restaurants.body.restaurants[0].menu?.length >= 1 &&
       restaurants.body.restaurants
         .find((entry) => entry.id === "rest_roja")
-        ?.branches?.some(
-          (branch) => branch.id === "branch_rest_roja" && branch.isPrimary,
-        ),
+        ?.branches?.some((branch) => branch.id === "branch_rest_roja" && branch.isPrimary),
     "PostgreSQL catalog exposes real merchant branches",
   );
   const state = await request("/me/activity?limit=50");
@@ -268,18 +247,14 @@ try {
   const runtimePromotions = await request("/promotions"),
     runtimeZones = await request("/zones");
   assert(
-    runtimePromotions.body.promotions?.some(
-      (entry) => entry.code === "FLASH40",
-    ),
+    runtimePromotions.body.promotions?.some((entry) => entry.code === "FLASH40"),
     "promotions load from PostgreSQL",
   );
   const runtimePricing = await request("/pricing");
   assert(
     runtimePricing.body.plans?.some(
-      (entry) =>
-        entry.service === "ride" && entry.version === "AR-BA-RIDE-2026.08",
-    ) &&
-      runtimePricing.body.plans?.some((entry) => entry.service === "shipment"),
+      (entry) => entry.service === "ride" && entry.version === "AR-BA-RIDE-2026.08",
+    ) && runtimePricing.body.plans?.some((entry) => entry.service === "shipment"),
     "versioned pricing plans load from PostgreSQL",
   );
   const shipmentOptions = await request("/shipment-options");
@@ -291,13 +266,10 @@ try {
       ),
     "mobile shipment categories and SLA load from PostgreSQL without hardcoded pricing",
   );
-  const centroZone = runtimeZones.body.zones?.find(
-    (entry) => entry.id === "zone_centro",
-  );
+  const centroZone = runtimeZones.body.zones?.find((entry) => entry.id === "zone_centro");
   originalZoneMultiplier = centroZone?.deliveryMultiplier;
   assert(
-    centroZone?.boundary?.length >= 4 &&
-      Number.isInteger(centroZone.activeRides),
+    centroZone?.boundary?.length >= 4 && Number.isInteger(centroZone.activeRides),
     "service zones use PostGIS boundaries and live job counts",
   );
   const zonedRideQuote = await request("/rides/quote", {
@@ -317,9 +289,7 @@ try {
     "ride quote applies PostGIS zone and versioned pricing plan",
   );
   const originalPricing = (
-    await pool.query(
-      "SELECT config FROM pricing_plans WHERE service='ride' AND active",
-    )
+    await pool.query("SELECT config FROM pricing_plans WHERE service='ride' AND active")
   ).rows[0].config;
   let repricedQuote;
   try {
@@ -337,10 +307,9 @@ try {
       }),
     });
   } finally {
-    await pool.query(
-      "UPDATE pricing_plans SET config=$1 WHERE service='ride' AND active",
-      [originalPricing],
-    );
+    await pool.query("UPDATE pricing_plans SET config=$1 WHERE service='ride' AND active", [
+      originalPricing,
+    ]);
   }
   assert(
     repricedQuote.body.quote.fare > zonedRideQuote.body.quote.fare,
@@ -350,13 +319,9 @@ try {
     method: "PATCH",
     body: JSON.stringify({ demandLevel: "low" }),
   });
+  assert(forbiddenZoneUpdate.status === 403, "customer cannot manage service zones");
   assert(
-    forbiddenZoneUpdate.status === 403,
-    "customer cannot manage service zones",
-  );
-  assert(
-    (await request("/admin/pricing/ride", { method: "POST", body: "{}" }))
-      .status === 403,
+    (await request("/admin/pricing/ride", { method: "POST", body: "{}" })).status === 403,
     "customer cannot publish pricing plans",
   );
   assert(
@@ -406,10 +371,7 @@ try {
       password: "short",
     }),
   });
-  assert(
-    weakRegistration.status === 400,
-    "registration rejects weak passwords",
-  );
+  assert(weakRegistration.status === 400, "registration rejects weak passwords");
   registeredEmail = `runtime-${crypto.randomUUID()}@flash.test`;
   const registration = await request("/auth/register", {
     method: "POST",
@@ -466,9 +428,7 @@ try {
     )
   ).rows[0];
   assert(
-    lockedLogin.status === 401 &&
-      lockState.failed_login_attempts >= 5 &&
-      lockState.locked,
+    lockedLogin.status === 401 && lockState.failed_login_attempts >= 5 && lockState.locked,
     "five invalid passwords persistently lock the account without revealing its state",
   );
   await pool.query(
@@ -499,8 +459,7 @@ try {
   token = registeredToken;
   const registeredState = await request("/me");
   assert(
-    registeredState.status === 200 &&
-      registeredState.body.account.user?.id === registeredUserId,
+    registeredState.status === 200 && registeredState.body.account.user?.id === registeredUserId,
     "new PostgreSQL user appears in private account context",
   );
   token = customerToken;
@@ -541,8 +500,7 @@ try {
   assert(
     invalidFoodPreferences.status === 400 &&
       savedFoodPreferences.status === 200 &&
-      readFoodPreferences.body.preferences.dietaryLabels[0].code ===
-        "vegetarian" &&
+      readFoodPreferences.body.preferences.dietaryLabels[0].code === "vegetarian" &&
       readFoodPreferences.body.preferences.avoidedAllergens.length === 2 &&
       isolatedFoodPreferences.body.preferences.dietaryLabels.length === 0 &&
       preferenceRows.rows[0].avoided === 0,
@@ -616,9 +574,7 @@ try {
   assert(
     profileUpdated.status === 200 &&
       profileUpdated.body.account.user.name === "Runtime Updated User" &&
-      profileUpdated.body.account.addresses?.[0]?.address.includes(
-        "Corrientes",
-      ),
+      profileUpdated.body.account.addresses?.[0]?.address.includes("Corrientes"),
     "new PostgreSQL user updates profile and account address",
   );
   const homeAddress = await request("/addresses", {
@@ -661,12 +617,8 @@ try {
   assert(
     defaultChanged.status === 200 &&
       defaultChanged.body.address?.isDefault &&
-      accountWithAddress.body.account.user.defaultAddress.includes(
-        "Santa Fe",
-      ) &&
-      accountWithAddress.body.account.addresses.filter(
-        (entry) => entry.isDefault,
-      ).length === 1,
+      accountWithAddress.body.account.user.defaultAddress.includes("Santa Fe") &&
+      accountWithAddress.body.account.addresses.filter((entry) => entry.isDefault).length === 1,
     `default address changes atomically and synchronizes the account (${defaultChanged.status}: ${defaultChanged.body.error || "unknown"})`,
   );
   const profileCannotDrift = await request("/me", {
@@ -714,8 +666,7 @@ try {
   });
   feedbackAuditRequestIds.push(homeDeleted.body.requestId);
   assert(
-    homeUpdated.body.address.label === "Casa familiar" &&
-      homeDeleted.body.addresses.length === 1,
+    homeUpdated.body.address.label === "Casa familiar" && homeDeleted.body.addresses.length === 1,
     "owner updates and deletes a saved address",
   );
   token = customerToken;
@@ -741,15 +692,13 @@ try {
     customerRecentDestinations = await request("/ride-destinations");
   token = registeredToken;
   const foreignRecentDestinations = await request("/ride-destinations"),
-    foreignRecentDelete = await request(
-      `/ride-destinations/${rideDestinationId}`,
-      { method: "DELETE" },
-    );
+    foreignRecentDelete = await request(`/ride-destinations/${rideDestinationId}`, {
+      method: "DELETE",
+    });
   token = customerToken;
-  const deletedRecentDestination = await request(
-    `/ride-destinations/${rideDestinationId}`,
-    { method: "DELETE" },
-  );
+  const deletedRecentDestination = await request(`/ride-destinations/${rideDestinationId}`, {
+    method: "DELETE",
+  });
   feedbackAuditRequestIds.push(deletedRecentDestination.body.requestId);
   rideDestinationId = null;
   assert(
@@ -790,16 +739,14 @@ try {
     );
   token = registeredToken;
   const foreignTrustedContacts = await request("/ride-trusted-contacts"),
-    foreignTrustedDelete = await request(
-      `/ride-trusted-contacts/${trustedContactId}`,
-      { method: "DELETE" },
-    );
+    foreignTrustedDelete = await request(`/ride-trusted-contacts/${trustedContactId}`, {
+      method: "DELETE",
+    });
   token = customerToken;
   const ownTrustedContacts = await request("/ride-trusted-contacts"),
-    deletedTrustedContact = await request(
-      `/ride-trusted-contacts/${trustedContactId}`,
-      { method: "DELETE" },
-    );
+    deletedTrustedContact = await request(`/ride-trusted-contacts/${trustedContactId}`, {
+      method: "DELETE",
+    });
   feedbackAuditRequestIds.push(
     repeatedTrustedContact.body.requestId,
     deletedTrustedContact.body.requestId,
@@ -807,8 +754,7 @@ try {
   trustedContactId = null;
   assert(
     createdTrustedContact.status === 201 &&
-      repeatedTrustedContact.body.contact?.id ===
-        createdTrustedContact.body.contact?.id &&
+      repeatedTrustedContact.body.contact?.id === createdTrustedContact.body.contact?.id &&
       repeatedTrustedContact.body.contact?.name === "Familia Runtime" &&
       contactAtRest.rows[0]?.phone_ciphertext !== trustedPhone &&
       contactAtRest.rows[0]?.phone_hash.length === 64 &&
@@ -907,8 +853,7 @@ try {
     }),
   });
   assert(
-    reloadedCart.body.cart?.[0]?.note === "runtime smoke" &&
-      invalidCartModifier.status === 409,
+    reloadedCart.body.cart?.[0]?.note === "runtime smoke" && invalidCartModifier.status === 409,
     "PostgreSQL cart reloads selections and rejects invented modifiers",
   );
   const customerAccount = (await request("/me")).body.account;
@@ -935,10 +880,7 @@ try {
       },
     ],
   };
-  assert(
-    checkoutAddress,
-    "food checkout has a saved geocoded delivery address",
-  );
+  assert(checkoutAddress, "food checkout has a saved geocoded delivery address");
   const foodQuote = await request("/orders/quote", {
     method: "POST",
     body: JSON.stringify(payload),
@@ -975,9 +917,7 @@ try {
       method: "POST",
       body: JSON.stringify({
         ...payload,
-        items: [
-          { ...payload.items[0], extras: ["extra_cheddar", "extra_cheddar"] },
-        ],
+        items: [{ ...payload.items[0], extras: ["extra_cheddar", "extra_cheddar"] }],
       }),
     });
   assert(
@@ -999,10 +939,9 @@ try {
     foreignQuote.status === 404 &&
       Number(
         (
-          await pool.query(
-            "SELECT count(*)::int count FROM idempotency_keys WHERE key=$1",
-            [foreignAddressKey],
-          )
+          await pool.query("SELECT count(*)::int count FROM idempotency_keys WHERE key=$1", [
+            foreignAddressKey,
+          ])
         ).rows[0].count,
       ) === 0,
     "food quote rejects a delivery address owned by another customer without claiming idempotency",
@@ -1016,10 +955,9 @@ try {
     mismatchedQuote.status === 409 &&
       Number(
         (
-          await pool.query(
-            "SELECT count(*)::int count FROM idempotency_keys WHERE key=$1",
-            [foreignAddressKey],
-          )
+          await pool.query("SELECT count(*)::int count FROM idempotency_keys WHERE key=$1", [
+            foreignAddressKey,
+          ])
         ).rows[0].count,
       ) === 0,
     "signed food quote rejects a modified delivery address without residue",
@@ -1027,12 +965,8 @@ try {
   const paymentRows = await pool.query(
       `SELECT pm.id::text,u.public_id FROM payment_methods pm JOIN users u ON u.id=pm.user_id WHERE pm.revoked_at IS NULL AND pm.kind='wallet' AND u.public_id IN('usr_customer','usr_driver')`,
     ),
-    ownPaymentId = paymentRows.rows.find(
-      (row) => row.public_id === "usr_customer",
-    ).id,
-    foreignPaymentId = paymentRows.rows.find(
-      (row) => row.public_id === "usr_driver",
-    ).id;
+    ownPaymentId = paymentRows.rows.find((row) => row.public_id === "usr_customer").id,
+    foreignPaymentId = paymentRows.rows.find((row) => row.public_id === "usr_driver").id;
   const foreignPaymentQuote = await request("/orders/quote", {
     method: "POST",
     body: JSON.stringify({ ...payload, paymentMethodId: foreignPaymentId }),
@@ -1103,10 +1037,9 @@ try {
       changedModifier.status === 409 &&
       Number(
         (
-          await pool.query(
-            "SELECT count(*)::int count FROM idempotency_keys WHERE key=ANY($1)",
-            [[changedPriceKey, changedModifierKey]],
-          )
+          await pool.query("SELECT count(*)::int count FROM idempotency_keys WHERE key=ANY($1)", [
+            [changedPriceKey, changedModifierKey],
+          ])
         ).rows[0].count,
       ) === 0,
     "checkout refuses to charge a cart or modifier selection that differs from the accepted signed total",
@@ -1128,17 +1061,15 @@ try {
     headers: { "Idempotency-Key": idempotencyKey },
     body: JSON.stringify(payload),
   });
-  if (first.status !== 200)
-    console.error("branch checkout diagnostic", first, second);
+  if (first.status !== 200) console.error("branch checkout diagnostic", first, second);
   orderId = first.body.order?.id;
   assert(
     first.status === 200 && orderId && second.body.order?.id === orderId,
     "order idempotency returns one result",
   );
-  const count = await pool.query(
-    "SELECT count(*)::int AS count FROM jobs WHERE public_id = $1",
-    [orderId],
-  );
+  const count = await pool.query("SELECT count(*)::int AS count FROM jobs WHERE public_id = $1", [
+    orderId,
+  ]);
   assert(count.rows[0].count === 1, "order idempotency creates one row");
   const foodRoute = await pool.query(
     `SELECT ST_Distance(pickup_location,dropoff_location) distance_m,ST_Y(dropoff_location::geometry) lat,ST_X(dropoff_location::geometry) lng,metadata->>'locationEstimated' location_estimated,metadata->>'deliveryAddressId' address_id,metadata->>'quoteId' quote_id,metadata->>'pricingVersion' pricing_version FROM jobs WHERE public_id=$1`,
@@ -1153,8 +1084,7 @@ try {
       foodRoute.rows[0].location_estimated === "false" &&
       foodRoute.rows[0].address_id === checkoutAddress.id &&
       foodRoute.rows[0].quote_id === checkoutQuote.body.quote.quoteId &&
-      foodRoute.rows[0].pricing_version ===
-        checkoutQuote.body.quote.pricingVersion &&
+      foodRoute.rows[0].pricing_version === checkoutQuote.body.quote.pricingVersion &&
       first.body.order.deliveryFee === checkoutQuote.body.quote.deliveryFee,
     "food order persists and exposes its PostGIS route with exact signed pricing provenance",
   );
@@ -1196,10 +1126,7 @@ try {
       quoteToken: insufficientQuote.body.quote.quoteToken,
     }),
   });
-  assert(
-    insufficient.status === 402,
-    "wallet rejects order with insufficient balance",
-  );
+  assert(insufficient.status === 402, "wallet rejects order with insufficient balance");
   const rolledBack = await pool.query(
     "SELECT (SELECT count(*) FROM idempotency_keys WHERE key=$1)::int claims,(SELECT count(*) FROM ledger_transactions WHERE idempotency_key=$2)::int payments",
     [insufficientKey, `payment-${insufficientKey}`],
@@ -1253,8 +1180,7 @@ try {
   });
   assert(
     walletFirst.body.account.user.wallet === walletBefore + 1234 &&
-      walletSecond.body.account.user.wallet ===
-        walletFirst.body.account.user.wallet,
+      walletSecond.body.account.user.wallet === walletFirst.body.account.user.wallet,
     "wallet topup is idempotent",
   );
   const walletState = await request("/me");
@@ -1269,8 +1195,7 @@ try {
     [walletKey],
   );
   assert(
-    Number(ledger.rows[0]?.entry_count) === 2 &&
-      Number(ledger.rows[0]?.imbalance_cents) === 0,
+    Number(ledger.rows[0]?.entry_count) === 2 && Number(ledger.rows[0]?.imbalance_cents) === 0,
     "wallet ledger is double-entry balanced",
   );
   const rideOptions = await request("/rides/options", {
@@ -1283,9 +1208,7 @@ try {
         destinationCoords: { lat: -34.5596, lng: -58.4156 },
       }),
     }),
-    lockedRideQuote = rideOptions.body.options?.find(
-      (entry) => entry.service === "economy",
-    );
+    lockedRideQuote = rideOptions.body.options?.find((entry) => entry.service === "economy");
   const ridePayload = {
     customerId: "usr_customer",
     pickup: "Defensa 982, San Telmo",
@@ -1339,10 +1262,7 @@ try {
     headers: { "Idempotency-Key": `tampered-${crypto.randomUUID()}` },
     body: JSON.stringify({ ...ridePayload, destination: "Destino alterado" }),
   });
-  assert(
-    tamperedQuote.status === 409,
-    "signed ride quote rejects a modified itinerary",
-  );
+  assert(tamperedQuote.status === 409, "signed ride quote rejects a modified itinerary");
   const tamperedCoordinates = await request("/rides", {
     method: "POST",
     headers: { "Idempotency-Key": `tampered-coords-${crypto.randomUUID()}` },
@@ -1351,10 +1271,7 @@ try {
       destinationCoords: { lat: -34.7, lng: -58.6 },
     }),
   });
-  assert(
-    tamperedCoordinates.status === 409,
-    "signed ride quote rejects modified coordinates",
-  );
+  assert(tamperedCoordinates.status === 409, "signed ride quote rejects modified coordinates");
   scheduledRideKey = `scheduled-${crypto.randomUUID()}`;
   const scheduledFor = new Date(Date.now() + 60 * 60 * 1000).toISOString();
   const scheduledRide = await request("/rides", {
@@ -1391,10 +1308,7 @@ try {
       )
     ).rows[0].count,
   );
-  assert(
-    activatedOffers > 0,
-    "scheduled ride enters dispatch inside the lead window",
-  );
+  assert(activatedOffers > 0, "scheduled ride enters dispatch inside the lead window");
   const cancelledScheduled = await request(`/rides/${scheduledRideId}/status`, {
     method: "PATCH",
     body: JSON.stringify({ status: "cancelled", reason: "changed_mind" }),
@@ -1411,10 +1325,9 @@ try {
     cancelledScheduled.status === 200 && withdrawnScheduled === activatedOffers,
     "scheduled ride cancellation withdraws all pending offers",
   );
-  await pool.query(
-    "UPDATE jobs SET created_at=now()-interval '2 hours' WHERE public_id=ANY($1)",
-    [[orderId, rideId, scheduledRideId].filter(Boolean)],
-  );
+  await pool.query("UPDATE jobs SET created_at=now()-interval '2 hours' WHERE public_id=ANY($1)", [
+    [orderId, rideId, scheduledRideId].filter(Boolean),
+  ]);
   const merchantBalanceBefore = Number(
     (
       await pool.query(
@@ -1447,13 +1360,19 @@ try {
     settlementOrder.status === 200 && settlementOrderId,
     "captured food order is ready for settlement",
   );
-  const preReadyDispatchOffers = Number((await pool.query(
-    "SELECT count(*)::int count FROM dispatch_offers offer JOIN jobs job ON job.id=offer.job_id WHERE job.public_id=$1",
-    [settlementOrderId],
-  )).rows[0].count);
-  assert(preReadyDispatchOffers === 0, "paid food remains out of dispatch until merchant readiness");
-  const substitutionWalletBefore = (await request("/me")).body.account.user
-    .wallet;
+  const preReadyDispatchOffers = Number(
+    (
+      await pool.query(
+        "SELECT count(*)::int count FROM dispatch_offers offer JOIN jobs job ON job.id=offer.job_id WHERE job.public_id=$1",
+        [settlementOrderId],
+      )
+    ).rows[0].count,
+  );
+  assert(
+    preReadyDispatchOffers === 0,
+    "paid food remains out of dispatch until merchant readiness",
+  );
+  const substitutionWalletBefore = (await request("/me")).body.account.user.wallet;
   const merchantSubLogin = await request("/auth/login", {
     method: "POST",
     body: JSON.stringify({
@@ -1503,10 +1422,10 @@ try {
       }),
     },
   );
-  const savedModifiers = await request(
-    "/restaurants/rest_roja/menu/item_burger_brava/modifiers",
-    { method: "PUT", body: JSON.stringify({ groups: burgerModifiers }) },
-  );
+  const savedModifiers = await request("/restaurants/rest_roja/menu/item_burger_brava/modifiers", {
+    method: "PUT",
+    body: JSON.stringify({ groups: burgerModifiers }),
+  });
   const persistedModifierCount = Number(
     (
       await pool.query(
@@ -1522,9 +1441,7 @@ try {
         burgerModifiers.reduce((sum, group) => sum + group.modifiers.length, 0),
     "merchant modifier management enforces role, unique IDs and PostgreSQL persistence",
   );
-  const burgerFood = merchantCatalog.menu.find(
-      (entry) => entry.id === "item_burger_brava",
-    ),
+  const burgerFood = merchantCatalog.menu.find((entry) => entry.id === "item_burger_brava"),
     originalDietary = {
       dietaryLabels: burgerFood.dietaryLabels.map((entry) => entry.code),
       allergens: burgerFood.allergens.map((entry) => ({
@@ -1533,34 +1450,25 @@ try {
       })),
     };
   token = customerToken;
-  const forbiddenDietary = await request(
-    "/restaurants/rest_roja/menu/item_burger_brava/dietary",
-    {
-      method: "PUT",
-      body: JSON.stringify({ dietaryLabels: [], allergens: [] }),
-    },
-  );
+  const forbiddenDietary = await request("/restaurants/rest_roja/menu/item_burger_brava/dietary", {
+    method: "PUT",
+    body: JSON.stringify({ dietaryLabels: [], allergens: [] }),
+  });
   token = merchantSubLogin.body.token;
-  const invalidDietary = await request(
-      "/restaurants/rest_roja/menu/item_burger_brava/dietary",
-      {
-        method: "PUT",
-        body: JSON.stringify({ dietaryLabels: ["invented"], allergens: [] }),
-      },
-    ),
-    savedDietary = await request(
-      "/restaurants/rest_roja/menu/item_burger_brava/dietary",
-      {
-        method: "PUT",
-        body: JSON.stringify({
-          dietaryLabels: ["halal"],
-          allergens: [
-            { code: "gluten", presence: "contains" },
-            { code: "sesame", presence: "may_contain" },
-          ],
-        }),
-      },
-    );
+  const invalidDietary = await request("/restaurants/rest_roja/menu/item_burger_brava/dietary", {
+      method: "PUT",
+      body: JSON.stringify({ dietaryLabels: ["invented"], allergens: [] }),
+    }),
+    savedDietary = await request("/restaurants/rest_roja/menu/item_burger_brava/dietary", {
+      method: "PUT",
+      body: JSON.stringify({
+        dietaryLabels: ["halal"],
+        allergens: [
+          { code: "gluten", presence: "contains" },
+          { code: "sesame", presence: "may_contain" },
+        ],
+      }),
+    });
   const dietaryStored = await pool.query(
     "SELECT (SELECT count(*) FROM catalog_item_dietary_labels d JOIN catalog_items c ON c.id=d.catalog_item_id WHERE c.public_id='item_burger_brava')::int diets,(SELECT count(*) FROM catalog_item_allergens a JOIN catalog_items c ON c.id=a.catalog_item_id WHERE c.public_id='item_burger_brava')::int allergens",
   );
@@ -1574,10 +1482,7 @@ try {
       savedDietary.status === 200 &&
       savedDietary.body.restaurant.menu
         .find((entry) => entry.id === "item_burger_brava")
-        .allergens.some(
-          (entry) =>
-            entry.code === "sesame" && entry.presence === "may_contain",
-        ) &&
+        .allergens.some((entry) => entry.code === "sesame" && entry.presence === "may_contain") &&
       dietaryStored.rows[0].diets === 1 &&
       dietaryStored.rows[0].allergens === 2,
     "merchant dietary declarations enforce ownership, controlled vocabularies and normalized persistence",
@@ -1634,9 +1539,7 @@ try {
     body: JSON.stringify({ timezone: "UTC", hours: overnight }),
   });
   const branchDbId = (
-      await pool.query(
-        "SELECT id FROM merchant_branches WHERE public_id='branch_rest_roja'",
-      )
+      await pool.query("SELECT id FROM merchant_branches WHERE public_id='branch_rest_roja'")
     ).rows[0].id,
     overnightResult = (
       await pool.query(
@@ -1656,26 +1559,23 @@ try {
       "SELECT (now() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date::text date",
     )
   ).rows[0].date;
-  await request(
-    "/restaurants/rest_roja/branches/branch_rest_roja/schedule-exceptions",
-    {
-      method: "PUT",
-      body: JSON.stringify({
-        date: localDate,
-        isOpen: false,
-        reason: "Feriado de prueba",
-      }),
-    },
-  );
+  await request("/restaurants/rest_roja/branches/branch_rest_roja/schedule-exceptions", {
+    method: "PUT",
+    body: JSON.stringify({
+      date: localDate,
+      isOpen: false,
+      reason: "Feriado de prueba",
+    }),
+  });
   token = customerToken;
   const exceptionQuote = await request("/orders/quote", {
     method: "POST",
     body: JSON.stringify({ ...payload, branchId: "branch_rest_roja" }),
   });
-  await pool.query(
-    "DELETE FROM branch_schedule_exceptions WHERE branch_id=$1 AND local_date=$2",
-    [branchDbId, localDate],
-  );
+  await pool.query("DELETE FROM branch_schedule_exceptions WHERE branch_id=$1 AND local_date=$2", [
+    branchDbId,
+    localDate,
+  ]);
   assert(
     forbiddenSchedule.status === 403 &&
       closedSchedule.status === 200 &&
@@ -1697,23 +1597,20 @@ try {
     "customer cannot manage merchant branches",
   );
   token = merchantSubLogin.body.token;
-  const pausedBranch = await request(
-    "/restaurants/rest_roja/branches/branch_rest_roja",
-    { method: "PATCH", body: JSON.stringify({ open: false, etaMin: 31 }) },
-  );
+  const pausedBranch = await request("/restaurants/rest_roja/branches/branch_rest_roja", {
+    method: "PATCH",
+    body: JSON.stringify({ open: false, etaMin: 31 }),
+  });
   token = customerToken;
   const pausedBranchQuote = await request("/orders/quote", {
     method: "POST",
     body: JSON.stringify({ ...payload, branchId: "branch_rest_roja" }),
   });
   token = merchantSubLogin.body.token;
-  const restoredBranch = await request(
-    "/restaurants/rest_roja/branches/branch_rest_roja",
-    {
-      method: "PATCH",
-      body: JSON.stringify({ open: true, etaMin: 22, status: "active" }),
-    },
-  );
+  const restoredBranch = await request("/restaurants/rest_roja/branches/branch_rest_roja", {
+    method: "PATCH",
+    body: JSON.stringify({ open: true, etaMin: 22, status: "active" }),
+  });
   const branchInventory = await request(
     "/restaurants/rest_roja/branches/branch_rest_roja/inventory/item_burger_brava",
     {
@@ -1769,39 +1666,32 @@ try {
       restoredReplacement.status === 200,
     "merchant cannot propose a replacement without sufficient stock in the order branch",
   );
-  const proposedSubstitution = await request(
-    `/orders/${settlementOrderId}/substitutions`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        originalMenuItemId: "item_burger_brava",
-        replacementMenuItemId: "item_papas_trufa",
-        reason: "Burger sin stock durante preparación",
-      }),
-    },
-  );
+  const proposedSubstitution = await request(`/orders/${settlementOrderId}/substitutions`, {
+    method: "POST",
+    body: JSON.stringify({
+      originalMenuItemId: "item_burger_brava",
+      replacementMenuItemId: "item_papas_trufa",
+      reason: "Burger sin stock durante preparación",
+    }),
+  });
   substitutionId = proposedSubstitution.body.substitution?.id;
   const blockedAdvance = await request(`/orders/${settlementOrderId}/advance`, {
     method: "POST",
     body: "{}",
   });
   assert(
-    proposedSubstitution.status === 201 &&
-      substitutionId &&
-      blockedAdvance.status === 409,
+    proposedSubstitution.status === 201 && substitutionId && blockedAdvance.status === 409,
     "merchant proposes a lower-priced in-stock replacement and pending decision blocks order progress",
   );
   token = customerToken;
-  const customerSubstitutions = await request(
-    `/orders/${settlementOrderId}/substitutions`,
-  );
-  const acceptedSubstitution = await request(
-    `/order-substitutions/${substitutionId}`,
-    { method: "PATCH", body: JSON.stringify({ decision: "accepted" }) },
-  );
-  const substitutionOrder = (
-      await request("/me/activity?limit=50")
-    ).body.items.find((entry) => entry.id === settlementOrderId)?.resource,
+  const customerSubstitutions = await request(`/orders/${settlementOrderId}/substitutions`);
+  const acceptedSubstitution = await request(`/order-substitutions/${substitutionId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ decision: "accepted" }),
+  });
+  const substitutionOrder = (await request("/me/activity?limit=50")).body.items.find(
+      (entry) => entry.id === settlementOrderId,
+    )?.resource,
     substitutionLedger = await pool.query(
       `SELECT b.entry_count,b.imbalance_cents FROM ledger_transaction_balances b JOIN ledger_transactions t ON t.id=b.transaction_id WHERE t.idempotency_key=$1`,
       [`substitution-refund-${substitutionId}`],
@@ -1813,9 +1703,7 @@ try {
     ) &&
     acceptedSubstitution.status === 200 &&
     acceptedSubstitution.body.substitution.refundAmount === 3300 &&
-    substitutionOrder.items.some(
-      (entry) => entry.menuItemId === "item_papas_trufa",
-    ) &&
+    substitutionOrder.items.some((entry) => entry.menuItemId === "item_papas_trufa") &&
     substitutionWalletAfter === substitutionWalletBefore + 3300 &&
     Number(substitutionLedger.rows[0]?.imbalance_cents) === 0 &&
     Number(substitutionLedger.rows[0]?.entry_count) === 2;
@@ -1906,10 +1794,7 @@ try {
       merchantBalanceBefore,
       merchantBalanceAfter,
     });
-  assert(
-    settlementOk,
-    "completed order creates an exact balanced merchant/driver/platform split",
-  );
+  assert(settlementOk, "completed order creates an exact balanced merchant/driver/platform split");
   token = registeredToken;
   const foreignReorder = await request(`/orders/${settlementOrderId}/reorder`, {
     method: "POST",
@@ -1929,33 +1814,25 @@ try {
         ).rows[0].unit_price_cents,
       ) / 100;
   token = merchantSubLogin.body.token;
-  await request(
-    "/restaurants/rest_roja/branches/branch_rest_roja/inventory/item_papas_trufa",
-    {
-      method: "PATCH",
-      body: JSON.stringify({ available: false, stockQuantity: 0 }),
-    },
-  );
+  await request("/restaurants/rest_roja/branches/branch_rest_roja/inventory/item_papas_trufa", {
+    method: "PATCH",
+    body: JSON.stringify({ available: false, stockQuantity: 0 }),
+  });
   token = customerToken;
-  const unavailableReorder = await request(
-    `/orders/${settlementOrderId}/reorder`,
-    { method: "POST", body: "{}" },
-  );
+  const unavailableReorder = await request(`/orders/${settlementOrderId}/reorder`, {
+    method: "POST",
+    body: "{}",
+  });
   token = merchantSubLogin.body.token;
-  await request(
-    "/restaurants/rest_roja/branches/branch_rest_roja/inventory/item_papas_trufa",
-    {
-      method: "PATCH",
-      body: JSON.stringify({ available: true, stockQuantity: null }),
-    },
-  );
+  await request("/restaurants/rest_roja/branches/branch_rest_roja/inventory/item_papas_trufa", {
+    method: "PATCH",
+    body: JSON.stringify({ available: true, stockQuantity: null }),
+  });
   assert(
     foreignReorder.status === 404 &&
       reordered.status === 200 &&
       reordered.body.cart.some(
-        (line) =>
-          line.item.id === "item_papas_trufa" &&
-          line.item.price === currentPapasPrice,
+        (line) => line.item.id === "item_papas_trufa" && line.item.price === currentPapasPrice,
       ) &&
       unavailableReorder.status === 409,
     "reorder enforces ownership and rebuilds the cart only from current catalog, modifier and branch inventory facts",
@@ -1969,16 +1846,11 @@ try {
     }),
   });
   token = merchantFinanceLogin.body.token;
-  const merchantFinance = await request(
-    "/merchant/finance?merchantId=rest_roja",
-  );
+  const merchantFinance = await request("/merchant/finance?merchantId=rest_roja");
   assert(
     merchantFinance.status === 200 &&
-      merchantFinance.body.finance.availableBalance ===
-        merchantBalanceAfter / 100 &&
-      merchantFinance.body.finance.movements.some(
-        (entry) => entry.kind === "merchant_settlement",
-      ),
+      merchantFinance.body.finance.availableBalance === merchantBalanceAfter / 100 &&
+      merchantFinance.body.finance.movements.some((entry) => entry.kind === "merchant_settlement"),
     "merchant reads its PostgreSQL balance and settlement movements",
   );
   merchantPayoutKey = `payout-${crypto.randomUUID()}`;
@@ -1987,26 +1859,31 @@ try {
     Math.floor((merchantBalanceAfter - merchantBalanceBefore) / 2) / 100,
   );
   const payoutAuthorization = await request("/merchant/payouts/authorize", {
-    method:"POST",
-    body:JSON.stringify({merchantId:"rest_roja",amount:payoutAmount,password:"demo123"}),
+    method: "POST",
+    body: JSON.stringify({ merchantId: "rest_roja", amount: payoutAmount, password: "demo123" }),
   });
   const payoutFirst = await request("/merchant/payouts", {
     method: "POST",
     headers: { "Idempotency-Key": merchantPayoutKey },
-    body: JSON.stringify({ merchantId: "rest_roja", amount: payoutAmount, authorizationToken:payoutAuthorization.body.authorizationToken }),
+    body: JSON.stringify({
+      merchantId: "rest_roja",
+      amount: payoutAmount,
+      authorizationToken: payoutAuthorization.body.authorizationToken,
+    }),
   });
   const payoutSecond = await request("/merchant/payouts", {
     method: "POST",
     headers: { "Idempotency-Key": merchantPayoutKey },
-    body: JSON.stringify({ merchantId: "rest_roja", amount: payoutAmount, authorizationToken:payoutAuthorization.body.authorizationToken }),
+    body: JSON.stringify({
+      merchantId: "rest_roja",
+      amount: payoutAmount,
+      authorizationToken: payoutAuthorization.body.authorizationToken,
+    }),
   });
   merchantPayoutId = payoutFirst.body.finance?.payouts?.find(
     (entry) => entry.amount === payoutAmount,
   )?.id;
-  feedbackAuditRequestIds.push(
-    payoutFirst.body.requestId,
-    payoutSecond.body.requestId,
-  );
+  feedbackAuditRequestIds.push(payoutFirst.body.requestId, payoutSecond.body.requestId);
   const payoutRows = await pool.query(
     "SELECT count(*)::int count FROM payouts WHERE idempotency_key=$1",
     [merchantPayoutKey],
@@ -2016,8 +1893,7 @@ try {
       payoutSecond.status === 201 &&
       merchantPayoutId &&
       payoutRows.rows[0].count === 1 &&
-      payoutSecond.body.finance.availableBalance ===
-        payoutFirst.body.finance.availableBalance,
+      payoutSecond.body.finance.availableBalance === payoutFirst.body.finance.availableBalance,
     "merchant payout reservation is authorized, funded and idempotent",
   );
   token = customerToken;
@@ -2029,9 +1905,7 @@ try {
   const rideOffers = await request("/driver/offers");
   assert(
     rideOffers.status === 200 &&
-      rideOffers.body.offers?.some(
-        (entry) => entry.jobId === rideId && entry.kind === "ride",
-      ),
+      rideOffers.body.offers?.some((entry) => entry.jobId === rideId && entry.kind === "ride"),
     "PostGIS dispatch creates a private expiring ride offer",
   );
   const concurrentAccepts = await Promise.all([
@@ -2075,17 +1949,11 @@ try {
   const customerThread = await request(`/jobs/${rideId}/messages`);
   const leakedOperationalPayload = await pool.query(
       "SELECT count(*)::int count FROM audit_events WHERE request_id=ANY($1) AND after_data::text LIKE $2",
-      [
-        [customerMessage.body.requestId, driverReply.body.requestId],
-        `%${privateMessage}%`,
-      ],
+      [[customerMessage.body.requestId, driverReply.body.requestId], `%${privateMessage}%`],
     ),
     leakedRealtimePayload = await pool.query(
       "SELECT count(*)::int count FROM realtime_events WHERE request_id=ANY($1) AND payload::text LIKE $2",
-      [
-        [customerMessage.body.requestId, driverReply.body.requestId],
-        `%${privateMessage}%`,
-      ],
+      [[customerMessage.body.requestId, driverReply.body.requestId], `%${privateMessage}%`],
     );
   assert(
     customerMessage.status === 201 &&
@@ -2094,9 +1962,7 @@ try {
       storedMessage.rows[0]?.body_sha256.length === 64 &&
       foreignMessages.status === 403 &&
       unrelatedMerchantMessages.status === 403 &&
-      driverMessages.body.messages?.some(
-        (entry) => entry.body === privateMessage,
-      ) &&
+      driverMessages.body.messages?.some((entry) => entry.body === privateMessage) &&
       driverReply.status === 201 &&
       customerThread.body.messages?.some(
         (entry) => entry.body === "Estoy llegando al punto indicado",
@@ -2183,9 +2049,7 @@ try {
         rideWalletBefore - rideFirst.body.ride.fare - substitutionOrder.total,
     "ride captures wallet atomically",
   );
-  await pool.query("UPDATE jobs SET status='completed' WHERE public_id=$1", [
-    rideId,
-  ]);
+  await pool.query("UPDATE jobs SET status='completed' WHERE public_id=$1", [rideId]);
   assert(
     (
       await request(`/jobs/${rideId}/messages`, {
@@ -2229,10 +2093,7 @@ try {
     ratingCreated.status === 201 && ratingId && duplicateRating.status === 409,
     "completed service accepts one server-scoped rating",
   );
-  await pool.query(
-    "UPDATE jobs SET status='driver_assigned' WHERE public_id=$1",
-    [rideId],
-  );
+  await pool.query("UPDATE jobs SET status='driver_assigned' WHERE public_id=$1", [rideId]);
   const rideCancelled = await request(`/rides/${rideId}/status`, {
     method: "PATCH",
     body: JSON.stringify({ status: "cancelled", reason: "long_wait" }),
@@ -2245,11 +2106,9 @@ try {
     "ride cancellation refunds wallet atomically",
   );
   dispatchDriverOriginalOnline =
-    (await pool.query("SELECT online FROM drivers WHERE public_id='drv_nico'"))
-      .rows[0]?.online ?? null;
-  await pool.query(
-    "UPDATE drivers SET online=false WHERE public_id='drv_nico'",
-  );
+    (await pool.query("SELECT online FROM drivers WHERE public_id='drv_nico'")).rows[0]?.online ??
+    null;
+  await pool.query("UPDATE drivers SET online=false WHERE public_id='drv_nico'");
   const shipmentPayload = {
     customerId: "usr_customer",
     pickup: "Defensa 982, San Telmo",
@@ -2304,8 +2163,8 @@ try {
       quoteToken: shipmentLockedQuote.body.quote?.quoteToken,
     };
   assert(
-    shipmentLockedQuote.body.quote?.pricingVersion ===
-      "AR-BA-SHIPMENT-2026.08" && shipmentLockedQuote.body.quote?.quoteToken,
+    shipmentLockedQuote.body.quote?.pricingVersion === "AR-BA-SHIPMENT-2026.08" &&
+      shipmentLockedQuote.body.quote?.quoteToken,
     "shipment quote returns a versioned signed price lock",
   );
   const slaShipmentPayload = {
@@ -2323,8 +2182,7 @@ try {
       slaShipmentQuote.body.quote?.serviceLevel === "priority" &&
       slaShipmentQuote.body.quote?.breakdown?.categorySurcharge === 350 &&
       slaShipmentQuote.body.quote?.breakdown?.serviceMultiplier === 1.35 &&
-      slaShipmentQuote.body.quote?.etaMin <
-        shipmentLockedQuote.body.quote?.etaMin,
+      slaShipmentQuote.body.quote?.etaMin < shipmentLockedQuote.body.quote?.etaMin,
     "shipment category and SLA apply PostgreSQL handling, surcharge, transport multiplier and ETA",
   );
   assert(
@@ -2379,8 +2237,7 @@ try {
     "UPDATE shipment_item_categories SET surcharge_cents=35000 WHERE code='fragile'",
   );
   assert(
-    configuredSlaQuote.body.quote?.fare ===
-      slaShipmentQuote.body.quote?.fare + 125,
+    configuredSlaQuote.body.quote?.fare === slaShipmentQuote.body.quote?.fare + 125,
     "shipment quote reacts to PostgreSQL category pricing instead of code constants",
   );
   const shipmentWalletBefore = (await request("/me")).body.account.user.wallet;
@@ -2438,24 +2295,17 @@ try {
   );
   token = driverToken;
   const shipmentOffers = await request("/driver/offers");
-  const shipmentOffer = shipmentOffers.body.offers?.find(
-    (entry) => entry.jobId === shipmentId,
-  );
+  const shipmentOffer = shipmentOffers.body.offers?.find((entry) => entry.jobId === shipmentId);
+  assert(shipmentOffer?.expiresAt, "delivery dispatch exposes a time-bounded offer");
+  const rejectedOffer = await request(`/driver/offers/${shipmentOffer.id}/reject`, {
+      method: "POST",
+      body: "{}",
+    }),
+    rejectedStatus = await pool.query("SELECT status FROM dispatch_offers WHERE public_id=$1", [
+      shipmentOffer.id,
+    ]);
   assert(
-    shipmentOffer?.expiresAt,
-    "delivery dispatch exposes a time-bounded offer",
-  );
-  const rejectedOffer = await request(
-      `/driver/offers/${shipmentOffer.id}/reject`,
-      { method: "POST", body: "{}" },
-    ),
-    rejectedStatus = await pool.query(
-      "SELECT status FROM dispatch_offers WHERE public_id=$1",
-      [shipmentOffer.id],
-    );
-  assert(
-    rejectedOffer.status === 200 &&
-      rejectedStatus.rows[0]?.status === "rejected",
+    rejectedOffer.status === 200 && rejectedStatus.rows[0]?.status === "rejected",
     "driver can reject only its own pending offer",
   );
   const anotherOffer = (
@@ -2470,10 +2320,9 @@ try {
     [expiringOfferId],
   );
   await request("/driver/offers");
-  const expiredStatus = await pool.query(
-    "SELECT status FROM dispatch_offers WHERE public_id=$1",
-    [expiringOfferId],
-  );
+  const expiredStatus = await pool.query("SELECT status FROM dispatch_offers WHERE public_id=$1", [
+    expiringOfferId,
+  ]);
   assert(
     expiredStatus.rows[0]?.status === "expired",
     "expired offers are hidden and persisted as expired",
@@ -2534,13 +2383,10 @@ try {
     reassignedBatch.status === 200 &&
       reassignedOffer.rowCount === 1 &&
       driverAlert.rows[0].count === 1 &&
+      Math.abs(scoreBreakdown.acceptanceRate - Number(expectedNicoHistory.acceptance_rate)) <
+        0.0001 &&
       Math.abs(
-        scoreBreakdown.acceptanceRate -
-          Number(expectedNicoHistory.acceptance_rate),
-      ) < 0.0001 &&
-      Math.abs(
-        scoreBreakdown.averageResponseSeconds -
-          Number(expectedNicoHistory.response_seconds),
+        scoreBreakdown.averageResponseSeconds - Number(expectedNicoHistory.response_seconds),
       ) < 0.01,
     "dispatch worker ranks a new wave with persisted historical acceptance and response signals even with the background worker active",
   );
@@ -2590,15 +2436,13 @@ try {
   const cancellationState = await request("/me/activity?limit=50");
   assert(
     cancellationRecords.rowCount === 3 &&
-      cancellationRecords.rows.find((row) => row.public_id === rideId)
-        ?.reason_code === "long_wait" &&
-      cancellationRecords.rows.find((row) => row.public_id === shipmentId)
-        ?.reason_code === "recipient_unavailable" &&
-      cancellationRecords.rows.every(
-        (row) => Number(row.refund_amount_cents) > 0,
-      ) &&
-      cancellationState.body.items.find((entry) => entry.id === rideId)
-        ?.resource?.cancellation?.refundAmount === rideFirst.body.ride.fare,
+      cancellationRecords.rows.find((row) => row.public_id === rideId)?.reason_code ===
+        "long_wait" &&
+      cancellationRecords.rows.find((row) => row.public_id === shipmentId)?.reason_code ===
+        "recipient_unavailable" &&
+      cancellationRecords.rows.every((row) => Number(row.refund_amount_cents) > 0) &&
+      cancellationState.body.items.find((entry) => entry.id === rideId)?.resource?.cancellation
+        ?.refundAmount === rideFirst.body.ride.fare,
     "cancellations persist actor reason and exact refund outcome for every vertical",
   );
   const proofPayload = {
@@ -2627,29 +2471,23 @@ try {
     proofCreated.body.shipment?.signatureRequired === true,
     "signed shipment quote persists the required receipt signature",
   );
-  const ownerCode = await request(
-    `/shipments/${proofShipmentId}/delivery-code`,
-  );
+  const ownerCode = await request(`/shipments/${proofShipmentId}/delivery-code`);
   assert(
     ownerCode.status === 200 && ownerCode.body.deliveryCode === proofPin,
     "shipment owner retrieves derivable delivery code without plaintext storage",
   );
   token = registeredToken;
   assert(
-    (await request(`/shipments/${proofShipmentId}/delivery-code`)).status ===
-      403,
+    (await request(`/shipments/${proofShipmentId}/delivery-code`)).status === 403,
     "another customer cannot read the delivery code",
   );
   token = driverToken;
   assert(
-    (await request(`/shipments/${proofShipmentId}/delivery-code`)).status ===
-      403,
+    (await request(`/shipments/${proofShipmentId}/delivery-code`)).status === 403,
     "driver cannot read the customer delivery code",
   );
   const proofOffers = await request("/driver/offers"),
-    proofOffer = proofOffers.body.offers?.find(
-      (entry) => entry.jobId === proofShipmentId,
-    );
+    proofOffer = proofOffers.body.offers?.find((entry) => entry.jobId === proofShipmentId);
   assert(
     proofOffer &&
       (
@@ -2668,10 +2506,10 @@ try {
     method: "POST",
     body: "{}",
   });
-  const deliveringProof = await request(
-    `/shipments/${proofShipmentId}/advance`,
-    { method: "POST", body: "{}" },
-  );
+  const deliveringProof = await request(`/shipments/${proofShipmentId}/advance`, {
+    method: "POST",
+    body: "{}",
+  });
   assert(
     deliveringProof.body.shipment?.status === "delivering" &&
       (
@@ -2682,54 +2520,44 @@ try {
       ).status === 409,
     "shipment cannot complete without delivery PIN",
   );
-  const missingPhotoProof = await request(
-    `/shipments/${proofShipmentId}/verify-delivery`,
-    { method: "POST", body: JSON.stringify({ pin: proofPin }) },
-  );
+  const missingPhotoProof = await request(`/shipments/${proofShipmentId}/verify-delivery`, {
+    method: "POST",
+    body: JSON.stringify({ pin: proofPin }),
+  });
   assert(
     missingPhotoProof.status === 409,
     "shipment requires encrypted photo evidence before PIN verification",
   );
   token = registeredToken;
   assert(
-    (await request(`/shipments/${proofShipmentId}/delivery-evidence`))
-      .status === 403,
+    (await request(`/shipments/${proofShipmentId}/delivery-evidence`)).status === 403,
     "unrelated customer cannot inspect empty delivery evidence",
   );
   token = driverToken;
-  const invalidEvidence = await request(
-    `/shipments/${proofShipmentId}/delivery-evidence`,
-    {
-      method: "POST",
-      body: JSON.stringify({
-        type: "photo",
-        mimeType: "image/jpeg",
-        contentBase64: Buffer.from("not-an-image").toString("base64"),
-      }),
-    },
-  );
-  assert(
-    invalidEvidence.status === 400,
-    "delivery evidence rejects MIME spoofing",
-  );
+  const invalidEvidence = await request(`/shipments/${proofShipmentId}/delivery-evidence`, {
+    method: "POST",
+    body: JSON.stringify({
+      type: "photo",
+      mimeType: "image/jpeg",
+      contentBase64: Buffer.from("not-an-image").toString("base64"),
+    }),
+  });
+  assert(invalidEvidence.status === 400, "delivery evidence rejects MIME spoofing");
   const photoContent = Buffer.concat([
       Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
       Buffer.from(`flash-proof-${crypto.randomUUID()}`),
     ]),
     photoHash = crypto.createHash("sha256").update(photoContent).digest("hex"),
-    uploadedEvidence = await request(
-      `/shipments/${proofShipmentId}/delivery-evidence`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          type: "photo",
-          mimeType: "image/jpeg",
-          contentBase64: photoContent.toString("base64"),
-          capturedAt: new Date().toISOString(),
-          location: { lat: -34.6037, lng: -58.3816 },
-        }),
-      },
-    ),
+    uploadedEvidence = await request(`/shipments/${proofShipmentId}/delivery-evidence`, {
+      method: "POST",
+      body: JSON.stringify({
+        type: "photo",
+        mimeType: "image/jpeg",
+        contentBase64: photoContent.toString("base64"),
+        capturedAt: new Date().toISOString(),
+        location: { lat: -34.6037, lng: -58.3816 },
+      }),
+    }),
     evidenceId = uploadedEvidence.body.evidence?.id,
     storedEvidence = await pool.query(
       "SELECT content_ciphertext,content_sha256 FROM shipment_delivery_evidence WHERE public_id=$1",
@@ -2739,35 +2567,27 @@ try {
     uploadedEvidence.status === 201 &&
       evidenceId &&
       storedEvidence.rows[0]?.content_sha256 === photoHash &&
-      !storedEvidence.rows[0]?.content_ciphertext.includes(
-        photoContent.toString("base64"),
-      ),
+      !storedEvidence.rows[0]?.content_ciphertext.includes(photoContent.toString("base64")),
     "assigned driver stores geolocated delivery photo encrypted at rest",
   );
   token = registeredToken;
   assert(
-    (await request(`/shipment-delivery-evidence/${evidenceId}/content`))
-      .status === 403,
+    (await request(`/shipment-delivery-evidence/${evidenceId}/content`)).status === 403,
     "unrelated customer cannot decrypt delivery evidence",
   );
   token = customerToken;
-  const ownerEvidence = await request(
-      `/shipments/${proofShipmentId}/delivery-evidence`,
-    ),
-    ownerEvidenceContent = await request(
-      `/shipment-delivery-evidence/${evidenceId}/content`,
-    );
+  const ownerEvidence = await request(`/shipments/${proofShipmentId}/delivery-evidence`),
+    ownerEvidenceContent = await request(`/shipment-delivery-evidence/${evidenceId}/content`);
   assert(
     ownerEvidence.body.evidence?.[0]?.sha256 === photoHash &&
-      ownerEvidenceContent.body.contentBase64 ===
-        photoContent.toString("base64"),
+      ownerEvidenceContent.body.contentBase64 === photoContent.toString("base64"),
     "shipment owner verifies evidence metadata and authorized content",
   );
   token = driverToken;
-  const missingSignatureProof = await request(
-    `/shipments/${proofShipmentId}/verify-delivery`,
-    { method: "POST", body: JSON.stringify({ pin: proofPin }) },
-  );
+  const missingSignatureProof = await request(`/shipments/${proofShipmentId}/verify-delivery`, {
+    method: "POST",
+    body: JSON.stringify({ pin: proofPin }),
+  });
   assert(
     missingSignatureProof.status === 409,
     "shipment configured for signed receipt cannot complete with photo and PIN alone",
@@ -2789,22 +2609,19 @@ try {
     ).status === 400,
     "signature evidence rejects missing signer identity and consent",
   );
-  const uploadedSignature = await request(
-      `/shipments/${proofShipmentId}/delivery-evidence`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          type: "signature",
-          mimeType: "image/png",
-          contentBase64: signatureContent.toString("base64"),
-          capturedAt: new Date().toISOString(),
-          location: { lat: -34.6037, lng: -58.3816 },
-          signerName: "Runtime Recipient",
-          signerRelationship: "recipient",
-          consentVersion: "shipment-receipt-v1",
-        }),
-      },
-    ),
+  const uploadedSignature = await request(`/shipments/${proofShipmentId}/delivery-evidence`, {
+      method: "POST",
+      body: JSON.stringify({
+        type: "signature",
+        mimeType: "image/png",
+        contentBase64: signatureContent.toString("base64"),
+        capturedAt: new Date().toISOString(),
+        location: { lat: -34.6037, lng: -58.3816 },
+        signerName: "Runtime Recipient",
+        signerRelationship: "recipient",
+        consentVersion: "shipment-receipt-v1",
+      }),
+    }),
     signatureRow = await pool.query(
       "SELECT signer_name,signer_relationship,consent_version,content_ciphertext FROM shipment_delivery_evidence WHERE public_id=$1",
       [uploadedSignature.body.evidence?.id],
@@ -2813,18 +2630,13 @@ try {
     uploadedSignature.status === 201 &&
       signatureRow.rows[0]?.signer_name === "Runtime Recipient" &&
       signatureRow.rows[0]?.consent_version === "shipment-receipt-v1" &&
-      !signatureRow.rows[0]?.content_ciphertext.includes(
-        signatureContent.toString("base64"),
-      ),
+      !signatureRow.rows[0]?.content_ciphertext.includes(signatureContent.toString("base64")),
     "assigned driver stores signer identity, consent and encrypted handwritten evidence",
   );
-  const wrongProof = await request(
-    `/shipments/${proofShipmentId}/verify-delivery`,
-    {
-      method: "POST",
-      body: JSON.stringify({ pin: proofPin === "0000" ? "9999" : "0000" }),
-    },
-  );
+  const wrongProof = await request(`/shipments/${proofShipmentId}/verify-delivery`, {
+    method: "POST",
+    body: JSON.stringify({ pin: proofPin === "0000" ? "9999" : "0000" }),
+  });
   const failedProof = await pool.query(
     "SELECT delivery_pin_failed_attempts,delivery_verified_at FROM shipment_details sd JOIN jobs j ON j.id=sd.job_id WHERE j.public_id=$1",
     [proofShipmentId],
@@ -2839,14 +2651,14 @@ try {
     "UPDATE shipment_details SET delivery_pin_failed_attempts=4 WHERE job_id=(SELECT id FROM jobs WHERE public_id=$1)",
     [proofShipmentId],
   );
-  const lockProof = await request(
-      `/shipments/${proofShipmentId}/verify-delivery`,
-      { method: "POST", body: JSON.stringify({ pin: "0000" }) },
-    ),
-    blockedCorrect = await request(
-      `/shipments/${proofShipmentId}/verify-delivery`,
-      { method: "POST", body: JSON.stringify({ pin: proofPin }) },
-    );
+  const lockProof = await request(`/shipments/${proofShipmentId}/verify-delivery`, {
+      method: "POST",
+      body: JSON.stringify({ pin: "0000" }),
+    }),
+    blockedCorrect = await request(`/shipments/${proofShipmentId}/verify-delivery`, {
+      method: "POST",
+      body: JSON.stringify({ pin: proofPin }),
+    });
   assert(
     lockProof.status === 429 && blockedCorrect.status === 429,
     "five failed PIN attempts lock verification even for a later correct code",
@@ -2855,25 +2667,20 @@ try {
     "UPDATE shipment_details SET delivery_pin_failed_attempts=0,delivery_pin_locked_until=NULL WHERE job_id=(SELECT id FROM jobs WHERE public_id=$1)",
     [proofShipmentId],
   );
-  const verifiedProof = await request(
-    `/shipments/${proofShipmentId}/verify-delivery`,
-    { method: "POST", body: JSON.stringify({ pin: proofPin }) },
-  );
+  const verifiedProof = await request(`/shipments/${proofShipmentId}/verify-delivery`, {
+    method: "POST",
+    body: JSON.stringify({ pin: proofPin }),
+  });
   const proofLedger = await pool.query(
     "SELECT b.entry_count,b.imbalance_cents,t.metadata FROM ledger_transactions t JOIN ledger_transaction_balances b ON b.transaction_id=t.id WHERE t.idempotency_key=$1",
     [`driver-earning-envio-${proofShipmentId}`],
   );
-  const repeatedProof = await request(
-    `/shipments/${proofShipmentId}/verify-delivery`,
-    { method: "POST", body: JSON.stringify({ pin: proofPin }) },
-  );
+  const repeatedProof = await request(`/shipments/${proofShipmentId}/verify-delivery`, {
+    method: "POST",
+    body: JSON.stringify({ pin: proofPin }),
+  });
   if (verifiedProof.status !== 200 || !proofLedger.rows[0])
-    console.error(
-      "mobility settlement diagnostic",
-      verifiedProof,
-      proofLedger.rows,
-      repeatedProof,
-    );
+    console.error("mobility settlement diagnostic", verifiedProof, proofLedger.rows, repeatedProof);
   assert(
     verifiedProof.status === 200 &&
       verifiedProof.body.proof?.type === "pin+photo+signature" &&
@@ -2887,8 +2694,7 @@ try {
   );
   token = customerToken;
   assert(
-    (await request(`/shipments/${proofShipmentId}/delivery-code`)).status ===
-      409,
+    (await request(`/shipments/${proofShipmentId}/delivery-code`)).status === 409,
     "delivery code becomes unavailable after completion",
   );
   token = registeredToken;
@@ -2920,9 +2726,7 @@ try {
   );
   const customerReturns = await request("/shipment-returns");
   assert(
-    customerReturns.body.returns?.some(
-      (entry) => entry.id === shipmentReturnId,
-    ),
+    customerReturns.body.returns?.some((entry) => entry.id === shipmentReturnId),
     "shipment owner lists the return request",
   );
   token = registeredToken;
@@ -3052,16 +2856,10 @@ try {
     [`tip-${tipKey}`],
   );
   const beforeTip = Object.fromEntries(
-      walletBalancesBeforeTip.rows.map((row) => [
-        row.public_id,
-        Number(row.balance),
-      ]),
+      walletBalancesBeforeTip.rows.map((row) => [row.public_id, Number(row.balance)]),
     ),
     afterTip = Object.fromEntries(
-      walletBalancesAfterTip.rows.map((row) => [
-        row.public_id,
-        Number(row.balance),
-      ]),
+      walletBalancesAfterTip.rows.map((row) => [row.public_id, Number(row.balance)]),
     );
   assert(
     firstTip.status === 201 &&
@@ -3096,8 +2894,7 @@ try {
     "SELECT count(*)::int count,total_cents,payment_summary FROM service_receipts WHERE public_id=$1 GROUP BY total_cents,payment_summary",
     [receiptId],
   );
-  if (firstReceipt.status !== 200)
-    console.error("receipt diagnostic", firstReceipt, secondReceipt);
+  if (firstReceipt.status !== 200) console.error("receipt diagnostic", firstReceipt, secondReceipt);
   assert(
     firstReceipt.status === 200 &&
       receiptId &&
@@ -3120,9 +2917,7 @@ try {
   );
   const driverTipState = await request("/me");
   assert(
-    driverTipState.body.account.tips?.some(
-      (entry) => entry.jobId === proofShipmentId,
-    ),
+    driverTipState.body.account.tips?.some((entry) => entry.jobId === proofShipmentId),
     "driver sees received tip without customer wallet data",
   );
   token = customerToken;
@@ -3136,10 +2931,7 @@ try {
         (row) =>
           row.entity_id === id &&
           row.actions.some((action) => action.endsWith("created")) &&
-          row.actions.some(
-            (action) =>
-              action.includes("status") || action.includes("cancelled"),
-          ),
+          row.actions.some((action) => action.includes("status") || action.includes("cancelled")),
       ),
     ),
     "orders rides and shipments persist operational audit in PostgreSQL",
@@ -3165,9 +2957,7 @@ try {
     body: webhookBody,
   });
   assert(
-    webhookFirst.status === 200 &&
-      webhookFirst.body.processed &&
-      webhookSecond.body.duplicate,
+    webhookFirst.status === 200 && webhookFirst.body.processed && webhookSecond.body.duplicate,
     "signed payment webhook is processed once",
   );
   const invalidBody = JSON.stringify({
@@ -3180,10 +2970,7 @@ try {
     headers: { "X-Flash-Signature": "00".repeat(32) },
     body: invalidBody,
   });
-  assert(
-    invalidWebhook.status === 401,
-    "invalid payment webhook signature is rejected",
-  );
+  assert(invalidWebhook.status === 401, "invalid payment webhook signature is rejected");
   const supportCreated = await request("/support/tickets", {
     method: "POST",
     headers: { "Idempotency-Key": `runtime-support-${crypto.randomUUID()}` },
@@ -3205,19 +2992,15 @@ try {
   const supportNotification = notifications.body.notifications?.find(
     (entry) => entry.payload?.ticketId === supportTicketId,
   );
-  assert(
-    supportNotification?.status === "sent",
-    "support action creates user notification",
-  );
-  const readNotification = await request(
-    `/notifications/${supportNotification.id}/read`,
-    { method: "PATCH", body: "{}" },
-  );
+  assert(supportNotification?.status === "sent", "support action creates user notification");
+  const readNotification = await request(`/notifications/${supportNotification.id}/read`, {
+    method: "PATCH",
+    body: "{}",
+  });
   assert(
     readNotification.status === 200 &&
-      readNotification.body.notifications.find(
-        (entry) => entry.id === supportNotification.id,
-      )?.status === "read",
+      readNotification.body.notifications.find((entry) => entry.id === supportNotification.id)
+        ?.status === "read",
     "customer marks own notification read",
   );
   const merchantLogin = await request("/auth/login", {
@@ -3229,18 +3012,12 @@ try {
     }),
   });
   token = merchantLogin.body.token;
-  const foreignReply = await request(
-    `/support/tickets/${supportTicketId}/messages`,
-    {
-      method: "POST",
-      headers: { "Idempotency-Key": `runtime-support-foreign-${crypto.randomUUID()}` },
-      body: JSON.stringify({ body: "No debería poder responder" }),
-    },
-  );
-  assert(
-    foreignReply.status === 403,
-    "another user cannot access customer support ticket",
-  );
+  const foreignReply = await request(`/support/tickets/${supportTicketId}/messages`, {
+    method: "POST",
+    headers: { "Idempotency-Key": `runtime-support-foreign-${crypto.randomUUID()}` },
+    body: JSON.stringify({ body: "No debería poder responder" }),
+  });
+  assert(foreignReply.status === 403, "another user cannot access customer support ticket");
   token = customerToken;
   const issueWalletBefore = (await request("/me")).body.account.user.wallet;
   const createdIssue = await request(`/orders/${settlementOrderId}/issues`, {
@@ -3290,8 +3067,7 @@ try {
       issueWalletAfter === issueWalletBefore + 300 &&
       issueBalances.rowCount === 2 &&
       issueBalances.rows.every(
-        (row) =>
-          Number(row.imbalance_cents) === 0 && Number(row.entry_count) >= 2,
+        (row) => Number(row.imbalance_cents) === 0 && Number(row.entry_count) >= 2,
       ),
     "operations approves one partial refund and reverses settlement with balanced double-entry transactions",
   );
@@ -3330,16 +3106,13 @@ try {
     `INSERT INTO dispatch_offers(public_id,job_id,driver_id,score,expires_at) SELECT $1,j.id,d.id,100,now()+interval '5 minutes' FROM jobs j CROSS JOIN drivers d WHERE j.public_id=$2 AND d.public_id=$3 ON CONFLICT(job_id,driver_id) DO UPDATE SET status='pending',expires_at=excluded.expires_at`,
     [`OFR-MOD-${Date.now()}`, registeredRideId, moderationDriverId],
   );
-  const suspendedUser = await request(
-    `/admin/users/${registeredUserId}/status`,
-    {
-      method: "PATCH",
-      body: JSON.stringify({
-        status: "suspended",
-        reason: "Revisión automatizada de seguridad",
-      }),
-    },
-  );
+  const suspendedUser = await request(`/admin/users/${registeredUserId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      status: "suspended",
+      reason: "Revisión automatizada de seguridad",
+    }),
+  });
   const adminToken = token;
   token = registeredToken;
   const suspendedAccess = await request("/me");
@@ -3370,24 +3143,20 @@ try {
       suspendedAccess.status === 401 &&
       suspendedRefresh.status === 401 &&
       suspendedAdminState.body.users.some(
-        (entry) =>
-          entry.id === registeredUserId && entry.status === "suspended",
+        (entry) => entry.id === registeredUserId && entry.status === "suspended",
       ) &&
       !suspendedSupply.online &&
       suspendedSupply.offer_status === "withdrawn" &&
       suspensionAudit.rows[0]?.after_data.reason,
     "suspension revokes access, removes supply and remains visible and auditable to operations",
   );
-  const reactivatedUser = await request(
-    `/admin/users/${registeredUserId}/status`,
-    {
-      method: "PATCH",
-      body: JSON.stringify({
-        status: "active",
-        reason: "Revisión completada sin hallazgos",
-      }),
-    },
-  );
+  const reactivatedUser = await request(`/admin/users/${registeredUserId}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      status: "active",
+      reason: "Revisión completada sin hallazgos",
+    }),
+  });
   token = "";
   const loginAfterReactivation = await request("/auth/login", {
     method: "POST",
@@ -3397,9 +3166,7 @@ try {
   registeredRefreshToken = loginAfterReactivation.body.refreshToken;
   token = adminToken;
   assert(
-    reactivatedUser.status === 200 &&
-      loginAfterReactivation.status === 200 &&
-      registeredToken,
+    reactivatedUser.status === 200 && loginAfterReactivation.status === 200 && registeredToken,
     "reactivation restores credential access without restoring revoked sessions",
   );
   const adminDashboard = await request("/admin/dashboard"),
@@ -3413,11 +3180,9 @@ try {
       ) / 100;
   assert(
     adminDashboard.status === 200 &&
-      adminDashboard.body.dashboard.marketplace.estimatedPlatformRevenue ===
-        postedRevenue &&
+      adminDashboard.body.dashboard.marketplace.estimatedPlatformRevenue === postedRevenue &&
       adminDashboard.body.dashboard.investor.monthlyBurn === null &&
-      adminDashboard.body.dashboard.marketplace.financial.revenueCoverage ===
-        "wallet_settlements",
+      adminDashboard.body.dashboard.marketplace.financial.revenueCoverage === "wallet_settlements",
     "admin finance uses ledger facts and exposes no fabricated burn or runway",
   );
   const originalShipmentOptions = await request("/shipment-options"),
@@ -3431,10 +3196,10 @@ try {
       method: "POST",
       body: JSON.stringify(slaShipmentPayload),
     });
-  const invalidCategoryLimit = await request(
-      "/admin/shipment-item-categories/fragile",
-      { method: "PATCH", body: JSON.stringify({ maximumWeightKg: 25 }) },
-    ),
+  const invalidCategoryLimit = await request("/admin/shipment-item-categories/fragile", {
+      method: "PATCH",
+      body: JSON.stringify({ maximumWeightKg: 25 }),
+    }),
     updatedFragile = await request("/admin/shipment-item-categories/fragile", {
       method: "PATCH",
       body: JSON.stringify({ surcharge: originalFragile.surcharge + 1 }),
@@ -3451,16 +3216,13 @@ try {
       method: "PATCH",
       body: JSON.stringify({ etaMultiplier: 0.8, maximumDistanceKm: 25 }),
     }),
-    restoredPriority = await request(
-      "/admin/shipment-service-levels/priority",
-      {
-        method: "PATCH",
-        body: JSON.stringify({
-          etaMultiplier: originalPriority.etaMultiplier,
-          maximumDistanceKm: originalPriority.maximumDistanceKm,
-        }),
-      },
-    ),
+    restoredPriority = await request("/admin/shipment-service-levels/priority", {
+      method: "PATCH",
+      body: JSON.stringify({
+        etaMultiplier: originalPriority.etaMultiplier,
+        maximumDistanceKm: originalPriority.maximumDistanceKm,
+      }),
+    }),
     shipmentConfigAudit = await pool.query(
       "SELECT before_data,after_data FROM audit_events WHERE action='shipment.category_updated' AND entity_id='fragile' ORDER BY occurred_at DESC LIMIT 1",
     );
@@ -3469,8 +3231,7 @@ try {
       updatedFragile.status === 200 &&
       adminShipmentQuoteAfter.body.quote?.breakdown?.categorySurcharge ===
         originalFragile.surcharge + 1 &&
-      adminShipmentQuoteAfter.body.quote?.fare >
-        adminShipmentQuoteBefore.body.quote?.fare &&
+      adminShipmentQuoteAfter.body.quote?.fare > adminShipmentQuoteBefore.body.quote?.fare &&
       restoredFragile.status === 200 &&
       updatedPriority.status === 200 &&
       restoredPriority.status === 200 &&
@@ -3478,21 +3239,19 @@ try {
       shipmentConfigAudit.rows[0]?.after_data,
     "operations safely configures shipment limits, pricing and SLA with audit history used by live quotes",
   );
-  const disabledElectronics = await request(
-      "/admin/shipment-item-categories/electronics",
-      { method: "PATCH", body: JSON.stringify({ active: false }) },
-    ),
+  const disabledElectronics = await request("/admin/shipment-item-categories/electronics", {
+      method: "PATCH",
+      body: JSON.stringify({ active: false }),
+    }),
     publicOptionsWhileDisabled = await request("/shipment-options"),
     adminOptionsWhileDisabled = await request("/admin/shipment-options"),
-    reactivatedElectronics = await request(
-      "/admin/shipment-item-categories/electronics",
-      { method: "PATCH", body: JSON.stringify({ active: true }) },
-    );
+    reactivatedElectronics = await request("/admin/shipment-item-categories/electronics", {
+      method: "PATCH",
+      body: JSON.stringify({ active: true }),
+    });
   assert(
     disabledElectronics.status === 200 &&
-      !publicOptionsWhileDisabled.body.categories.some(
-        (entry) => entry.code === "electronics",
-      ) &&
+      !publicOptionsWhileDisabled.body.categories.some((entry) => entry.code === "electronics") &&
       adminOptionsWhileDisabled.body.categories.some(
         (entry) => entry.code === "electronics" && entry.active === false,
       ) &&
@@ -3538,16 +3297,13 @@ try {
     }),
     pricingRequestId = publishedRequest.body.changeRequest?.id;
   feedbackAuditRequestIds.push(publishedRequest.body.requestId);
-  const selfApproval = await request(
-    `/admin/pricing-changes/${pricingRequestId}/review`,
-    {
-      method: "PATCH",
-      body: JSON.stringify({
-        decision: "approved",
-        note: "Aprobación propia inválida",
-      }),
-    },
-  );
+  const selfApproval = await request(`/admin/pricing-changes/${pricingRequestId}/review`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      decision: "approved",
+      note: "Aprobación propia inválida",
+    }),
+  });
   await pool.query(
     `INSERT INTO user_roles(user_id,role) SELECT id,'admin' FROM users WHERE public_id=$1 ON CONFLICT DO NOTHING`,
     [registeredUserId],
@@ -3562,16 +3318,13 @@ try {
     }),
   });
   token = pricingReviewerLogin.body.token;
-  const approvedPricing = await request(
-      `/admin/pricing-changes/${pricingRequestId}/review`,
-      {
-        method: "PATCH",
-        body: JSON.stringify({
-          decision: "approved",
-          note: "Comparación de costos y márgenes validada",
-        }),
-      },
-    ),
+  const approvedPricing = await request(`/admin/pricing-changes/${pricingRequestId}/review`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        decision: "approved",
+        note: "Comparación de costos y márgenes validada",
+      }),
+    }),
     publishedQuote = await request("/shipments/quote", {
       method: "POST",
       body: JSON.stringify(pricingPayload),
@@ -3589,16 +3342,13 @@ try {
     scheduledRequestId = scheduledRequest.body.changeRequest?.id;
   feedbackAuditRequestIds.push(scheduledRequest.body.requestId);
   token = pricingReviewerLogin.body.token;
-  const approvedScheduled = await request(
-      `/admin/pricing-changes/${scheduledRequestId}/review`,
-      {
-        method: "PATCH",
-        body: JSON.stringify({
-          decision: "approved",
-          note: "Vigencia futura validada para ventana operativa",
-        }),
-      },
-    ),
+  const approvedScheduled = await request(`/admin/pricing-changes/${scheduledRequestId}/review`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        decision: "approved",
+        note: "Vigencia futura validada para ventana operativa",
+      }),
+    }),
     quoteBeforeSchedule = await request("/shipments/quote", {
       method: "POST",
       body: JSON.stringify(pricingPayload),
@@ -3624,23 +3374,17 @@ try {
     riskRequestId = riskRequest.body.changeRequest?.id;
   feedbackAuditRequestIds.push(riskRequest.body.requestId);
   token = pricingReviewerLogin.body.token;
-  const shortRiskReview = await request(
-      `/admin/pricing-changes/${riskRequestId}/review`,
-      {
-        method: "PATCH",
-        body: JSON.stringify({ decision: "approved", note: "Muy corto" }),
-      },
-    ),
-    rejectedRisk = await request(
-      `/admin/pricing-changes/${riskRequestId}/review`,
-      {
-        method: "PATCH",
-        body: JSON.stringify({
-          decision: "rejected",
-          note: "Variación extraordinaria rechazada por impacto al usuario",
-        }),
-      },
-    );
+  const shortRiskReview = await request(`/admin/pricing-changes/${riskRequestId}/review`, {
+      method: "PATCH",
+      body: JSON.stringify({ decision: "approved", note: "Muy corto" }),
+    }),
+    rejectedRisk = await request(`/admin/pricing-changes/${riskRequestId}/review`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        decision: "rejected",
+        note: "Variación extraordinaria rechazada por impacto al usuario",
+      }),
+    });
   feedbackAuditRequestIds.push(rejectedRisk.body.requestId);
   token = adminToken;
   const rollbackRequest = await request("/admin/pricing/shipment/rollback", {
@@ -3653,16 +3397,13 @@ try {
     rollbackRequestId = rollbackRequest.body.changeRequest?.id;
   feedbackAuditRequestIds.push(rollbackRequest.body.requestId);
   token = pricingReviewerLogin.body.token;
-  const approvedRollback = await request(
-      `/admin/pricing-changes/${rollbackRequestId}/review`,
-      {
-        method: "PATCH",
-        body: JSON.stringify({
-          decision: "approved",
-          note: "Rollback validado contra la versión estable anterior",
-        }),
-      },
-    ),
+  const approvedRollback = await request(`/admin/pricing-changes/${rollbackRequestId}/review`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        decision: "approved",
+        note: "Rollback validado contra la versión estable anterior",
+      }),
+    }),
     rollbackQuote = await request("/shipments/quote", {
       method: "POST",
       body: JSON.stringify(pricingPayload),
@@ -3670,19 +3411,39 @@ try {
   feedbackAuditRequestIds.push(approvedRollback.body.requestId);
   token = adminToken;
   const pricingQueue = await request("/admin/pricing-changes");
-  await pool.query(
-    "DELETE FROM pricing_plans WHERE service='shipment' AND version=ANY($1)",
-    [[publishedVersion, scheduledVersion, rollbackVersion]],
-  );
-  await pool.query(
-    "UPDATE pricing_plans SET active=true,effective_until=NULL WHERE id=$1",
-    [originalShipmentPlan.id],
-  );
-  await pool.query(
-    "DELETE FROM pricing_change_requests WHERE public_id=ANY($1)",
-    [[pricingRequestId, scheduledRequestId, riskRequestId, rollbackRequestId]],
-  );
-  const pricingDiagnostic={publishedStatus:publishedRequest.status,selfApproval:selfApproval.status,reviewer:pricingReviewerLogin.status,approved:approvedPricing.body.changeRequest?.status,publishedVersion:publishedQuote.body.quote?.pricingVersion,scheduledStatus:scheduledRequest.status,scheduledReview:approvedScheduled.body.changeRequest?.status,beforeVersion:quoteBeforeSchedule.body.quote?.pricingVersion,afterVersion:quoteAfterSchedule.body.quote?.pricingVersion,risk:riskRequest.body.changeRequest?.riskLevel,warnings:riskRequest.body.changeRequest?.riskWarnings?.length,shortReview:shortRiskReview.status,rejected:rejectedRisk.body.changeRequest?.status,rollbackKind:rollbackRequest.body.changeRequest?.changeKind,rollbackSource:rollbackRequest.body.changeRequest?.sourceVersion,rollbackReview:approvedRollback.body.changeRequest?.status,rollbackVersion:rollbackQuote.body.quote?.pricingVersion,rollbackBase:rollbackQuote.body.quote?.breakdown?.base,expectedBase:Number(originalShipmentPlan.config.baseFare),queueHas:pricingQueue.body.requests?.some(entry=>entry.id===rollbackRequestId&&entry.status==="activated")};
+  await pool.query("DELETE FROM pricing_plans WHERE service='shipment' AND version=ANY($1)", [
+    [publishedVersion, scheduledVersion, rollbackVersion],
+  ]);
+  await pool.query("UPDATE pricing_plans SET active=true,effective_until=NULL WHERE id=$1", [
+    originalShipmentPlan.id,
+  ]);
+  await pool.query("DELETE FROM pricing_change_requests WHERE public_id=ANY($1)", [
+    [pricingRequestId, scheduledRequestId, riskRequestId, rollbackRequestId],
+  ]);
+  const pricingDiagnostic = {
+    publishedStatus: publishedRequest.status,
+    selfApproval: selfApproval.status,
+    reviewer: pricingReviewerLogin.status,
+    approved: approvedPricing.body.changeRequest?.status,
+    publishedVersion: publishedQuote.body.quote?.pricingVersion,
+    scheduledStatus: scheduledRequest.status,
+    scheduledReview: approvedScheduled.body.changeRequest?.status,
+    beforeVersion: quoteBeforeSchedule.body.quote?.pricingVersion,
+    afterVersion: quoteAfterSchedule.body.quote?.pricingVersion,
+    risk: riskRequest.body.changeRequest?.riskLevel,
+    warnings: riskRequest.body.changeRequest?.riskWarnings?.length,
+    shortReview: shortRiskReview.status,
+    rejected: rejectedRisk.body.changeRequest?.status,
+    rollbackKind: rollbackRequest.body.changeRequest?.changeKind,
+    rollbackSource: rollbackRequest.body.changeRequest?.sourceVersion,
+    rollbackReview: approvedRollback.body.changeRequest?.status,
+    rollbackVersion: rollbackQuote.body.quote?.pricingVersion,
+    rollbackBase: rollbackQuote.body.quote?.breakdown?.base,
+    expectedBase: Number(originalShipmentPlan.config.baseFare),
+    queueHas: pricingQueue.body.requests?.some(
+      (entry) => entry.id === rollbackRequestId && entry.status === "activated",
+    ),
+  };
   assert(
     publishedRequest.status === 201 &&
       selfApproval.status === 409 &&
@@ -3698,15 +3459,12 @@ try {
       shortRiskReview.status === 400 &&
       rejectedRisk.body.changeRequest?.status === "rejected" &&
       rollbackRequest.body.changeRequest?.changeKind === "rollback" &&
-      rollbackRequest.body.changeRequest?.sourceVersion ===
-        originalShipmentPlan.version &&
+      rollbackRequest.body.changeRequest?.sourceVersion === originalShipmentPlan.version &&
       approvedRollback.body.changeRequest?.status === "activated" &&
       rollbackQuote.body.quote?.pricingVersion === rollbackVersion &&
-      rollbackQuote.body.quote?.breakdown.base ===
-        Number(originalShipmentPlan.config.baseFare) &&
+      rollbackQuote.body.quote?.breakdown.base === Number(originalShipmentPlan.config.baseFare) &&
       pricingQueue.body.requests?.some(
-        (entry) =>
-          entry.id === rollbackRequestId && entry.status === "activated",
+        (entry) => entry.id === rollbackRequestId && entry.status === "activated",
       ),
     `pricing detects risky variation, requires reinforced review and performs a second-approved rollback from immutable history (${JSON.stringify(pricingDiagnostic)})`,
   );
@@ -3739,8 +3497,7 @@ try {
     body: JSON.stringify({ active: false }),
   });
   assert(
-    disabledPromotion.status === 200 &&
-      !disabledPromotion.body.promotion.active,
+    disabledPromotion.status === 200 && !disabledPromotion.body.promotion.active,
     "admin updates PostgreSQL promotion",
   );
   const updatedZone = await request("/zones/zone_centro", {
@@ -3759,14 +3516,11 @@ try {
     supportQueue.body.tickets?.some((entry) => entry.id === supportTicketId),
     "operations reads support queue",
   );
-  const internalReply = await request(
-    `/support/tickets/${supportTicketId}/messages`,
-    {
-      method: "POST",
-      headers: { "Idempotency-Key": `runtime-support-internal-${crypto.randomUUID()}` },
-      body: JSON.stringify({ body: "Nota interna runtime", internal: true }),
-    },
-  );
+  const internalReply = await request(`/support/tickets/${supportTicketId}/messages`, {
+    method: "POST",
+    headers: { "Idempotency-Key": `runtime-support-internal-${crypto.randomUUID()}` },
+    body: JSON.stringify({ body: "Nota interna runtime", internal: true }),
+  });
   assert(
     internalReply.status === 200 &&
       internalReply.body.ticket.messages.some((entry) => entry.internal),
@@ -3796,9 +3550,7 @@ try {
   );
   token = customerToken;
   const customerTickets = await request("/support/tickets");
-  const customerTicket = customerTickets.body.tickets.find(
-    (entry) => entry.id === supportTicketId,
-  );
+  const customerTicket = customerTickets.body.tickets.find((entry) => entry.id === supportTicketId);
   assert(
     customerTicket.status === "resolved" &&
       !customerTicket.messages.some((entry) => entry.internal),
@@ -3834,10 +3586,7 @@ try {
     proofShipmentId,
   ].filter(Boolean);
   if (runtimeJobIds.length)
-    await pool.query(
-      "DELETE FROM notifications WHERE payload->>'jobId'=ANY($1)",
-      [runtimeJobIds],
-    );
+    await pool.query("DELETE FROM notifications WHERE payload->>'jobId'=ANY($1)", [runtimeJobIds]);
   if (runtimeJobIds.length)
     await pool.query(
       "DELETE FROM job_cancellations WHERE job_id IN(SELECT id FROM jobs WHERE public_id=ANY($1))",
@@ -3861,64 +3610,45 @@ try {
       "DELETE FROM ledger_entries WHERE transaction_id=(SELECT id FROM ledger_transactions WHERE idempotency_key=$1)",
       [`refund-${orderId}`],
     );
-    await pool.query(
-      "DELETE FROM ledger_transactions WHERE idempotency_key=$1",
-      [`refund-${orderId}`],
-    );
+    await pool.query("DELETE FROM ledger_transactions WHERE idempotency_key=$1", [
+      `refund-${orderId}`,
+    ]);
     await pool.query(
       "DELETE FROM ledger_entries WHERE transaction_id=(SELECT id FROM ledger_transactions WHERE idempotency_key=$1)",
       [`payment-${idempotencyKey}`],
     );
-    await pool.query(
-      "DELETE FROM ledger_transactions WHERE idempotency_key=$1",
-      [`payment-${idempotencyKey}`],
-    );
+    await pool.query("DELETE FROM ledger_transactions WHERE idempotency_key=$1", [
+      `payment-${idempotencyKey}`,
+    ]);
     await pool.query("DELETE FROM jobs WHERE public_id = $1", [orderId]);
   }
   if (idempotencyKey)
-    await pool.query("DELETE FROM idempotency_keys WHERE key = $1", [
-      idempotencyKey,
-    ]);
+    await pool.query("DELETE FROM idempotency_keys WHERE key = $1", [idempotencyKey]);
   if (scheduledRideId) {
-    await pool.query("DELETE FROM audit_events WHERE entity_id=$1", [
-      scheduledRideId,
-    ]);
-    await pool.query("DELETE FROM notifications WHERE payload->>'jobId'=$1", [
-      scheduledRideId,
-    ]);
+    await pool.query("DELETE FROM audit_events WHERE entity_id=$1", [scheduledRideId]);
+    await pool.query("DELETE FROM notifications WHERE payload->>'jobId'=$1", [scheduledRideId]);
     await pool.query("DELETE FROM jobs WHERE public_id=$1", [scheduledRideId]);
   }
   if (scheduledRideKey)
-    await pool.query("DELETE FROM idempotency_keys WHERE key=$1", [
-      scheduledRideKey,
-    ]);
+    await pool.query("DELETE FROM idempotency_keys WHERE key=$1", [scheduledRideKey]);
   if (insufficientTipJobId)
-    await pool.query("DELETE FROM jobs WHERE public_id=$1", [
-      insufficientTipJobId,
-    ]);
+    await pool.query("DELETE FROM jobs WHERE public_id=$1", [insufficientTipJobId]);
   if (proofShipmentId) {
-    await pool.query("DELETE FROM audit_events WHERE entity_id=$1", [
-      proofShipmentId,
-    ]);
-    await pool.query("DELETE FROM realtime_events WHERE entity_id=$1", [
-      proofShipmentId,
-    ]);
+    await pool.query("DELETE FROM audit_events WHERE entity_id=$1", [proofShipmentId]);
+    await pool.query("DELETE FROM realtime_events WHERE entity_id=$1", [proofShipmentId]);
     await pool.query(
       "DELETE FROM service_receipts WHERE job_id=(SELECT id FROM jobs WHERE public_id=$1)",
       [proofShipmentId],
     );
     if (tipKey) {
-      await pool.query("DELETE FROM service_tips WHERE idempotency_key=$1", [
-        tipKey,
-      ]);
+      await pool.query("DELETE FROM service_tips WHERE idempotency_key=$1", [tipKey]);
       await pool.query(
         "DELETE FROM ledger_entries WHERE transaction_id=(SELECT id FROM ledger_transactions WHERE idempotency_key=$1)",
         [`tip-${tipKey}`],
       );
-      await pool.query(
-        "DELETE FROM ledger_transactions WHERE idempotency_key=$1",
-        [`tip-${tipKey}`],
-      );
+      await pool.query("DELETE FROM ledger_transactions WHERE idempotency_key=$1", [
+        `tip-${tipKey}`,
+      ]);
     }
     for (const transactionKey of [
       `driver-earning-envio-${proofShipmentId}`,
@@ -3928,10 +3658,9 @@ try {
         "DELETE FROM ledger_entries WHERE transaction_id=(SELECT id FROM ledger_transactions WHERE idempotency_key=$1)",
         [transactionKey],
       );
-      await pool.query(
-        "DELETE FROM ledger_transactions WHERE idempotency_key=$1",
-        [transactionKey],
-      );
+      await pool.query("DELETE FROM ledger_transactions WHERE idempotency_key=$1", [
+        transactionKey,
+      ]);
     }
     await pool.query(
       "DELETE FROM payment_intents WHERE job_id=(SELECT id FROM jobs WHERE public_id=$1)",
@@ -3940,21 +3669,16 @@ try {
     await pool.query("DELETE FROM jobs WHERE public_id=$1", [proofShipmentId]);
   }
   if (proofShipmentKey)
-    await pool.query("DELETE FROM idempotency_keys WHERE key=$1", [
-      proofShipmentKey,
-    ]);
+    await pool.query("DELETE FROM idempotency_keys WHERE key=$1", [proofShipmentKey]);
   if (merchantPayoutKey) {
     await pool.query(
       "DELETE FROM ledger_entries WHERE transaction_id=(SELECT id FROM ledger_transactions WHERE idempotency_key=$1)",
       [`payout-reserve-${merchantPayoutKey}`],
     );
-    await pool.query(
-      "DELETE FROM ledger_transactions WHERE idempotency_key=$1",
-      [`payout-reserve-${merchantPayoutKey}`],
-    );
-    await pool.query("DELETE FROM payouts WHERE idempotency_key=$1", [
-      merchantPayoutKey,
+    await pool.query("DELETE FROM ledger_transactions WHERE idempotency_key=$1", [
+      `payout-reserve-${merchantPayoutKey}`,
     ]);
+    await pool.query("DELETE FROM payouts WHERE idempotency_key=$1", [merchantPayoutKey]);
   }
   if (settlementOrderId) {
     await pool.query(
@@ -3962,12 +3686,8 @@ try {
       [settlementOrderId, orderIssueId, substitutionId],
     );
     if (orderIssueId) {
-      await pool.query("DELETE FROM refunds WHERE provider_refund_id=$1", [
-        orderIssueId,
-      ]);
-      await pool.query("DELETE FROM order_issues WHERE public_id=$1", [
-        orderIssueId,
-      ]);
+      await pool.query("DELETE FROM refunds WHERE provider_refund_id=$1", [orderIssueId]);
+      await pool.query("DELETE FROM order_issues WHERE public_id=$1", [orderIssueId]);
       for (const transactionKey of [
         `issue-refund-${orderIssueId}`,
         `issue-reversal-${orderIssueId}`,
@@ -3976,10 +3696,9 @@ try {
           "DELETE FROM ledger_entries WHERE transaction_id=(SELECT id FROM ledger_transactions WHERE idempotency_key=$1)",
           [transactionKey],
         );
-        await pool.query(
-          "DELETE FROM ledger_transactions WHERE idempotency_key=$1",
-          [transactionKey],
-        );
+        await pool.query("DELETE FROM ledger_transactions WHERE idempotency_key=$1", [
+          transactionKey,
+        ]);
       }
     }
     const cleanupSubstitutions = (
@@ -3989,17 +3708,14 @@ try {
       )
     ).rows.map((row) => row.public_id);
     for (const cleanupSubstitutionId of cleanupSubstitutions) {
-      await pool.query("DELETE FROM refunds WHERE provider_refund_id=$1", [
-        cleanupSubstitutionId,
-      ]);
+      await pool.query("DELETE FROM refunds WHERE provider_refund_id=$1", [cleanupSubstitutionId]);
       await pool.query(
         "DELETE FROM ledger_entries WHERE transaction_id=(SELECT id FROM ledger_transactions WHERE idempotency_key=$1)",
         [`substitution-refund-${cleanupSubstitutionId}`],
       );
-      await pool.query(
-        "DELETE FROM ledger_transactions WHERE idempotency_key=$1",
-        [`substitution-refund-${cleanupSubstitutionId}`],
-      );
+      await pool.query("DELETE FROM ledger_transactions WHERE idempotency_key=$1", [
+        `substitution-refund-${cleanupSubstitutionId}`,
+      ]);
     }
     await pool.query(
       "DELETE FROM order_item_substitutions WHERE job_id=(SELECT id FROM jobs WHERE public_id=$1)",
@@ -4017,17 +3733,12 @@ try {
         "DELETE FROM ledger_entries WHERE transaction_id=(SELECT id FROM ledger_transactions WHERE idempotency_key=$1)",
         [transactionKey],
       );
-      await pool.query(
-        "DELETE FROM ledger_transactions WHERE idempotency_key=$1",
-        [transactionKey],
-      );
+      await pool.query("DELETE FROM ledger_transactions WHERE idempotency_key=$1", [
+        transactionKey,
+      ]);
     }
-    await pool.query("DELETE FROM jobs WHERE public_id=$1", [
-      settlementOrderId,
-    ]);
-    await pool.query(
-      "UPDATE catalog_items SET available=true WHERE public_id='item_burger_brava'",
-    );
+    await pool.query("DELETE FROM jobs WHERE public_id=$1", [settlementOrderId]);
+    await pool.query("UPDATE catalog_items SET available=true WHERE public_id='item_burger_brava'");
     await pool.query(
       "UPDATE catalog_branch_inventory SET available=true,stock_quantity=NULL WHERE catalog_item_id=(SELECT id FROM catalog_items WHERE public_id='item_burger_brava')",
     );
@@ -4036,18 +3747,13 @@ try {
     );
   }
   if (settlementOrderKey)
-    await pool.query("DELETE FROM idempotency_keys WHERE key=$1", [
-      settlementOrderKey,
-    ]);
+    await pool.query("DELETE FROM idempotency_keys WHERE key=$1", [settlementOrderKey]);
   if (walletKey) {
     await pool.query(
       "DELETE FROM ledger_entries WHERE transaction_id=(SELECT id FROM ledger_transactions WHERE idempotency_key=$1)",
       [walletKey],
     );
-    await pool.query(
-      "DELETE FROM ledger_transactions WHERE idempotency_key=$1",
-      [walletKey],
-    );
+    await pool.query("DELETE FROM ledger_transactions WHERE idempotency_key=$1", [walletKey]);
   }
   for (const [jobId, key] of [
     [rideId, rideKey],
@@ -4068,15 +3774,13 @@ try {
           "DELETE FROM ledger_entries WHERE transaction_id=(SELECT id FROM ledger_transactions WHERE idempotency_key=$1)",
           [transactionKey],
         );
-        await pool.query(
-          "DELETE FROM ledger_transactions WHERE idempotency_key=$1",
-          [transactionKey],
-        );
+        await pool.query("DELETE FROM ledger_transactions WHERE idempotency_key=$1", [
+          transactionKey,
+        ]);
       }
       await pool.query("DELETE FROM jobs WHERE public_id=$1", [jobId]);
     }
-    if (key)
-      await pool.query("DELETE FROM idempotency_keys WHERE key=$1", [key]);
+    if (key) await pool.query("DELETE FROM idempotency_keys WHERE key=$1", [key]);
   }
   if (webhookIds.length)
     await pool.query(
@@ -4084,14 +3788,11 @@ try {
       [webhookIds],
     );
   if (realtimeFixtureIds.length)
-    await pool.query("DELETE FROM realtime_events WHERE public_id=ANY($1)", [
-      realtimeFixtureIds,
-    ]);
+    await pool.query("DELETE FROM realtime_events WHERE public_id=ANY($1)", [realtimeFixtureIds]);
   if (ratingId) {
-    await pool.query(
-      "DELETE FROM audit_events WHERE entity_type='rating' AND entity_id=$1",
-      [ratingId],
-    );
+    await pool.query("DELETE FROM audit_events WHERE entity_type='rating' AND entity_id=$1", [
+      ratingId,
+    ]);
     await pool.query("DELETE FROM ratings WHERE public_id=$1", [ratingId]);
   }
   if (feedbackAuditRequestIds.filter(Boolean).length) {
@@ -4103,46 +3804,31 @@ try {
     ]);
   }
   if (deviceAuditRequestId)
-    await pool.query("DELETE FROM audit_events WHERE request_id=$1", [
-      deviceAuditRequestId,
-    ]);
-  if (deviceId)
-    await pool.query("DELETE FROM user_devices WHERE public_id=$1", [deviceId]);
+    await pool.query("DELETE FROM audit_events WHERE request_id=$1", [deviceAuditRequestId]);
+  if (deviceId) await pool.query("DELETE FROM user_devices WHERE public_id=$1", [deviceId]);
   if (rideDestinationId)
-    await pool.query("DELETE FROM ride_destination_history WHERE id=$1", [
-      rideDestinationId,
-    ]);
+    await pool.query("DELETE FROM ride_destination_history WHERE id=$1", [rideDestinationId]);
   if (trustedContactId)
-    await pool.query("DELETE FROM ride_trusted_contacts WHERE id=$1", [
-      trustedContactId,
-    ]);
+    await pool.query("DELETE FROM ride_trusted_contacts WHERE id=$1", [trustedContactId]);
   if (supportTicketId) {
     await pool.query(
       "DELETE FROM audit_events WHERE entity_type='support_ticket' AND entity_id=$1",
       [supportTicketId],
     );
-    await pool.query(
-      "DELETE FROM notifications WHERE payload->>'ticketId'=$1",
-      [supportTicketId],
-    );
-    await pool.query("DELETE FROM support_tickets WHERE public_id=$1", [
-      supportTicketId,
-    ]);
+    await pool.query("DELETE FROM notifications WHERE payload->>'ticketId'=$1", [supportTicketId]);
+    await pool.query("DELETE FROM support_tickets WHERE public_id=$1", [supportTicketId]);
   }
   if (createdPromotionId) {
-    await pool.query(
-      "DELETE FROM audit_events WHERE entity_type='promotion' AND entity_id=$1",
-      [createdPromotionId],
-    );
-    await pool.query("DELETE FROM promotions WHERE public_id=$1", [
+    await pool.query("DELETE FROM audit_events WHERE entity_type='promotion' AND entity_id=$1", [
       createdPromotionId,
     ]);
+    await pool.query("DELETE FROM promotions WHERE public_id=$1", [createdPromotionId]);
   }
   if (originalZoneMultiplier !== null) {
-    await pool.query(
-      "UPDATE service_zones SET delivery_multiplier=$2 WHERE public_id=$1",
-      ["zone_centro", originalZoneMultiplier],
-    );
+    await pool.query("UPDATE service_zones SET delivery_multiplier=$2 WHERE public_id=$1", [
+      "zone_centro",
+      originalZoneMultiplier,
+    ]);
     await pool.query(
       "DELETE FROM audit_events WHERE entity_type='service_zone' AND entity_id='zone_centro'",
     );
@@ -4153,22 +3839,14 @@ try {
       dispatchDriverOriginalOnline,
     ]);
   if (registeredRideId) {
-    await pool.query("DELETE FROM audit_events WHERE entity_id=$1", [
-      registeredRideId,
-    ]);
-    await pool.query("DELETE FROM notifications WHERE payload->>'jobId'=$1", [
-      registeredRideId,
-    ]);
+    await pool.query("DELETE FROM audit_events WHERE entity_id=$1", [registeredRideId]);
+    await pool.query("DELETE FROM notifications WHERE payload->>'jobId'=$1", [registeredRideId]);
     await pool.query("DELETE FROM jobs WHERE public_id=$1", [registeredRideId]);
   }
   if (registeredRideKey)
-    await pool.query("DELETE FROM idempotency_keys WHERE key=$1", [
-      registeredRideKey,
-    ]);
+    await pool.query("DELETE FROM idempotency_keys WHERE key=$1", [registeredRideKey]);
   if (moderationDriverId)
-    await pool.query("DELETE FROM drivers WHERE public_id=$1", [
-      moderationDriverId,
-    ]);
+    await pool.query("DELETE FROM drivers WHERE public_id=$1", [moderationDriverId]);
   const riskKeys = [
     idempotencyKey,
     rideKey,
@@ -4179,22 +3857,18 @@ try {
     registeredRideKey,
   ].filter(Boolean);
   if (riskKeys.length)
-    await pool.query(
-      "DELETE FROM transaction_risk_assessments WHERE idempotency_key=ANY($1)",
-      [riskKeys],
-    );
+    await pool.query("DELETE FROM transaction_risk_assessments WHERE idempotency_key=ANY($1)", [
+      riskKeys,
+    ]);
   if (registeredUserId) {
-    await pool.query(
-      "DELETE FROM audit_events WHERE entity_type='user' AND entity_id=$1",
-      [registeredUserId],
-    );
+    await pool.query("DELETE FROM audit_events WHERE entity_type='user' AND entity_id=$1", [
+      registeredUserId,
+    ]);
     await pool.query(
       "DELETE FROM transaction_risk_assessments WHERE customer_id=(SELECT id FROM users WHERE public_id=$1)",
       [registeredUserId],
     );
-    await pool.query("DELETE FROM users WHERE public_id=$1", [
-      registeredUserId,
-    ]);
+    await pool.query("DELETE FROM users WHERE public_id=$1", [registeredUserId]);
   }
   token = customerToken || token;
   if (token) {

@@ -13,7 +13,8 @@ const mapCity = (row) => ({
 });
 
 export async function getPublicCities() {
-  const result = await postgresPool.query(`SELECT public_id,slug,name,country_code,currency,timezone,status,enabled_services,
+  const result =
+    await postgresPool.query(`SELECT public_id,slug,name,country_code,currency,timezone,status,enabled_services,
     ST_Y(center::geometry) center_lat,ST_X(center::geometry) center_lng
     FROM cities WHERE status IN('beta','active') ORDER BY name`);
   return result.rows.map(mapCity);

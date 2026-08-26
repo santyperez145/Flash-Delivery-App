@@ -57,9 +57,10 @@ ok("el mensaje lleva sólo tipo y entidad, nunca contenido sensible");
 assert.equal(EXPO_BATCH_LIMIT, 100);
 assert.equal(EXPO_RECEIPT_LIMIT, 1000);
 await assert.rejects(
-  () => sendExpoPushBatch({ messages: new Array(101).fill(message) }, async () => {
-    throw new Error("no debería llamarse");
-  }),
+  () =>
+    sendExpoPushBatch({ messages: new Array(101).fill(message) }, async () => {
+      throw new Error("no debería llamarse");
+    }),
   /hasta 100 mensajes/,
 );
 assert.equal(chunk(new Array(250).fill(1), 100).length, 3);
@@ -68,7 +69,8 @@ ok("el lote se corta en el límite del proveedor antes de salir a la red");
 // --- Envío -------------------------------------------------------------------
 
 let captured = null;
-const respondWith = (payload, status = 200) =>
+const respondWith =
+  (payload, status = 200) =>
   async (url, options) => {
     captured = { url, options };
     return { ok: status >= 200 && status < 300, status, json: async () => payload };
@@ -108,53 +110,48 @@ ok("un ticket aceptado nunca se reporta como entregado");
 // --- Respuestas inconsistentes ----------------------------------------------
 
 await assert.rejects(
-  () => sendExpoPushBatch({ messages: [message, message] }, respondWith({ data: [{ status: "ok", id: "t" }] })),
+  () =>
+    sendExpoPushBatch(
+      { messages: [message, message] },
+      respondWith({ data: [{ status: "ok", id: "t" }] }),
+    ),
   /menos tickets que mensajes/,
 );
 ok("una respuesta con menos tickets que mensajes se rechaza en lugar de asumirse");
 
 // --- Rate limit y errores de transporte --------------------------------------
 
-await assert.rejects(
-  async () => {
-    try {
-      await sendExpoPushBatch({ messages: [message] }, respondWith({}, 429));
-    } catch (error) {
-      assert.equal(error.retryable, true);
-      assert.equal(error.status, 429);
-      throw error;
-    }
-  },
-  /rate limit/,
-);
+await assert.rejects(async () => {
+  try {
+    await sendExpoPushBatch({ messages: [message] }, respondWith({}, 429));
+  } catch (error) {
+    assert.equal(error.retryable, true);
+    assert.equal(error.status, 429);
+    throw error;
+  }
+}, /rate limit/);
 ok("un 429 se marca reintentable");
 
-await assert.rejects(
-  async () => {
-    try {
-      await sendExpoPushBatch({ messages: [message] }, respondWith({}, 400));
-    } catch (error) {
-      assert.equal(error.retryable, false);
-      throw error;
-    }
-  },
-  /rechazó la solicitud/,
-);
+await assert.rejects(async () => {
+  try {
+    await sendExpoPushBatch({ messages: [message] }, respondWith({}, 400));
+  } catch (error) {
+    assert.equal(error.retryable, false);
+    throw error;
+  }
+}, /rechazó la solicitud/);
 ok("un 4xx del pedido no se reintenta: reintentarlo no lo arregla");
 
-await assert.rejects(
-  async () => {
-    try {
-      await sendExpoPushBatch({ messages: [message] }, async () => {
-        throw Object.assign(new Error("timeout"), { name: "TimeoutError" });
-      });
-    } catch (error) {
-      assert.equal(error.retryable, true);
-      throw error;
-    }
-  },
-  /no respondió a tiempo/,
-);
+await assert.rejects(async () => {
+  try {
+    await sendExpoPushBatch({ messages: [message] }, async () => {
+      throw Object.assign(new Error("timeout"), { name: "TimeoutError" });
+    });
+  } catch (error) {
+    assert.equal(error.retryable, true);
+    throw error;
+  }
+}, /no respondió a tiempo/);
 ok("un timeout se marca reintentable y no da nada por entregado");
 
 // --- Recibos -----------------------------------------------------------------
@@ -192,4 +189,6 @@ try {
 ok("un error del proveedor no expone el token del dispositivo");
 
 console.log("\nok - contrato del proveedor de push Expo verificado");
-console.log("     pendiente: entrega en un dispositivo físico Android y iOS con credenciales reales");
+console.log(
+  "     pendiente: entrega en un dispositivo físico Android y iOS con credenciales reales",
+);

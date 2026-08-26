@@ -13,15 +13,30 @@ const assert = (condition, message) => {
   console.log(`ok - ${message}`);
 };
 
-assert(postgres?.environment?.POSTGRES_USER === "postgres", "el superusuario queda limitado al bootstrap del contenedor");
-assert(runtimeUrl.startsWith("postgresql://flash_runtime:"), "la API usa flash_runtime y no el owner del esquema");
-assert(migrationUrl.startsWith("postgresql://flash_app:"), "el migrador recibe una conexion separada");
+assert(
+  postgres?.environment?.POSTGRES_USER === "postgres",
+  "el superusuario queda limitado al bootstrap del contenedor",
+);
+assert(
+  runtimeUrl.startsWith("postgresql://flash_runtime:"),
+  "la API usa flash_runtime y no el owner del esquema",
+);
+assert(
+  migrationUrl.startsWith("postgresql://flash_app:"),
+  "el migrador recibe una conexion separada",
+);
 assert(runtimeUrl !== migrationUrl, "runtime y migraciones no comparten credenciales");
-assert(initMounts.some((entry) => String(entry).includes("/docker-entrypoint-initdb.d")), "PostgreSQL carga el bootstrap de roles");
+assert(
+  initMounts.some((entry) => String(entry).includes("/docker-entrypoint-initdb.d")),
+  "PostgreSQL carga el bootstrap de roles",
+);
 
 const init = fs.readFileSync("database/docker-init/001-runtime-roles.sh", "utf8");
 for (const role of ["flash_app", "flash_runtime", "flash_rls_audit"])
-  assert(init.includes(`${role} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS`), `${role} queda sin privilegios administrativos ni BYPASSRLS`);
+  assert(
+    init.includes(`${role} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS`),
+    `${role} queda sin privilegios administrativos ni BYPASSRLS`,
+  );
 
 // --- Imagen productiva (ticket INF-001, hallazgo H-05) ---------------------
 //
@@ -37,10 +52,7 @@ assert(stages.length >= 2, "la imagen es multi-etapa y no arrastra el toolchain 
 
 const userDirective = runtimeStage.match(/^USER\s+(\S+)/m);
 assert(Boolean(userDirective), "la etapa de runtime declara un USER explícito");
-assert(
-  userDirective[1] !== "root" && userDirective[1] !== "0",
-  "el proceso no corre como root",
-);
+assert(userDirective[1] !== "root" && userDirective[1] !== "0", "el proceso no corre como root");
 assert(
   /useradd|adduser/.test(runtimeStage) && new RegExp(userDirective[1]).test(runtimeStage),
   "el usuario no privilegiado se crea en la propia imagen",

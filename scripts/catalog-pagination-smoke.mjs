@@ -1,3 +1,46 @@
-const base=process.env.API_URL||"http://127.0.0.1:4000/api",assert=(condition,label)=>{if(!condition)throw new Error(`failed: ${label}`);console.log(`ok - ${label}`);};
-async function get(path){const response=await fetch(`${base}${path}`);return{status:response.status,headers:response.headers,body:await response.json()};}
-const first=await get("/catalog/restaurants?limit=1");assert(first.status===200&&first.body.restaurants.length===1&&first.headers.get("cache-control")?.includes("max-age=30"),"public catalog enforces page size and bounded cache policy");const restaurant=first.body.restaurants[0],serialized=JSON.stringify(restaurant);assert(!Object.hasOwn(restaurant,"ownerId")&&!Object.hasOwn(restaurant,"manualOpen")&&!serialized.includes("inventory")&&!serialized.includes("weeklyHours")&&!serialized.includes("scheduleExceptions"),"public serializer excludes owner and branch operations data");if(first.body.nextCursor){const second=await get(`/catalog/restaurants?limit=1&cursor=${encodeURIComponent(first.body.nextCursor)}`);assert(second.status===200&&second.body.restaurants[0]?.id!==restaurant.id,"catalog cursor advances without duplicates");}const search=await get(`/catalog/restaurants?limit=20&q=${encodeURIComponent(restaurant.name.slice(0,5))}`);assert(search.body.restaurants.some(item=>item.id===restaurant.id),"catalog search filters server-side by merchant identity");assert((await get("/catalog/restaurants?cursor=invalid")).status===400,"catalog rejects malformed cursor");
+const base = process.env.API_URL || "http://127.0.0.1:4000/api",
+  assert = (condition, label) => {
+    if (!condition) throw new Error(`failed: ${label}`);
+    console.log(`ok - ${label}`);
+  };
+async function get(path) {
+  const response = await fetch(`${base}${path}`);
+  return { status: response.status, headers: response.headers, body: await response.json() };
+}
+const first = await get("/catalog/restaurants?limit=1");
+assert(
+  first.status === 200 &&
+    first.body.restaurants.length === 1 &&
+    first.headers.get("cache-control")?.includes("max-age=30"),
+  "public catalog enforces page size and bounded cache policy",
+);
+const restaurant = first.body.restaurants[0],
+  serialized = JSON.stringify(restaurant);
+assert(
+  !Object.hasOwn(restaurant, "ownerId") &&
+    !Object.hasOwn(restaurant, "manualOpen") &&
+    !serialized.includes("inventory") &&
+    !serialized.includes("weeklyHours") &&
+    !serialized.includes("scheduleExceptions"),
+  "public serializer excludes owner and branch operations data",
+);
+if (first.body.nextCursor) {
+  const second = await get(
+    `/catalog/restaurants?limit=1&cursor=${encodeURIComponent(first.body.nextCursor)}`,
+  );
+  assert(
+    second.status === 200 && second.body.restaurants[0]?.id !== restaurant.id,
+    "catalog cursor advances without duplicates",
+  );
+}
+const search = await get(
+  `/catalog/restaurants?limit=20&q=${encodeURIComponent(restaurant.name.slice(0, 5))}`,
+);
+assert(
+  search.body.restaurants.some((item) => item.id === restaurant.id),
+  "catalog search filters server-side by merchant identity",
+);
+assert(
+  (await get("/catalog/restaurants?cursor=invalid")).status === 400,
+  "catalog rejects malformed cursor",
+);

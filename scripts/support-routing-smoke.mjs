@@ -1,8 +1,7 @@
 import crypto from "node:crypto";
 import pg from "pg";
 const pool = new pg.Pool({
-    connectionString:
-      process.env.MIGRATION_DATABASE_URL || process.env.DATABASE_URL,
+    connectionString: process.env.MIGRATION_DATABASE_URL || process.env.DATABASE_URL,
     ssl: false,
   }),
   base = process.env.API_URL || "http://127.0.0.1:4000/api",
@@ -44,11 +43,8 @@ const login = async (email) =>
     })
   ).body.token;
 try {
-  const admin = (
-    await pool.query(
-      "SELECT id,password_hash FROM users WHERE public_id='usr_admin'",
-    )
-  ).rows[0];
+  const admin = (await pool.query("SELECT id,password_hash FROM users WHERE public_id='usr_admin'"))
+    .rows[0];
   originalProfile = (
     await pool.query(
       "SELECT availability,max_active_tickets,skills,last_assigned_at FROM support_agent_profiles WHERE user_id=$1",
@@ -61,18 +57,14 @@ try {
       [supportId, supportEmail, admin.password_hash],
     )
   ).rows[0];
-  await pool.query(
-    "INSERT INTO user_roles(user_id,role) VALUES($1,'support')",
-    [support.id],
-  );
+  await pool.query("INSERT INTO user_roles(user_id,role) VALUES($1,'support')", [support.id]);
   await pool.query(
     "INSERT INTO support_agent_profiles(user_id,availability,max_active_tickets,skills) VALUES($1,'available',1,ARRAY['safety'])",
     [support.id],
   );
-  await pool.query(
-    "UPDATE support_agent_profiles SET availability='offline' WHERE user_id=$1",
-    [admin.id],
-  );
+  await pool.query("UPDATE support_agent_profiles SET availability='offline' WHERE user_id=$1", [
+    admin.id,
+  ]);
   token = await login("cliente@flash.app");
   assert(
     (await call("/admin/support/agents")).status === 403,
@@ -115,9 +107,7 @@ try {
   assert(
     agents.body.agents?.some(
       (agent) =>
-        agent.userId === supportId &&
-        agent.activeTickets === 1 &&
-        agent.maxActiveTickets === 1,
+        agent.userId === supportId && agent.activeTickets === 1 && agent.maxActiveTickets === 1,
     ),
     "operations sees live workload and capacity",
   );
@@ -134,8 +124,7 @@ try {
   assert(
     capacity.status === 200 &&
       routed.body.result?.assigned?.some(
-        (entry) =>
-          entry.ticketId === ticketIds[1] && entry.agentId === supportId,
+        (entry) => entry.ticketId === ticketIds[1] && entry.agentId === supportId,
       ),
     "raising capacity lets queue worker assign waiting case",
   );
@@ -193,10 +182,9 @@ try {
       requestIds.filter(Boolean),
     ]);
   if (ticketIds.filter(Boolean).length) {
-    await pool.query(
-      "DELETE FROM notifications WHERE payload->>'ticketId'=ANY($1)",
-      [ticketIds.filter(Boolean)],
-    );
+    await pool.query("DELETE FROM notifications WHERE payload->>'ticketId'=ANY($1)", [
+      ticketIds.filter(Boolean),
+    ]);
     await pool.query("DELETE FROM realtime_events WHERE entity_id=ANY($1)", [
       ticketIds.filter(Boolean),
     ]);

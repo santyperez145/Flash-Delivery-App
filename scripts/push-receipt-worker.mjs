@@ -23,9 +23,7 @@ process.on("SIGTERM", () => {
 do {
   const result = await processPostgresPushReceipts({});
   if (result.checked)
-    console.log(
-      JSON.stringify({ level: "info", event: "push.receipts", ...result }),
-    );
+    console.log(JSON.stringify({ level: "info", event: "push.receipts", ...result }));
   // Un recibo desconocido no es un éxito: se deja pendiente y la alerta
   // `FlashPushReceiptsStale` lo levanta si se acumulan.
   if (result.unknown)

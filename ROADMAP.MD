@@ -8,6 +8,42 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 26 de agosto de 2026 — ARC-001 paso 1, reformateo mecánico
+
+Octava entrega de la Fase 0. **Sin cambios de comportamiento:** Prettier sólo reescribe espaciado, el build pasa y las siete puertas de CI pasan.
+
+### El hallazgo no era «los archivos son grandes»
+
+Era que el código estaba comprimido en líneas de hasta **4.061 caracteres**. Con eso, un diff es ilegible, un conflicto de merge irresoluble, `git blame` no aporta nada y una revisión de seguridad es impracticable.
+
+| Archivo | Antes | Ahora |
+| --- | ---: | ---: |
+| `apps/mobile/App.tsx` | 4.061 | **206** |
+| `server/commerce-repository.js` | 2.655 | 1.540 |
+| `src/App.tsx` | 1.791 | 270 |
+| `server/auth-repository.js` | 1.563 | 357 |
+
+Líneas largas totales: **1.543 → 262**. `apps/mobile/App.tsx` pasó de 327 líneas largas a **1**, y de 5.695 líneas a 15.374 que una persona puede leer. Lo que queda largo es sobre todo SQL en template literals, que Prettier no parte.
+
+### Lo que hubo que arreglar primero
+
+**Ocho suites afirmaban lógica leyendo el fuente y buscando substrings literales.** La intención es buena: impiden que una pantalla vuelva a inicializarse con datos ficticios, o que un checkout confirme una cotización distinta de la que mostró.
+
+Pero `app.includes("entry.lat!==null")` falla en cuanto un formateador escribe `entry.lat !== null`. Eso las convertía en **un obstáculo para cualquier refactor** —el reformateo y también la extracción de módulos que viene después— en lugar de una protección.
+
+`scripts/source-contract.mjs` compara ignorando el espaciado de los dos lados. Verificado en ambos sentidos: las suites pasan con el archivo formateado **y** sin formatear. Independencia del formato significa pasar en los dos estados, no haber sido reajustadas al nuevo.
+
+`responsive-layout` además usaba una regex acotada con `[^
+]*`, que asumía la hoja de estilos escrita sin saltos de línea.
+
+### La puerta
+
+`test:format` impide que el código vuelva a derivar. **El ratchet acota el daño heredado; el formateador impide que se genere daño nuevo.**
+
+### Lo que ARC-001 todavía no hace
+
+Esto es **sólo el paso 1**. Faltan extraer features de los dos `App.tsx`, separar entrypoints customer/driver/merchant, descomponer `server/index.js` y dividir `commerce-repository.js`. Ninguno de esos era revisable antes de este commit.
+
 ## Avance 26 de agosto de 2026 — DSP-001, selección de dispatch en dos etapas
 
 Séptima entrega de la Fase 0. Cierra el núcleo del hallazgo [H-06](docs/auditoria-2026-08-25.md#h-06--dispatch-sin-recorte-espacial-previo).

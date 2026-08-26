@@ -12,6 +12,6 @@ export function createPool() {
     max: 10,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 5_000,
-    options: migrationMaintenance ? "-c app.audit_maintenance=on" : undefined
+    options: migrationMaintenance ? "-c app.audit_maintenance=on" : undefined,
   });
 }

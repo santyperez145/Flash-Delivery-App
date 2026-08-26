@@ -50,7 +50,8 @@ try {
     headers: { "x-request-id": "REQ-otel-smoke-0002" },
   });
   for (let attempt = 0; attempt < 40 && payloads.length === 0; attempt += 1) await sleep(250);
-  if (!payloads.some((payload) => payload.length > 0)) throw new Error("No se recibió ningún lote OTLP");
+  if (!payloads.some((payload) => payload.length > 0))
+    throw new Error("No se recibió ningún lote OTLP");
   console.log(`ok - OpenTelemetry exportó ${payloads.length} lote(s) OTLP protobuf`);
 } finally {
   api.kill("SIGTERM");

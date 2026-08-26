@@ -8,11 +8,7 @@ export type AnalyticsEventName =
   | "job_created"
   | "activity_viewed";
 
-export type AnalyticsSurface =
-  | "web"
-  | "customer_app"
-  | "driver_app"
-  | "merchant_app";
+export type AnalyticsSurface = "web" | "customer_app" | "driver_app" | "merchant_app";
 
 export type AnalyticsProperty = string | number | boolean | null;
 export type AnalyticsProperties = Record<string, AnalyticsProperty>;

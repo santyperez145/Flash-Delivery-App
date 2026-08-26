@@ -55,18 +55,20 @@ export default function PublicRideTrackingPage({ token }: { token: string }) {
     };
   }, [token]);
 
-  const currentIndex = tracking
-    ? Math.max(rideSteps.indexOf(tracking.status), 0)
-    : 0;
+  const currentIndex = tracking ? Math.max(rideSteps.indexOf(tracking.status), 0) : 0;
 
   return (
     <main className="public-tracking-page">
       <header className="public-tracking-header">
         <a className="public-tracking-brand" href="/" aria-label="Abrir Flash">
-          <span className="brand-mark"><Flame size={20} /></span>
+          <span className="brand-mark">
+            <Flame size={20} />
+          </span>
           <strong>Flash</strong>
         </a>
-        <span className="public-tracking-secure"><ShieldCheck size={14} /> Seguimiento seguro</span>
+        <span className="public-tracking-secure">
+          <ShieldCheck size={14} /> Seguimiento seguro
+        </span>
       </header>
       {loading && !tracking ? (
         <section className="public-tracking-state" aria-live="polite">
@@ -80,46 +82,68 @@ export default function PublicRideTrackingPage({ token }: { token: string }) {
           <strong>Seguimiento no disponible</strong>
           <span>{error}</span>
         </section>
-      ) : tracking && (
-        <div className="public-tracking-content">
-          <section className="public-tracking-intro">
-            <span className="muted-label">Viaje Flash · {tracking.rideId}</span>
-            <h1>{rideStatusLabel[tracking.status]}</h1>
-            <p>{tracking.pickup} → {tracking.destination}</p>
-          </section>
-          <Suspense fallback={<section className="public-tracking-map flash-map-loading"><span>Cargando mapa…</span></section>}>
-            <FlashMap
-              origin={tracking.pickupLocation}
-              destination={tracking.destinationLocation}
-              driver={tracking.driver?.location || null}
-              className="public-tracking-map"
-              ariaLabel="Mapa público interactivo del viaje"
-              caption={tracking.driver?.location ? "Ubicación del conductor actualizada" : "Conductor sin posición compartida"}
-              detail={`ETA publicada: ${tracking.etaMin} min`}
-            />
-          </Suspense>
-          <section className="public-tracking-summary">
-            <div>
-              <span className="muted-label">Conductor</span>
-              <strong>{tracking.driver?.firstName || "Asignando conductor"}</strong>
-              <small>{tracking.driver ? `${tracking.driver.vehicle || "Vehículo Flash"} · ${tracking.driver.plate || "patente no disponible"}` : "Te avisaremos cuando haya asignación."}</small>
-            </div>
-            <div className="public-tracking-eta"><span>ETA</span><strong>{tracking.etaMin} min</strong></div>
-          </section>
-          <section className="public-tracking-progress">
-            <div className="stepper tracking-stepper ride-tracking-stepper">
-              {rideSteps.map((step, index) => (
-                <div className={index <= currentIndex ? "step active" : "step"} key={step}>
-                  <span>{index < currentIndex ? <Check size={12} /> : index + 1}</span>
-                  <small>{rideStatusLabel[step]}</small>
-                </div>
-              ))}
-            </div>
-          </section>
-          <p className="public-tracking-note">
-            Este enlace vence el {new Date(tracking.expiresAt).toLocaleString("es-AR")}. No muestra teléfono, email ni información de pago.
-          </p>
-        </div>
+      ) : (
+        tracking && (
+          <div className="public-tracking-content">
+            <section className="public-tracking-intro">
+              <span className="muted-label">Viaje Flash · {tracking.rideId}</span>
+              <h1>{rideStatusLabel[tracking.status]}</h1>
+              <p>
+                {tracking.pickup} → {tracking.destination}
+              </p>
+            </section>
+            <Suspense
+              fallback={
+                <section className="public-tracking-map flash-map-loading">
+                  <span>Cargando mapa…</span>
+                </section>
+              }
+            >
+              <FlashMap
+                origin={tracking.pickupLocation}
+                destination={tracking.destinationLocation}
+                driver={tracking.driver?.location || null}
+                className="public-tracking-map"
+                ariaLabel="Mapa público interactivo del viaje"
+                caption={
+                  tracking.driver?.location
+                    ? "Ubicación del conductor actualizada"
+                    : "Conductor sin posición compartida"
+                }
+                detail={`ETA publicada: ${tracking.etaMin} min`}
+              />
+            </Suspense>
+            <section className="public-tracking-summary">
+              <div>
+                <span className="muted-label">Conductor</span>
+                <strong>{tracking.driver?.firstName || "Asignando conductor"}</strong>
+                <small>
+                  {tracking.driver
+                    ? `${tracking.driver.vehicle || "Vehículo Flash"} · ${tracking.driver.plate || "patente no disponible"}`
+                    : "Te avisaremos cuando haya asignación."}
+                </small>
+              </div>
+              <div className="public-tracking-eta">
+                <span>ETA</span>
+                <strong>{tracking.etaMin} min</strong>
+              </div>
+            </section>
+            <section className="public-tracking-progress">
+              <div className="stepper tracking-stepper ride-tracking-stepper">
+                {rideSteps.map((step, index) => (
+                  <div className={index <= currentIndex ? "step active" : "step"} key={step}>
+                    <span>{index < currentIndex ? <Check size={12} /> : index + 1}</span>
+                    <small>{rideStatusLabel[step]}</small>
+                  </div>
+                ))}
+              </div>
+            </section>
+            <p className="public-tracking-note">
+              Este enlace vence el {new Date(tracking.expiresAt).toLocaleString("es-AR")}. No
+              muestra teléfono, email ni información de pago.
+            </p>
+          </div>
+        )
       )}
     </main>
   );

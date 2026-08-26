@@ -17,15 +17,8 @@ import {
   encryptDeviceToken,
   hashDeviceToken,
 } from "./secret-envelope.js";
-const publicId = (prefix) =>
-  `${prefix}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
-const preferenceCategories = [
-  "service_updates",
-  "promotions",
-  "support",
-  "wallet",
-  "account",
-];
+const publicId = (prefix) => `${prefix}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
+const preferenceCategories = ["service_updates", "promotions", "support", "wallet", "account"];
 const categoryForTemplate = (template) =>
   template.startsWith("support_")
     ? "support"
@@ -44,10 +37,9 @@ let smtpTransport = null;
 
 async function deliverEmail(notification) {
   const recipient = (
-    await postgresPool.query(
-      "SELECT email FROM users WHERE id=$1 AND status='active'",
-      [notification.user_id],
-    )
+    await postgresPool.query("SELECT email FROM users WHERE id=$1 AND status='active'", [
+      notification.user_id,
+    ])
   ).rows[0];
   if (!recipient)
     throw Object.assign(new Error("recipient_unavailable"), {
@@ -65,8 +57,7 @@ async function deliverEmail(notification) {
       ? decryptEmailVerificationCode(notification.sensitive_payload_ciphertext)
       : decryptRecoveryToken(notification.sensitive_payload_ciphertext),
     link = `${config.appPublicUrl.replace(/\/$/, "")}/recover-password?token=${encodeURIComponent(secret)}`;
-  if (config.emailProvider === "sandbox")
-    return `sandbox-email-${crypto.randomUUID()}`;
+  if (config.emailProvider === "sandbox") return `sandbox-email-${crypto.randomUUID()}`;
   if (config.emailProvider !== "smtp")
     throw Object.assign(new Error("email_provider_disabled"), {
       code: "email_provider_disabled",
@@ -138,13 +129,9 @@ export async function registerPostgresDevice({
   const client = await postgresPool.connect();
   try {
     await client.query("BEGIN");
-    const user = (
-      await client.query("SELECT id FROM users WHERE public_id=$1", [
-        userPublicId,
-      ])
-    ).rows[0];
-    if (!user)
-      throw Object.assign(new Error("Usuario no encontrado"), { status: 404 });
+    const user = (await client.query("SELECT id FROM users WHERE public_id=$1", [userPublicId]))
+      .rows[0];
+    if (!user) throw Object.assign(new Error("Usuario no encontrado"), { status: 404 });
     const tokenHash = hashDeviceToken(pushToken),
       ciphertext = encryptDeviceToken(pushToken);
     await client.query(
@@ -233,14 +220,7 @@ export async function enqueuePostgresNotification({
 
 export async function enqueueNotificationForInternalUser(
   client,
-  {
-    userId,
-    channel = "push",
-    template,
-    payload = {},
-    deduplicationKey,
-    scheduledAt = new Date(),
-  },
+  { userId, channel = "push", template, payload = {}, deduplicationKey, scheduledAt = new Date() },
 ) {
   const category = categoryForTemplate(template),
     essential = essentialTemplates.has(template),
@@ -298,9 +278,7 @@ const mapDeadLetter = (row) => ({
   attempts: row.dead_letter_attempts,
   replayCount: row.replay_count,
   createdAt: new Date(row.dead_letter_created_at).toISOString(),
-  lastReplayedAt: row.last_replayed_at
-    ? new Date(row.last_replayed_at).toISOString()
-    : null,
+  lastReplayedAt: row.last_replayed_at ? new Date(row.last_replayed_at).toISOString() : null,
 });
 const deadLetterSelect = `SELECT n.public_id,n.channel,n.template,n.replay_count,n.last_replayed_at,u.public_id user_public_id,d.reason,d.attempts dead_letter_attempts,d.created_at dead_letter_created_at FROM notification_dead_letters d JOIN notifications n ON n.id=d.notification_id JOIN users u ON u.id=n.user_id`;
 export async function getNotificationDeadLetters() {
@@ -310,18 +288,14 @@ export async function getNotificationDeadLetters() {
     )
   ).rows.map(mapDeadLetter);
 }
-export async function replayNotificationDeadLetter({
-  notificationPublicId,
-  actorPublicId,
-}) {
+export async function replayNotificationDeadLetter({ notificationPublicId, actorPublicId }) {
   const client = await postgresPool.connect();
   try {
     await client.query("BEGIN");
     const row = (
-      await client.query(
-        `${deadLetterSelect} WHERE n.public_id=$1 FOR UPDATE OF n,d`,
-        [notificationPublicId],
-      )
+      await client.query(`${deadLetterSelect} WHERE n.public_id=$1 FOR UPDATE OF n,d`, [
+        notificationPublicId,
+      ])
     ).rows[0];
     if (!row)
       throw Object.assign(new Error("Notificación descartada no encontrada"), {
@@ -337,16 +311,12 @@ export async function replayNotificationDeadLetter({
         ).rows[0].count,
       );
       if (!active)
-        throw Object.assign(
-          new Error("No hay dispositivo activo para reintentar"),
-          { status: 409 },
-        );
+        throw Object.assign(new Error("No hay dispositivo activo para reintentar"), {
+          status: 409,
+        });
     }
-    const actor = (
-      await client.query("SELECT id FROM users WHERE public_id=$1", [
-        actorPublicId,
-      ])
-    ).rows[0];
+    const actor = (await client.query("SELECT id FROM users WHERE public_id=$1", [actorPublicId]))
+      .rows[0];
     const replayed = (
       await client.query(
         "UPDATE notifications SET status='queued',attempts=0,scheduled_at=now(),dead_lettered_at=NULL,last_error=NULL,locked_at=NULL,locked_by=NULL,replay_count=replay_count+1,last_replayed_at=now(),last_replayed_by=$2 WHERE public_id=$1 AND status='dead_lettered' RETURNING id",
@@ -501,7 +471,8 @@ export async function processPostgresPushReceipts({ limit = EXPO_RECEIPT_LIMIT }
     )
   ).rows;
 
-  if (pending.length === 0) return { checked: 0, delivered: 0, failed: 0, unknown: 0, invalidated: 0 };
+  if (pending.length === 0)
+    return { checked: 0, delivered: 0, failed: 0, unknown: 0, invalidated: 0 };
 
   const receipts = await fetchExpoPushReceipts({
     ticketIds: pending.map((row) => row.provider_message_id),

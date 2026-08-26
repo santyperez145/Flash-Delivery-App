@@ -43,7 +43,9 @@ const total = Object.values(current).reduce((sum, count) => sum + count, 0);
 
 if (process.argv.includes("--update")) {
   await fs.writeFile(BASELINE_PATH, `${JSON.stringify(current, null, 2)}\n`);
-  console.log(`ok - línea base actualizada: ${Object.keys(current).length} archivos, ${total} líneas largas`);
+  console.log(
+    `ok - línea base actualizada: ${Object.keys(current).length} archivos, ${total} líneas largas`,
+  );
   process.exit(0);
 }
 

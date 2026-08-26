@@ -82,6 +82,12 @@ Bloquea vulnerabilidades **altas o críticas** en runtime web/API y mobile. Al 2
 
 `test:realtime-audience` extrae del código todas las publicaciones de `publishRealtimeEvent` y exige que cada una resuelva una audiencia explícita. La difusión a todos los roles se compara contra una lista aprobada: **ampliarla exige tocar el test**, lo que la convierte en una decisión revisable en lugar de un efecto secundario. Es un contrato estático, así que corre en la puerta rápida sin necesidad de PostgreSQL. Ver [`docs/realtime.md`](realtime.md).
 
+### Formato
+
+`test:format` verifica que todo el código pase por Prettier. Es la puerta que impide que el código vuelva a derivar al estado del hallazgo [H-08](auditoria-2026-08-25.md#h-08--concentración-monolítica-extrema): líneas de hasta 4.061 caracteres que hacían ilegible cualquier diff.
+
+El ratchet acota el daño heredado; el formateador impide que se genere daño nuevo.
+
 ### Ratchet de longitud de línea
 
 `test:line-length` fija una línea base por archivo y sólo admite bajarla. Existe porque el código tiene hoy **1.543 líneas de más de 200 caracteres en 120 archivos**, con máximos de 4.061: no se puede exigir el objetivo final antes de reformatear, pero sí impedir que el problema crezca mientras avanza [ARC-001](backlog-tecnico.md#arc-001--modularización).

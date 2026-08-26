@@ -136,10 +136,7 @@ export default function FlashMap({
       const map = mapRef.current;
       if (!map || !visiblePoints.length) return;
       const first = visiblePoints[0];
-      const bounds = new maplibregl.LngLatBounds(
-        [first.lng, first.lat],
-        [first.lng, first.lat],
-      );
+      const bounds = new maplibregl.LngLatBounds([first.lng, first.lat], [first.lng, first.lat]);
       visiblePoints.slice(1).forEach((point) => bounds.extend([point.lng, point.lat]));
       map.fitBounds(bounds as LngLatBoundsLike, {
         padding: { top: 42, right: 42, bottom: caption || detail ? 104 : 42, left: 42 },
@@ -235,7 +232,9 @@ export default function FlashMap({
     ];
     if (isGeoPoint(driver)) {
       markersRef.current.push(
-        new maplibregl.Marker({ element: markerElement("driver", "Última ubicación del conductor") })
+        new maplibregl.Marker({
+          element: markerElement("driver", "Última ubicación del conductor"),
+        })
           .setLngLat([driver.lng, driver.lat])
           .addTo(map),
       );

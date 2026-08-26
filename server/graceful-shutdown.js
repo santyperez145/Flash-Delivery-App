@@ -1,4 +1,14 @@
-export function createGracefulShutdown({ server, realtimeClients, stopRealtimeListener, closePostgres, closeRedis, stopTelemetry, graceMs, onDrain = () => undefined, log = console }) {
+export function createGracefulShutdown({
+  server,
+  realtimeClients,
+  stopRealtimeListener,
+  closePostgres,
+  closeRedis,
+  stopTelemetry,
+  graceMs,
+  onDrain = () => undefined,
+  log = console,
+}) {
   let shutdownPromise = null;
   return function shutdown(signal = "manual") {
     if (shutdownPromise) return shutdownPromise;
@@ -24,7 +34,11 @@ export function createGracefulShutdown({ server, realtimeClients, stopRealtimeLi
       await stopRealtimeListener?.();
       const results = await Promise.allSettled([closePostgres(), closeRedis(), stopTelemetry()]);
       const rejected = results.filter((result) => result.status === "rejected");
-      if (rejected.length) throw new AggregateError(rejected.map((result) => result.reason), "No se pudieron cerrar todos los recursos");
+      if (rejected.length)
+        throw new AggregateError(
+          rejected.map((result) => result.reason),
+          "No se pudieron cerrar todos los recursos",
+        );
       log.info?.("Flash API drained successfully.");
     })();
     return shutdownPromise;

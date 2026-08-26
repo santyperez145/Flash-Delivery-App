@@ -1,10 +1,8 @@
 import crypto from "node:crypto";
 import { postgresPool } from "./postgres.js";
 
-const ticketId = () =>
-  `TCK-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
-const notificationId = () =>
-  `NTF-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
+const ticketId = () => `TCK-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
+const notificationId = () => `NTF-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
 const isStaff = (roles) => roles.includes("admin") || roles.includes("support");
 const apiPriority = (value) => (value === "normal" ? "medium" : value);
 
@@ -21,13 +19,9 @@ const mapTicket = (row) => ({
   updatedAt: new Date(row.updated_at).toISOString(),
   firstResponseDueAt: new Date(row.first_response_due_at).toISOString(),
   resolutionDueAt: new Date(row.resolution_due_at).toISOString(),
-  firstRespondedAt: row.first_responded_at
-    ? new Date(row.first_responded_at).toISOString()
-    : null,
+  firstRespondedAt: row.first_responded_at ? new Date(row.first_responded_at).toISOString() : null,
   escalationLevel: Number(row.escalation_level || 0),
-  lastEscalatedAt: row.last_escalated_at
-    ? new Date(row.last_escalated_at).toISOString()
-    : null,
+  lastEscalatedAt: row.last_escalated_at ? new Date(row.last_escalated_at).toISOString() : null,
   assignmentHistory: (row.assignment_history || []).map((entry) => ({
     ...entry,
     createdAt: new Date(entry.createdAt).toISOString(),
@@ -39,8 +33,7 @@ const mapTicket = (row) => ({
   slaStatus:
     row.status === "resolved" || row.status === "closed"
       ? "met"
-      : !row.first_responded_at &&
-          new Date(row.first_response_due_at) < new Date()
+      : !row.first_responded_at && new Date(row.first_response_due_at) < new Date()
         ? "first_response_breached"
         : new Date(row.resolution_due_at) < new Date()
           ? "resolution_breached"
@@ -51,10 +44,7 @@ const mapTicket = (row) => ({
   })),
 });
 
-async function assignTicketToBestAgent(
-  client,
-  { ticketId, category, reason, assignedBy = null },
-) {
+async function assignTicketToBestAgent(client, { ticketId, category, reason, assignedBy = null }) {
   const candidate = (
     await client.query(
       `SELECT p.user_id,u.public_id,load.active_count FROM support_agent_profiles p JOIN users u ON u.id=p.user_id CROSS JOIN LATERAL(SELECT count(*)::int active_count FROM support_tickets open_ticket WHERE open_ticket.assigned_to=p.user_id AND open_ticket.status NOT IN('resolved','closed')) load WHERE u.status='active' AND p.availability<>'offline' AND ('all'=ANY(p.skills) OR $1=ANY(p.skills)) AND load.active_count<p.max_active_tickets AND EXISTS(SELECT 1 FROM user_roles ur WHERE ur.user_id=u.id AND ur.role IN('admin','support')) ORDER BY load.active_count::numeric/p.max_active_tickets,p.availability='busy',p.last_assigned_at NULLS FIRST,u.public_id LIMIT 1 FOR UPDATE OF p SKIP LOCKED`,
@@ -62,10 +52,10 @@ async function assignTicketToBestAgent(
     )
   ).rows[0];
   if (!candidate) return null;
-  await client.query(
-    "UPDATE support_tickets SET assigned_to=$2,updated_at=now() WHERE id=$1",
-    [ticketId, candidate.user_id],
-  );
+  await client.query("UPDATE support_tickets SET assigned_to=$2,updated_at=now() WHERE id=$1", [
+    ticketId,
+    candidate.user_id,
+  ]);
   await client.query(
     "UPDATE support_agent_profiles SET last_assigned_at=now(),updated_at=now() WHERE user_id=$1",
     [candidate.user_id],
@@ -92,8 +82,13 @@ export async function getPostgresSupportTickets({ userPublicId, roles }) {
   return result.rows.map(mapTicket);
 }
 
-export async function getPostgresOperationsSupportTicketPage({limit=50,cursor=null,query=""}={}){
-  const result=await postgresPool.query(`SELECT t.*,u.public_id user_public_id,j.public_id job_public_id,a.public_id assigned_public_id,
+export async function getPostgresOperationsSupportTicketPage({
+  limit = 50,
+  cursor = null,
+  query = "",
+} = {}) {
+  const result = await postgresPool.query(
+    `SELECT t.*,u.public_id user_public_id,j.public_id job_public_id,a.public_id assigned_public_id,
     to_char(t.updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') cursor_updated_at,
     COALESCE((SELECT jsonb_agg(jsonb_build_object('id',m.id,'senderId',s.public_id,'body',m.body,'attachments',m.attachments,'internal',m.internal,'createdAt',m.created_at) ORDER BY m.created_at) FROM support_messages m LEFT JOIN users s ON s.id=m.sender_id WHERE m.ticket_id=t.id),'[]') messages,
     COALESCE((SELECT jsonb_agg(jsonb_build_object('assignedTo',assignee.public_id,'assignedBy',assigner.public_id,'reason',h.reason,'createdAt',h.created_at) ORDER BY h.created_at) FROM support_ticket_assignments h JOIN users assignee ON assignee.id=h.assigned_to LEFT JOIN users assigner ON assigner.id=h.assigned_by WHERE h.ticket_id=t.id),'[]') assignment_history,
@@ -101,9 +96,21 @@ export async function getPostgresOperationsSupportTicketPage({limit=50,cursor=nu
     FROM support_tickets t JOIN users u ON u.id=t.user_id LEFT JOIN jobs j ON j.id=t.job_id LEFT JOIN users a ON a.id=t.assigned_to
     WHERE ($1='' OR t.public_id ILIKE '%'||$1||'%' OR t.subject ILIKE '%'||$1||'%' OR u.email ILIKE '%'||$1||'%')
       AND ($2::timestamptz IS NULL OR (t.updated_at,t.id)<($2::timestamptz,$3::uuid))
-    ORDER BY t.updated_at DESC,t.id DESC LIMIT $4`,[query.trim(),cursor?.updatedAt||null,cursor?.id||null,limit+1]);
-  const hasMore=result.rows.length>limit,rows=result.rows.slice(0,limit),last=rows.at(-1);
-  return{tickets:rows.map(mapTicket),nextCursor:hasMore&&last?Buffer.from(JSON.stringify({updatedAt:last.cursor_updated_at,id:last.id})).toString("base64url"):null};
+    ORDER BY t.updated_at DESC,t.id DESC LIMIT $4`,
+    [query.trim(), cursor?.updatedAt || null, cursor?.id || null, limit + 1],
+  );
+  const hasMore = result.rows.length > limit,
+    rows = result.rows.slice(0, limit),
+    last = rows.at(-1);
+  return {
+    tickets: rows.map(mapTicket),
+    nextCursor:
+      hasMore && last
+        ? Buffer.from(JSON.stringify({ updatedAt: last.cursor_updated_at, id: last.id })).toString(
+            "base64url",
+          )
+        : null,
+  };
 }
 
 export async function createPostgresSupportTicket({
@@ -118,33 +125,54 @@ export async function createPostgresSupportTicket({
   const client = await postgresPool.connect();
   try {
     await client.query("BEGIN");
-    const user = (
-      await client.query("SELECT id FROM users WHERE public_id=$1", [
-        userPublicId,
-      ])
+    const user = (await client.query("SELECT id FROM users WHERE public_id=$1", [userPublicId]))
+      .rows[0];
+    if (!user) throw Object.assign(new Error("Usuario no encontrado"), { status: 404 });
+    const requestHash = crypto
+      .createHash("sha256")
+      .update(JSON.stringify({ userPublicId, category, priority, subject, body, jobPublicId }))
+      .digest("hex");
+    const claim = (
+      await client.query(
+        "INSERT INTO idempotency_keys(key,user_id,request_hash,expires_at) VALUES($1,$2,$3,now()+interval '24 hours') ON CONFLICT DO NOTHING RETURNING key",
+        [idempotencyKey, user.id, requestHash],
+      )
     ).rows[0];
-    if (!user)
-      throw Object.assign(new Error("Usuario no encontrado"), { status: 404 });
-    const requestHash=crypto.createHash("sha256").update(JSON.stringify({userPublicId,category,priority,subject,body,jobPublicId})).digest("hex");
-    const claim=(await client.query("INSERT INTO idempotency_keys(key,user_id,request_hash,expires_at) VALUES($1,$2,$3,now()+interval '24 hours') ON CONFLICT DO NOTHING RETURNING key",[idempotencyKey,user.id,requestHash])).rows[0];
-    if(!claim){const existing=(await client.query("SELECT user_id,request_hash,response_body FROM idempotency_keys WHERE key=$1",[idempotencyKey])).rows[0];if(String(existing?.user_id)!==String(user.id)||existing?.request_hash!==requestHash)throw Object.assign(new Error("Clave de idempotencia reutilizada con otra solicitud"),{status:409});if(existing?.response_body?.ticketId){await client.query("ROLLBACK");return{ticket:(await getPostgresSupportTickets({userPublicId,roles:[]})).find(entry=>entry.id===existing.response_body.ticketId),replayed:true};}throw Object.assign(new Error("Solicitud de soporte en proceso"),{status:409});}
+    if (!claim) {
+      const existing = (
+        await client.query(
+          "SELECT user_id,request_hash,response_body FROM idempotency_keys WHERE key=$1",
+          [idempotencyKey],
+        )
+      ).rows[0];
+      if (String(existing?.user_id) !== String(user.id) || existing?.request_hash !== requestHash)
+        throw Object.assign(new Error("Clave de idempotencia reutilizada con otra solicitud"), {
+          status: 409,
+        });
+      if (existing?.response_body?.ticketId) {
+        await client.query("ROLLBACK");
+        return {
+          ticket: (await getPostgresSupportTickets({ userPublicId, roles: [] })).find(
+            (entry) => entry.id === existing.response_body.ticketId,
+          ),
+          replayed: true,
+        };
+      }
+      throw Object.assign(new Error("Solicitud de soporte en proceso"), { status: 409 });
+    }
     let jobId = null;
     if (jobPublicId) {
       const job = (
-        await client.query(
-          "SELECT id,customer_id FROM jobs WHERE public_id=$1",
-          [jobPublicId],
-        )
+        await client.query("SELECT id,customer_id FROM jobs WHERE public_id=$1", [jobPublicId])
       ).rows[0];
       if (!job)
         throw Object.assign(new Error("Servicio no encontrado"), {
           status: 404,
         });
       if (job.customer_id !== user.id)
-        throw Object.assign(
-          new Error("No puedes abrir soporte sobre otro servicio"),
-          { status: 403 },
-        );
+        throw Object.assign(new Error("No puedes abrir soporte sobre otro servicio"), {
+          status: 403,
+        });
       jobId = job.id;
     }
     const publicId = ticketId();
@@ -155,34 +183,35 @@ export async function createPostgresSupportTicket({
       )
     ).rows[0];
     if (!ticket)
-      throw Object.assign(
-        new Error("No existe una política SLA activa para la prioridad"),
-        { status: 503 },
-      );
+      throw Object.assign(new Error("No existe una política SLA activa para la prioridad"), {
+        status: 503,
+      });
     await assignTicketToBestAgent(client, {
       ticketId: ticket.id,
       category,
       reason: "auto_create",
     });
-    await client.query(
-      "INSERT INTO support_messages(ticket_id,sender_id,body) VALUES($1,$2,$3)",
-      [ticket.id, user.id, body],
-    );
+    await client.query("INSERT INTO support_messages(ticket_id,sender_id,body) VALUES($1,$2,$3)", [
+      ticket.id,
+      user.id,
+      body,
+    ]);
     await client.query(
       `INSERT INTO notifications(public_id,user_id,channel,template,payload,deduplication_key,status)
       VALUES($1,$2,'in_app','support_ticket_created',$3,$4,'sent')`,
-      [
-        notificationId(),
-        user.id,
-        { ticketId: publicId, subject },
-        `support-created-${publicId}`,
-      ],
+      [notificationId(), user.id, { ticketId: publicId, subject }, `support-created-${publicId}`],
     );
-    await client.query("UPDATE idempotency_keys SET response_status=201,response_body=$2 WHERE key=$1",[idempotencyKey,{ticketId:publicId}]);
+    await client.query(
+      "UPDATE idempotency_keys SET response_status=201,response_body=$2 WHERE key=$1",
+      [idempotencyKey, { ticketId: publicId }],
+    );
     await client.query("COMMIT");
-    return {ticket:(await getPostgresSupportTickets({ userPublicId, roles: [] })).find(
-      (entry) => entry.id === publicId,
-    ),replayed:false};
+    return {
+      ticket: (await getPostgresSupportTickets({ userPublicId, roles: [] })).find(
+        (entry) => entry.id === publicId,
+      ),
+      replayed: false,
+    };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -202,32 +231,57 @@ export async function addPostgresSupportMessage({
   const client = await postgresPool.connect();
   try {
     await client.query("BEGIN");
-    const sender = (
-      await client.query("SELECT id FROM users WHERE public_id=$1", [
-        senderPublicId,
-      ])
-    ).rows[0];
-    if(!sender)throw Object.assign(new Error("Usuario no encontrado"),{status:404});
+    const sender = (await client.query("SELECT id FROM users WHERE public_id=$1", [senderPublicId]))
+      .rows[0];
+    if (!sender) throw Object.assign(new Error("Usuario no encontrado"), { status: 404 });
     const ticket = (
       await client.query(
         `SELECT t.id,t.user_id,u.public_id user_public_id FROM support_tickets t JOIN users u ON u.id=t.user_id WHERE t.public_id=$1 FOR UPDATE`,
         [ticketPublicId],
       )
     ).rows[0];
-    if (!ticket)
-      throw Object.assign(new Error("Ticket no encontrado"), { status: 404 });
+    if (!ticket) throw Object.assign(new Error("Ticket no encontrado"), { status: 404 });
     const staff = isStaff(roles);
     if (!staff && ticket.user_public_id !== senderPublicId)
       throw Object.assign(new Error("No puedes responder este ticket"), {
         status: 403,
       });
     if (internal && !staff)
-      throw Object.assign(
-        new Error("Las notas internas requieren rol de soporte"),
-        { status: 403 },
-      );
-    const requestHash=crypto.createHash("sha256").update(JSON.stringify({ticketPublicId,senderPublicId,body,internal})).digest("hex"),claim=(await client.query("INSERT INTO idempotency_keys(key,user_id,request_hash,expires_at) VALUES($1,$2,$3,now()+interval '24 hours') ON CONFLICT DO NOTHING RETURNING key",[idempotencyKey,sender.id,requestHash])).rows[0];
-    if(!claim){const existing=(await client.query("SELECT user_id,request_hash,response_body FROM idempotency_keys WHERE key=$1",[idempotencyKey])).rows[0];if(String(existing?.user_id)!==String(sender.id)||existing?.request_hash!==requestHash)throw Object.assign(new Error("Clave de idempotencia reutilizada con otro mensaje"),{status:409});if(existing?.response_body?.ticketId){await client.query("ROLLBACK");return{ticket:(await getPostgresSupportTickets({userPublicId:senderPublicId,roles})).find(entry=>entry.id===ticketPublicId),replayed:true};}throw Object.assign(new Error("Mensaje de soporte en proceso"),{status:409});}
+      throw Object.assign(new Error("Las notas internas requieren rol de soporte"), {
+        status: 403,
+      });
+    const requestHash = crypto
+        .createHash("sha256")
+        .update(JSON.stringify({ ticketPublicId, senderPublicId, body, internal }))
+        .digest("hex"),
+      claim = (
+        await client.query(
+          "INSERT INTO idempotency_keys(key,user_id,request_hash,expires_at) VALUES($1,$2,$3,now()+interval '24 hours') ON CONFLICT DO NOTHING RETURNING key",
+          [idempotencyKey, sender.id, requestHash],
+        )
+      ).rows[0];
+    if (!claim) {
+      const existing = (
+        await client.query(
+          "SELECT user_id,request_hash,response_body FROM idempotency_keys WHERE key=$1",
+          [idempotencyKey],
+        )
+      ).rows[0];
+      if (String(existing?.user_id) !== String(sender.id) || existing?.request_hash !== requestHash)
+        throw Object.assign(new Error("Clave de idempotencia reutilizada con otro mensaje"), {
+          status: 409,
+        });
+      if (existing?.response_body?.ticketId) {
+        await client.query("ROLLBACK");
+        return {
+          ticket: (await getPostgresSupportTickets({ userPublicId: senderPublicId, roles })).find(
+            (entry) => entry.id === ticketPublicId,
+          ),
+          replayed: true,
+        };
+      }
+      throw Object.assign(new Error("Mensaje de soporte en proceso"), { status: 409 });
+    }
     await client.query(
       "INSERT INTO support_messages(ticket_id,sender_id,body,internal) VALUES($1,$2,$3,$4)",
       [ticket.id, sender?.id || null, body, internal],
@@ -247,11 +301,17 @@ export async function addPostgresSupportMessage({
           `support-reply-${ticketPublicId}-${crypto.randomUUID()}`,
         ],
       );
-    await client.query("UPDATE idempotency_keys SET response_status=200,response_body=$2 WHERE key=$1",[idempotencyKey,{ticketId:ticketPublicId}]);
+    await client.query(
+      "UPDATE idempotency_keys SET response_status=200,response_body=$2 WHERE key=$1",
+      [idempotencyKey, { ticketId: ticketPublicId }],
+    );
     await client.query("COMMIT");
-    return {ticket:(
-      await getPostgresSupportTickets({ userPublicId: senderPublicId, roles })
-    ).find((entry) => entry.id === ticketPublicId),replayed:false};
+    return {
+      ticket: (await getPostgresSupportTickets({ userPublicId: senderPublicId, roles })).find(
+        (entry) => entry.id === ticketPublicId,
+      ),
+      replayed: false,
+    };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -275,19 +335,15 @@ export async function updatePostgresSupportTicket({
   const client = await postgresPool.connect();
   try {
     await client.query("BEGIN");
-    const actor = (
-      await client.query("SELECT id FROM users WHERE public_id=$1", [
-        actorPublicId,
-      ])
-    ).rows[0];
+    const actor = (await client.query("SELECT id FROM users WHERE public_id=$1", [actorPublicId]))
+      .rows[0];
     const current = (
       await client.query(
         "SELECT id,assigned_to FROM support_tickets WHERE public_id=$1 FOR UPDATE",
         [ticketPublicId],
       )
     ).rows[0];
-    if (!current)
-      throw Object.assign(new Error("Ticket no encontrado"), { status: 404 });
+    if (!current) throw Object.assign(new Error("Ticket no encontrado"), { status: 404 });
     let assignedId = current.assigned_to;
     if (assignedTo) {
       const target = (
@@ -297,10 +353,9 @@ export async function updatePostgresSupportTicket({
         )
       ).rows[0];
       if (!target)
-        throw Object.assign(
-          new Error("Agente no disponible o sin perfil de soporte"),
-          { status: 409 },
-        );
+        throw Object.assign(new Error("Agente no disponible o sin perfil de soporte"), {
+          status: 409,
+        });
       assignedId = target.id;
     } else if (!assignedId) assignedId = actor?.id || null;
     await client.query(
@@ -318,9 +373,9 @@ export async function updatePostgresSupportTicket({
       );
     }
     await client.query("COMMIT");
-    return (
-      await getPostgresSupportTickets({ userPublicId: actorPublicId, roles })
-    ).find((entry) => entry.id === ticketPublicId);
+    return (await getPostgresSupportTickets({ userPublicId: actorPublicId, roles })).find(
+      (entry) => entry.id === ticketPublicId,
+    );
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -336,9 +391,7 @@ const mapAgent = (row) => ({
   maxActiveTickets: row.max_active_tickets,
   skills: row.skills,
   activeTickets: Number(row.active_tickets),
-  lastAssignedAt: row.last_assigned_at
-    ? new Date(row.last_assigned_at).toISOString()
-    : null,
+  lastAssignedAt: row.last_assigned_at ? new Date(row.last_assigned_at).toISOString() : null,
   updatedAt: new Date(row.updated_at).toISOString(),
 });
 export async function getSupportAgents() {
@@ -349,20 +402,10 @@ export async function getSupportAgents() {
   ).rows;
   return rows.map(mapAgent);
 }
-export async function updateSupportAgent({
-  userPublicId,
-  availability,
-  maxActiveTickets,
-  skills,
-}) {
+export async function updateSupportAgent({ userPublicId, availability, maxActiveTickets, skills }) {
   const result = await postgresPool.query(
     `UPDATE support_agent_profiles p SET availability=COALESCE($2,p.availability),max_active_tickets=COALESCE($3,p.max_active_tickets),skills=COALESCE($4,p.skills),updated_at=now() FROM users u WHERE p.user_id=u.id AND u.public_id=$1 RETURNING u.public_id,u.name,p.*,(SELECT count(*)::int FROM support_tickets t WHERE t.assigned_to=p.user_id AND t.status NOT IN('resolved','closed')) active_tickets`,
-    [
-      userPublicId,
-      availability || null,
-      maxActiveTickets || null,
-      skills || null,
-    ],
+    [userPublicId, availability || null, maxActiveTickets || null, skills || null],
   );
   if (!result.rows[0])
     throw Object.assign(new Error("Perfil de soporte no encontrado"), {
@@ -389,8 +432,7 @@ export async function processSupportQueue({ limit = 50 } = {}) {
         category: ticket.category,
         reason: "auto_queue",
       });
-      if (agent)
-        assigned.push({ ticketId: ticket.public_id, agentId: agent.public_id });
+      if (agent) assigned.push({ ticketId: ticket.public_id, agentId: agent.public_id });
     }
     const candidates = (
       await client.query(
@@ -500,16 +542,7 @@ export async function recordPostgresAudit({
   await postgresPool.query(
     `INSERT INTO audit_events(actor_id,actor_roles,action,entity_type,entity_id,request_id,before_data,after_data)
     SELECT u.id,$2::user_role[],$3,$4,$5,$6,$7,$8 FROM users u WHERE u.public_id=$1`,
-    [
-      actorPublicId,
-      roles,
-      action,
-      entityType,
-      entityId,
-      requestId || null,
-      beforeData,
-      afterData,
-    ],
+    [actorPublicId, roles, action, entityType, entityId, requestId || null, beforeData, afterData],
   );
 }
 
@@ -529,31 +562,51 @@ export async function getPostgresAuditEvents(limit = 100) {
   }));
 }
 
-export async function getPostgresAuditEventPage({limit=100,cursor=null,query=""}={}){
-  const result=await postgresPool.query(`SELECT ae.id::text,u.public_id actor_id,ae.entity_type,ae.entity_id,ae.action,COALESCE(ae.after_data,'{}') payload,ae.occurred_at,to_char(ae.occurred_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') cursor_occurred_at FROM audit_events ae LEFT JOIN users u ON u.id=ae.actor_id WHERE ($1='' OR ae.action ILIKE '%'||$1||'%' OR ae.entity_type ILIKE '%'||$1||'%' OR ae.entity_id ILIKE '%'||$1||'%' OR u.public_id ILIKE '%'||$1||'%') AND ($2::timestamptz IS NULL OR (ae.occurred_at,ae.id)<($2::timestamptz,$3::bigint)) ORDER BY ae.occurred_at DESC,ae.id DESC LIMIT $4`,[query.trim(),cursor?.occurredAt||null,cursor?.id||null,limit+1]);
-  const hasMore=result.rows.length>limit,rows=result.rows.slice(0,limit),last=rows.at(-1);
-  return{events:rows.map(row=>({id:row.id,actorId:row.actor_id||null,entityType:row.entity_type,entityId:row.entity_id,action:row.action,payload:row.payload,createdAt:new Date(row.occurred_at).toISOString()})),nextCursor:hasMore&&last?Buffer.from(JSON.stringify({occurredAt:last.cursor_occurred_at,id:last.id})).toString("base64url"):null};
+export async function getPostgresAuditEventPage({ limit = 100, cursor = null, query = "" } = {}) {
+  const result = await postgresPool.query(
+    `SELECT ae.id::text,u.public_id actor_id,ae.entity_type,ae.entity_id,ae.action,COALESCE(ae.after_data,'{}') payload,ae.occurred_at,to_char(ae.occurred_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') cursor_occurred_at FROM audit_events ae LEFT JOIN users u ON u.id=ae.actor_id WHERE ($1='' OR ae.action ILIKE '%'||$1||'%' OR ae.entity_type ILIKE '%'||$1||'%' OR ae.entity_id ILIKE '%'||$1||'%' OR u.public_id ILIKE '%'||$1||'%') AND ($2::timestamptz IS NULL OR (ae.occurred_at,ae.id)<($2::timestamptz,$3::bigint)) ORDER BY ae.occurred_at DESC,ae.id DESC LIMIT $4`,
+    [query.trim(), cursor?.occurredAt || null, cursor?.id || null, limit + 1],
+  );
+  const hasMore = result.rows.length > limit,
+    rows = result.rows.slice(0, limit),
+    last = rows.at(-1);
+  return {
+    events: rows.map((row) => ({
+      id: row.id,
+      actorId: row.actor_id || null,
+      entityType: row.entity_type,
+      entityId: row.entity_id,
+      action: row.action,
+      payload: row.payload,
+      createdAt: new Date(row.occurred_at).toISOString(),
+    })),
+    nextCursor:
+      hasMore && last
+        ? Buffer.from(
+            JSON.stringify({ occurredAt: last.cursor_occurred_at, id: last.id }),
+          ).toString("base64url")
+        : null,
+  };
 }
 
 export async function getPostgresAdminFinancials() {
-  const [payments, refunds, revenue, merchantPayable, payouts] =
-    await Promise.all([
-      postgresPool.query(
-        `SELECT COALESCE(sum(amount_cents),0)::bigint gross_processed_cents,COALESCE(sum(captured_amount_cents),0)::bigint net_captured_cents,count(*)::int payment_count FROM payment_intents`,
-      ),
-      postgresPool.query(
-        `SELECT COALESCE(sum(amount_cents) FILTER(WHERE status='succeeded'),0)::bigint refunded_cents,count(*) FILTER(WHERE status='succeeded')::int refund_count FROM refunds`,
-      ),
-      postgresPool.query(
-        `SELECT COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint cents FROM ledger_accounts a LEFT JOIN ledger_entries e ON e.account_id=a.id WHERE a.owner_type='platform' AND a.owner_id IS NULL AND a.account_type='revenue'`,
-      ),
-      postgresPool.query(
-        `SELECT COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint cents FROM ledger_accounts a LEFT JOIN ledger_entries e ON e.account_id=a.id WHERE a.owner_type='merchant' AND a.account_type='payable'`,
-      ),
-      postgresPool.query(
-        `SELECT COALESCE(sum(amount_cents) FILTER(WHERE status IN('pending','processing')),0)::bigint pending_cents,count(*) FILTER(WHERE status IN('pending','processing'))::int pending_count FROM payouts`,
-      ),
-    ]);
+  const [payments, refunds, revenue, merchantPayable, payouts] = await Promise.all([
+    postgresPool.query(
+      `SELECT COALESCE(sum(amount_cents),0)::bigint gross_processed_cents,COALESCE(sum(captured_amount_cents),0)::bigint net_captured_cents,count(*)::int payment_count FROM payment_intents`,
+    ),
+    postgresPool.query(
+      `SELECT COALESCE(sum(amount_cents) FILTER(WHERE status='succeeded'),0)::bigint refunded_cents,count(*) FILTER(WHERE status='succeeded')::int refund_count FROM refunds`,
+    ),
+    postgresPool.query(
+      `SELECT COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint cents FROM ledger_accounts a LEFT JOIN ledger_entries e ON e.account_id=a.id WHERE a.owner_type='platform' AND a.owner_id IS NULL AND a.account_type='revenue'`,
+    ),
+    postgresPool.query(
+      `SELECT COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint cents FROM ledger_accounts a LEFT JOIN ledger_entries e ON e.account_id=a.id WHERE a.owner_type='merchant' AND a.account_type='payable'`,
+    ),
+    postgresPool.query(
+      `SELECT COALESCE(sum(amount_cents) FILTER(WHERE status IN('pending','processing')),0)::bigint pending_cents,count(*) FILTER(WHERE status IN('pending','processing'))::int pending_count FROM payouts`,
+    ),
+  ]);
   const money = (value) => Number(value || 0) / 100;
   return {
     grossProcessed: money(payments.rows[0].gross_processed_cents),

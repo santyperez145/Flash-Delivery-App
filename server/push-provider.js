@@ -47,7 +47,11 @@ export function classifyExpoError(code) {
 
 /** Un error de credenciales o de sender no se reintenta: reintentar no lo arregla. */
 export function isRetryableExpoError(reason) {
-  return reason !== "device_unregistered" && reason !== "invalid_credentials" && reason !== "credential_mismatch";
+  return (
+    reason !== "device_unregistered" &&
+    reason !== "invalid_credentials" &&
+    reason !== "credential_mismatch"
+  );
 }
 
 export function buildExpoMessage({ token, title, body, data = {}, channelId, priority = "high" }) {
@@ -82,10 +86,13 @@ async function expoRequest(operation, url, payload, fetchImpl) {
   } catch (error) {
     const timeout = error?.name === "AbortError" || error?.name === "TimeoutError";
     observeExpo(operation, timeout ? "timeout" : "network_error");
-    throw Object.assign(new Error(timeout ? "Expo no respondió a tiempo" : "Expo no está accesible"), {
-      status: 503,
-      retryable: true,
-    });
+    throw Object.assign(
+      new Error(timeout ? "Expo no respondió a tiempo" : "Expo no está accesible"),
+      {
+        status: 503,
+        retryable: true,
+      },
+    );
   }
 
   const body = await response.json().catch(() => ({}));
@@ -138,7 +145,8 @@ export async function sendExpoPushBatch({ messages }, fetchImpl = fetch) {
   }
 
   return tickets.map((ticket) => {
-    if (ticket?.status === "ok" && ticket.id) return { status: "accepted", ticketId: String(ticket.id) };
+    if (ticket?.status === "ok" && ticket.id)
+      return { status: "accepted", ticketId: String(ticket.id) };
     const code = ticket?.details?.error ?? null;
     const reason = classifyExpoError(code);
     observeExpo("push_send", `ticket_${reason}`);
@@ -151,7 +159,8 @@ export async function sendExpoPushBatch({ messages }, fetchImpl = fetch) {
  * aparece no es un éxito, es un desconocido, y debe alertar.
  */
 export async function fetchExpoPushReceipts({ ticketIds }, fetchImpl = fetch) {
-  if (!Array.isArray(ticketIds) || ticketIds.length === 0) throw new Error("No hay tickets que consultar");
+  if (!Array.isArray(ticketIds) || ticketIds.length === 0)
+    throw new Error("No hay tickets que consultar");
   if (ticketIds.length > EXPO_RECEIPT_LIMIT)
     throw new Error(`Expo acepta hasta ${EXPO_RECEIPT_LIMIT} recibos por consulta`);
 
@@ -182,6 +191,7 @@ export async function fetchExpoPushReceipts({ ticketIds }, fetchImpl = fetch) {
 /** Parte una lista en lotes del tamaño que acepta el proveedor. */
 export function chunk(items, size) {
   const batches = [];
-  for (let index = 0; index < items.length; index += size) batches.push(items.slice(index, index + size));
+  for (let index = 0; index < items.length; index += size)
+    batches.push(items.slice(index, index + size));
   return batches;
 }

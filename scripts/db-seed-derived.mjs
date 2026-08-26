@@ -21,9 +21,24 @@ import { createPool } from "./db-client.mjs";
 
 // Declaraciones sobre el catálogo sembrado. No son datos inventados: se
 // corresponden con la composición real de cada plato.
-const GLUTEN_ITEMS = ["item_burger_brava", "item_pizza_burrata", "item_tiramisu", "item_salmon_furai"];
-const MILK_ITEMS = ["item_burger_brava", "item_pizza_burrata", "item_tiramisu", "item_caesar_veggie"];
-const VEGETARIAN_ITEMS = ["item_papas_trufa", "item_pizza_burrata", "item_caesar_veggie", "item_tiramisu"];
+const GLUTEN_ITEMS = [
+  "item_burger_brava",
+  "item_pizza_burrata",
+  "item_tiramisu",
+  "item_salmon_furai",
+];
+const MILK_ITEMS = [
+  "item_burger_brava",
+  "item_pizza_burrata",
+  "item_tiramisu",
+  "item_caesar_veggie",
+];
+const VEGETARIAN_ITEMS = [
+  "item_papas_trufa",
+  "item_pizza_burrata",
+  "item_caesar_veggie",
+  "item_tiramisu",
+];
 
 const pool = createPool();
 const client = await pool.connect();

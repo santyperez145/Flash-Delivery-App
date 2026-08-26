@@ -28,4 +28,6 @@ assert.match(mobileApi, /transportRetry && SAFE_READ_METHODS\.has\(method\)/);
 assert.match(mobileApp, /Network\.useNetworkState\(\)/);
 assert.match(mobileApp, /MobileNetworkStatus/);
 
-console.log("network resilience smoke passed: safe reads retry once; mutations do not auto-retry; web/mobile expose offline state");
+console.log(
+  "network resilience smoke passed: safe reads retry once; mutations do not auto-retry; web/mobile expose offline state",
+);

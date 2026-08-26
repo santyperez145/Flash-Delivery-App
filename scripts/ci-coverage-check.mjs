@@ -64,9 +64,7 @@ for (const suite of EXCLUDED.keys()) {
 if (uncovered.length) {
   console.error(`${uncovered.length} suite(s) sin puerta CI:\n`);
   for (const suite of uncovered) console.error(`  - ${suite}`);
-  console.error(
-    "\nConectala a un workflow, o agregala a EXCLUDED en este archivo con su motivo.",
-  );
+  console.error("\nConectala a un workflow, o agregala a EXCLUDED en este archivo con su motivo.");
   process.exit(1);
 }
 

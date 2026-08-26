@@ -98,17 +98,42 @@ const money = new Intl.NumberFormat("es-AR", {
   currency: "ARS",
   maximumFractionDigits: 0,
 });
-function compactMinutes(totalMinutes:number){
-  const minutes=Math.max(0,Math.round(totalMinutes));
-  if(minutes<60)return `${minutes} min`;
-  const hours=Math.floor(minutes/60),remainingMinutes=minutes%60;
-  if(hours<24)return remainingMinutes?`${hours} h ${remainingMinutes} min`:`${hours} h`;
-  const days=Math.floor(hours/24),remainingHours=hours%24;
-  return remainingHours?`${days} d ${remainingHours} h`:`${days} d`;
+function compactMinutes(totalMinutes: number) {
+  const minutes = Math.max(0, Math.round(totalMinutes));
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60),
+    remainingMinutes = minutes % 60;
+  if (hours < 24) return remainingMinutes ? `${hours} h ${remainingMinutes} min` : `${hours} h`;
+  const days = Math.floor(hours / 24),
+    remainingHours = hours % 24;
+  return remainingHours ? `${days} d ${remainingHours} h` : `${days} d`;
 }
-const dietOptions=[{code:"vegetarian",name:"Vegetariano"},{code:"vegan",name:"Vegano"},{code:"gluten_free",name:"Sin gluten"},{code:"halal",name:"Halal"},{code:"kosher",name:"Kosher"}];
-const allergenOptions=[{code:"gluten",name:"Gluten"},{code:"milk",name:"Leche"},{code:"eggs",name:"Huevo"},{code:"peanuts",name:"Maní"},{code:"tree_nuts",name:"Frutos secos"},{code:"soy",name:"Soja"},{code:"fish",name:"Pescado"},{code:"shellfish",name:"Crustáceos"},{code:"sesame",name:"Sésamo"}];
-const itemMatchesDietary=(item:MenuItem,preferences:DietaryPreferences)=>{const diets=new Set((item.dietaryLabels||[]).map(entry=>entry.code)),allergens=new Set((item.allergens||[]).map(entry=>entry.code));return preferences.dietaryLabels.every(entry=>diets.has(entry.code))&&!preferences.avoidedAllergens.some(entry=>allergens.has(entry.code));};
+const dietOptions = [
+  { code: "vegetarian", name: "Vegetariano" },
+  { code: "vegan", name: "Vegano" },
+  { code: "gluten_free", name: "Sin gluten" },
+  { code: "halal", name: "Halal" },
+  { code: "kosher", name: "Kosher" },
+];
+const allergenOptions = [
+  { code: "gluten", name: "Gluten" },
+  { code: "milk", name: "Leche" },
+  { code: "eggs", name: "Huevo" },
+  { code: "peanuts", name: "Maní" },
+  { code: "tree_nuts", name: "Frutos secos" },
+  { code: "soy", name: "Soja" },
+  { code: "fish", name: "Pescado" },
+  { code: "shellfish", name: "Crustáceos" },
+  { code: "sesame", name: "Sésamo" },
+];
+const itemMatchesDietary = (item: MenuItem, preferences: DietaryPreferences) => {
+  const diets = new Set((item.dietaryLabels || []).map((entry) => entry.code)),
+    allergens = new Set((item.allergens || []).map((entry) => entry.code));
+  return (
+    preferences.dietaryLabels.every((entry) => diets.has(entry.code)) &&
+    !preferences.avoidedAllergens.some((entry) => allergens.has(entry.code))
+  );
+};
 
 type FoodCheckoutSelection = {
   deliveryAddressId: string;
@@ -203,18 +228,14 @@ type ShipmentCreatePayload = {
 
 function App() {
   const [state, setState] = useState<AppState | null>(null);
-  const [adminDashboard, setAdminDashboard] = useState<AdminDashboard | null>(
-    null,
-  );
+  const [adminDashboard, setAdminDashboard] = useState<AdminDashboard | null>(null);
   const [mode, setMode] = useState<Mode>("customer");
   const [sessionUserId, setSessionUserId] = useState("usr_customer");
   const [service, setService] = useState<Service>("food");
   const [tab, setTab] = useState<CustomerTab>("home");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("Todo");
-  const [selectedRestaurantId, setSelectedRestaurantId] = useState<
-    string | null
-  >(null);
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState<string | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [promotionCode, setPromotionCode] = useState("");
@@ -226,7 +247,7 @@ function App() {
   const [draftExtras, setDraftExtras] = useState<string[]>([]);
   const [draftNote, setDraftNote] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
-  const [dietaryPreferences,setDietaryPreferences]=useState<DietaryPreferences|null>(null);
+  const [dietaryPreferences, setDietaryPreferences] = useState<DietaryPreferences | null>(null);
   const [rideForm, setRideForm] = useState<RideForm>({
     pickup: "",
     destination: "",
@@ -234,12 +255,12 @@ function App() {
     pickupCoords: null,
     destinationCoords: null,
   });
-  const rideSeededUserId=useRef("");
+  const rideSeededUserId = useRef("");
   const initialBootstrapStarted = useRef(false);
   const [quote, setQuote] = useState<RideQuote | null>(null);
-  const [locationStatus, setLocationStatus] = useState<
-    "idle" | "locating" | "ready" | "denied"
-  >("idle");
+  const [locationStatus, setLocationStatus] = useState<"idle" | "locating" | "ready" | "denied">(
+    "idle",
+  );
   const [locationMessage, setLocationMessage] = useState("");
   const [newDish, setNewDish] = useState({
     name: "Menu ejecutivo",
@@ -260,13 +281,9 @@ function App() {
     typeof navigator === "undefined" ? true : navigator.onLine,
   );
   const [isDesktop, setIsDesktop] = useState(() =>
-    typeof window === "undefined"
-      ? false
-      : window.matchMedia("(min-width: 620px)").matches,
+    typeof window === "undefined" ? false : window.matchMedia("(min-width: 620px)").matches,
   );
-  const [desktopPortal, setDesktopPortal] = useState<"admin" | "merchant">(
-    "admin",
-  );
+  const [desktopPortal, setDesktopPortal] = useState<"admin" | "merchant">("admin");
 
   useEffect(() => configureAnalytics((events) => api.sendAnalyticsEvents(events)), []);
 
@@ -295,27 +312,24 @@ function App() {
     rideForm.destinationCoords?.lng,
   ]);
 
-  const refresh = useCallback(async (knownUserId = sessionUserId) => {
-    const response = await api.state();
-    setState(response.state);
-    const refreshedUser = response.state.users.find(
-      (user) => user.id === knownUserId,
-    );
-    if (
-      isDesktop &&
-      desktopPortal === "admin" &&
-      refreshedUser?.roles.includes("admin")
-    ) {
-      try {
-        const dashboardResponse = await api.adminDashboard();
-        setAdminDashboard(dashboardResponse.dashboard);
-      } catch (_requestError) {
+  const refresh = useCallback(
+    async (knownUserId = sessionUserId) => {
+      const response = await api.state();
+      setState(response.state);
+      const refreshedUser = response.state.users.find((user) => user.id === knownUserId);
+      if (isDesktop && desktopPortal === "admin" && refreshedUser?.roles.includes("admin")) {
+        try {
+          const dashboardResponse = await api.adminDashboard();
+          setAdminDashboard(dashboardResponse.dashboard);
+        } catch (_requestError) {
+          setAdminDashboard(null);
+        }
+      } else {
         setAdminDashboard(null);
       }
-    } else {
-      setAdminDashboard(null);
-    }
-  }, [desktopPortal, isDesktop, sessionUserId]);
+    },
+    [desktopPortal, isDesktop, sessionUserId],
+  );
 
   const bootstrapSession = useCallback(async () => {
     const user = await api.restoreSession();
@@ -335,8 +349,9 @@ function App() {
     else setMode("customer");
     await refresh(user.id);
     if (user.roles.includes("customer")) {
-      const [saved,dietary]=await Promise.all([api.cart(),api.getDietaryPreferences()]);
-      setCart(saved.cart);setDietaryPreferences(dietary.preferences);
+      const [saved, dietary] = await Promise.all([api.cart(), api.getDietaryPreferences()]);
+      setCart(saved.cart);
+      setDietaryPreferences(dietary.preferences);
     }
   }, [refresh]);
 
@@ -361,11 +376,7 @@ function App() {
       setLoading(true);
       await bootstrapSession();
     } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "No se pudo iniciar sesión",
-      );
+      setError(requestError instanceof Error ? requestError.message : "No se pudo iniciar sesión");
     } finally {
       setLoading(false);
       setBusy(false);
@@ -380,11 +391,7 @@ function App() {
       setLoading(true);
       await bootstrapSession();
     } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "No se pudo verificar MFA",
-      );
+      setError(requestError instanceof Error ? requestError.message : "No se pudo verificar MFA");
     } finally {
       setLoading(false);
       setBusy(false);
@@ -395,8 +402,14 @@ function App() {
     setSessionUserId("");
     setState(null);
     setDietaryPreferences(null);
-    rideSeededUserId.current="";
-    setRideForm({pickup:"",destination:"",service:"economy",pickupCoords:null,destinationCoords:null});
+    rideSeededUserId.current = "";
+    setRideForm({
+      pickup: "",
+      destination: "",
+      service: "economy",
+      pickupCoords: null,
+      destinationCoords: null,
+    });
     setQuote(null);
     setAdminDashboard(null);
     setAuthRequired(true);
@@ -456,11 +469,7 @@ function App() {
         setToast(success);
         window.setTimeout(() => setToast(null), 2600);
       } catch (requestError) {
-        setToast(
-          requestError instanceof Error
-            ? requestError.message
-            : "No se pudo completar",
-        );
+        setToast(requestError instanceof Error ? requestError.message : "No se pudo completar");
       } finally {
         setBusy(false);
       }
@@ -473,14 +482,25 @@ function App() {
     return state.users.find((user) => user.id === sessionUserId) || null;
   }, [sessionUserId, state]);
 
-  useEffect(()=>{
-    if(!activeUser||!state)return;
-    if(rideSeededUserId.current===activeUser.id)return;
-    rideSeededUserId.current=activeUser.id;
-    const saved=state.addresses.find(entry=>entry.userId===activeUser.id&&entry.isDefault&&!entry.id.startsWith("profile-")&&entry.lat!==null&&entry.lng!==null);
-    if(!saved)return;
-    setRideForm(current=>current.pickup.trim()||current.pickupCoords?current:{...current,pickup:saved.address,pickupCoords:{lat:saved.lat!,lng:saved.lng!}});
-  },[activeUser,state]);
+  useEffect(() => {
+    if (!activeUser || !state) return;
+    if (rideSeededUserId.current === activeUser.id) return;
+    rideSeededUserId.current = activeUser.id;
+    const saved = state.addresses.find(
+      (entry) =>
+        entry.userId === activeUser.id &&
+        entry.isDefault &&
+        !entry.id.startsWith("profile-") &&
+        entry.lat !== null &&
+        entry.lng !== null,
+    );
+    if (!saved) return;
+    setRideForm((current) =>
+      current.pickup.trim() || current.pickupCoords
+        ? current
+        : { ...current, pickup: saved.address, pickupCoords: { lat: saved.lat!, lng: saved.lng! } },
+    );
+  }, [activeUser, state]);
 
   const lastHomeAnalyticsKey = useRef("");
   const lastActivityAnalyticsKey = useRef("");
@@ -513,7 +533,8 @@ function App() {
   }, [query, service]);
 
   useEffect(() => {
-    if (selectedRestaurantId) track("merchant_viewed", "web", { merchant_id: selectedRestaurantId });
+    if (selectedRestaurantId)
+      track("merchant_viewed", "web", { merchant_id: selectedRestaurantId });
   }, [selectedRestaurantId]);
 
   useEffect(() => {
@@ -534,11 +555,7 @@ function App() {
 
   const selectedRestaurant = useMemo(() => {
     if (!state || !selectedRestaurantId) return null;
-    return (
-      state.restaurants.find(
-        (restaurant) => restaurant.id === selectedRestaurantId,
-      ) || null
-    );
+    return state.restaurants.find((restaurant) => restaurant.id === selectedRestaurantId) || null;
   }, [selectedRestaurantId, state]);
 
   const categories = useMemo(() => {
@@ -555,16 +572,15 @@ function App() {
     const search = query.trim().toLowerCase();
     return state.restaurants.filter((restaurant) => {
       const categoryMatch =
-        category === "Todo" ||
-        restaurant.menu.some((item) => item.category === category);
+        category === "Todo" || restaurant.menu.some((item) => item.category === category);
       const queryMatch =
         !search ||
         restaurant.name.toLowerCase().includes(search) ||
         restaurant.cuisine.toLowerCase().includes(search) ||
-        restaurant.menu.some((item) =>
-          item.name.toLowerCase().includes(search),
-        );
-      const dietaryMatch=!dietaryPreferences?.hideIncompatible||restaurant.menu.some(item=>item.stock&&itemMatchesDietary(item,dietaryPreferences));
+        restaurant.menu.some((item) => item.name.toLowerCase().includes(search));
+      const dietaryMatch =
+        !dietaryPreferences?.hideIncompatible ||
+        restaurant.menu.some((item) => item.stock && itemMatchesDietary(item, dietaryPreferences));
       return categoryMatch && queryMatch && dietaryMatch;
     });
   }, [category, dietaryPreferences, query, state]);
@@ -572,27 +588,26 @@ function App() {
   const allItems = useMemo(() => {
     if (!state) return [];
     return state.restaurants.flatMap((restaurant) =>
-      restaurant.menu.filter(item=>!dietaryPreferences?.hideIncompatible||itemMatchesDietary(item,dietaryPreferences)).map((item) => ({
-        restaurant,
-        item,
-      })),
+      restaurant.menu
+        .filter(
+          (item) =>
+            !dietaryPreferences?.hideIncompatible || itemMatchesDietary(item, dietaryPreferences),
+        )
+        .map((item) => ({
+          restaurant,
+          item,
+        })),
     );
   }, [dietaryPreferences, state]);
 
   const cartRestaurant = useMemo(() => {
     if (!state || !cart.length) return null;
-    return (
-      state.restaurants.find(
-        (restaurant) => restaurant.id === cart[0].restaurantId,
-      ) || null
-    );
+    return state.restaurants.find((restaurant) => restaurant.id === cart[0].restaurantId) || null;
   }, [cart, state]);
 
   const cartTotals = useMemo(() => {
     const subtotal = cart.reduce((sum, line) => {
-      const restaurant = state?.restaurants.find(
-        (entry) => entry.id === line.restaurantId,
-      );
+      const restaurant = state?.restaurants.find((entry) => entry.id === line.restaurantId);
       const extrasTotal = line.extras.reduce((extraSum, extraId) => {
         const extra = restaurant?.extras.find((entry) => entry.id === extraId);
         return extraSum + (extra?.price || 0);
@@ -611,13 +626,11 @@ function App() {
     if (promotion && subtotal >= (promotion.minSubtotal || 0)) {
       if (promotion.kind === "percentage" || promotion.discountPercent)
         discount = Math.round(
-          (subtotal * (promotion.discountPercent || promotion.value || 0)) /
-            100,
+          (subtotal * (promotion.discountPercent || promotion.value || 0)) / 100,
         );
       else if (promotion.kind === "free_delivery") discount = deliveryFee;
       else if (promotion.kind === "fixed") discount = promotion.value || 0;
-      if (promotion.maxDiscount)
-        discount = Math.min(discount, promotion.maxDiscount);
+      if (promotion.maxDiscount) discount = Math.min(discount, promotion.maxDiscount);
     }
     return {
       subtotal,
@@ -628,12 +641,9 @@ function App() {
     };
   }, [cart, cartRestaurant, state, promotionCode]);
 
-  const driver =
-    state?.drivers.find((entry) => entry.userId === sessionUserId) || null;
+  const driver = state?.drivers.find((entry) => entry.userId === sessionUserId) || null;
   const merchantRestaurant =
-    state?.restaurants.find(
-      (restaurant) => restaurant.ownerId === sessionUserId,
-    ) || null;
+    state?.restaurants.find((restaurant) => restaurant.ownerId === sessionUserId) || null;
 
   const switchMode = (nextMode: Mode) => {
     const requiredRole = nextMode === "ops" ? "admin" : nextMode;
@@ -651,9 +661,7 @@ function App() {
     setItemDraft({ restaurant, item });
     setItemQuantity(1);
     setDraftExtras(
-      restaurant.extras
-        .slice(0, item.category === "Burger" ? 1 : 0)
-        .map((extra) => extra.id),
+      restaurant.extras.slice(0, item.category === "Burger" ? 1 : 0).map((extra) => extra.id),
     );
     setDraftNote("");
   };
@@ -668,22 +676,17 @@ function App() {
       note: draftNote,
     };
     const nextCart = (() => {
-      const sameRestaurant = cart.every(
-        (line) => line.restaurantId === itemDraft.restaurant.id,
-      );
+      const sameRestaurant = cart.every((line) => line.restaurantId === itemDraft.restaurant.id);
       const base = sameRestaurant ? cart : [];
       const index = base.findIndex(
         (line) =>
           line.item.id === nextLine.item.id &&
           line.note === nextLine.note &&
-          line.extras.slice().sort().join(",") ===
-            nextLine.extras.slice().sort().join(","),
+          line.extras.slice().sort().join(",") === nextLine.extras.slice().sort().join(","),
       );
       if (index < 0) return [...base, nextLine];
       return base.map((line, lineIndex) =>
-        lineIndex === index
-          ? { ...line, quantity: line.quantity + nextLine.quantity }
-          : line,
+        lineIndex === index ? { ...line, quantity: line.quantity + nextLine.quantity } : line,
       );
     })();
     setCart(nextCart);
@@ -694,10 +697,14 @@ function App() {
     setToast("Producto agregado al carrito");
   };
 
-  const createOrder = async (checkout:FoodCheckoutSelection,providerPayment?:{cardToken:string;paymentMethodId:string;installments:number}) => {
+  const createOrder = async (
+    checkout: FoodCheckoutSelection,
+    providerPayment?: { cardToken: string; paymentMethodId: string; installments: number },
+  ) => {
     if (!activeUser || !cartRestaurant || !cart.length) return;
-    setBusy(true);setError(null);
-    try{
+    setBusy(true);
+    setError(null);
+    try {
       await api.createOrder({
         customerId: activeUser.id,
         restaurantId: cartRestaurant.id,
@@ -721,9 +728,18 @@ function App() {
       setCheckoutOpen(false);
       setCartOpen(false);
       setTab("activity");
-      await refresh();setToast("Pedido creado y enviado al comercio");window.setTimeout(()=>setToast(null),2600);
+      await refresh();
+      setToast("Pedido creado y enviado al comercio");
+      window.setTimeout(() => setToast(null), 2600);
       track("job_created", "web", { service: "food" });
-    }catch(requestError){const message=requestError instanceof Error?requestError.message:"No se pudo crear el pedido";setToast(message);throw requestError;}finally{setBusy(false);}
+    } catch (requestError) {
+      const message =
+        requestError instanceof Error ? requestError.message : "No se pudo crear el pedido";
+      setToast(message);
+      throw requestError;
+    } finally {
+      setBusy(false);
+    }
   };
 
   const quoteRide = () =>
@@ -750,15 +766,11 @@ function App() {
           pickupCoords: point,
         }));
         setLocationStatus("ready");
-        setLocationMessage(
-          `GPS listo: ${point.lat.toFixed(4)}, ${point.lng.toFixed(4)}`,
-        );
+        setLocationMessage(`GPS listo: ${point.lat.toFixed(4)}, ${point.lng.toFixed(4)}`);
       },
       () => {
         setLocationStatus("denied");
-        setLocationMessage(
-          "No pudimos acceder al GPS. Puedes escribir el origen.",
-        );
+        setLocationMessage("No pudimos acceder al GPS. Puedes escribir el origen.");
       },
       { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 },
     );
@@ -767,8 +779,7 @@ function App() {
   const requestRide = () => {
     if (!activeUser) return;
     runAction(async () => {
-      if (!quote?.quoteToken)
-        throw new Error("Cotizá nuevamente antes de pedir el viaje");
+      if (!quote?.quoteToken) throw new Error("Cotizá nuevamente antes de pedir el viaje");
       await api.createRide({
         customerId: activeUser.id,
         pickup: rideForm.pickup,
@@ -801,9 +812,7 @@ function App() {
       window.setTimeout(() => setToast(null), 2600);
     } catch (requestError) {
       const message =
-        requestError instanceof Error
-          ? requestError.message
-          : "No se pudo crear el envío";
+        requestError instanceof Error ? requestError.message : "No se pudo crear el envío";
       setToast(message);
       throw requestError;
     } finally {
@@ -814,11 +823,8 @@ function App() {
   const topUpWallet = (amount: number) =>
     runAction(() => api.topUpWallet(amount), "Saldo cargado en wallet sandbox");
 
-  const updateProfile = (payload: {
-    name: string;
-    phone: string;
-    defaultAddress: string;
-  }) => runAction(() => api.updateProfile(payload), "Perfil actualizado");
+  const updateProfile = (payload: { name: string; phone: string; defaultAddress: string }) =>
+    runAction(() => api.updateProfile(payload), "Perfil actualizado");
 
   const runAddressAction = async (
     action: () => Promise<void>,
@@ -833,11 +839,7 @@ function App() {
       window.setTimeout(() => setToast(null), 2600);
       return true;
     } catch (requestError) {
-      setToast(
-        requestError instanceof Error
-          ? requestError.message
-          : "No se pudo completar",
-      );
+      setToast(requestError instanceof Error ? requestError.message : "No se pudo completar");
       return false;
     } finally {
       setBusy(false);
@@ -939,9 +941,7 @@ function App() {
       />
     );
     const canAdmin = Boolean(activeUser?.roles.includes("admin"));
-    const canMerchant = Boolean(
-      activeUser?.roles.includes("merchant") && merchantRestaurant,
-    );
+    const canMerchant = Boolean(activeUser?.roles.includes("merchant") && merchantRestaurant);
     if (!canAdmin && !canMerchant)
       return (
         <>
@@ -989,12 +989,7 @@ function App() {
   return (
     <main className="app">
       <section className="workspace">
-        <BrandPanel
-          state={state}
-          mode={mode}
-          onModeChange={switchMode}
-          user={activeUser}
-        />
+        <BrandPanel state={state} mode={mode} onModeChange={switchMode} user={activeUser} />
         <section className="phone-stage" aria-label="Aplicacion">
           <div className="phone">
             <PhoneStatus online={isOnline} />
@@ -1076,9 +1071,7 @@ function App() {
                   runAction={runAction}
                 />
               )}
-              {mode === "ops" && (
-                <OpsApp state={state} busy={busy} runAction={runAction} />
-              )}
+              {mode === "ops" && <OpsApp state={state} busy={busy} runAction={runAction} />}
             </div>
             {itemDraft && (
               <ItemSheet
@@ -1111,13 +1104,7 @@ function App() {
   );
 }
 
-function DesktopAccessGate({
-  user,
-  onLogout,
-}: {
-  user: User | null;
-  onLogout: () => void;
-}) {
+function DesktopAccessGate({ user, onLogout }: { user: User | null; onLogout: () => void }) {
   return (
     <main className="desktop-access-gate">
       <section>
@@ -1127,9 +1114,8 @@ function DesktopAccessGate({
         <small>Flash · acceso por rol</small>
         <h1>Esta cuenta usa la app móvil</h1>
         <p>
-          {user?.name || "Tu cuenta"}, el portal web está reservado para
-          operaciones y negocios. Abre Flash en mobile para pedir comida, viajes
-          y envíos.
+          {user?.name || "Tu cuenta"}, el portal web está reservado para operaciones y negocios.
+          Abre Flash en mobile para pedir comida, viajes y envíos.
         </p>
         <div>
           <b>{user?.roles.join(" · ") || "sin rol operativo"}</b>
@@ -1184,9 +1170,7 @@ function BranchScheduleEditor({
       },
   );
   const [hours, setHours] = useState(defaultHours),
-    [timezone, setTimezone] = useState(
-      branch.timezone || "America/Argentina/Buenos_Aires",
-    ),
+    [timezone, setTimezone] = useState(branch.timezone || "America/Argentina/Buenos_Aires"),
     [exceptionDate, setExceptionDate] = useState(""),
     [exceptionOpen, setExceptionOpen] = useState(false),
     [exceptionReason, setExceptionReason] = useState("");
@@ -1212,9 +1196,7 @@ function BranchScheduleEditor({
     value: string | boolean,
   ) =>
     setHours((current) =>
-      current.map((hour) =>
-        hour.weekday === weekday ? { ...hour, [field]: value } : hour,
-      ),
+      current.map((hour) => (hour.weekday === weekday ? { ...hour, [field]: value } : hour)),
     );
   return (
     <div className="branch-schedule">
@@ -1244,17 +1226,12 @@ function BranchScheduleEditor({
       </div>
       <div className="branch-hours-grid">
         {hours.map((hour) => (
-          <div
-            className={`branch-hour-row ${hour.enabled ? "" : "disabled"}`}
-            key={hour.weekday}
-          >
+          <div className={`branch-hour-row ${hour.enabled ? "" : "disabled"}`} key={hour.weekday}>
             <label>
               <input
                 type="checkbox"
                 checked={hour.enabled}
-                onChange={(event) =>
-                  change(hour.weekday, "enabled", event.target.checked)
-                }
+                onChange={(event) => change(hour.weekday, "enabled", event.target.checked)}
               />
               <b>{dayNames[hour.weekday]}</b>
             </label>
@@ -1262,18 +1239,14 @@ function BranchScheduleEditor({
               type="time"
               disabled={!hour.enabled}
               value={hour.opensAt}
-              onChange={(event) =>
-                change(hour.weekday, "opensAt", event.target.value)
-              }
+              onChange={(event) => change(hour.weekday, "opensAt", event.target.value)}
             />
             <span>—</span>
             <input
               type="time"
               disabled={!hour.enabled}
               value={hour.closesAt}
-              onChange={(event) =>
-                change(hour.weekday, "closesAt", event.target.value)
-              }
+              onChange={(event) => change(hour.weekday, "closesAt", event.target.value)}
             />
           </div>
         ))}
@@ -1307,14 +1280,10 @@ function BranchScheduleEditor({
                 api.upsertBranchScheduleException(restaurantId, branch.id, {
                   date: exceptionDate,
                   isOpen: exceptionOpen,
-                  ...(exceptionOpen
-                    ? { opensAt: "09:00", closesAt: "23:00" }
-                    : {}),
+                  ...(exceptionOpen ? { opensAt: "09:00", closesAt: "23:00" } : {}),
                   reason: exceptionReason,
                 }),
-              exceptionOpen
-                ? "Apertura excepcional guardada"
-                : "Cierre excepcional guardado",
+              exceptionOpen ? "Apertura excepcional guardada" : "Cierre excepcional guardado",
             )
           }
         >
@@ -1326,9 +1295,7 @@ function BranchScheduleEditor({
           {branch.scheduleExceptions.map((exception) => (
             <span key={exception.date}>
               <b>{exception.date}</b> ·{" "}
-              {exception.isOpen
-                ? `${exception.opensAt}–${exception.closesAt}`
-                : "cerrada"}
+              {exception.isOpen ? `${exception.opensAt}–${exception.closesAt}` : "cerrada"}
               {exception.reason ? ` · ${exception.reason}` : ""}
             </span>
           ))}
@@ -1351,15 +1318,10 @@ function ModifierCatalogEditor({
 }) {
   type Groups = NonNullable<MenuItem["modifierGroups"]>;
   const [groups, setGroups] = useState<Groups>(item.modifierGroups || []);
-  useEffect(
-    () => setGroups(item.modifierGroups || []),
-    [item.id, item.modifierGroups],
-  );
+  useEffect(() => setGroups(item.modifierGroups || []), [item.id, item.modifierGroups]);
   const updateGroup = (index: number, patch: Partial<Groups[number]>) =>
     setGroups((current) =>
-      current.map((group, position) =>
-        position === index ? { ...group, ...patch } : group,
-      ),
+      current.map((group, position) => (position === index ? { ...group, ...patch } : group)),
     );
   const addGroup = () => {
     const stamp = Date.now().toString(36);
@@ -1417,9 +1379,7 @@ function ModifierCatalogEditor({
               <input
                 aria-label="Nombre del grupo"
                 value={group.name}
-                onChange={(event) =>
-                  updateGroup(groupIndex, { name: event.target.value })
-                }
+                onChange={(event) => updateGroup(groupIndex, { name: event.target.value })}
               />
               <label>
                 Mín.{" "}
@@ -1443,18 +1403,14 @@ function ModifierCatalogEditor({
                   min="1"
                   max={Math.max(1, group.modifiers.length)}
                   value={group.max}
-                  onChange={(event) =>
-                    updateGroup(groupIndex, { max: Number(event.target.value) })
-                  }
+                  onChange={(event) => updateGroup(groupIndex, { max: Number(event.target.value) })}
                 />
               </label>
               <button
                 className="icon-button"
                 title="Eliminar grupo"
                 onClick={() =>
-                  setGroups((current) =>
-                    current.filter((_, index) => index !== groupIndex),
-                  )
+                  setGroups((current) => current.filter((_, index) => index !== groupIndex))
                 }
               >
                 <X size={15} />
@@ -1469,9 +1425,7 @@ function ModifierCatalogEditor({
                     onChange={(event) =>
                       updateGroup(groupIndex, {
                         modifiers: group.modifiers.map((entry, index) =>
-                          index === modifierIndex
-                            ? { ...entry, name: event.target.value }
-                            : entry,
+                          index === modifierIndex ? { ...entry, name: event.target.value } : entry,
                         ),
                       })
                     }
@@ -1517,9 +1471,7 @@ function ModifierCatalogEditor({
                     disabled={group.modifiers.length <= group.max}
                     onClick={() =>
                       updateGroup(groupIndex, {
-                        modifiers: group.modifiers.filter(
-                          (_, index) => index !== modifierIndex,
-                        ),
+                        modifiers: group.modifiers.filter((_, index) => index !== modifierIndex),
                       })
                     }
                   >
@@ -1528,10 +1480,7 @@ function ModifierCatalogEditor({
                 </div>
               ))}
             </div>
-            <button
-              className="text-button"
-              onClick={() => addModifier(groupIndex)}
-            >
+            <button className="text-button" onClick={() => addModifier(groupIndex)}>
               <Plus size={14} /> Agregar opción
             </button>
           </section>
@@ -1596,22 +1545,14 @@ function DietaryCatalogEditor({
       { code: "shellfish", name: "Crustáceos" },
       { code: "sesame", name: "Sésamo" },
     ];
-  const [diets, setDiets] = useState(
-      () => item.dietaryLabels?.map((entry) => entry.code) || [],
-    ),
-    [allergens, setAllergens] = useState<
-      Record<string, "contains" | "may_contain">
-    >(() =>
-      Object.fromEntries(
-        (item.allergens || []).map((entry) => [entry.code, entry.presence]),
-      ),
+  const [diets, setDiets] = useState(() => item.dietaryLabels?.map((entry) => entry.code) || []),
+    [allergens, setAllergens] = useState<Record<string, "contains" | "may_contain">>(() =>
+      Object.fromEntries((item.allergens || []).map((entry) => [entry.code, entry.presence])),
     );
   useEffect(() => {
     setDiets(item.dietaryLabels?.map((entry) => entry.code) || []);
     setAllergens(
-      Object.fromEntries(
-        (item.allergens || []).map((entry) => [entry.code, entry.presence]),
-      ),
+      Object.fromEntries((item.allergens || []).map((entry) => [entry.code, entry.presence])),
     );
   }, [item.id, item.dietaryLabels, item.allergens]);
   return (
@@ -1619,9 +1560,7 @@ function DietaryCatalogEditor({
       <summary>
         <ShieldCheck size={16} />
         <span>Dietas y alérgenos</span>
-        <small>
-          {diets.length + Object.keys(allergens).length} declaraciones
-        </small>
+        <small>{diets.length + Object.keys(allergens).length} declaraciones</small>
       </summary>
       <div className="modifier-editor-body">
         <strong className="dietary-subtitle">Apto para</strong>
@@ -1654,9 +1593,7 @@ function DietaryCatalogEditor({
                   setAllergens((current) => {
                     const next = { ...current };
                     if (event.target.value === "none") delete next[option.code];
-                    else
-                      next[option.code] = event.target.value as
-                        "contains" | "may_contain";
+                    else next[option.code] = event.target.value as "contains" | "may_contain";
                     return next;
                   })
                 }
@@ -1678,9 +1615,10 @@ function DietaryCatalogEditor({
                 () =>
                   api.replaceItemDietary(restaurantId, item.id, {
                     dietaryLabels: diets,
-                    allergens: Object.entries(allergens).map(
-                      ([code, presence]) => ({ code, presence }),
-                    ),
+                    allergens: Object.entries(allergens).map(([code, presence]) => ({
+                      code,
+                      presence,
+                    })),
                   }),
                 "Información alimentaria guardada",
               )
@@ -1694,26 +1632,338 @@ function DietaryCatalogEditor({
   );
 }
 
-function MerchantOrderDetailDialog({order,restaurant,busy,onClose,onChanged}:{order:Order;restaurant:Restaurant;busy:boolean;onClose:()=>void;onChanged:()=>Promise<void>}){
-  const[substitutions,setSubstitutions]=useState<OrderSubstitution[]>([]),[selectedItemId,setSelectedItemId]=useState(""),[replacementId,setReplacementId]=useState(""),[reason,setReason]=useState(""),[loading,setLoading]=useState(true),[actionBusy,setActionBusy]=useState(false),[error,setError]=useState("");
-  const load=useCallback(async()=>{setLoading(true);try{const result=await api.getOrderSubstitutions(order.id);setSubstitutions(result.substitutions);setError("");}catch(loadError){setError(loadError instanceof Error?loadError.message:"No se pudieron cargar los cambios");}finally{setLoading(false);}},[order.id]);
-  useEffect(()=>{void load();},[load]);
-  const branch=restaurant.branches?.find(entry=>entry.id===order.branchId)||null,selectedOrderItem=order.items.find(item=>item.menuItemId===selectedItemId)||null,selectedCatalogItem=restaurant.menu.find(item=>item.id===selectedItemId)||null,inventoryFor=(itemId:string)=>branch?.inventory[itemId];
-  const originalPrice=selectedOrderItem?.unitPrice??selectedCatalogItem?.price??0;
-  const candidates=restaurant.menu.filter(item=>{const inventory=inventoryFor(item.id);return item.id!==selectedItemId&&item.stock&&(inventory?.available??true)&&(inventory?.stockQuantity==null||inventory.stockQuantity>=(selectedOrderItem?.quantity||1))&&item.price<=originalPrice;}).sort((left,right)=>Number(Boolean(selectedCatalogItem?.category)&&right.category===selectedCatalogItem?.category)-Number(Boolean(selectedCatalogItem?.category)&&left.category===selectedCatalogItem?.category)||left.price-right.price);
-  const canManage=["accepted","preparing"].includes(order.status),selectedPending=substitutions.some(entry=>entry.status==="pending"&&entry.original.id===selectedItemId);
-  const submit=async()=>{if(!order.branchId||!selectedOrderItem?.menuItemId||!replacementId||reason.trim().length<3)return;setActionBusy(true);setError("");try{const inventory=inventoryFor(selectedOrderItem.menuItemId);if(selectedCatalogItem?.stock&&(inventory?.available??true))await api.updateBranchInventory(restaurant.id,order.branchId,selectedOrderItem.menuItemId,{available:false,stockQuantity:inventory?.stockQuantity??null});const result=await api.proposeOrderSubstitution(order.id,{originalMenuItemId:selectedOrderItem.menuItemId,replacementMenuItemId:replacementId,reason:reason.trim()});setSubstitutions(current=>[result.substitution,...current]);setSelectedItemId("");setReplacementId("");setReason("");await onChanged();}catch(submitError){setError(submitError instanceof Error?submitError.message:"No se pudo enviar la propuesta");}finally{setActionBusy(false);}};
-  return <div className="merchant-order-detail-backdrop" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)onClose();}}><section className="merchant-order-detail-dialog" role="dialog" aria-modal="true" aria-labelledby="merchant-order-detail-title">
-    <header><div><small>COMANDA {order.id}</small><h2 id="merchant-order-detail-title">{orderStatusLabel[order.status]}</h2><p>{new Date(order.createdAt).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})} · {branch?.name||order.branchId||"Sucursal no registrada"}</p></div><button className="icon-button" type="button" onClick={onClose} aria-label="Cerrar detalle"><X size={19}/></button></header>
-    <div className="merchant-order-detail-scroll">
-      <div className="merchant-order-detail-facts"><article><small>Total</small><strong>{money.format(order.total)}</strong></article><article><small>Entrega estimada</small><strong>{order.etaMin} min</strong></article><article><small>Courier</small><strong>{order.courierId?"Asignado":"Pendiente"}</strong></article></div>
-      <section className="merchant-order-detail-card"><div className="merchant-order-detail-card-title"><h3>Productos</h3><span>{order.items.length} líneas</span></div>{order.items.map((item,index)=>{const menuId=item.menuItemId||"",catalogItem=restaurant.menu.find(entry=>entry.id===menuId),inventory=menuId?inventoryFor(menuId):undefined,unavailable=Boolean(catalogItem&&!catalogItem.stock)||inventory?.available===false,hasPending=substitutions.some(entry=>entry.status==="pending"&&entry.original.id===menuId);return <article className={selectedItemId===menuId?"merchant-order-line selected":"merchant-order-line"} key={`${menuId||item.name}-${index}`}><b>{item.quantity}×</b><div><div className="merchant-order-line-title"><strong>{item.name}</strong>{unavailable&&<span>SIN STOCK</span>}</div>{typeof item.unitPrice==="number"&&<small>{money.format(item.unitPrice)} c/u</small>}{item.extras.length>0&&<p>Agregados: {item.extras.join(", ")}</p>}{item.note&&<blockquote><MessageCircle size={14}/>{item.note}</blockquote>}{canManage&&menuId&&<button type="button" disabled={busy||actionBusy||hasPending} onClick={()=>{setSelectedItemId(menuId);setReplacementId("");setReason("");}}><RefreshCw size={14}/>{hasPending?"Esperando respuesta":"Gestionar faltante"}</button>}</div></article>})}</section>
-      {selectedOrderItem&&selectedCatalogItem&&<section className="merchant-order-substitution-composer"><small>SUSTITUCIÓN</small><h3>Reemplazar {selectedOrderItem.name}</h3><p>El faltante se aplica únicamente a {branch?.name||"la sucursal del pedido"}; el cliente conserva la decisión final.</p>{!order.branchId&&<div className="merchant-order-detail-error"><TriangleAlert size={16}/>El pedido no conserva una sucursal operable.</div>}{candidates.length>0?<><div className="merchant-replacement-list">{candidates.map(item=><label className={replacementId===item.id?"selected":""} key={item.id}><input type="radio" name="merchant-replacement" checked={replacementId===item.id} onChange={()=>setReplacementId(item.id)}/><span><strong>{item.name}</strong><small>{item.category} · {money.format(item.price)}</small></span>{selectedCatalogItem.category&&item.category===selectedCatalogItem.category&&<em>Misma categoría</em>}</label>)}</div><textarea rows={3} maxLength={500} value={reason} onChange={event=>setReason(event.target.value)} placeholder="Motivo para el cliente"/><button className="primary-button" type="button" disabled={!order.branchId||!replacementId||reason.trim().length<3||busy||actionBusy||selectedPending} onClick={()=>void submit()}>{actionBusy?<RefreshCw className="merchant-operations-spinner" size={16}/>:<RefreshCw size={16}/>} {actionBusy?"Validando inventario…":"Marcar agotado y proponer"}</button></>:<div className="merchant-order-detail-error"><TriangleAlert size={16}/>No hay reemplazos disponibles de precio igual o menor.</div>}</section>}
-      <section className="merchant-order-detail-card"><div className="merchant-order-detail-card-title"><h3>Cambios del pedido</h3>{loading&&<RefreshCw className="merchant-operations-spinner" size={16}/>}</div>{substitutions.map(entry=><article className="merchant-substitution-history" key={entry.id}><span className={entry.status}>{entry.status==="pending"?"Pendiente":entry.status==="accepted"?"Aceptado":"Rechazado"}</span><strong>{entry.original.name} → {entry.replacement.name}</strong><p>{entry.reason}</p>{entry.refundAmount>0&&<small>Reintegro aplicado: {money.format(entry.refundAmount)}</small>}</article>)}{!loading&&!substitutions.length&&<p>No se registraron cambios para esta comanda.</p>}</section>
-      {error&&<div className="merchant-order-detail-error"><TriangleAlert size={16}/>{error}</div>}
-      <section className="merchant-order-destination"><MapPin size={18}/><div><strong>Destino de entrega</strong><p>{order.deliveryAddress}</p></div></section>
+function MerchantOrderDetailDialog({
+  order,
+  restaurant,
+  busy,
+  onClose,
+  onChanged,
+}: {
+  order: Order;
+  restaurant: Restaurant;
+  busy: boolean;
+  onClose: () => void;
+  onChanged: () => Promise<void>;
+}) {
+  const [substitutions, setSubstitutions] = useState<OrderSubstitution[]>([]),
+    [selectedItemId, setSelectedItemId] = useState(""),
+    [replacementId, setReplacementId] = useState(""),
+    [reason, setReason] = useState(""),
+    [loading, setLoading] = useState(true),
+    [actionBusy, setActionBusy] = useState(false),
+    [error, setError] = useState("");
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const result = await api.getOrderSubstitutions(order.id);
+      setSubstitutions(result.substitutions);
+      setError("");
+    } catch (loadError) {
+      setError(
+        loadError instanceof Error ? loadError.message : "No se pudieron cargar los cambios",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [order.id]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  const branch = restaurant.branches?.find((entry) => entry.id === order.branchId) || null,
+    selectedOrderItem = order.items.find((item) => item.menuItemId === selectedItemId) || null,
+    selectedCatalogItem = restaurant.menu.find((item) => item.id === selectedItemId) || null,
+    inventoryFor = (itemId: string) => branch?.inventory[itemId];
+  const originalPrice = selectedOrderItem?.unitPrice ?? selectedCatalogItem?.price ?? 0;
+  const candidates = restaurant.menu
+    .filter((item) => {
+      const inventory = inventoryFor(item.id);
+      return (
+        item.id !== selectedItemId &&
+        item.stock &&
+        (inventory?.available ?? true) &&
+        (inventory?.stockQuantity == null ||
+          inventory.stockQuantity >= (selectedOrderItem?.quantity || 1)) &&
+        item.price <= originalPrice
+      );
+    })
+    .sort(
+      (left, right) =>
+        Number(
+          Boolean(selectedCatalogItem?.category) &&
+            right.category === selectedCatalogItem?.category,
+        ) -
+          Number(
+            Boolean(selectedCatalogItem?.category) &&
+              left.category === selectedCatalogItem?.category,
+          ) || left.price - right.price,
+    );
+  const canManage = ["accepted", "preparing"].includes(order.status),
+    selectedPending = substitutions.some(
+      (entry) => entry.status === "pending" && entry.original.id === selectedItemId,
+    );
+  const submit = async () => {
+    if (
+      !order.branchId ||
+      !selectedOrderItem?.menuItemId ||
+      !replacementId ||
+      reason.trim().length < 3
+    )
+      return;
+    setActionBusy(true);
+    setError("");
+    try {
+      const inventory = inventoryFor(selectedOrderItem.menuItemId);
+      if (selectedCatalogItem?.stock && (inventory?.available ?? true))
+        await api.updateBranchInventory(
+          restaurant.id,
+          order.branchId,
+          selectedOrderItem.menuItemId,
+          { available: false, stockQuantity: inventory?.stockQuantity ?? null },
+        );
+      const result = await api.proposeOrderSubstitution(order.id, {
+        originalMenuItemId: selectedOrderItem.menuItemId,
+        replacementMenuItemId: replacementId,
+        reason: reason.trim(),
+      });
+      setSubstitutions((current) => [result.substitution, ...current]);
+      setSelectedItemId("");
+      setReplacementId("");
+      setReason("");
+      await onChanged();
+    } catch (submitError) {
+      setError(
+        submitError instanceof Error ? submitError.message : "No se pudo enviar la propuesta",
+      );
+    } finally {
+      setActionBusy(false);
+    }
+  };
+  return (
+    <div
+      className="merchant-order-detail-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section
+        className="merchant-order-detail-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="merchant-order-detail-title"
+      >
+        <header>
+          <div>
+            <small>COMANDA {order.id}</small>
+            <h2 id="merchant-order-detail-title">{orderStatusLabel[order.status]}</h2>
+            <p>
+              {new Date(order.createdAt).toLocaleTimeString("es-AR", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}{" "}
+              · {branch?.name || order.branchId || "Sucursal no registrada"}
+            </p>
+          </div>
+          <button
+            className="icon-button"
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar detalle"
+          >
+            <X size={19} />
+          </button>
+        </header>
+        <div className="merchant-order-detail-scroll">
+          <div className="merchant-order-detail-facts">
+            <article>
+              <small>Total</small>
+              <strong>{money.format(order.total)}</strong>
+            </article>
+            <article>
+              <small>Entrega estimada</small>
+              <strong>{order.etaMin} min</strong>
+            </article>
+            <article>
+              <small>Courier</small>
+              <strong>{order.courierId ? "Asignado" : "Pendiente"}</strong>
+            </article>
+          </div>
+          <section className="merchant-order-detail-card">
+            <div className="merchant-order-detail-card-title">
+              <h3>Productos</h3>
+              <span>{order.items.length} líneas</span>
+            </div>
+            {order.items.map((item, index) => {
+              const menuId = item.menuItemId || "",
+                catalogItem = restaurant.menu.find((entry) => entry.id === menuId),
+                inventory = menuId ? inventoryFor(menuId) : undefined,
+                unavailable =
+                  Boolean(catalogItem && !catalogItem.stock) || inventory?.available === false,
+                hasPending = substitutions.some(
+                  (entry) => entry.status === "pending" && entry.original.id === menuId,
+                );
+              return (
+                <article
+                  className={
+                    selectedItemId === menuId
+                      ? "merchant-order-line selected"
+                      : "merchant-order-line"
+                  }
+                  key={`${menuId || item.name}-${index}`}
+                >
+                  <b>{item.quantity}×</b>
+                  <div>
+                    <div className="merchant-order-line-title">
+                      <strong>{item.name}</strong>
+                      {unavailable && <span>SIN STOCK</span>}
+                    </div>
+                    {typeof item.unitPrice === "number" && (
+                      <small>{money.format(item.unitPrice)} c/u</small>
+                    )}
+                    {item.extras.length > 0 && <p>Agregados: {item.extras.join(", ")}</p>}
+                    {item.note && (
+                      <blockquote>
+                        <MessageCircle size={14} />
+                        {item.note}
+                      </blockquote>
+                    )}
+                    {canManage && menuId && (
+                      <button
+                        type="button"
+                        disabled={busy || actionBusy || hasPending}
+                        onClick={() => {
+                          setSelectedItemId(menuId);
+                          setReplacementId("");
+                          setReason("");
+                        }}
+                      >
+                        <RefreshCw size={14} />
+                        {hasPending ? "Esperando respuesta" : "Gestionar faltante"}
+                      </button>
+                    )}
+                  </div>
+                </article>
+              );
+            })}
+          </section>
+          {selectedOrderItem && selectedCatalogItem && (
+            <section className="merchant-order-substitution-composer">
+              <small>SUSTITUCIÓN</small>
+              <h3>Reemplazar {selectedOrderItem.name}</h3>
+              <p>
+                El faltante se aplica únicamente a {branch?.name || "la sucursal del pedido"}; el
+                cliente conserva la decisión final.
+              </p>
+              {!order.branchId && (
+                <div className="merchant-order-detail-error">
+                  <TriangleAlert size={16} />
+                  El pedido no conserva una sucursal operable.
+                </div>
+              )}
+              {candidates.length > 0 ? (
+                <>
+                  <div className="merchant-replacement-list">
+                    {candidates.map((item) => (
+                      <label className={replacementId === item.id ? "selected" : ""} key={item.id}>
+                        <input
+                          type="radio"
+                          name="merchant-replacement"
+                          checked={replacementId === item.id}
+                          onChange={() => setReplacementId(item.id)}
+                        />
+                        <span>
+                          <strong>{item.name}</strong>
+                          <small>
+                            {item.category} · {money.format(item.price)}
+                          </small>
+                        </span>
+                        {selectedCatalogItem.category &&
+                          item.category === selectedCatalogItem.category && (
+                            <em>Misma categoría</em>
+                          )}
+                      </label>
+                    ))}
+                  </div>
+                  <textarea
+                    rows={3}
+                    maxLength={500}
+                    value={reason}
+                    onChange={(event) => setReason(event.target.value)}
+                    placeholder="Motivo para el cliente"
+                  />
+                  <button
+                    className="primary-button"
+                    type="button"
+                    disabled={
+                      !order.branchId ||
+                      !replacementId ||
+                      reason.trim().length < 3 ||
+                      busy ||
+                      actionBusy ||
+                      selectedPending
+                    }
+                    onClick={() => void submit()}
+                  >
+                    {actionBusy ? (
+                      <RefreshCw className="merchant-operations-spinner" size={16} />
+                    ) : (
+                      <RefreshCw size={16} />
+                    )}{" "}
+                    {actionBusy ? "Validando inventario…" : "Marcar agotado y proponer"}
+                  </button>
+                </>
+              ) : (
+                <div className="merchant-order-detail-error">
+                  <TriangleAlert size={16} />
+                  No hay reemplazos disponibles de precio igual o menor.
+                </div>
+              )}
+            </section>
+          )}
+          <section className="merchant-order-detail-card">
+            <div className="merchant-order-detail-card-title">
+              <h3>Cambios del pedido</h3>
+              {loading && <RefreshCw className="merchant-operations-spinner" size={16} />}
+            </div>
+            {substitutions.map((entry) => (
+              <article className="merchant-substitution-history" key={entry.id}>
+                <span className={entry.status}>
+                  {entry.status === "pending"
+                    ? "Pendiente"
+                    : entry.status === "accepted"
+                      ? "Aceptado"
+                      : "Rechazado"}
+                </span>
+                <strong>
+                  {entry.original.name} → {entry.replacement.name}
+                </strong>
+                <p>{entry.reason}</p>
+                {entry.refundAmount > 0 && (
+                  <small>Reintegro aplicado: {money.format(entry.refundAmount)}</small>
+                )}
+              </article>
+            ))}
+            {!loading && !substitutions.length && (
+              <p>No se registraron cambios para esta comanda.</p>
+            )}
+          </section>
+          {error && (
+            <div className="merchant-order-detail-error">
+              <TriangleAlert size={16} />
+              {error}
+            </div>
+          )}
+          <section className="merchant-order-destination">
+            <MapPin size={18} />
+            <div>
+              <strong>Destino de entrega</strong>
+              <p>{order.deliveryAddress}</p>
+            </div>
+          </section>
+        </div>
+      </section>
     </div>
-  </section></div>;
+  );
 }
 
 function MerchantDesktopConsole({
@@ -1758,21 +2008,26 @@ function MerchantDesktopConsole({
   >("kitchen");
   const [finance, setFinance] = useState<MerchantFinance | null>(null);
   const [operations, setOperations] = useState<MerchantOperationsDashboard | null>(null);
-  const [merchantActiveOrders,setMerchantActiveOrders]=useState<Order[]>([]);
-  const [merchantActiveOrdersHasMore,setMerchantActiveOrdersHasMore]=useState(false);
-  const [detailOrderId,setDetailOrderId]=useState<string|null>(null);
+  const [merchantActiveOrders, setMerchantActiveOrders] = useState<Order[]>([]);
+  const [merchantActiveOrdersHasMore, setMerchantActiveOrdersHasMore] = useState(false);
+  const [detailOrderId, setDetailOrderId] = useState<string | null>(null);
   const [operationsLoading, setOperationsLoading] = useState(true);
   const [operationsError, setOperationsError] = useState("");
   const [financeLoading, setFinanceLoading] = useState(false);
   const [payoutAmount, setPayoutAmount] = useState("");
   const [payoutPassword, setPayoutPassword] = useState("");
-  const [paymentConnection,setPaymentConnection]=useState<import("./types").MerchantPaymentConnection|null>(null);
-  const [paymentProviderConfigured,setPaymentProviderConfigured]=useState(false);
-  const [paymentConnectionPassword,setPaymentConnectionPassword]=useState("");
+  const [paymentConnection, setPaymentConnection] = useState<
+    import("./types").MerchantPaymentConnection | null
+  >(null);
+  const [paymentProviderConfigured, setPaymentProviderConfigured] = useState(false);
+  const [paymentConnectionPassword, setPaymentConnectionPassword] = useState("");
   const loadFinance = useCallback(async () => {
     setFinanceLoading(true);
     try {
-      const [financeResult,connectionResult]=await Promise.all([api.getMerchantFinance(restaurant.id),api.getMerchantPaymentConnection(restaurant.id)]);
+      const [financeResult, connectionResult] = await Promise.all([
+        api.getMerchantFinance(restaurant.id),
+        api.getMerchantPaymentConnection(restaurant.id),
+      ]);
       setFinance(financeResult.finance);
       setPaymentConnection(connectionResult.connection);
       setPaymentProviderConfigured(connectionResult.configured);
@@ -1783,13 +2038,18 @@ function MerchantDesktopConsole({
   const loadOperations = useCallback(async () => {
     setOperationsLoading(true);
     try {
-      const [result,queue]=await Promise.all([api.getMerchantDashboard(restaurant.id),api.getMerchantActiveOrders(restaurant.id)]);
+      const [result, queue] = await Promise.all([
+        api.getMerchantDashboard(restaurant.id),
+        api.getMerchantActiveOrders(restaurant.id),
+      ]);
       setOperations(result.dashboard);
       setMerchantActiveOrders(queue.orders);
       setMerchantActiveOrdersHasMore(queue.hasMore);
       setOperationsError("");
     } catch (error) {
-      setOperationsError(error instanceof Error ? error.message : "No se pudo actualizar la operación");
+      setOperationsError(
+        error instanceof Error ? error.message : "No se pudo actualizar la operación",
+      );
     } finally {
       setOperationsLoading(false);
     }
@@ -1797,25 +2057,44 @@ function MerchantDesktopConsole({
   useEffect(() => {
     if (section === "finance") void loadFinance();
   }, [section, loadFinance]);
-  const orders = state.orders.filter(
-    (order) => order.restaurantId === restaurant.id,
-  );
-  const activeOrders=merchantActiveOrders;
-  const detailOrder=activeOrders.find(order=>order.id===detailOrderId)||null;
+  const orders = state.orders.filter((order) => order.restaurantId === restaurant.id);
+  const activeOrders = merchantActiveOrders;
+  const detailOrder = activeOrders.find((order) => order.id === detailOrderId) || null;
   const orderStatusSignature = orders.map((order) => `${order.id}:${order.status}`).join("|");
   const stockSignature = restaurant.menu.map((item) => `${item.id}:${item.stock}`).join("|");
   useEffect(() => {
     void loadOperations();
     const timer = window.setInterval(() => void loadOperations(), 30_000);
     return () => window.clearInterval(timer);
-  }, [loadOperations, orderStatusSignature, restaurant.etaMin, restaurant.manualOpen, stockSignature]);
+  }, [
+    loadOperations,
+    orderStatusSignature,
+    restaurant.etaMin,
+    restaurant.manualOpen,
+    stockSignature,
+  ]);
   const metrics = operations?.metrics;
   const operationsUpdatedAt = operations
-    ? new Intl.DateTimeFormat("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: operations.timezone }).format(new Date(operations.generatedAt))
+    ? new Intl.DateTimeFormat("es-AR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: operations.timezone,
+      }).format(new Date(operations.generatedAt))
     : null;
   return (
     <main className="merchant-desktop-shell">
-      {detailOrder&&<MerchantOrderDetailDialog order={detailOrder} restaurant={restaurant} busy={busy} onClose={()=>setDetailOrderId(null)} onChanged={async()=>{await onRefresh();await loadOperations();}}/>}
+      {detailOrder && (
+        <MerchantOrderDetailDialog
+          order={detailOrder}
+          restaurant={restaurant}
+          busy={busy}
+          onClose={() => setDetailOrderId(null)}
+          onChanged={async () => {
+            await onRefresh();
+            await loadOperations();
+          }}
+        />
+      )}
       <aside className="merchant-desktop-sidebar">
         <div className="admin-brand">
           <span>
@@ -1914,28 +2193,60 @@ function MerchantDesktopConsole({
               <span />
               {realtimeStatus}
             </small>
-            <b>{operations?.branch ? `${operations.branch.etaMin} min ETA` : "ETA sin sincronizar"}</b>
+            <b>
+              {operations?.branch ? `${operations.branch.etaMin} min ETA` : "ETA sin sincronizar"}
+            </b>
           </div>
         </header>
-        <section className={`merchant-operations-status ${operationsError ? "error" : operations?.source === "postgres-live-operations" ? "live" : "fallback"}`}>
+        <section
+          className={`merchant-operations-status ${operationsError ? "error" : operations?.source === "postgres-live-operations" ? "live" : "fallback"}`}
+        >
           <span className="merchant-operations-dot" />
           <div>
-            <strong>{operationsError ? operations ? "Última lectura conservada" : "Operación sin actualizar" : operations?.source === "postgres-live-operations" ? "Operación conectada a PostgreSQL" : operations ? "Modo local explícito" : "Conectando operación"}</strong>
-            <small>{operationsError ? `${operationsError}${operationsUpdatedAt ? ` · Último dato ${operationsUpdatedAt}` : ""}` : operationsUpdatedAt ? `Actualizado ${operationsUpdatedAt} · ${operations?.branch?.name || restaurant.name}` : "Consultando la fuente autoritativa"}</small>
+            <strong>
+              {operationsError
+                ? operations
+                  ? "Última lectura conservada"
+                  : "Operación sin actualizar"
+                : operations?.source === "postgres-live-operations"
+                  ? "Operación conectada a PostgreSQL"
+                  : operations
+                    ? "Modo local explícito"
+                    : "Conectando operación"}
+            </strong>
+            <small>
+              {operationsError
+                ? `${operationsError}${operationsUpdatedAt ? ` · Último dato ${operationsUpdatedAt}` : ""}`
+                : operationsUpdatedAt
+                  ? `Actualizado ${operationsUpdatedAt} · ${operations?.branch?.name || restaurant.name}`
+                  : "Consultando la fuente autoritativa"}
+            </small>
           </div>
-          {operationsLoading ? <RefreshCw className="merchant-operations-spinner" size={18} /> : <button type="button" onClick={() => void loadOperations()}><RefreshCw size={16} /> Actualizar</button>}
+          {operationsLoading ? (
+            <RefreshCw className="merchant-operations-spinner" size={18} />
+          ) : (
+            <button type="button" onClick={() => void loadOperations()}>
+              <RefreshCw size={16} /> Actualizar
+            </button>
+          )}
         </section>
         <div className="admin-kpis">
           <AdminKpi
             label="Pedidos activos"
             value={metrics?.activeOrders ?? "—"}
-            detail={metrics ? `${compactMinutes(metrics.oldestActiveMinutes)} el más antiguo` : "cola sin sincronizar"}
+            detail={
+              metrics
+                ? `${compactMinutes(metrics.oldestActiveMinutes)} el más antiguo`
+                : "cola sin sincronizar"
+            }
             tone="orange"
           />
           <AdminKpi
             label="Ventas de hoy"
             value={metrics ? money.format(metrics.grossSalesToday) : "—"}
-            detail={metrics ? `${metrics.completedToday} completados hoy` : "día local del comercio"}
+            detail={
+              metrics ? `${metrics.completedToday} completados hoy` : "día local del comercio"
+            }
             tone="green"
           />
           <AdminKpi
@@ -1953,55 +2264,92 @@ function MerchantDesktopConsole({
         </div>
         <section className="merchant-pulse" aria-label="Pulso operativo de cocina">
           <div className="merchant-pulse-heading">
-            <div><small>Ahora</small><h2>Pulso de cocina</h2></div>
-            <span>{metrics ? `${metrics.activeOrders} pedidos en flujo` : "Esperando datos reales"}</span>
+            <div>
+              <small>Ahora</small>
+              <h2>Pulso de cocina</h2>
+            </div>
+            <span>
+              {metrics ? `${metrics.activeOrders} pedidos en flujo` : "Esperando datos reales"}
+            </span>
           </div>
           <div className="merchant-pulse-stages">
-            <article className={metrics?.needsAction ? "attention" : ""}><span>Por aceptar</span><strong>{metrics?.needsAction ?? "—"}</strong><small>acción del local</small></article>
-            <article><span>Preparando</span><strong>{metrics?.preparing ?? "—"}</strong><small>en cocina</small></article>
-            <article><span>Listos</span><strong>{metrics?.readyForPickup ?? "—"}</strong><small>esperan retiro</small></article>
-            <article><span>Con courier</span><strong>{metrics?.courierFlow ?? "—"}</strong><small>última milla</small></article>
-            <article className={metrics?.unavailableItems ? "stock" : ""}><span>Sin stock</span><strong>{metrics?.unavailableItems ?? "—"}</strong><small>productos</small></article>
+            <article className={metrics?.needsAction ? "attention" : ""}>
+              <span>Por aceptar</span>
+              <strong>{metrics?.needsAction ?? "—"}</strong>
+              <small>acción del local</small>
+            </article>
+            <article>
+              <span>Preparando</span>
+              <strong>{metrics?.preparing ?? "—"}</strong>
+              <small>en cocina</small>
+            </article>
+            <article>
+              <span>Listos</span>
+              <strong>{metrics?.readyForPickup ?? "—"}</strong>
+              <small>esperan retiro</small>
+            </article>
+            <article>
+              <span>Con courier</span>
+              <strong>{metrics?.courierFlow ?? "—"}</strong>
+              <small>última milla</small>
+            </article>
+            <article className={metrics?.unavailableItems ? "stock" : ""}>
+              <span>Sin stock</span>
+              <strong>{metrics?.unavailableItems ?? "—"}</strong>
+              <small>productos</small>
+            </article>
           </div>
-          {metrics && (metrics.lateOrders > 0 || metrics.untrackedPrepOrders > 0) && <div className="merchant-pulse-alert"><TriangleAlert size={17} /><span>{metrics.lateOrders > 0 ? `${metrics.lateOrders} pedido${metrics.lateOrders === 1 ? "" : "s"} fuera del plazo de preparación.` : ""}{metrics.lateOrders > 0 && metrics.untrackedPrepOrders > 0 ? " " : ""}{metrics.untrackedPrepOrders > 0 ? `${metrics.untrackedPrepOrders} pedido${metrics.untrackedPrepOrders === 1 ? "" : "s"} heredado${metrics.untrackedPrepOrders === 1 ? "" : "s"} sin SLA observado.` : ""}</span></div>}
+          {metrics && (metrics.lateOrders > 0 || metrics.untrackedPrepOrders > 0) && (
+            <div className="merchant-pulse-alert">
+              <TriangleAlert size={17} />
+              <span>
+                {metrics.lateOrders > 0
+                  ? `${metrics.lateOrders} pedido${metrics.lateOrders === 1 ? "" : "s"} fuera del plazo de preparación.`
+                  : ""}
+                {metrics.lateOrders > 0 && metrics.untrackedPrepOrders > 0 ? " " : ""}
+                {metrics.untrackedPrepOrders > 0
+                  ? `${metrics.untrackedPrepOrders} pedido${metrics.untrackedPrepOrders === 1 ? "" : "s"} heredado${metrics.untrackedPrepOrders === 1 ? "" : "s"} sin SLA observado.`
+                  : ""}
+              </span>
+            </div>
+          )}
         </section>
         {section === "kitchen" && (
           <div className="merchant-kitchen-grid">
             <section className="admin-card">
-              <AdminSectionHeader
-                title="Comandas"
-                action={`${activeOrders.length} activas`}
-              />
+              <AdminSectionHeader title="Comandas" action={`${activeOrders.length} activas`} />
               <div className="activity-stack">
-                {merchantActiveOrdersHasMore && <div className="merchant-queue-limit"><TriangleAlert size={16}/><span>Hay más de 100 pedidos activos. Priorizá la cola visible y contactá Operaciones.</span></div>}
+                {merchantActiveOrdersHasMore && (
+                  <div className="merchant-queue-limit">
+                    <TriangleAlert size={16} />
+                    <span>
+                      Hay más de 100 pedidos activos. Priorizá la cola visible y contactá
+                      Operaciones.
+                    </span>
+                  </div>
+                )}
                 {activeOrders.map((order) => (
                   <OrderOpsCard
                     key={order.id}
                     order={order}
                     restaurant={restaurant}
-                    driver={state.drivers.find(
-                      (entry) => entry.id === order.courierId,
-                    )}
-                    onAdvance={() =>
-                      runAction(
-                        () => api.advanceOrder(order.id),
-                        "Pedido avanzado",
-                      )
-                    }
-                    canAdvance={["accepted","preparing"].includes(order.status)}
-                    onDetails={()=>setDetailOrderId(order.id)}
+                    driver={state.drivers.find((entry) => entry.id === order.courierId)}
+                    onAdvance={() => runAction(() => api.advanceOrder(order.id), "Pedido avanzado")}
+                    canAdvance={["accepted", "preparing"].includes(order.status)}
+                    onDetails={() => setDetailOrderId(order.id)}
                     busy={busy}
                   />
                 ))}
-                {operationsLoading && !activeOrders.length ? <p>Sincronizando comandas…</p> : !activeOrders.length && <p>No hay pedidos pendientes.</p>}
+                {operationsLoading && !activeOrders.length ? (
+                  <p>Sincronizando comandas…</p>
+                ) : (
+                  !activeOrders.length && <p>No hay pedidos pendientes.</p>
+                )}
               </div>
             </section>
             <section className="admin-card">
               <AdminSectionHeader title="Capacidad" action="SLA" />
-              <p>
-                Ajusta el tiempo visible para nuevos clientes según la carga
-                real de cocina.
-              </p>
+              <p>Ajusta el tiempo visible para nuevos clientes según la carga real de cocina.</p>
               <div className="prep-actions">
                 <button
                   disabled={busy}
@@ -2034,9 +2382,18 @@ function MerchantDesktopConsole({
                 </button>
               </div>
               <div className="merchant-capacity-facts">
-                <article><small>Fuera de plazo</small><strong>{metrics?.lateOrders ?? "—"}</strong></article>
-                <article><small>Más antiguo</small><strong>{metrics ? compactMinutes(metrics.oldestActiveMinutes) : "—"}</strong></article>
-                <article><small>Sin SLA observado</small><strong>{metrics?.untrackedPrepOrders ?? "—"}</strong></article>
+                <article>
+                  <small>Fuera de plazo</small>
+                  <strong>{metrics?.lateOrders ?? "—"}</strong>
+                </article>
+                <article>
+                  <small>Más antiguo</small>
+                  <strong>{metrics ? compactMinutes(metrics.oldestActiveMinutes) : "—"}</strong>
+                </article>
+                <article>
+                  <small>Sin SLA observado</small>
+                  <strong>{metrics?.untrackedPrepOrders ?? "—"}</strong>
+                </article>
               </div>
             </section>
           </div>
@@ -2044,10 +2401,7 @@ function MerchantDesktopConsole({
         {section === "catalog" && (
           <div className="merchant-catalog-grid">
             <section className="admin-card">
-              <AdminSectionHeader
-                title="Productos"
-                action={`${restaurant.menu.length} items`}
-              />
+              <AdminSectionHeader title="Productos" action={`${restaurant.menu.length} items`} />
               <div className="merchant-product-table">
                 {restaurant.menu.map((item) => (
                   <article className="merchant-product-entry" key={item.id}>
@@ -2065,12 +2419,7 @@ function MerchantDesktopConsole({
                         disabled={busy}
                         onChange={(event) =>
                           runAction(
-                            () =>
-                              api.updateMenuStock(
-                                restaurant.id,
-                                item.id,
-                                event.target.checked,
-                              ),
+                            () => api.updateMenuStock(restaurant.id, item.id, event.target.checked),
                             "Stock actualizado",
                           )
                         }
@@ -2138,10 +2487,7 @@ function MerchantDesktopConsole({
                 className="primary-button"
                 disabled={busy}
                 onClick={() =>
-                  runAction(
-                    () => api.addMenuItem(restaurant.id, newDish),
-                    "Producto creado",
-                  )
+                  runAction(() => api.addMenuItem(restaurant.id, newDish), "Producto creado")
                 }
               >
                 <Plus size={17} /> Crear producto
@@ -2152,20 +2498,13 @@ function MerchantDesktopConsole({
         {section === "branches" && (
           <div className="merchant-branches-grid">
             {(restaurant.branches || []).map((branch) => (
-              <section
-                className="admin-card merchant-branch-card"
-                key={branch.id}
-              >
+              <section className="admin-card merchant-branch-card" key={branch.id}>
                 <div className="branch-card-head">
-                  <span
-                    className={`branch-pin ${branch.open ? "live" : "paused"}`}
-                  >
+                  <span className={`branch-pin ${branch.open ? "live" : "paused"}`}>
                     <MapPin size={20} />
                   </span>
                   <div>
-                    <small>
-                      {branch.isPrimary ? "Sucursal principal" : "Sucursal"}
-                    </small>
+                    <small>{branch.isPrimary ? "Sucursal principal" : "Sucursal"}</small>
                     <h2>{branch.name}</h2>
                     <p>{branch.address}</p>
                   </div>
@@ -2179,13 +2518,9 @@ function MerchantDesktopConsole({
                           () =>
                             api.updateBranch(restaurant.id, branch.id, {
                               open: event.target.checked,
-                              status: event.target.checked
-                                ? "active"
-                                : "paused",
+                              status: event.target.checked ? "active" : "paused",
                             }),
-                          event.target.checked
-                            ? "Sucursal habilitada"
-                            : "Sucursal pausada",
+                          event.target.checked ? "Sucursal habilitada" : "Sucursal pausada",
                         )
                       }
                     />
@@ -2245,8 +2580,7 @@ function MerchantDesktopConsole({
                     <strong>
                       {
                         restaurant.menu.filter(
-                          (item) =>
-                            branch.inventory[item.id]?.available ?? item.stock,
+                          (item) => branch.inventory[item.id]?.available ?? item.stock,
                         ).length
                       }
                       /{restaurant.menu.length}
@@ -2288,17 +2622,10 @@ function MerchantDesktopConsole({
                           onChange={(event) =>
                             runAction(
                               () =>
-                                api.updateBranchInventory(
-                                  restaurant.id,
-                                  branch.id,
-                                  item.id,
-                                  {
-                                    available: event.target.checked,
-                                    stockQuantity: event.target.checked
-                                      ? null
-                                      : 0,
-                                  },
-                                ),
+                                api.updateBranchInventory(restaurant.id, branch.id, item.id, {
+                                  available: event.target.checked,
+                                  stockQuantity: event.target.checked ? null : 0,
+                                }),
                               "Inventario de sucursal actualizado",
                             )
                           }
@@ -2319,10 +2646,7 @@ function MerchantDesktopConsole({
         {section === "analytics" && (
           <div className="admin-grid two">
             <section className="admin-card">
-              <AdminSectionHeader
-                title="Embudo operativo"
-                action="Datos persistidos"
-              />
+              <AdminSectionHeader title="Embudo operativo" action="Datos persistidos" />
               <div className="admin-table">
                 <article className="admin-row compact">
                   <strong>Pedidos activos ahora</strong>
@@ -2341,18 +2665,97 @@ function MerchantDesktopConsole({
             <section className="admin-card">
               <AdminSectionHeader title="Salud del catalogo" action="En vivo" />
               <p>
-                {metrics ? `${Math.max(0, restaurant.menu.length - metrics.unavailableItems)} productos disponibles y ${metrics.unavailableItems} pausados.` : "Esperando el inventario autoritativo de la sucursal."}
+                {metrics
+                  ? `${Math.max(0, restaurant.menu.length - metrics.unavailableItems)} productos disponibles y ${metrics.unavailableItems} pausados.`
+                  : "Esperando el inventario autoritativo de la sucursal."}
               </p>
-              <p>ETA publicado: {operations?.branch ? `${operations.branch.etaMin} minutos.` : "sin sincronizar."}</p>
-              <p>Facturación de hoy: {metrics ? `${money.format(metrics.grossSalesToday)}.` : "sin sincronizar."}</p>
+              <p>
+                ETA publicado:{" "}
+                {operations?.branch ? `${operations.branch.etaMin} minutos.` : "sin sincronizar."}
+              </p>
+              <p>
+                Facturación de hoy:{" "}
+                {metrics ? `${money.format(metrics.grossSalesToday)}.` : "sin sincronizar."}
+              </p>
             </section>
           </div>
         )}
         {section === "finance" && (
           <div className="merchant-finance-grid">
             <section className="admin-card merchant-payout-history">
-              <AdminSectionHeader title="Cobros del marketplace" action={paymentConnection?.status==="connected"?(paymentConnection.liveMode?"Cuenta real":"Cuenta de prueba"):"Sin vincular"}/>
-              {paymentConnection?.status==="connected"?<><p>Mercado Pago conectado · cuenta terminada en {paymentConnection.externalAccountId.slice(-4)}.</p><small>Conectado {new Date(paymentConnection.connectedAt).toLocaleString("es-AR")}. Flash renueva la autorización antes de vencer y nunca muestra tokens sin cifrar.</small><div className="merchant-payout-form"><input type="password" autoComplete="current-password" placeholder="Contraseña para desvincular" value={paymentConnectionPassword} onChange={event=>setPaymentConnectionPassword(event.target.value)}/><button className="secondary-button" disabled={busy||paymentConnectionPassword.length<4} onClick={()=>runAction(async()=>{const result=await api.disconnectMerchantPaymentConnection(restaurant.id,paymentConnectionPassword);setPaymentConnection(result.connection);setPaymentConnectionPassword("");},"Mercado Pago desvinculado y credenciales eliminadas")}>Desvincular de forma segura</button></div></>:<><p>{paymentConnection?.status==="revoked"?"La conexión anterior fue revocada y sus credenciales se eliminaron.":paymentConnection?.status==="reconnect_required"?"Mercado Pago requiere renovar el consentimiento. Reconectá la cuenta antes de que se interrumpan los cobros.":"Vinculá la cuenta seller para que Mercado Pago pueda dividir cobros entre el comercio y Flash."}</p><button className="primary-button" disabled={busy||!paymentProviderConfigured} onClick={()=>runAction(async()=>{const result=await api.beginMerchantPaymentConnection(restaurant.id);window.location.assign(result.authorizationUrl);},"Redirigiendo a Mercado Pago")}>{paymentProviderConfigured?(paymentConnection?.status==="reconnect_required"?"Reconectar Mercado Pago":"Conectar Mercado Pago"):"Integración pendiente de credenciales"}</button></>}
+              <AdminSectionHeader
+                title="Cobros del marketplace"
+                action={
+                  paymentConnection?.status === "connected"
+                    ? paymentConnection.liveMode
+                      ? "Cuenta real"
+                      : "Cuenta de prueba"
+                    : "Sin vincular"
+                }
+              />
+              {paymentConnection?.status === "connected" ? (
+                <>
+                  <p>
+                    Mercado Pago conectado · cuenta terminada en{" "}
+                    {paymentConnection.externalAccountId.slice(-4)}.
+                  </p>
+                  <small>
+                    Conectado {new Date(paymentConnection.connectedAt).toLocaleString("es-AR")}.
+                    Flash renueva la autorización antes de vencer y nunca muestra tokens sin cifrar.
+                  </small>
+                  <div className="merchant-payout-form">
+                    <input
+                      type="password"
+                      autoComplete="current-password"
+                      placeholder="Contraseña para desvincular"
+                      value={paymentConnectionPassword}
+                      onChange={(event) => setPaymentConnectionPassword(event.target.value)}
+                    />
+                    <button
+                      className="secondary-button"
+                      disabled={busy || paymentConnectionPassword.length < 4}
+                      onClick={() =>
+                        runAction(async () => {
+                          const result = await api.disconnectMerchantPaymentConnection(
+                            restaurant.id,
+                            paymentConnectionPassword,
+                          );
+                          setPaymentConnection(result.connection);
+                          setPaymentConnectionPassword("");
+                        }, "Mercado Pago desvinculado y credenciales eliminadas")
+                      }
+                    >
+                      Desvincular de forma segura
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p>
+                    {paymentConnection?.status === "revoked"
+                      ? "La conexión anterior fue revocada y sus credenciales se eliminaron."
+                      : paymentConnection?.status === "reconnect_required"
+                        ? "Mercado Pago requiere renovar el consentimiento. Reconectá la cuenta antes de que se interrumpan los cobros."
+                        : "Vinculá la cuenta seller para que Mercado Pago pueda dividir cobros entre el comercio y Flash."}
+                  </p>
+                  <button
+                    className="primary-button"
+                    disabled={busy || !paymentProviderConfigured}
+                    onClick={() =>
+                      runAction(async () => {
+                        const result = await api.beginMerchantPaymentConnection(restaurant.id);
+                        window.location.assign(result.authorizationUrl);
+                      }, "Redirigiendo a Mercado Pago")
+                    }
+                  >
+                    {paymentProviderConfigured
+                      ? paymentConnection?.status === "reconnect_required"
+                        ? "Reconectar Mercado Pago"
+                        : "Conectar Mercado Pago"
+                      : "Integración pendiente de credenciales"}
+                  </button>
+                </>
+              )}
             </section>
             <section className="admin-card">
               <AdminSectionHeader
@@ -2389,14 +2792,19 @@ function MerchantDesktopConsole({
                     Number(payoutAmount) > (finance?.availableBalance || 0)
                   }
                   onClick={async () => {
-                    const amount=Number(payoutAmount);
-                    await runAction(
-                      async () => {
-                        const authorization=await api.authorizeMerchantPayout(restaurant.id,amount,payoutPassword);
-                        return api.requestMerchantPayout(restaurant.id,amount,authorization.authorizationToken);
-                      },
-                      "Retiro reservado",
-                    );
+                    const amount = Number(payoutAmount);
+                    await runAction(async () => {
+                      const authorization = await api.authorizeMerchantPayout(
+                        restaurant.id,
+                        amount,
+                        payoutPassword,
+                      );
+                      return api.requestMerchantPayout(
+                        restaurant.id,
+                        amount,
+                        authorization.authorizationToken,
+                      );
+                    }, "Retiro reservado");
                     setPayoutAmount("");
                     setPayoutPassword("");
                     await loadFinance();
@@ -2406,9 +2814,8 @@ function MerchantDesktopConsole({
                 </button>
               </div>
               <small>
-                Confirmás comercio e importe con tu contraseña. La autorización
-                vence en 5 minutos, funciona una sola vez y el retiro queda
-                pendiente del proveedor bancario.
+                Confirmás comercio e importe con tu contraseña. La autorización vence en 5 minutos,
+                funciona una sola vez y el retiro queda pendiente del proveedor bancario.
               </small>
             </section>
             <section className="admin-card">
@@ -2422,9 +2829,7 @@ function MerchantDesktopConsole({
                     <ReceiptText size={17} />
                     <div>
                       <strong>{entry.description}</strong>
-                      <span>
-                        {new Date(entry.createdAt).toLocaleString("es-AR")}
-                      </span>
+                      <span>{new Date(entry.createdAt).toLocaleString("es-AR")}</span>
                     </div>
                     <b>
                       {entry.direction === "credit" ? "+" : "-"}
@@ -2433,33 +2838,24 @@ function MerchantDesktopConsole({
                     <small>{entry.kind}</small>
                   </article>
                 ))}
-                {!financeLoading && !finance?.movements.length && (
-                  <p>Sin liquidaciones todavía.</p>
-                )}
+                {!financeLoading && !finance?.movements.length && <p>Sin liquidaciones todavía.</p>}
               </div>
             </section>
             <section className="admin-card merchant-payout-history">
-              <AdminSectionHeader
-                title="Retiros"
-                action={`${finance?.payouts.length || 0}`}
-              />
+              <AdminSectionHeader title="Retiros" action={`${finance?.payouts.length || 0}`} />
               <div className="admin-table">
                 {finance?.payouts.map((entry) => (
                   <article className="admin-row compact" key={entry.id}>
                     <WalletCards size={17} />
                     <div>
                       <strong>{entry.id}</strong>
-                      <span>
-                        {new Date(entry.createdAt).toLocaleDateString("es-AR")}
-                      </span>
+                      <span>{new Date(entry.createdAt).toLocaleDateString("es-AR")}</span>
                     </div>
                     <b>{money.format(entry.amount)}</b>
                     <small>{entry.status}</small>
                   </article>
                 ))}
-                {!financeLoading && !finance?.payouts.length && (
-                  <p>No hay retiros solicitados.</p>
-                )}
+                {!financeLoading && !finance?.payouts.length && <p>No hay retiros solicitados.</p>}
               </div>
             </section>
           </div>
@@ -2574,8 +2970,8 @@ function SuperAdminConsole({
         <div className="admin-note">
           <strong>Superficie correcta</strong>
           <span>
-            En escritorio solo se muestra gestion de plataforma. Cliente,
-            comercio y driver quedan como app mobile/PWA.
+            En escritorio solo se muestra gestion de plataforma. Cliente, comercio y driver quedan
+            como app mobile/PWA.
           </span>
         </div>
       </aside>
@@ -2668,10 +3064,7 @@ function SuperAdminConsole({
 
         {section === "dispatch" && (
           <section className="admin-card">
-            <AdminSectionHeader
-              title="Dispatch y asignaciones"
-              action="Food + Taxi"
-            />
+            <AdminSectionHeader title="Dispatch y asignaciones" action="Food + Taxi" />
             <AdminLiveGrid
               state={state}
               orders={activeOrders}
@@ -2708,9 +3101,7 @@ function SuperAdminConsole({
                           api.updateRestaurant(restaurant.id, {
                             open: !restaurant.open,
                           }),
-                        restaurant.open
-                          ? "Comercio pausado"
-                          : "Comercio abierto",
+                        restaurant.open ? "Comercio pausado" : "Comercio abierto",
                       )
                     }
                   >
@@ -2724,10 +3115,7 @@ function SuperAdminConsole({
 
         {section === "drivers" && (
           <section className="admin-card">
-            <AdminSectionHeader
-              title="Conductores y repartidores"
-              action="Supply"
-            />
+            <AdminSectionHeader title="Conductores y repartidores" action="Supply" />
             <div className="admin-table">
               {state.drivers.map((driver) => (
                 <article className="admin-row" key={driver.id}>
@@ -2735,8 +3123,7 @@ function SuperAdminConsole({
                   <div>
                     <strong>{driver.name}</strong>
                     <span>
-                      {driver.vehicle} · {driver.plate} ·{" "}
-                      {driver.location.label}
+                      {driver.vehicle} · {driver.plate} · {driver.location.label}
                     </span>
                   </div>
                   <b>{driver.online ? "Online" : "Offline"}</b>
@@ -2758,11 +3145,7 @@ function SuperAdminConsole({
                   >
                     {driver.online ? "Pausar" : "Activar"}
                   </button>
-                  <DriverCompliancePanel
-                    driverId={driver.id}
-                    busy={busy}
-                    runAction={runAction}
-                  />
+                  <DriverCompliancePanel driverId={driver.id} busy={busy} runAction={runAction} />
                 </article>
               ))}
             </div>
@@ -2772,10 +3155,7 @@ function SuperAdminConsole({
         {section === "finance" && (
           <div className="admin-grid">
             <section className="admin-card">
-              <AdminSectionHeader
-                title="Finanzas y conciliacion"
-                action="Ledger PostgreSQL"
-              />
+              <AdminSectionHeader title="Finanzas y conciliacion" action="Ledger PostgreSQL" />
               <div className="admin-kpis finance">
                 <AdminKpi
                   label="GMV total"
@@ -2791,9 +3171,7 @@ function SuperAdminConsole({
                 />
                 <AdminKpi
                   label="Wallet clientes"
-                  value={money.format(
-                    state.users.reduce((sum, user) => sum + user.wallet, 0),
-                  )}
+                  value={money.format(state.users.reduce((sum, user) => sum + user.wallet, 0))}
                   detail="Saldo total"
                   tone="teal"
                 />
@@ -2805,44 +3183,28 @@ function SuperAdminConsole({
                 />
               </div>
               <div className="admin-table">
-                {[...state.orders.slice(0, 4), ...state.rides.slice(0, 4)].map(
-                  (entry) => (
-                    <article className="admin-row compact" key={entry.id}>
-                      <ReceiptText size={18} />
-                      <div>
-                        <strong>{entry.id}</strong>
-                        <span>
-                          {"restaurantId" in entry
-                            ? "Pedido de comida"
-                            : "Viaje/taxi"}
-                        </span>
-                      </div>
-                      <b>
-                        {money.format(
-                          "total" in entry ? entry.total : entry.fare,
-                        )}
-                      </b>
-                      <small>{entry.paymentMethod}</small>
-                    </article>
-                  ),
-                )}
+                {[...state.orders.slice(0, 4), ...state.rides.slice(0, 4)].map((entry) => (
+                  <article className="admin-row compact" key={entry.id}>
+                    <ReceiptText size={18} />
+                    <div>
+                      <strong>{entry.id}</strong>
+                      <span>{"restaurantId" in entry ? "Pedido de comida" : "Viaje/taxi"}</span>
+                    </div>
+                    <b>{money.format("total" in entry ? entry.total : entry.fare)}</b>
+                    <small>{entry.paymentMethod}</small>
+                  </article>
+                ))}
               </div>
             </section>
             <PayoutReviewPanel />
-            <TipAdjustmentPanel
-              tips={state.tips || []}
-              currentUserId={currentUserId}
-            />
+            <TipAdjustmentPanel tips={state.tips || []} currentUserId={currentUserId} />
           </div>
         )}
 
         {section === "investors" && (
           <div className="admin-grid">
             <section className="admin-card">
-              <AdminSectionHeader
-                title="Ronda seed readiness"
-                action={`${readinessScore}/100`}
-              />
+              <AdminSectionHeader title="Ronda seed readiness" action={`${readinessScore}/100`} />
               <InvestorPulse
                 dashboard={dashboard}
                 grossVolume={grossVolume}
@@ -2851,26 +3213,17 @@ function SuperAdminConsole({
             </section>
             <div className="admin-grid two">
               <section className="admin-card">
-                <AdminSectionHeader
-                  title="Unit economics"
-                  action="Modelo financiero"
-                />
+                <AdminSectionHeader title="Unit economics" action="Modelo financiero" />
                 <UnitEconomicsBoard dashboard={dashboard} />
               </section>
               <section className="admin-card">
-                <AdminSectionHeader
-                  title="Milestones para levantar capital"
-                  action="18 meses"
-                />
+                <AdminSectionHeader title="Milestones para levantar capital" action="18 meses" />
                 <MilestoneBoard dashboard={dashboard} />
               </section>
             </div>
             <div className="admin-grid two">
               <section className="admin-card">
-                <AdminSectionHeader
-                  title="Funnel de crecimiento"
-                  action="Seed metrics"
-                />
+                <AdminSectionHeader title="Funnel de crecimiento" action="Seed metrics" />
                 <GrowthFunnel state={state} dashboard={dashboard} />
               </section>
               <section className="admin-card">
@@ -2901,21 +3254,13 @@ function SuperAdminConsole({
         {section === "payments" && <PaymentReconciliationPanel />}
 
         {section === "pricing" && (
-          <PricingGovernancePanel
-            currentUserId={currentUserId}
-            busy={busy}
-            runAction={runAction}
-          />
+          <PricingGovernancePanel currentUserId={currentUserId} busy={busy} runAction={runAction} />
         )}
 
         {section === "messages" && <ServiceQuickReplyPanel busy={busy} />}
 
         {section === "users" && (
-          <AdminUserModeration
-            users={state.users}
-            busy={busy}
-            runAction={runAction}
-          />
+          <AdminUserModeration users={state.users} busy={busy} runAction={runAction} />
         )}
 
         {section === "security" && <AdminSecurityPanel />}
@@ -2923,10 +3268,7 @@ function SuperAdminConsole({
         {section === "infra" && (
           <div className="admin-grid">
             <section className="admin-card">
-              <AdminSectionHeader
-                title="Ruta de infraestructura"
-                action="Escalable"
-              />
+              <AdminSectionHeader title="Ruta de infraestructura" action="Escalable" />
               <div className="infra-list">
                 <InfraItem
                   title="Apps nativas"
@@ -2971,15 +3313,20 @@ function DriverCompliancePanel({
   busy: boolean;
   runAction: (action: () => Promise<unknown>, success: string) => void;
 }) {
-  const [compliance, setCompliance] = useState<
-    import("./types").DriverCompliance | null
-  >(null);
+  const [compliance, setCompliance] = useState<import("./types").DriverCompliance | null>(null);
   const [reason, setReason] = useState("");
-  const [vehicles,setVehicles]=useState<import("./types").DriverVehicle[]>([]);
+  const [vehicles, setVehicles] = useState<import("./types").DriverVehicle[]>([]);
   const load = useCallback(
-    () => Promise.all([api.getDriverCompliance(driverId),api.getDriverVehicles(driverId,true)])
-      .then(([result,registry])=>{setCompliance(result.compliance);setVehicles(registry.vehicles);})
-      .catch(()=>{setCompliance(null);setVehicles([]);}),
+    () =>
+      Promise.all([api.getDriverCompliance(driverId), api.getDriverVehicles(driverId, true)])
+        .then(([result, registry]) => {
+          setCompliance(result.compliance);
+          setVehicles(registry.vehicles);
+        })
+        .catch(() => {
+          setCompliance(null);
+          setVehicles([]);
+        }),
     [driverId],
   );
   useEffect(() => {
@@ -2991,37 +3338,27 @@ function DriverCompliancePanel({
         <small>Legajo no disponible</small>
       </div>
     );
-  const pending = compliance.documents.filter(
-    (document) => document.status === "pending",
-  );
+  const pending = compliance.documents.filter((document) => document.status === "pending");
   return (
     <div className="driver-compliance-inline">
       <div>
         <strong>Legajo {compliance.status.replaceAll("_", " ")}</strong>
         <small>
           {pending.length} pendientes ·{" "}
-          {
-            compliance.documents.filter(
-              (document) => document.status === "approved",
-            ).length
-          }
-          /{compliance.requiredTypes.length} aprobados
+          {compliance.documents.filter((document) => document.status === "approved").length}/
+          {compliance.requiredTypes.length} aprobados
         </small>
       </div>
       {pending.map((document) => (
         <div className="driver-document-review" key={document.id}>
           <span>
-            {document.type.replaceAll("_", " ")} ·{" "}
-            {(document.sizeBytes / 1024).toFixed(0)} KB
+            {document.type.replaceAll("_", " ")} · {(document.sizeBytes / 1024).toFixed(0)} KB
           </span>
           <button
             disabled={busy}
             onClick={() =>
               runAction(async () => {
-                const result = await api.reviewDriverDocument(
-                  document.id,
-                  "approved",
-                );
+                const result = await api.reviewDriverDocument(document.id, "approved");
                 await load();
                 return result;
               }, "Documento aprobado")
@@ -3048,8 +3385,47 @@ function DriverCompliancePanel({
           </button>
         </div>
       ))}
-      {vehicles.filter(vehicle=>vehicle.status==="pending"&&!vehicle.retiredAt).map(vehicle=><div className="driver-document-review" key={vehicle.id}><span>{vehicle.kind} · {vehicle.model} · {vehicle.plate} · {vehicle.serviceModes.join(" + ")}</span><button disabled={busy} onClick={()=>runAction(async()=>{const result=await api.reviewDriverVehicle(vehicle.id,"approved");await load();return result;},"Vehículo aprobado")}>Aprobar vehículo</button><button disabled={busy||reason.trim().length<5} onClick={()=>runAction(async()=>{const result=await api.reviewDriverVehicle(vehicle.id,"rejected",reason.trim());setReason("");await load();return result;},"Vehículo rechazado")}>Rechazar</button></div>)}
-      {(pending.length > 0 || vehicles.some(vehicle=>vehicle.status==="pending"&&!vehicle.retiredAt)) && (
+      {vehicles
+        .filter((vehicle) => vehicle.status === "pending" && !vehicle.retiredAt)
+        .map((vehicle) => (
+          <div className="driver-document-review" key={vehicle.id}>
+            <span>
+              {vehicle.kind} · {vehicle.model} · {vehicle.plate} ·{" "}
+              {vehicle.serviceModes.join(" + ")}
+            </span>
+            <button
+              disabled={busy}
+              onClick={() =>
+                runAction(async () => {
+                  const result = await api.reviewDriverVehicle(vehicle.id, "approved");
+                  await load();
+                  return result;
+                }, "Vehículo aprobado")
+              }
+            >
+              Aprobar vehículo
+            </button>
+            <button
+              disabled={busy || reason.trim().length < 5}
+              onClick={() =>
+                runAction(async () => {
+                  const result = await api.reviewDriverVehicle(
+                    vehicle.id,
+                    "rejected",
+                    reason.trim(),
+                  );
+                  setReason("");
+                  await load();
+                  return result;
+                }, "Vehículo rechazado")
+              }
+            >
+              Rechazar
+            </button>
+          </div>
+        ))}
+      {(pending.length > 0 ||
+        vehicles.some((vehicle) => vehicle.status === "pending" && !vehicle.retiredAt)) && (
         <input
           value={reason}
           onChange={(event) => setReason(event.target.value)}
@@ -3094,23 +3470,17 @@ function pricingNumbers(
 ): Array<{ path: string; label: string; value: number }> {
   return Object.entries(config).flatMap(([key, value]) => {
     const path = prefix ? `${prefix}.${key}` : key;
-    if (typeof value === "number")
-      return [{ path, label: pricingFieldLabels[key] || key, value }];
+    if (typeof value === "number") return [{ path, label: pricingFieldLabels[key] || key, value }];
     if (value && typeof value === "object" && !Array.isArray(value))
       return pricingNumbers(value as Record<string, unknown>, path);
     return [];
   });
 }
-function updatePricingNumber(
-  config: Record<string, unknown>,
-  path: string,
-  value: number,
-) {
+function updatePricingNumber(config: Record<string, unknown>, path: string, value: number) {
   const copy = structuredClone(config),
     parts = path.split(".");
   let cursor: Record<string, unknown> = copy;
-  for (const part of parts.slice(0, -1))
-    cursor = cursor[part] as Record<string, unknown>;
+  for (const part of parts.slice(0, -1)) cursor = cursor[part] as Record<string, unknown>;
   cursor[parts.at(-1)!] = value;
   return copy;
 }
@@ -3133,9 +3503,7 @@ function PricingGovernancePanel({
     [service, setService] = useState<PricingService>("shipment"),
     [config, setConfig] = useState<Record<string, unknown>>({}),
     [version, setVersion] = useState(""),
-    [effectiveAt, setEffectiveAt] = useState(
-      localDateTime(new Date(Date.now() + 15 * 60000)),
-    ),
+    [effectiveAt, setEffectiveAt] = useState(localDateTime(new Date(Date.now() + 15 * 60000))),
     [notes, setNotes] = useState<Record<string, string>>({}),
     [error, setError] = useState("");
   const load = useCallback(async () => {
@@ -3148,11 +3516,7 @@ function PricingGovernancePanel({
       setRequests(changeResult.requests);
       setError("");
     } catch (loadError) {
-      setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "No se pudo cargar tarifas",
-      );
+      setError(loadError instanceof Error ? loadError.message : "No se pudo cargar tarifas");
     }
   }, []);
   useEffect(() => {
@@ -3181,10 +3545,7 @@ function PricingGovernancePanel({
       await load();
       return result;
     }, "Cambio enviado a aprobación");
-  const review = (
-    entry: PricingChangeRequest,
-    decision: "approved" | "rejected",
-  ) =>
+  const review = (entry: PricingChangeRequest, decision: "approved" | "rejected") =>
     runAction(
       async () => {
         const result = await api.reviewPricingChange(
@@ -3202,8 +3563,7 @@ function PricingGovernancePanel({
       <section className="admin-card">
         <AdminSectionHeader title="Proponer tarifa" action="Doble aprobación" />
         <p>
-          Parte de la tarifa activa, ajusta valores y define vigencia. Nunca
-          publica directamente.
+          Parte de la tarifa activa, ajusta valores y define vigencia. Nunca publica directamente.
         </p>
         {error && <p className="form-error">{error}</p>}
         <div className="pricing-service-tabs">
@@ -3213,11 +3573,7 @@ function PricingGovernancePanel({
               className={service === item ? "active" : ""}
               onClick={() => setService(item)}
             >
-              {item === "food"
-                ? "Comidas"
-                : item === "ride"
-                  ? "Viajes"
-                  : "Envíos"}
+              {item === "food" ? "Comidas" : item === "ride" ? "Viajes" : "Envíos"}
             </button>
           ))}
         </div>
@@ -3234,9 +3590,7 @@ function PricingGovernancePanel({
             .map((plan) => (
               <div key={plan.version}>
                 <span>{plan.version}</span>
-                <small>
-                  {new Date(plan.effectiveFrom).toLocaleDateString("es-AR")}
-                </small>
+                <small>{new Date(plan.effectiveFrom).toLocaleDateString("es-AR")}</small>
                 <button
                   disabled={busy || !effectiveAt}
                   onClick={() =>
@@ -3267,11 +3621,7 @@ function PricingGovernancePanel({
                 value={field.value}
                 onChange={(event) =>
                   setConfig((current) =>
-                    updatePricingNumber(
-                      current,
-                      field.path,
-                      Number(event.target.value),
-                    ),
+                    updatePricingNumber(current, field.path, Number(event.target.value)),
                   )
                 }
               />
@@ -3295,9 +3645,7 @@ function PricingGovernancePanel({
             />
           </label>
           <button
-            disabled={
-              busy || !activePlan || version.trim().length < 6 || !effectiveAt
-            }
+            disabled={busy || !activePlan || version.trim().length < 6 || !effectiveAt}
             onClick={submit}
           >
             Enviar a revisión
@@ -3310,8 +3658,8 @@ function PricingGovernancePanel({
           action={`${requests.filter((entry) => entry.status === "pending").length} pendientes`}
         />
         <p>
-          La persona solicitante no puede revisar su propio cambio. Riesgo alto
-          exige fundamento reforzado.
+          La persona solicitante no puede revisar su propio cambio. Riesgo alto exige fundamento
+          reforzado.
         </p>
         <div className="pricing-request-list">
           {requests.length === 0 && (
@@ -3327,17 +3675,12 @@ function PricingGovernancePanel({
                 className={`pricing-request ${entry.status} risk-${entry.riskLevel}`}
               >
                 <div>
-                  <span>
-                    {entry.changeKind === "rollback"
-                      ? "rollback"
-                      : entry.service}
-                  </span>
+                  <span>{entry.changeKind === "rollback" ? "rollback" : entry.service}</span>
                   <strong>{entry.version}</strong>
                   <b>{entry.status}</b>
                 </div>
                 <div className={`pricing-risk ${entry.riskLevel}`}>
-                  Riesgo {entry.riskLevel} · máximo{" "}
-                  {entry.maximumChangePercent.toFixed(1)}%
+                  Riesgo {entry.riskLevel} · máximo {entry.maximumChangePercent.toFixed(1)}%
                 </div>
                 {entry.sourceVersion && (
                   <small>Restaura configuración de {entry.sourceVersion}</small>
@@ -3351,9 +3694,7 @@ function PricingGovernancePanel({
                     {entry.riskWarnings.slice(0, 3).map((warning) => (
                       <small key={warning.path}>
                         <strong>
-                          {pricingFieldLabels[
-                            warning.path.split(".").at(-1)!
-                          ] || warning.path}
+                          {pricingFieldLabels[warning.path.split(".").at(-1)!] || warning.path}
                         </strong>{" "}
                         {warning.previous} → {warning.next} (
                         {warning.direction === "increase" ? "+" : "-"}
@@ -3389,9 +3730,7 @@ function PricingGovernancePanel({
                     <div className="pricing-review-actions">
                       <button
                         disabled={
-                          own ||
-                          busy ||
-                          (notes[entry.id]?.trim().length || 0) < minimumNote
+                          own || busy || (notes[entry.id]?.trim().length || 0) < minimumNote
                         }
                         onClick={() => review(entry, "rejected")}
                       >
@@ -3399,9 +3738,7 @@ function PricingGovernancePanel({
                       </button>
                       <button
                         disabled={
-                          own ||
-                          busy ||
-                          (notes[entry.id]?.trim().length || 0) < minimumNote
+                          own || busy || (notes[entry.id]?.trim().length || 0) < minimumNote
                         }
                         onClick={() => review(entry, "approved")}
                       >
@@ -3430,29 +3767,20 @@ function PayoutReviewPanel() {
       setError("");
     } catch (loadError) {
       setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "No se pudieron cargar los retiros",
+        loadError instanceof Error ? loadError.message : "No se pudieron cargar los retiros",
       );
     }
   }, []);
   useEffect(() => {
     void load();
   }, [load]);
-  const review = async (
-    entry: PayoutReview,
-    decision: "approved" | "rejected",
-  ) => {
+  const review = async (entry: PayoutReview, decision: "approved" | "rejected") => {
     try {
       setBusy(true);
       await api.reviewPayout(entry.id, decision, notes[entry.id]?.trim() || "");
       await load();
     } catch (reviewError) {
-      setError(
-        reviewError instanceof Error
-          ? reviewError.message
-          : "No se pudo revisar el retiro",
-      );
+      setError(reviewError instanceof Error ? reviewError.message : "No se pudo revisar el retiro");
     } finally {
       setBusy(false);
     }
@@ -3464,9 +3792,8 @@ function PayoutReviewPanel() {
         action={`${payouts.filter((entry) => entry.status === "pending").length} pendientes`}
       />
       <p>
-        El saldo se reserva al solicitar. Sólo una revisión independiente
-        permite enviarlo al proveedor; rechazar libera la reserva al ledger
-        comercial.
+        El saldo se reserva al solicitar. Sólo una revisión independiente permite enviarlo al
+        proveedor; rechazar libera la reserva al ledger comercial.
       </p>
       {error && <p className="form-error">{error}</p>}
       <div className="shipment-config-list">
@@ -3551,9 +3878,7 @@ function TipAdjustmentPanel({
       setError("");
     } catch (loadError) {
       setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "No se pudieron cargar los ajustes",
+        loadError instanceof Error ? loadError.message : "No se pudieron cargar los ajustes",
       );
     }
   }, []);
@@ -3569,32 +3894,19 @@ function TipAdjustmentPanel({
       await load();
     } catch (requestError) {
       setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "No se pudo solicitar el ajuste",
+        requestError instanceof Error ? requestError.message : "No se pudo solicitar el ajuste",
       );
     } finally {
       setBusy(false);
     }
   };
-  const review = async (
-    entry: TipAdjustment,
-    decision: "approved" | "rejected",
-  ) => {
+  const review = async (entry: TipAdjustment, decision: "approved" | "rejected") => {
     try {
       setBusy(true);
-      await api.reviewTipAdjustment(
-        entry.id,
-        decision,
-        notes[entry.id]?.trim() || "",
-      );
+      await api.reviewTipAdjustment(entry.id, decision, notes[entry.id]?.trim() || "");
       await load();
     } catch (reviewError) {
-      setError(
-        reviewError instanceof Error
-          ? reviewError.message
-          : "No se pudo revisar el ajuste",
-      );
+      setError(reviewError instanceof Error ? reviewError.message : "No se pudo revisar el ajuste");
     } finally {
       setBusy(false);
     }
@@ -3606,18 +3918,14 @@ function TipAdjustmentPanel({
         action={`${adjustments.filter((entry) => entry.status === "pending").length} pendientes`}
       />
       <p>
-        Una persona solicita la corrección y otra la aprueba. Al aprobar, el
-        ledger revierte el importe del conductor al cliente sin alterar la
-        propina histórica.
+        Una persona solicita la corrección y otra la aprueba. Al aprobar, el ledger revierte el
+        importe del conductor al cliente sin alterar la propina histórica.
       </p>
       {error && <p className="form-error">{error}</p>}
       <div className="pricing-fields">
         <label>
           Propina
-          <select
-            value={tipId}
-            onChange={(event) => setTipId(event.target.value)}
-          >
+          <select value={tipId} onChange={(event) => setTipId(event.target.value)}>
             <option value="">Seleccionar</option>
             {tips.map((tip) => (
               <option key={tip.id} value={tip.id}>
@@ -3646,9 +3954,7 @@ function TipAdjustmentPanel({
         </label>
         <button
           className="primary-button"
-          disabled={
-            busy || !tipId || Number(amount) <= 0 || reason.trim().length < 5
-          }
+          disabled={busy || !tipId || Number(amount) <= 0 || reason.trim().length < 5}
           onClick={() => void requestAdjustment()}
         >
           Solicitar corrección
@@ -3667,14 +3973,12 @@ function TipAdjustmentPanel({
                   {entry.tipId} · servicio {entry.jobId}
                 </span>
                 <strong>
-                  {money.format(entry.amount)} / {money.format(entry.tipAmount)}{" "}
-                  · {entry.status}
+                  {money.format(entry.amount)} / {money.format(entry.tipAmount)} · {entry.status}
                 </strong>
               </div>
               <p>{entry.reason}</p>
               <small>
-                Solicita {entry.requestedBy} ·{" "}
-                {new Date(entry.requestedAt).toLocaleString("es-AR")}
+                Solicita {entry.requestedBy} · {new Date(entry.requestedAt).toLocaleString("es-AR")}
               </small>
               {entry.status === "pending" ? (
                 <>
@@ -3690,25 +3994,19 @@ function TipAdjustmentPanel({
                         }))
                       }
                       placeholder={
-                        own
-                          ? "Debe revisar otro administrador"
-                          : "Fundamento de la decisión"
+                        own ? "Debe revisar otro administrador" : "Fundamento de la decisión"
                       }
                     />
                   </label>
                   <div className="pricing-review-actions">
                     <button
-                      disabled={
-                        own || busy || (notes[entry.id]?.trim().length || 0) < 5
-                      }
+                      disabled={own || busy || (notes[entry.id]?.trim().length || 0) < 5}
                       onClick={() => void review(entry, "rejected")}
                     >
                       Rechazar
                     </button>
                     <button
-                      disabled={
-                        own || busy || (notes[entry.id]?.trim().length || 0) < 5
-                      }
+                      disabled={own || busy || (notes[entry.id]?.trim().length || 0) < 5}
                       onClick={() => void review(entry, "approved")}
                     >
                       Aprobar y contabilizar
@@ -3747,9 +4045,7 @@ function PaymentReconciliationPanel() {
       setError("");
     } catch (loadError) {
       setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "No se pudo cargar la conciliación",
+        loadError instanceof Error ? loadError.message : "No se pudo cargar la conciliación",
       );
     } finally {
       setBusy(false);
@@ -3758,23 +4054,14 @@ function PaymentReconciliationPanel() {
   useEffect(() => {
     void load();
   }, [load]);
-  const resolve = async (
-    entry: PaymentReconciliationCase,
-    status: "resolved" | "ignored",
-  ) => {
+  const resolve = async (entry: PaymentReconciliationCase, status: "resolved" | "ignored") => {
     try {
       setBusy(true);
-      await api.resolvePaymentReconciliationCase(
-        entry.id,
-        status,
-        notes[entry.id]?.trim() || "",
-      );
+      await api.resolvePaymentReconciliationCase(entry.id, status, notes[entry.id]?.trim() || "");
       await load();
     } catch (resolveError) {
       setError(
-        resolveError instanceof Error
-          ? resolveError.message
-          : "No se pudo cerrar la excepción",
+        resolveError instanceof Error ? resolveError.message : "No se pudo cerrar la excepción",
       );
     } finally {
       setBusy(false);
@@ -3786,40 +4073,26 @@ function PaymentReconciliationPanel() {
   ) => {
     try {
       setBusy(true);
-      await api.reviewTransactionRisk(
-        entry.id,
-        reviewStatus,
-        notes[entry.id]?.trim() || "",
-      );
+      await api.reviewTransactionRisk(entry.id, reviewStatus, notes[entry.id]?.trim() || "");
       await load();
     } catch (reviewError) {
-      setError(
-        reviewError instanceof Error
-          ? reviewError.message
-          : "No se pudo revisar el riesgo",
-      );
+      setError(reviewError instanceof Error ? reviewError.message : "No se pudo revisar el riesgo");
     } finally {
       setBusy(false);
     }
   };
   const cases = data?.cases || [],
-    pendingRisks = risks.filter(
-      (entry) => entry.decision !== "allow" && !entry.reviewStatus,
-    );
+    pendingRisks = risks.filter((entry) => entry.decision !== "allow" && !entry.reviewStatus);
   return (
     <div className="admin-grid">
       <section className="admin-card">
         <AdminSectionHeader
           title="Conciliación de pagos"
-          action={
-            data
-              ? `${data.summary.openCount} excepciones abiertas`
-              : "PostgreSQL"
-          }
+          action={data ? `${data.summary.openCount} excepciones abiertas` : "PostgreSQL"}
         />
         <p>
-          Compara intentos, capturas, reintegros y webhooks firmados. Detecta
-          diferencias persistentes; no inventa confirmaciones del PSP.
+          Compara intentos, capturas, reintegros y webhooks firmados. Detecta diferencias
+          persistentes; no inventa confirmaciones del PSP.
         </p>
         <div className="admin-summary-grid">
           <article>
@@ -3835,21 +4108,14 @@ function PaymentReconciliationPanel() {
             <strong>{pendingRisks.length}</strong>
           </article>
         </div>
-        <button
-          className="primary-button"
-          disabled={busy}
-          onClick={() => void load(true)}
-        >
+        <button className="primary-button" disabled={busy} onClick={() => void load(true)}>
           <RefreshCw size={17} />
           {busy ? "Conciliando…" : "Ejecutar conciliación"}
         </button>
         {error && <p className="form-error">{error}</p>}
       </section>
       <section className="admin-card">
-        <AdminSectionHeader
-          title="Excepciones"
-          action="Importes en centavos auditables"
-        />
+        <AdminSectionHeader title="Excepciones" action="Importes en centavos auditables" />
         <div className="shipment-config-list">
           {cases.map((entry) => (
             <article
@@ -3890,17 +4156,13 @@ function PaymentReconciliationPanel() {
                   </label>
                   <div className="pricing-review-actions">
                     <button
-                      disabled={
-                        busy || (notes[entry.id]?.trim().length || 0) < 5
-                      }
+                      disabled={busy || (notes[entry.id]?.trim().length || 0) < 5}
                       onClick={() => void resolve(entry, "ignored")}
                     >
                       Ignorar con fundamento
                     </button>
                     <button
-                      disabled={
-                        busy || (notes[entry.id]?.trim().length || 0) < 5
-                      }
+                      disabled={busy || (notes[entry.id]?.trim().length || 0) < 5}
                       onClick={() => void resolve(entry, "resolved")}
                     >
                       Marcar resuelto
@@ -3915,10 +4177,7 @@ function PaymentReconciliationPanel() {
             </article>
           ))}
           {!busy && cases.length === 0 && (
-            <p>
-              No hay excepciones. Ejecutá la conciliación para verificar el
-              estado actual.
-            </p>
+            <p>No hay excepciones. Ejecutá la conciliación para verificar el estado actual.</p>
           )}
         </div>
       </section>
@@ -3928,8 +4187,8 @@ function PaymentReconciliationPanel() {
           action={`${pendingRisks.length} para revisar`}
         />
         <p>
-          Scoring explicable previo al cobro sobre importe, antigüedad,
-          velocidad, gasto horario y fallos de pago.
+          Scoring explicable previo al cobro sobre importe, antigüedad, velocidad, gasto horario y
+          fallos de pago.
         </p>
         <div className="shipment-config-list">
           {risks
@@ -3971,28 +4230,20 @@ function PaymentReconciliationPanel() {
                     </label>
                     <div className="pricing-review-actions">
                       <button
-                        disabled={
-                          busy || (notes[entry.id]?.trim().length || 0) < 5
-                        }
+                        disabled={busy || (notes[entry.id]?.trim().length || 0) < 5}
                         onClick={() => void reviewRisk(entry, "false_positive")}
                       >
                         Falso positivo
                       </button>
                       <button
-                        disabled={
-                          busy || (notes[entry.id]?.trim().length || 0) < 5
-                        }
+                        disabled={busy || (notes[entry.id]?.trim().length || 0) < 5}
                         onClick={() => void reviewRisk(entry, "cleared")}
                       >
                         Verificado
                       </button>
                       <button
-                        disabled={
-                          busy || (notes[entry.id]?.trim().length || 0) < 5
-                        }
-                        onClick={() =>
-                          void reviewRisk(entry, "confirmed_fraud")
-                        }
+                        disabled={busy || (notes[entry.id]?.trim().length || 0) < 5}
+                        onClick={() => void reviewRisk(entry, "confirmed_fraud")}
                       >
                         Confirmar fraude
                       </button>
@@ -4022,36 +4273,23 @@ function ShipmentClaimsPanel() {
       setClaims((await api.getShipmentClaims()).claims);
       setError("");
     } catch (loadError) {
-      setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "No se pudieron cargar siniestros",
-      );
+      setError(loadError instanceof Error ? loadError.message : "No se pudieron cargar siniestros");
     }
   }, []);
   useEffect(() => {
     void load();
   }, [load]);
-  const transition = async (
-    claim: ShipmentClaim,
-    status: ShipmentClaim["status"],
-  ) => {
+  const transition = async (claim: ShipmentClaim, status: ShipmentClaim["status"]) => {
     try {
       setBusy(true);
       await api.updateShipmentClaim(claim.id, {
         status,
-        resolutionNote:
-          notes[claim.id]?.trim() || `Transición operativa a ${status}`,
-        approvedAmount:
-          status === "approved" ? Number(amounts[claim.id]) : undefined,
+        resolutionNote: notes[claim.id]?.trim() || `Transición operativa a ${status}`,
+        approvedAmount: status === "approved" ? Number(amounts[claim.id]) : undefined,
       });
       await load();
     } catch (updateError) {
-      setError(
-        updateError instanceof Error
-          ? updateError.message
-          : "No se pudo actualizar",
-      );
+      setError(updateError instanceof Error ? updateError.message : "No se pudo actualizar");
     } finally {
       setBusy(false);
     }
@@ -4060,12 +4298,8 @@ function ShipmentClaimsPanel() {
     try {
       setBusy(true);
       const result = await api.getShipmentClaimEvidenceContent(id),
-        bytes = Uint8Array.from(atob(result.contentBase64), (character) =>
-          character.charCodeAt(0),
-        ),
-        url = URL.createObjectURL(
-          new Blob([bytes], { type: result.evidence.mimeType }),
-        ),
+        bytes = Uint8Array.from(atob(result.contentBase64), (character) => character.charCodeAt(0)),
+        url = URL.createObjectURL(new Blob([bytes], { type: result.evidence.mimeType })),
         link = document.createElement("a");
       link.href = url;
       link.target = "_blank";
@@ -4073,11 +4307,7 @@ function ShipmentClaimsPanel() {
       link.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch (openError) {
-      setError(
-        openError instanceof Error
-          ? openError.message
-          : "No se pudo abrir la evidencia",
-      );
+      setError(openError instanceof Error ? openError.message : "No se pudo abrir la evidencia");
     } finally {
       setBusy(false);
     }
@@ -4089,9 +4319,8 @@ function ShipmentClaimsPanel() {
         action={`${claims.filter((item) => !["rejected", "settled"].includes(item.status)).length} abiertos`}
       />
       <p>
-        La aprobación respeta el máximo elegible. `settlement_pending` espera
-        confirmación de una aseguradora o proveedor real; la consola no inventa
-        transferencias.
+        La aprobación respeta el máximo elegible. `settlement_pending` espera confirmación de una
+        aseguradora o proveedor real; la consola no inventa transferencias.
       </p>
       {error && <p className="form-error">{error}</p>}
       <div className="shipment-config-list">
@@ -4119,8 +4348,8 @@ function ShipmentClaimsPanel() {
               </div>
               <p>{claim.description}</p>
               <small>
-                Solicitado {money.format(claim.requestedAmount)} · elegible
-                hasta {money.format(claim.eligibleAmount)}
+                Solicitado {money.format(claim.requestedAmount)} · elegible hasta{" "}
+                {money.format(claim.eligibleAmount)}
                 {claim.approvedAmount != null
                   ? ` · aprobado ${money.format(claim.approvedAmount)}`
                   : ""}
@@ -4134,8 +4363,7 @@ function ShipmentClaimsPanel() {
                       disabled={busy}
                       onClick={() => void openEvidence(item.id)}
                     >
-                      <Download size={15} /> {item.fileName} ·{" "}
-                      {Math.ceil(item.sizeBytes / 1024)} KB
+                      <Download size={15} /> {item.fileName} · {Math.ceil(item.sizeBytes / 1024)} KB
                     </button>
                   ))}
                 </div>
@@ -4181,12 +4409,7 @@ function ShipmentClaimsPanel() {
                           (status === "approved" &&
                             !Number(amounts[claim.id] ?? claim.eligibleAmount))
                         }
-                        onClick={() =>
-                          void transition(
-                            claim,
-                            status as ShipmentClaim["status"],
-                          )
-                        }
+                        onClick={() => void transition(claim, status as ShipmentClaim["status"])}
                       >
                         {status.replaceAll("_", " ")}
                       </button>
@@ -4222,11 +4445,7 @@ function ServiceQuickReplyPanel({ busy: globalBusy }: { busy: boolean }) {
       setItems((await api.getAdminServiceQuickReplies()).quickReplies);
       setError("");
     } catch (loadError) {
-      setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "No se pudo cargar el catálogo",
-      );
+      setError(loadError instanceof Error ? loadError.message : "No se pudo cargar el catálogo");
     } finally {
       setLoading(false);
     }
@@ -4245,31 +4464,19 @@ function ServiceQuickReplyPanel({ busy: globalBusy }: { busy: boolean }) {
       }));
       await load();
     } catch (createError) {
-      setError(
-        createError instanceof Error ? createError.message : "No se pudo crear",
-      );
+      setError(createError instanceof Error ? createError.message : "No se pudo crear");
     } finally {
       setSaving(false);
     }
   };
-  const patch = async (
-    item: ServiceQuickReply,
-    changes: Partial<ServiceQuickReply>,
-  ) => {
+  const patch = async (item: ServiceQuickReply, changes: Partial<ServiceQuickReply>) => {
     try {
       setSaving(true);
-      const updated = (await api.updateServiceQuickReply(item.id, changes))
-        .quickReply;
-      setItems((current) =>
-        current.map((entry) => (entry.id === updated.id ? updated : entry)),
-      );
+      const updated = (await api.updateServiceQuickReply(item.id, changes)).quickReply;
+      setItems((current) => current.map((entry) => (entry.id === updated.id ? updated : entry)));
       setError("");
     } catch (updateError) {
-      setError(
-        updateError instanceof Error
-          ? updateError.message
-          : "No se pudo actualizar",
-      );
+      setError(updateError instanceof Error ? updateError.message : "No se pudo actualizar");
     } finally {
       setSaving(false);
     }
@@ -4277,14 +4484,8 @@ function ServiceQuickReplyPanel({ busy: globalBusy }: { busy: boolean }) {
   return (
     <div className="admin-grid two">
       <section className="admin-card">
-        <AdminSectionHeader
-          title="Respuestas rápidas"
-          action="PostgreSQL · es-AR"
-        />
-        <p>
-          El cliente mobile recibe únicamente frases activas compatibles con su
-          rol y vertical.
-        </p>
+        <AdminSectionHeader title="Respuestas rápidas" action="PostgreSQL · es-AR" />
+        <p>El cliente mobile recibe únicamente frases activas compatibles con su rol y vertical.</p>
         {error && <p className="form-error">{error}</p>}
         <div className="shipment-config-list">
           {loading ? (
@@ -4334,9 +4535,7 @@ function ServiceQuickReplyPanel({ busy: globalBusy }: { busy: boolean }) {
                     onChange={(event) =>
                       setItems((current) =>
                         current.map((entry) =>
-                          entry.id === item.id
-                            ? { ...entry, body: event.target.value }
-                            : entry,
+                          entry.id === item.id ? { ...entry, body: event.target.value } : entry,
                         ),
                       )
                     }
@@ -4360,10 +4559,7 @@ function ServiceQuickReplyPanel({ busy: globalBusy }: { busy: boolean }) {
         </div>
       </section>
       <section className="admin-card merchant-create-product">
-        <AdminSectionHeader
-          title="Nueva respuesta"
-          action="Publicación inmediata"
-        />
+        <AdminSectionHeader title="Nueva respuesta" action="Publicación inmediata" />
         <label>
           Vertical
           <select
@@ -4371,8 +4567,7 @@ function ServiceQuickReplyPanel({ busy: globalBusy }: { busy: boolean }) {
             onChange={(event) =>
               setDraft((current) => ({
                 ...current,
-                serviceScope: event.target
-                  .value as ServiceQuickReply["serviceScope"],
+                serviceScope: event.target.value as ServiceQuickReply["serviceScope"],
               }))
             }
           >
@@ -4433,9 +4628,7 @@ function ServiceQuickReplyPanel({ busy: globalBusy }: { busy: boolean }) {
           <textarea
             maxLength={160}
             value={draft.body}
-            onChange={(event) =>
-              setDraft((current) => ({ ...current, body: event.target.value }))
-            }
+            onChange={(event) => setDraft((current) => ({ ...current, body: event.target.value }))}
           />
         </label>
         <button
@@ -4465,11 +4658,7 @@ function ShipmentConfigurationPanel({
         .getAdminShipmentOptions()
         .then(setOptions)
         .catch((requestError) =>
-          setError(
-            requestError instanceof Error
-              ? requestError.message
-              : "No se pudo cargar",
-          ),
+          setError(requestError instanceof Error ? requestError.message : "No se pudo cargar"),
         ),
     [],
   );
@@ -4479,10 +4668,7 @@ function ShipmentConfigurationPanel({
   if (!options)
     return (
       <section className="admin-card">
-        <AdminSectionHeader
-          title="Configuración de Envíos"
-          action="PostgreSQL"
-        />
+        <AdminSectionHeader title="Configuración de Envíos" action="PostgreSQL" />
         <p>{error || "Cargando categorías y SLA…"}</p>
       </section>
     );
@@ -4493,10 +4679,7 @@ function ShipmentConfigurationPanel({
           title="Categorías de paquete"
           action={`${options.categories.filter((item) => item.active).length} activas`}
         />
-        <p>
-          Límites, recargos e instrucciones usados por el cotizador y el
-          conductor.
-        </p>
+        <p>Límites, recargos e instrucciones usados por el cotizador y el conductor.</p>
         <div className="shipment-config-list">
           {options.categories.map((category) => (
             <article
@@ -4512,10 +4695,9 @@ function ShipmentConfigurationPanel({
                   onClick={() =>
                     runAction(
                       async () => {
-                        const result = await api.updateShipmentItemCategory(
-                          category.code,
-                          { active: category.active === false },
-                        );
+                        const result = await api.updateShipmentItemCategory(category.code, {
+                          active: category.active === false,
+                        });
                         setOptions((current) =>
                           current
                             ? {
@@ -4622,22 +4804,17 @@ function ShipmentConfigurationPanel({
                 }
                 onClick={() =>
                   runAction(async () => {
-                    const result = await api.updateShipmentItemCategory(
-                      category.code,
-                      {
-                        surcharge: category.surcharge,
-                        maximumWeightKg: category.maximumWeightKg,
-                        handlingInstructions: category.handlingInstructions,
-                      },
-                    );
+                    const result = await api.updateShipmentItemCategory(category.code, {
+                      surcharge: category.surcharge,
+                      maximumWeightKg: category.maximumWeightKg,
+                      handlingInstructions: category.handlingInstructions,
+                    });
                     setOptions((current) =>
                       current
                         ? {
                             ...current,
                             categories: current.categories.map((item) =>
-                              item.code === category.code
-                                ? { ...item, ...result.category }
-                                : item,
+                              item.code === category.code ? { ...item, ...result.category } : item,
                             ),
                           }
                         : current,
@@ -4654,8 +4831,8 @@ function ShipmentConfigurationPanel({
       <section className="admin-card">
         <AdminSectionHeader title="Niveles de servicio" action="Precio + ETA" />
         <p>
-          Los cambios afectan cotizaciones nuevas; los tokens ya emitidos
-          conservan su precio bloqueado.
+          Los cambios afectan cotizaciones nuevas; los tokens ya emitidos conservan su precio
+          bloqueado.
         </p>
         <div className="shipment-config-list">
           {options.serviceLevels.map((level) => (
@@ -4672,19 +4849,17 @@ function ShipmentConfigurationPanel({
                   onClick={() =>
                     runAction(
                       async () => {
-                        const result = await api.updateShipmentServiceLevel(
-                          level.code,
-                          { active: level.active === false },
-                        );
+                        const result = await api.updateShipmentServiceLevel(level.code, {
+                          active: level.active === false,
+                        });
                         setOptions((current) =>
                           current
                             ? {
                                 ...current,
-                                serviceLevels: current.serviceLevels.map(
-                                  (item) =>
-                                    item.code === level.code
-                                      ? { ...item, ...result.serviceLevel }
-                                      : item,
+                                serviceLevels: current.serviceLevels.map((item) =>
+                                  item.code === level.code
+                                    ? { ...item, ...result.serviceLevel }
+                                    : item,
                                 ),
                               }
                             : current,
@@ -4716,9 +4891,7 @@ function ShipmentConfigurationPanel({
                               item.code === level.code
                                 ? {
                                     ...item,
-                                    transportMultiplier: Number(
-                                      event.target.value,
-                                    ),
+                                    transportMultiplier: Number(event.target.value),
                                   }
                                 : item,
                             ),
@@ -4772,9 +4945,7 @@ function ShipmentConfigurationPanel({
                                 ? {
                                     ...item,
                                     maximumDistanceKm:
-                                      event.target.value === ""
-                                        ? null
-                                        : Number(event.target.value),
+                                      event.target.value === "" ? null : Number(event.target.value),
                                   }
                                 : item,
                             ),
@@ -4789,22 +4960,17 @@ function ShipmentConfigurationPanel({
                 disabled={busy}
                 onClick={() =>
                   runAction(async () => {
-                    const result = await api.updateShipmentServiceLevel(
-                      level.code,
-                      {
-                        transportMultiplier: level.transportMultiplier,
-                        etaMultiplier: level.etaMultiplier,
-                        maximumDistanceKm: level.maximumDistanceKm,
-                      },
-                    );
+                    const result = await api.updateShipmentServiceLevel(level.code, {
+                      transportMultiplier: level.transportMultiplier,
+                      etaMultiplier: level.etaMultiplier,
+                      maximumDistanceKm: level.maximumDistanceKm,
+                    });
                     setOptions((current) =>
                       current
                         ? {
                             ...current,
                             serviceLevels: current.serviceLevels.map((item) =>
-                              item.code === level.code
-                                ? { ...item, ...result.serviceLevel }
-                                : item,
+                              item.code === level.code ? { ...item, ...result.serviceLevel } : item,
                             ),
                           }
                         : current,
@@ -4832,9 +4998,7 @@ function NotificationDeliveryPanel() {
       setError("");
     } catch (loadError) {
       setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "No se pudo cargar la cola de descarte",
+        loadError instanceof Error ? loadError.message : "No se pudo cargar la cola de descarte",
       );
     }
   }, []);
@@ -4848,9 +5012,7 @@ function NotificationDeliveryPanel() {
       await load();
     } catch (actionError) {
       setError(
-        actionError instanceof Error
-          ? actionError.message
-          : "No se pudo procesar la notificación",
+        actionError instanceof Error ? actionError.message : "No se pudo procesar la notificación",
       );
     } finally {
       setBusy(false);
@@ -4863,9 +5025,8 @@ function NotificationDeliveryPanel() {
         action={`${deadLetters.length} descartadas`}
       />
       <p>
-        Los tokens permanentemente inválidos se revocan. Los fallos terminales
-        quedan retenidos para inspección y replay atribuido, sin exponer tokens
-        ni payloads.
+        Los tokens permanentemente inválidos se revocan. Los fallos terminales quedan retenidos para
+        inspección y replay atribuido, sin exponer tokens ni payloads.
       </p>
       <button
         className="primary-button"
@@ -4889,14 +5050,12 @@ function NotificationDeliveryPanel() {
               {entry.userId} · {entry.reason} · {entry.attempts} intentos
             </small>
             <small>
-              Descartada {new Date(entry.createdAt).toLocaleString("es-AR")} ·
-              replays {entry.replayCount}
+              Descartada {new Date(entry.createdAt).toLocaleString("es-AR")} · replays{" "}
+              {entry.replayCount}
             </small>
             <button
               disabled={busy}
-              onClick={() =>
-                void act(() => api.replayNotificationDeadLetter(entry.id))
-              }
+              onClick={() => void act(() => api.replayNotificationDeadLetter(entry.id))}
             >
               Reintentar entrega
             </button>
@@ -4928,9 +5087,7 @@ function SupportOperationsPanel({
       setError("");
     } catch (loadError) {
       setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "No se pudieron cargar los agentes",
+        loadError instanceof Error ? loadError.message : "No se pudieron cargar los agentes",
       );
     }
   }, []);
@@ -4947,17 +5104,13 @@ function SupportOperationsPanel({
       await load();
     } catch (updateError) {
       setError(
-        updateError instanceof Error
-          ? updateError.message
-          : "No se pudo actualizar el agente",
+        updateError instanceof Error ? updateError.message : "No se pudo actualizar el agente",
       );
     } finally {
       setLoading(false);
     }
   };
-  const open = tickets.filter(
-      (ticket) => !["resolved", "closed"].includes(ticket.status),
-    ),
+  const open = tickets.filter((ticket) => !["resolved", "closed"].includes(ticket.status)),
     breached = open.filter((ticket) => ticket.slaStatus.includes("breached"));
   return (
     <div className="admin-grid">
@@ -4967,17 +5120,14 @@ function SupportOperationsPanel({
           action={`${open.length} abiertos · ${breached.length} vencidos`}
         />
         <p>
-          La cola asigna por capacidad y especialidad. Los vencimientos generan
-          escalaciones idempotentes, nota interna y alerta al responsable.
+          La cola asigna por capacidad y especialidad. Los vencimientos generan escalaciones
+          idempotentes, nota interna y alerta al responsable.
         </p>
         <button
           className="primary-button"
           disabled={busy || loading}
           onClick={() =>
-            runAction(
-              () => api.processSupportQueue(),
-              "Cola distribuida y SLA procesado",
-            )
+            runAction(() => api.processSupportQueue(), "Cola distribuida y SLA procesado")
           }
         >
           <RefreshCw size={17} />
@@ -5001,9 +5151,7 @@ function SupportOperationsPanel({
                   <span>SLA</span>
                   <strong
                     className={
-                      ticket.slaStatus.includes("breached")
-                        ? "status-suspended"
-                        : "status-active"
+                      ticket.slaStatus.includes("breached") ? "status-suspended" : "status-active"
                     }
                   >
                     {ticket.slaStatus.replaceAll("_", " ")}
@@ -5019,7 +5167,8 @@ function SupportOperationsPanel({
                 </article>
               </div>
               <small>
-                {ticket.priority} · {ticket.resolutionDueAt
+                {ticket.priority} ·{" "}
+                {ticket.resolutionDueAt
                   ? `resolución ${new Date(ticket.resolutionDueAt).toLocaleString("es-AR")}`
                   : "SLA persistido sólo con PostgreSQL"}
               </small>
@@ -5027,11 +5176,7 @@ function SupportOperationsPanel({
                 Asignar
                 <select
                   value={ticket.assignedTo || ""}
-                  disabled={
-                    busy ||
-                    loading ||
-                    ["resolved", "closed"].includes(ticket.status)
-                  }
+                  disabled={busy || loading || ["resolved", "closed"].includes(ticket.status)}
                   onChange={(event) =>
                     runAction(
                       () =>
@@ -5047,8 +5192,7 @@ function SupportOperationsPanel({
                     .filter((agent) => agent.availability !== "offline")
                     .map((agent) => (
                       <option key={agent.userId} value={agent.userId}>
-                        {agent.name} · {agent.activeTickets}/
-                        {agent.maxActiveTickets}
+                        {agent.name} · {agent.activeTickets}/{agent.maxActiveTickets}
                       </option>
                     ))}
                 </select>
@@ -5101,13 +5245,11 @@ function SupportOperationsPanel({
               )}
               {ticket.assignmentHistory.length > 0 && (
                 <details>
-                  <summary>
-                    Historial de asignación ({ticket.assignmentHistory.length})
-                  </summary>
+                  <summary>Historial de asignación ({ticket.assignmentHistory.length})</summary>
                   {ticket.assignmentHistory.map((entry, index) => (
                     <small key={`${entry.createdAt}-${index}`}>
-                      {new Date(entry.createdAt).toLocaleString("es-AR")} ·{" "}
-                      {entry.assignedTo} · {entry.reason}
+                      {new Date(entry.createdAt).toLocaleString("es-AR")} · {entry.assignedTo} ·{" "}
+                      {entry.reason}
                     </small>
                   ))}
                 </details>
@@ -5144,8 +5286,7 @@ function SupportOperationsPanel({
                     disabled={loading}
                     onChange={(event) =>
                       void updateAgent(agent.userId, {
-                        availability: event.target
-                          .value as SupportAgent["availability"],
+                        availability: event.target.value as SupportAgent["availability"],
                       })
                     }
                   >
@@ -5164,11 +5305,7 @@ function SupportOperationsPanel({
                     disabled={loading}
                     onBlur={(event) => {
                       const value = Number(event.target.value);
-                      if (
-                        value >= 1 &&
-                        value <= 100 &&
-                        value !== agent.maxActiveTickets
-                      )
+                      if (value >= 1 && value <= 100 && value !== agent.maxActiveTickets)
                         void updateAgent(agent.userId, {
                           maxActiveTickets: value,
                         });
@@ -5201,8 +5338,8 @@ function AdminUserModeration({
         action={`${users.filter((user) => user.status === "suspended").length} suspendidos`}
       />
       <p>
-        Suspender revoca sesiones, desconecta conductores y retira sus ofertas
-        pendientes. Cada decisión queda auditada.
+        Suspender revoca sesiones, desconecta conductores y retira sus ofertas pendientes. Cada
+        decisión queda auditada.
       </p>
       <div className="admin-table user-moderation-table">
         {users.map((user) => {
@@ -5229,9 +5366,7 @@ function AdminUserModeration({
                     [user.id]: event.target.value,
                   }))
                 }
-                placeholder={
-                  suspended ? "Motivo de reactivación" : "Motivo de suspensión"
-                }
+                placeholder={suspended ? "Motivo de reactivación" : "Motivo de suspensión"}
               />
               <button
                 type="button"
@@ -5284,11 +5419,7 @@ function AdminSecurityPanel() {
       .getMfaStatus()
       .then((result) => setStatus(result.mfa))
       .catch((requestError) =>
-        setError(
-          requestError instanceof Error
-            ? requestError.message
-            : "No se pudo consultar MFA",
-        ),
+        setError(requestError instanceof Error ? requestError.message : "No se pudo consultar MFA"),
       );
   }, []);
   useEffect(() => {
@@ -5322,11 +5453,7 @@ function AdminSecurityPanel() {
       setEnrollment(result.enrollment);
       setMessage("Escaneá el QR y guardá los códigos antes de confirmar.");
     } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "No se pudo iniciar MFA",
-      );
+      setError(requestError instanceof Error ? requestError.message : "No se pudo iniciar MFA");
     } finally {
       setBusy(false);
     }
@@ -5343,11 +5470,7 @@ function AdminSecurityPanel() {
         "MFA quedó activo. Las próximas sesiones administrativas exigirán el segundo factor.",
       );
     } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Código inválido",
-      );
+      setError(requestError instanceof Error ? requestError.message : "Código inválido");
     } finally {
       setBusy(false);
     }
@@ -5362,9 +5485,7 @@ function AdminSecurityPanel() {
   };
   const downloadRecovery = () => {
     if (!recoveryText) return;
-    const url = URL.createObjectURL(
-        new Blob([recoveryText], { type: "text/plain;charset=utf-8" }),
-      ),
+    const url = URL.createObjectURL(new Blob([recoveryText], { type: "text/plain;charset=utf-8" })),
       link = document.createElement("a");
     link.href = url;
     link.download = "flash-mfa-recovery-codes.txt";
@@ -5385,18 +5506,14 @@ function AdminSecurityPanel() {
       )}
       {status && (
         <div className="security-status-grid">
-          <article
-            className={`security-posture ${status.enabled ? "enabled" : "warning"}`}
-          >
+          <article className={`security-posture ${status.enabled ? "enabled" : "warning"}`}>
             <span>
               <ShieldCheck size={25} />
             </span>
             <div>
               <small>Segundo factor</small>
               <strong>
-                {status.enabled
-                  ? "Protección TOTP activa"
-                  : "MFA todavía no configurado"}
+                {status.enabled ? "Protección TOTP activa" : "MFA todavía no configurado"}
               </strong>
               <p>
                 {status.enabled
@@ -5410,8 +5527,8 @@ function AdminSecurityPanel() {
             <div>
               <strong>Política de acceso</strong>
               <span>
-                Contraseña + TOTP · desafío 5 min · bloqueo tras 5 fallos ·
-                recuperación de un solo uso
+                Contraseña + TOTP · desafío 5 min · bloqueo tras 5 fallos · recuperación de un solo
+                uso
               </span>
             </div>
           </article>
@@ -5422,16 +5539,11 @@ function AdminSecurityPanel() {
           <div>
             <strong>Activar una aplicación autenticadora</strong>
             <p>
-              Compatible con 1Password, Google Authenticator, Microsoft
-              Authenticator, Authy y cualquier cliente TOTP estándar.
+              Compatible con 1Password, Google Authenticator, Microsoft Authenticator, Authy y
+              cualquier cliente TOTP estándar.
             </p>
           </div>
-          <button
-            type="button"
-            className="primary-button"
-            onClick={begin}
-            disabled={busy}
-          >
+          <button type="button" className="primary-button" onClick={begin} disabled={busy}>
             <KeyRound size={17} />
             {busy ? "Preparando…" : "Configurar MFA"}
           </button>
@@ -5455,9 +5567,7 @@ function AdminSecurityPanel() {
           <div className="security-recovery">
             <span>Paso 2</span>
             <strong>Guardá los códigos de recuperación</strong>
-            <p>
-              Se muestran una sola vez y cada uno se invalida después de usarlo.
-            </p>
+            <p>Se muestran una sola vez y cada uno se invalida después de usarlo.</p>
             <div className="recovery-code-grid">
               {enrollment.recoveryCodes.map((item) => (
                 <code key={item}>{item}</code>
@@ -5483,26 +5593,19 @@ function AdminSecurityPanel() {
               <span>Paso 3</span>
               <strong>Confirmá un código de 6 dígitos</strong>
               <p>
-                La protección no se activa hasta verificar que el autenticador
-                quedó configurado.
+                La protección no se activa hasta verificar que el autenticador quedó configurado.
               </p>
             </div>
             <input
               value={code}
-              onChange={(event) =>
-                setCode(event.target.value.replace(/\D/g, "").slice(0, 6))
-              }
+              onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
               inputMode="numeric"
               autoComplete="one-time-code"
               placeholder="000000"
               pattern="[0-9]{6}"
               required
             />
-            <button
-              className="primary-button"
-              type="submit"
-              disabled={busy || code.length !== 6}
-            >
+            <button className="primary-button" type="submit" disabled={busy || code.length !== 6}>
               {busy ? "Verificando…" : "Activar MFA"}
             </button>
           </form>
@@ -5573,10 +5676,7 @@ function RealtimeStatus({
     offline: "Realtime offline",
   } as const;
   return (
-    <span
-      className={`realtime-status ${status}`}
-      title="Canal de actualizaciones de la plataforma"
-    >
+    <span className={`realtime-status ${status}`} title="Canal de actualizaciones de la plataforma">
       <span />
       {labels[status]}
     </span>
@@ -5603,13 +5703,7 @@ function AdminKpi({
   );
 }
 
-function AdminSectionHeader({
-  title,
-  action,
-}: {
-  title: string;
-  action: string;
-}) {
+function AdminSectionHeader({ title, action }: { title: string; action: string }) {
   return (
     <div className="admin-section-header">
       <h2>{title}</h2>
@@ -5642,11 +5736,7 @@ function MarketplaceHealth({
         : `${state.rides.filter((ride) => ride.driverId).length}/${state.rides.length}`,
       "Conductores",
     ],
-    [
-      "Locales abiertos",
-      `${state.metrics.openRestaurants}/${state.restaurants.length}`,
-      "Supply",
-    ],
+    ["Locales abiertos", `${state.metrics.openRestaurants}/${state.restaurants.length}`, "Supply"],
     ["Cancelaciones", String(cancellationCount), "Riesgo"],
   ];
   return (
@@ -5677,41 +5767,29 @@ function InvestorPulse({
   const runway = investor?.runwayMonths ?? null;
   return (
     <div className="investor-pulse">
-      <div
-        className="readiness-meter"
-        style={{ "--score": `${score}%` } as CSSProperties}
-      >
+      <div className="readiness-meter" style={{ "--score": `${score}%` } as CSSProperties}>
         <strong>{score}</strong>
         <span>readiness</span>
       </div>
       <div className="investor-summary">
         <h3>Historia para inversores</h3>
         <p>
-          Marketplace multi-servicio con demanda de comida y movilidad, supply
-          flexible y backoffice operativo. El foco de la ronda es convertir el
-          MVP local en beta con realtime, pagos y app nativa.
+          Marketplace multi-servicio con demanda de comida y movilidad, supply flexible y backoffice
+          operativo. El foco de la ronda es convertir el MVP local en beta con realtime, pagos y app
+          nativa.
         </p>
         <div className="investor-stats">
           <span>GMV {money.format(grossVolume)}</span>
           <span>Revenue {money.format(platformRevenue)}</span>
-          <span>
-            Runway{" "}
-            {runway === null || runway === 0 ? "sin configurar" : `${runway}m`}
-          </span>
-          <span>
-            Margen {margin === null ? "sin configurar" : `${margin}%`}
-          </span>
+          <span>Runway {runway === null || runway === 0 ? "sin configurar" : `${runway}m`}</span>
+          <span>Margen {margin === null ? "sin configurar" : `${margin}%`}</span>
         </div>
       </div>
     </div>
   );
 }
 
-function UnitEconomicsBoard({
-  dashboard,
-}: {
-  dashboard: AdminDashboard | null;
-}) {
+function UnitEconomicsBoard({ dashboard }: { dashboard: AdminDashboard | null }) {
   const rows = dashboard?.investor.unitEconomics || [
     { label: "AOV comida", value: "$0", detail: "Ticket promedio" },
     { label: "Fare taxi", value: "$0", detail: "Tarifa promedio" },
@@ -5748,16 +5826,8 @@ function MilestoneBoard({ dashboard }: { dashboard: AdminDashboard | null }) {
   );
 }
 
-function GrowthFunnel({
-  state,
-  dashboard,
-}: {
-  state: AppState;
-  dashboard: AdminDashboard | null;
-}) {
-  const activatedUsers = state.users.filter((user) =>
-    user.roles.includes("customer"),
-  ).length;
+function GrowthFunnel({ state, dashboard }: { state: AppState; dashboard: AdminDashboard | null }) {
+  const activatedUsers = state.users.filter((user) => user.roles.includes("customer")).length;
   const completedJobs =
     state.orders.filter((order) => order.status === "delivered").length +
     state.rides.filter((ride) => ride.status === "completed").length;
@@ -5828,10 +5898,7 @@ function ZoneBoard({ state }: { state: AppState }) {
   return (
     <div className="zone-board">
       {state.zones?.map((zone) => (
-        <article
-          className={zone.demandLevel === "high" ? "hot" : ""}
-          key={zone.id}
-        >
+        <article className={zone.demandLevel === "high" ? "hot" : ""} key={zone.id}>
           <strong>{zone.name}</strong>
           <span>{zone.demandLevel}</span>
           <small>
@@ -5860,12 +5927,8 @@ function AdminLiveGrid({
     <div className="admin-live-grid">
       <div className="admin-table">
         {orders.map((order) => {
-          const restaurant = state.restaurants.find(
-            (entry) => entry.id === order.restaurantId,
-          );
-          const driver = state.drivers.find(
-            (entry) => entry.id === order.courierId,
-          );
+          const restaurant = state.restaurants.find((entry) => entry.id === order.restaurantId);
+          const driver = state.drivers.find((entry) => entry.id === order.courierId);
           return (
             <article className="admin-row compact" key={order.id}>
               <ShoppingBag size={18} />
@@ -5880,14 +5943,9 @@ function AdminLiveGrid({
               <button
                 type="button"
                 disabled={
-                  busy ||
-                  ["ready_for_pickup", "delivered", "cancelled"].includes(
-                    order.status,
-                  )
+                  busy || ["ready_for_pickup", "delivered", "cancelled"].includes(order.status)
                 }
-                onClick={() =>
-                  runAction(() => api.advanceOrder(order.id), "Pedido avanzado")
-                }
+                onClick={() => runAction(() => api.advanceOrder(order.id), "Pedido avanzado")}
               >
                 Avanzar
               </button>
@@ -5897,9 +5955,7 @@ function AdminLiveGrid({
       </div>
       <div className="admin-table">
         {rides.map((ride) => {
-          const driver = state.drivers.find(
-            (entry) => entry.id === ride.driverId,
-          );
+          const driver = state.drivers.find((entry) => entry.id === ride.driverId);
           return (
             <article className="admin-row compact" key={ride.id}>
               <Car size={18} />
@@ -5913,13 +5969,8 @@ function AdminLiveGrid({
               <small>{driver?.name || "Sin conductor"}</small>
               <button
                 type="button"
-                disabled={
-                  busy ||
-                  ["requested", "completed", "cancelled"].includes(ride.status)
-                }
-                onClick={() =>
-                  runAction(() => api.advanceRide(ride.id), "Viaje avanzado")
-                }
+                disabled={busy || ["requested", "completed", "cancelled"].includes(ride.status)}
+                onClick={() => runAction(() => api.advanceRide(ride.id), "Viaje avanzado")}
               >
                 Avanzar
               </button>
@@ -5943,13 +5994,7 @@ function InfraItem({ title, text }: { title: string; text: string }) {
   );
 }
 
-function AppModeBar({
-  mode,
-  onModeChange,
-}: {
-  mode: Mode;
-  onModeChange: (mode: Mode) => void;
-}) {
+function AppModeBar({ mode, onModeChange }: { mode: Mode; onModeChange: (mode: Mode) => void }) {
   const modes: Array<{ id: Mode; label: string; icon: LucideIcon }> = [
     { id: "customer", label: "Cliente", icon: UserRound },
     { id: "merchant", label: "Local", icon: Store },
@@ -6024,10 +6069,7 @@ function BrandPanel({
       </div>
       <div className="dispatch-map">
         {state.zones.slice(0, 3).map((zone, index) => (
-          <div
-            className={`zone zone-${["one", "two", "three"][index]}`}
-            key={zone.id}
-          >
+          <div className={`zone zone-${["one", "two", "three"][index]}`} key={zone.id}>
             {zone.name} · {zone.demandLevel}
           </div>
         ))}
@@ -6039,15 +6081,7 @@ function BrandPanel({
   );
 }
 
-function Metric({
-  label,
-  value,
-  trend,
-}: {
-  label: string;
-  value: string;
-  trend: string;
-}) {
+function Metric({ label, value, trend }: { label: string; value: string; trend: string }) {
   return (
     <div className="metric">
       <span>{label}</span>
@@ -6091,7 +6125,10 @@ function CustomerApp(props: {
   setPromotionCode: (code: string) => void;
   cartRestaurant: Restaurant | null;
   openItem: (restaurant: Restaurant, item: MenuItem) => void;
-  createOrder: (checkout:FoodCheckoutSelection,providerPayment?:{cardToken:string;paymentMethodId:string;installments:number}) => Promise<void>;
+  createOrder: (
+    checkout: FoodCheckoutSelection,
+    providerPayment?: { cardToken: string; paymentMethodId: string; installments: number },
+  ) => Promise<void>;
   rideForm: RideForm;
   setRideForm: React.Dispatch<React.SetStateAction<RideForm>>;
   quote: RideQuote | null;
@@ -6102,11 +6139,7 @@ function CustomerApp(props: {
   locationStatus: "idle" | "locating" | "ready" | "denied";
   locationMessage: string;
   onTopUpWallet: (amount: number) => void;
-  onUpdateProfile: (payload: {
-    name: string;
-    phone: string;
-    defaultAddress: string;
-  }) => void;
+  onUpdateProfile: (payload: { name: string; phone: string; defaultAddress: string }) => void;
   addresses: UserAddress[];
   onCreateAddress: (payload: {
     label: string;
@@ -6129,8 +6162,8 @@ function CustomerApp(props: {
   onDeleteAddress: (addressId: string) => Promise<boolean>;
   busy: boolean;
   runAction: (action: () => Promise<unknown>, success: string) => void;
-  dietaryPreferences:DietaryPreferences|null;
-  onDietaryPreferencesChange:(preferences:DietaryPreferences)=>void;
+  dietaryPreferences: DietaryPreferences | null;
+  onDietaryPreferencesChange: (preferences: DietaryPreferences) => void;
 }) {
   const {
     state,
@@ -6203,10 +6236,7 @@ function CustomerApp(props: {
         onCartChange={(nextCart) => {
           setCart(nextCart);
           void api
-            .saveCart(
-              nextCart[0]?.restaurantId || cartRestaurant?.id || "empty",
-              nextCart,
-            )
+            .saveCart(nextCart[0]?.restaurantId || cartRestaurant?.id || "empty", nextCart)
             .catch((requestError) => setError(requestError.message));
         }}
         totals={cartTotals}
@@ -6223,7 +6253,7 @@ function CustomerApp(props: {
         onCreateOrder={createOrder}
         addresses={addresses}
         paymentMethods={state.paymentMethods.filter((entry) => entry.userId === user?.id)}
-        customerEmail={user?.email||""}
+        customerEmail={user?.email || ""}
         busy={busy}
       />
     );
@@ -6242,10 +6272,7 @@ function CustomerApp(props: {
           <IconButton
             icon={Bell}
             label="Notificaciones"
-            badge={
-              state.notifications.filter((notification) => !notification.readAt)
-                .length
-            }
+            badge={state.notifications.filter((notification) => !notification.readAt).length}
             onClick={() => setTab("notifications")}
           />
           <IconButton
@@ -6275,14 +6302,21 @@ function CustomerApp(props: {
               favorite ? "Agregado a favoritos" : "Quitado de favoritos",
             )
           }
-          onOpenRestaurant={(restaurant) =>
-            setSelectedRestaurantId(restaurant.id)
-          }
+          onOpenRestaurant={(restaurant) => setSelectedRestaurantId(restaurant.id)}
           onOpenItem={openItem}
         />
       )}
       {tab === "home" && service === "ride" && (
-        <Suspense fallback={<div className="ride-map ride-map-empty"><div className="ride-map-empty-copy"><RefreshCw size={20}/><strong>Cargando Viajes</strong></div></div>}>
+        <Suspense
+          fallback={
+            <div className="ride-map ride-map-empty">
+              <div className="ride-map-empty-copy">
+                <RefreshCw size={20} />
+                <strong>Cargando Viajes</strong>
+              </div>
+            </div>
+          }
+        >
           <RideHome
             state={state}
             user={user}
@@ -6300,23 +6334,20 @@ function CustomerApp(props: {
         </Suspense>
       )}
       {tab === "home" && service === "shipment" && (
-        <ShipmentHome
-          state={state}
-          user={user}
-          busy={busy}
-          onCreateShipment={createShipment}
-        />
+        <ShipmentHome state={state} user={user} busy={busy} onCreateShipment={createShipment} />
       )}
       {tab === "activity" && (
-        <CustomerActivity
-          state={state}
-          user={user}
-          runAction={runAction}
-          busy={busy}
-        />
+        <CustomerActivity state={state} user={user} runAction={runAction} busy={busy} />
       )}
       {tab === "notifications" && (
-        <Suspense fallback={<div className="notification-empty" role="status"><RefreshCw size={16}/>Cargando notificaciones…</div>}>
+        <Suspense
+          fallback={
+            <div className="notification-empty" role="status">
+              <RefreshCw size={16} />
+              Cargando notificaciones…
+            </div>
+          }
+        >
           <NotificationCenter state={state} runAction={runAction} busy={busy} />
         </Suspense>
       )}
@@ -6324,9 +6355,7 @@ function CustomerApp(props: {
         <WalletScreen
           user={user}
           promotions={state.promotions}
-          transactions={state.walletTransactions.filter(
-            (entry) => entry.userId === user?.id,
-          )}
+          transactions={state.walletTransactions.filter((entry) => entry.userId === user?.id)}
           onTopUp={onTopUpWallet}
         />
       )}
@@ -6334,13 +6363,9 @@ function CustomerApp(props: {
         <ProfileScreen
           user={user}
           address={
-            state.addresses.find(
-              (entry) => entry.userId === user?.id && entry.isDefault,
-            )?.address
+            state.addresses.find((entry) => entry.userId === user?.id && entry.isDefault)?.address
           }
-          paymentMethods={state.paymentMethods.filter(
-            (entry) => entry.userId === user?.id,
-          )}
+          paymentMethods={state.paymentMethods.filter((entry) => entry.userId === user?.id)}
           onSave={onUpdateProfile}
           addresses={addresses}
           onCreateAddress={onCreateAddress}
@@ -6431,11 +6456,7 @@ function FoodHome({
       <FlashPassTeaser />
       <FlashPromiseGrid />
       <SearchBar query={query} setQuery={setQuery} />
-      <CategoryRail
-        categories={categories}
-        category={category}
-        setCategory={setCategory}
-      />
+      <CategoryRail categories={categories} category={category} setCategory={setCategory} />
       <SectionTitle title="Cerca tuyo" action="Abiertos" />
       <div className="restaurant-rail">
         {restaurants.map((restaurant) => (
@@ -6444,10 +6465,7 @@ function FoodHome({
             restaurant={restaurant}
             favorite={favoriteRestaurantIds.includes(restaurant.id)}
             onToggleFavorite={() =>
-              onToggleFavorite(
-                restaurant.id,
-                !favoriteRestaurantIds.includes(restaurant.id),
-              )
+              onToggleFavorite(restaurant.id, !favoriteRestaurantIds.includes(restaurant.id))
             }
             onClick={() => onOpenRestaurant(restaurant)}
           />
@@ -6473,9 +6491,7 @@ function FlashPassTeaser() {
     <section className="flash-pass">
       <div>
         <span>Flash Pass</span>
-        <strong>
-          Envios gratis, soporte prioritario y promos cross-food/taxi
-        </strong>
+        <strong>Envios gratis, soporte prioritario y promos cross-food/taxi</strong>
       </div>
       <span className="flash-pass-status">
         <Sparkles size={15} /> Disponible en checkout
@@ -6525,33 +6541,23 @@ function ShipmentHome({
   const [options, setOptions] = useState<ShipmentOptions | null>(null);
   const [optionsLoading, setOptionsLoading] = useState(true);
   const [optionsError, setOptionsError] = useState<string | null>(null);
-  const [pickup, setPickup] = useState(
-    user?.defaultAddress || savedAddresses[0]?.address || "",
-  );
+  const [pickup, setPickup] = useState(user?.defaultAddress || savedAddresses[0]?.address || "");
   const [destination, setDestination] = useState("");
   const [pickupCoords, setPickupCoords] = useState<GeoPoint | null>(null);
-  const [destinationCoords, setDestinationCoords] = useState<GeoPoint | null>(
-    null,
-  );
+  const [destinationCoords, setDestinationCoords] = useState<GeoPoint | null>(null);
   const [recipientName, setRecipientName] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
   const [description, setDescription] = useState("");
   const [deliveryNotes, setDeliveryNotes] = useState("");
-  const [packageSize, setPackageSize] = useState<Shipment["packageSize"]>(
-    "small",
-  );
+  const [packageSize, setPackageSize] = useState<Shipment["packageSize"]>("small");
   const [weightKg, setWeightKg] = useState("1");
   const [declaredValue, setDeclaredValue] = useState("0");
-  const [protection, setProtection] = useState<NonNullable<Shipment["protection"]>>(
-    "none",
-  );
+  const [protection, setProtection] = useState<NonNullable<Shipment["protection"]>>("none");
   const [signatureRequired, setSignatureRequired] = useState(false);
-  const [itemCategory, setItemCategory] = useState<
-    NonNullable<Shipment["itemCategory"]>
-  >("standard");
-  const [serviceLevel, setServiceLevel] = useState<
-    NonNullable<Shipment["serviceLevel"]>
-  >("standard");
+  const [itemCategory, setItemCategory] =
+    useState<NonNullable<Shipment["itemCategory"]>>("standard");
+  const [serviceLevel, setServiceLevel] =
+    useState<NonNullable<Shipment["serviceLevel"]>>("standard");
   const [quote, setQuote] = useState<ShipmentQuote | null>(null);
   const [quoteClock, setQuoteClock] = useState(() => Date.now());
   const [quoteBusy, setQuoteBusy] = useState(false);
@@ -6575,12 +6581,8 @@ function ShipmentHome({
       .then((response) => {
         if (cancelled) return;
         setOptions(response);
-        const activeCategory = response.categories.find(
-          (entry) => entry.active !== false,
-        );
-        const activeServiceLevel = response.serviceLevels.find(
-          (entry) => entry.active !== false,
-        );
+        const activeCategory = response.categories.find((entry) => entry.active !== false);
+        const activeServiceLevel = response.serviceLevels.find((entry) => entry.active !== false);
         if (
           !response.categories.some(
             (entry) => entry.code === itemCategory && entry.active !== false,
@@ -6599,9 +6601,7 @@ function ShipmentHome({
       .catch((error) => {
         if (!cancelled)
           setOptionsError(
-            error instanceof Error
-              ? error.message
-              : "No se pudieron cargar las opciones de envío",
+            error instanceof Error ? error.message : "No se pudieron cargar las opciones de envío",
           );
       })
       .finally(() => {
@@ -6612,16 +6612,11 @@ function ShipmentHome({
     };
   }, []);
 
-  const activeCategories =
-    options?.categories.filter((entry) => entry.active !== false) || [];
+  const activeCategories = options?.categories.filter((entry) => entry.active !== false) || [];
   const activeServiceLevels =
     options?.serviceLevels.filter((entry) => entry.active !== false) || [];
-  const selectedCategory = activeCategories.find(
-    (entry) => entry.code === itemCategory,
-  );
-  const selectedServiceLevel = activeServiceLevels.find(
-    (entry) => entry.code === serviceLevel,
-  );
+  const selectedCategory = activeCategories.find((entry) => entry.code === itemCategory);
+  const selectedServiceLevel = activeServiceLevels.find((entry) => entry.code === serviceLevel);
   const quoteExpired = Boolean(
     quote?.expiresAt && new Date(quote.expiresAt).getTime() <= quoteClock,
   );
@@ -6650,8 +6645,7 @@ function ShipmentHome({
         throw new Error("La configuración de envíos no está disponible");
       if (pickup.trim().length < 3 || destination.trim().length < 3)
         throw new Error("Completá origen y destino");
-      if (recipientName.trim().length < 2)
-        throw new Error("Indicá quién recibe el paquete");
+      if (recipientName.trim().length < 2) throw new Error("Indicá quién recibe el paquete");
       if (recipientPhone.trim().length < 6)
         throw new Error("Indicá un teléfono de contacto válido");
       if (description.trim().length < 2)
@@ -6694,9 +6688,7 @@ function ShipmentHome({
       setQuote(response.quote);
     } catch (error) {
       setQuote(null);
-      setQuoteError(
-        error instanceof Error ? error.message : "No se pudo cotizar el envío",
-      );
+      setQuoteError(error instanceof Error ? error.message : "No se pudo cotizar el envío");
     } finally {
       setQuoteBusy(false);
     }
@@ -6738,16 +6730,16 @@ function ShipmentHome({
         quoteToken: quote.quoteToken,
       });
     } catch (error) {
-      setSubmitError(
-        error instanceof Error ? error.message : "No se pudo solicitar el envío",
-      );
+      setSubmitError(error instanceof Error ? error.message : "No se pudo solicitar el envío");
     }
   };
 
   return (
     <div className="shipment-home">
       <section className="shipment-hero">
-        <div className="shipment-hero-icon"><PackageCheck size={23} /></div>
+        <div className="shipment-hero-icon">
+          <PackageCheck size={23} />
+        </div>
         <div>
           <span className="muted-label">Flash Envíos</span>
           <h1>Mandá un paquete hoy</h1>
@@ -6760,7 +6752,9 @@ function ShipmentHome({
             <span className="muted-label">Ruta</span>
             <h2>¿De dónde a dónde?</h2>
           </div>
-          <span className="shipment-live-chip"><LocateFixed size={13} /> Geocodificación real</span>
+          <span className="shipment-live-chip">
+            <LocateFixed size={13} /> Geocodificación real
+          </span>
         </div>
         {savedAddresses.length > 0 && (
           <label>
@@ -6768,7 +6762,9 @@ function ShipmentHome({
             <select defaultValue="" onChange={(event) => chooseSavedPickup(event.target.value)}>
               <option value="">Elegir una dirección</option>
               {savedAddresses.map((address) => (
-                <option value={address.id} key={address.id}>{address.label} · {address.address}</option>
+                <option value={address.id} key={address.id}>
+                  {address.label} · {address.address}
+                </option>
               ))}
             </select>
           </label>
@@ -6813,52 +6809,125 @@ function ShipmentHome({
               type="button"
               key={size}
               className={packageSize === size ? "active" : ""}
-              onClick={() => { setPackageSize(size); clearQuote(); }}
+              onClick={() => {
+                setPackageSize(size);
+                clearQuote();
+              }}
             >
               <PackageCheck size={16} />
-              <strong>{size === "small" ? "Pequeño" : size === "medium" ? "Mediano" : "Grande"}</strong>
-              <small>{size === "small" ? "Hasta 2 kg" : size === "medium" ? "Hasta 8 kg" : "Hasta 20 kg"}</small>
+              <strong>
+                {size === "small" ? "Pequeño" : size === "medium" ? "Mediano" : "Grande"}
+              </strong>
+              <small>
+                {size === "small" ? "Hasta 2 kg" : size === "medium" ? "Hasta 8 kg" : "Hasta 20 kg"}
+              </small>
             </button>
           ))}
         </div>
         <div className="shipment-fields-grid">
           <label>
             <span>Categoría</span>
-            <select value={itemCategory} disabled={optionsLoading} onChange={(event) => { setItemCategory(event.target.value as typeof itemCategory); clearQuote(); }}>
-              {activeCategories.map((categoryOption) => <option value={categoryOption.code} key={categoryOption.code}>{categoryOption.name}</option>)}
+            <select
+              value={itemCategory}
+              disabled={optionsLoading}
+              onChange={(event) => {
+                setItemCategory(event.target.value as typeof itemCategory);
+                clearQuote();
+              }}
+            >
+              {activeCategories.map((categoryOption) => (
+                <option value={categoryOption.code} key={categoryOption.code}>
+                  {categoryOption.name}
+                </option>
+              ))}
             </select>
           </label>
           <label>
             <span>Nivel de servicio</span>
-            <select value={serviceLevel} disabled={optionsLoading} onChange={(event) => { setServiceLevel(event.target.value as typeof serviceLevel); clearQuote(); }}>
-              {activeServiceLevels.map((level) => <option value={level.code} key={level.code}>{level.name}</option>)}
+            <select
+              value={serviceLevel}
+              disabled={optionsLoading}
+              onChange={(event) => {
+                setServiceLevel(event.target.value as typeof serviceLevel);
+                clearQuote();
+              }}
+            >
+              {activeServiceLevels.map((level) => (
+                <option value={level.code} key={level.code}>
+                  {level.name}
+                </option>
+              ))}
             </select>
           </label>
           <label>
             <span>Peso en kg</span>
-            <input type="number" min="0.1" max="20" step="0.1" value={weightKg} onChange={(event) => { setWeightKg(event.target.value); clearQuote(); }} />
+            <input
+              type="number"
+              min="0.1"
+              max="20"
+              step="0.1"
+              value={weightKg}
+              onChange={(event) => {
+                setWeightKg(event.target.value);
+                clearQuote();
+              }}
+            />
           </label>
           <label>
             <span>Valor declarado</span>
-            <input type="number" min="0" max="1000000" step="1" value={declaredValue} onChange={(event) => { setDeclaredValue(event.target.value); clearQuote(); }} />
+            <input
+              type="number"
+              min="0"
+              max="1000000"
+              step="1"
+              value={declaredValue}
+              onChange={(event) => {
+                setDeclaredValue(event.target.value);
+                clearQuote();
+              }}
+            />
           </label>
         </div>
         <div className="shipment-fields-grid">
           <label>
             <span>¿Qué enviás?</span>
-            <input value={description} onChange={(event) => { setDescription(event.target.value); clearQuote(); }} maxLength={180} placeholder="Ej. Documentos, regalo, electrónica" />
+            <input
+              value={description}
+              onChange={(event) => {
+                setDescription(event.target.value);
+                clearQuote();
+              }}
+              maxLength={180}
+              placeholder="Ej. Documentos, regalo, electrónica"
+            />
           </label>
           <label>
             <span>Protección</span>
-            <select value={protection} onChange={(event) => { setProtection(event.target.value as typeof protection); clearQuote(); }}>
+            <select
+              value={protection}
+              onChange={(event) => {
+                setProtection(event.target.value as typeof protection);
+                clearQuote();
+              }}
+            >
               <option value="none">Sin protección adicional</option>
               <option value="standard">Protección estándar</option>
             </select>
           </label>
         </div>
         <label className="shipment-check-row">
-          <input type="checkbox" checked={signatureRequired} onChange={(event) => { setSignatureRequired(event.target.checked); clearQuote(); }} />
-          <span><strong>Solicitar firma del destinatario</strong><small>La entrega conservará firma y consentimiento cifrados.</small></span>
+          <input
+            type="checkbox"
+            checked={signatureRequired}
+            onChange={(event) => {
+              setSignatureRequired(event.target.checked);
+              clearQuote();
+            }}
+          />
+          <span>
+            <strong>Solicitar firma del destinatario</strong>
+            <small>La entrega conservará firma y consentimiento cifrados.</small>
+          </span>
         </label>
         <div className="shipment-section-heading compact">
           <div>
@@ -6869,23 +6938,55 @@ function ShipmentHome({
         <div className="shipment-fields-grid">
           <label>
             <span>Nombre del destinatario</span>
-            <input value={recipientName} onChange={(event) => setRecipientName(event.target.value)} autoComplete="name" placeholder="Nombre y apellido" />
+            <input
+              value={recipientName}
+              onChange={(event) => setRecipientName(event.target.value)}
+              autoComplete="name"
+              placeholder="Nombre y apellido"
+            />
           </label>
           <label>
             <span>Teléfono</span>
-            <input value={recipientPhone} onChange={(event) => setRecipientPhone(event.target.value)} autoComplete="tel" placeholder="Código de área y número" />
+            <input
+              value={recipientPhone}
+              onChange={(event) => setRecipientPhone(event.target.value)}
+              autoComplete="tel"
+              placeholder="Código de área y número"
+            />
           </label>
         </div>
         <label>
-          <span>Indicaciones para el retiro o entrega <small>(opcional)</small></span>
-          <textarea value={deliveryNotes} onChange={(event) => setDeliveryNotes(event.target.value)} maxLength={300} placeholder="Piso, horario o referencia útil" />
+          <span>
+            Indicaciones para el retiro o entrega <small>(opcional)</small>
+          </span>
+          <textarea
+            value={deliveryNotes}
+            onChange={(event) => setDeliveryNotes(event.target.value)}
+            maxLength={300}
+            placeholder="Piso, horario o referencia útil"
+          />
         </label>
         {selectedCategory?.handlingInstructions && (
-          <p className="shipment-rule-note"><ShieldCheck size={15} /> {selectedCategory.handlingInstructions}</p>
+          <p className="shipment-rule-note">
+            <ShieldCheck size={15} /> {selectedCategory.handlingInstructions}
+          </p>
         )}
-        {optionsError && <p className="form-error"><TriangleAlert size={15} /> {optionsError}</p>}
-        {quoteError && <p className="form-error"><TriangleAlert size={15} /> {quoteError}</p>}
-        <button className="primary-button shipment-quote-button" type="button" onClick={() => void quoteShipment()} disabled={busy || quoteBusy || optionsLoading}>
+        {optionsError && (
+          <p className="form-error">
+            <TriangleAlert size={15} /> {optionsError}
+          </p>
+        )}
+        {quoteError && (
+          <p className="form-error">
+            <TriangleAlert size={15} /> {quoteError}
+          </p>
+        )}
+        <button
+          className="primary-button shipment-quote-button"
+          type="button"
+          onClick={() => void quoteShipment()}
+          disabled={busy || quoteBusy || optionsLoading}
+        >
           <BadgeDollarSign size={17} /> {quoteBusy ? "Ubicando y calculando…" : "Cotizar envío"}
         </button>
       </section>
@@ -6896,28 +6997,66 @@ function ShipmentHome({
               <span className="muted-label">Cotización vigente</span>
               <strong>{money.format(quote.fare)}</strong>
             </div>
-            <span className="shipment-quote-eta"><Clock3 size={14} /> {quote.etaMin} min estimados</span>
+            <span className="shipment-quote-eta">
+              <Clock3 size={14} /> {quote.etaMin} min estimados
+            </span>
           </div>
           <div className="shipment-quote-details">
             <span>{quote.distanceKm} km de recorrido</span>
-            <span>{quote.itemCategoryName || selectedCategory?.name || "Categoría configurada"}</span>
+            <span>
+              {quote.itemCategoryName || selectedCategory?.name || "Categoría configurada"}
+            </span>
             <span>{quote.serviceLevelName || selectedServiceLevel?.name || "SLA configurado"}</span>
-            {quote.protectionPremium ? <span>Protección {money.format(quote.protectionPremium)}</span> : null}
+            {quote.protectionPremium ? (
+              <span>Protección {money.format(quote.protectionPremium)}</span>
+            ) : null}
           </div>
-          <small>Vence {quote.expiresAt ? new Date(quote.expiresAt).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) : "en 5 minutos"}. Si cambiás un dato, deberás cotizar de nuevo.</small>
+          <small>
+            Vence{" "}
+            {quote.expiresAt
+              ? new Date(quote.expiresAt).toLocaleTimeString("es-AR", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "en 5 minutos"}
+            . Si cambiás un dato, deberás cotizar de nuevo.
+          </small>
         </section>
       )}
       <section className="shipment-confirm-card">
         <div className="shipment-payment-row">
-          <div><span className="muted-label">Medio de pago</span><strong>Flash Wallet</strong><small>Saldo disponible: {money.format(user?.wallet || 0)}</small></div>
+          <div>
+            <span className="muted-label">Medio de pago</span>
+            <strong>Flash Wallet</strong>
+            <small>Saldo disponible: {money.format(user?.wallet || 0)}</small>
+          </div>
           <WalletCards size={20} />
         </div>
         <label className="shipment-check-row terms">
-          <input type="checkbox" checked={termsAccepted} onChange={(event) => { setTermsAccepted(event.target.checked); setSubmitError(null); }} />
-          <span>Acepto las restricciones de artículos, los términos de entrega y el uso del PIN o firma para verificar la recepción.</span>
+          <input
+            type="checkbox"
+            checked={termsAccepted}
+            onChange={(event) => {
+              setTermsAccepted(event.target.checked);
+              setSubmitError(null);
+            }}
+          />
+          <span>
+            Acepto las restricciones de artículos, los términos de entrega y el uso del PIN o firma
+            para verificar la recepción.
+          </span>
         </label>
-        {submitError && <p className="form-error"><TriangleAlert size={15} /> {submitError}</p>}
-        <button className="primary-button" type="button" onClick={() => void submitShipment()} disabled={busy || !quote?.quoteToken || quoteExpired || !termsAccepted}>
+        {submitError && (
+          <p className="form-error">
+            <TriangleAlert size={15} /> {submitError}
+          </p>
+        )}
+        <button
+          className="primary-button"
+          type="button"
+          onClick={() => void submitShipment()}
+          disabled={busy || !quote?.quoteToken || quoteExpired || !termsAccepted}
+        >
           <Truck size={17} /> {busy ? "Solicitando…" : "Solicitar envío"}
         </button>
       </section>
@@ -6938,26 +7077,20 @@ function CustomerActivity({
 }) {
   const orders = state.orders.filter((order) => order.customerId === user?.id);
   const rides = state.rides.filter((ride) => ride.customerId === user?.id);
-  const shipments = state.shipments.filter(
-    (shipment) => shipment.customerId === user?.id,
-  );
+  const shipments = state.shipments.filter((shipment) => shipment.customerId === user?.id);
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
   const [trackingRideId, setTrackingRideId] = useState<string | null>(null);
   const [trackingShipmentId, setTrackingShipmentId] = useState<string | null>(null);
   const trackingOrder = orders.find((order) => order.id === trackingOrderId) || null;
   const trackingRide = rides.find((ride) => ride.id === trackingRideId) || null;
-  const trackingShipment =
-    shipments.find((shipment) => shipment.id === trackingShipmentId) || null;
+  const trackingShipment = shipments.find((shipment) => shipment.id === trackingShipmentId) || null;
   return (
     <div className="activity-stack">
       <SectionTitle title="Pedidos" />
       {orders.map((order) => {
-        const restaurant = state.restaurants.find(
-          (entry) => entry.id === order.restaurantId,
-        );
+        const restaurant = state.restaurants.find((entry) => entry.id === order.restaurantId);
         const rated = state.ratings.some(
-          (entry) =>
-            entry.jobId === order.id && entry.subjectType === "merchant",
+          (entry) => entry.jobId === order.id && entry.subjectType === "merchant",
         );
         const active = !["delivered", "cancelled"].includes(order.status);
         return (
@@ -6972,29 +7105,26 @@ function CustomerActivity({
               active
                 ? "Seguir pedido"
                 : order.status === "delivered"
-                ? rated
-                  ? undefined
-                  : "Calificar 5★"
-                : undefined
+                  ? rated
+                    ? undefined
+                    : "Calificar 5★"
+                  : undefined
             }
             onAction={() =>
               active
                 ? setTrackingOrderId(order.id)
                 : order.status === "delivered"
-                ? runAction(
-                    () => api.createRating(order.id, "merchant", 5),
-                    "Gracias por tu calificación",
-                  )
-                : undefined
+                  ? runAction(
+                      () => api.createRating(order.id, "merchant", 5),
+                      "Gracias por tu calificación",
+                    )
+                  : undefined
             }
             secondaryActionLabel={active ? "Cancelar" : undefined}
             onSecondaryAction={
               active
                 ? () =>
-                    runAction(
-                      () => api.setOrderStatus(order.id, "cancelled"),
-                      "Pedido cancelado",
-                    )
+                    runAction(() => api.setOrderStatus(order.id, "cancelled"), "Pedido cancelado")
                 : undefined
             }
             disabled={busy}
@@ -7003,9 +7133,7 @@ function CustomerActivity({
       })}
       <SectionTitle title="Viajes" />
       {rides.map((ride) => {
-        const driver = state.drivers.find(
-          (entry) => entry.id === ride.driverId,
-        );
+        const driver = state.drivers.find((entry) => entry.id === ride.driverId);
         const rated = state.ratings.some(
           (entry) => entry.jobId === ride.id && entry.subjectType === "driver",
         );
@@ -7022,29 +7150,25 @@ function CustomerActivity({
               active
                 ? "Seguir viaje"
                 : ride.status === "completed"
-                ? rated
-                  ? undefined
-                  : "Calificar 5★"
-                : undefined
+                  ? rated
+                    ? undefined
+                    : "Calificar 5★"
+                  : undefined
             }
             onAction={() =>
               active
                 ? setTrackingRideId(ride.id)
                 : ride.status === "completed"
-                ? runAction(
-                    () => api.createRating(ride.id, "driver", 5),
-                    "Gracias por tu calificación",
-                  )
-                : undefined
+                  ? runAction(
+                      () => api.createRating(ride.id, "driver", 5),
+                      "Gracias por tu calificación",
+                    )
+                  : undefined
             }
             secondaryActionLabel={active ? "Cancelar" : undefined}
             onSecondaryAction={
               active
-                ? () =>
-                    runAction(
-                      () => api.setRideStatus(ride.id, "cancelled"),
-                      "Viaje cancelado",
-                    )
+                ? () => runAction(() => api.setRideStatus(ride.id, "cancelled"), "Viaje cancelado")
                 : undefined
             }
             disabled={busy}
@@ -7053,9 +7177,7 @@ function CustomerActivity({
       })}
       <SectionTitle title="Envíos" />
       {shipments.map((shipment) => {
-        const driver = state.drivers.find(
-          (entry) => entry.id === shipment.driverId,
-        );
+        const driver = state.drivers.find((entry) => entry.id === shipment.driverId);
         const active = !["delivered", "cancelled"].includes(shipment.status);
         return (
           <StatusCard
@@ -7084,32 +7206,21 @@ function CustomerActivity({
       {trackingOrder && (
         <OrderTrackingSheet
           order={trackingOrder}
-          driver={
-            state.drivers.find(
-              (driver) => driver.id === trackingOrder.courierId,
-            ) || null
-          }
+          driver={state.drivers.find((driver) => driver.id === trackingOrder.courierId) || null}
           onClose={() => setTrackingOrderId(null)}
         />
       )}
       {trackingRide && (
         <RideTrackingSheet
           ride={trackingRide}
-          driver={
-            state.drivers.find((driver) => driver.id === trackingRide.driverId) ||
-            null
-          }
+          driver={state.drivers.find((driver) => driver.id === trackingRide.driverId) || null}
           onClose={() => setTrackingRideId(null)}
         />
       )}
       {trackingShipment && (
         <ShipmentTrackingSheet
           shipment={trackingShipment}
-          driver={
-            state.drivers.find(
-              (driver) => driver.id === trackingShipment.driverId,
-            ) || null
-          }
+          driver={state.drivers.find((driver) => driver.id === trackingShipment.driverId) || null}
           onClose={() => setTrackingShipmentId(null)}
         />
       )}
@@ -7152,9 +7263,7 @@ function OrderTrackingSheet({
       .catch((error) => {
         if (!cancelled)
           setRouteError(
-            error instanceof Error
-              ? error.message
-              : "La ruta vial no está disponible ahora.",
+            error instanceof Error ? error.message : "La ruta vial no está disponible ahora.",
           );
       })
       .finally(() => {
@@ -7196,21 +7305,34 @@ function OrderTrackingSheet({
         aria-modal="true"
         aria-labelledby="order-tracking-title"
       >
-        <button className="sheet-close" type="button" onClick={onClose} aria-label="Cerrar seguimiento">
+        <button
+          className="sheet-close"
+          type="button"
+          onClick={onClose}
+          aria-label="Cerrar seguimiento"
+        >
           <X size={18} />
         </button>
         <div className="tracking-sheet-heading">
           <div>
             <span className="muted-label">Seguimiento en vivo</span>
             <h2 id="order-tracking-title">Pedido {order.id}</h2>
-            <p>{orderStatusLabel[order.status]} · ETA publicada {order.etaMin} min</p>
+            <p>
+              {orderStatusLabel[order.status]} · ETA publicada {order.etaMin} min
+            </p>
           </div>
           <button className="tracking-share-button" type="button" onClick={() => void share()}>
             <Copy size={15} /> {shareLabel}
           </button>
         </div>
         {hasMap ? (
-          <Suspense fallback={<div className="order-tracking-map flash-map-loading"><span>Cargando mapa…</span></div>}>
+          <Suspense
+            fallback={
+              <div className="order-tracking-map flash-map-loading">
+                <span>Cargando mapa…</span>
+              </div>
+            }
+          >
             <FlashMap
               origin={order.pickupLocation!}
               destination={order.deliveryLocation!}
@@ -7218,8 +7340,16 @@ function OrderTrackingSheet({
               driver={driver?.location || null}
               routeColor="#f4511e"
               ariaLabel="Mapa interactivo de seguimiento del pedido"
-              caption={route ? `${route.distanceKm} km · ${route.durationMin} min de recorrido` : routeLoading ? "Calculando ruta real…" : routeError || "Ruta vial no disponible"}
-              detail={driver ? `${driver.name} · ${driver.vehicle}` : "Buscando repartidor disponible"}
+              caption={
+                route
+                  ? `${route.distanceKm} km · ${route.durationMin} min de recorrido`
+                  : routeLoading
+                    ? "Calculando ruta real…"
+                    : routeError || "Ruta vial no disponible"
+              }
+              detail={
+                driver ? `${driver.name} · ${driver.vehicle}` : "Buscando repartidor disponible"
+              }
             />
           </Suspense>
         ) : (
@@ -7238,7 +7368,12 @@ function OrderTrackingSheet({
             {driver && (
               <div className="tracking-driver-summary">
                 <span className="avatar">{initials(driver.name)}</span>
-                <span><strong>{driver.name}</strong><small>{driver.vehicle} · ★ {driver.rating.toFixed(1)}</small></span>
+                <span>
+                  <strong>{driver.name}</strong>
+                  <small>
+                    {driver.vehicle} · ★ {driver.rating.toFixed(1)}
+                  </small>
+                </span>
               </div>
             )}
           </div>
@@ -7252,7 +7387,8 @@ function OrderTrackingSheet({
           </div>
         </div>
         <p className="tracking-integrity-note">
-          La ubicación del repartidor aparece únicamente cuando el backend recibe una actualización válida. El timeline y la ETA siguen disponibles durante una degradación de mapas.
+          La ubicación del repartidor aparece únicamente cuando el backend recibe una actualización
+          válida. El timeline y la ETA siguen disponibles durante una degradación de mapas.
         </p>
       </section>
     </div>
@@ -7312,9 +7448,7 @@ function RideTrackingSheet({
       .catch((error) => {
         if (!cancelled)
           setRouteError(
-            error instanceof Error
-              ? error.message
-              : "La ruta vial no está disponible ahora.",
+            error instanceof Error ? error.message : "La ruta vial no está disponible ahora.",
           );
       })
       .finally(() => {
@@ -7341,9 +7475,7 @@ function RideTrackingSheet({
       const response = await api.getRidePickupCode(ride.id);
       setPickupCode(response.pickupCode);
     } catch (error) {
-      setShareNotice(
-        error instanceof Error ? error.message : "No se pudo consultar el PIN.",
-      );
+      setShareNotice(error instanceof Error ? error.message : "No se pudo consultar el PIN.");
     } finally {
       setPickupBusy(false);
     }
@@ -7373,11 +7505,7 @@ function RideTrackingSheet({
       }
     } catch (error) {
       if (!(error instanceof DOMException && error.name === "AbortError"))
-        setShareNotice(
-          error instanceof Error
-            ? error.message
-            : "No se pudo compartir el viaje.",
-        );
+        setShareNotice(error instanceof Error ? error.message : "No se pudo compartir el viaje.");
     } finally {
       setShareBusy(false);
     }
@@ -7398,9 +7526,7 @@ function RideTrackingSheet({
       setSafetyOpen(false);
     } catch (error) {
       setSafetyNotice(
-        error instanceof Error
-          ? error.message
-          : "No se pudo registrar el incidente.",
+        error instanceof Error ? error.message : "No se pudo registrar el incidente.",
       );
     } finally {
       setSafetyBusy(false);
@@ -7415,19 +7541,34 @@ function RideTrackingSheet({
         aria-modal="true"
         aria-labelledby="ride-tracking-title"
       >
-        <button className="sheet-close" type="button" onClick={onClose} aria-label="Cerrar seguimiento">
+        <button
+          className="sheet-close"
+          type="button"
+          onClick={onClose}
+          aria-label="Cerrar seguimiento"
+        >
           <X size={18} />
         </button>
         <div className="tracking-sheet-heading">
           <div>
             <span className="muted-label">Viaje en vivo</span>
             <h2 id="ride-tracking-title">{rideStatusLabel[ride.status]}</h2>
-            <p>{ride.pickup} → {ride.destination} · {money.format(ride.fare)}</p>
+            <p>
+              {ride.pickup} → {ride.destination} · {money.format(ride.fare)}
+            </p>
           </div>
-          <span className="ride-service-badge"><Car size={14} /> {ride.service}</span>
+          <span className="ride-service-badge">
+            <Car size={14} /> {ride.service}
+          </span>
         </div>
         {hasMap ? (
-          <Suspense fallback={<div className="order-tracking-map flash-map-loading"><span>Cargando mapa…</span></div>}>
+          <Suspense
+            fallback={
+              <div className="order-tracking-map flash-map-loading">
+                <span>Cargando mapa…</span>
+              </div>
+            }
+          >
             <FlashMap
               origin={ride.pickupLocation!}
               destination={ride.destinationLocation!}
@@ -7435,8 +7576,18 @@ function RideTrackingSheet({
               driver={driver?.location || null}
               routeColor="#7c3cff"
               ariaLabel="Mapa interactivo de seguimiento del viaje"
-              caption={route ? `${route.distanceKm} km · ${route.durationMin} min de recorrido` : routeLoading ? "Calculando ruta real…" : routeError || "Ruta vial no disponible"}
-              detail={driver ? `${driver.name} · ${driver.vehicle} · ${driver.plate}` : "Buscando un conductor disponible"}
+              caption={
+                route
+                  ? `${route.distanceKm} km · ${route.durationMin} min de recorrido`
+                  : routeLoading
+                    ? "Calculando ruta real…"
+                    : routeError || "Ruta vial no disponible"
+              }
+              detail={
+                driver
+                  ? `${driver.name} · ${driver.vehicle} · ${driver.plate}`
+                  : "Buscando un conductor disponible"
+              }
             />
           </Suspense>
         ) : (
@@ -7455,7 +7606,12 @@ function RideTrackingSheet({
             {driver && (
               <div className="tracking-driver-summary">
                 <span className="avatar">{initials(driver.name)}</span>
-                <span><strong>{driver.name}</strong><small>{driver.vehicle} · {driver.plate} · ★ {driver.rating.toFixed(1)}</small></span>
+                <span>
+                  <strong>{driver.name}</strong>
+                  <small>
+                    {driver.vehicle} · {driver.plate} · ★ {driver.rating.toFixed(1)}
+                  </small>
+                </span>
               </div>
             )}
           </div>
@@ -7489,8 +7645,13 @@ function RideTrackingSheet({
         )}
         <section className="ride-safety-actions">
           <div className="ride-safety-heading">
-            <span className="safety-icon"><ShieldCheck size={18} /></span>
-            <div><strong>Centro de seguridad</strong><small>Acciones vinculadas a este viaje</small></div>
+            <span className="safety-icon">
+              <ShieldCheck size={18} />
+            </span>
+            <div>
+              <strong>Centro de seguridad</strong>
+              <small>Acciones vinculadas a este viaje</small>
+            </div>
           </div>
           <div className="ride-action-grid">
             <button type="button" onClick={() => void shareRide()} disabled={shareBusy}>
@@ -7501,28 +7662,57 @@ function RideTrackingSheet({
             </button>
           </div>
           {shareNotice && <small className="tracking-action-notice">{shareNotice}</small>}
-          {trackingUrl && <a className="tracking-link-preview" href={trackingUrl} target="_blank" rel="noreferrer">Abrir enlace temporal</a>}
-          {safetyNotice && <small className="tracking-action-notice safety-notice">{safetyNotice}</small>}
+          {trackingUrl && (
+            <a
+              className="tracking-link-preview"
+              href={trackingUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Abrir enlace temporal
+            </a>
+          )}
+          {safetyNotice && (
+            <small className="tracking-action-notice safety-notice">{safetyNotice}</small>
+          )}
           {safetyOpen && (
-            <form className="ride-safety-form" onSubmit={(event) => void submitSafetyIncident(event)}>
+            <form
+              className="ride-safety-form"
+              onSubmit={(event) => void submitSafetyIncident(event)}
+            >
               <label>
                 <span>Tipo de incidente</span>
-                <select value={safetyType} onChange={(event) => setSafetyType(event.target.value as typeof safetyType)}>
-                  {rideSafetyOptions.map(([value, label]) => <option value={value} key={value}>{label}</option>)}
+                <select
+                  value={safetyType}
+                  onChange={(event) => setSafetyType(event.target.value as typeof safetyType)}
+                >
+                  {rideSafetyOptions.map(([value, label]) => (
+                    <option value={value} key={value}>
+                      {label}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label>
                 <span>Detalle opcional</span>
-                <textarea value={safetyDetails} onChange={(event) => setSafetyDetails(event.target.value)} maxLength={1000} placeholder="Contanos qué ocurrió" />
+                <textarea
+                  value={safetyDetails}
+                  onChange={(event) => setSafetyDetails(event.target.value)}
+                  maxLength={1000}
+                  placeholder="Contanos qué ocurrió"
+                />
               </label>
               <button className="danger-button" type="submit" disabled={safetyBusy}>
-                <TriangleAlert size={15} /> {safetyBusy ? "Registrando…" : "Enviar a Seguridad Flash"}
+                <TriangleAlert size={15} />{" "}
+                {safetyBusy ? "Registrando…" : "Enviar a Seguridad Flash"}
               </button>
             </form>
           )}
         </section>
         <p className="tracking-integrity-note">
-          La ubicación y los estados provienen del backend autenticado. Si una señal o el proveedor de mapas falla, Flash conserva el viaje y sus acciones de seguridad sin inventar movimiento.
+          La ubicación y los estados provienen del backend autenticado. Si una señal o el proveedor
+          de mapas falla, Flash conserva el viaje y sus acciones de seguridad sin inventar
+          movimiento.
         </p>
       </section>
     </div>
@@ -7575,9 +7765,7 @@ function ShipmentTrackingSheet({
       .catch((error) => {
         if (!cancelled)
           setRouteError(
-            error instanceof Error
-              ? error.message
-              : "La ruta vial no está disponible ahora.",
+            error instanceof Error ? error.message : "La ruta vial no está disponible ahora.",
           );
       })
       .finally(() => {
@@ -7597,10 +7785,7 @@ function ShipmentTrackingSheet({
   const hasMap = Boolean(shipment.pickupLocation && shipment.destinationLocation);
   const currentIndex = Math.max(shipmentSteps.indexOf(shipment.status), 0);
   const nextStep = route?.steps[0]?.instruction || null;
-  const proofCount = Math.max(
-    evidence.length,
-    shipment.deliveryEvidenceCount || 0,
-  );
+  const proofCount = Math.max(evidence.length, shipment.deliveryEvidenceCount || 0);
 
   const revealDeliveryCode = async () => {
     setCodeBusy(true);
@@ -7610,9 +7795,7 @@ function ShipmentTrackingSheet({
       setDeliveryCode(response.deliveryCode);
     } catch (error) {
       setActionNotice(
-        error instanceof Error
-          ? error.message
-          : "No se pudo consultar el PIN de entrega.",
+        error instanceof Error ? error.message : "No se pudo consultar el PIN de entrega.",
       );
     } finally {
       setCodeBusy(false);
@@ -7656,9 +7839,7 @@ function ShipmentTrackingSheet({
         <div className="tracking-sheet-heading">
           <div>
             <span className="muted-label">Envío en vivo</span>
-            <h2 id="shipment-tracking-title">
-              {shipmentStatusLabel[shipment.status]}
-            </h2>
+            <h2 id="shipment-tracking-title">{shipmentStatusLabel[shipment.status]}</h2>
             <p>
               {shipment.pickup} → {shipment.destination} · ETA publicada {shipment.etaMin} min
             </p>
@@ -7672,7 +7853,13 @@ function ShipmentTrackingSheet({
           </button>
         </div>
         {hasMap ? (
-          <Suspense fallback={<div className="order-tracking-map flash-map-loading"><span>Cargando mapa…</span></div>}>
+          <Suspense
+            fallback={
+              <div className="order-tracking-map flash-map-loading">
+                <span>Cargando mapa…</span>
+              </div>
+            }
+          >
             <FlashMap
               origin={shipment.pickupLocation!}
               destination={shipment.destinationLocation!}
@@ -7680,8 +7867,16 @@ function ShipmentTrackingSheet({
               driver={driver?.location || null}
               routeColor="#087a50"
               ariaLabel="Mapa interactivo de seguimiento del envío"
-              caption={route ? `${route.distanceKm} km · ${route.durationMin} min de recorrido` : routeLoading ? "Calculando ruta real…" : routeError || "Ruta vial no disponible"}
-              detail={driver ? `${driver.name} · ${driver.vehicle}` : "Buscando un repartidor disponible"}
+              caption={
+                route
+                  ? `${route.distanceKm} km · ${route.durationMin} min de recorrido`
+                  : routeLoading
+                    ? "Calculando ruta real…"
+                    : routeError || "Ruta vial no disponible"
+              }
+              detail={
+                driver ? `${driver.name} · ${driver.vehicle}` : "Buscando un repartidor disponible"
+              }
             />
           </Suspense>
         ) : (
@@ -7702,17 +7897,16 @@ function ShipmentTrackingSheet({
                 <span className="avatar">{initials(driver.name)}</span>
                 <span>
                   <strong>{driver.name}</strong>
-                  <small>{driver.vehicle} · ★ {driver.rating.toFixed(1)}</small>
+                  <small>
+                    {driver.vehicle} · ★ {driver.rating.toFixed(1)}
+                  </small>
                 </span>
               </div>
             )}
           </div>
           <div className="stepper tracking-stepper shipment-tracking-stepper">
             {shipmentSteps.map((step, index) => (
-              <div
-                className={index <= currentIndex ? "step active" : "step"}
-                key={step}
-              >
+              <div className={index <= currentIndex ? "step active" : "step"} key={step}>
                 <span>{index < currentIndex ? <Check size={12} /> : index + 1}</span>
                 <small>{shipmentStatusLabel[step]}</small>
               </div>
@@ -7729,7 +7923,8 @@ function ShipmentTrackingSheet({
             <span className="muted-label">Paquete</span>
             <strong>{shipment.description || "Envío Flash"}</strong>
             <small>
-              {shipment.packageSize} · {shipment.weightKg} kg · {shipment.itemCategory || "standard"}
+              {shipment.packageSize} · {shipment.weightKg} kg ·{" "}
+              {shipment.itemCategory || "standard"}
             </small>
           </div>
           <div>
@@ -7740,23 +7935,28 @@ function ShipmentTrackingSheet({
           <div>
             <span className="muted-label">Protección</span>
             <strong>{shipment.protection === "standard" ? "Protegido" : "Básica"}</strong>
-            <small>{money.format(shipment.fare)} · {shipment.distanceKm} km</small>
+            <small>
+              {money.format(shipment.fare)} · {shipment.distanceKm} km
+            </small>
           </div>
         </section>
-        {driver && ["driver_assigned", "arriving", "picked_up", "delivering"].includes(shipment.status) && (
-          <section className="ride-pin-card shipment-pin-card">
-            <div>
-              <span className="muted-label">PIN de entrega</span>
-              <strong>{deliveryCode || "••••"}</strong>
-              <small>Compartilo únicamente con quien recibe el paquete al momento de la entrega.</small>
-            </div>
-            {!deliveryCode && (
-              <button type="button" onClick={() => void revealDeliveryCode()} disabled={codeBusy}>
-                <KeyRound size={15} /> {codeBusy ? "Consultando…" : "Mostrar PIN"}
-              </button>
-            )}
-          </section>
-        )}
+        {driver &&
+          ["driver_assigned", "arriving", "picked_up", "delivering"].includes(shipment.status) && (
+            <section className="ride-pin-card shipment-pin-card">
+              <div>
+                <span className="muted-label">PIN de entrega</span>
+                <strong>{deliveryCode || "••••"}</strong>
+                <small>
+                  Compartilo únicamente con quien recibe el paquete al momento de la entrega.
+                </small>
+              </div>
+              {!deliveryCode && (
+                <button type="button" onClick={() => void revealDeliveryCode()} disabled={codeBusy}>
+                  <KeyRound size={15} /> {codeBusy ? "Consultando…" : "Mostrar PIN"}
+                </button>
+              )}
+            </section>
+          )}
         <section className="shipment-proof-summary">
           <div>
             <span className="muted-label">Prueba de entrega</span>
@@ -7770,7 +7970,9 @@ function ShipmentTrackingSheet({
         </section>
         {actionNotice && <small className="tracking-action-notice">{actionNotice}</small>}
         <p className="tracking-integrity-note">
-          La ruta, el estado, el ETA, la ubicación del repartidor y la prueba de entrega provienen del backend autenticado. Si falta una señal o el proveedor de mapas falla, Flash conserva el estado operativo sin inventar movimiento.
+          La ruta, el estado, el ETA, la ubicación del repartidor y la prueba de entrega provienen
+          del backend autenticado. Si falta una señal o el proveedor de mapas falla, Flash conserva
+          el estado operativo sin inventar movimiento.
         </p>
       </section>
     </div>
@@ -7810,9 +8012,7 @@ function WalletScreen({
           <button
             type="button"
             disabled={
-              !Number.isInteger(parsedAmount) ||
-              parsedAmount < 1000 ||
-              parsedAmount > 200000
+              !Number.isInteger(parsedAmount) || parsedAmount < 1000 || parsedAmount > 200000
             }
             onClick={() => onTopUp(parsedAmount)}
           >
@@ -7825,18 +8025,14 @@ function WalletScreen({
           <span>Actividad financiera</span>
           <strong>{transactions.length} movimientos registrados</strong>
         </div>
-        <small>
-          Las cargas y consumos quedan auditados en la cuenta autenticada.
-        </small>
+        <small>Las cargas y consumos quedan auditados en la cuenta autenticada.</small>
       </section>
       {transactions.slice(0, 5).map((transaction) => (
         <article className="promo-row" key={transaction.id}>
           <WalletCards size={18} />
           <div>
             <strong>{transaction.description}</strong>
-            <span>
-              {new Date(transaction.createdAt).toLocaleString("es-AR")}
-            </span>
+            <span>{new Date(transaction.createdAt).toLocaleString("es-AR")}</span>
           </div>
           <small>
             {transaction.kind === "credit" ? "+" : "-"}
@@ -7875,11 +8071,7 @@ function ProfileScreen({
   address?: string;
   paymentMethods: AppState["paymentMethods"];
   addresses: UserAddress[];
-  onSave: (payload: {
-    name: string;
-    phone: string;
-    defaultAddress: string;
-  }) => void;
+  onSave: (payload: { name: string; phone: string; defaultAddress: string }) => void;
   onCreateAddress: (payload: {
     label: string;
     address: string;
@@ -7899,15 +8091,15 @@ function ProfileScreen({
   ) => Promise<boolean>;
   onSetDefaultAddress: (addressId: string) => Promise<boolean>;
   onDeleteAddress: (addressId: string) => Promise<boolean>;
-  dietaryPreferences:DietaryPreferences|null;
-  onDietaryPreferencesChange:(preferences:DietaryPreferences)=>void;
+  dietaryPreferences: DietaryPreferences | null;
+  onDietaryPreferencesChange: (preferences: DietaryPreferences) => void;
 }) {
   const [name, setName] = useState(user?.name || "");
   const [phone, setPhone] = useState(user?.phone || "");
-  const [defaultAddress, setDefaultAddress] = useState(
-    address || user?.defaultAddress || "",
-  );
-  const [dietary,setDietary]=useState<DietaryPreferences|null>(dietaryPreferences),[dietaryBusy,setDietaryBusy]=useState(false),[dietaryError,setDietaryError]=useState("");
+  const [defaultAddress, setDefaultAddress] = useState(address || user?.defaultAddress || "");
+  const [dietary, setDietary] = useState<DietaryPreferences | null>(dietaryPreferences),
+    [dietaryBusy, setDietaryBusy] = useState(false),
+    [dietaryError, setDietaryError] = useState("");
   const [addressDraft, setAddressDraft] = useState({
     label: "Casa",
     address: "",
@@ -7923,10 +8115,55 @@ function ProfileScreen({
     setPhone(user?.phone || "");
     setDefaultAddress(address || user?.defaultAddress || "");
   }, [address, user?.defaultAddress, user?.name, user?.phone]);
-  useEffect(()=>setDietary(dietaryPreferences),[dietaryPreferences]);
-  const toggleDiet=(code:string)=>setDietary(current=>current?{...current,dietaryLabels:current.dietaryLabels.some(item=>item.code===code)?current.dietaryLabels.filter(item=>item.code!==code):[...current.dietaryLabels,{code,name:dietOptions.find(item=>item.code===code)?.name||code}]}:current);
-  const toggleAllergen=(code:string)=>setDietary(current=>current?{...current,avoidedAllergens:current.avoidedAllergens.some(item=>item.code===code)?current.avoidedAllergens.filter(item=>item.code!==code):[...current.avoidedAllergens,{code,name:allergenOptions.find(item=>item.code===code)?.name||code}]}:current);
-  const saveDietary=async()=>{if(!dietary)return;setDietaryBusy(true);setDietaryError("");try{const result=await api.updateDietaryPreferences({dietaryLabels:dietary.dietaryLabels.map(item=>item.code),avoidedAllergens:dietary.avoidedAllergens.map(item=>item.code),hideIncompatible:dietary.hideIncompatible});setDietary(result.preferences);onDietaryPreferencesChange(result.preferences);}catch(error){setDietaryError(error instanceof Error?error.message:"No se pudieron guardar tus preferencias");}finally{setDietaryBusy(false);}};
+  useEffect(() => setDietary(dietaryPreferences), [dietaryPreferences]);
+  const toggleDiet = (code: string) =>
+    setDietary((current) =>
+      current
+        ? {
+            ...current,
+            dietaryLabels: current.dietaryLabels.some((item) => item.code === code)
+              ? current.dietaryLabels.filter((item) => item.code !== code)
+              : [
+                  ...current.dietaryLabels,
+                  { code, name: dietOptions.find((item) => item.code === code)?.name || code },
+                ],
+          }
+        : current,
+    );
+  const toggleAllergen = (code: string) =>
+    setDietary((current) =>
+      current
+        ? {
+            ...current,
+            avoidedAllergens: current.avoidedAllergens.some((item) => item.code === code)
+              ? current.avoidedAllergens.filter((item) => item.code !== code)
+              : [
+                  ...current.avoidedAllergens,
+                  { code, name: allergenOptions.find((item) => item.code === code)?.name || code },
+                ],
+          }
+        : current,
+    );
+  const saveDietary = async () => {
+    if (!dietary) return;
+    setDietaryBusy(true);
+    setDietaryError("");
+    try {
+      const result = await api.updateDietaryPreferences({
+        dietaryLabels: dietary.dietaryLabels.map((item) => item.code),
+        avoidedAllergens: dietary.avoidedAllergens.map((item) => item.code),
+        hideIncompatible: dietary.hideIncompatible,
+      });
+      setDietary(result.preferences);
+      onDietaryPreferencesChange(result.preferences);
+    } catch (error) {
+      setDietaryError(
+        error instanceof Error ? error.message : "No se pudieron guardar tus preferencias",
+      );
+    } finally {
+      setDietaryBusy(false);
+    }
+  };
   const resetAddressDraft = () => {
     setEditingAddressId(null);
     setAddressDraft({
@@ -7971,7 +8208,9 @@ function ProfileScreen({
         setAddressStatusTone("ready");
       },
       () => {
-        setAddressStatus("No pudimos acceder al GPS. Activa el permiso o escribe la direccion y usa otro dispositivo con ubicacion.");
+        setAddressStatus(
+          "No pudimos acceder al GPS. Activa el permiso o escribe la direccion y usa otro dispositivo con ubicacion.",
+        );
         setAddressStatusTone("denied");
       },
       { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 },
@@ -8010,20 +8249,14 @@ function ProfileScreen({
           <UserRound size={18} />
           <div>
             <strong>Nombre</strong>
-            <input
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-            />
+            <input value={name} onChange={(event) => setName(event.target.value)} />
           </div>
         </label>
         <label className="settings-row">
           <MessageCircle size={18} />
           <div>
             <strong>Telefono</strong>
-            <input
-              value={phone}
-              onChange={(event) => setPhone(event.target.value)}
-            />
+            <input value={phone} onChange={(event) => setPhone(event.target.value)} />
           </div>
         </label>
         <label className="settings-row">
@@ -8060,7 +8293,9 @@ function ProfileScreen({
           <div>
             <span className="muted-label">Checkout mas rapido</span>
             <h3 id="address-book-title">Mis direcciones</h3>
-            <p>Guarda destinos frecuentes y usa coordenadas reales para entregar o pedir un viaje.</p>
+            <p>
+              Guarda destinos frecuentes y usa coordenadas reales para entregar o pedir un viaje.
+            </p>
           </div>
           <MapPin size={22} />
         </div>
@@ -8068,27 +8303,57 @@ function ProfileScreen({
           <div className="saved-address-list">
             {addresses.map((entry) => (
               <article className="saved-address-row" key={entry.id}>
-                <span className={entry.isDefault ? "saved-address-icon default" : "saved-address-icon"}>
-                  {entry.label.toLowerCase().includes("trab") ? <Store size={17} /> : <Home size={17} />}
+                <span
+                  className={entry.isDefault ? "saved-address-icon default" : "saved-address-icon"}
+                >
+                  {entry.label.toLowerCase().includes("trab") ? (
+                    <Store size={17} />
+                  ) : (
+                    <Home size={17} />
+                  )}
                 </span>
                 <div className="saved-address-copy">
                   <div>
                     <strong>{entry.label}</strong>
-                    {entry.isDefault && <span className="default-address-badge">Predeterminada</span>}
+                    {entry.isDefault && (
+                      <span className="default-address-badge">Predeterminada</span>
+                    )}
                   </div>
                   <span>{entry.address}</span>
-                  <small>{entry.lat !== null && entry.lng !== null ? "Ubicacion verificada" : "Sin coordenadas"}</small>
+                  <small>
+                    {entry.lat !== null && entry.lng !== null
+                      ? "Ubicacion verificada"
+                      : "Sin coordenadas"}
+                  </small>
                 </div>
                 <div className="saved-address-actions">
                   {!entry.isDefault && (
-                    <button type="button" className="icon-button" title="Usar como predeterminada" aria-label={`Usar ${entry.label} como predeterminada`} onClick={() => void onSetDefaultAddress(entry.id)}>
+                    <button
+                      type="button"
+                      className="icon-button"
+                      title="Usar como predeterminada"
+                      aria-label={`Usar ${entry.label} como predeterminada`}
+                      onClick={() => void onSetDefaultAddress(entry.id)}
+                    >
                       <Check size={15} />
                     </button>
                   )}
-                  <button type="button" className="icon-button" title="Editar direccion" aria-label={`Editar ${entry.label}`} onClick={() => editAddress(entry)}>
+                  <button
+                    type="button"
+                    className="icon-button"
+                    title="Editar direccion"
+                    aria-label={`Editar ${entry.label}`}
+                    onClick={() => editAddress(entry)}
+                  >
                     <Settings size={15} />
                   </button>
-                  <button type="button" className="icon-button danger" title="Eliminar direccion" aria-label={`Eliminar ${entry.label}`} onClick={() => void onDeleteAddress(entry.id)}>
+                  <button
+                    type="button"
+                    className="icon-button danger"
+                    title="Eliminar direccion"
+                    aria-label={`Eliminar ${entry.label}`}
+                    onClick={() => void onDeleteAddress(entry.id)}
+                  >
                     <X size={15} />
                   </button>
                 </div>
@@ -8104,12 +8369,21 @@ function ProfileScreen({
         <form className="address-form" onSubmit={saveAddress}>
           <div className="address-form-heading">
             <strong>{editingAddressId ? "Editar destino" : "Nuevo destino"}</strong>
-            {editingAddressId && <button type="button" className="text-button" onClick={resetAddressDraft}>Cancelar</button>}
+            {editingAddressId && (
+              <button type="button" className="text-button" onClick={resetAddressDraft}>
+                Cancelar
+              </button>
+            )}
           </div>
           <div className="address-form-grid">
             <label>
               <span>Etiqueta</span>
-              <select value={addressDraft.label} onChange={(event) => setAddressDraft((current) => ({ ...current, label: event.target.value }))}>
+              <select
+                value={addressDraft.label}
+                onChange={(event) =>
+                  setAddressDraft((current) => ({ ...current, label: event.target.value }))
+                }
+              >
                 <option>Casa</option>
                 <option>Trabajo</option>
                 <option>Otro</option>
@@ -8117,27 +8391,134 @@ function ProfileScreen({
             </label>
             <label className="address-form-wide">
               <span>Direccion</span>
-              <input value={addressDraft.address} onChange={(event) => setAddressDraft((current) => ({ ...current, address: event.target.value }))} placeholder="Ej. Av. Corrientes 1234" />
+              <input
+                value={addressDraft.address}
+                onChange={(event) =>
+                  setAddressDraft((current) => ({ ...current, address: event.target.value }))
+                }
+                placeholder="Ej. Av. Corrientes 1234"
+              />
             </label>
           </div>
           <button type="button" className="location-action" onClick={locateAddress}>
             <LocateFixed size={15} /> Usar mi ubicacion actual
           </button>
-          {addressStatus && <small className={`location-message ${addressStatusTone}`}>{addressStatus}</small>}
+          {addressStatus && (
+            <small className={`location-message ${addressStatusTone}`}>{addressStatus}</small>
+          )}
           <label className="address-default-toggle">
-            <input type="checkbox" checked={addressDraft.isDefault} onChange={(event) => setAddressDraft((current) => ({ ...current, isDefault: event.target.checked }))} />
+            <input
+              type="checkbox"
+              checked={addressDraft.isDefault}
+              onChange={(event) =>
+                setAddressDraft((current) => ({ ...current, isDefault: event.target.checked }))
+              }
+            />
             <span>Usar para próximos pedidos y viajes</span>
           </label>
-          <button type="submit" className="secondary-button" disabled={!addressDraft.address.trim() || addressDraft.lat === null || addressDraft.lng === null}>
+          <button
+            type="submit"
+            className="secondary-button"
+            disabled={
+              !addressDraft.address.trim() || addressDraft.lat === null || addressDraft.lng === null
+            }
+          >
             <MapPin size={16} /> {editingAddressId ? "Actualizar direccion" : "Guardar direccion"}
           </button>
         </form>
       </section>
       <section className="dietary-profile-card" aria-labelledby="dietary-profile-title">
-        <div className="dietary-profile-heading"><span><Leaf size={19}/></span><div><h3 id="dietary-profile-title">Mi alimentación</h3><p>Personalizá el catálogo usando declaraciones verificables del comercio.</p></div></div>
-        {!dietary&&!dietaryError&&<p className="dietary-loading" role="status"><RefreshCw size={15}/> Cargando preferencias…</p>}
-        {dietary&&<><strong>Apto para</strong><div className="dietary-chip-list">{dietOptions.map(option=>{const selected=dietary.dietaryLabels.some(item=>item.code===option.code);return <button type="button" key={option.code} className={selected?"dietary-chip selected":"dietary-chip"} aria-pressed={selected} onClick={()=>toggleDiet(option.code)}>{option.name}</button>;})}</div><strong>Evito estos alérgenos</strong><div className="dietary-chip-list">{allergenOptions.map(option=>{const selected=dietary.avoidedAllergens.some(item=>item.code===option.code);return <button type="button" key={option.code} className={selected?"dietary-chip allergen selected":"dietary-chip allergen"} aria-pressed={selected} onClick={()=>toggleAllergen(option.code)}>{option.name}</button>;})}</div><button type="button" className="dietary-filter-toggle" role="switch" aria-checked={dietary.hideIncompatible} onClick={()=>setDietary(current=>current?{...current,hideIncompatible:!current.hideIncompatible}:current)}><span><strong>Ocultar incompatibles</strong><small>“Sin datos” nunca significa que un producto sea seguro.</small></span><i aria-hidden="true" className={dietary.hideIncompatible?"active":""}/></button><div className="dietary-caution"><TriangleAlert size={17}/><span>Ante una alergia severa, confirmá con el comercio. Las indicaciones no eliminan contaminación cruzada.</span></div><button type="button" className="secondary-button" disabled={dietaryBusy} onClick={()=>void saveDietary()}>{dietaryBusy?"Guardando…":"Guardar preferencias alimentarias"}</button></>}
-        {dietaryError&&<p className="form-error" role="alert">{dietaryError}</p>}
+        <div className="dietary-profile-heading">
+          <span>
+            <Leaf size={19} />
+          </span>
+          <div>
+            <h3 id="dietary-profile-title">Mi alimentación</h3>
+            <p>Personalizá el catálogo usando declaraciones verificables del comercio.</p>
+          </div>
+        </div>
+        {!dietary && !dietaryError && (
+          <p className="dietary-loading" role="status">
+            <RefreshCw size={15} /> Cargando preferencias…
+          </p>
+        )}
+        {dietary && (
+          <>
+            <strong>Apto para</strong>
+            <div className="dietary-chip-list">
+              {dietOptions.map((option) => {
+                const selected = dietary.dietaryLabels.some((item) => item.code === option.code);
+                return (
+                  <button
+                    type="button"
+                    key={option.code}
+                    className={selected ? "dietary-chip selected" : "dietary-chip"}
+                    aria-pressed={selected}
+                    onClick={() => toggleDiet(option.code)}
+                  >
+                    {option.name}
+                  </button>
+                );
+              })}
+            </div>
+            <strong>Evito estos alérgenos</strong>
+            <div className="dietary-chip-list">
+              {allergenOptions.map((option) => {
+                const selected = dietary.avoidedAllergens.some((item) => item.code === option.code);
+                return (
+                  <button
+                    type="button"
+                    key={option.code}
+                    className={
+                      selected ? "dietary-chip allergen selected" : "dietary-chip allergen"
+                    }
+                    aria-pressed={selected}
+                    onClick={() => toggleAllergen(option.code)}
+                  >
+                    {option.name}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              className="dietary-filter-toggle"
+              role="switch"
+              aria-checked={dietary.hideIncompatible}
+              onClick={() =>
+                setDietary((current) =>
+                  current ? { ...current, hideIncompatible: !current.hideIncompatible } : current,
+                )
+              }
+            >
+              <span>
+                <strong>Ocultar incompatibles</strong>
+                <small>“Sin datos” nunca significa que un producto sea seguro.</small>
+              </span>
+              <i aria-hidden="true" className={dietary.hideIncompatible ? "active" : ""} />
+            </button>
+            <div className="dietary-caution">
+              <TriangleAlert size={17} />
+              <span>
+                Ante una alergia severa, confirmá con el comercio. Las indicaciones no eliminan
+                contaminación cruzada.
+              </span>
+            </div>
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={dietaryBusy}
+              onClick={() => void saveDietary()}
+            >
+              {dietaryBusy ? "Guardando…" : "Guardar preferencias alimentarias"}
+            </button>
+          </>
+        )}
+        {dietaryError && (
+          <p className="form-error" role="alert">
+            {dietaryError}
+          </p>
+        )}
       </section>
       <button
         className="primary-button"
@@ -8166,19 +8547,18 @@ function RestaurantDetail({
   onOpenItem,
 }: {
   restaurant: Restaurant;
-  dietaryPreferences:DietaryPreferences|null;
+  dietaryPreferences: DietaryPreferences | null;
   cartCount: number;
   onBack: () => void;
   onOpenCart: () => void;
   onOpenItem: (item: MenuItem) => void;
 }) {
   const [category, setCategory] = useState("Todo");
-  const categories = [
-    "Todo",
-    ...Array.from(new Set(restaurant.menu.map((item) => item.category))),
-  ];
+  const categories = ["Todo", ...Array.from(new Set(restaurant.menu.map((item) => item.category)))];
   const menu = restaurant.menu.filter(
-    (item) => (category === "Todo" || item.category === category)&&(!dietaryPreferences?.hideIncompatible||itemMatchesDietary(item,dietaryPreferences)),
+    (item) =>
+      (category === "Todo" || item.category === category) &&
+      (!dietaryPreferences?.hideIncompatible || itemMatchesDietary(item, dietaryPreferences)),
   );
   return (
     <div className="screen detail-screen">
@@ -8186,12 +8566,7 @@ function RestaurantDetail({
         <img src={restaurant.cover} alt={restaurant.name} />
         <div className="detail-topbar">
           <IconButton icon={ArrowLeft} label="Volver" onClick={onBack} />
-          <IconButton
-            icon={ShoppingBag}
-            label="Carrito"
-            badge={cartCount}
-            onClick={onOpenCart}
-          />
+          <IconButton icon={ShoppingBag} label="Carrito" badge={cartCount} onClick={onOpenCart} />
         </div>
       </div>
       <section className="detail-summary">
@@ -8212,12 +8587,13 @@ function RestaurantDetail({
           </span>
         </div>
       </section>
-      <CategoryRail
-        categories={categories}
-        category={category}
-        setCategory={setCategory}
-      />
-      {dietaryPreferences?.hideIncompatible&&<div className="dietary-filter-banner"><Leaf size={16}/><span>Filtro alimentario activo · sólo productos con declaraciones compatibles.</span></div>}
+      <CategoryRail categories={categories} category={category} setCategory={setCategory} />
+      {dietaryPreferences?.hideIncompatible && (
+        <div className="dietary-filter-banner">
+          <Leaf size={16} />
+          <span>Filtro alimentario activo · sólo productos con declaraciones compatibles.</span>
+        </div>
+      )}
       <div className="item-list">
         {menu.map((item) => (
           <FoodRow
@@ -8227,7 +8603,13 @@ function RestaurantDetail({
             onClick={() => onOpenItem(item)}
           />
         ))}
-        {!menu.length&&<EmptyState icon={Search} title="Sin coincidencias declaradas" text="Probá otra categoría o revisá tu filtro alimentario en Perfil."/>}
+        {!menu.length && (
+          <EmptyState
+            icon={Search}
+            title="Sin coincidencias declaradas"
+            text="Probá otra categoría o revisá tu filtro alimentario en Perfil."
+          />
+        )}
       </div>
     </div>
   );
@@ -8266,51 +8648,162 @@ function CartScreen({
   checkoutOpen: boolean;
   setCheckoutOpen: (open: boolean) => void;
   onBack: () => void;
-  onCreateOrder: (checkout:FoodCheckoutSelection,providerPayment?:{cardToken:string;paymentMethodId:string;installments:number}) => Promise<void>;
+  onCreateOrder: (
+    checkout: FoodCheckoutSelection,
+    providerPayment?: { cardToken: string; paymentMethodId: string; installments: number },
+  ) => Promise<void>;
   addresses: UserAddress[];
   paymentMethods: AppState["paymentMethods"];
-  customerEmail:string;
+  customerEmail: string;
   busy: boolean;
 }) {
-  const[paymentMode,setPaymentMode]=useState<"wallet"|"mercadopago">("wallet"),[paymentConfiguration,setPaymentConfiguration]=useState<{provider:"mercadopago"|"disabled";publicKey:string|null;merchantReady:boolean}|null>(null),[paymentConfigurationError,setPaymentConfigurationError]=useState("");
-  const geocodedAddresses=addresses.filter(entry=>!entry.id.startsWith("profile-")&&entry.lat!==null&&entry.lng!==null);
-  const walletMethod=paymentMethods.find(entry=>entry.type==="wallet"&&entry.isDefault)||paymentMethods.find(entry=>entry.type==="wallet");
-  const[selectedAddressId,setSelectedAddressId]=useState(()=>geocodedAddresses.find(entry=>entry.isDefault)?.id||geocodedAddresses[0]?.id||"");
-  const[checkoutQuote,setCheckoutQuote]=useState<FoodCheckoutQuote|null>(null),[quoteBusy,setQuoteBusy]=useState(false),[quoteError,setQuoteError]=useState(""),[quoteRevision,setQuoteRevision]=useState(0),[quoteClock,setQuoteClock]=useState(Date.now());
-  const selectedAddress=geocodedAddresses.find(entry=>entry.id===selectedAddressId)||null;
-  useEffect(()=>{if(!checkoutOpen||!restaurant){setPaymentMode("wallet");setPaymentConfiguration(null);return;}let active=true;setPaymentConfigurationError("");api.getPaymentClientConfiguration(restaurant.id).then(configuration=>{if(active)setPaymentConfiguration(configuration);}).catch(error=>{if(active)setPaymentConfigurationError(error instanceof Error?error.message:"No se pudo consultar Mercado Pago");});return()=>{active=false};},[checkoutOpen,restaurant]);
-  useEffect(()=>{setSelectedAddressId(current=>geocodedAddresses.some(entry=>entry.id===current)?current:geocodedAddresses.find(entry=>entry.isDefault)?.id||geocodedAddresses[0]?.id||"");},[addresses]);
-  useEffect(()=>{if(!checkoutQuote)return;setQuoteClock(Date.now());const timer=window.setInterval(()=>setQuoteClock(Date.now()),1000);return()=>window.clearInterval(timer);},[checkoutQuote]);
-  const mercadoPagoReady=paymentConfiguration?.provider==="mercadopago"&&paymentConfiguration.merchantReady&&Boolean(paymentConfiguration.publicKey);
-  useEffect(()=>{
-    if(!checkoutOpen){setCheckoutQuote(null);setQuoteError("");setQuoteBusy(false);return;}
-    if(!restaurant||!selectedAddress){setCheckoutQuote(null);setQuoteError("Agregá una dirección con ubicación verificada desde Cuenta para continuar.");setQuoteBusy(false);return;}
-    if(paymentMode==="wallet"&&!walletMethod){setCheckoutQuote(null);setQuoteError("Tu cuenta no tiene una Wallet habilitada.");setQuoteBusy(false);return;}
-    let active=true;
-    setCheckoutQuote(null);setQuoteError("");setQuoteBusy(true);
-    const timer=window.setTimeout(()=>{
-      api.quoteFoodCheckout({
-        customerId:selectedAddress.userId,
-        restaurantId:restaurant.id,
-        branchId:restaurant.branches?.find(branch=>branch.isPrimary)?.id,
-        deliveryAddressId:selectedAddress.id,
-        paymentMethod:paymentMode==="wallet"?(walletMethod?.label||"Flash Wallet"):"Mercado Pago",
-        paymentMethodId:paymentMode==="wallet"?walletMethod?.id:undefined,
-        promotionCode:promotionCode.trim().toUpperCase()||undefined,
-        items:cart.map(line=>({menuItemId:line.item.id,quantity:line.quantity,extras:line.extras,note:line.note})),
-      }).then(result=>{if(active){setCheckoutQuote(result.quote);setQuoteClock(Date.now());}}).catch(error=>{if(active)setQuoteError(error instanceof Error?error.message:"No se pudo actualizar el precio final");}).finally(()=>{if(active)setQuoteBusy(false);});
-    },350);
-    return()=>{active=false;window.clearTimeout(timer);};
-  },[cart,checkoutOpen,paymentMode,promotionCode,quoteRevision,restaurant,selectedAddress,walletMethod]);
-  const quoteExpired=Boolean(checkoutQuote&&new Date(checkoutQuote.expiresAt).getTime()<=quoteClock);
-  const checkoutSelection:FoodCheckoutSelection|null=checkoutQuote&&selectedAddress?{
-    deliveryAddressId:selectedAddress.id,
-    deliveryAddress:checkoutQuote.deliveryAddress,
-    paymentMethod:checkoutQuote.paymentMethod,
-    paymentMethodId:checkoutQuote.paymentMethodId||undefined,
-    quoteToken:checkoutQuote.quoteToken,
-  }:null;
-  const displayedTotals=checkoutOpen&&checkoutQuote?checkoutQuote:totals;
+  const [paymentMode, setPaymentMode] = useState<"wallet" | "mercadopago">("wallet"),
+    [paymentConfiguration, setPaymentConfiguration] = useState<{
+      provider: "mercadopago" | "disabled";
+      publicKey: string | null;
+      merchantReady: boolean;
+    } | null>(null),
+    [paymentConfigurationError, setPaymentConfigurationError] = useState("");
+  const geocodedAddresses = addresses.filter(
+    (entry) => !entry.id.startsWith("profile-") && entry.lat !== null && entry.lng !== null,
+  );
+  const walletMethod =
+    paymentMethods.find((entry) => entry.type === "wallet" && entry.isDefault) ||
+    paymentMethods.find((entry) => entry.type === "wallet");
+  const [selectedAddressId, setSelectedAddressId] = useState(
+    () => geocodedAddresses.find((entry) => entry.isDefault)?.id || geocodedAddresses[0]?.id || "",
+  );
+  const [checkoutQuote, setCheckoutQuote] = useState<FoodCheckoutQuote | null>(null),
+    [quoteBusy, setQuoteBusy] = useState(false),
+    [quoteError, setQuoteError] = useState(""),
+    [quoteRevision, setQuoteRevision] = useState(0),
+    [quoteClock, setQuoteClock] = useState(Date.now());
+  const selectedAddress = geocodedAddresses.find((entry) => entry.id === selectedAddressId) || null;
+  useEffect(() => {
+    if (!checkoutOpen || !restaurant) {
+      setPaymentMode("wallet");
+      setPaymentConfiguration(null);
+      return;
+    }
+    let active = true;
+    setPaymentConfigurationError("");
+    api
+      .getPaymentClientConfiguration(restaurant.id)
+      .then((configuration) => {
+        if (active) setPaymentConfiguration(configuration);
+      })
+      .catch((error) => {
+        if (active)
+          setPaymentConfigurationError(
+            error instanceof Error ? error.message : "No se pudo consultar Mercado Pago",
+          );
+      });
+    return () => {
+      active = false;
+    };
+  }, [checkoutOpen, restaurant]);
+  useEffect(() => {
+    setSelectedAddressId((current) =>
+      geocodedAddresses.some((entry) => entry.id === current)
+        ? current
+        : geocodedAddresses.find((entry) => entry.isDefault)?.id || geocodedAddresses[0]?.id || "",
+    );
+  }, [addresses]);
+  useEffect(() => {
+    if (!checkoutQuote) return;
+    setQuoteClock(Date.now());
+    const timer = window.setInterval(() => setQuoteClock(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [checkoutQuote]);
+  const mercadoPagoReady =
+    paymentConfiguration?.provider === "mercadopago" &&
+    paymentConfiguration.merchantReady &&
+    Boolean(paymentConfiguration.publicKey);
+  useEffect(() => {
+    if (!checkoutOpen) {
+      setCheckoutQuote(null);
+      setQuoteError("");
+      setQuoteBusy(false);
+      return;
+    }
+    if (!restaurant || !selectedAddress) {
+      setCheckoutQuote(null);
+      setQuoteError("Agregá una dirección con ubicación verificada desde Cuenta para continuar.");
+      setQuoteBusy(false);
+      return;
+    }
+    if (paymentMode === "wallet" && !walletMethod) {
+      setCheckoutQuote(null);
+      setQuoteError("Tu cuenta no tiene una Wallet habilitada.");
+      setQuoteBusy(false);
+      return;
+    }
+    let active = true;
+    setCheckoutQuote(null);
+    setQuoteError("");
+    setQuoteBusy(true);
+    const timer = window.setTimeout(() => {
+      api
+        .quoteFoodCheckout({
+          customerId: selectedAddress.userId,
+          restaurantId: restaurant.id,
+          branchId: restaurant.branches?.find((branch) => branch.isPrimary)?.id,
+          deliveryAddressId: selectedAddress.id,
+          paymentMethod:
+            paymentMode === "wallet" ? walletMethod?.label || "Flash Wallet" : "Mercado Pago",
+          paymentMethodId: paymentMode === "wallet" ? walletMethod?.id : undefined,
+          promotionCode: promotionCode.trim().toUpperCase() || undefined,
+          items: cart.map((line) => ({
+            menuItemId: line.item.id,
+            quantity: line.quantity,
+            extras: line.extras,
+            note: line.note,
+          })),
+        })
+        .then((result) => {
+          if (active) {
+            setCheckoutQuote(result.quote);
+            setQuoteClock(Date.now());
+          }
+        })
+        .catch((error) => {
+          if (active)
+            setQuoteError(
+              error instanceof Error ? error.message : "No se pudo actualizar el precio final",
+            );
+        })
+        .finally(() => {
+          if (active) setQuoteBusy(false);
+        });
+    }, 350);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [
+    cart,
+    checkoutOpen,
+    paymentMode,
+    promotionCode,
+    quoteRevision,
+    restaurant,
+    selectedAddress,
+    walletMethod,
+  ]);
+  const quoteExpired = Boolean(
+    checkoutQuote && new Date(checkoutQuote.expiresAt).getTime() <= quoteClock,
+  );
+  const checkoutSelection: FoodCheckoutSelection | null =
+    checkoutQuote && selectedAddress
+      ? {
+          deliveryAddressId: selectedAddress.id,
+          deliveryAddress: checkoutQuote.deliveryAddress,
+          paymentMethod: checkoutQuote.paymentMethod,
+          paymentMethodId: checkoutQuote.paymentMethodId || undefined,
+          quoteToken: checkoutQuote.quoteToken,
+        }
+      : null;
+  const displayedTotals = checkoutOpen && checkoutQuote ? checkoutQuote : totals;
   return (
     <div className="screen">
       <TopBar
@@ -8331,8 +8824,7 @@ function CartScreen({
             <div>
               <strong>{restaurant?.name}</strong>
               <span>
-                {restaurant?.etaMin} min · envio{" "}
-                {money.format(restaurant?.deliveryFee || 0)}
+                {restaurant?.etaMin} min · envio {money.format(restaurant?.deliveryFee || 0)}
               </span>
             </div>
           </div>
@@ -8342,11 +8834,7 @@ function CartScreen({
                 <img src={line.item.image} alt={line.item.name} />
                 <div>
                   <strong>{line.item.name}</strong>
-                  <span>
-                    {line.extras.length
-                      ? `${line.extras.length} extras`
-                      : "Sin extras"}
-                  </span>
+                  <span>{line.extras.length ? `${line.extras.length} extras` : "Sin extras"}</span>
                   <small>{line.note || "Sin nota"}</small>
                 </div>
                 <Counter
@@ -8357,9 +8845,7 @@ function CartScreen({
                       quantity <= 0
                         ? cart.filter((_, lineIndex) => lineIndex !== index)
                         : cart.map((entry, lineIndex) =>
-                            lineIndex === index
-                              ? { ...entry, quantity }
-                              : entry,
+                            lineIndex === index ? { ...entry, quantity } : entry,
                           ),
                     )
                   }
@@ -8370,23 +8856,161 @@ function CartScreen({
           {checkoutOpen && (
             <section className="checkout-card">
               <div className="checkout-section-heading">
-                <div><span className="muted-label">Entrega</span><strong>Elegí dónde recibir</strong></div>
-                <MapPin size={18}/>
+                <div>
+                  <span className="muted-label">Entrega</span>
+                  <strong>Elegí dónde recibir</strong>
+                </div>
+                <MapPin size={18} />
               </div>
-              <div className="checkout-address-list" role="radiogroup" aria-label="Dirección de entrega">
-                {geocodedAddresses.map(entry=><button key={entry.id} type="button" role="radio" aria-checked={entry.id===selectedAddressId} className={entry.id===selectedAddressId?"checkout-address active":"checkout-address"} onClick={()=>setSelectedAddressId(entry.id)}><span className="saved-address-icon"><MapPin size={16}/></span><span><strong>{entry.label}</strong><small>{entry.address}</small></span>{entry.id===selectedAddressId?<Check size={17}/>:null}</button>)}
-                {!geocodedAddresses.length&&<div className="checkout-missing-state"><TriangleAlert size={17}/><span>Necesitás una dirección guardada con coordenadas GPS. Cerrá el carrito y agregala desde Cuenta.</span></div>}
+              <div
+                className="checkout-address-list"
+                role="radiogroup"
+                aria-label="Dirección de entrega"
+              >
+                {geocodedAddresses.map((entry) => (
+                  <button
+                    key={entry.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={entry.id === selectedAddressId}
+                    className={
+                      entry.id === selectedAddressId
+                        ? "checkout-address active"
+                        : "checkout-address"
+                    }
+                    onClick={() => setSelectedAddressId(entry.id)}
+                  >
+                    <span className="saved-address-icon">
+                      <MapPin size={16} />
+                    </span>
+                    <span>
+                      <strong>{entry.label}</strong>
+                      <small>{entry.address}</small>
+                    </span>
+                    {entry.id === selectedAddressId ? <Check size={17} /> : null}
+                  </button>
+                ))}
+                {!geocodedAddresses.length && (
+                  <div className="checkout-missing-state">
+                    <TriangleAlert size={17} />
+                    <span>
+                      Necesitás una dirección guardada con coordenadas GPS. Cerrá el carrito y
+                      agregala desde Cuenta.
+                    </span>
+                  </div>
+                )}
               </div>
-              <div className="checkout-section-heading"><div><span className="muted-label">Pago</span><strong>Elegí cómo pagar</strong></div><CreditCard size={18}/></div>
+              <div className="checkout-section-heading">
+                <div>
+                  <span className="muted-label">Pago</span>
+                  <strong>Elegí cómo pagar</strong>
+                </div>
+                <CreditCard size={18} />
+              </div>
               <div className="payment-choice" role="radiogroup" aria-label="Método de pago">
-                <button type="button" role="radio" aria-checked={paymentMode==="wallet"} className={paymentMode==="wallet"?"active":""} disabled={!walletMethod} onClick={()=>setPaymentMode("wallet")}><WalletCards size={18}/><span><strong>{walletMethod?.label||"Flash Wallet"}</strong><small>{walletMethod?`Saldo ${money.format(walletMethod.balance)}`:"No disponible"}</small></span></button>
-                <button type="button" role="radio" aria-checked={paymentMode==="mercadopago"} className={paymentMode==="mercadopago"?"active":""} disabled={!mercadoPagoReady} onClick={()=>setPaymentMode("mercadopago")}><CreditCard size={18}/><span><strong>Tarjeta</strong><small>{mercadoPagoReady?"Tokenización segura con Mercado Pago":paymentConfiguration?"No disponible para este comercio":"Consultando disponibilidad…"}</small></span></button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={paymentMode === "wallet"}
+                  className={paymentMode === "wallet" ? "active" : ""}
+                  disabled={!walletMethod}
+                  onClick={() => setPaymentMode("wallet")}
+                >
+                  <WalletCards size={18} />
+                  <span>
+                    <strong>{walletMethod?.label || "Flash Wallet"}</strong>
+                    <small>
+                      {walletMethod
+                        ? `Saldo ${money.format(walletMethod.balance)}`
+                        : "No disponible"}
+                    </small>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={paymentMode === "mercadopago"}
+                  className={paymentMode === "mercadopago" ? "active" : ""}
+                  disabled={!mercadoPagoReady}
+                  onClick={() => setPaymentMode("mercadopago")}
+                >
+                  <CreditCard size={18} />
+                  <span>
+                    <strong>Tarjeta</strong>
+                    <small>
+                      {mercadoPagoReady
+                        ? "Tokenización segura con Mercado Pago"
+                        : paymentConfiguration
+                          ? "No disponible para este comercio"
+                          : "Consultando disponibilidad…"}
+                    </small>
+                  </span>
+                </button>
               </div>
-              {paymentConfigurationError&&<small className="payment-provider-error">{paymentConfigurationError}</small>}
-              {quoteBusy&&<div className="checkout-quote-status" role="status"><RefreshCw size={16}/>Recalculando precio y disponibilidad…</div>}
-              {quoteError&&<div className="checkout-quote-error" role="alert"><TriangleAlert size={16}/><span>{quoteError}</span><button type="button" onClick={()=>setQuoteRevision(value=>value+1)}>Reintentar</button></div>}
-              {checkoutQuote&&!quoteBusy&&<div className={quoteExpired?"checkout-quote-proof expired":"checkout-quote-proof"}><ShieldCheck size={17}/><span><strong>{quoteExpired?"Cotización vencida":"Precio verificado por Flash"}</strong><small>{checkoutQuote.distanceKm} km · llega en aproximadamente {checkoutQuote.etaMin} min · {checkoutQuote.pricingVersion}</small></span>{quoteExpired?<button type="button" onClick={()=>setQuoteRevision(value=>value+1)}>Actualizar</button>:<small>Vence {new Date(checkoutQuote.expiresAt).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}</small>}</div>}
-              {paymentMode==="mercadopago"&&mercadoPagoReady&&paymentConfiguration?.publicKey&&checkoutQuote&&!quoteExpired&&checkoutSelection&&<MercadoPagoCardCheckout publicKey={paymentConfiguration.publicKey} amount={checkoutQuote.total} email={customerEmail} busy={busy||quoteBusy} onSubmit={(providerPayment)=>onCreateOrder(checkoutSelection,providerPayment)} onError={setPaymentConfigurationError}/>}
+              {paymentConfigurationError && (
+                <small className="payment-provider-error">{paymentConfigurationError}</small>
+              )}
+              {quoteBusy && (
+                <div className="checkout-quote-status" role="status">
+                  <RefreshCw size={16} />
+                  Recalculando precio y disponibilidad…
+                </div>
+              )}
+              {quoteError && (
+                <div className="checkout-quote-error" role="alert">
+                  <TriangleAlert size={16} />
+                  <span>{quoteError}</span>
+                  <button type="button" onClick={() => setQuoteRevision((value) => value + 1)}>
+                    Reintentar
+                  </button>
+                </div>
+              )}
+              {checkoutQuote && !quoteBusy && (
+                <div
+                  className={quoteExpired ? "checkout-quote-proof expired" : "checkout-quote-proof"}
+                >
+                  <ShieldCheck size={17} />
+                  <span>
+                    <strong>
+                      {quoteExpired ? "Cotización vencida" : "Precio verificado por Flash"}
+                    </strong>
+                    <small>
+                      {checkoutQuote.distanceKm} km · llega en aproximadamente{" "}
+                      {checkoutQuote.etaMin} min · {checkoutQuote.pricingVersion}
+                    </small>
+                  </span>
+                  {quoteExpired ? (
+                    <button type="button" onClick={() => setQuoteRevision((value) => value + 1)}>
+                      Actualizar
+                    </button>
+                  ) : (
+                    <small>
+                      Vence{" "}
+                      {new Date(checkoutQuote.expiresAt).toLocaleTimeString("es-AR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </small>
+                  )}
+                </div>
+              )}
+              {paymentMode === "mercadopago" &&
+                mercadoPagoReady &&
+                paymentConfiguration?.publicKey &&
+                checkoutQuote &&
+                !quoteExpired &&
+                checkoutSelection && (
+                  <MercadoPagoCardCheckout
+                    publicKey={paymentConfiguration.publicKey}
+                    amount={checkoutQuote.total}
+                    email={customerEmail}
+                    busy={busy || quoteBusy}
+                    onSubmit={(providerPayment) =>
+                      onCreateOrder(checkoutSelection, providerPayment)
+                    }
+                    onError={setPaymentConfigurationError}
+                  />
+                )}
               <label className="checkout-line">
                 <TicketPercent size={18} />
                 <div>
@@ -8396,18 +9020,11 @@ function CartScreen({
                     list="food-promotions"
                     placeholder="Ej. FLASH40"
                     value={promotionCode}
-                    onChange={(event) =>
-                      setPromotionCode(event.target.value.toUpperCase())
-                    }
+                    onChange={(event) => setPromotionCode(event.target.value.toUpperCase())}
                   />
                   <datalist id="food-promotions">
                     {promotions
-                      .filter(
-                        (entry) =>
-                          entry.service === "food" &&
-                          entry.active &&
-                          entry.code,
-                      )
+                      .filter((entry) => entry.service === "food" && entry.active && entry.code)
                       .map((entry) => (
                         <option key={entry.id} value={entry.code}>
                           {entry.title}
@@ -8419,33 +9036,134 @@ function CartScreen({
             </section>
           )}
           <SummaryBlock totals={displayedTotals} />
-          {paymentMode==="wallet"&&<button
-            className="primary-button sticky-action"
-            type="button"
-            onClick={() =>
-              checkoutOpen&&checkoutSelection ? void onCreateOrder(checkoutSelection) : setCheckoutOpen(true)
-            }
-            disabled={busy||(checkoutOpen&&(quoteBusy||!checkoutSelection||quoteExpired||Boolean(quoteError)))}
-          >
-            <ReceiptText size={17} />
-            {checkoutOpen ? quoteBusy?"Verificando total…":quoteExpired?"Actualizá el precio":"Confirmar pedido" : "Ir a pagar"}
-          </button>}
-          {paymentMode==="mercadopago"&&!checkoutOpen&&<button className="primary-button sticky-action" type="button" onClick={()=>setCheckoutOpen(true)}><ReceiptText size={17}/>Ir a pagar</button>}
+          {paymentMode === "wallet" && (
+            <button
+              className="primary-button sticky-action"
+              type="button"
+              onClick={() =>
+                checkoutOpen && checkoutSelection
+                  ? void onCreateOrder(checkoutSelection)
+                  : setCheckoutOpen(true)
+              }
+              disabled={
+                busy ||
+                (checkoutOpen &&
+                  (quoteBusy || !checkoutSelection || quoteExpired || Boolean(quoteError)))
+              }
+            >
+              <ReceiptText size={17} />
+              {checkoutOpen
+                ? quoteBusy
+                  ? "Verificando total…"
+                  : quoteExpired
+                    ? "Actualizá el precio"
+                    : "Confirmar pedido"
+                : "Ir a pagar"}
+            </button>
+          )}
+          {paymentMode === "mercadopago" && !checkoutOpen && (
+            <button
+              className="primary-button sticky-action"
+              type="button"
+              onClick={() => setCheckoutOpen(true)}
+            >
+              <ReceiptText size={17} />
+              Ir a pagar
+            </button>
+          )}
         </>
       )}
     </div>
   );
 }
 
-type ProviderPaymentInput={cardToken:string;paymentMethodId:string;installments:number};
-type CardBrickForm={token:string;payment_method_id:string;installments:number;transaction_amount:number};
-type CardBrickProps={initialization:{amount:number;payer:{email:string}};customization:{paymentMethods:{maxInstallments:number;types:{included:Array<"credit_card"|"debit_card"|"prepaid_card">}};visual:{style:{theme:string}}};locale:"es-AR";onSubmit:(form:CardBrickForm)=>Promise<void>;onReady:()=>void;onError:(error:unknown)=>void};
+type ProviderPaymentInput = { cardToken: string; paymentMethodId: string; installments: number };
+type CardBrickForm = {
+  token: string;
+  payment_method_id: string;
+  installments: number;
+  transaction_amount: number;
+};
+type CardBrickProps = {
+  initialization: { amount: number; payer: { email: string } };
+  customization: {
+    paymentMethods: {
+      maxInstallments: number;
+      types: { included: Array<"credit_card" | "debit_card" | "prepaid_card"> };
+    };
+    visual: { style: { theme: string } };
+  };
+  locale: "es-AR";
+  onSubmit: (form: CardBrickForm) => Promise<void>;
+  onReady: () => void;
+  onError: (error: unknown) => void;
+};
 
-function MercadoPagoCardCheckout({publicKey,amount,email,busy,onSubmit,onError}:{publicKey:string;amount:number;email:string;busy:boolean;onSubmit:(payment:ProviderPaymentInput)=>Promise<void>;onError:(message:string)=>void}){
-  const[CardBrick,setCardBrick]=useState<ComponentType<CardBrickProps>|null>(null);
-  useEffect(()=>{let active=true;import("@mercadopago/sdk-react").then(sdk=>{if(!active)return;sdk.initMercadoPago(publicKey,{locale:"es-AR"});setCardBrick(()=>sdk.CardPayment as unknown as ComponentType<CardBrickProps>);}).catch(()=>{if(active)onError("No se pudo cargar el formulario seguro de Mercado Pago")});return()=>{active=false};},[onError,publicKey]);
-  if(!CardBrick)return<div className="payment-brick-loading"><RefreshCw size={16}/>Cargando formulario seguro…</div>;
-  return <div className={busy?"payment-brick busy":"payment-brick"}><CardBrick initialization={{amount,payer:{email}}} customization={{paymentMethods:{maxInstallments:12,types:{included:["credit_card","debit_card","prepaid_card"]}},visual:{style:{theme:"default"}}}} locale="es-AR" onReady={()=>onError("")} onError={()=>onError("Mercado Pago no pudo preparar el formulario")} onSubmit={async form=>{if(busy)throw new Error("El pago ya se está procesando");if(Math.abs(Number(form.transaction_amount)-amount)>.01)throw new Error("El total del formulario cambió; revisá el pedido");await onSubmit({cardToken:form.token,paymentMethodId:form.payment_method_id,installments:Number(form.installments)||1});}}/></div>;
+function MercadoPagoCardCheckout({
+  publicKey,
+  amount,
+  email,
+  busy,
+  onSubmit,
+  onError,
+}: {
+  publicKey: string;
+  amount: number;
+  email: string;
+  busy: boolean;
+  onSubmit: (payment: ProviderPaymentInput) => Promise<void>;
+  onError: (message: string) => void;
+}) {
+  const [CardBrick, setCardBrick] = useState<ComponentType<CardBrickProps> | null>(null);
+  useEffect(() => {
+    let active = true;
+    import("@mercadopago/sdk-react")
+      .then((sdk) => {
+        if (!active) return;
+        sdk.initMercadoPago(publicKey, { locale: "es-AR" });
+        setCardBrick(() => sdk.CardPayment as unknown as ComponentType<CardBrickProps>);
+      })
+      .catch(() => {
+        if (active) onError("No se pudo cargar el formulario seguro de Mercado Pago");
+      });
+    return () => {
+      active = false;
+    };
+  }, [onError, publicKey]);
+  if (!CardBrick)
+    return (
+      <div className="payment-brick-loading">
+        <RefreshCw size={16} />
+        Cargando formulario seguro…
+      </div>
+    );
+  return (
+    <div className={busy ? "payment-brick busy" : "payment-brick"}>
+      <CardBrick
+        initialization={{ amount, payer: { email } }}
+        customization={{
+          paymentMethods: {
+            maxInstallments: 12,
+            types: { included: ["credit_card", "debit_card", "prepaid_card"] },
+          },
+          visual: { style: { theme: "default" } },
+        }}
+        locale="es-AR"
+        onReady={() => onError("")}
+        onError={() => onError("Mercado Pago no pudo preparar el formulario")}
+        onSubmit={async (form) => {
+          if (busy) throw new Error("El pago ya se está procesando");
+          if (Math.abs(Number(form.transaction_amount) - amount) > 0.01)
+            throw new Error("El total del formulario cambió; revisá el pedido");
+          await onSubmit({
+            cardToken: form.token,
+            paymentMethodId: form.payment_method_id,
+            installments: Number(form.installments) || 1,
+          });
+        }}
+      />
+    </div>
+  );
 }
 
 function MerchantApp({
@@ -8475,12 +9193,8 @@ function MerchantApp({
   busy: boolean;
   runAction: (action: () => Promise<unknown>, success: string) => void;
 }) {
-  const orders = state.orders.filter(
-    (order) => order.restaurantId === restaurant.id,
-  );
-  const activeOrders = orders.filter(
-    (order) => !["delivered", "cancelled"].includes(order.status),
-  );
+  const orders = state.orders.filter((order) => order.restaurantId === restaurant.id);
+  const activeOrders = orders.filter((order) => !["delivered", "cancelled"].includes(order.status));
   const soldOutItems = restaurant.menu.filter((item) => !item.stock).length;
   const todayRevenue = orders.reduce((sum, order) => sum + order.total, 0);
   return (
@@ -8523,9 +9237,7 @@ function MerchantApp({
       <section className="prep-control">
         <div>
           <strong>Control de cocina</strong>
-          <span>
-            Ajusta ETA en vivo para proteger SLA y evitar cancelaciones.
-          </span>
+          <span>Ajusta ETA en vivo para proteger SLA y evitar cancelaciones.</span>
         </div>
         <div className="prep-actions">
           <button
@@ -8568,9 +9280,7 @@ function MerchantApp({
             order={order}
             restaurant={restaurant}
             driver={state.drivers.find((entry) => entry.id === order.courierId)}
-            onAdvance={() =>
-              runAction(() => api.advanceOrder(order.id), "Pedido avanzado")
-            }
+            onAdvance={() => runAction(() => api.advanceOrder(order.id), "Pedido avanzado")}
             busy={busy}
           />
         ))}
@@ -8588,12 +9298,7 @@ function MerchantApp({
               checked={item.stock}
               onChange={(event) =>
                 runAction(
-                  () =>
-                    api.updateMenuStock(
-                      restaurant.id,
-                      item.id,
-                      event.target.checked,
-                    ),
+                  () => api.updateMenuStock(restaurant.id, item.id, event.target.checked),
                   "Stock actualizado",
                 )
               }
@@ -8607,9 +9312,7 @@ function MerchantApp({
         <h2>Alta rapida</h2>
         <input
           value={newDish.name}
-          onChange={(event) =>
-            setNewDish((current) => ({ ...current, name: event.target.value }))
-          }
+          onChange={(event) => setNewDish((current) => ({ ...current, name: event.target.value }))}
         />
         <input
           value={newDish.description}
@@ -8646,10 +9349,7 @@ function MerchantApp({
           type="button"
           disabled={busy}
           onClick={() =>
-            runAction(
-              () => api.addMenuItem(restaurant.id, newDish),
-              "Producto creado",
-            )
+            runAction(() => api.addMenuItem(restaurant.id, newDish), "Producto creado")
           }
         >
           <Plus size={17} /> Agregar plato
@@ -8673,9 +9373,7 @@ function DriverApp({
   runAction: (action: () => Promise<unknown>, success: string) => void;
 }) {
   const lastLocationSentAt = useRef(0);
-  const [gpsStatus, setGpsStatus] = useState<
-    "idle" | "locating" | "live" | "denied"
-  >("idle");
+  const [gpsStatus, setGpsStatus] = useState<"idle" | "locating" | "live" | "denied">("idle");
   const [offers, setOffers] = useState<DispatchOffer[]>([]);
   const [offerBusy, setOfferBusy] = useState<string | null>(null);
   const [offersLoading, setOffersLoading] = useState(false);
@@ -8735,21 +9433,14 @@ function DriverApp({
   }, [driver.id, driver.online]);
 
   const activeOrders = state.orders.filter(
-    (order) =>
-      order.courierId === driver.id &&
-      !["delivered", "cancelled"].includes(order.status),
+    (order) => order.courierId === driver.id && !["delivered", "cancelled"].includes(order.status),
   );
   const activeRides = state.rides.filter(
-    (ride) =>
-      ride.driverId === driver.id &&
-      !["completed", "cancelled"].includes(ride.status),
+    (ride) => ride.driverId === driver.id && !["completed", "cancelled"].includes(ride.status),
   );
-  const hotZone =
-    state.zones.find((zone) => zone.demandLevel === "high") || state.zones[0];
+  const hotZone = state.zones.find((zone) => zone.demandLevel === "high") || state.zones[0];
   const visibleOffers = offers.filter((offer) =>
-    driver.activeService === "ride"
-      ? offer.kind === "ride"
-      : offer.kind === "delivery",
+    driver.activeService === "ride" ? offer.kind === "ride" : offer.kind === "delivery",
   );
   return (
     <div className="screen">
@@ -8778,18 +9469,13 @@ function DriverApp({
       <label className="toggle-row light">
         <span>
           <strong>Disponible</strong>
-          <small>
-            {driver.online
-              ? "Recibiendo viajes y deliveries"
-              : "Fuera de linea"}
-          </small>
+          <small>{driver.online ? "Recibiendo viajes y deliveries" : "Fuera de linea"}</small>
         </span>
         <input
           checked={driver.online}
           onChange={(event) =>
             runAction(
-              () =>
-                api.updateDriver(driver.id, { online: event.target.checked }),
+              () => api.updateDriver(driver.id, { online: event.target.checked }),
               event.target.checked ? "Driver online" : "Driver offline",
             )
           }
@@ -8811,11 +9497,7 @@ function DriverApp({
             }
             disabled={busy}
           >
-            {mode === "delivery" ? (
-              <ShoppingBag size={16} />
-            ) : (
-              <Car size={16} />
-            )}
+            {mode === "delivery" ? <ShoppingBag size={16} /> : <Car size={16} />}
             {mode === "delivery" ? "Delivery" : "Taxi"}
           </button>
         ))}
@@ -8850,22 +9532,15 @@ function DriverApp({
         </article>
       </div>
 
-      <SectionTitle
-        title="Activos"
-        action={money.format(driver.earningsToday)}
-      />
+      <SectionTitle title="Activos" action={money.format(driver.earningsToday)} />
       <div className="activity-stack">
         {activeOrders.map((order) => (
           <OrderOpsCard
             key={order.id}
             order={order}
-            restaurant={state.restaurants.find(
-              (entry) => entry.id === order.restaurantId,
-            )}
+            restaurant={state.restaurants.find((entry) => entry.id === order.restaurantId)}
             driver={driver}
-            onAdvance={() =>
-              runAction(() => api.advanceOrder(order.id), "Delivery avanzado")
-            }
+            onAdvance={() => runAction(() => api.advanceOrder(order.id), "Delivery avanzado")}
             busy={busy}
           />
         ))}
@@ -8874,9 +9549,7 @@ function DriverApp({
             key={ride.id}
             ride={ride}
             driver={driver}
-            onAdvance={() =>
-              runAction(() => api.advanceRide(ride.id), "Viaje avanzado")
-            }
+            onAdvance={() => runAction(() => api.advanceRide(ride.id), "Viaje avanzado")}
             busy={busy}
           />
         ))}
@@ -8904,10 +9577,7 @@ function DriverApp({
             secondaryAction="Rechazar"
             onSecondaryAction={async () => {
               setOfferBusy(offer.id);
-              await runAction(
-                () => api.rejectDriverOffer(offer.id),
-                "Oferta rechazada",
-              );
+              await runAction(() => api.rejectDriverOffer(offer.id), "Oferta rechazada");
               await loadOffers();
               setOfferBusy(null);
             }}
@@ -8957,34 +9627,15 @@ function OpsApp({
     <div className="screen">
       <TopBar title="Operaciones" actionIcon={LineChart} />
       <div className="ops-grid">
-        <MetricCard
-          label="Pedidos"
-          value={state.metrics.activeOrders}
-          tone="orange"
-        />
-        <MetricCard
-          label="Viajes"
-          value={state.metrics.activeRides}
-          tone="teal"
-        />
-        <MetricCard
-          label="Drivers"
-          value={state.metrics.onlineDrivers}
-          tone="green"
-        />
-        <MetricCard
-          label="Tickets"
-          value={state.metrics.openTickets}
-          tone="dark"
-        />
+        <MetricCard label="Pedidos" value={state.metrics.activeOrders} tone="orange" />
+        <MetricCard label="Viajes" value={state.metrics.activeRides} tone="teal" />
+        <MetricCard label="Drivers" value={state.metrics.onlineDrivers} tone="green" />
+        <MetricCard label="Tickets" value={state.metrics.openTickets} tone="dark" />
       </div>
       <OpsRiskBoard state={state} />
       <section className="control-map">
         {state.zones.slice(0, 3).map((zone, index) => (
-          <div
-            className={`zone zone-${["one", "two", "three"][index]}`}
-            key={zone.id}
-          >
+          <div className={`zone zone-${["one", "two", "three"][index]}`} key={zone.id}>
             {zone.name} · {zone.activeOrders + zone.activeRides} activos
           </div>
         ))}
@@ -8998,13 +9649,9 @@ function OpsApp({
           <OrderOpsCard
             key={order.id}
             order={order}
-            restaurant={state.restaurants.find(
-              (entry) => entry.id === order.restaurantId,
-            )}
+            restaurant={state.restaurants.find((entry) => entry.id === order.restaurantId)}
             driver={state.drivers.find((entry) => entry.id === order.courierId)}
-            onAdvance={() =>
-              runAction(() => api.advanceOrder(order.id), "Pedido avanzado")
-            }
+            onAdvance={() => runAction(() => api.advanceOrder(order.id), "Pedido avanzado")}
             busy={busy}
           />
         ))}
@@ -9016,9 +9663,7 @@ function OpsApp({
             key={ride.id}
             ride={ride}
             driver={state.drivers.find((entry) => entry.id === ride.driverId)}
-            onAdvance={() =>
-              runAction(() => api.advanceRide(ride.id), "Viaje avanzado")
-            }
+            onAdvance={() => runAction(() => api.advanceRide(ride.id), "Viaje avanzado")}
             busy={busy}
           />
         ))}
@@ -9029,21 +9674,15 @@ function OpsApp({
 
 function OpsRiskBoard({ state }: { state: AppState }) {
   const unassignedOrders = state.orders.filter(
-    (order) =>
-      !order.courierId && !["delivered", "cancelled"].includes(order.status),
+    (order) => !order.courierId && !["delivered", "cancelled"].includes(order.status),
   ).length;
   const unassignedRides = state.rides.filter(
-    (ride) =>
-      !ride.driverId && !["completed", "cancelled"].includes(ride.status),
+    (ride) => !ride.driverId && !["completed", "cancelled"].includes(ride.status),
   ).length;
   const risks = [
     ["Backlog", unassignedOrders + unassignedRides, "Asignaciones pendientes"],
     ["Supply", state.metrics.onlineDrivers, "Drivers online"],
-    [
-      "SLA",
-      state.metrics.avgOrderEta + state.metrics.avgRideEta,
-      "Minutos combinados",
-    ],
+    ["SLA", state.metrics.avgOrderEta + state.metrics.avgRideEta, "Minutos combinados"],
   ] as const;
   return (
     <section className="ops-risk-board">
@@ -9080,9 +9719,7 @@ function OpsRail({
   const activeOrder = state.orders.find(
     (order) => !["delivered", "cancelled"].includes(order.status),
   );
-  const activeRide = state.rides.find(
-    (ride) => !["completed", "cancelled"].includes(ride.status),
-  );
+  const activeRide = state.rides.find((ride) => !["completed", "cancelled"].includes(ride.status));
   return (
     <aside className="ops-panel">
       <PanelHeader
@@ -9110,11 +9747,7 @@ function OpsRail({
           <div className="ops-card highlight">
             <span>Carrito actual</span>
             <strong>{cartCount} items</strong>
-            <p>
-              {cartCount
-                ? money.format(cartTotal)
-                : "Listo para pedir comida o taxi"}
-            </p>
+            <p>{cartCount ? money.format(cartTotal) : "Listo para pedir comida o taxi"}</p>
           </div>
           {activeOrder && <MiniOrder state={state} order={activeOrder} />}
           {activeRide && <MiniRide state={state} ride={activeRide} />}
@@ -9126,11 +9759,7 @@ function OpsRail({
             <span>Cuenta</span>
             <strong>{user?.name}</strong>
             <p>
-              {
-                state.orders.filter(
-                  (order) => order.restaurantId === merchantRestaurantId,
-                ).length
-              }{" "}
+              {state.orders.filter((order) => order.restaurantId === merchantRestaurantId).length}{" "}
               pedidos historicos
             </p>
           </div>
@@ -9174,19 +9803,13 @@ function OpsRail({
               value={money.format(state.metrics.completedRevenue)}
               trend="completado"
             />
-            <Metric
-              label="Tickets"
-              value={String(state.metrics.openTickets)}
-              trend="soporte"
-            />
+            <Metric label="Tickets" value={String(state.metrics.openTickets)} trend="soporte" />
           </div>
           {state.supportTickets.map((ticket) => (
             <article className="ops-card" key={ticket.id}>
               <span>
                 {ticket.priority} ·{" "}
-                {ticket.slaStatus === "on_track"
-                  ? "en SLA"
-                  : ticket.slaStatus.replaceAll("_", " ")}
+                {ticket.slaStatus === "on_track" ? "en SLA" : ticket.slaStatus.replaceAll("_", " ")}
               </span>
               <strong>{ticket.title}</strong>
               <p>
@@ -9200,13 +9823,7 @@ function OpsRail({
   );
 }
 
-function PanelHeader({
-  title,
-  icon: Icon,
-}: {
-  title: string;
-  icon: LucideIcon;
-}) {
+function PanelHeader({ title, icon: Icon }: { title: string; icon: LucideIcon }) {
   return (
     <header className="panel-header">
       <span>
@@ -9220,13 +9837,7 @@ function PanelHeader({
   );
 }
 
-function SearchBar({
-  query,
-  setQuery,
-}: {
-  query: string;
-  setQuery: (query: string) => void;
-}) {
+function SearchBar({ query, setQuery }: { query: string; setQuery: (query: string) => void }) {
   return (
     <div className="search-bar">
       <Search size={17} />
@@ -9260,9 +9871,7 @@ function CategoryRail({
     <div className="category-rail">
       {categories.map((entry) => (
         <button
-          className={
-            category === entry ? "category-pill active" : "category-pill"
-          }
+          className={category === entry ? "category-pill active" : "category-pill"}
           key={entry}
           onClick={() => setCategory(entry)}
           type="button"
@@ -9451,8 +10060,7 @@ function ItemSheet({
         <div className="sheet-actions">
           <Counter value={quantity} min={1} onChange={setQuantity} />
           <button className="primary-button" type="button" onClick={onAdd}>
-            <ShoppingBag size={17} /> Agregar{" "}
-            {money.format((item.price + extrasTotal) * quantity)}
+            <ShoppingBag size={17} /> Agregar {money.format((item.price + extrasTotal) * quantity)}
           </button>
         </div>
       </section>
@@ -9480,12 +10088,7 @@ function Counter({
         <Minus size={14} />
       </button>
       <strong>{value}</strong>
-      <button
-        type="button"
-        onClick={() => onChange(value + 1)}
-        aria-label="Sumar"
-        title="Sumar"
-      >
+      <button type="button" onClick={() => onChange(value + 1)} aria-label="Sumar" title="Sumar">
         <Plus size={14} />
       </button>
     </div>
@@ -9544,11 +10147,12 @@ function OrderOpsCard({
   restaurant?: Restaurant;
   driver?: Driver;
   onAdvance: () => void;
-  canAdvance?:boolean;
-  onDetails?:()=>void;
+  canAdvance?: boolean;
+  onDetails?: () => void;
   busy: boolean;
 }) {
-  const showAdvance = canAdvance ?? !["ready_for_pickup", "delivered", "cancelled"].includes(order.status);
+  const showAdvance =
+    canAdvance ?? !["ready_for_pickup", "delivered", "cancelled"].includes(order.status);
   return (
     <article className="work-card">
       <div className="work-card-top">
@@ -9556,14 +10160,25 @@ function OrderOpsCard({
         <strong>{orderStatusLabel[order.status]}</strong>
       </div>
       <h3>{restaurant?.name || "Restaurante"}</h3>
-      <p>
-        {order.items.map((item) => `${item.quantity} ${item.name}`).join(", ")}
-      </p>
+      <p>{order.items.map((item) => `${item.quantity} ${item.name}`).join(", ")}</p>
       <div className="work-meta">
         <span>{money.format(order.total)}</span>
         <span>{driver?.name || "Sin repartidor"}</span>
       </div>
-      {(onDetails||showAdvance)&&<div className="work-card-actions">{onDetails&&<button className="secondary" type="button" onClick={onDetails}><ReceiptText size={15}/> Ver comanda</button>}{showAdvance&&<button type="button" onClick={onAdvance} disabled={busy}><PackageCheck size={15}/> Avanzar</button>}</div>}
+      {(onDetails || showAdvance) && (
+        <div className="work-card-actions">
+          {onDetails && (
+            <button className="secondary" type="button" onClick={onDetails}>
+              <ReceiptText size={15} /> Ver comanda
+            </button>
+          )}
+          {showAdvance && (
+            <button type="button" onClick={onAdvance} disabled={busy}>
+              <PackageCheck size={15} /> Avanzar
+            </button>
+          )}
+        </div>
+      )}
     </article>
   );
 }
@@ -9579,9 +10194,7 @@ function RideOpsCard({
   onAdvance: () => void;
   busy: boolean;
 }) {
-  const canAdvance = !["requested", "completed", "cancelled"].includes(
-    ride.status,
-  );
+  const canAdvance = !["requested", "completed", "cancelled"].includes(ride.status);
   return (
     <article className="work-card">
       <div className="work-card-top">
@@ -9636,12 +10249,7 @@ function OfferCard({
       </div>
       <div className="offer-card-actions">
         {secondaryAction && (
-          <button
-            className="secondary"
-            type="button"
-            onClick={onSecondaryAction}
-            disabled={busy}
-          >
+          <button className="secondary" type="button" onClick={onSecondaryAction} disabled={busy}>
             {secondaryAction}
           </button>
         )}
@@ -9711,15 +10319,7 @@ function StatusCard({
   );
 }
 
-function MetricCard({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: number;
-  tone: string;
-}) {
+function MetricCard({ label, value, tone }: { label: string; value: number; tone: string }) {
   return (
     <article className={`metric-card ${tone}`}>
       <span>{label}</span>
@@ -9729,9 +10329,7 @@ function MetricCard({
 }
 
 function MiniOrder({ state, order }: { state: AppState; order: Order }) {
-  const restaurant = state.restaurants.find(
-    (entry) => entry.id === order.restaurantId,
-  );
+  const restaurant = state.restaurants.find((entry) => entry.id === order.restaurantId);
   return (
     <article className="ops-card">
       <span>{order.id}</span>
@@ -9895,9 +10493,7 @@ function WebLogin({
         }}
       >
         <Flame size={34} />
-        <strong>
-          {mfaChallenge ? "Verificación administrativa" : "Ingresar a Flash"}
-        </strong>
+        <strong>{mfaChallenge ? "Verificación administrativa" : "Ingresar a Flash"}</strong>
         <span>
           {mfaChallenge
             ? "Ingresá el código de tu autenticador o un código de recuperación."

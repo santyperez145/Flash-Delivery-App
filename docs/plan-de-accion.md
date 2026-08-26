@@ -110,7 +110,7 @@ La matriz vive en `docs/matriz-madurez.md` y se actualiza en el mismo PR que cam
 | Separación de `src/App.tsx` | ARC-001 | Ningún `App.tsx` supera 1.500 líneas |
 | Separación de `apps/mobile/App.tsx` | ARC-001 | Entrypoints customer/driver/merchant independientes |
 | Descomposición de `server/index.js` | ARC-001 | Controllers separados de use cases y repositories |
-| Reformateo de archivos comprimidos | ARC-001 | Ninguna línea de código fuente supera 200 caracteres |
+| ~~Reformateo de archivos comprimidos~~ **hecho** | ARC-001 | Línea máxima 4.061 → 206; quedan 262 líneas largas, casi todas SQL |
 | ~~Dispatch v2 etapa 1~~ **hecho** | DSP-001 | `ST_DWithin` + KNN recortan candidatos antes del scoring |
 | SLOs documentados | — | Objetivos técnicos de la auditoría publicados y medibles |
 
@@ -377,7 +377,14 @@ es lo que queda bloqueado por credenciales de proveedor.
 primera vez. Queda medir el plan con `EXPLAIN ANALYZE` sobre un padrón
 sintético, y el ETA vial, que depende de una API key.
 
-**ARC-001.** Todavía no empezó la modularización. Es el último P0 sin abrir. Sí quedó activo un ratchet que
+**ARC-001.** El reformateo mecánico está hecho: la línea más larga bajó de 4.061
+a 206 caracteres y las líneas largas de 1.543 a 262. Antes de eso hubo que
+liberar a ocho contratos que afirmaban sobre texto fuente sin formatear, porque
+bloqueaban el propio refactor que debían proteger.
+
+Falta la modularización en sí: extraer features de los dos `App.tsx`, separar
+entrypoints por audiencia, descomponer `server/index.js` y dividir
+`commerce-repository.js`. Ninguno era revisable antes del reformateo. Sí quedó activo un ratchet que
 impide que el problema crezca: `test:line-length` fija una línea base de **1.543
 líneas de más de 200 caracteres en 120 archivos** y sólo admite bajarla.
 

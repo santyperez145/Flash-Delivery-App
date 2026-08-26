@@ -2,8 +2,7 @@ import crypto from "node:crypto";
 import pg from "pg";
 
 const pool = new pg.Pool({
-  connectionString:
-    process.env.MIGRATION_DATABASE_URL || process.env.DATABASE_URL,
+  connectionString: process.env.MIGRATION_DATABASE_URL || process.env.DATABASE_URL,
   ssl: false,
 });
 const base = process.env.API_URL || "http://127.0.0.1:4000/api",
@@ -53,10 +52,7 @@ try {
         `SELECT j.id job_id,j.customer_id,d.id driver_id,d.user_id driver_user_id,admin.id admin_id,admin.password_hash FROM jobs j JOIN drivers d ON d.id=j.driver_id JOIN users admin ON admin.public_id='usr_admin' WHERE NOT EXISTS(SELECT 1 FROM service_tips t WHERE t.job_id=j.id) LIMIT 1`,
       )
     ).rows[0];
-    if (!fixture)
-      throw new Error(
-        "No hay servicio asignado disponible para fixture de propina",
-      );
+    if (!fixture) throw new Error("No hay servicio asignado disponible para fixture de propina");
     const accounts = await client.query(
         `INSERT INTO ledger_accounts(owner_type,owner_id,currency,account_type) VALUES('user',$1,'ARS','wallet'),('user',$2,'ARS','wallet') ON CONFLICT(owner_type,owner_id,currency,account_type) DO UPDATE SET owner_type=excluded.owner_type RETURNING id,owner_id`,
         [fixture.customer_id, fixture.driver_user_id],
@@ -75,13 +71,7 @@ try {
       ).rows[0];
     await client.query(
       `INSERT INTO ledger_entries(transaction_id,account_id,direction,amount_cents,reference_type,reference_id,metadata) VALUES($1,$2,'debit',10000,'tip',$3,$4),($1,$5,'credit',10000,'tip',$3,$4)`,
-      [
-        transaction.id,
-        customerAccount.id,
-        fixture.job_id,
-        { marker },
-        driverAccount.id,
-      ],
+      [transaction.id, customerAccount.id, fixture.job_id, { marker }, driverAccount.id],
     );
     await client.query(
       "INSERT INTO service_tips(public_id,job_id,customer_id,driver_id,amount_cents,idempotency_key,ledger_transaction_id) VALUES($1,$2,$3,$4,10000,$5,$6)",
@@ -100,10 +90,7 @@ try {
         [secondAdminId, secondAdminEmail, fixture.password_hash],
       )
     ).rows[0];
-    await client.query(
-      "INSERT INTO user_roles(user_id,role) VALUES($1,'admin')",
-      [admin.id],
-    );
+    await client.query("INSERT INTO user_roles(user_id,role) VALUES($1,'admin')", [admin.id]);
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");
@@ -140,8 +127,7 @@ try {
   auditIds.push(requested.body.requestId, duplicate.body.requestId);
   const adjustment = requested.body.adjustment;
   assert(
-    requested.status === 201 &&
-      duplicate.body.adjustment?.id === adjustment?.id,
+    requested.status === 201 && duplicate.body.adjustment?.id === adjustment?.id,
     "request is persisted and idempotent",
   );
   assert(
@@ -162,26 +148,20 @@ try {
     [tipId],
   );
   token = await login(secondAdminEmail);
-  const approved = await call(
-      `/admin/tip-adjustments/${adjustment.id}/review`,
-      {
-        method: "PATCH",
-        body: JSON.stringify({
-          decision: "approved",
-          note: "Evidencia de soporte verificada",
-        }),
-      },
-    ),
-    approvedAgain = await call(
-      `/admin/tip-adjustments/${adjustment.id}/review`,
-      {
-        method: "PATCH",
-        body: JSON.stringify({
-          decision: "approved",
-          note: "Reintento seguro",
-        }),
-      },
-    );
+  const approved = await call(`/admin/tip-adjustments/${adjustment.id}/review`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        decision: "approved",
+        note: "Evidencia de soporte verificada",
+      }),
+    }),
+    approvedAgain = await call(`/admin/tip-adjustments/${adjustment.id}/review`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        decision: "approved",
+        note: "Reintento seguro",
+      }),
+    });
   auditIds.push(approved.body.requestId, approvedAgain.body.requestId);
   assert(
     approved.body.adjustment?.status === "approved" &&
@@ -192,12 +172,7 @@ try {
       `SELECT a.owner_id,COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint balance FROM service_tips t JOIN drivers d ON d.id=t.driver_id JOIN ledger_accounts a ON a.owner_type='user' AND a.account_type='wallet' AND a.owner_id IN(t.customer_id,d.user_id) LEFT JOIN ledger_entries e ON e.account_id=a.id WHERE t.public_id=$1 GROUP BY a.owner_id`,
       [tipId],
     ),
-    before = new Map(
-      balancesBefore.rows.map((row) => [
-        String(row.owner_id),
-        Number(row.balance),
-      ]),
-    ),
+    before = new Map(balancesBefore.rows.map((row) => [String(row.owner_id), Number(row.balance)])),
     deltas = balancesAfter.rows
       .map((row) => Number(row.balance) - before.get(String(row.owner_id)))
       .sort((a, b) => a - b);
@@ -262,10 +237,7 @@ try {
     [tipId],
   );
   if (txs.length) {
-    await pool.query(
-      "DELETE FROM ledger_entries WHERE transaction_id=ANY($1)",
-      [txs],
-    );
+    await pool.query("DELETE FROM ledger_entries WHERE transaction_id=ANY($1)", [txs]);
     await pool.query("DELETE FROM ledger_transactions WHERE id=ANY($1)", [txs]);
   }
   await pool.query("DELETE FROM service_tips WHERE public_id=$1", [tipId]);
@@ -273,9 +245,7 @@ try {
     "DELETE FROM ledger_entries WHERE transaction_id=(SELECT id FROM ledger_transactions WHERE idempotency_key=$1)",
     [marker],
   );
-  await pool.query("DELETE FROM ledger_transactions WHERE idempotency_key=$1", [
-    marker,
-  ]);
+  await pool.query("DELETE FROM ledger_transactions WHERE idempotency_key=$1", [marker]);
   await pool.query(
     "DELETE FROM refresh_sessions WHERE user_id=(SELECT id FROM users WHERE public_id=$1)",
     [secondAdminId],
