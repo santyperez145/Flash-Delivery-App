@@ -13,6 +13,7 @@ import jwt from "jsonwebtoken";
 import { z } from "zod";
 import { SpanStatusCode, trace } from "@opentelemetry/api";
 import { config } from "./config.js";
+import { mapsProvider } from "./maps-provider.js";
 import { closeRedis, redisClient, redisReadiness } from "./redis.js";
 import { openApiDocument } from "./openapi.js";
 import { closePostgres, postgresPool, postgresReadiness } from "./postgres.js";
@@ -7653,8 +7654,11 @@ app.get("/api/maps/geocode", requireAuth, async (req, res) => {
       .normalize("NFKC")
       .toLocaleLowerCase("es-AR")
       .replace(/\s+/g, " ");
+    const provider = mapsProvider();
+    // La clave incluye el proveedor: cambiar de proveedor no debe servir una
+    // entrada cacheada por otro con criterios distintos.
     cacheKey = createMapCacheKey(
-      `${config.geocodingUrl}|${normalizedQuery}`,
+      `${provider.name}|geocode|${normalizedQuery}`,
     );
     const cached = await getCachedMapResponse({
       kind: "geocode",
@@ -7666,40 +7670,32 @@ app.get("/api/maps/geocode", requireAuth, async (req, res) => {
         provider: cached.provider,
         cache: "hit",
       });
-    const url = new URL("/search", config.geocodingUrl);
-    url.searchParams.set("q", query);
-    url.searchParams.set("format", "jsonv2");
-    url.searchParams.set("limit", "5");
-    url.searchParams.set("addressdetails", "1");
-    url.searchParams.set("countrycodes", "ar");
+    const request = provider.describeGeocode(query);
     const { response } = await mapProviderCircuit.execute({
-      provider: "openstreetmap",
+      provider: provider.name,
       operation: "geocode",
       timeoutMs: config.mapProvider.timeoutMs,
-      call: (signal) => fetch(url, { headers: { "User-Agent": "FlashDeliveryApp/0.1 (operations@flash.local)" }, signal }),
+      call: (signal) =>
+        fetch(request.url, {
+          method: request.method ?? "GET",
+          headers: request.headers,
+          body: request.body ? JSON.stringify(request.body) : undefined,
+          signal,
+        }),
     });
-    observeProviderCall({ provider: "openstreetmap", operation: "geocode", outcome: "success" });
+    observeProviderCall({ provider: provider.name, operation: "geocode", outcome: "success" });
     const payload = await response.json();
-    const results = payload
-      .map((entry) => ({
-        label: entry.display_name,
-        point: { lat: Number(entry.lat), lng: Number(entry.lon) },
-        type: entry.type || "address",
-      }))
-      .filter(
-        (entry) =>
-          Number.isFinite(entry.point.lat) && Number.isFinite(entry.point.lng),
-      );
+    const results = provider.parseGeocode(payload);
     await putCachedMapResponse({
       kind: "geocode",
       key: cacheKey,
-      provider: "openstreetmap",
+      provider: provider.name,
       payload: { results },
       ttlSeconds: config.geocodingCacheTtlSeconds,
     });
-    return ok(res, { results, provider: "openstreetmap", cache: "miss" });
+    return ok(res, { results, provider: provider.name, cache: "miss" });
   } catch (error) {
-    observeProviderCall({ provider: "openstreetmap", operation: "geocode", outcome: error.code || "failure" });
+    observeProviderCall({ provider: mapsProvider().name, operation: "geocode", outcome: error.code || "failure" });
     const stale = cacheKey ? await getStaleCachedMapResponse({ kind: "geocode", key: cacheKey, maxStaleSeconds: config.mapProvider.staleCacheSeconds }) : null;
     if (stale) return ok(res, { results: stale.payload.results, provider: stale.provider, cache: "stale", degraded: true });
     return fail(res, 503, "El servicio de geocodificacion no esta disponible");
@@ -7725,8 +7721,9 @@ app.get("/api/maps/route", requireAuth, async (req, res) => {
     const routeIdentity = [fromLat, fromLng, toLat, toLng]
       .map((value) => value.toFixed(5))
       .join(",");
+    const provider = mapsProvider();
     cacheKey = createMapCacheKey(
-      `${config.routingUrl}|driving|${routeIdentity}`,
+      `${provider.routingName}|driving|${routeIdentity}`,
     );
     const cached = await getCachedMapResponse({ kind: "route", key: cacheKey });
     if (cached)
@@ -7735,54 +7732,33 @@ app.get("/api/maps/route", requireAuth, async (req, res) => {
         provider: cached.provider,
         cache: "hit",
       });
-    const url = new URL(
-      `/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}`,
-      config.routingUrl,
-    );
-    url.searchParams.set("overview", "full");
-    url.searchParams.set("geometries", "geojson");
-    url.searchParams.set("steps", "true");
+    const request = provider.describeRoute({ fromLat, fromLng, toLat, toLng });
     const { response } = await mapProviderCircuit.execute({
-      provider: "osrm",
+      provider: provider.routingName,
       operation: "route",
       timeoutMs: config.mapProvider.timeoutMs,
-      call: (signal) => fetch(url, { signal }),
+      call: (signal) =>
+        fetch(request.url, {
+          method: request.method ?? "GET",
+          headers: request.headers,
+          body: request.body ? JSON.stringify(request.body) : undefined,
+          signal,
+        }),
     });
-    observeProviderCall({ provider: "osrm", operation: "route", outcome: "success" });
+    observeProviderCall({ provider: provider.routingName, operation: "route", outcome: "success" });
     const payload = await response.json();
-    const route = payload.routes?.[0];
-    if (!route) return fail(res, 404, "No se encontro una ruta transitable");
-    const normalizedRoute = {
-      distanceKm: Number((route.distance / 1000).toFixed(1)),
-      durationMin: Math.max(1, Math.round(route.duration / 60)),
-      coordinates: route.geometry.coordinates.map(([lng, lat]) => ({
-        lat,
-        lng,
-      })),
-      steps: (route.legs || [])
-        .flatMap((leg) => leg.steps || [])
-        .map((step) => ({
-          type: step.maneuver?.type || "continue",
-          modifier: step.maneuver?.modifier || "straight",
-          street: step.name || "calle sin nombre",
-          distanceM: Math.round(step.distance),
-          durationSec: Math.round(step.duration),
-          location: {
-            lat: Number(step.maneuver.location[1]),
-            lng: Number(step.maneuver.location[0]),
-          },
-        })),
-    };
+    const normalizedRoute = provider.parseRoute(payload);
+    if (!normalizedRoute) return fail(res, 404, "No se encontro una ruta transitable");
     await putCachedMapResponse({
       kind: "route",
       key: cacheKey,
-      provider: "osrm",
+      provider: provider.routingName,
       payload: { route: normalizedRoute },
       ttlSeconds: config.routingCacheTtlSeconds,
     });
-    return ok(res, { route: normalizedRoute, provider: "osrm", cache: "miss" });
+    return ok(res, { route: normalizedRoute, provider: provider.routingName, cache: "miss" });
   } catch (error) {
-    observeProviderCall({ provider: "osrm", operation: "route", outcome: error.code || "failure" });
+    observeProviderCall({ provider: mapsProvider().routingName, operation: "route", outcome: error.code || "failure" });
     const stale = cacheKey ? await getStaleCachedMapResponse({ kind: "route", key: cacheKey, maxStaleSeconds: config.mapProvider.staleCacheSeconds }) : null;
     if (stale) return ok(res, { route: stale.payload.route, provider: stale.provider, cache: "stale", degraded: true });
     return fail(res, 503, "El servicio de rutas no esta disponible");

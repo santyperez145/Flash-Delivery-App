@@ -247,12 +247,13 @@ No debe reportar `uid=0(root)`.
 
 ### Criterios de aceptación
 
+- [x] Producción puede arrancar con un proveedor de push activo (`NOTIFICATION_PROVIDER=expo`).
+- [x] Un token inválido queda revocado automáticamente (`DeviceNotRegistered` en ticket y en recibo).
+- [x] Un receipt no recibido dentro de la ventana genera alerta (`FlashPushReceiptsStale`).
+- [x] Un ticket aceptado nunca se reporta como entregado.
 - [ ] Push real recibido en un dispositivo Android físico.
 - [ ] Push real recibido en un dispositivo iOS físico.
-- [ ] Un token inválido queda revocado automáticamente.
-- [ ] Un receipt no recibido dentro de la ventana genera alerta.
-- [ ] El dedupe está probado con envíos duplicados.
-- [ ] Producción puede arrancar con un proveedor de push activo.
+- [ ] El dedupe está probado con envíos duplicados contra el proveedor real.
 
 ### Evidencia requerida
 
@@ -290,11 +291,14 @@ Ya existen caché, circuit breaker y presupuesto: se conservan y se conectan al 
 
 ### Criterios de aceptación
 
-- [ ] Ningún checkout usa una dirección ambigua sin validar.
+- [x] Cambiar de proveedor no requiere tocar código de dominio — ambos devuelven las mismas claves normalizadas.
+- [x] Producción rechaza el arranque con instancias públicas de la comunidad.
+- [x] `computeRouteMatrix()` existe, con field mask y límite facturable.
+- [ ] Ningún checkout usa una dirección ambigua sin validar — el `place_id` se conserva, falta usarlo en checkout.
 - [ ] Ninguna tarifa productiva usa distancia geodésica como estimación final.
 - [ ] Los costos por proveedor son visibles y tienen alerta de presupuesto.
 - [ ] El fallback entre proveedores es auditable.
-- [ ] Cambiar de proveedor no requiere tocar código de dominio.
+- [ ] Calidad real de rutas y costo por consulta con una API key habilitada.
 
 ---
 

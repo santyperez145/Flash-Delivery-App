@@ -37,7 +37,7 @@ groups:
         labels: { severity: ticket }
         annotations: { summary: "Existen notificaciones en dead-letter", runbook: "docs/runbooks/notification-dead-letter.md" }
       - alert: FlashMapProviderDegraded
-        expr: sum(rate(flash_provider_calls_total{provider=~"openstreetmap|osrm",outcome!="success"}[10m])) > 0.05
+        expr: sum(rate(flash_provider_calls_total{provider=~"openstreetmap|osrm|google",outcome!="success"}[10m])) > 0.05
         for: 10m
         labels: { severity: ticket }
         annotations: { summary: "Proveedor de mapas degradado o con circuito abierto", runbook: "docs/runbooks/map-provider.md" }

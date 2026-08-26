@@ -98,10 +98,10 @@ La matriz vive en `docs/matriz-madurez.md` y se actualiza en el mismo PR que cam
 
 | Entregable | Ticket | Criterio de cierre |
 | --- | --- | --- |
-| `NOTIFICATION_PROVIDER=expo` | NOT-001 | Push llega a un dispositivo físico Android y iOS |
-| Receipts y device invalidation | NOT-001 | `DeviceNotRegistered` revoca el token; receipt ausente genera alerta |
-| Adapter `MapsProvider` | GEO-001 | Autocomplete, geocode, route y route matrix detrás de una interfaz |
-| Proveedor comercial conectado | GEO-001 | Ninguna tarifa productiva usa distancia geodésica como estimación final |
+| ~~`NOTIFICATION_PROVIDER=expo`~~ **hecho** | NOT-001 | Falta que el push llegue a un dispositivo físico |
+| ~~Receipts y device invalidation~~ **hecho** | NOT-001 | `DeviceNotRegistered` revoca el token; receipt ausente genera alerta |
+| ~~Adapter `MapsProvider`~~ **hecho** | GEO-001 | Geocode, route y route matrix detrás de una interfaz, con dos proveedores |
+| Proveedor comercial conectado | GEO-001 | **Bloqueado por credenciales.** Producción ya rechaza instancias públicas |
 
 #### Semana 4 (15–20 de septiembre) — Modularización y cierre
 
@@ -303,8 +303,8 @@ Estado al **25 de agosto de 2026**. Se actualiza en el PR que cambia el estado, 
 | [ARC-001](backlog-tecnico.md#arc-001--modularización) | P0 | H-08 | **En curso** | 0 |
 | [DAT-001](backlog-tecnico.md#dat-001--matriz-rls-default-deny) | P0 | H-04 | **En curso** | 0 |
 | [INF-001](backlog-tecnico.md#inf-001--imagen-productiva-endurecida) | P0 | H-05 | **En curso** | 0 |
-| [NOT-001](backlog-tecnico.md#not-001--push-real) | P0 | H-02 | Pendiente | 0 |
-| [GEO-001](backlog-tecnico.md#geo-001--proveedor-de-mapas-comercial) | P0 | H-07 | Pendiente | 0 |
+| [NOT-001](backlog-tecnico.md#not-001--push-real) | P0 | H-02 | **En curso** | 0 |
+| [GEO-001](backlog-tecnico.md#geo-001--proveedor-de-mapas-comercial) | P0 | H-07 | **En curso** | 0 |
 | [DSP-001](backlog-tecnico.md#dsp-001--dispatch-v2) | P0 | H-06 | Pendiente | 0–1 |
 | [PAY-001](backlog-tecnico.md#pay-001--validación-marketplace) | P0 | H-09 | Pendiente | 1 |
 | [MOB-001](backlog-tecnico.md#mob-001--release-engineering) | P0 | — | Pendiente | 1 |
@@ -356,6 +356,16 @@ destapó que `user_roles` se lee antes de autenticar —una política ingenua ah
 rompe todo login— y que hay dos tablas de esquema muerto, una de ellas con
 forma de almacén de credenciales. Quedan cinco tablas sin política, `FORCE` en
 cero y los grants todavía `ON ALL TABLES`.
+
+**NOT-001 y GEO-001.** Ambos pasaron de imposibles a implementados y con puerta
+CI. `NOTIFICATION_PROVIDER` acepta `expo` y producción exige `EXPO_ACCESS_TOKEN`;
+`MAPS_PROVIDER=openstreetmap` **hace fallar el arranque en producción** y existe
+un adapter con Google Routes detrás.
+
+Los dos contratos se verifican con `fetch` interceptado, sin credenciales. Eso
+prueba que el contrato es correcto, **no** que un push llegue a un teléfono ni
+cuánto cuesta una consulta de rutas. Esa es la distancia entre `CI` y `PROV`, y
+es lo que queda bloqueado por credenciales de proveedor.
 
 **ARC-001.** Todavía no empezó la modularización. Sí quedó activo un ratchet que
 impide que el problema crezca: `test:line-length` fija una línea base de **1.543

@@ -66,6 +66,9 @@ jobs:
       - name: Push provider contract
         run: npm run test:push-provider
 
+      - name: Maps provider contract
+        run: npm run test:maps-provider
+
       - name: Payment provider contracts
         run: |
           npm run test:mercadopago-payment
