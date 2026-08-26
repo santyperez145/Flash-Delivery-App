@@ -79,6 +79,30 @@ const steps = [
           ON CONFLICT (public_id) DO NOTHING`,
   },
   {
+    // La migración 055 sembró horarios sólo para las sucursales que existían al
+    // aplicarse. Una sucursal sin horario hace que `branch_is_scheduled_open`
+    // devuelva false, y la búsqueda de catálogo filtra por esa función: **sin
+    // horarios, el catálogo entero es invisible**.
+    //
+    // 00:00–00:00 significa abierto todo el día, igual que en la migración.
+    label: "horarios de sucursal",
+    sql: `INSERT INTO branch_operating_hours(branch_id,weekday,opens_at,closes_at)
+          SELECT b.id,d,'00:00','00:00' FROM merchant_branches b CROSS JOIN generate_series(0,6) d
+          ON CONFLICT DO NOTHING`,
+  },
+  {
+    label: "inventario por sucursal",
+    sql: `INSERT INTO catalog_branch_inventory(branch_id,catalog_item_id,available,stock_quantity)
+          SELECT b.id,c.id,c.available,c.inventory_quantity
+          FROM merchant_branches b JOIN catalog_items c ON c.merchant_id=b.merchant_id
+          ON CONFLICT DO NOTHING`,
+  },
+  {
+    label: "sucursal de los trabajos existentes",
+    sql: `UPDATE jobs j SET branch_id=b.id FROM merchant_branches b
+          WHERE b.merchant_id=j.merchant_id AND b.is_primary AND j.branch_id IS NULL`,
+  },
+  {
     label: "cumplimiento de conductores",
     sql: `INSERT INTO driver_compliance(driver_id,status,submitted_at,reviewed_at,rejection_reason)
           SELECT id,'approved',created_at,now(),'Migración legacy: requiere recertificación en próximo vencimiento'
