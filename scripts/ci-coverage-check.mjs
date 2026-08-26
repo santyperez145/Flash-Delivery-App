@@ -18,6 +18,17 @@ const EXCLUDED = new Map([
   ["test:responsive-browser", "necesita el dev server de Vite y un navegador, va a ci-nightly"],
 ]);
 
+// Cuarentena: suites conectadas a una puerta pero declaradas no bloqueantes.
+// No son una excepción — siguen corriendo y su resultado se publica — pero la
+// deuda tiene que decirse en voz alta en cada corrida, no quedar escondida en
+// un `continue-on-error` del YAML.
+const QUARANTINED = new Map([
+  ["test:postgres", "una aserción de búsqueda de catálogo con perfil dietario"],
+  ["test:support-routing", "ruteo atómico de caso de safety a agente con skill"],
+  ["test:dietary-local", "posible interferencia de estado con test:postgres"],
+  ["test:notification-local", "posible interferencia de estado con test:postgres"],
+]);
+
 const pkg = JSON.parse(await fs.readFile("package.json", "utf8"));
 const suites = Object.keys(pkg.scripts).filter((name) => name.startsWith("test:"));
 
@@ -28,10 +39,15 @@ const workflows = await Promise.all(
 const combined = workflows.join("\n");
 
 // Una suite cuenta como cubierta si aparece invocada directamente o listada en
-// un bucle de suites, donde figura como una línea con sólo su nombre.
-const referenced = (suite) =>
-  combined.includes(`npm run ${suite}`) ||
-  new RegExp(`^\\s*${suite.replace(":", "\\:")}\\s*$`, "m").test(combined);
+// un bucle de suites, sea una por línea o varias en la misma línea.
+const referenced = (suite) => {
+  if (combined.includes(`npm run ${suite}`)) return true;
+  const escaped = suite.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // El nombre debe aparecer como token completo. Un `test:driver` no puede
+  // dar por cubierto a `test:driver-kyc`, y el token puede terminar en `;`
+  // cuando se lista dentro de un `for ... do`.
+  return new RegExp(`(^|[\\s"'])${escaped}(?![\\w:-])`, "m").test(combined);
+};
 
 const uncovered = [];
 const staleExclusions = [];
@@ -64,6 +80,15 @@ if (staleExclusions.length) {
   process.exit(1);
 }
 
+const staleQuarantine = [...QUARANTINED.keys()].filter((suite) => !suites.includes(suite));
+if (staleQuarantine.length) {
+  console.error(`Cuarentena obsoleta, la suite ya no existe: ${staleQuarantine.join(", ")}`);
+  process.exit(1);
+}
+
 const covered = suites.length - EXCLUDED.size;
+const blocking = covered - QUARANTINED.size;
 console.log(`ok - ${covered} de ${suites.length} suites en una puerta CI`);
-for (const [suite, reason] of EXCLUDED) console.log(`     excepción: ${suite} — ${reason}`);
+console.log(`     ${blocking} bloquean el merge, ${QUARANTINED.size} en cuarentena`);
+for (const [suite, reason] of EXCLUDED) console.log(`     excepción:  ${suite} — ${reason}`);
+for (const [suite, reason] of QUARANTINED) console.log(`     cuarentena: ${suite} — ${reason}`);
