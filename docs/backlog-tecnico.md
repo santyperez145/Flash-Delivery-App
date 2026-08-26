@@ -33,6 +33,7 @@ Cinco archivos concentran más de 1,3 MB de código: `apps/mobile/App.tsx` (433 
 - [x] Una puerta de formato impide que el código vuelva a derivar.
 - [x] **Los contratos que leen código fuente dejaron de depender de dónde vive.** Un contrato con un archivo hardcodeado pierde cobertura en silencio cuando la extracción mueve el código: `test:realtime-audience` pasó de 43 a 37 publicaciones y siguió en verde. Ahora recorre el árbol y tiene piso explícito.
 - [x] **La autorización es un módulo propio, puro y con contrato.** `server/http/authorization.js`, 9 reglas, 81 usos, `test:authorization` en `ci-fast.yml`.
+- [x] **El núcleo compartido de HTTP está extraído.** Respuestas, autorización, autenticación, transporte realtime y runtime del fallback. Un grupo de rutas nuevo no necesita nada de `server/index.js`.
 - [ ] Ningún `App.tsx` supera 1.500 líneas.
 - [ ] Ninguna línea de más de 200 caracteres. Las 262 restantes son casi todas SQL en template literals.
 - [ ] Ningún módulo de dominio importa React.
@@ -50,23 +51,23 @@ Debe devolver vacío. Añadir este control como puerta en `ci-fast.yml`.
 
 ### Orden de extracción
 
-El criterio no es el tamaño del grupo, es **cuánto núcleo compartido necesita**. Un grupo de rutas depende hoy de siete cosas que siguen viviendo en `server/index.js`, y hasta que esas siete no sean módulos, cada router nuevo las recibe por parámetro.
+El criterio no fue el tamaño del grupo, sino **cuánto núcleo compartido necesita**. Un grupo de rutas dependía de siete cosas que vivían en `server/index.js`; las siete son módulos y **un grupo nuevo ya no necesita nada de ahí**.
 
 | Dependencia | Estado | Quién la necesita |
 | --- | --- | --- |
 | `ok` / `fail` / `parseOrFail` | `http/responses.js` | casi todo handler |
 | autorización (9 predicados + `requireAnyRole`) | `http/authorization.js` | 81 usos |
-| `requireAuth` | en `index.js` | todo grupo autenticado |
+| `requireAuth` | `http/authentication.js` | todo grupo autenticado |
 | `publishRealtimeEvent` + registro SSE | `http/realtime.js` | 43 publicaciones |
-| `audit` del fallback SQLite | en `index.js` | toda mutación |
-| `readDb` (contabiliza lecturas SQLite) | en `index.js` | todo el doble runtime |
+| `audit` del fallback SQLite | `fallback-runtime.js` | toda mutación |
+| `readDb` (contabiliza lecturas SQLite) | `fallback-runtime.js` | todo el doble runtime |
 | esquemas Zod (≈20) | en `index.js` | por dominio, viajan con su grupo |
 
-Extraer un grupo antes que su núcleo funciona —lo demuestra `addresses-router.js`— pero deja una lista de dependencias larga en la factory. Esa lista es la medida honesta de cuánto núcleo falta, no un defecto del patrón: al extraerse el hub de realtime, esa misma factory bajó de cuatro dependencias a tres sin tocar una sola de sus rutas.
+Extraer un grupo antes que su núcleo funciona —lo demuestra `addresses-router.js`— pero deja una lista de dependencias larga en la factory. **La factory era andamio**: existe para recibir lo que todavía no es un módulo, y se cae sola cuando ya no queda nada que recibir. Esa misma factory pasó de cuatro dependencias a cero en dos pasos, sin que se tocara una sola de sus cinco rutas. Los tres routers se importan y se montan.
 
 El registro de clientes SSE era el caso difícil, porque es **estado vivo**: un `Map` no se pasa por parámetro sin arrastrarlo entre archivos. Se resolvió haciéndolo estado del módulo `http/realtime.js`, con la ruta `/api/events` adentro, que es la única que lo escribe.
 
-De las siete, quedan tres: `requireAuth`, `audit` y `readDb`. Las tres dependen de decisiones que todavía viven en `index.js` —el secreto JWT, el contador de lecturas SQLite— así que su extracción va a mover más que código.
+El orden entre autenticación y autorización no era intercambiable. La autenticación **no puede ser pura** —consulta el usuario y, si es administrador, su estado de MFA—; los permisos sí, pero sólo si alguien resolvió `mfa` antes. Sacar los permisos primero era la única forma de que quedaran verificables sin levantar un runtime.
 
 ---
 

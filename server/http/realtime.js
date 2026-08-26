@@ -7,9 +7,8 @@
 //
 // Esa separación importaba porque el registro de clientes es **estado de
 // módulo**. Era la única dependencia de los grupos de rutas que no se podía
-// pasar por parámetro sin arrastrar un `Map` vivo entre archivos, y por eso
-// `addresses-router.js` la recibe todavía en su factory. Con el hub acá, los
-// grupos que vengan importan `publishRealtimeEvent` como cualquier otra función.
+// pasar por parámetro sin arrastrar un `Map` vivo entre archivos. Con el hub
+// acá, los grupos importan `publishRealtimeEvent` como cualquier otra función.
 //
 // La ruta `/api/events` viaja con el hub y no en un router aparte: es la única
 // que escribe en el registro, y separarla del `Map` que administra sólo movería
@@ -25,6 +24,7 @@ import {
   startPostgresRealtimeListener,
 } from "../realtime-repository.js";
 import { createId, getTimestamp } from "../store.js";
+import { requireAuth } from "./authentication.js";
 
 /**
  * Clientes SSE conectados: `res` → `{ userPublicId, roles }`.
@@ -114,58 +114,53 @@ export function startRealtimeListener() {
   return postgresPool ? startPostgresRealtimeListener(fanoutRealtimeEvent) : null;
 }
 
-/** @param deps.requireAuth middleware de autenticación (vive en `index.js`) */
-export function createRealtimeRouter({ requireAuth }) {
-  const router = Router();
+export const realtimeRouter = Router();
 
-  router.get("/api/events", requireAuth, async (req, res) => {
-    res.status(200);
-    res.setHeader("Content-Type", "text/event-stream");
-    res.setHeader("Cache-Control", "no-cache, no-transform");
-    res.setHeader("Connection", "keep-alive");
-    // Nginx bufferea por omisión, lo que convierte un stream en una respuesta
-    // que llega entera al final.
-    res.setHeader("X-Accel-Buffering", "no");
-    res.flushHeaders?.();
-    const context = { userPublicId: req.auth.userId, roles: req.auth.roles };
-    realtimeClients.set(res, context);
-    const requestedCursor = Math.max(
-      0,
-      Number(req.get("last-event-id") || req.query.cursor || 0) || 0,
-    );
-    const cursor = postgresPool ? await getPostgresRealtimeCursor() : null;
-    writeSseEvent(
-      res,
-      "connected",
-      {
-        id: createId("EVT"),
-        type: "connected",
-        at: getTimestamp(),
-        cursor,
-      },
+realtimeRouter.get("/api/events", requireAuth, async (req, res) => {
+  res.status(200);
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  // Nginx bufferea por omisión, lo que convierte un stream en una respuesta
+  // que llega entera al final.
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders?.();
+  const context = { userPublicId: req.auth.userId, roles: req.auth.roles };
+  realtimeClients.set(res, context);
+  const requestedCursor = Math.max(
+    0,
+    Number(req.get("last-event-id") || req.query.cursor || 0) || 0,
+  );
+  const cursor = postgresPool ? await getPostgresRealtimeCursor() : null;
+  writeSseEvent(
+    res,
+    "connected",
+    {
+      id: createId("EVT"),
+      type: "connected",
+      at: getTimestamp(),
       cursor,
-    );
-    // El replay se resuelve con el mismo contexto de audiencia que el fanout: un
-    // cliente no puede recuperar por cursor lo que no podría haber recibido en
-    // vivo.
-    if (postgresPool && requestedCursor) {
-      for (const event of await getPostgresRealtimeReplay({
-        after: requestedCursor,
-        ...context,
-      }))
-        writeSseEvent(res, "state.updated", event, event.cursor);
-    }
-    const heartbeat = setInterval(() => {
-      if (!writeSseEvent(res, "heartbeat", { at: getTimestamp() })) {
-        clearInterval(heartbeat);
-        realtimeClients.delete(res);
-      }
-    }, HEARTBEAT_MS);
-    req.on("close", () => {
+    },
+    cursor,
+  );
+  // El replay se resuelve con el mismo contexto de audiencia que el fanout: un
+  // cliente no puede recuperar por cursor lo que no podría haber recibido en
+  // vivo.
+  if (postgresPool && requestedCursor) {
+    for (const event of await getPostgresRealtimeReplay({
+      after: requestedCursor,
+      ...context,
+    }))
+      writeSseEvent(res, "state.updated", event, event.cursor);
+  }
+  const heartbeat = setInterval(() => {
+    if (!writeSseEvent(res, "heartbeat", { at: getTimestamp() })) {
       clearInterval(heartbeat);
       realtimeClients.delete(res);
-    });
+    }
+  }, HEARTBEAT_MS);
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    realtimeClients.delete(res);
   });
-
-  return router;
-}
+});

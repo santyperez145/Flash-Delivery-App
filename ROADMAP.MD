@@ -8,9 +8,9 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
-## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 4, el núcleo compartido
+## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 5, el núcleo compartido
 
-Entregas novena a undécima de la Fase 0. El paso 2 quedó sin registrar acá cuando se publicó, así que esta sección cubre los tres.
+Entregas novena a duodécima de la Fase 0. El paso 2 quedó sin registrar acá cuando se publicó, así que esta sección cubre los cuatro.
 
 ### Lo que se extrajo
 
@@ -21,8 +21,10 @@ Entregas novena a undécima de la Fase 0. El paso 2 quedó sin registrar acá cu
 | `server/http/authorization.js` | 9 predicados + `requireAnyRole` — 81 usos | 3 |
 | `server/http/addresses-router.js` | 5 rutas de direcciones, con esquema Zod propio | 3 |
 | `server/http/realtime.js` | transporte SSE, registro de clientes y `/api/events` | 4 |
+| `server/http/authentication.js` | `requireAuth` y la lectura del token | 5 |
+| `server/fallback-runtime.js` | `readDb` instrumentada y `audit` del fallback SQLite | 5 |
 
-`server/index.js`: 9.696 → **9.116 líneas**, 210 → **202 rutas**, 172 → **166 declaraciones de nivel superior**. Son 3 de 57 grupos de rutas. **Lo que importa no es cuánto se movió, sino qué quedó establecido.**
+`server/index.js`: 9.696 → **9.064 líneas**, 210 → **202 rutas**, 172 → **160 declaraciones de nivel superior**. Son 3 de 57 grupos de rutas. **Lo que importa no es cuánto se movió, sino qué quedó establecido.**
 
 ### La autorización deja de tocar la base de datos
 
@@ -58,9 +60,23 @@ La ruta `/api/events` viaja con el hub y no en un router aparte: es la única qu
 
 El arreglo del paso 3 se pagó acá mismo: mover 43 publicaciones de archivo no bajó la cobertura del contrato ni en una.
 
+### La factory era andamio
+
+El paso 5 extrajo lo último que un grupo de rutas necesitaba del archivo grande: `requireAuth`, y con él `readDb` y `audit`, de los que depende.
+
+**Los tres routers dejaron de ser factories.** No por una decisión de estilo: una factory existe para recibir lo que todavía no es un módulo, y cuando ya no queda nada que recibir, se cae sola. `addresses-router` llegó a recibir cuatro dependencias y terminó en cero sin que se tocara una sola de sus cinco rutas. Hoy los tres se importan y se montan.
+
+El circuit breaker del proveedor cartográfico se fue con sus rutas por el mismo criterio: era la única parte del sistema que lo usaba, y su estado —fallos consecutivos, ventana abierta— vivía en un archivo que no lo consultaba.
+
+### Identidad y permisos son dos preguntas distintas
+
+`authentication.js` responde **quién sos**; `authorization.js`, **qué podés hacer**. El hallazgo H-08 las dejaba mezcladas en el mismo archivo de 9.500 líneas.
+
+La asimetría entre las dos es la razón del orden en que se extrajeron: la autenticación **no puede ser pura** —tiene que consultar el usuario y, si es administrador, su estado de MFA—, mientras que los permisos sí. Resolver `mfa` una vez por request en `requireAuth` es lo que permite que `isAdmin` sea una función sin efectos, verificable sin levantar nada. Sacar los permisos primero era la única forma de que quedaran así.
+
 ### Lo que sigue faltando
 
-Idéntico al paso 1, menos tres grupos: separar entrypoints customer/driver/merchant, extraer features de los dos `App.tsx`, dividir `commerce-repository.js`, y los 54 grupos de rutas restantes. Del núcleo compartido quedan `requireAuth`, `audit` y `readDb`. Ninguna línea larga se corrigió: siguen 262, casi todas SQL en template literals.
+Idéntico al paso 1, menos tres grupos: separar entrypoints customer/driver/merchant, extraer features de los dos `App.tsx`, dividir `commerce-repository.js`, y los 54 grupos de rutas restantes. **El núcleo compartido está completo**: un grupo nuevo ya no necesita nada de `index.js`, así que lo que queda es trabajo repetitivo y no de diseño. Ninguna línea larga se corrigió: siguen 262, casi todas SQL en template literals.
 
 ## Avance 26 de agosto de 2026 — ARC-001 paso 1, reformateo mecánico
 
