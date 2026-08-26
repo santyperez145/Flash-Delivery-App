@@ -8,7 +8,7 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
-## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 10, servidor y frente
+## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 11, servidor y frente
 
 Entregas novena a decimoquinta de la Fase 0. El paso 2 quedó sin registrar acá cuando se publicó, así que esta sección cubre los siete.
 
@@ -133,6 +133,22 @@ Las etiquetas de estado del móvil **no** se unificaron con las de la web aunque
 **El paso 8 se pagó una entrega después, y se puede medir.** `test:responsive-layout` afirma `contains(mobile, "customerViewport: { maxWidth: 430")`. Tras mover la hoja de estilos, ese texto existe **sólo** en `styles.ts` y ya no en `App.tsx`: con la lectura por ruta fija que había antes, la aserción se rompía hoy. Con la lectura por árbol, encontró el código en su lugar nuevo y pasó.
 
 **Y el compilador ganó de nuevo.** Un grep dijo que el bloque de estilos no dependía de nada externo. Dependía de `flashDesign` y de `Platform`. Es la tercera vez en la sesión que un análisis por texto se equivoca y `tsc` lo corrige: para dependencias, el compilador es la herramienta, no la expresión regular.
+
+### La pantalla del cliente, y la primera línea larga que baja
+
+`apps/mobile/App.tsx`: **15.374 → 4.359 líneas**. El paso 11 saca las primitivas compartidas a `src/ui.tsx` y la pantalla del cliente —con sus tres hojas de seguimiento— a `src/screens/CustomerScreen.tsx`.
+
+**Qué es compartido lo decidió el conteo, no el nombre.** `ActionButton` aparece 16 veces repartidas entre cliente, comercio y conductor; `OrderCard` y `KpiRow` las usan comercio y conductor; `ServiceChatModal` las tres. Las hojas de pedido, viaje y envío son sólo del cliente y viajaron con él.
+
+### Una guarda sólo protege donde se la usa
+
+`test:mobile-maps` falló, y falló bien. Recortaba la región del seguimiento con `app.slice(indexOf(A), indexOf(B))` —**`indexOf` crudo, no `section()`**—, así que se saltaba las guardas que el paso 8 puso contra el colapso y contra el marcador ausente.
+
+Al mudarse `RideTrackingSheet` a la pantalla del cliente y `ServiceChatModal` a las primitivas, los dos marcadores quedaron en archivos distintos y el recorte pasó a abarcar miles de líneas ajenas. La aserción de ausencia acusó código que nunca quiso mirar. **Falló por suerte, no por diseño**: si el recorte se hubiera achicado en lugar de inflarse, habría pasado en silencio. Ahora usa `section()` y su marcador de cierre es la hoja siguiente del mismo archivo.
+
+### 262 → 261
+
+La primera línea larga que baja desde el reformateo del paso 1. Al aislarse en un archivo nuevo, el ratchet la vio sin línea base que la tolerara y exigió partirla en lugar de ampliar el presupuesto. Es exactamente para lo que existe.
 
 ### Lo que sigue faltando
 

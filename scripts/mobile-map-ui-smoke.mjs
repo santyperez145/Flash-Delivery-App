@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { contains, readMobileSource } from "./source-contract.mjs";
+import { contains, readMobileSource, section } from "./source-contract.mjs";
 import nodeAssert from "node:assert/strict";
 import { buildExternalNavigationUrl } from "../apps/mobile/src/navigation-links.ts";
 
@@ -14,9 +14,22 @@ const demandWebMap = fs.readFileSync("apps/mobile/src/DriverDemandMap.web.tsx", 
 const config = fs.readFileSync("apps/mobile/app.config.js", "utf8");
 const manifest = JSON.parse(fs.readFileSync("apps/mobile/app.base.json", "utf8"));
 const pkg = JSON.parse(fs.readFileSync("apps/mobile/package.json", "utf8"));
-const customerRideTracking = app.slice(
-  app.indexOf("function RideTrackingSheet"),
-  app.indexOf("function ServiceChatModal"),
+// Recortado con `section`, no con `indexOf` crudo.
+//
+// Usaba `app.slice(indexOf(A), indexOf(B))`, y así **se saltaba las guardas** que
+// ARC-001 paso 8 le puso a `section`: colapso de la región y marcador ausente.
+// Cuando el paso 11 movió `RideTrackingSheet` a la pantalla del cliente y
+// `ServiceChatModal` a las primitivas compartidas, los dos marcadores quedaron en
+// archivos distintos y el recorte pasó a abarcar miles de líneas ajenas. Falló,
+// que es lo correcto —una aserción de ausencia sobre una región inflada acusa
+// cualquier cosa—, pero falló por suerte y no por diseño.
+//
+// El marcador de cierre es ahora la hoja siguiente dentro del mismo archivo, así
+// que la región vuelve a ser la que la aserción quiere describir.
+const customerRideTracking = section(
+  app,
+  "function RideTrackingSheet",
+  "function ShipmentTrackingSheet",
 );
 const assert = (condition, label) => {
   if (!condition) throw new Error(`failed: ${label}`);
@@ -106,8 +119,8 @@ assert(
   "driver tabs reset their viewport and Inbox consumes private persisted notifications",
 );
 assert(
-  !customerRideTracking.includes("navigationInstruction") &&
-    !customerRideTracking.includes("nextStep"),
+  !contains(customerRideTracking, "navigationInstruction") &&
+    !contains(customerRideTracking, "nextStep"),
   "customer ride tracking keeps map and ETA but never exposes driving maneuvers",
 );
 assert(

@@ -35,8 +35,8 @@ Cinco archivos concentran más de 1,3 MB de código: `apps/mobile/App.tsx` (433 
 - [x] **Una aserción no puede pasar sobre una región vacía.** `section` lanza si el marcador falta o si la región colapsa; `containsNone` se niega a responder por debajo de un piso. Sin eso, partir los dos `App.tsx` apagaba nueve contratos en silencio.
 - [x] **La autorización es un módulo propio, puro y con contrato.** `server/http/authorization.js`, 9 reglas, 81 usos, `test:authorization` en `ci-fast.yml`.
 - [x] **El núcleo compartido de HTTP está extraído.** Respuestas, autorización, autenticación, transporte realtime y runtime del fallback. Un grupo de rutas nuevo no necesita nada de `server/index.js`.
-- [ ] Ningún `App.tsx` supera 1.500 líneas. `src/App.tsx` 10.553 → **7.420**; `apps/mobile/App.tsx` 15.374 → **10.876**.
-- [ ] Ninguna línea de más de 200 caracteres. Las 262 restantes son casi todas SQL en template literals.
+- [ ] Ningún `App.tsx` supera 1.500 líneas. `src/App.tsx` 10.553 → **7.420**; `apps/mobile/App.tsx` 15.374 → **4.359**.
+- [ ] Ninguna línea de más de 200 caracteres. Quedan **261**, casi todas SQL en template literals; la primera bajó en el paso 11, cuando el ratchet la aisló en un archivo sin línea base.
 - [ ] Ningún módulo de dominio importa React.
 - [ ] El build de driver no incluye pantallas de comercio.
 - [ ] El build de customer no incluye backoffice.
