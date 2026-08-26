@@ -74,6 +74,17 @@ jobs:
       - name: Verify schema
         run: npm run db:check
 
+      # Las suites de aislamiento afirman sobre catálogo, direcciones y trabajos
+      # reales: sin datos no pueden demostrar que un rol ve lo suyo y sólo lo
+      # suyo. Las cuentas demo viven en un contenedor efímero, nunca desplegado.
+      - name: Seed reproducible fixtures
+        run: |
+          npm run db:seed:auth
+          npm run db:seed:addresses
+          npm run db:seed:commerce
+          npm run db:seed:orders
+          npm run db:seed:mobility
+
       - name: Row-Level Security isolation
         run: npm run test:rls
 
