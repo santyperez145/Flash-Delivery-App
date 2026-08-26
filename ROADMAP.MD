@@ -8,9 +8,9 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
-## Avance 26 de agosto de 2026 — ARC-001 pasos 2 y 3, el núcleo compartido
+## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 4, el núcleo compartido
 
-Novena y décima entrega de la Fase 0. El paso 2 quedó sin registrar acá cuando se publicó, así que esta sección cubre los dos.
+Entregas novena a undécima de la Fase 0. El paso 2 quedó sin registrar acá cuando se publicó, así que esta sección cubre los tres.
 
 ### Lo que se extrajo
 
@@ -20,8 +20,9 @@ Novena y décima entrega de la Fase 0. El paso 2 quedó sin registrar acá cuand
 | `server/http/maps-router.js` | 2 rutas de mapas | 2 |
 | `server/http/authorization.js` | 9 predicados + `requireAnyRole` — 81 usos | 3 |
 | `server/http/addresses-router.js` | 5 rutas de direcciones, con esquema Zod propio | 3 |
+| `server/http/realtime.js` | transporte SSE, registro de clientes y `/api/events` | 4 |
 
-`server/index.js`: 9.696 → **9.209 líneas**, 210 → **203 rutas**, 172 → **170 declaraciones de nivel superior**. Son 2 de 57 grupos de rutas. **Lo que importa no es cuánto se movió, sino qué quedó establecido.**
+`server/index.js`: 9.696 → **9.116 líneas**, 210 → **202 rutas**, 172 → **166 declaraciones de nivel superior**. Son 3 de 57 grupos de rutas. **Lo que importa no es cuánto se movió, sino qué quedó establecido.**
 
 ### La autorización deja de tocar la base de datos
 
@@ -47,9 +48,19 @@ Ahora recorre todo `server/` y tiene un piso explícito de 43 publicaciones. Baj
 
 Su factory recibe cuatro dependencias del núcleo —`requireAuth`, `readDb`, `audit`, `publishRealtimeEvent`— porque las cuatro siguen viviendo en `index.js`. **Esa lista es la medida de cuánto núcleo falta extraer**, y está escrita en un lugar en vez de dispersa en 265 líneas de un archivo de 9.500. El orden que se deriva de eso está en el ticket.
 
+### El estado compartido era la dependencia que no se podía pasar por parámetro
+
+La política de audiencias ya vivía aparte desde SEC-001. Lo que seguía adentro del archivo grande era el **transporte**: el registro de clientes SSE, el frame, el fanout y la publicación.
+
+Ese registro es un `Map` vivo, y era la única dependencia de un grupo de rutas que no se podía pasar por factory sin arrastrar estado entre archivos. Por eso `addresses-router.js` la recibía por parámetro en el paso 3. Con el hub extraído, **su factory bajó de cuatro dependencias a tres** y los grupos que vengan importan `publishRealtimeEvent` como cualquier otra función.
+
+La ruta `/api/events` viaja con el hub y no en un router aparte: es la única que escribe en el registro, y separarla del `Map` que administra sólo movería el acoplamiento de lugar.
+
+El arreglo del paso 3 se pagó acá mismo: mover 43 publicaciones de archivo no bajó la cobertura del contrato ni en una.
+
 ### Lo que sigue faltando
 
-Idéntico al paso 1, menos dos grupos: separar entrypoints customer/driver/merchant, extraer features de los dos `App.tsx`, dividir `commerce-repository.js`, y los 55 grupos de rutas restantes. Ninguna línea larga se corrigió: siguen 262, casi todas SQL en template literals.
+Idéntico al paso 1, menos tres grupos: separar entrypoints customer/driver/merchant, extraer features de los dos `App.tsx`, dividir `commerce-repository.js`, y los 54 grupos de rutas restantes. Del núcleo compartido quedan `requireAuth`, `audit` y `readDb`. Ninguna línea larga se corrigió: siguen 262, casi todas SQL en template literals.
 
 ## Avance 26 de agosto de 2026 — ARC-001 paso 1, reformateo mecánico
 
