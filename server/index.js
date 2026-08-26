@@ -51,6 +51,7 @@ import { mapsRouter } from "./http/maps-router.js";
 import { rideContextRouter } from "./http/ride-context-router.js";
 import { driverFleetRouter } from "./http/driver-fleet-router.js";
 import { shipmentProtectionRouter } from "./http/shipment-protection-router.js";
+import { queueTriggersRouter } from "./http/queue-triggers-router.js";
 import { paymentMethodsRouter } from "./http/payment-methods-router.js";
 import { pricingRouter } from "./http/pricing-router.js";
 import { supportRouter } from "./http/support-router.js";
@@ -799,9 +800,6 @@ const supportAgentUpdateSchema = z
     skills: z.array(z.string().trim().min(1).max(80)).min(1).max(20).optional(),
   })
   .refine((value) => Object.keys(value).length > 0, "Debes indicar un cambio");
-const supportQueueProcessSchema = z.object({
-  limit: z.coerce.number().int().min(1).max(200).default(50),
-});
 const deliveryPinSchema = z.object({
   pin: z.string().regex(/^\d{4}$/, "El PIN debe tener cuatro dígitos"),
 });
@@ -3114,34 +3112,7 @@ app.patch(
     }
   },
 );
-app.post(
-  "/api/admin/support/process",
-  requireAuth,
-  requireAnyRole("support", "admin"),
-  async (req, res) => {
-    const parsed = parseOrFail(supportQueueProcessSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const result = await processSupportQueue(parsed.data);
-      for (const escalation of result.escalated)
-        await recordPostgresAudit({
-          actorPublicId: req.auth.userId,
-          roles: req.auth.roles,
-          action: "support.sla_escalated",
-          entityType: "support_ticket",
-          entityId: escalation.ticketId,
-          requestId: req.requestId,
-          afterData: {
-            level: escalation.level,
-            breachKind: escalation.breachKind,
-          },
-        });
-      return ok(res, { result });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo procesar la cola de soporte");
-    }
-  },
-);
+app.use(queueTriggersRouter);
 app.use(notificationsRouter);
 app.use(dietaryRouter);
 app.get(
@@ -3207,78 +3178,6 @@ app.post(
     }
   },
 );
-app.post("/api/admin/dispatch/process", requireAuth, requireAnyRole("admin"), async (req, res) => {
-  try {
-    return ok(res, {
-      result: await processPostgresDispatchBatch({
-        limit: Math.min(100, Math.max(1, Number(req.body?.limit) || 20)),
-      }),
-    });
-  } catch (_error) {
-    return fail(res, 500, "No se pudo procesar el dispatch");
-  }
-});
-app.post(
-  "/api/admin/notifications/process",
-  requireAuth,
-  requireAnyRole("admin"),
-  async (req, res) => {
-    if (config.notificationProvider === "disabled" && config.emailProvider === "disabled")
-      return fail(res, 503, "Los proveedores de notificaciones están deshabilitados");
-    try {
-      return ok(res, {
-        result: await processPostgresNotificationBatch({
-          workerId: `api-${process.pid}`,
-          limit: Math.min(100, Math.max(1, Number(req.body?.limit) || 25)),
-          provider: config.notificationProvider,
-        }),
-      });
-    } catch (_error) {
-      return fail(res, 500, "No se pudo procesar la cola de notificaciones");
-    }
-  },
-);
-app.get(
-  "/api/admin/notifications/dead-letters",
-  requireAuth,
-  requireAnyRole("admin"),
-  async (_req, res) => {
-    try {
-      return ok(res, { deadLetters: await getNotificationDeadLetters() });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo cargar la cola de descarte");
-    }
-  },
-);
-app.post(
-  "/api/admin/notifications/dead-letters/:notificationId/replay",
-  requireAuth,
-  requireAnyRole("admin"),
-  async (req, res) => {
-    try {
-      const deadLetter = await replayNotificationDeadLetter({
-        notificationPublicId: req.params.notificationId,
-        actorPublicId: req.auth.userId,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "notification.dead_letter_replayed",
-        entityType: "notification",
-        entityId: req.params.notificationId,
-        requestId: req.requestId,
-        afterData: {
-          reason: deadLetter.reason,
-          replayCount: deadLetter.replayCount,
-        },
-      });
-      return ok(res, { deadLetter });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo reintentar la notificación");
-    }
-  },
-);
-
 app.use(configurationRouter);
 app.use(pricingRouter);
 app.use(feedbackRouter);

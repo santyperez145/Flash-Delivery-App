@@ -40,7 +40,7 @@ Cinco archivos concentran más de 1,3 MB de código: `apps/mobile/App.tsx` (433 
 - [x] **Ningún módulo de dominio importa React.** 93 módulos verificados por `test:domain-purity`, en `ci-fast.yml`. La regla es la convención del repositorio: `.ts` es lógica, `.tsx` es presentación. `react-native` no cuenta, porque ahí aporta primitivas de plataforma y no renderizado.
 - [ ] El build de driver no incluye pantallas de comercio.
 - [ ] El build de customer no incluye backoffice.
-- [ ] `server/index.js` deja de contener lógica de dominio. **21 de 57 grupos de rutas extraídos**; quedan 140 rutas en 35 grupos. `index.js` bajó de 9.696 a 6.873 líneas. El grupo `admin` no se extrae entero porque no es un dominio sino una audiencia: mezcla gobernanza tarifaria, revisión financiera, moderación de cuentas, revisión de documentos y disparadores de workers. Se corta por ciclo de vida; van dos cortes y quedan 16 rutas bajo el prefijo.
+- [ ] `server/index.js` deja de contener lógica de dominio. **22 de 57 grupos de rutas extraídos**; quedan 135 rutas en 35 grupos. `index.js` bajó de 9.696 a 6.772 líneas. El grupo `admin` no se extrae entero porque no es un dominio sino una audiencia: mezcla gobernanza tarifaria, revisión financiera, disparadores de colas, moderación de cuentas, propinas y revisión de documentos. Se corta por ciclo de vida; van tres cortes y quedan 11 rutas bajo el prefijo.
 
 ### Verificación
 
