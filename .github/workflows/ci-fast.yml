@@ -60,6 +60,12 @@ jobs:
       # Contratos de pagos que no necesitan proveedor ni base: prueban el
       # cliente de Mercado Pago con fetch interceptado y las funciones puras
       # de liquidación. Son baratos y cubren el núcleo financiero.
+      # Contratos de proveedores externos con `fetch` interceptado: verifican el
+      # contrato sin credenciales ni red. Lo que no pueden verificar es la
+      # entrega real, que sigue siendo condición de cierre de cada ticket.
+      - name: Push provider contract
+        run: npm run test:push-provider
+
       - name: Payment provider contracts
         run: |
           npm run test:mercadopago-payment
