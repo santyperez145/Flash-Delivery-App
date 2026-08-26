@@ -20,11 +20,9 @@
 import { Router } from "express";
 
 import { getPostgresOperationsUserPage, usesPostgresAuth } from "../auth-repository.js";
-import {
-  getPostgresOperationsDriverPage,
-  getPostgresOperationsRestaurantPage,
-  usesPostgresCommerce,
-} from "../commerce-repository.js";
+import { getPostgresOperationsRestaurantPage } from "../catalog-repository.js";
+import { getPostgresOperationsDriverPage } from "../driver-roster-repository.js";
+import { usesPostgresCommerce } from "../postgres.js";
 import { readDb } from "../fallback-runtime.js";
 import {
   getPostgresAuditEventPage,

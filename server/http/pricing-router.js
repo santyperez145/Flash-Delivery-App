@@ -23,7 +23,7 @@
 import { Router } from "express";
 import { z } from "zod";
 
-import { usesPostgresCommerce } from "../commerce-repository.js";
+import { usesPostgresCommerce } from "../postgres.js";
 import {
   createPostgresPricingChangeRequest,
   createPostgresPricingRollbackRequest,

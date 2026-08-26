@@ -19,7 +19,7 @@ import { Router } from "express";
 import { z } from "zod";
 
 import { auditRuntime } from "../audit-trail.js";
-import { usesPostgresCommerce } from "../commerce-repository.js";
+import { usesPostgresCommerce } from "../postgres.js";
 import { config } from "../config.js";
 import { readDb } from "../fallback-runtime.js";
 import {
