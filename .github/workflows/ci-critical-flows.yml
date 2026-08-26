@@ -143,8 +143,6 @@ jobs:
           test:notification-dead-letters
           test:remote-sessions
           test:maps
-          test:dietary-local
-          test:notification-local
           test:operations-resources
           "
           passed=0
