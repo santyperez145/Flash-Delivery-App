@@ -105,6 +105,13 @@ jobs:
           cat /tmp/api.log
           exit 1
 
+      # `test:operations-resources` va última por deuda conocida: exige que ya
+      # exista al menos un evento de auditoría, así que depende de que otra
+      # suite la haya precedido. El arreglo correcto es que construya su propio
+      # fixture, no que dependa del orden.
+      #
+      # La lista es un string de shell: no admite comentarios, porque el `for`
+      # los iteraría como si fueran nombres de suite.
       - name: Critical flow suites
         run: |
           suites="
@@ -135,9 +142,6 @@ jobs:
           test:notification-dead-letters
           test:remote-sessions
           test:maps
-          # Deuda conocida: esta suite exige que ya exista al menos un evento de
-          # auditoría, así que depende de que otra la haya precedido. Va última
-          # hasta que sepa construir su propio fixture.
           test:operations-resources
           "
           passed=0
