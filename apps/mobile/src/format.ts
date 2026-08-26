@@ -9,7 +9,7 @@
 // porque en el móvil la pantalla es del comercio y la etiqueta es una acción, no
 // un estado. Unificarlas sería perder esa distinción; el nombre lleva el prefijo
 // `mobile` justamente para que nadie las confunda.
-import type { Order } from "./types";
+import type { Order, RoadStep } from "./types";
 
 /** Pesos argentinos sin decimales, igual que en la web. */
 export const money = new Intl.NumberFormat("es-AR", {
@@ -59,16 +59,6 @@ export function compactMoney(value: number) {
     return `${sign}$${(absolute / 1_000).toFixed(absolute >= 10_000 ? 0 : 1).replace(".0", "")}k`;
   return `${sign}$${Math.round(absolute)}`;
 }
-
-/** Un paso de la ruta vial, tal como lo devuelve el proveedor cartográfico. */
-export type RoadStep = {
-  type: string;
-  modifier: string;
-  street: string;
-  distanceM: number;
-  durationSec: number;
-  location: { lat: number; lng: number };
-};
 
 /** Instrucción de giro en una sola frase, para el modo navegación. */
 export function navigationInstruction(step: RoadStep) {

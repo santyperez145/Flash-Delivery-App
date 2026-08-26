@@ -759,3 +759,44 @@ export type DispatchOffer = {
   expiresAt: string;
   status: "pending";
 };
+
+// --- Tipos de dominio que vivían en el entrypoint (ARC-001, paso 11) ---------
+//
+// Los tres los comparten `App.tsx` y las pantallas extraídas. `RoadStep` había
+// quedado en `format.ts` en el paso 10, y era el lugar equivocado: describe un
+// dato del proveedor cartográfico, no una forma de mostrarlo.
+
+/** Un paso de la ruta vial, tal como lo devuelve el proveedor cartográfico. */
+export type RoadStep = {
+  type: string;
+  modifier: string;
+  street: string;
+  distanceM: number;
+  durationSec: number;
+  location: GeoPoint;
+};
+
+/** Una ruta vial completa: geometría para dibujar más pasos para narrar. */
+export type RoadRoute = {
+  distanceKm: number;
+  durationMin: number;
+  coordinates: GeoPoint[];
+  steps: RoadStep[];
+};
+
+/**
+ * Una línea del carrito en el cliente móvil.
+ *
+ * `lineId` existe además de `menuItemId` porque el mismo producto con distintos
+ * extras o nota es otra línea, no una cantidad mayor.
+ */
+export type MobileCartLine = {
+  lineId: string;
+  restaurantId: string;
+  menuItemId: string;
+  name: string;
+  unitPrice: number;
+  quantity: number;
+  extras: string[];
+  note: string;
+};
