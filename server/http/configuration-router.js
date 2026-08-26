@@ -24,6 +24,7 @@ import {
   getPostgresPromotions,
   getPostgresZones,
   updatePostgresPromotion,
+  updatePostgresZone,
 } from "../configuration-repository.js";
 import {
   getShipmentOptions,
@@ -31,6 +32,7 @@ import {
   updateShipmentServiceLevel,
 } from "../mobility-repository.js";
 import { recordPostgresAudit } from "../operations-repository.js";
+import { publishRealtimeEvent } from "./realtime.js";
 import { requireAuth } from "./authentication.js";
 import { isAdmin, requireAnyRole } from "./authorization.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";
@@ -82,6 +84,15 @@ const promotionUpdateSchema = promotionFields
     "Cambio de promoción inválido",
   );
 
+const zoneUpdateSchema = z
+  .object({
+    name: z.string().trim().min(2).max(120).optional(),
+    demandLevel: z.enum(["low", "medium", "high"]).optional(),
+    deliveryMultiplier: z.coerce.number().min(0.5).max(3).optional(),
+    rideMultiplier: z.coerce.number().min(0.5).max(3).optional(),
+    active: z.boolean().optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, "Debes indicar un cambio");
 export const configurationRouter = Router();
 const router = configurationRouter;
 
@@ -196,6 +207,32 @@ router.get("/api/zones", async (req, res) => {
     });
   } catch (_error) {
     return fail(res, 500, "No se pudieron cargar las zonas");
+  }
+});
+router.patch("/api/zones/:zoneId", requireAuth, requireAnyRole("admin"), async (req, res) => {
+  const parsed = parseOrFail(zoneUpdateSchema, req.body || {});
+  if (!parsed.ok) return fail(res, 400, parsed.message);
+  try {
+    const zone = await updatePostgresZone(req.params.zoneId, parsed.data);
+    await recordPostgresAudit({
+      actorPublicId: req.auth.userId,
+      roles: req.auth.roles,
+      action: "zone.updated",
+      entityType: "service_zone",
+      entityId: zone.id,
+      requestId: req.requestId,
+      afterData: parsed.data,
+    });
+    await publishRealtimeEvent({
+      req,
+      type: "zone.updated",
+      entityType: "service_zone",
+      entityId: zone.id,
+      action: "zone.updated",
+    });
+    return ok(res, { zone });
+  } catch (error) {
+    return failFrom(res, error, "No se pudo actualizar la zona");
   }
 });
 router.get("/api/pricing", async (_req, res) => {
