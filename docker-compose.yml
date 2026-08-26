@@ -52,6 +52,14 @@ services:
       REDIS_REQUIRED: "true"
     ports:
       - "4000:4000"
+    # La API no necesita ninguna capability del kernel: no abre puertos
+    # privilegiados, no cambia de usuario y no toca la red del host.
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
     volumes:
       - flash-data:/app/server/data
     depends_on:

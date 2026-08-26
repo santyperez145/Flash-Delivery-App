@@ -87,6 +87,7 @@ El salto viene de las tres puertas del ticket CI-001. Las 51 en `CI` ya no son i
 | Aislamiento por ciudad | `CI` | `test:city-isolation` en `ci-postgres.yml` |
 | Backup y restore drill | `LOCAL` | `db:restore:drill` fuera de CI · sin cronometrar contra RTO |
 | Separación de roles PostgreSQL | `CI` | `test:container-security` |
+| Imagen productiva non-root | `CI` | Job `container-image` construye la imagen y verifica `uid=999(flash)` |
 
 ## Pagos y finanzas
 

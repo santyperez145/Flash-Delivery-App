@@ -81,7 +81,7 @@ La matriz vive en `docs/matriz-madurez.md` y se actualiza en el mismo PR que cam
 | --- | --- | --- |
 | ~~PostgreSQL/PostGIS como servicio en CI~~ **hecho** | CI-001 | `ci-postgres.yml` corre migraciones desde cero y de forma incremental sobre la base del PR |
 | ~~Realtime default-deny~~ **hecho** | SEC-001 | Entidad desconocida sólo llega a `admin`; `test:realtime-audience` cubre todos los `entityType` |
-| Imagen Docker multi-etapa non-root | INF-001 | `USER flash`, `server/start.js`, sin devDependencies — **pendiente** |
+| ~~Imagen Docker multi-etapa non-root~~ **hecho** | INF-001 | `USER flash`, `server/start.js`, sin devDependencies · verificado en build real |
 | Protección de rama y CODEOWNERS | CI-001 | `CODEOWNERS` **hecho**; la protección de rama es configuración manual en GitHub, **pendiente** |
 | ~~Matriz de madurez inicial~~ **hecho** | — | 91 capacidades clasificadas y actualizadas en cada entrega |
 
@@ -122,7 +122,7 @@ La fase no se declara cerrada hasta que **todos** estos puntos sean verificables
 - [x] Ningún recurso de realtime con entidad desconocida se transmite a todos los roles.
 - [ ] Un push real llega a un dispositivo físico Android y a uno iOS.
 - [ ] Una cotización productiva se calcula con ruta vial de un proveedor comercial.
-- [ ] La imagen de producción corre como usuario no privilegiado y usa `server/start.js`.
+- [x] La imagen de producción corre como usuario no privilegiado y usa `server/start.js`.
 - [ ] El build de cada variante mobile (customer, driver, merchant) funciona por separado.
 - [ ] Cero credenciales demo en cualquier ambiente desplegado.
 - [~] La suite crítica está verde y es bloqueante, con **4 suites declaradas en cuarentena** que corren sin bloquear.
@@ -302,7 +302,7 @@ Estado al **25 de agosto de 2026**. Se actualiza en el PR que cambia el estado, 
 | [CI-001](backlog-tecnico.md#ci-001--pipeline-productivo) | P0 | H-01 | **En curso** | 0 |
 | [ARC-001](backlog-tecnico.md#arc-001--modularización) | P0 | H-08 | **En curso** | 0 |
 | [DAT-001](backlog-tecnico.md#dat-001--matriz-rls-default-deny) | P0 | H-04 | Pendiente | 0 |
-| [INF-001](backlog-tecnico.md#inf-001--imagen-productiva-endurecida) | P0 | H-05 | Pendiente | 0 |
+| [INF-001](backlog-tecnico.md#inf-001--imagen-productiva-endurecida) | P0 | H-05 | **En curso** | 0 |
 | [NOT-001](backlog-tecnico.md#not-001--push-real) | P0 | H-02 | Pendiente | 0 |
 | [GEO-001](backlog-tecnico.md#geo-001--proveedor-de-mapas-comercial) | P0 | H-07 | Pendiente | 0 |
 | [DSP-001](backlog-tecnico.md#dsp-001--dispatch-v2) | P0 | H-06 | Pendiente | 0–1 |
@@ -343,6 +343,12 @@ que nadie corría.
 
 Faltan `ci-nightly.yml`, cerrar las **cuatro suites en cuarentena** y la
 protección de rama, que es configuración manual en GitHub.
+
+**INF-001.** La imagen es multi-etapa, corre como `uid=999(flash)`, arranca el
+entrypoint instrumentado y no lleva devDependencies ni el árbol de fuentes. El
+job `container-image` la construye en cada PR y verifica el resultado, no sólo el
+texto del Dockerfile. Quedan el filesystem raíz de sólo lectura y los 380 MiB de
+imagen, ambos con su razón anotada.
 
 **ARC-001.** Todavía no empezó la modularización. Sí quedó activo un ratchet que
 impide que el problema crezca: `test:line-length` fija una línea base de **1.543

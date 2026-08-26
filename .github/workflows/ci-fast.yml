@@ -114,6 +114,76 @@ jobs:
       - name: Distributed Redis rate limit
         run: npm run test:redis-rate-limit
 
+  container-image:
+    name: Imagen productiva endurecida
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    # `test:container-security` valida el Dockerfile como texto. Este job
+    # construye la imagen de verdad y comprueba el resultado: un contrato
+    # estático puede pasar mientras la imagen real hace otra cosa.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build production image
+        run: docker build -t flash:ci .
+
+      - name: El proceso no corre como root
+        run: |
+          id_output=$(docker run --rm flash:ci id)
+          echo "$id_output"
+          case "$id_output" in
+            *"uid=0(root)"*)
+              echo "::error::La imagen corre como root"
+              exit 1
+              ;;
+          esac
+          echo "$id_output" | grep -q "flash" || {
+            echo "::error::La imagen no corre como el usuario flash"
+            exit 1
+          }
+
+      - name: La imagen no incluye devDependencies
+        run: |
+          for package in typescript vite playwright terser; do
+            if docker run --rm flash:ci test -d "node_modules/$package"; then
+              echo "::error::La imagen productiva incluye la devDependency $package"
+              exit 1
+            fi
+          done
+          echo "sin devDependencies en la imagen productiva"
+
+      - name: La imagen no incluye el árbol de fuentes del frontend
+        run: |
+          for path in src apps .git; do
+            if docker run --rm flash:ci test -e "$path"; then
+              echo "::error::La imagen productiva incluye $path"
+              exit 1
+            fi
+          done
+          echo "la imagen sólo contiene los artefactos necesarios"
+
+      - name: El entrypoint es el instrumentado
+        run: |
+          entrypoint=$(docker image inspect flash:ci --format '{{ join .Config.Cmd " " }}')
+          echo "CMD: $entrypoint"
+          case "$entrypoint" in
+            *"server/start.js"*) echo "arranca el entrypoint instrumentado" ;;
+            *) echo "::error::La imagen no arranca server/start.js"; exit 1 ;;
+          esac
+
+      - name: Capabilities eliminadas y sin escalada de privilegios
+        run: |
+          # Reproduce el endurecimiento declarado en docker-compose.yml.
+          docker run --rm --cap-drop=ALL --security-opt=no-new-privileges:true \
+            flash:ci node -e "console.log('el runtime arranca sin capabilities')"
+
+      - name: Tamaño de la imagen
+        run: |
+          size=$(docker image inspect flash:ci --format '{{ .Size }}')
+          echo "imagen productiva: $((size / 1024 / 1024)) MiB"
+
   mobile-typecheck:
     name: Mobile typecheck y variantes
     runs-on: ubuntu-latest

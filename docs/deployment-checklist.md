@@ -8,29 +8,31 @@ Ninguno de estos puntos puede quedar abierto en un ambiente que reciba tráfico 
 
 | Bloqueador | Hallazgo | Estado |
 | --- | --- | --- |
-| La imagen corre como root y arranca un entrypoint distinto al de Compose | [H-05](auditoria-2026-08-25.md#h-05--la-imagen-docker-no-corresponde-al-arranque-real-y-corre-como-root) | Abierto |
-| CI no ejecuta migraciones, RLS, pagos ni dispatch | [H-01](auditoria-2026-08-25.md#h-01--ci-no-ejecuta-el-86-de-su-propia-matriz-de-pruebas) | Abierto |
+| ~~La imagen corre como root y arranca un entrypoint distinto al de Compose~~ | [H-05](auditoria-2026-08-25.md#h-05--la-imagen-docker-no-corresponde-al-arranque-real-y-corre-como-root) | **Cerrado** |
+| CI no ejecuta migraciones, RLS, pagos ni dispatch | [H-01](auditoria-2026-08-25.md#h-01--ci-no-ejecuta-el-86-de-su-propia-matriz-de-pruebas) | **Cerrado**, con 4 suites en cuarentena |
 | 20 tablas sin política RLS y grants `ON ALL TABLES` | [H-04](auditoria-2026-08-25.md#h-04--20-tablas-sin-política-rls-y-cero-force-row-level-security) | Abierto |
 | Push imposible en producción por configuración | [H-02](auditoria-2026-08-25.md#h-02--push-productivo-es-imposible-por-configuración) | Abierto |
 | Geocoding y routing apuntan a servicios públicos | [H-07](auditoria-2026-08-25.md#h-07--proveedores-de-mapas-públicos-por-defecto) | Abierto |
 
 ## Imagen de contenedor
 
-### Defecto actual
+### Defecto corregido el 26 de agosto de 2026
 
-El `Dockerfile` es de una sola etapa, instala dependencias de desarrollo y producción juntas, copia todo el repositorio, **corre como root** y ejecuta `server/index.js`. `docker-compose.yml` sobrescribe el comando y sí usa `server/start.js`, el entrypoint instrumentado.
+El `Dockerfile` era de una sola etapa, instalaba dependencias de desarrollo y producción juntas, copiaba todo el repositorio, **corría como root** y ejecutaba `server/index.js`, mientras `docker-compose.yml` sobrescribía el comando y sí usaba el entrypoint instrumentado.
 
-**La imagen por sí sola y la imagen dentro de Compose no tienen el mismo comportamiento.** Todo lo que `server/start.js` instrumenta — telemetría, apagado ordenado, readiness — se pierde si alguien despliega la imagen tal cual.
+**La imagen por sí sola y la imagen dentro de Compose no tenían el mismo comportamiento.** Todo lo que `server/start.js` instrumenta — telemetría, apagado ordenado, readiness — se perdía si alguien desplegaba la imagen tal cual.
 
-### Objetivo
+El job `container-image` de `ci-fast.yml` construye la imagen en cada PR y verifica el resultado, no sólo el texto del Dockerfile.
 
-- [ ] Build multi-etapa: `dependencies` → `build` → `runtime`.
-- [ ] `npm ci --omit=dev` en la etapa de runtime.
-- [ ] Copiar sólo `dist`, `server`, `database` y `scripts`.
-- [ ] Usuario y grupo `flash` no privilegiados, con `USER flash`.
-- [ ] `CMD ["node", "server/start.js"]`.
-- [ ] Filesystem raíz de sólo lectura, con `/tmp` temporal.
-- [ ] Capabilities eliminadas y perfil seccomp aplicado.
+### Estado
+
+- [x] Build multi-etapa: `dependencies` → `build` → `runtime`.
+- [x] `npm ci --omit=dev` en la etapa de runtime.
+- [x] Copiar sólo `dist`, `server`, `database` y `scripts`.
+- [x] Usuario y grupo `flash` no privilegiados, con `USER flash` — verificado: `uid=999(flash)`.
+- [x] `CMD ["node", "server/start.js"]`.
+- [~] `/tmp` como tmpfs listo. Filesystem raíz de sólo lectura: **pendiente**, necesita una corrida real.
+- [x] Capabilities eliminadas (`cap_drop: ALL`) y sin escalada de privilegios. Perfil seccomp propio: pendiente.
 - [ ] Secrets montados, nunca horneados en la imagen.
 - [ ] Sin puertos públicos para Redis ni PostgreSQL.
 - [ ] Scan de imagen, SBOM y firma en el pipeline.
@@ -67,7 +69,7 @@ Detalle en el ticket [INF-001](backlog-tecnico.md#inf-001--imagen-productiva-end
 - [ ] Rate limits por IP y por usuario.
 - [ ] Credenciales separadas por ambiente.
 - [ ] Permisos de GitHub Actions revisados.
-- [ ] Roles PostgreSQL separados: owner/migrador, runtime y auditor; ninguno con `BYPASSRLS`.
+- [x] Roles PostgreSQL separados: owner/migrador, runtime y auditor; ninguno con `BYPASSRLS`.
 - [ ] Grants explícitos por tabla, no `ON ALL TABLES`.
 
 ## Datos
@@ -115,12 +117,12 @@ Un ambiente productivo no se habilita con proveedores en `sandbox` o `disabled`.
 
 Corresponde a los criterios de salida de la Fase 1 en [`docs/plan-de-accion.md`](plan-de-accion.md).
 
-- [ ] CI verde en `main`, con PostgreSQL y flujos críticos bloqueantes.
+- [x] CI verde en `main`, con PostgreSQL y flujos críticos bloqueantes.
 - [ ] Staging con datos separados.
 - [ ] Superadmin protegido con MFA.
 - [ ] Logs, métricas y alertas activos.
 - [ ] Pagos validados contra el proveedor en sandbox, con ledger balanceado.
-- [ ] Realtime con audiencia default-deny.
+- [x] Realtime con audiencia default-deny.
 - [ ] Tres builds mobile internos instalables.
 - [ ] Push recibido en dispositivos físicos.
 - [ ] Restore drill ejecutado dentro del RTO.

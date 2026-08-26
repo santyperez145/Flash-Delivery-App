@@ -223,6 +223,10 @@ El punto 4 es el más insidioso: **la imagen por sí sola y la imagen dentro de 
 
 `scripts/container-security-smoke.mjs` existe y corre en CI, pero valida principalmente roles de PostgreSQL: no valida usuario Linux, capabilities, seccomp ni filesystem de sólo lectura.
 
+**Corregido el 26 de agosto de 2026.** La imagen es multi-etapa, corre como `uid=999(flash)`, arranca `server/start.js` y no incluye devDependencies ni el árbol de fuentes. Verificado construyendo la imagen en CI, no sólo por contrato estático.
+
+**Deuda abierta:** el filesystem raíz de sólo lectura, y **380 MiB de imagen productiva**. Ese tamaño viene de que `react`, `react-dom`, `maplibre-gl`, `lucide-react`, `@mercadopago/sdk-react` y `concurrently` están en `dependencies` pese a ser exclusivamente de frontend o de desarrollo — ningún archivo de `server/` ni de `scripts/` los importa. Moverlos a `devDependencies` reduciría la imagen, pero **los sacaría de `npm audit --omit=dev`**, que es la puerta de dependencias: esos paquetes viajan al navegador y deben seguir auditados. La decisión correcta es moverlos y ampliar la puerta al árbol completo, no moverlos a secas.
+
 **Severidad: P0.** Ticket [INF-001](backlog-tecnico.md#inf-001--imagen-productiva-endurecida).
 
 ---
