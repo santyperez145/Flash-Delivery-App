@@ -141,6 +141,7 @@ node -e "const p=require('./package.json'),fs=require('fs');const ci=fs.readdirS
 5. Escribir pruebas negativas por rol: cada tabla con datos por usuario debe demostrar denegación desde un rol auditor sin contexto.
 6. Definir política formal de retención y separación de datos sensibles frente a operativos.
 7. Añadir a la definición de terminado: **una migración que crea una tabla debe incluir su política RLS y su prueba negativa, o declarar por escrito por qué la tabla es global.**
+8. Añadir a la definición de terminado: **una migración que haga backfill sobre datos existentes debe agregar su derivación idempotente a `scripts/db-seed-derived.mjs`.** Sin eso, una base creada desde cero deja de ser equivalente a una migrada — ver [H-11](auditoria-2026-08-25.md#h-11--una-base-creada-desde-cero-no-es-equivalente-a-una-migrada).
 
 ### Criterios de aceptación
 

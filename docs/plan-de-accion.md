@@ -313,6 +313,8 @@ Estado al **25 de agosto de 2026**. Se actualiza en el PR que cambia el estado, 
 
 ### Detalle de lo que está en curso — 26 de agosto de 2026
 
+> **Ambos workflows están en verde.** `CI PostgreSQL` ejecuta 97 aserciones sobre una base migrada desde cero. Antes de esta entrega, `main` llevaba en rojo desde el 23 de agosto sin que nadie estuviera bloqueado — la prueba práctica de H-01: una puerta que existe pero no se hace cumplir no protege nada.
+
 **SEC-001.** El fallback fail-open está eliminado. La política de audiencias vive
 ahora en `server/realtime-audience.js`, un módulo sin dependencias, y una entidad
 desconocida llega solamente a `admin`. Se descubrió que el defecto era mayor que
@@ -323,11 +325,19 @@ contra PostgreSQL y el dashboard de la métrica.
 
 **CI-001.** `ci.yml` se dividió en `ci-fast.yml` y `ci-postgres.yml`. PostgreSQL
 17 + PostGIS ya corre en CI con los tres roles separados, migraciones desde cero,
-migración incremental sobre la rama base, RLS, cadena de auditoría, aislamiento
-por ciudad y datos sensibles. La cobertura pasó de **15 a 24 scripts**. Faltan
-`ci-critical-flows.yml` — que necesita levantar la API porque esas suites usan
-`API_URL` — y `ci-nightly.yml`, más la protección de rama, que es configuración
-manual en GitHub.
+seeds reproducibles, RLS, cadena de auditoría, aislamiento por ciudad, datos
+sensibles y poda de idempotencia: **97 aserciones, en verde**. La cobertura pasó
+de **15 a 24 scripts**.
+
+La primera corrida real destapó dos defectos que llevaban días sin detectarse:
+`test:redis-rate-limit` fallaba desde el 23 de agosto por un cambio de API de
+node-redis, y una base desde cero resultó no ser equivalente a una migrada
+(hallazgo [H-11](auditoria-2026-08-25.md#h-11--una-base-creada-desde-cero-no-es-equivalente-a-una-migrada)).
+
+Faltan `ci-critical-flows.yml` — que necesita levantar la API porque esas suites
+usan `API_URL` — y `ci-nightly.yml`, más la protección de rama, que es
+configuración manual en GitHub. El job `migrate-from-base` sólo corre en pull
+requests, así que **todavía no se ejecutó ninguna vez**.
 
 **ARC-001.** Todavía no empezó la modularización. Sí quedó activo un ratchet que
 impide que el problema crezca: `test:line-length` fija una línea base de **1.543

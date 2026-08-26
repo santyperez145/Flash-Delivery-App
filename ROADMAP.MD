@@ -18,7 +18,11 @@ Primera entrega de la Fase 0. Detalle y estado en [`docs/plan-de-accion.md`](doc
 - [x] **Ratchet de longitud de línea.** `test:line-length` fija una línea base de **1.543 líneas de más de 200 caracteres en 120 archivos** y sólo admite bajarla. Contiene H-08 mientras ARC-001 no empieza.
 - [x] **CODEOWNERS** para dinero, aislamiento y puertas de calidad.
 - [~] **CI-001 sigue abierto.** Faltan `ci-critical-flows.yml` — necesita levantar la API porque esas suites usan `API_URL` — y `ci-nightly.yml`. **54 suites siguen sin puerta.**
+- [x] **Ambos workflows en verde.** `CI PostgreSQL` corre **97 aserciones** sobre una base migrada desde cero. `main` llevaba en rojo desde el 23 de agosto sin que nadie estuviera bloqueado: la prueba práctica de H-01.
+- [x] **Dos defectos reales destapados por la primera corrida.** `test:redis-rate-limit` fallaba porque node-redis 5+ emite un lote de claves por iteración de `scanIterator` y un lote vacío se traducía en `DEL` sin argumentos. Y **una base creada desde cero no era equivalente a una migrada**: ocho migraciones hacen backfill sobre datos preexistentes, así que un ambiente nuevo quedaba sin sucursales, vehículos ni métodos de pago wallet. Nuevo hallazgo [H-11](docs/auditoria-2026-08-25.md#h-11--una-base-creada-desde-cero-no-es-equivalente-a-una-migrada), corregido con `npm run db:seed:derived`.
 - [~] **SEC-001 conserva deuda.** El contrato es estático: falta verificación de runtime de `resolveAudience` contra PostgreSQL con fixtures multiusuario, y el dashboard de la métrica.
+- [~] **`migrate-from-base` sin ejecutar.** Sólo se activa en pull requests y esta entrega llegó por push directo; su primera validación real será el primer PR.
+- [ ] **Reproducibilidad hacia adelante.** `db:seed:derived` corrige el estado actual, pero cada migración futura que haga backfill sobre datos existentes reintroduce H-11. Debe entrar en la definición de terminado de DAT-001.
 - [ ] **Protección de rama.** `CODEOWNERS` no bloquea nada por sí solo: exige activar PR obligatoria y «Require review from Code Owners» en Settings > Branches. Es configuración manual en GitHub, todavía pendiente.
 
 Deuda registrada: el fallback SQLite de `publishRealtimeEvent` difunde a todos los clientes SSE sin filtrar audiencia. Sólo es alcanzable sin `DATABASE_URL` — desarrollo y tests, nunca producción — pero conviene alinearlo.
