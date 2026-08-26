@@ -111,7 +111,6 @@ jobs:
           test:audience-bootstrap
           test:activity-pagination
           test:catalog-pagination
-          test:operations-resources
           test:mfa
           test:password-recovery
           test:email-verification
@@ -136,6 +135,10 @@ jobs:
           test:notification-dead-letters
           test:remote-sessions
           test:maps
+          # Deuda conocida: esta suite exige que ya exista al menos un evento de
+          # auditoría, así que depende de que otra la haya precedido. Va última
+          # hasta que sepa construir su propio fixture.
+          test:operations-resources
           "
           passed=0
           failed=""
