@@ -64,6 +64,22 @@ const steps = [
           WHERE email_verified_at IS NULL`,
   },
   {
+    // El motor de riesgo suma 20 puntos por `new_account` cuando la cuenta tiene
+    // menos de 24 horas. En una base creada desde cero **todas** las cuentas
+    // sembradas son nuevas, así que cualquier pedido arranca con esos puntos y
+    // se combina con velocidad y gasto hasta bloquear la operación.
+    //
+    // En la base local de un desarrollador esto nunca se nota: las cuentas se
+    // crearon hace semanas. Es dependencia del ambiente, no del código.
+    //
+    // Envejecer las cuentas de fixture las vuelve representativas de una cuenta
+    // establecida, que es lo que los flujos asumen. Sólo alcanza a las cuentas
+    // sembradas (`usr_*`), nunca a las que crea una prueba.
+    label: "antigüedad de las cuentas de fixture",
+    sql: `UPDATE users SET created_at=now()-interval '90 days'
+          WHERE public_id LIKE 'usr\_%' AND created_at > now()-interval '1 day'`,
+  },
+  {
     // 089_driver_location_telemetry clasificó como 'legacy' las posiciones que
     // ya existían. Una posición sembrada sin origen queda sin clasificar.
     label: "origen de ubicación de conductores",
