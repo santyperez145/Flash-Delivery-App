@@ -3,6 +3,14 @@ import nodemailer from "nodemailer";
 import { postgresPool } from "./postgres.js";
 import { config } from "./config.js";
 import {
+  buildExpoMessage,
+  chunk,
+  EXPO_BATCH_LIMIT,
+  EXPO_RECEIPT_LIMIT,
+  fetchExpoPushReceipts,
+  sendExpoPushBatch,
+} from "./push-provider.js";
+import {
   decryptDeviceToken,
   decryptEmailVerificationCode,
   decryptRecoveryToken,
@@ -364,6 +372,179 @@ export async function replayNotificationDeadLetter({
   }
 }
 
+// Entrega por Expo.
+//
+// Un ticket aceptado deja la notificación en `sent`, no en `delivered`: Expo
+// sólo confirmó que tomó el mensaje. `processPostgresPushReceipts` la promueve a
+// `delivered` cuando el recibo lo confirma. Tratar el ticket como entrega sería
+// afirmar algo que el proveedor no dijo, y su servicio no tiene SLA.
+async function deliverViaExpo({ notification, devices, attempt, workerId }) {
+  const targets = [];
+  for (const device of devices) {
+    const token = decryptDeviceToken(device.push_token_ciphertext);
+    if (!token) continue;
+    targets.push({ device, token });
+  }
+  if (targets.length === 0) {
+    await deadLetterNotification(notification, { workerId, reason: "no_active_device" });
+    return { id: notification.public_id, status: "dead_lettered" };
+  }
+
+  let accepted = 0,
+    invalidated = 0,
+    failed = 0,
+    retryable = false;
+  let firstTicketId = null;
+
+  for (const batch of chunk(targets, EXPO_BATCH_LIMIT)) {
+    const messages = batch.map(({ token }) =>
+      buildExpoMessage({
+        token,
+        title: notification.title,
+        body: notification.body,
+        // El payload no transporta datos sensibles: sólo lo necesario para que
+        // la app abra el recurso correcto y vuelva a consultarlo autenticada.
+        data: { type: notification.type, entityId: notification.entity_id ?? null },
+      }),
+    );
+
+    let tickets;
+    try {
+      tickets = await sendExpoPushBatch({ messages });
+    } catch (error) {
+      // Falla de transporte: no se sabe si Expo recibió el lote. No se marca
+      // nada como entregado y se deja que el reintento lo resuelva.
+      retryable = retryable || error?.retryable !== false;
+      failed += batch.length;
+      continue;
+    }
+
+    for (let index = 0; index < tickets.length; index += 1) {
+      const ticket = tickets[index];
+      const { device } = batch[index];
+      if (ticket.status === "accepted") {
+        firstTicketId = firstTicketId ?? ticket.ticketId;
+        await postgresPool.query(
+          `INSERT INTO notification_deliveries(notification_id,device_id,attempt,provider,provider_message_id,status)
+           VALUES($1,$2,$3,'expo',$4,'accepted')
+           ON CONFLICT (notification_id,device_id,attempt) DO NOTHING`,
+          [notification.id, device.id, attempt, ticket.ticketId],
+        );
+        accepted += 1;
+        continue;
+      }
+      await postgresPool.query(
+        `INSERT INTO notification_deliveries(notification_id,device_id,attempt,provider,status,error_code)
+         VALUES($1,$2,$3,'expo','failed',$4)
+         ON CONFLICT (notification_id,device_id,attempt) DO NOTHING`,
+        [notification.id, device.id, attempt, ticket.reason],
+      );
+      if (ticket.reason === "device_unregistered") {
+        await invalidateDevice(device.id, "unregistered");
+        invalidated += 1;
+      } else {
+        failed += 1;
+        retryable = retryable || ticket.retryable !== false;
+      }
+    }
+  }
+
+  if (accepted > 0) {
+    await postgresPool.query(
+      "UPDATE notifications SET status='sent',sent_at=now(),provider_message_id=$2,last_error=NULL,locked_at=NULL,locked_by=NULL WHERE id=$1 AND locked_by=$3",
+      [notification.id, firstTicketId, workerId],
+    );
+    return { id: notification.public_id, status: "accepted", devices: accepted, invalidated };
+  }
+
+  if (retryable && failed > 0) {
+    // Se libera el lock para que otra pasada lo reintente con backoff.
+    await postgresPool.query(
+      "UPDATE notifications SET locked_at=NULL,locked_by=NULL,last_error='expo_delivery_failed' WHERE id=$1 AND locked_by=$2",
+      [notification.id, workerId],
+    );
+    return { id: notification.public_id, status: "retry", invalidated };
+  }
+
+  await deadLetterNotification(notification, {
+    workerId,
+    reason: invalidated ? "all_tokens_unregistered" : "delivery_failed",
+  });
+  return { id: notification.public_id, status: "dead_lettered", invalidated };
+}
+
+async function invalidateDevice(deviceId, reason) {
+  await postgresPool.query(
+    "UPDATE user_devices SET revoked_at=COALESCE(revoked_at,now()),invalidated_at=now(),invalid_reason=$2 WHERE id=$1",
+    [deviceId, reason],
+  );
+}
+
+/**
+ * Confirma entregas consultando los recibos de Expo.
+ *
+ * Un recibo ausente NO es un éxito: queda como `accepted` sin confirmar y la
+ * alerta de recibos vencidos lo tiene que levantar. Esa es la diferencia entre
+ * monitorear la entrega y suponerla.
+ */
+export async function processPostgresPushReceipts({ limit = EXPO_RECEIPT_LIMIT } = {}) {
+  const delaySeconds = config.push?.receiptDelaySeconds ?? 60;
+  const pending = (
+    await postgresPool.query(
+      `SELECT d.id,d.provider_message_id,d.notification_id,d.device_id
+       FROM notification_deliveries d
+       WHERE d.status='accepted' AND d.receipt_checked_at IS NULL
+         AND d.provider='expo' AND d.provider_message_id IS NOT NULL
+         AND d.created_at <= now() - ($2 * interval '1 second')
+       ORDER BY d.created_at LIMIT $1`,
+      [Math.min(limit, EXPO_RECEIPT_LIMIT), delaySeconds],
+    )
+  ).rows;
+
+  if (pending.length === 0) return { checked: 0, delivered: 0, failed: 0, unknown: 0, invalidated: 0 };
+
+  const receipts = await fetchExpoPushReceipts({
+    ticketIds: pending.map((row) => row.provider_message_id),
+  });
+
+  let delivered = 0,
+    failed = 0,
+    unknown = 0,
+    invalidated = 0;
+
+  for (const row of pending) {
+    const receipt = receipts.get(row.provider_message_id) ?? { status: "unknown" };
+    if (receipt.status === "delivered") {
+      await postgresPool.query(
+        "UPDATE notification_deliveries SET status='delivered',receipt_checked_at=now() WHERE id=$1",
+        [row.id],
+      );
+      await postgresPool.query(
+        "UPDATE notifications SET status='delivered' WHERE id=$1 AND status='sent'",
+        [row.notification_id],
+      );
+      delivered += 1;
+      continue;
+    }
+    if (receipt.status === "failed") {
+      await postgresPool.query(
+        "UPDATE notification_deliveries SET status='failed',receipt_checked_at=now(),receipt_error_code=$2 WHERE id=$1",
+        [row.id, receipt.reason],
+      );
+      if (receipt.reason === "device_unregistered" && row.device_id) {
+        await invalidateDevice(row.device_id, "unregistered");
+        invalidated += 1;
+      }
+      failed += 1;
+      continue;
+    }
+    // Desconocido: se deja pendiente a propósito para que la alerta lo vea.
+    unknown += 1;
+  }
+
+  return { checked: pending.length, delivered, failed, unknown, invalidated };
+}
+
 export async function processPostgresNotificationBatch({
   workerId = `worker-${process.pid}`,
   limit = 25,
@@ -460,6 +641,11 @@ export async function processPostgresNotificationBatch({
         id: notification.public_id,
         status: retry ? "retry" : "dead_lettered",
       });
+      continue;
+    }
+    if (provider === "expo") {
+      const outcome = await deliverViaExpo({ notification, devices, attempt, workerId });
+      outcomes.push(outcome);
       continue;
     }
     if (provider !== "sandbox") {

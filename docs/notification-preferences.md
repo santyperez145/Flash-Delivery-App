@@ -1,22 +1,42 @@
 # Centro de notificaciones y preferencias
 
-> **Bloqueador P0 abierto — no existe push productivo.**
+> **Push productivo ya es posible. Falta probarlo en un teléfono.**
 >
-> `server/config.js:26` declara `NOTIFICATION_PROVIDER: z.enum(["disabled","sandbox"])` y `server/config.js:98` prohíbe `sandbox` en producción. **El único valor válido en producción es `disabled`.** Además, `server/notification-repository.js:465` envía a dead-letter cualquier proveedor distinto de `sandbox`.
+> Hasta el 26 de agosto de 2026, `NOTIFICATION_PROVIDER` sólo aceptaba `disabled` y `sandbox`, y producción prohibía `sandbox`: el único valor válido en producción era `disabled`. No había forma de entregar un push, y el esquema de configuración lo impedía por construcción.
 >
-> Todo lo descrito abajo — outbox, preferencias, dedupe, reintentos, dead-letter, replay administrativo, invalidación de dispositivos — está bien construido, pero **no tiene a dónde entregar**. El esquema de configuración impide un proveedor productivo por construcción.
+> El enum ahora acepta `expo`. En producción, `EXPO_ACCESS_TOKEN` es obligatoria con él: sin ella, cualquiera que conozca un token de dispositivo puede enviarle notificaciones en nombre de Flash.
 >
-> Hallazgo [H-02](auditoria-2026-08-25.md#h-02--push-productivo-es-imposible-por-configuración), ticket [NOT-001](backlog-tecnico.md#not-001--push-real).
+> **Sigue abierto:** la entrega en un dispositivo físico Android y iOS, que exige credenciales FCM/APNs y un development build. Es la condición de cierre del ticket [NOT-001](backlog-tecnico.md#not-001--push-real). Hallazgo [H-02](auditoria-2026-08-25.md#h-02--push-productivo-es-imposible-por-configuración).
 
-## Camino de salida — Expo Push
+## Proveedor Expo
 
-Primer paso: extender el enum a `disabled | sandbox | expo`, y más adelante `fcm` y `apns`.
+`server/push-provider.js` implementa envío por lotes (100 por petición), consulta de recibos (1000 por petición), clasificación de errores, reintentabilidad, timeout y métricas por operación. Nunca pone un token de dispositivo en un error.
 
-El proveedor Expo requiere Batch API, push tickets, **consulta de receipts**, invalidación por `DeviceNotRegistered`, retry con backoff, rate limits, circuit breaker, métricas por plantilla y fallback in-app.
+### Un ticket aceptado no es una entrega
 
-El servicio de Expo **no ofrece SLA**, por lo que Flash debe tratar la entrega como asíncrona y monitoreada, nunca como garantizada. Más adelante: FCM directo para Android, APNs directo para iOS y un proveedor alternativo de contingencia.
+Es la distinción que ordena todo el flujo. Expo sólo confirma que **tomó** el mensaje, y su servicio **no ofrece SLA**.
 
-El ticket no se cierra sin **evidencia física**: registro o captura de un dispositivo Android real y uno iOS real adjuntos al PR.
+| Momento | Estado de la notificación |
+| --- | --- |
+| Encolada | `queued` |
+| Ticket aceptado por Expo | `sent` |
+| Recibo confirmado | `delivered` |
+| Recibo con error | `failed` |
+| Recibo ausente | **sigue en `sent`** |
+
+Un recibo ausente no se cuenta como éxito: queda pendiente y la alerta `FlashPushReceiptsStale` lo levanta. Eso es lo que diferencia monitorear la entrega de suponerla.
+
+`npm run worker:push-receipts` confirma las entregas. **Sin él, cada notificación quedaría en `sent` para siempre.** Producción debe programarlo igual que `worker:notifications`. Runbook: [`docs/runbooks/push-receipts.md`](runbooks/push-receipts.md).
+
+### Qué se revoca y qué se reintenta
+
+`DeviceNotRegistered` revoca el token del dispositivo: la app se desinstaló o revocó el permiso, y seguir intentando es basura pura. `InvalidCredentials` y `MismatchSenderId` tampoco se reintentan, porque reintentar no los arregla. El resto sí.
+
+### Verificación
+
+`npm run test:push-provider` verifica el contrato con `fetch` interceptado: sin credenciales ni red. Lo que **no** puede verificar es que un push llegue a un teléfono.
+
+Más adelante: FCM directo para Android, APNs directo para iOS y un proveedor alternativo de contingencia.
 
 ---
 

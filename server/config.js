@@ -23,7 +23,10 @@ const envSchema = z.object({
   ALLOW_SANDBOX_TOPUPS: booleanFromEnv.default(true),
   PAYMENT_WEBHOOK_SECRET: z.string().min(32).default("local-payment-webhook-secret-change-me"),
   METRICS_TOKEN: z.string().min(32).default("local-metrics-token-change-before-prod"),
-  NOTIFICATION_PROVIDER: z.enum(["disabled","sandbox"]).default("sandbox"),
+  NOTIFICATION_PROVIDER: z.enum(["disabled","sandbox","expo"]).default("sandbox"),
+  EXPO_ACCESS_TOKEN: z.string().min(16).optional(),
+  PUSH_TIMEOUT_MS: z.coerce.number().int().min(1000).max(30000).default(8000),
+  PUSH_RECEIPT_DELAY_SECONDS: z.coerce.number().int().min(5).max(3600).default(60),
   PUSH_TOKEN_ENCRYPTION_KEY: z.string().min(32).default("local-device-token-key-change-before-production"),
   DELIVERY_PIN_SECRET: z.string().min(32).default("local-delivery-pin-secret-change-before-production"),
   MFA_ENCRYPTION_KEY: z.string().min(32).default("local-admin-mfa-key-change-before-production"),
@@ -39,6 +42,8 @@ const envSchema = z.object({
   SMTP_PASSWORD: z.string().optional(),
   SMTP_FROM: z.string().default("Flash <noreply@flash.local>"),
   REQUIRE_ADMIN_MFA: booleanFromEnv.default(false),
+  MAPS_PROVIDER: z.enum(["openstreetmap","google"]).default("openstreetmap"),
+  GOOGLE_MAPS_SERVER_API_KEY: z.string().min(20).optional(),
   GEOCODING_URL: z.string().url().default("https://nominatim.openstreetmap.org"),
   ROUTING_URL: z.string().url().default("https://router.project-osrm.org"),
   WEB_MAP_ORIGINS: z.string().default("https://tile.openstreetmap.org")
@@ -95,7 +100,15 @@ if (env.NODE_ENV === "production" && env.PAYMENT_WEBHOOK_SECRET === "local-payme
   throw new Error("PAYMENT_WEBHOOK_SECRET must be configured before running in production");
 }
 if(env.NODE_ENV==="production"&&env.METRICS_TOKEN==="local-metrics-token-change-before-prod")throw new Error("METRICS_TOKEN must be configured before running in production");
+// La política de uso de Nominatim prohíbe autocomplete de cliente contra la
+// instancia pública y advierte a las aplicaciones comerciales que no dependan
+// de ella. El demo público de OSRM está en la misma situación.
+if(env.NODE_ENV==="production"&&env.MAPS_PROVIDER==="openstreetmap")throw new Error("MAPS_PROVIDER openstreetmap uses public community instances and is forbidden in production");
+if(env.NODE_ENV==="production"&&env.MAPS_PROVIDER==="google"&&!env.GOOGLE_MAPS_SERVER_API_KEY)throw new Error("GOOGLE_MAPS_SERVER_API_KEY is required when MAPS_PROVIDER is google");
 if(env.NODE_ENV==="production"&&env.NOTIFICATION_PROVIDER==="sandbox")throw new Error("NOTIFICATION_PROVIDER sandbox is forbidden in production");
+// Expo sin access token deja el proyecto abierto: cualquiera que conozca un
+// token de dispositivo puede enviarle notificaciones en nombre de Flash.
+if(env.NODE_ENV==="production"&&env.NOTIFICATION_PROVIDER==="expo"&&!env.EXPO_ACCESS_TOKEN)throw new Error("EXPO_ACCESS_TOKEN is required when NOTIFICATION_PROVIDER is expo in production");
 if(env.NODE_ENV==="production"&&env.PUSH_TOKEN_ENCRYPTION_KEY==="local-device-token-key-change-before-production")throw new Error("PUSH_TOKEN_ENCRYPTION_KEY must be configured before running in production");
 if(env.NODE_ENV==="production"&&env.DELIVERY_PIN_SECRET==="local-delivery-pin-secret-change-before-production")throw new Error("DELIVERY_PIN_SECRET must be configured before running in production");
 if(env.NODE_ENV==="production"&&env.MFA_ENCRYPTION_KEY==="local-admin-mfa-key-change-before-production")throw new Error("MFA_ENCRYPTION_KEY must be configured before running in production");
@@ -127,6 +140,7 @@ export const config = {
   paymentWebhookSecret: env.PAYMENT_WEBHOOK_SECRET,
   metricsToken:env.METRICS_TOKEN,
   notificationProvider:env.NOTIFICATION_PROVIDER,
+  push:{provider:env.NOTIFICATION_PROVIDER,accessToken:env.EXPO_ACCESS_TOKEN??null,timeoutMs:env.PUSH_TIMEOUT_MS,receiptDelaySeconds:env.PUSH_RECEIPT_DELAY_SECONDS},
   pushTokenEncryptionKey:env.PUSH_TOKEN_ENCRYPTION_KEY,
   deliveryPinSecret:env.DELIVERY_PIN_SECRET,
   mfaEncryptionKey:env.MFA_ENCRYPTION_KEY,
@@ -137,6 +151,7 @@ export const config = {
   appPublicUrl:env.APP_PUBLIC_URL,
   smtp:{host:env.SMTP_HOST,port:env.SMTP_PORT,secure:env.SMTP_SECURE,user:env.SMTP_USER,password:env.SMTP_PASSWORD,from:env.SMTP_FROM},
   requireAdminMfa:env.REQUIRE_ADMIN_MFA,
+  maps:{provider:env.MAPS_PROVIDER,googleServerApiKey:env.GOOGLE_MAPS_SERVER_API_KEY??null},
   geocodingUrl: env.GEOCODING_URL,
   routingUrl: env.ROUTING_URL
   ,webMapOrigins

@@ -28,23 +28,25 @@ La auditoría del 25 de agosto identificó que el riesgo principal de Flash no e
 
 ## Estado consolidado
 
-Al **26 de agosto de 2026**, sobre **91 capacidades inventariadas**:
+Al **26 de agosto de 2026**, sobre **94 capacidades inventariadas**:
 
 | Estado | Capacidades | Proporción | Al 25-08 |
 | --- | ---: | ---: | ---: |
-| `IMPL` | 6 | 6,6% | 9 |
-| `LOCAL` | 16 | 17,6% | 50 |
-| `CI` | 51 | 56,0% | 14 |
+| `IMPL` | 6 | 6,5% | 9 |
+| `LOCAL` | 14 | 15,2% | 50 |
+| `CI` | 57 | 62,0% | 14 |
 | `PROV` | 0 | 0% | 0 |
 | `STG` | 0 | 0% | 0 |
 | `PROD` | 0 | 0% | 0 |
-| No existe | 18 | 19,8% | 18 |
+| No existe | 17 | 18,5% | 18 |
 
-**Lectura:** de las 73 capacidades que existen, **22 (30%) siguen en `IMPL` o `LOCAL`** — sin puerta automática que las proteja de una regresión. Eran 59 (81%) el 25 de agosto.
+**Lectura:** de las 77 capacidades que existen, **20 (26%) siguen en `IMPL` o `LOCAL`** — sin puerta automática que las proteja de una regresión. Eran 59 sobre 73 (81%) el 25 de agosto.
 
-El salto viene de las tres puertas del ticket CI-001. Las 51 en `CI` ya no son infraestructura: incluyen migraciones, RLS, cadena de auditoría, aislamiento por ciudad, audiencia realtime, ledger, conciliación, riesgo, payouts, KYC, vehículos, safety, chat, soporte y notificaciones.
+El salto viene de las tres puertas del ticket CI-001. Las 57 en `CI` ya no son infraestructura: incluyen migraciones, RLS, cadena de auditoría, aislamiento por ciudad, audiencia realtime, ledger, conciliación, riesgo, payouts, KYC, vehículos, safety, chat, soporte, notificaciones, push y mapas.
 
 **Ninguna capacidad alcanzó `PROV`.** Ni pagos, ni push, ni mapas, ni KYC fueron probados contra un proveedor real. Ese es el objetivo de la Fase 1, y es la distancia que esta matriz existe para no dejar olvidar: **una capacidad en `CI` está protegida contra regresiones, no demostrada contra el mundo real.**
+
+El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposibles a implementados y con puerta CI, pero sus contratos se verifican con `fetch` interceptado. Que el contrato sea correcto no dice nada sobre si un push llega a un teléfono ni sobre cuánto cuesta una consulta de rutas: eso exige credenciales y un dispositivo, y por eso siguen en `CI` y no en `PROV`.
 
 ### Lo que sigue sin puerta
 
@@ -115,9 +117,10 @@ El salto viene de las tres puertas del ticket CI-001. Las 51 en `CI` ya no son i
 | Ranking explicable | `LOCAL` | Sin recorte espacial previo — ticket DSP-001 |
 | Recorte `ST_DWithin` + KNN | — | **Cero ocurrencias en el repositorio** |
 | Stats precomputadas de conductor | — | **No existe** · se recalcula historial de 30 días por oferta |
+| Route Matrix para dispatch | `CI` | `describeRouteMatrix` con contrato verificado · falta conectarla al scoring |
 | Zonas de demanda | `CI` | `test:driver-demand` en `ci-critical-flows` |
-| Geocoding | `LOCAL` | **Nominatim público por defecto** — ticket GEO-001 |
-| Routing | `LOCAL` | **OSRM público por defecto** · sin tráfico ni Route Matrix |
+| Geocoding | `CI` | Adapter con `test:maps-provider` · producción rechaza instancias públicas · **sin API key habilitada** |
+| Routing | `CI` | Adapter con Routes `TRAFFIC_AWARE` y Route Matrix · **sin API key habilitada** |
 | Cotización firmada | `CI` | `test:maps` en `ci-critical-flows` |
 | Caché, circuit breaker y presupuesto | `CI` | `test:provider-resilience` |
 
@@ -132,7 +135,7 @@ El salto viene de las tres puertas del ticket CI-001. Las 51 en `CI` ya no son i
 | Outbox de notificaciones | `CI` | `test:notification-dead-letters` en `ci-critical-flows` |
 | Preferencias de notificación | `CI` | `test:notification-preferences` en `ci-critical-flows` |
 | Notificación in-app | `LOCAL` | Canal activo real en desarrollo |
-| **Push productivo** | — | **Imposible por configuración** — ticket NOT-001 |
+| **Push productivo** | `CI` | Proveedor Expo con `test:push-provider` · **sin entrega en dispositivo físico** — ticket NOT-001 |
 | Email SMTP | `IMPL` | Proveedor no habilitado |
 | SMS | `IMPL` | **Sin cuenta Twilio habilitada** |
 
