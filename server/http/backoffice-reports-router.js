@@ -5,7 +5,7 @@
 // dominio: bajo él convivían estos listados, los feature flags, la ingesta de
 // analítica y la evaluación de zonas. Este router se queda con lo primero.
 //
-// Lo que agrupa a las seis rutas es que **ninguna muta nada y todas cruzan
+// Lo que agrupa a las cinco rutas es que **ninguna muta nada y todas cruzan
 // inquilinos**: son la vista de la plataforma entera, que sólo tiene sentido
 // para quien la opera. Por eso las seis responden `Cache-Control: no-store,
 // private`. Un listado operativo que un proxy cachee es una filtración de datos
@@ -30,8 +30,6 @@ import {
   getPostgresAuditEventPage,
   getPostgresOperationsSupportTicketPage,
 } from "../operations-repository.js";
-import { getProductMetrics } from "../product-analytics-repository.js";
-import { getLocalProductMetrics } from "../store.js";
 import { sanitizeUser } from "../user-view.js";
 import { getWalletBalances } from "../wallet-repository.js";
 import { requireAuth } from "./authentication.js";
@@ -258,24 +256,6 @@ router.get(
       return ok(res, await getPostgresAuditEventPage({ limit, cursor, query }));
     } catch (error) {
       return failFrom(res, error, "No se pudo cargar la auditoría");
-    }
-  },
-);
-
-router.get(
-  "/api/operations/product-metrics",
-  requireAuth,
-  requireAnyRole("admin"),
-  async (req, res) => {
-    const days = Math.min(90, Math.max(1, Number(req.query.days) || 7));
-    try {
-      res.set("Cache-Control", "no-store, private");
-      const metrics = usesPostgresAuth()
-        ? await getProductMetrics({ days })
-        : getLocalProductMetrics({ days });
-      return ok(res, { metrics });
-    } catch (error) {
-      return failFrom(res, error, "No se pudieron calcular las métricas de producto");
     }
   },
 );
