@@ -1,0 +1,448 @@
+{
+  "_comentario": "Fuente de verdad de la clasificación RLS (ticket DAT-001). La verifica `npm run test:rls-matrix`. Toda tabla nueva debe agregarse acá en el mismo PR que la crea.",
+  "_clases": {
+    "por-usuario": "Las filas pertenecen a un usuario o a los participantes de un trabajo. DEBE tener política RLS.",
+    "global-lectura": "Configuración o catálogo público. Legible por cualquier sesión; la escritura se restringe por RBAC en la API.",
+    "servicio": "Sólo la tocan el runtime o los workers. No hay camino de acceso directo desde una sesión de usuario.",
+    "sin-uso": "Esquema muerto. Ningún archivo de `server/` ni `scripts/` la referencia."
+  },
+  "tablas": {
+    "addresses": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "allergens": {
+      "clase": "global-lectura",
+      "rls": true
+    },
+    "audit_events": {
+      "clase": "servicio",
+      "rls": false,
+      "nota": "Append-only con cadena de hashes. El acceso operativo pasa por RBAC/MFA en la API."
+    },
+    "branch_operating_hours": {
+      "clase": "global-lectura",
+      "rls": true
+    },
+    "branch_schedule_exceptions": {
+      "clase": "global-lectura",
+      "rls": true
+    },
+    "cart_items": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "carts": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "catalog_branch_inventory": {
+      "clase": "global-lectura",
+      "rls": true
+    },
+    "catalog_item_allergens": {
+      "clase": "global-lectura",
+      "rls": true
+    },
+    "catalog_item_dietary_labels": {
+      "clase": "global-lectura",
+      "rls": true
+    },
+    "catalog_items": {
+      "clase": "global-lectura",
+      "rls": false
+    },
+    "catalog_modifier_groups": {
+      "clase": "global-lectura",
+      "rls": true
+    },
+    "catalog_modifiers": {
+      "clase": "global-lectura",
+      "rls": true
+    },
+    "cities": {
+      "clase": "global-lectura",
+      "rls": true
+    },
+    "dietary_labels": {
+      "clase": "global-lectura",
+      "rls": true
+    },
+    "dispatch_offers": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "driver_availability_sessions": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "driver_compliance": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "driver_documents": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "driver_job_sessions": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "driver_preferences": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "drivers": {
+      "clase": "por-usuario",
+      "rls": false,
+      "nota": "Perfil del conductor. 39 archivos lo consultan, varios sin contexto."
+    },
+    "email_verification_challenges": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "favorites": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "feature_flags": {
+      "clase": "global-lectura",
+      "rls": true
+    },
+    "idempotency_keys": {
+      "clase": "servicio",
+      "rls": false,
+      "nota": "Middleware de idempotencia; se consulta antes de resolver la identidad."
+    },
+    "job_cancellations": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "job_events": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "job_items": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "jobs": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "ledger_accounts": {
+      "clase": "servicio",
+      "rls": false,
+      "nota": "Cuentas contables internas."
+    },
+    "ledger_entries": {
+      "clase": "servicio",
+      "rls": false,
+      "nota": "Contabilidad de doble entrada. Sólo la escribe el runtime dentro de transacciones."
+    },
+    "ledger_transactions": {
+      "clase": "servicio",
+      "rls": false,
+      "nota": "Asientos agrupados."
+    },
+    "map_provider_cache": {
+      "clase": "servicio",
+      "rls": true
+    },
+    "mercadopago_webhook_inbox": {
+      "clase": "servicio",
+      "rls": true
+    },
+    "merchant_branches": {
+      "clase": "global-lectura",
+      "rls": true
+    },
+    "merchant_payment_connections": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "merchant_payment_oauth_states": {
+      "clase": "servicio",
+      "rls": true
+    },
+    "merchants": {
+      "clase": "por-usuario",
+      "rls": false,
+      "nota": "Comercio y su dueño. 23 archivos lo consultan."
+    },
+    "notification_dead_letters": {
+      "clase": "servicio",
+      "rls": true
+    },
+    "notification_deliveries": {
+      "clase": "servicio",
+      "rls": false
+    },
+    "notifications": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "order_issues": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "order_item_substitutions": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "outbox_events": {
+      "clase": "sin-uso",
+      "rls": false,
+      "nota": "Esquema muerto: ningún archivo de `server/` ni `scripts/` la referencia."
+    },
+    "password_recovery_tokens": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "payment_customers": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "payment_intents": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "payment_methods": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "payment_reconciliation_cases": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "payout_step_up_authorizations": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "payouts": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "phone_verification_challenges": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "pricing_change_requests": {
+      "clase": "global-lectura",
+      "rls": true
+    },
+    "pricing_plans": {
+      "clase": "global-lectura",
+      "rls": false
+    },
+    "product_events": {
+      "clase": "servicio",
+      "rls": true
+    },
+    "promotion_redemptions": {
+      "clase": "por-usuario",
+      "rls": false,
+      "nota": "Redención por usuario y trabajo."
+    },
+    "promotions": {
+      "clase": "global-lectura",
+      "rls": false
+    },
+    "ratings": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "realtime_events": {
+      "clase": "servicio",
+      "rls": false,
+      "nota": "El filtrado por audiencia vive en la consulta (`audience_user_ids`, `audience_roles`), no en una política."
+    },
+    "referral_attributions": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "referral_campaigns": {
+      "clase": "global-lectura",
+      "rls": false
+    },
+    "referral_codes": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "refresh_sessions": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "refunds": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "ride_destination_history": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "ride_pickup_verifications": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "ride_safety_incidents": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "ride_tracking_links": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "ride_trusted_contacts": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "service_chat_quick_replies": {
+      "clase": "global-lectura",
+      "rls": true
+    },
+    "service_message_attachments": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "service_message_reads": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "service_messages": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "service_receipts": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "service_tip_adjustments": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "service_tips": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "service_zones": {
+      "clase": "global-lectura",
+      "rls": false
+    },
+    "shipment_claim_evidence": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "shipment_delivery_evidence": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "shipment_details": {
+      "clase": "por-usuario",
+      "rls": false,
+      "nota": "Detalle del envío, vinculado por `job_id`. Candidata más limpia para aplicar RLS primero."
+    },
+    "shipment_item_categories": {
+      "clase": "global-lectura",
+      "rls": true
+    },
+    "shipment_protection_claims": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "shipment_protection_plans": {
+      "clase": "global-lectura",
+      "rls": true
+    },
+    "shipment_return_requests": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "shipment_service_levels": {
+      "clase": "global-lectura",
+      "rls": true
+    },
+    "support_agent_profiles": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "support_escalation_events": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "support_messages": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "support_sla_policies": {
+      "clase": "global-lectura",
+      "rls": true
+    },
+    "support_ticket_assignments": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "support_tickets": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "transaction_risk_assessments": {
+      "clase": "servicio",
+      "rls": true
+    },
+    "user_avoided_allergens": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "user_devices": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "user_dietary_preferences": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "user_dietary_profiles": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "user_mfa": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "user_notification_preferences": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "user_roles": {
+      "clase": "por-usuario",
+      "rls": false,
+      "nota": "Se lee ANTES de autenticar: `findAuthUserByEmail` hace JOIN sin contexto de usuario. Una política `user_id = app.current_user_id()` rompería todo login. Necesita SECURITY DEFINER para el camino de login antes de aplicar RLS."
+    },
+    "user_security_factors": {
+      "clase": "sin-uso",
+      "rls": false,
+      "nota": "Esquema muerto, superado por `user_mfa`. Declara columnas para secretos TOTP y credenciales WebAuthn que nada escribe ni lee."
+    },
+    "users": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "vehicles": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "webhook_events": {
+      "clase": "servicio",
+      "rls": false
+    },
+    "zone_readiness_assessments": {
+      "clase": "servicio",
+      "rls": true
+    },
+    "zone_readiness_policies": {
+      "clase": "global-lectura",
+      "rls": true
+    }
+  }
+}
