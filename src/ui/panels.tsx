@@ -166,3 +166,19 @@ export function IconButton({
     </button>
   );
 }
+
+/**
+ * Un dato con su etiqueta y su tendencia.
+ *
+ * La usan el panel de marca del shell y el riel de operaciones. Es la última
+ * primitiva que quedaba compartida entre el entrypoint y una superficie.
+ */
+export function Metric({ label, value, trend }: { label: string; value: string; trend: string }) {
+  return (
+    <div className="metric">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>{trend}</small>
+    </div>
+  );
+}

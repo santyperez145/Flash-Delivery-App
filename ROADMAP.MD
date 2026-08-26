@@ -8,7 +8,7 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
-## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 15, servidor y frente
+## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 16, servidor y frente
 
 Entregas novena a decimoquinta de la Fase 0. El paso 2 quedó sin registrar acá cuando se publicó, así que esta sección cubre los siete.
 
@@ -212,6 +212,31 @@ Sobre SQLite se podía leer un carrito vacío pero no agregarle nada: **el flujo
 Antes del paso 13 el error además filtraba `Cannot read properties of null (reading query)`. Ahora degrada como las otras 136 rutas que dependen de PostgreSQL: 503 y un mensaje que dice por qué. Con su regresión en `test:security`.
 
 **Ningún contrato estático podía ver esto.** El código compilaba, los tipos cerraban y la asimetría entre el GET y el PUT no es un error de forma: es una guarda que falta.
+
+### Los dos `App.tsx` bajo el techo
+
+`src/App.tsx`: **2.041 → 1.245 líneas**. El paso 16 saca las tres consolas móviles —comercio, conductor y operaciones— con su riel y sus seis tarjetas a `src/operations/OperationsSurface.tsx`.
+
+Las tres viven juntas y no en un archivo cada una porque **comparten el riel, las tarjetas y la forma**: son la misma consola vista por tres roles. Separarlas obligaría a un módulo más sólo para lo común, sin que ninguna quede más legible.
+
+`Metric` salió a `ui/panels.tsx`: era la última primitiva compartida entre el entrypoint y una superficie.
+
+**Con esto se cumple el primer criterio de aceptación de ARC-001, entero:**
+
+| Archivo | Al empezar | Ahora | Techo |
+| --- | ---: | ---: | ---: |
+| `apps/mobile/App.tsx` | 15.374 | **321** | 1.500 |
+| `src/App.tsx` | 10.553 | **1.245** | 1.500 |
+
+Lo que queda en cada uno es el shell: proveedor de contexto, banner de red, barra de modo y enrutado por audiencia.
+
+Y bajó la segunda línea larga de la sesión, **261 → 260**, por el mismo mecanismo que la primera: al aislarse en un archivo nuevo el ratchet la vio sin línea base que la tolerara.
+
+### Una prueba de navegador puede ensuciar una suite
+
+`test:security` falló con «Repartidor no disponible». No era el refactor: **el navegador y la suite comparten la misma base SQLite de fixture**, y al entrar como conductor pulsé «Pausar», que lo dejó fuera de línea.
+
+Es una consecuencia real de meter el navegador en el bucle de verificación, y la disciplina que exige es simple: **resetear la fixture después de una sesión de pruebas manuales**, con el mismo `POST /api/reset` que la suite usa en su última aserción.
 
 ### Lo que sigue faltando
 
