@@ -8,6 +8,14 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Relanzable a mano desde la pestaña Actions.
+  #
+  # Sin esto, un fallo de agendamiento de GitHub —que ocurre: el 26 de agosto
+  # una corrida murió en `startup_failure` con cero jobs y blobs de workflow
+  # byte-idénticos a los de la corrida verde anterior— sólo se puede limpiar
+  # empujando otro commit. En un repositorio donde CI es la puerta de merge,
+  # eso convierte un problema transitorio de la plataforma en un commit basura.
+  workflow_dispatch:
 
 jobs:
   build-and-security:
