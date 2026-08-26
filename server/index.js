@@ -31,6 +31,7 @@ import { audit, readDb, sqliteReadCount } from "./fallback-runtime.js";
 import { requireAuth } from "./http/authentication.js";
 import { addressesRouter } from "./http/addresses-router.js";
 import { dietaryRouter } from "./http/dietary-router.js";
+import { feedbackRouter } from "./http/feedback-router.js";
 import { notificationsRouter } from "./http/notifications-router.js";
 import {
   publishRealtimeEvent,
@@ -207,12 +208,7 @@ import {
   updatePostgresPromotion,
   updatePostgresZone,
 } from "./configuration-repository.js";
-import {
-  createPostgresRating,
-  getPostgresFavoriteMerchantIds,
-  getPostgresRatings,
-  setPostgresFavorite,
-} from "./feedback-repository.js";
+import { getPostgresFavoriteMerchantIds, getPostgresRatings } from "./feedback-repository.js";
 import {
   enqueuePostgresNotification,
   getNotificationDeadLetters,
@@ -1043,14 +1039,6 @@ const zoneUpdateSchema = z
     active: z.boolean().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, "Debes indicar un cambio");
-const favoriteSchema = z.object({ favorite: z.boolean() });
-const ratingSchema = z.object({
-  jobId: z.string().min(3).max(64),
-  subjectType: z.enum(["driver", "merchant", "customer"]),
-  score: z.coerce.number().int().min(1).max(5),
-  tags: z.array(z.string().trim().min(1).max(40)).max(10).default([]),
-  comment: z.string().trim().max(1000).default(""),
-});
 const deliveryPinSchema = z.object({
   pin: z.string().regex(/^\d{4}$/, "El PIN debe tener cuatro dígitos"),
 });
@@ -4372,86 +4360,7 @@ app.patch("/api/zones/:zoneId", requireAuth, requireAnyRole("admin"), async (req
     return fail(res, error.status || 500, error.message || "No se pudo actualizar la zona");
   }
 });
-app.get("/api/favorites", requireAuth, async (req, res) => {
-  try {
-    return ok(res, {
-      restaurantIds: usesPostgresCommerce()
-        ? await getPostgresFavoriteMerchantIds(req.auth.userId)
-        : [],
-    });
-  } catch (_error) {
-    return fail(res, 500, "No se pudieron cargar favoritos");
-  }
-});
-app.put(
-  "/api/favorites/:restaurantId",
-  requireAuth,
-  requireAnyRole("customer", "admin"),
-  async (req, res) => {
-    const parsed = parseOrFail(favoriteSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const restaurantIds = await setPostgresFavorite({
-        userPublicId: req.auth.userId,
-        merchantPublicId: req.params.restaurantId,
-        favorite: parsed.data.favorite,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: parsed.data.favorite ? "favorite.added" : "favorite.removed",
-        entityType: "merchant",
-        entityId: req.params.restaurantId,
-        requestId: req.requestId,
-      });
-      return ok(res, { restaurantIds });
-    } catch (error) {
-      return fail(res, error.status || 500, error.message || "No se pudo actualizar favoritos");
-    }
-  },
-);
-app.get("/api/ratings", requireAuth, async (req, res) => {
-  try {
-    return ok(res, {
-      ratings: await getPostgresRatings({
-        userPublicId: req.auth.userId,
-        includeAll: isAdmin(req),
-      }),
-    });
-  } catch (_error) {
-    return fail(res, 500, "No se pudieron cargar calificaciones");
-  }
-});
-app.post("/api/ratings", requireAuth, async (req, res) => {
-  const parsed = parseOrFail(ratingSchema, req.body || {});
-  if (!parsed.ok) return fail(res, 400, parsed.message);
-  try {
-    const rating = await createPostgresRating({
-      jobPublicId: parsed.data.jobId,
-      authorPublicId: req.auth.userId,
-      subjectType: parsed.data.subjectType,
-      score: parsed.data.score,
-      tags: parsed.data.tags,
-      comment: parsed.data.comment,
-    });
-    await recordPostgresAudit({
-      actorPublicId: req.auth.userId,
-      roles: req.auth.roles,
-      action: "rating.created",
-      entityType: "rating",
-      entityId: rating.id,
-      requestId: req.requestId,
-      afterData: {
-        jobId: rating.jobId,
-        subjectType: rating.subjectType,
-        score: rating.score,
-      },
-    });
-    return res.status(201).json({ ok: true, requestId: res.locals.requestId, rating });
-  } catch (error) {
-    return fail(res, error.status || 500, error.message || "No se pudo guardar la calificación");
-  }
-});
+app.use(feedbackRouter);
 
 app.get("/api/me", requireAuth, async (req, res) => {
   const db = usesPostgresAuth() ? null : readDb();
