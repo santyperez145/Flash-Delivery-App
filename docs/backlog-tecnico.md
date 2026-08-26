@@ -40,7 +40,7 @@ Cinco archivos concentran más de 1,3 MB de código: `apps/mobile/App.tsx` (433 
 - [x] **Ningún módulo de dominio importa React.** 93 módulos verificados por `test:domain-purity`, en `ci-fast.yml`. La regla es la convención del repositorio: `.ts` es lógica, `.tsx` es presentación. `react-native` no cuenta, porque ahí aporta primitivas de plataforma y no renderizado.
 - [ ] El build de driver no incluye pantallas de comercio.
 - [ ] El build de customer no incluye backoffice.
-- [ ] `server/index.js` deja de contener lógica de dominio. **26 de 57 grupos de rutas extraídos**; quedan 123 rutas en 32 grupos. `index.js` bajó de 9.696 a 6.391 líneas. Dos prefijos resultaron ser audiencias y no dominios: `/api/admin` se cortó en tres por ciclo de vida y quedó en 11 rutas; `/api/operations` se cortó en cuatro y **ya no queda ninguna** —listados de backoffice, feature flags, analítica de producto y evaluación de zonas, que se fue con las zonas—.
+- [ ] `server/index.js` deja de contener lógica de dominio. **28 de 57 grupos de rutas extraídos**; quedan 111 rutas en 30 grupos. `index.js` bajó de 9.696 a 5869 líneas. Partir `commerce-repository.js` destrabó los grupos grandes: `catalog-router.js` fue el primero (12 rutas, la cara HTTP de `catalog-repository.js`). Quedan `auth` (12), `rides` (11), `admin` (11), `orders` (10), `shipments` (9) y `merchant` (9) entre los grandes.
 
 ### Verificación
 
