@@ -1,6 +1,43 @@
 # Mapas, geocodificación y rutas
 
+> **Bloqueador P0 abierto — proveedores públicos por defecto.**
+>
+> `server/config.js:42-44` y `.env.example:36-41` fijan como valores por defecto `https://nominatim.openstreetmap.org`, `https://router.project-osrm.org` y `https://tile.openstreetmap.org`. Es aceptable para desarrollo e **inaceptable para una plataforma comercial**: la política de uso de Nominatim prohíbe autocomplete de cliente contra la instancia pública y advierte expresamente a aplicaciones comerciales que no dependan de ella. Lo mismo aplica al demo público de OSRM.
+>
+> Además, sin routing vial real, cualquier tarifa calculada con distancia geodésica es una estimación que el cliente percibirá como incorrecta en cuanto el trayecto tenga un río, una vía de un solo sentido o una autopista.
+>
+> Hallazgo [H-07](auditoria-2026-08-25.md#h-07--proveedores-de-mapas-públicos-por-defecto), ticket [GEO-001](backlog-tecnico.md#geo-001--proveedor-de-mapas-comercial).
+
 Los clientes autenticados usan `GET /api/maps/geocode` como proxy de Nominatim y `GET /api/maps/route` como proxy de OSRM. Las credenciales o políticas del proveedor quedan del lado servidor y mobile recibe puntos, polilínea y pasos normalizados.
+
+## Arquitectura objetivo — adapter de proveedor
+
+La caché PostgreSQL, el circuit breaker, el presupuesto y las métricas ya existen y son la mitad difícil del trabajo. Falta el proveedor y la interfaz que lo aísle:
+
+```text
+MapsProvider
+  autocomplete()
+  geocode()
+  reverseGeocode()
+  computeRoute()
+  computeRouteMatrix()
+  snapToRoad()
+```
+
+Para la beta se elige entre **Google Places + Routes**, **Mapbox Search + Directions** o **HERE Geocoding + Routing**. Mantener el adapter evita quedar atado a un proveedor y permite un fallback auditable entre ellos.
+
+Requisitos operativos: API keys restringidas · una clave móvil por plataforma · una clave de servidor · restricción por bundle ID y package name · cuotas · alertas de costo · field masks · caché · circuit breaker · métricas de fallback.
+
+**Almacenar `place_id` en lugar de direcciones ambiguas como texto simple.** Reduce ambigüedades y mejora accesos, tráfico y routing.
+
+### Criterios de cierre
+
+- Ningún checkout usa una dirección ambigua sin validar.
+- Ninguna tarifa productiva usa distancia geodésica como estimación final.
+- Los costos por proveedor son visibles y tienen alerta de presupuesto.
+- Cambiar de proveedor no requiere tocar código de dominio.
+
+`computeRouteMatrix()` es además la dependencia de la etapa 2 del dispatch v2 — ver [`docs/dispatch-ranking.md`](dispatch-ranking.md).
 
 La migración `042_map_provider_cache.sql` agrega una caché PostgreSQL compartida entre instancias:
 

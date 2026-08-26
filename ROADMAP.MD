@@ -8,6 +8,44 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Auditoría integral — 25 de agosto de 2026
+
+**Este bloque manda sobre el resto del roadmap.** Se realizó una auditoría integral del repositorio cuyos hallazgos están verificados contra el código, no inferidos. Documentos rectores:
+
+- [`docs/auditoria-2026-08-25.md`](docs/auditoria-2026-08-25.md) — dictamen, hallazgos con evidencia reproducible y comparación competitiva.
+- [`docs/plan-de-accion.md`](docs/plan-de-accion.md) — orden ejecutivo, fases con fechas y criterios de salida.
+- [`docs/backlog-tecnico.md`](docs/backlog-tecnico.md) — tickets P0/P1 con criterios de aceptación verificables.
+- [`docs/matriz-madurez.md`](docs/matriz-madurez.md) — estado real de cada capacidad.
+
+### Dictamen
+
+Flash es una **plataforma avanzada de preproducción**, no un MVP ni una maqueta. Es apta para demo a inversores, desarrollo interno, staging serio y prueba cerrada de delivery tras resolver los P0. **No** está aprobada para lanzamiento público irrestricto, custodia de saldo real, pagos masivos sin supervisión, transporte público de pasajeros ni operación multiciudad.
+
+> El riesgo principal ya no es que el producto sea demasiado simple, sino el contrario: **Flash tiene más superficie funcional de la que hoy puede validar, mantener y operar de manera confiable.**
+
+Evaluación global: **6,2/10**. La matriz de madurez lo cuantifica: de 91 capacidades inventariadas, 81% de las que existen están sin puerta automática, y **ninguna alcanzó prueba contra proveedor real**.
+
+### Congelamiento de funcionalidades
+
+Desde el 25 de agosto y hasta cerrar la Fase 0 (20 de septiembre de 2026), **no se agregan verticales, pantallas ni capacidades nuevas**. Sólo se admiten: tickets P0, defectos que bloqueen un P0, pruebas/contratos/puertas CI/observabilidad, y documentación de lo anterior. Detalle en [`docs/plan-de-accion.md`](docs/plan-de-accion.md).
+
+### Hallazgos P0 verificados
+
+- [ ] **H-01 / CI-001 — CI no ejecuta el 86% de su matriz.** 104 scripts declarados, 15 en CI. **CI no levanta PostgreSQL/PostGIS**, por lo que pagos, RLS, ledger, dispatch, KYC, safety y aislamiento por ciudad no bloquean ningún merge.
+- [ ] **H-02 / NOT-001 — push productivo imposible por configuración.** `NOTIFICATION_PROVIDER` sólo admite `disabled|sandbox` y producción prohíbe `sandbox`. El outbox está bien construido pero no tiene destino.
+- [ ] **H-03 / SEC-001 — realtime fail-open.** `realtime-repository.js:8` y `:16` devuelven `allRoles` ante evento sin entidad o `entityType` desconocido: un error de clasificación se convierte en broadcast a clientes, comercios y conductores.
+- [ ] **H-04 / DAT-001 — cobertura RLS incompleta.** 106 tablas, 86 con RLS, **20 sin política** y **cero `FORCE ROW LEVEL SECURITY`**, con `GRANT ... ON ALL TABLES` al rol de runtime. Sin política, la única barrera es el código de aplicación.
+- [ ] **H-05 / INF-001 — imagen Docker divergente y root.** Una etapa, con devDependencies, sin `USER`, y `CMD` sobre `server/index.js` en lugar del entrypoint instrumentado `server/start.js` que sí usa Compose.
+- [ ] **H-06 / DSP-001 — dispatch sin recorte espacial.** Cero ocurrencias de `ST_DWithin` y de KNN `<->`: cada oleada recalcula historial de 30 días para todo el padrón online.
+- [ ] **H-07 / GEO-001 — mapas públicos por defecto.** Nominatim, OSRM y tiles de OpenStreetMap como valores por defecto, contra su propia política de uso comercial.
+- [ ] **H-08 / ARC-001 — concentración monolítica.** `apps/mobile/App.tsx` 433 KB, `src/App.tsx` 360 KB, **`server/index.js` 338 KB**, con líneas de hasta 4.061 caracteres que hacen ilegible cualquier diff.
+- [ ] **H-09 / PAY-001 — Mercado Pago preparado pero no validado.** Sin sellers de prueba, sin credenciales, sin conciliación operada y sin el caso de refund con saldo insuficiente del vendedor.
+- [~] **H-10 — documentación desalineada.** Corregido parcialmente por esta entrega. `ROADMAP.MD` decía «migraciones hasta 105»: son **110**.
+
+### Corrección de estado
+
+- El recuento correcto de migraciones es **110** (`database/migrations/110_merchant_prep_acceptance_clock.sql`), no 105. Las menciones a «hasta 105» en bloques anteriores corresponden a la fecha en que se escribieron.
+
 ## Avance 22 de agosto de 2026 — Acceso mobile profesional
 
 - [x] Login dejó la tarjeta básica sobre gradiente y adoptó una composición Flash
@@ -290,6 +328,10 @@ Decisión competitiva: se adopta una bandeja transaccional persistente y prefere
 
 ### Estado ejecutivo de bloqueadores
 
+> **Nota de nomenclatura (25 de agosto de 2026).** Los identificadores de esta sección son históricos y **no** corresponden a los del [backlog técnico](docs/backlog-tecnico.md) vigente. En particular, el `SEC-001` histórico designa el aislamiento entre audiencias (cerrado), mientras que el `SEC-001` del backlog nuevo designa el default-deny del realtime (abierto). Ante conflicto, manda el backlog técnico.
+>
+> Los estados `[x]` de abajo significan «verificado localmente». Tras la auditoría del 25 de agosto se sabe que **casi ninguno está protegido por una puerta CI**, porque CI no levanta PostgreSQL. Un `[x]` local no equivale a una garantía continua: ver [`docs/matriz-madurez.md`](docs/matriz-madurez.md).
+
 - [x] **P0-01 / SEC-001 — aislamiento.** Ownership, serializers por rol, RLS físico y tests cross-tenant funcionan. Web, mobile y suites migraron a bootstrap y recursos segmentados; `/api/state` responde permanentemente `410 Gone`.
 - [x] **P0-02 / DAT-001 — PostgreSQL/PostGIS.** Runtime principal, migraciones, índices, transacciones por operación, auditoría append-only, backup y restore drill operativos; SQLite está aislado como fallback de tests.
 - [~] **P0-03 / IAM-001 — identidad.** Access/refresh rotativo, refresh web en cookie HttpOnly con defensa de origen, respuestas autenticadas `no-store`, sesiones remotas, recuperación, email OTP, MFA admin y suspensión funcionan. Teléfono E.164 tiene OTP y adaptador Twilio; migraciones hasta `105`, RLS y prueba física sandbox están verdes. Payouts exigen step-up WYSIWYS de un solo uso ligado a comercio/importe. Falta prueba SMS real con cuenta/proveedor habilitado.
@@ -301,6 +343,8 @@ Decisión competitiva: se adopta una bandeja transaccional persistente y prefere
 - [~] **P0-08 — safety/regulación.** KYC, vehículos, PIN, trusted contacts, share trip, SOS y soporte prioritario funcionan. Viajes públicos siguen bloqueados hasta seguros, habilitación, anomalías y procedimientos reales.
 
 ### Secuencia de ejecución vigente
+
+> **Sustituida el 25 de agosto de 2026** por [`docs/plan-de-accion.md`](docs/plan-de-accion.md), que fija fechas, entregables semanales y criterios de salida verificables por fase. La secuencia de abajo se conserva como registro del estado alcanzado hasta el 22 de agosto; su numeración de fases **no** coincide con la del plan vigente.
 
 #### Fase 0 — estabilización inmediata
 

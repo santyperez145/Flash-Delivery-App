@@ -1,10 +1,22 @@
 # Roadmap de producto
 
-El roadmap rector actualizado está en `ROADMAP.MD` y adopta `C:\Users\santiago\Desktop\FlashAPP.txt`, recalibrado contra el runtime PostgreSQL actual. Este archivo conserva detalle histórico; ante diferencias prevalece “Roadmap rector adoptado — 21 de agosto de 2026”.
+> **Documento histórico.** Desde el 25 de agosto de 2026 la planificación vigente está en [`docs/plan-de-accion.md`](plan-de-accion.md), que fija fases con fechas, entregables semanales y criterios de salida verificables. Ante cualquier diferencia, prevalece ese plan.
+>
+> Orden de precedencia: `docs/plan-de-accion.md` → `docs/backlog-tecnico.md` → `docs/auditoria-2026-08-25.md` → `ROADMAP.MD` → este archivo.
+>
+> Las fases 1 a 7 de abajo **no** se corresponden con las fases 0 a 5 del plan vigente. Se conservan como registro de la secuencia planificada en agosto de 2026.
 
 Fecha base: 14 de agosto de 2026.
 
-Objetivo: llevar Flash Delivery Mobility desde MVP fullstack local hasta plataforma competitiva con apps mobile, dispatch en tiempo real, pagos, soporte y operacion escalable.
+Objetivo original: llevar Flash Delivery Mobility desde MVP fullstack local hasta plataforma competitiva con apps mobile, dispatch en tiempo real, pagos, soporte y operacion escalable.
+
+## Reencuadre — 25 de agosto de 2026
+
+La auditoría integral concluyó que **el objetivo ya no es agregar capacidades**. La mayoría de las fases 1 a 5 de este documento están implementadas; lo que falta es evidencia de que funcionan bajo puerta automática, con proveedores reales y en operación.
+
+El objetivo vigente es: **reducir complejidad, validar producción, conectar proveedores reales, probar concurrencia, operar una zona y demostrar liquidez.**
+
+Ruta con mejor relación riesgo–potencial: **delivery y courier local → Flash Business → densidad operativa → piloto de movilidad → multiciudad.**
 
 ## Norte de producto
 

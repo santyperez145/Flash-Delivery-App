@@ -1,8 +1,34 @@
 # Flash Delivery Mobility
 
-MVP fullstack para operar comida, delivery y viajes tipo taxi/conductor en una sola plataforma.
+Plataforma para operar comida, delivery y viajes tipo taxi/conductor en una sola base: cliente, comercio, conductor y operaciones.
 
-Cada entrega se rige por [`docs/product-execution-guidelines.md`](docs/product-execution-guidelines.md): investigación competitiva verificable, backend autoritativo, cero capacidades productivas hardcodeadas, experiencia visual completa y checks honestos en el roadmap.
+## Estado de madurez
+
+**Preproducción avanzada.** No es un MVP visual ni una maqueta, y tampoco es una plataforma pública madura.
+
+La [auditoría integral del 25 de agosto de 2026](docs/auditoria-2026-08-25.md) evalúa el proyecto en **6,2/10** y lo declara apto para demo a inversores, desarrollo interno, staging serio y prueba cerrada de delivery una vez resueltos los P0. **No** está aprobado para lanzamiento público irrestricto, custodia de saldo real, pagos masivos sin supervisión, transporte público de pasajeros ni operación multiciudad.
+
+De 91 capacidades inventariadas en [`docs/matriz-madurez.md`](docs/matriz-madurez.md), el 81% de las que existen no está protegido por una puerta CI, y **ninguna fue probada todavía contra un proveedor real**.
+
+### Bloqueadores P0 abiertos
+
+| Hallazgo | Ticket | Resumen |
+| --- | --- | --- |
+| H-01 | CI-001 | CI ejecuta 15 de 104 scripts y no levanta PostgreSQL |
+| H-02 | NOT-001 | Push productivo imposible: el enum de configuración sólo admite `disabled` y `sandbox` |
+| H-03 | SEC-001 | Realtime hace broadcast a todos los roles ante entidad desconocida |
+| H-04 | DAT-001 | 20 tablas sin política RLS y cero `FORCE ROW LEVEL SECURITY` |
+| H-05 | INF-001 | La imagen Docker corre como root y arranca un entrypoint distinto al de Compose |
+| H-06 | DSP-001 | Dispatch sin `ST_DWithin` ni KNN: recalcula todo el padrón por oleada |
+| H-07 | GEO-001 | Nominatim y OSRM públicos como valores por defecto |
+| H-08 | ARC-001 | Cinco archivos concentran más de 1,3 MB de código |
+| H-09 | PAY-001 | Mercado Pago integrado pero nunca validado contra el proveedor |
+
+**Congelamiento activo:** hasta el 20 de septiembre de 2026 no se agregan capacidades nuevas. Ver [`docs/plan-de-accion.md`](docs/plan-de-accion.md).
+
+---
+
+Cada entrega se rige por [`AGENTS.md`](AGENTS.md) y [`docs/product-execution-guidelines.md`](docs/product-execution-guidelines.md): investigación competitiva verificable, backend autoritativo, cero capacidades productivas hardcodeadas, experiencia visual completa y checks honestos en el roadmap.
 
 Los tres verticales comparten ahora chat operacional real por servicio: mensajes, confirmaciones y adjuntos persistidos en PostgreSQL, con contenido AES-256-GCM y acceso exclusivo para cliente, conductor asignado y comercio participante. Detalles y garantías en `docs/service-chat.md`.
 
@@ -211,6 +237,16 @@ recorrido runtime no lo modifica. Las rutas sensibles usan JWT, RBAC, RLS y
 validación de propiedad por cliente, comercio y driver.
 
 ## Documentacion de producto
+
+### Rectores — leer primero
+
+- **Auditoría integral (25-08-2026):** `docs/auditoria-2026-08-25.md`
+- **Plan de acción y fases:** `docs/plan-de-accion.md`
+- **Backlog técnico P0/P1:** `docs/backlog-tecnico.md`
+- **Matriz de madurez:** `docs/matriz-madurez.md`
+- **Lineamientos de ejecución:** `AGENTS.md`
+
+### Referencia
 
 - Roadmap ejecutivo: `ROADMAP.MD`
 - Matriz completa Figma/API/dominio: `docs/figma-screen-matrix.md`
