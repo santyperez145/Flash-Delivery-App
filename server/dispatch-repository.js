@@ -1,40 +1,25 @@
 import crypto from "node:crypto";
 import { postgresPool } from "./postgres.js";
 import { enqueueNotificationForInternalUser } from "./notification-repository.js";
+import { scoreCandidates, shortlistDrivers } from "./dispatch-candidates.js";
 
 const offerId=()=>`OFR-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
 
 export async function createDispatchOffers(client,{jobId,mode,limit=3,ttlSeconds=45}){
-  const candidates=await client.query(`SELECT d.id,d.user_id,j.public_id job_public_id,j.kind,j.metadata,
-      ST_Distance(d.current_location,j.pickup_location) distance_m,
-      d.rating*20 rating_points,
-      LEAST(ST_Distance(d.current_location,j.pickup_location)/250,40) distance_penalty,
-      active_jobs.count*15 load_penalty,
-      CASE WHEN d.location_updated_at<now()-interval '5 minutes' THEN 25 ELSE 0 END freshness_penalty,
-      (COALESCE(history.acceptance_rate,.5)-.5)*20 acceptance_points,
-      GREATEST(-10,LEAST(10,(20-COALESCE(history.response_seconds,20))/2)) response_points,
-      COALESCE(history.acceptance_rate,.5) acceptance_rate,
-      COALESCE(history.response_seconds,20) average_response_seconds,
-      (d.rating*20)-LEAST(ST_Distance(d.current_location,j.pickup_location)/250,40)-(active_jobs.count*15)
-        -CASE WHEN d.location_updated_at<now()-interval '5 minutes' THEN 25 ELSE 0 END
-        +(COALESCE(history.acceptance_rate,.5)-.5)*20
-        +GREATEST(-10,LEAST(10,(20-COALESCE(history.response_seconds,20))/2)) score
-    FROM jobs j JOIN drivers d ON d.online AND $2::job_kind=ANY(d.service_modes) AND d.current_location IS NOT NULL
-    JOIN vehicles vehicle ON vehicle.driver_id=d.id AND vehicle.active AND vehicle.retired_at IS NULL AND vehicle.status='approved' AND $2::job_kind=ANY(vehicle.service_modes)
-    CROSS JOIN LATERAL(SELECT count(*)::numeric count FROM jobs active WHERE active.driver_id=d.id AND active.status NOT IN('completed','cancelled')) active_jobs
-    LEFT JOIN LATERAL(SELECT
-      count(*) FILTER(WHERE prior.status='accepted')::numeric/NULLIF(count(*) FILTER(WHERE prior.status IN('accepted','rejected','expired')),0) acceptance_rate,
-      avg(EXTRACT(epoch FROM(prior.responded_at-prior.created_at))) FILTER(WHERE prior.responded_at IS NOT NULL AND prior.status IN('accepted','rejected')) response_seconds
-      FROM dispatch_offers prior JOIN jobs prior_job ON prior_job.id=prior.job_id
-      WHERE prior.driver_id=d.id AND prior_job.kind=$2::job_kind AND prior.created_at>=now()-interval '30 days') history ON true
-    WHERE j.id=$1 AND d.location_updated_at>=now()-interval '10 minutes' AND (d.location_accuracy_m IS NULL OR d.location_accuracy_m<=200)
-      AND (COALESCE(j.metadata->>'subtype','')<>'food_order' OR j.status='ready_for_pickup')
-      AND (j.scheduled_for IS NULL OR j.scheduled_for<=now()+interval '15 minutes') AND NOT EXISTS(SELECT 1 FROM dispatch_offers prior WHERE prior.job_id=j.id AND prior.driver_id=d.id)
-      AND (($2::job_kind='ride' AND NOT EXISTS(SELECT 1 FROM jobs active WHERE active.driver_id=d.id AND active.kind='ride' AND active.status NOT IN('completed','cancelled')))
-        OR ($2::job_kind='delivery' AND (SELECT count(*) FROM jobs active WHERE active.driver_id=d.id AND active.kind='delivery' AND active.status NOT IN('completed','cancelled'))<2))
-    ORDER BY score DESC, distance_m ASC LIMIT $3`,[jobId,mode,limit]);
+  // Las compuertas del trabajo se evalúan una sola vez, no por candidato.
+  const job=(await client.query(`SELECT j.id,j.pickup_location::text pickup,
+      (COALESCE(j.metadata->>'subtype','')<>'food_order' OR j.status='ready_for_pickup') ready,
+      (j.scheduled_for IS NULL OR j.scheduled_for<=now()+interval '15 minutes') in_window
+    FROM jobs j WHERE j.id=$1`,[jobId])).rows[0];
+  if(!job||!job.pickup||!job.ready||!job.in_window)return[];
+
+  // Etapa 1: recorte espacial con ST_DWithin y orden KNN sobre el índice GiST.
+  const {driverIds,radiusM,expanded}=await shortlistDrivers(client,{pickup:job.pickup,mode,needed:limit});
+  // Etapa 2: puntuación explicable, sólo sobre la lista corta.
+  const candidates={rows:await scoreCandidates(client,{jobId,driverIds,mode,limit})};
+
   const offers=[];
-  for(const candidate of candidates.rows){const scoreBreakdown={rating:Number(candidate.rating_points),distancePenalty:Number(candidate.distance_penalty),loadPenalty:Number(candidate.load_penalty),freshnessPenalty:Number(candidate.freshness_penalty),acceptancePoints:Number(candidate.acceptance_points),responsePoints:Number(candidate.response_points),acceptanceRate:Number(candidate.acceptance_rate),averageResponseSeconds:Number(candidate.average_response_seconds)};const row=(await client.query(`INSERT INTO dispatch_offers(public_id,job_id,driver_id,score,expires_at,score_breakdown)
+  for(const candidate of candidates.rows){const scoreBreakdown={searchRadiusM:radiusM,radiusExpanded:expanded,rating:Number(candidate.rating_points),distancePenalty:Number(candidate.distance_penalty),loadPenalty:Number(candidate.load_penalty),freshnessPenalty:Number(candidate.freshness_penalty),acceptancePoints:Number(candidate.acceptance_points),responsePoints:Number(candidate.response_points),acceptanceRate:Number(candidate.acceptance_rate),averageResponseSeconds:Number(candidate.average_response_seconds)};const row=(await client.query(`INSERT INTO dispatch_offers(public_id,job_id,driver_id,score,expires_at,score_breakdown)
       VALUES($1,$2,$3,$4,now()+($5*interval '1 second'),$6)
       ON CONFLICT(job_id,driver_id) DO NOTHING RETURNING public_id,expires_at`,
     [offerId(),jobId,candidate.id,candidate.score,ttlSeconds,scoreBreakdown])).rows[0];if(row){offers.push(row.public_id);await enqueueNotificationForInternalUser(client,{userId:candidate.user_id,template:"dispatch_offer",payload:{offerId:row.public_id,jobId:candidate.job_public_id,kind:candidate.kind,subtype:candidate.metadata?.subtype||null,expiresAt:row.expires_at,score:Number(candidate.score),scoreBreakdown},deduplicationKey:`dispatch_offer:${row.public_id}`});}}

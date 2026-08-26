@@ -42,6 +42,11 @@ const envSchema = z.object({
   SMTP_PASSWORD: z.string().optional(),
   SMTP_FROM: z.string().default("Flash <noreply@flash.local>"),
   REQUIRE_ADMIN_MFA: booleanFromEnv.default(false),
+  // Dispatch v2: el radio acota el conjunto antes de puntuar. Sin él, cada
+  // oleada recalcula historial de 30 días para todo el padrón online.
+  DISPATCH_SEARCH_RADIUS_M: z.coerce.number().int().min(500).max(100000).default(8000),
+  DISPATCH_MAX_RADIUS_M: z.coerce.number().int().min(500).max(200000).default(25000),
+  DISPATCH_SHORTLIST_SIZE: z.coerce.number().int().min(5).max(200).default(30),
   MAPS_PROVIDER: z.enum(["openstreetmap","google"]).default("openstreetmap"),
   GOOGLE_MAPS_SERVER_API_KEY: z.string().min(20).optional(),
   GEOCODING_URL: z.string().url().default("https://nominatim.openstreetmap.org"),
@@ -151,6 +156,7 @@ export const config = {
   appPublicUrl:env.APP_PUBLIC_URL,
   smtp:{host:env.SMTP_HOST,port:env.SMTP_PORT,secure:env.SMTP_SECURE,user:env.SMTP_USER,password:env.SMTP_PASSWORD,from:env.SMTP_FROM},
   requireAdminMfa:env.REQUIRE_ADMIN_MFA,
+  dispatch:{searchRadiusM:env.DISPATCH_SEARCH_RADIUS_M,maxRadiusM:Math.max(env.DISPATCH_SEARCH_RADIUS_M,env.DISPATCH_MAX_RADIUS_M),shortlistSize:env.DISPATCH_SHORTLIST_SIZE},
   maps:{provider:env.MAPS_PROVIDER,googleServerApiKey:env.GOOGLE_MAPS_SERVER_API_KEY??null},
   geocodingUrl: env.GEOCODING_URL,
   routingUrl: env.ROUTING_URL

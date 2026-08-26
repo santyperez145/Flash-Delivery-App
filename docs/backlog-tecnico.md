@@ -346,12 +346,14 @@ Añadir además: oleadas de oferta · radio dinámico · protección contra inan
 
 ### Criterios de aceptación
 
-- [ ] La primera oferta se emite dentro del SLO de 5 s p95.
+- [x] El recorte espacial y el orden KNN existen y están cubiertos por una puerta.
+- [x] La reasignación automática funciona al expirar una oferta.
+- [x] El desglose que explica cada score sigue disponible, ahora con el radio usado.
+- [x] Cero dobles asignaciones bajo concurrencia forzada (`test:postgres`).
 - [ ] El plan de consulta usa índice GiST, verificado con `EXPLAIN ANALYZE`.
-- [ ] Cero dobles asignaciones bajo concurrencia forzada.
-- [ ] La reasignación automática funciona al expirar una oferta.
-- [ ] El desglose que explica cada score sigue disponible para el conductor.
+- [ ] La primera oferta se emite dentro del SLO de 5 s p95.
 - [ ] Existe una prueba de carga con un padrón sintético de al menos 1.000 conductores.
+- [ ] ETA vial por Route Matrix conectado al scoring — depende de una API key.
 
 ---
 

@@ -267,6 +267,10 @@ grep -rn "ST_DWithin\|<->" server/ database/ | wc -l   # → 0
 
 Con decenas de conductores esto es irrelevante. Con cientos o miles por ciudad, cada oleada de ofertas recalcula historial de 30 días para todo el padrón online. El costo crece justo cuando la plataforma empieza a funcionar.
 
+**Corregido el 26 de agosto de 2026.** La selección pasó a dos etapas: `ST_DWithin` más orden KNN `<->` sobre el índice GiST parcial acotan el conjunto, y el scoring —con sus mismos componentes— sólo evalúa esa lista corta. El punto de pickup entra como parámetro y no como columna de un join, porque el planificador sólo usa el índice para KNN cuando un operando es constante. Se agregó radio dinámico con protección contra inanición, visible en `score_breakdown`.
+
+**Deuda abierta:** `EXPLAIN ANALYZE` con un padrón sintético de al menos 1.000 conductores —el contrato prueba la forma de la consulta, el plan hay que medirlo—, el ETA vial por Route Matrix, que depende de una API key, y las stats precomputadas, que con la lista corta pasaron de corrección a optimización.
+
 **Severidad: P0.** Ticket [DSP-001](backlog-tecnico.md#dsp-001--dispatch-v2).
 
 ---

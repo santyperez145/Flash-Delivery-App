@@ -21,7 +21,7 @@ La Fase 0 está en marcha: ver el [plan de acción](docs/plan-de-accion.md) y el
 | H-03 | SEC-001 | **Corregido.** Default-deny activo y con puerta CI; queda la verificación de runtime contra PostgreSQL |
 | H-04 | DAT-001 | **En curso.** 106 tablas clasificadas y con puerta CI; quedan 5 `por-usuario` sin política y `FORCE` en cero |
 | H-05 | INF-001 | **Corregido.** Imagen multi-etapa, `uid=999(flash)` verificado en build real, mismo entrypoint que Compose |
-| H-06 | DSP-001 | Dispatch sin `ST_DWithin` ni KNN: recalcula todo el padrón por oleada |
+| H-06 | DSP-001 | **En curso.** Recorte espacial y KNN activos; falta medir el plan y el ETA vial |
 | H-07 | GEO-001 | **En curso.** Adapter con proveedor comercial y producción bloqueada para instancias públicas; falta una API key |
 | H-08 | ARC-001 | Cinco archivos concentran más de 1,3 MB de código; un ratchet impide que crezca |
 | H-09 | PAY-001 | Mercado Pago integrado pero nunca validado contra el proveedor |

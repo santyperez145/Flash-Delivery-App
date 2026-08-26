@@ -111,7 +111,7 @@ La matriz vive en `docs/matriz-madurez.md` y se actualiza en el mismo PR que cam
 | Separación de `apps/mobile/App.tsx` | ARC-001 | Entrypoints customer/driver/merchant independientes |
 | Descomposición de `server/index.js` | ARC-001 | Controllers separados de use cases y repositories |
 | Reformateo de archivos comprimidos | ARC-001 | Ninguna línea de código fuente supera 200 caracteres |
-| Dispatch v2 etapa 1 | DSP-001 | `ST_DWithin` + KNN recortan candidatos antes del scoring |
+| ~~Dispatch v2 etapa 1~~ **hecho** | DSP-001 | `ST_DWithin` + KNN recortan candidatos antes del scoring |
 | SLOs documentados | — | Objetivos técnicos de la auditoría publicados y medibles |
 
 ### Criterios de salida de la Fase 0
@@ -305,7 +305,7 @@ Estado al **25 de agosto de 2026**. Se actualiza en el PR que cambia el estado, 
 | [INF-001](backlog-tecnico.md#inf-001--imagen-productiva-endurecida) | P0 | H-05 | **En curso** | 0 |
 | [NOT-001](backlog-tecnico.md#not-001--push-real) | P0 | H-02 | **En curso** | 0 |
 | [GEO-001](backlog-tecnico.md#geo-001--proveedor-de-mapas-comercial) | P0 | H-07 | **En curso** | 0 |
-| [DSP-001](backlog-tecnico.md#dsp-001--dispatch-v2) | P0 | H-06 | Pendiente | 0–1 |
+| [DSP-001](backlog-tecnico.md#dsp-001--dispatch-v2) | P0 | H-06 | **En curso** | 0–1 |
 | [PAY-001](backlog-tecnico.md#pay-001--validación-marketplace) | P0 | H-09 | Pendiente | 1 |
 | [MOB-001](backlog-tecnico.md#mob-001--release-engineering) | P0 | — | Pendiente | 1 |
 | [OPS-001](backlog-tecnico.md#ops-001--operación-real) | P1 | — | Pendiente | 2 |
@@ -373,7 +373,11 @@ prueba que el contrato es correcto, **no** que un push llegue a un teléfono ni
 cuánto cuesta una consulta de rutas. Esa es la distancia entre `CI` y `PROV`, y
 es lo que queda bloqueado por credenciales de proveedor.
 
-**ARC-001.** Todavía no empezó la modularización. Sí quedó activo un ratchet que
+**DSP-001.** La selección pasó a dos etapas y el recorte espacial existe por
+primera vez. Queda medir el plan con `EXPLAIN ANALYZE` sobre un padrón
+sintético, y el ETA vial, que depende de una API key.
+
+**ARC-001.** Todavía no empezó la modularización. Es el último P0 sin abrir. Sí quedó activo un ratchet que
 impide que el problema crezca: `test:line-length` fija una línea base de **1.543
 líneas de más de 200 caracteres en 120 archivos** y sólo admite bajarla.
 
