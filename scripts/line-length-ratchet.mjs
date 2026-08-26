@@ -35,7 +35,12 @@ const files = (await Promise.all(ROOTS.map(collect))).flat().sort();
 const current = {};
 for (const file of files) {
   const content = await fs.readFile(file, "utf8");
-  const offenders = content.split("\n").filter((line) => line.length > MAX_LINE_LENGTH).length;
+  // El retorno de carro de CRLF no es contenido de la línea. Contarlo hacía que
+  // el mismo archivo midiera distinto en Windows y en Linux, y que una línea de
+  // exactamente 200 caracteres apareciera como violación sólo en una de las dos.
+  const offenders = content
+    .split("\n")
+    .filter((line) => line.replace(/\r$/, "").length > MAX_LINE_LENGTH).length;
   if (offenders > 0) current[file] = offenders;
 }
 
