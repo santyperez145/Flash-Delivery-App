@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { postgresPool } from "./postgres.js";
+import { pesos } from "./money.js";
 
-const pesos = (value) => Number(value || 0) / 100;
 const mapReceipt = (row) => ({
   id: row.public_id,
   number: row.receipt_number,

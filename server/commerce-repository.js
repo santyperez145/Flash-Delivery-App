@@ -12,8 +12,8 @@ import {
   createMercadoPagoPayment,
   mercadoPagoFulfillmentDecision,
 } from "./payment-marketplace-provider.js";
+import { pesos } from "./money.js";
 
-const pesos = (cents) => Number(cents || 0) / 100;
 const marketplacePaymentKey = (value) =>
   `mp-${crypto.createHash("sha256").update(String(value)).digest("hex")}`;
 

@@ -66,6 +66,11 @@ jobs:
       - name: User redaction contract
         run: npm run test:user-view
 
+      # `pesos` estaba definida tres veces. La puerta impide la cuarta y fija
+      # en 26 las conversiones en linea que la unificacion dejo a la vista.
+      - name: Money conversion contract
+        run: npm run test:money
+
       # Un 500 no describe su causa. Lo decidia el manejador global, pero 130
       # handlers lo puenteaban capturando el error ellos mismos. Se encontro
       # probando en el navegador, no leyendo codigo.
