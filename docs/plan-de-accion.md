@@ -90,7 +90,7 @@ La matriz vive en `docs/matriz-madurez.md` y se actualiza en el mismo PR que cam
 | Entregable | Ticket | Criterio de cierre |
 | --- | --- | --- |
 | ~~`ci-critical-flows.yml`~~ **hecho** | CI-001 | Pagos, ledger, webhooks, conciliación, KYC, soporte y safety bloquean el merge · 4 suites en cuarentena |
-| Matriz formal de cobertura RLS | DAT-001 | Las 106 tablas clasificadas; `FORCE ROW LEVEL SECURITY` donde corresponda |
+| ~~Matriz formal de cobertura RLS~~ **hecho** | DAT-001 | Las 106 tablas clasificadas y con puerta CI; `FORCE ROW LEVEL SECURITY` sigue pendiente |
 | Pruebas negativas por rol | DAT-001 | Cada tabla con datos por usuario tiene un test que demuestra denegación |
 | Vitest + Testcontainers | CI-001 | Framework estándar adoptado; primeras suites migradas |
 
@@ -301,7 +301,7 @@ Estado al **25 de agosto de 2026**. Se actualiza en el PR que cambia el estado, 
 | [SEC-001](backlog-tecnico.md#sec-001--realtime-default-deny) | P0 | H-03 | **En curso** | 0 |
 | [CI-001](backlog-tecnico.md#ci-001--pipeline-productivo) | P0 | H-01 | **En curso** | 0 |
 | [ARC-001](backlog-tecnico.md#arc-001--modularización) | P0 | H-08 | **En curso** | 0 |
-| [DAT-001](backlog-tecnico.md#dat-001--matriz-rls-default-deny) | P0 | H-04 | Pendiente | 0 |
+| [DAT-001](backlog-tecnico.md#dat-001--matriz-rls-default-deny) | P0 | H-04 | **En curso** | 0 |
 | [INF-001](backlog-tecnico.md#inf-001--imagen-productiva-endurecida) | P0 | H-05 | **En curso** | 0 |
 | [NOT-001](backlog-tecnico.md#not-001--push-real) | P0 | H-02 | Pendiente | 0 |
 | [GEO-001](backlog-tecnico.md#geo-001--proveedor-de-mapas-comercial) | P0 | H-07 | Pendiente | 0 |
@@ -349,6 +349,13 @@ entrypoint instrumentado y no lleva devDependencies ni el árbol de fuentes. El
 job `container-image` la construye en cada PR y verifica el resultado, no sólo el
 texto del Dockerfile. Quedan el filesystem raíz de sólo lectura y los 380 MiB de
 imagen, ambos con su razón anotada.
+
+**DAT-001.** Las 106 tablas están clasificadas y `test:rls-matrix` lo hace
+vinculante: una tabla nueva no entra sin declarar su clase. La clasificación
+destapó que `user_roles` se lee antes de autenticar —una política ingenua ahí
+rompe todo login— y que hay dos tablas de esquema muerto, una de ellas con
+forma de almacén de credenciales. Quedan cinco tablas sin política, `FORCE` en
+cero y los grants todavía `ON ALL TABLES`.
 
 **ARC-001.** Todavía no empezó la modularización. Sí quedó activo un ratchet que
 impide que el problema crezca: `test:line-length` fija una línea base de **1.543

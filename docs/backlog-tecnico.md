@@ -148,9 +148,12 @@ node -e "const p=require('./package.json'),fs=require('fs');const ci=fs.readdirS
 
 ### Criterios de aceptación
 
-- [ ] Toda tabla nueva entra en la matriz en el mismo PR que la crea.
-- [ ] `ci-postgres.yml` falla si aparece una tabla sin clasificar.
-- [ ] Las tablas prioritarias tienen política y prueba negativa.
+- [x] Toda tabla nueva entra en la matriz en el mismo PR que la crea — lo verifica `npm run test:rls-matrix`.
+- [x] CI falla si aparece una tabla sin clasificar, si la matriz se desalinea de las migraciones, o si una tabla `por-usuario` queda sin política fuera de la deuda declarada.
+- [x] Las 106 tablas están clasificadas: 65 `por-usuario` (60 con política), 24 `global-lectura`, 15 `servicio`, 2 `sin-uso`.
+- [ ] Las cinco tablas de la deuda tienen política y prueba negativa. `user_roles` exige mover el login a `SECURITY DEFINER` primero.
+- [ ] Eliminar el esquema muerto: `outbox_events` y `user_security_factors`.
+- [ ] `FORCE ROW LEVEL SECURITY` donde corresponda — sigue en cero.
 - [ ] Los grants dejan de ser `ON ALL TABLES`.
 
 ### Verificación
