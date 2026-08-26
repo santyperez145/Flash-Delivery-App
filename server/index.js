@@ -26,14 +26,16 @@ import {
   isAdmin,
   requireAnyRole,
 } from "./http/authorization.js";
-import { createAddressesRouter } from "./http/addresses-router.js";
+import { audit, readDb, sqliteReadCount } from "./fallback-runtime.js";
+import { requireAuth } from "./http/authentication.js";
+import { addressesRouter } from "./http/addresses-router.js";
 import {
-  createRealtimeRouter,
   publishRealtimeEvent,
   realtimeClients,
+  realtimeRouter,
   startRealtimeListener,
 } from "./http/realtime.js";
-import { createMapsRouter } from "./http/maps-router.js";
+import { mapsRouter } from "./http/maps-router.js";
 import { closeRedis, redisClient, redisReadiness } from "./redis.js";
 import { openApiDocument } from "./openapi.js";
 import { closePostgres, postgresPool, postgresReadiness } from "./postgres.js";
@@ -54,7 +56,6 @@ import {
   requestPhoneVerification,
 } from "./phone-verification-repository.js";
 import { observeHttpRequest, observeProviderCall, renderPrometheus } from "./observability.js";
-import { ProviderCircuit } from "./provider-resilience.js";
 import {
   createPostgresSession,
   findAuthUserByEmail,
@@ -318,7 +319,6 @@ import {
   getDatabasePath,
   getTimestamp,
   orderStatuses,
-  readDb as readFallbackDb,
   markLocalNotificationRead,
   revokeAuthSession,
   resetDb,
@@ -336,13 +336,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const distDir = path.resolve(__dirname, "..", "dist");
 const processStartedAt = Date.now();
-const mapProviderCircuit = new ProviderCircuit(config.mapProvider);
-let sqliteRuntimeReads = 0;
 let draining = false;
-function readDb() {
-  sqliteRuntimeReads += 1;
-  return readFallbackDb();
-}
 
 app.disable("x-powered-by");
 app.set("trust proxy", config.isProduction ? 1 : false);
@@ -543,52 +537,6 @@ app.use(
   }),
 );
 
-function getBearerToken(req) {
-  const header = req.headers.authorization || "";
-  if (!header.startsWith("Bearer ")) return "";
-  return header.slice("Bearer ".length).trim();
-}
-
-async function requireAuth(req, res, next) {
-  const token = getBearerToken(req);
-  if (!token) return fail(res, 401, "Token requerido");
-  try {
-    const payload = jwt.verify(token, jwtSecret);
-    const db = usesPostgresAuth() ? null : readDb();
-    const user = usesPostgresAuth()
-      ? await findAuthUserByPublicId(payload.sub)
-      : db.users.find((entry) => entry.id === payload.sub);
-    if (!user) return fail(res, 401, "Usuario no existe");
-    req.auth = {
-      userId: user.id,
-      roles: Array.isArray(user.roles) ? user.roles : [],
-      user,
-      mfaVerified: payload.mfa === true,
-      mfa:
-        usesPostgresAuth() && user.roles?.includes("admin")
-          ? await getAdminMfaStatus(user.id)
-          : { enabled: false },
-    };
-    res.set("Cache-Control", "no-store, private");
-    res.set("Pragma", "no-cache");
-    return next();
-  } catch (_error) {
-    return fail(res, 401, "Token invalido o expirado");
-  }
-}
-
-function audit(db, req, entityType, entityId, action, payload = {}) {
-  const event = {
-    id: createId("AUD"),
-    actorId: req.auth?.userId || "system",
-    entityType,
-    entityId,
-    action,
-    payload,
-    createdAt: getTimestamp(),
-  };
-  db.auditEvents = [event, ...(db.auditEvents || [])].slice(0, 500);
-}
 // The database independently locks PIN verification after five failures. This
 // wider edge budget also covers authorized photo upload/download operations.
 const deliveryProofLimiter = createLimiter({
@@ -2454,7 +2402,7 @@ app.get("/api/ready", async (_req, res) => {
       database: postgres,
       redis,
       runtimeStore: config.databaseUrl ? "postgres-primary" : "sqlite-demo",
-      fallbackDiagnostics: { sqliteReads: sqliteRuntimeReads },
+      fallbackDiagnostics: { sqliteReads: sqliteReadCount() },
       authStore: usesPostgresAuth() ? "postgres" : "sqlite-test-fallback",
       domainStores: {
         catalog: usesPostgresCommerce() ? "postgres" : "sqlite-test-fallback",
@@ -4826,7 +4774,7 @@ app.get("/api/me", requireAuth, async (req, res) => {
   return ok(res, { account });
 });
 
-app.use(createAddressesRouter({ requireAuth, readDb, audit }));
+app.use(addressesRouter);
 
 app.get(
   "/api/ride-destinations",
@@ -5213,7 +5161,7 @@ app.post("/api/wallet/topup", requireAuth, async (req, res) => {
   return ok(res, { account: accountSnapshot(readDb(), user.id) });
 });
 
-app.use(createRealtimeRouter({ requireAuth }));
+app.use(realtimeRouter);
 
 app.get("/api/metrics", requireAuth, requireAnyRole("admin"), async (req, res) => {
   ok(res, { metrics: metrics(await loadRuntimeState(req)) });
@@ -7528,7 +7476,7 @@ app.post("/api/rides/options", async (req, res) => {
   });
 });
 
-app.use(createMapsRouter({ requireAuth, mapProviderCircuit }));
+app.use(mapsRouter);
 
 app.post("/api/rides", requireAuth, requireAnyRole("customer", "admin"), async (req, res) => {
   const parsed = parseOrFail(rideCreateSchema, req.body || {});

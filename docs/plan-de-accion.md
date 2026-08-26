@@ -109,7 +109,7 @@ La matriz vive en `docs/matriz-madurez.md` y se actualiza en el mismo PR que cam
 | --- | --- | --- |
 | Separación de `src/App.tsx` | ARC-001 | Ningún `App.tsx` supera 1.500 líneas |
 | Separación de `apps/mobile/App.tsx` | ARC-001 | Entrypoints customer/driver/merchant independientes |
-| Descomposición de `server/index.js` | ARC-001 | Controllers separados de use cases y repositories. **3 de 57 grupos extraídos**; núcleo compartido: `responses`, `authorization` y realtime hechos, faltan `requireAuth`, auditoría y `readDb` |
+| Descomposición de `server/index.js` | ARC-001 | Controllers separados de use cases y repositories. **3 de 57 grupos extraídos**; el núcleo compartido está completo, así que lo que queda es repetitivo y no de diseño |
 | ~~Reformateo de archivos comprimidos~~ **hecho** | ARC-001 | Línea máxima 4.061 → 206; quedan 262 líneas largas, casi todas SQL |
 | ~~Dispatch v2 etapa 1~~ **hecho** | DSP-001 | `ST_DWithin` + KNN recortan candidatos antes del scoring |
 | SLOs documentados | — | Objetivos técnicos de la auditoría publicados y medibles |
@@ -386,7 +386,10 @@ La extracción empezó por el núcleo compartido, no por los grupos grandes:
 `http/responses.js` (697 llamadas), `http/authorization.js` (81 usos, 9 reglas
 ahora puras y con contrato propio) y `http/realtime.js` (43 publicaciones y el
 registro de clientes SSE). Con eso salieron tres grupos de rutas de 57,
-mapas, direcciones y realtime. `server/index.js`: 9.696 → 9.116 líneas.
+mapas, direcciones y realtime. `server/index.js`: 9.696 → 9.064 líneas.
+El paso 5 cerró el núcleo con `http/authentication.js` y `fallback-runtime.js`:
+los tres routers dejaron de ser factories porque ya no queda nada que
+recibir.
 
 El segundo paso reveló el mismo defecto que el primero, en otra forma: un
 contrato con un archivo hardcodeado **pierde cobertura en silencio** cuando la
