@@ -27,7 +27,14 @@ import {
   requireAnyRole,
 } from "./http/authorization.js";
 import { auditRuntime } from "./audit-trail.js";
-import { audit, readDb, scopeStateForRequest, sqliteReadCount } from "./fallback-runtime.js";
+import {
+  audit,
+  fallbackRidePricing,
+  fallbackShipmentPricing,
+  readDb,
+  scopeStateForRequest,
+  sqliteReadCount,
+} from "./fallback-runtime.js";
 import { requireAuth } from "./http/authentication.js";
 import { addressesRouter } from "./http/addresses-router.js";
 import { dietaryRouter } from "./http/dietary-router.js";
@@ -45,6 +52,7 @@ import { driverFleetRouter } from "./http/driver-fleet-router.js";
 import { shipmentProtectionRouter } from "./http/shipment-protection-router.js";
 import { paymentMethodsRouter } from "./http/payment-methods-router.js";
 import { supportRouter } from "./http/support-router.js";
+import { configurationRouter } from "./http/configuration-router.js";
 import {
   createLimiter,
   deliveryProofLimiter,
@@ -138,10 +146,7 @@ import {
   getPostgresShipmentDeliveryEvidence,
   getPostgresShipmentDeliveryEvidenceContent,
   getShipmentProtectionPlan,
-  getShipmentOptions,
   getShipmentServiceConfiguration,
-  updateShipmentItemCategory,
-  updateShipmentServiceLevel,
 } from "./mobility-repository.js";
 import {
   cancelMobilityJobAndRefundWallet,
@@ -159,7 +164,6 @@ import {
   getActivityPage,
   getAssignedDriverProjections,
 } from "./activity-repository.js";
-import { findPublicCity, getPublicCities } from "./city-repository.js";
 import {
   evaluateFeatureFlags,
   getFeatureFlags,
@@ -194,15 +198,12 @@ import {
 import {
   createPostgresPricingChangeRequest,
   createPostgresPricingRollbackRequest,
-  createPostgresPromotion,
   getPostgresPricingChangeRequests,
   getPostgresPricingPlan,
-  getPostgresPricingPlans,
   getPostgresPromotions,
   getPostgresZonePricing,
   getPostgresZones,
   reviewPostgresPricingChangeRequest,
-  updatePostgresPromotion,
   updatePostgresZone,
 } from "./configuration-repository.js";
 import { getPostgresFavoriteMerchantIds, getPostgresRatings } from "./feedback-repository.js";
@@ -644,24 +645,6 @@ const shipmentCreateSchema = shipmentQuoteSchema.extend({
     error: "Debes aceptar las restricciones de envio",
   }),
 });
-const shipmentCategoryUpdateSchema = z
-  .object({
-    name: z.string().trim().min(2).max(80).optional(),
-    handlingInstructions: z.string().trim().min(3).max(300).optional(),
-    surcharge: z.coerce.number().nonnegative().max(100000).optional(),
-    maximumWeightKg: z.coerce.number().positive().max(20).optional(),
-    active: z.boolean().optional(),
-  })
-  .refine((value) => Object.keys(value).length > 0, "Indicá al menos un cambio");
-const shipmentServiceLevelUpdateSchema = z
-  .object({
-    name: z.string().trim().min(2).max(80).optional(),
-    transportMultiplier: z.coerce.number().min(0.5).max(5).optional(),
-    etaMultiplier: z.coerce.number().min(0.25).max(3).optional(),
-    maximumDistanceKm: z.coerce.number().positive().max(500).nullable().optional(),
-    active: z.boolean().optional(),
-  })
-  .refine((value) => Object.keys(value).length > 0, "Indicá al menos un cambio");
 const payoutRequestSchema = z.object({
   amount: z.coerce.number().positive().max(100000000),
   merchantId: z.string().optional(),
@@ -829,34 +812,6 @@ const supportAgentUpdateSchema = z
 const supportQueueProcessSchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
 });
-const promotionFields = z.object({
-  code: z.string().trim().min(3).max(40).optional(),
-  title: z.string().trim().min(3).max(160),
-  description: z.string().trim().max(500).default(""),
-  service: z.enum(["food", "ride"]),
-  kind: z.enum(["percentage", "fixed", "free_delivery", "wallet_credit"]),
-  value: z.coerce.number().int().positive(),
-  maxDiscount: z.coerce.number().nonnegative().optional(),
-  minSubtotal: z.coerce.number().nonnegative().default(0),
-  usageLimit: z.coerce.number().int().positive().optional(),
-  perUserLimit: z.coerce.number().int().positive().max(100).default(1),
-  startsAt: z.string().datetime(),
-  endsAt: z.string().datetime(),
-  rules: z.record(z.string(), z.unknown()).default({}),
-  active: z.boolean().default(true),
-});
-const promotionCreateSchema = promotionFields.refine(
-  (value) => new Date(value.endsAt) > new Date(value.startsAt),
-  "La fecha final debe ser posterior",
-);
-const promotionUpdateSchema = promotionFields
-  .partial()
-  .refine(
-    (value) =>
-      Object.keys(value).length > 0 &&
-      (!value.startsAt || !value.endsAt || new Date(value.endsAt) > new Date(value.startsAt)),
-    "Cambio de promoción inválido",
-  );
 const zoneUpdateSchema = z
   .object({
     name: z.string().trim().min(2).max(120).optional(),
@@ -1328,40 +1283,6 @@ function distanceBetween(first, second) {
   return earthRadiusKm * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
 }
 
-const fallbackRidePricing = {
-  version: "sqlite-test-fallback",
-  config: {
-    baseFare: 850,
-    distancePerKm: 420,
-    timePerMin: 48,
-    serviceFee: 390,
-    tollThresholdKm: 18,
-    tollAmount: 850,
-    roadFactor: 1.22,
-    minDistanceKm: 1.2,
-    maxDistanceKm: 50,
-    durationBaseMin: 8,
-    durationPerKm: 2.1,
-    etaBaseMin: 4,
-    etaPerKm: 0.55,
-    serviceMultipliers: { moto: 0.78, economy: 1, comfort: 1.28, xl: 1.65 },
-  },
-};
-const fallbackShipmentPricing = {
-  version: "sqlite-test-fallback",
-  config: {
-    baseFare: 1200,
-    distancePerKm: 540,
-    weightPerKg: 85,
-    roadFactor: 1.22,
-    minDistanceKm: 1,
-    maxDistanceKm: 45,
-    etaBaseMin: 12,
-    etaPerKm: 2.2,
-    minimumEtaMin: 15,
-    sizeMultipliers: { small: 1, medium: 1.18, large: 1.42 },
-  },
-};
 function calculateRideQuote(
   {
     pickup,
@@ -3458,206 +3379,7 @@ app.post(
   },
 );
 
-app.get("/api/promotions", async (_req, res) => {
-  try {
-    res.set("Cache-Control", "public, max-age=30, stale-while-revalidate=120");
-    return ok(res, {
-      promotions: usesPostgresCommerce() ? await getPostgresPromotions() : readDb().promotions,
-    });
-  } catch (_error) {
-    return fail(res, 500, "No se pudieron cargar las promociones");
-  }
-});
-app.post("/api/promotions", requireAuth, requireAnyRole("admin"), async (req, res) => {
-  if (!usesPostgresCommerce()) return fail(res, 503, "Promociones reales requieren PostgreSQL");
-  const parsed = parseOrFail(promotionCreateSchema, req.body || {});
-  if (!parsed.ok) return fail(res, 400, parsed.message);
-  try {
-    const promotion = await createPostgresPromotion(parsed.data);
-    await recordPostgresAudit({
-      actorPublicId: req.auth.userId,
-      roles: req.auth.roles,
-      action: "promotion.created",
-      entityType: "promotion",
-      entityId: promotion.id,
-      requestId: req.requestId,
-      afterData: {
-        code: promotion.code,
-        service: promotion.service,
-        kind: promotion.kind,
-      },
-    });
-    return res.status(201).json({ ok: true, requestId: res.locals.requestId, promotion });
-  } catch (error) {
-    return failFrom(
-      res,
-      // Una violación de unicidad es un conflicto del cliente, no una falla
-      // del servidor: conserva su 409 y su mensaje propio.
-      error.code === "23505" ? { status: 409, message: "El código ya existe" } : error,
-      "No se pudo crear la promoción",
-    );
-  }
-});
-app.patch(
-  "/api/promotions/:promotionId",
-  requireAuth,
-  requireAnyRole("admin"),
-  async (req, res) => {
-    const parsed = parseOrFail(promotionUpdateSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const promotion = await updatePostgresPromotion(req.params.promotionId, parsed.data);
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "promotion.updated",
-        entityType: "promotion",
-        entityId: promotion.id,
-        requestId: req.requestId,
-        afterData: parsed.data,
-      });
-      return ok(res, { promotion });
-    } catch (error) {
-      return failFrom(
-        res,
-        // Una violación de unicidad es un conflicto del cliente, no una falla
-        // del servidor: conserva su 409 y su mensaje propio.
-        error.code === "23505" ? { status: 409, message: "El código ya existe" } : error,
-        "No se pudo actualizar la promoción",
-      );
-    }
-  },
-);
-app.get("/api/cities", async (_req, res) => {
-  try {
-    res.set("Cache-Control", "public, max-age=300, stale-while-revalidate=900");
-    return ok(res, {
-      cities: usesPostgresCommerce()
-        ? await getPublicCities()
-        : [
-            {
-              id: "CITY-BA",
-              slug: "buenos-aires",
-              name: "Buenos Aires",
-              countryCode: "AR",
-              currency: "ARS",
-              timezone: "America/Argentina/Buenos_Aires",
-              status: "beta",
-              enabledServices: ["delivery", "shopping"],
-              center: { lat: -34.6037, lng: -58.3816 },
-            },
-          ],
-    });
-  } catch (_error) {
-    return fail(res, 500, "No se pudieron cargar las ciudades");
-  }
-});
-app.get("/api/zones", async (req, res) => {
-  try {
-    const citySlug = String(req.query.city || "buenos-aires");
-    if (!/^[a-z0-9-]{2,40}$/.test(citySlug)) return fail(res, 400, "Ciudad inválida");
-    if (usesPostgresCommerce() && !(await findPublicCity(citySlug)))
-      return fail(res, 404, "Ciudad no habilitada");
-    res.set("Cache-Control", "public, max-age=30, stale-while-revalidate=120");
-    return ok(res, {
-      city: citySlug,
-      zones: usesPostgresCommerce()
-        ? await getPostgresZones({ citySlug })
-        : citySlug === "buenos-aires"
-          ? readDb().zones
-          : [],
-    });
-  } catch (_error) {
-    return fail(res, 500, "No se pudieron cargar las zonas");
-  }
-});
-app.get("/api/pricing", async (_req, res) => {
-  try {
-    return ok(res, {
-      plans: usesPostgresCommerce()
-        ? await getPostgresPricingPlans()
-        : [fallbackRidePricing, fallbackShipmentPricing],
-    });
-  } catch (_error) {
-    return fail(res, 500, "No se pudieron cargar las tarifas");
-  }
-});
-app.get("/api/shipment-options", async (_req, res) => {
-  if (!usesPostgresCommerce())
-    return fail(res, 503, "Las opciones operativas de envío requieren PostgreSQL");
-  try {
-    return ok(res, await getShipmentOptions());
-  } catch (_error) {
-    return fail(res, 500, "No se pudieron cargar las opciones de envío");
-  }
-});
-app.get("/api/admin/shipment-options", requireAuth, requireAnyRole("admin"), async (_req, res) => {
-  if (!usesPostgresCommerce())
-    return fail(res, 503, "Las opciones operativas de envío requieren PostgreSQL");
-  try {
-    return ok(res, await getShipmentOptions({ includeInactive: true }));
-  } catch (_error) {
-    return fail(res, 500, "No se pudo cargar la configuración de envíos");
-  }
-});
-app.patch(
-  "/api/admin/shipment-item-categories/:code",
-  requireAuth,
-  requireAnyRole("admin"),
-  async (req, res) => {
-    const parsed = parseOrFail(shipmentCategoryUpdateSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const before =
-          (await getShipmentOptions({ includeInactive: true })).categories.find(
-            (entry) => entry.code === req.params.code,
-          ) || null,
-        category = await updateShipmentItemCategory(req.params.code, parsed.data);
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "shipment.category_updated",
-        entityType: "shipment_item_category",
-        entityId: req.params.code,
-        requestId: req.requestId,
-        beforeData: before,
-        afterData: category,
-      });
-      return ok(res, { category });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo actualizar la categoría");
-    }
-  },
-);
-app.patch(
-  "/api/admin/shipment-service-levels/:code",
-  requireAuth,
-  requireAnyRole("admin"),
-  async (req, res) => {
-    const parsed = parseOrFail(shipmentServiceLevelUpdateSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const before =
-          (await getShipmentOptions({ includeInactive: true })).serviceLevels.find(
-            (entry) => entry.code === req.params.code,
-          ) || null,
-        serviceLevel = await updateShipmentServiceLevel(req.params.code, parsed.data);
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "shipment.service_level_updated",
-        entityType: "shipment_service_level",
-        entityId: req.params.code,
-        requestId: req.requestId,
-        beforeData: before,
-        afterData: serviceLevel,
-      });
-      return ok(res, { serviceLevel });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo actualizar el nivel de servicio");
-    }
-  },
-);
+app.use(configurationRouter);
 app.get("/api/admin/pricing-changes", requireAuth, requireAnyRole("admin"), async (_req, res) => {
   try {
     return ok(res, { requests: await getPostgresPricingChangeRequests() });
