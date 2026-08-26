@@ -19,8 +19,36 @@
 // base nueva no existían.
 import { createPool } from "./db-client.mjs";
 
+// Declaraciones sobre el catálogo sembrado. No son datos inventados: se
+// corresponden con la composición real de cada plato.
+const GLUTEN_ITEMS = ["item_burger_brava", "item_pizza_burrata", "item_tiramisu", "item_salmon_furai"];
+const MILK_ITEMS = ["item_burger_brava", "item_pizza_burrata", "item_tiramisu", "item_caesar_veggie"];
+const VEGETARIAN_ITEMS = ["item_papas_trufa", "item_pizza_burrata", "item_caesar_veggie", "item_tiramisu"];
+
 const pool = createPool();
 const client = await pool.connect();
+
+/**
+ * Falla si una declaración apunta a un ítem que ya no está en el catálogo.
+ *
+ * Sin esto la deriva es silenciosa: la migración 059 quedó apuntando a dos
+ * pizzas que dejaron de existir y el catálogo se quedó sin alérgenos sin que
+ * nada lo dijera.
+ */
+async function assertCatalogItemsExist(referenced) {
+  const present = (
+    await client.query("SELECT public_id FROM catalog_items WHERE public_id = ANY($1::text[])", [
+      referenced,
+    ])
+  ).rows.map((row) => row.public_id);
+  const missing = referenced.filter((id) => !present.includes(id));
+  if (missing.length) {
+    throw new Error(
+      `Estas declaraciones apuntan a ítems que no existen en el catálogo: ${missing.join(", ")}. ` +
+        "Actualizá las listas de scripts/db-seed-derived.mjs o el seed del catálogo.",
+    );
+  }
+}
 
 const steps = [
   {
@@ -84,26 +112,37 @@ const steps = [
           WHERE g.public_id='extras'
           ON CONFLICT (group_id,public_id) DO NOTHING`,
   },
+  // La migración 059 fijó estos alérgenos sobre `item_pizza_muzzarella` e
+  // `item_pizza_fugazzeta`, que **ya no existen**: el catálogo sembrado cambió
+  // después y nada conectaba ambas cosas. La pizza actual es
+  // `item_pizza_burrata`, que quedaba sin declarar ningún alérgeno.
+  //
+  // Es una tercera cara de H-11: no basta con reaplicar el backfill, hay que
+  // hacerlo sobre el catálogo que existe. `assertCatalogItemsExist` levanta la
+  // deriva en lugar de dejar que vuelva a pasar en silencio.
   {
     label: "alérgenos declarados (gluten)",
     sql: `INSERT INTO catalog_item_allergens(catalog_item_id,allergen_code,presence)
           SELECT id,'gluten','contains' FROM catalog_items
-          WHERE public_id IN ('item_burger_brava','item_pizza_muzzarella','item_pizza_fugazzeta')
+          WHERE public_id = ANY($1::text[])
           ON CONFLICT DO NOTHING`,
+    params: [GLUTEN_ITEMS],
   },
   {
     label: "alérgenos declarados (leche)",
     sql: `INSERT INTO catalog_item_allergens(catalog_item_id,allergen_code,presence)
           SELECT id,'milk','contains' FROM catalog_items
-          WHERE public_id IN ('item_burger_brava','item_pizza_muzzarella','item_pizza_fugazzeta')
+          WHERE public_id = ANY($1::text[])
           ON CONFLICT DO NOTHING`,
+    params: [MILK_ITEMS],
   },
   {
     label: "etiquetas dietarias",
     sql: `INSERT INTO catalog_item_dietary_labels(catalog_item_id,dietary_code)
           SELECT id,'vegetarian' FROM catalog_items
-          WHERE public_id IN ('item_papas_trufa','item_pizza_muzzarella','item_pizza_fugazzeta')
+          WHERE public_id = ANY($1::text[])
           ON CONFLICT DO NOTHING`,
+    params: [VEGETARIAN_ITEMS],
   },
   {
     label: "perfiles de agentes de soporte",
@@ -146,9 +185,12 @@ const steps = [
 
 try {
   await client.query("BEGIN");
+  await assertCatalogItemsExist([
+    ...new Set([...GLUTEN_ITEMS, ...MILK_ITEMS, ...VEGETARIAN_ITEMS]),
+  ]);
   const applied = [];
   for (const step of steps) {
-    const result = await client.query(step.sql);
+    const result = await client.query(step.sql, step.params);
     applied.push(`${step.label}: ${result.rowCount}`);
   }
   await client.query("COMMIT");

@@ -23,10 +23,7 @@ const EXCLUDED = new Map([
 // deuda tiene que decirse en voz alta en cada corrida, no quedar escondida en
 // un `continue-on-error` del YAML.
 const QUARANTINED = new Map([
-  ["test:postgres", "una aserción de búsqueda de catálogo con perfil dietario"],
   ["test:support-routing", "ruteo atómico de caso de safety a agente con skill"],
-  ["test:dietary-local", "posible interferencia de estado con test:postgres"],
-  ["test:notification-local", "posible interferencia de estado con test:postgres"],
 ]);
 
 const pkg = JSON.parse(await fs.readFile("package.json", "utf8"));
