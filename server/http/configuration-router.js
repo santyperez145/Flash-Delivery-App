@@ -32,6 +32,7 @@ import {
   updateShipmentServiceLevel,
 } from "../mobility-repository.js";
 import { recordPostgresAudit } from "../operations-repository.js";
+import { assessZoneReadiness, getZoneReadiness } from "../zone-readiness-repository.js";
 import { publishRealtimeEvent } from "./realtime.js";
 import { requireAuth } from "./authentication.js";
 import { isAdmin, requireAnyRole } from "./authorization.js";
@@ -235,6 +236,49 @@ router.patch("/api/zones/:zoneId", requireAuth, requireAnyRole("admin"), async (
     return failFrom(res, error, "No se pudo actualizar la zona");
   }
 });
+router.get(
+  "/api/operations/zones/:zoneId/readiness",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (req, res) => {
+    try {
+      res.set("Cache-Control", "no-store, private");
+      return ok(res, { readiness: await getZoneReadiness(req.params.zoneId) });
+    } catch (error) {
+      return failFrom(res, error, "No se pudo evaluar la zona");
+    }
+  },
+);
+router.post(
+  "/api/operations/zones/:zoneId/readiness-assessments",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (req, res) => {
+    try {
+      const assessment = await assessZoneReadiness({
+        zonePublicId: req.params.zoneId,
+        actorPublicId: req.auth.userId,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "zone.readiness_assessed",
+        entityType: "service_zone",
+        entityId: req.params.zoneId,
+        requestId: req.requestId,
+        afterData: {
+          assessmentId: assessment.id,
+          decision: assessment.decision,
+          checks: assessment.checks,
+        },
+      });
+      return res.status(201).json({ ok: true, requestId: req.requestId, assessment });
+    } catch (error) {
+      return failFrom(res, error, "No se pudo registrar la evaluación");
+    }
+  },
+);
+
 router.get("/api/pricing", async (_req, res) => {
   try {
     return ok(res, {
