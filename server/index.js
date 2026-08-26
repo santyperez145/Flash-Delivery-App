@@ -42,6 +42,13 @@ import {
 import { mapsRouter } from "./http/maps-router.js";
 import { rideContextRouter } from "./http/ride-context-router.js";
 import { driverFleetRouter } from "./http/driver-fleet-router.js";
+import { shipmentProtectionRouter } from "./http/shipment-protection-router.js";
+import {
+  createLimiter,
+  deliveryProofLimiter,
+  payoutStepUpLimiter,
+  serviceChatLimiter,
+} from "./http/rate-limits.js";
 import { closeRedis, redisClient, redisReadiness } from "./redis.js";
 import { openApiDocument } from "./openapi.js";
 import { closePostgres, postgresPool, postgresReadiness } from "./postgres.js";
@@ -136,14 +143,6 @@ import {
   getShipmentServiceConfiguration,
   updateShipmentItemCategory,
   updateShipmentServiceLevel,
-  getPostgresShipmentReturns,
-  createPostgresShipmentReturn,
-  updatePostgresShipmentReturn,
-  getPostgresShipmentClaims,
-  createPostgresShipmentClaim,
-  updatePostgresShipmentClaim,
-  addPostgresShipmentClaimEvidence,
-  getPostgresShipmentClaimEvidenceContent,
 } from "./mobility-repository.js";
 import {
   cancelMobilityJobAndRefundWallet,
@@ -405,30 +404,6 @@ function requireTrustedWebOrigin(req, res, next) {
   return next();
 }
 
-function createLimiter({ max, message, prefix }) {
-  return rateLimit({
-    windowMs: config.rateLimit.windowMs,
-    limit: max,
-    standardHeaders: "draft-8",
-    legacyHeaders: false,
-    skip: (req) => ["/health", "/ready"].includes(req.path),
-    handler: (_req, res) => fail(res, 429, message),
-    ...(redisClient
-      ? {
-          store: new RedisStore({
-            sendCommand: (...args) => redisClient.sendCommand(args),
-            prefix: `flash:rate:${prefix}:`,
-          }),
-        }
-      : {}),
-  });
-}
-const payoutStepUpLimiter = createLimiter({
-  max: 10,
-  prefix: "payout-step-up",
-  message: "Demasiados intentos de autorización financiera. Intenta más tarde.",
-});
-
 app.use(requestContext);
 app.use(requestLogger);
 app.use(
@@ -505,16 +480,6 @@ app.use(
 
 // The database independently locks PIN verification after five failures. This
 // wider edge budget also covers authorized photo upload/download operations.
-const deliveryProofLimiter = createLimiter({
-  max: 30,
-  prefix: "delivery-proof",
-  message: "Demasiadas operaciones de prueba de entrega. Intenta más tarde.",
-});
-const serviceChatLimiter = createLimiter({
-  max: 60,
-  prefix: "service-chat",
-  message: "Demasiados mensajes. Espera antes de continuar.",
-});
 
 const loginSchema = z.object({
   email: z.string().email("Email invalido"),
@@ -683,28 +648,6 @@ const shipmentCreateSchema = shipmentQuoteSchema.extend({
     error: "Debes aceptar las restricciones de envio",
   }),
 });
-const shipmentReturnSchema = z.object({
-    reason: z.string().trim().min(5).max(500),
-  }),
-  shipmentReturnUpdateSchema = z.object({
-    status: z.enum(["approved", "rejected", "in_transit", "completed"]),
-    resolutionNote: z.string().trim().min(3).max(500).optional(),
-  });
-const shipmentClaimSchema = z.object({
-    claimType: z.enum(["lost", "damaged", "stolen"]),
-    description: z.string().trim().min(10).max(1000),
-    requestedAmount: z.coerce.number().positive().max(1000000),
-  }),
-  shipmentClaimUpdateSchema = z.object({
-    status: z.enum(["under_review", "approved", "rejected", "settlement_pending", "settled"]),
-    resolutionNote: z.string().trim().min(5).max(1000),
-    approvedAmount: z.coerce.number().positive().max(1000000).optional(),
-  }),
-  shipmentClaimEvidenceSchema = z.object({
-    fileName: z.string().trim().min(1).max(160),
-    mimeType: z.enum(["image/jpeg", "image/png", "application/pdf"]),
-    contentBase64: z.string().min(4).max(1024000),
-  });
 const shipmentCategoryUpdateSchema = z
   .object({
     name: z.string().trim().min(2).max(80).optional(),
@@ -7506,230 +7449,7 @@ app.post(
     }
   },
 );
-app.get(
-  "/api/shipment-returns",
-  requireAuth,
-  requireAnyRole("customer", "support", "admin"),
-  async (req, res) => {
-    try {
-      return ok(res, {
-        returns: await getPostgresShipmentReturns({
-          customerPublicId: req.auth.userId,
-          includeAll: isAdmin(req) || req.auth.roles.includes("support"),
-        }),
-      });
-    } catch (error) {
-      return failFrom(res, error, "No se pudieron cargar las devoluciones");
-    }
-  },
-);
-app.post(
-  "/api/shipments/:shipmentId/returns",
-  requireAuth,
-  requireAnyRole("customer"),
-  async (req, res) => {
-    const parsed = parseOrFail(shipmentReturnSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const shipmentReturn = await createPostgresShipmentReturn({
-        shipmentPublicId: req.params.shipmentId,
-        customerPublicId: req.auth.userId,
-        reason: parsed.data.reason,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "shipment.return_requested",
-        entityType: "shipment_return",
-        entityId: shipmentReturn.id,
-        requestId: req.requestId,
-        afterData: { shipmentId: req.params.shipmentId },
-      });
-      return res.status(201).json({ ok: true, requestId: req.requestId, return: shipmentReturn });
-    } catch (error) {
-      return failFrom(
-        res,
-        // Una violación de unicidad es un conflicto del cliente, no una falla
-        // del servidor: conserva su 409 y su mensaje propio.
-        error.code === "23505"
-          ? { status: 409, message: "Ya existe una devolución para este envío" }
-          : error,
-        "No se pudo solicitar la devolución",
-      );
-    }
-  },
-);
-app.patch(
-  "/api/shipment-returns/:returnId",
-  requireAuth,
-  requireAnyRole("support", "admin"),
-  async (req, res) => {
-    const parsed = parseOrFail(shipmentReturnUpdateSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const shipmentReturn = await updatePostgresShipmentReturn({
-        returnPublicId: req.params.returnId,
-        ...parsed.data,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "shipment.return_updated",
-        entityType: "shipment_return",
-        entityId: shipmentReturn.id,
-        requestId: req.requestId,
-        afterData: { status: shipmentReturn.status },
-      });
-      return ok(res, { return: shipmentReturn });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo actualizar la devolución");
-    }
-  },
-);
-app.get(
-  "/api/shipment-claims",
-  requireAuth,
-  requireAnyRole("customer", "support", "admin"),
-  async (req, res) => {
-    try {
-      return ok(res, {
-        claims: await getPostgresShipmentClaims({
-          customerPublicId: req.auth.userId,
-          includeAll: isAdmin(req) || req.auth.roles.includes("support"),
-        }),
-      });
-    } catch (error) {
-      return failFrom(res, error, "No se pudieron cargar los siniestros");
-    }
-  },
-);
-app.post(
-  "/api/shipments/:shipmentId/claims",
-  requireAuth,
-  requireAnyRole("customer"),
-  async (req, res) => {
-    const parsed = parseOrFail(shipmentClaimSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const claim = await createPostgresShipmentClaim({
-        shipmentPublicId: req.params.shipmentId,
-        customerPublicId: req.auth.userId,
-        ...parsed.data,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "shipment.claim_submitted",
-        entityType: "shipment_claim",
-        entityId: claim.id,
-        requestId: req.requestId,
-        afterData: {
-          shipmentId: req.params.shipmentId,
-          claimType: claim.claimType,
-          requestedAmount: claim.requestedAmount,
-          eligibleAmount: claim.eligibleAmount,
-        },
-      });
-      return res.status(201).json({ ok: true, requestId: req.requestId, claim });
-    } catch (error) {
-      return failFrom(
-        res,
-        // Una violación de unicidad es un conflicto del cliente, no una falla
-        // del servidor: conserva su 409 y su mensaje propio.
-        error.code === "23505"
-          ? { status: 409, message: "Ya existe un siniestro para este envío" }
-          : error,
-        "Ya existe un siniestro para este envío",
-      );
-    }
-  },
-);
-app.post(
-  "/api/shipment-claims/:claimId/evidence",
-  deliveryProofLimiter,
-  requireAuth,
-  requireAnyRole("customer", "support", "admin"),
-  async (req, res) => {
-    const parsed = parseOrFail(shipmentClaimEvidenceSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const evidence = await addPostgresShipmentClaimEvidence({
-        claimPublicId: req.params.claimId,
-        actorPublicId: req.auth.userId,
-        ...parsed.data,
-        includeAll: isAdmin(req) || req.auth.roles.includes("support"),
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "shipment.claim_evidence_added",
-        entityType: "shipment_claim",
-        entityId: req.params.claimId,
-        requestId: req.requestId,
-        afterData: {
-          evidenceId: evidence.id,
-          mimeType: evidence.mimeType,
-          sha256: evidence.sha256,
-          sizeBytes: evidence.sizeBytes,
-        },
-      });
-      return res.status(201).json({ ok: true, requestId: req.requestId, evidence });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo adjuntar la evidencia");
-    }
-  },
-);
-app.get(
-  "/api/shipment-claim-evidence/:evidenceId/content",
-  deliveryProofLimiter,
-  requireAuth,
-  requireAnyRole("customer", "support", "admin"),
-  async (req, res) => {
-    try {
-      return ok(
-        res,
-        await getPostgresShipmentClaimEvidenceContent({
-          evidencePublicId: req.params.evidenceId,
-          actorPublicId: req.auth.userId,
-          includeAll: isAdmin(req) || req.auth.roles.includes("support"),
-        }),
-      );
-    } catch (error) {
-      return failFrom(res, error, "No se pudo abrir la evidencia");
-    }
-  },
-);
-app.patch(
-  "/api/shipment-claims/:claimId",
-  requireAuth,
-  requireAnyRole("support", "admin"),
-  async (req, res) => {
-    const parsed = parseOrFail(shipmentClaimUpdateSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const claim = await updatePostgresShipmentClaim({
-        claimPublicId: req.params.claimId,
-        actorPublicId: req.auth.userId,
-        ...parsed.data,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "shipment.claim_updated",
-        entityType: "shipment_claim",
-        entityId: claim.id,
-        requestId: req.requestId,
-        afterData: {
-          status: claim.status,
-          approvedAmount: claim.approvedAmount,
-        },
-      });
-      return ok(res, { claim });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo actualizar el siniestro");
-    }
-  },
-);
+app.use(shipmentProtectionRouter);
 
 app.patch("/api/shipments/:shipmentId/status", requireAuth, async (req, res) => {
   if (req.body?.status !== "cancelled" || !shipmentStatuses.includes(req.body.status))
