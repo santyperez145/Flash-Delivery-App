@@ -11,8 +11,8 @@ import {
   encryptShipmentClaimEvidence,
 } from "./secret-envelope.js";
 import { encryptDeliveryProof, decryptDeliveryProof } from "./delivery-proof-envelope.js";
+import { pesos } from "./money.js";
 
-const pesos = (value) => Number(value || 0) / 100;
 const evidenceId = () =>
   `POD-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
 const mapDeliveryEvidence = (row) => ({
