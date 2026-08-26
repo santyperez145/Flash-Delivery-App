@@ -55,6 +55,8 @@ jobs:
       # probar y no la regla en sí. Este contrato afirma cada una directamente.
       - name: Authorization contract
         run: npm run test:authorization
+      - name: Domain purity
+        run: npm run test:domain-purity
 
       # Un 500 no describe su causa. Lo decidia el manejador global, pero 130
       # handlers lo puenteaban capturando el error ellos mismos. Se encontro
