@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { contains } from "./source-contract.mjs";
 
 const app = fs.readFileSync("apps/mobile/App.tsx", "utf8");
 const api = fs.readFileSync("apps/mobile/src/api.ts", "utf8");
@@ -11,86 +12,86 @@ const assert = (value, message) => {
 };
 
 assert(
-  design.includes('brand: "#7C3CFF"') && design.includes('food: "#FF6A21"'),
+  contains(design, 'brand: "#7C3CFF"') && contains(design, 'food: "#FF6A21"'),
   "mobile design tokens must preserve the Flash brand and food accent",
 );
 assert(
-  app.includes('from "./src/design-system"') &&
-    app.includes("foodPromoBanner") &&
-    app.includes("foodMerchantCard"),
+  contains(app, 'from "./src/design-system"') &&
+    contains(app, "foodPromoBanner") &&
+    contains(app, "foodMerchantCard"),
   "food home must consume the shared visual system",
 );
 assert(
-  app.includes("const foodCategories=useMemo") && !app.includes("images.unsplash.com"),
+  contains(app, "const foodCategories=useMemo") && !contains(app, "images.unsplash.com"),
   "food categories must be derived from the live catalog without decorative remote fixtures",
 );
 assert(
-  app.includes("activeFoodPromotion") &&
-    api.includes('request<{promotions:import("./types").Promotion[]}>("/promotions")'),
+  contains(app, "activeFoodPromotion") &&
+    contains(api, 'request<{promotions:import("./types").Promotion[]}>("/promotions")'),
   "promotion banner must consume the promotions contract",
 );
 assert(
-  !app.includes("Hurry Offers!") && !app.includes("#FLASH25"),
+  !contains(app, "Hurry Offers!") && !contains(app, "#FLASH25"),
   "legacy promotional demo content must stay removed",
 );
 assert(
-  app.includes("toggleFavorite") &&
-    api.includes("/favorites/${restaurantId}") &&
-    types.includes("favoriteRestaurantIds?: string[]"),
+  contains(app, "toggleFavorite") &&
+    contains(api, "/favorites/${restaurantId}") &&
+    contains(types, "favoriteRestaurantIds?: string[]"),
   "favorite controls must persist through the authenticated API",
 );
-assert(app.includes("aspectRatio: 16/9"), "merchant media must preserve a stable 16:9 ratio");
+assert(contains(app, "aspectRatio: 16/9"), "merchant media must preserve a stable 16:9 ratio");
 assert(
-  app.includes("foodSearchCategoryRail") &&
-    app.includes("foodSearchResultCard") &&
-    app.includes("catalogSearchNonce"),
+  contains(app, "foodSearchCategoryRail") &&
+    contains(app, "foodSearchResultCard") &&
+    contains(app, "catalogSearchNonce"),
   "search must expose responsive catalog discovery and a real retry state",
 );
 assert(
-  app.includes("foodMenuCategories=useMemo") &&
-    app.includes("visibleFoodMenuItems") &&
-    !app.includes("Preparado al momento con ingredientes seleccionados."),
+  contains(app, "foodMenuCategories=useMemo") &&
+    contains(app, "visibleFoodMenuItems") &&
+    !contains(app, "Preparado al momento con ingredientes seleccionados."),
   "restaurant menu tabs and descriptions must come from catalog data",
 );
 assert(
-  !app.includes("<Text style={styles.foodMenuTabActive}>Popular</Text>") &&
-    app.includes("foodProductUnavailable"),
+  !contains(app, "<Text style={styles.foodMenuTabActive}>Popular</Text>") &&
+    contains(app, "foodProductUnavailable"),
   "restaurant must not present decorative menu tabs and must surface real stock",
 );
 assert(
-  app.includes("foodCartMerchant") &&
-    app.includes("foodCartOptionSelected") &&
-    app.includes("selectedFoodAddress"),
+  contains(app, "foodCartMerchant") &&
+    contains(app, "foodCartOptionSelected") &&
+    contains(app, "selectedFoodAddress"),
   "cart must compose products, geocoded address and payment from real account state",
 );
 assert(
-  app.includes("foodCheckoutHero") &&
-    app.includes("foodCheckoutQuote.expiresAt") &&
-    app.includes("foodCheckoutQuote.pricingVersion"),
+  contains(app, "foodCheckoutHero") &&
+    contains(app, "foodCheckoutQuote.expiresAt") &&
+    contains(app, "foodCheckoutQuote.pricingVersion"),
   "checkout must present signed quote expiry and pricing provenance",
 );
 assert(
-  app.includes("servidor vuelve a validar stock") && app.includes("foodCheckoutQuote.total"),
+  contains(app, "servidor vuelve a validar stock") && contains(app, "foodCheckoutQuote.total"),
   "checkout must disclose server revalidation and use the authoritative total",
 );
 assert(
-  app.includes("customizingModifierTotal") &&
-    app.includes("customizingSelectionValid") &&
-    app.includes("productCustomizerActionPrice"),
+  contains(app, "customizingModifierTotal") &&
+    contains(app, "customizingSelectionValid") &&
+    contains(app, "productCustomizerActionPrice"),
   "product customization must enforce modifier limits and calculate the displayed total from catalog prices",
 );
 assert(
-  app.includes("Información de alérgenos") &&
-    app.includes("modifierRowBlocked") &&
-    app.includes("customizingNote.length"),
+  contains(app, "Información de alérgenos") &&
+    contains(app, "modifierRowBlocked") &&
+    contains(app, "customizingNote.length"),
   "customization must surface allergens, max selections and note length honestly",
 );
 assert(
-  app.includes("mobileOrderStatusLabel[order.status]") && app.includes("foodActiveOrderCard"),
+  contains(app, "mobileOrderStatusLabel[order.status]") && contains(app, "foodActiveOrderCard"),
   "order activity must translate backend status into an actionable customer card",
 );
 assert(
-  roadmap.includes("Foodu") && roadmap.includes("Definición de terminado visual"),
+  contains(roadmap, "Foodu") && contains(roadmap, "Definición de terminado visual"),
   "the visual implementation must remain governed by the design roadmap",
 );
 

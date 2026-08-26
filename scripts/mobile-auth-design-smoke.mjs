@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { contains } from "./source-contract.mjs";
 import { readFile } from "node:fs/promises";
 
 const [app, api, roadmap, research] = await Promise.all([
@@ -23,26 +24,26 @@ for (const contract of [
   'mobileAppVariant==="driver"',
   'mobileAppVariant==="merchant"',
 ])
-  assert.ok(app.includes(contract), `falta el contrato de acceso: ${contract}`);
+  assert.ok(contains(app, contract), `falta el contrato de acceso: ${contract}`);
 
 assert.ok(
-  !app.includes('setVerificationCode(registration.developmentCode||"")'),
+  !contains(app, 'setVerificationCode(registration.developmentCode||"")'),
   "registro no debe autocompletar el OTP de desarrollo",
 );
 assert.ok(
-  !app.includes('setRecoveryToken(result.developmentToken||"")'),
+  !contains(app, 'setRecoveryToken(result.developmentToken||"")'),
   "recuperación no debe autocompletar el token de desarrollo",
 );
 assert.ok(
-  api.includes("await fetchWithTimeout(`${API_BASE}/auth/logout`"),
+  contains(api, "await fetchWithTimeout(`${API_BASE}/auth/logout`"),
   "una sesión de la variante incorrecta debe revocarse",
 );
 assert.ok(
-  roadmap.includes("Acceso mobile competitivo y honesto"),
+  contains(roadmap, "Acceso mobile competitivo y honesto"),
   "Design Roadmap no registra la nueva superficie",
 );
 assert.ok(
-  research.includes("Apple HIG") && research.includes("Uber") && research.includes("Lyft"),
+  contains(research, "Apple HIG") && contains(research, "Uber") && contains(research, "Lyft"),
   "la decisión no conserva referencias oficiales",
 );
 

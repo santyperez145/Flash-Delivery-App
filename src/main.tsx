@@ -12,13 +12,21 @@ const PublicRideTrackingPage = lazy(() => import("./PublicRideTrackingPage"));
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     {publicTrackingToken ? (
-      <Suspense fallback={<main className="public-tracking-page"><section className="public-tracking-state"><strong>Cargando seguimiento</strong></section></main>}>
+      <Suspense
+        fallback={
+          <main className="public-tracking-page">
+            <section className="public-tracking-state">
+              <strong>Cargando seguimiento</strong>
+            </section>
+          </main>
+        }
+      >
         <PublicRideTrackingPage token={publicTrackingToken} />
       </Suspense>
     ) : (
       <App />
     )}
-  </StrictMode>
+  </StrictMode>,
 );
 
 if ("serviceWorker" in navigator && import.meta.env.PROD) {

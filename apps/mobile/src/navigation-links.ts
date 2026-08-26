@@ -17,10 +17,15 @@ export function buildExternalNavigationUrl(
     lat > 90 ||
     lng < -180 ||
     lng > 180
-  ) return null;
+  )
+    return null;
 
   const destination = encodeURIComponent(`${lat},${lng}`);
-  if ((provider === "apple_maps" || provider === "system" && platform === "ios") && platform === "ios" && travelMode === "driving") {
+  if (
+    (provider === "apple_maps" || (provider === "system" && platform === "ios")) &&
+    platform === "ios" &&
+    travelMode === "driving"
+  ) {
     return `http://maps.apple.com/?daddr=${destination}&dirflg=d`;
   }
   return `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=${travelMode}&dir_action=navigate`;

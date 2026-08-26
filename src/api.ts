@@ -31,9 +31,7 @@ const EVENT_CURSOR_KEY = "flash_platform_event_cursor";
 let authToken = "";
 let activeAudience: "customer" | "merchant" | "driver" | "operations" = "customer";
 let refreshToken =
-  typeof window === "undefined"
-    ? ""
-    : window.localStorage.getItem(REFRESH_KEY) || "";
+  typeof window === "undefined" ? "" : window.localStorage.getItem(REFRESH_KEY) || "";
 
 type ApiEnvelope<T> = T & {
   ok: boolean;
@@ -66,9 +64,7 @@ const REQUEST_TIMEOUT_MS = 12000;
 
 function emitNetworkStatus(online: boolean) {
   if (typeof window !== "undefined") {
-    window.dispatchEvent(
-      new CustomEvent("flash:network", { detail: { online } }),
-    );
+    window.dispatchEvent(new CustomEvent("flash:network", { detail: { online } }));
   }
 }
 
@@ -117,10 +113,7 @@ async function performAccessTokenRefresh() {
   return true;
 }
 
-const refreshCoordinator = createAuthRefreshCoordinator(
-  performAccessTokenRefresh,
-  () => authToken,
-);
+const refreshCoordinator = createAuthRefreshCoordinator(performAccessTokenRefresh, () => authToken);
 
 async function refreshAccessToken() {
   return refreshCoordinator.refresh();
@@ -128,9 +121,7 @@ async function refreshAccessToken() {
 
 export function subscribeToEvents(
   onEvent: (event: RealtimeEvent) => void,
-  onStatus: (
-    status: "connecting" | "live" | "reconnecting" | "offline",
-  ) => void,
+  onStatus: (status: "connecting" | "live" | "reconnecting" | "offline") => void,
 ) {
   const controller = new AbortController();
   let stopped = false;
@@ -154,15 +145,11 @@ export function subscribeToEvents(
         },
         signal: controller.signal,
       });
-      if (
-        response.status === 401 &&
-        (await refreshCoordinator.recoverUnauthorized(tokenUsed))
-      ) {
+      if (response.status === 401 && (await refreshCoordinator.recoverUnauthorized(tokenUsed))) {
         retryAttempt = 0;
         return connect();
       }
-      if (!response.ok || !response.body)
-        throw new Error("Realtime no disponible");
+      if (!response.ok || !response.body) throw new Error("Realtime no disponible");
       retryAttempt = 0;
       onStatus("live");
       const reader = response.body.getReader();
@@ -175,13 +162,9 @@ export function subscribeToEvents(
         const chunks = buffer.split("\n\n");
         buffer = chunks.pop() || "";
         chunks.forEach((chunk) => {
-          const eventLine = chunk
-            .split("\n")
-            .find((line) => line.startsWith("event: "));
+          const eventLine = chunk.split("\n").find((line) => line.startsWith("event: "));
           const eventType = eventLine?.slice(7) || "message";
-          const idLine = chunk
-            .split("\n")
-            .find((line) => line.startsWith("id: "));
+          const idLine = chunk.split("\n").find((line) => line.startsWith("id: "));
           const cursor = idLine ? Number(idLine.slice(4)) : 0;
           if (
             eventType === "state.updated" &&
@@ -190,9 +173,7 @@ export function subscribeToEvents(
             cursor <= lastEventId
           )
             return;
-          const dataLine = chunk
-            .split("\n")
-            .find((line) => line.startsWith("data: "));
+          const dataLine = chunk.split("\n").find((line) => line.startsWith("data: "));
           if (!dataLine) return;
           try {
             onEvent(JSON.parse(dataLine.slice(6)) as RealtimeEvent);
@@ -213,8 +194,7 @@ export function subscribeToEvents(
       if (stopped || controller.signal.aborted) return;
       onStatus("reconnecting");
       const delay =
-        Math.min(30000, 1000 * 2 ** Math.min(retryAttempt, 5)) +
-        Math.floor(Math.random() * 500);
+        Math.min(30000, 1000 * 2 ** Math.min(retryAttempt, 5)) + Math.floor(Math.random() * 500);
       retryAttempt += 1;
       retryTimer = window.setTimeout(connect, delay);
     }
@@ -244,9 +224,7 @@ async function request<T>(
   if (authToken && !requestHeaders.has("Authorization")) {
     requestHeaders.set("Authorization", `Bearer ${authToken}`);
   }
-  const tokenUsed = requestHeaders
-    .get("Authorization")
-    ?.replace(/^Bearer\s+/i, "") || "";
+  const tokenUsed = requestHeaders.get("Authorization")?.replace(/^Bearer\s+/i, "") || "";
   const method = (requestInit.method || "GET").toUpperCase();
   let response: Response;
   try {
@@ -290,27 +268,238 @@ export const api = {
     });
   },
   async state() {
-    const[bootstrap,activity,catalog,driverContext,merchantContext,assignedDrivers,operationsRestaurants,operationsDrivers,operationsUsers,operationsSupport,configuration,operationsAudit,accountContext,notifications,notificationPreferences]=await Promise.all([request<{state:Omit<AppState,"orders"|"rides"|"shipments">&{restaurants?:Restaurant[];drivers?:Driver[];users?:User[];supportTickets?:import("./types").SupportTicket[];zones?:AppState["zones"];promotions?:AppState["promotions"];auditEvents?:AppState["auditEvents"]};audience:string}>(`/bootstrap/${activeAudience}`),this.getActivity(undefined,50),["customer","driver"].includes(activeAudience)?this.getCatalog(undefined,50):Promise.resolve(null),activeAudience==="driver"?this.getCurrentDriver():Promise.resolve(null),activeAudience==="merchant"?this.getCurrentMerchant():Promise.resolve(null),["customer","merchant"].includes(activeAudience)?this.getAssignedDrivers():Promise.resolve(null),activeAudience==="operations"?this.getOperationsRestaurants(undefined,100):Promise.resolve(null),activeAudience==="operations"?this.getOperationsDrivers(undefined,100):Promise.resolve(null),activeAudience==="operations"?this.getOperationsUsers(undefined,100):Promise.resolve(null),activeAudience==="operations"?this.getOperationsSupportTickets(undefined,100):Promise.resolve(null),this.getRuntimeConfiguration(),activeAudience==="operations"?this.getOperationsAuditEvents(undefined,100):Promise.resolve(null),this.getAccountContext(),this.getNotifications(),this.getNotificationPreferences()]);
-    const account=accountContext.account;
-    return{...bootstrap,state:{...bootstrap.state,addresses:account.addresses,paymentMethods:account.paymentMethods,walletTransactions:account.walletTransactions,ratings:account.ratings,favoriteRestaurantIds:account.favoriteRestaurantIds||[],tips:account.tips||[],zones:configuration.zones,promotions:configuration.promotions,auditEvents:operationsAudit?.events||bootstrap.state.auditEvents||[],users:operationsUsers?.users||bootstrap.state.users||[],supportTickets:operationsSupport?.tickets||account.supportTickets||[],notifications:notifications.notifications,notificationPreferences:notificationPreferences.preferences,restaurants:operationsRestaurants?.restaurants||merchantContext?.restaurants||catalog?.restaurants||bootstrap.state.restaurants||[],drivers:operationsDrivers?.drivers||(driverContext?[driverContext.driver]:(assignedDrivers?.drivers||bootstrap.state.drivers||[])),orders:activity.items.filter(item=>item.kind==="order").map(item=>item.resource) as AppState["orders"],rides:activity.items.filter(item=>item.kind==="ride").map(item=>item.resource) as AppState["rides"],shipments:activity.items.filter(item=>item.kind==="shipment").map(item=>item.resource) as AppState["shipments"]} as AppState};
+    const [
+      bootstrap,
+      activity,
+      catalog,
+      driverContext,
+      merchantContext,
+      assignedDrivers,
+      operationsRestaurants,
+      operationsDrivers,
+      operationsUsers,
+      operationsSupport,
+      configuration,
+      operationsAudit,
+      accountContext,
+      notifications,
+      notificationPreferences,
+    ] = await Promise.all([
+      request<{
+        state: Omit<AppState, "orders" | "rides" | "shipments"> & {
+          restaurants?: Restaurant[];
+          drivers?: Driver[];
+          users?: User[];
+          supportTickets?: import("./types").SupportTicket[];
+          zones?: AppState["zones"];
+          promotions?: AppState["promotions"];
+          auditEvents?: AppState["auditEvents"];
+        };
+        audience: string;
+      }>(`/bootstrap/${activeAudience}`),
+      this.getActivity(undefined, 50),
+      ["customer", "driver"].includes(activeAudience)
+        ? this.getCatalog(undefined, 50)
+        : Promise.resolve(null),
+      activeAudience === "driver" ? this.getCurrentDriver() : Promise.resolve(null),
+      activeAudience === "merchant" ? this.getCurrentMerchant() : Promise.resolve(null),
+      ["customer", "merchant"].includes(activeAudience)
+        ? this.getAssignedDrivers()
+        : Promise.resolve(null),
+      activeAudience === "operations"
+        ? this.getOperationsRestaurants(undefined, 100)
+        : Promise.resolve(null),
+      activeAudience === "operations"
+        ? this.getOperationsDrivers(undefined, 100)
+        : Promise.resolve(null),
+      activeAudience === "operations"
+        ? this.getOperationsUsers(undefined, 100)
+        : Promise.resolve(null),
+      activeAudience === "operations"
+        ? this.getOperationsSupportTickets(undefined, 100)
+        : Promise.resolve(null),
+      this.getRuntimeConfiguration(),
+      activeAudience === "operations"
+        ? this.getOperationsAuditEvents(undefined, 100)
+        : Promise.resolve(null),
+      this.getAccountContext(),
+      this.getNotifications(),
+      this.getNotificationPreferences(),
+    ]);
+    const account = accountContext.account;
+    return {
+      ...bootstrap,
+      state: {
+        ...bootstrap.state,
+        addresses: account.addresses,
+        paymentMethods: account.paymentMethods,
+        walletTransactions: account.walletTransactions,
+        ratings: account.ratings,
+        favoriteRestaurantIds: account.favoriteRestaurantIds || [],
+        tips: account.tips || [],
+        zones: configuration.zones,
+        promotions: configuration.promotions,
+        auditEvents: operationsAudit?.events || bootstrap.state.auditEvents || [],
+        users: operationsUsers?.users || bootstrap.state.users || [],
+        supportTickets: operationsSupport?.tickets || account.supportTickets || [],
+        notifications: notifications.notifications,
+        notificationPreferences: notificationPreferences.preferences,
+        restaurants:
+          operationsRestaurants?.restaurants ||
+          merchantContext?.restaurants ||
+          catalog?.restaurants ||
+          bootstrap.state.restaurants ||
+          [],
+        drivers:
+          operationsDrivers?.drivers ||
+          (driverContext
+            ? [driverContext.driver]
+            : assignedDrivers?.drivers || bootstrap.state.drivers || []),
+        orders: activity.items
+          .filter((item) => item.kind === "order")
+          .map((item) => item.resource) as AppState["orders"],
+        rides: activity.items
+          .filter((item) => item.kind === "ride")
+          .map((item) => item.resource) as AppState["rides"],
+        shipments: activity.items
+          .filter((item) => item.kind === "shipment")
+          .map((item) => item.resource) as AppState["shipments"],
+      } as AppState,
+    };
   },
-  async getCurrentDriver(){return request<{driver:Driver}>("/driver/me");},
-  async getCurrentMerchant(){return request<{restaurants:Restaurant[]}>("/merchant/me");},
-  async getAssignedDrivers(){return request<{drivers:Driver[]}>("/me/assigned-drivers");},
-  async getOperationsRestaurants(cursor?:string,limit=50,query=""){const params=new URLSearchParams({limit:String(limit),...(cursor?{cursor}:{}),...(query?{q:query}:{})});return request<{restaurants:Restaurant[];nextCursor:string|null}>(`/operations/restaurants?${params}`);},
-  async getOperationsDrivers(cursor?:string,limit=50,query=""){const params=new URLSearchParams({limit:String(limit),...(cursor?{cursor}:{}),...(query?{q:query}:{})});return request<{drivers:Driver[];nextCursor:string|null}>(`/operations/drivers?${params}`);},
-  async getOperationsUsers(cursor?:string,limit=50,query=""){const params=new URLSearchParams({limit:String(limit),...(cursor?{cursor}:{}),...(query?{q:query}:{})});return request<{users:User[];nextCursor:string|null}>(`/operations/users?${params}`);},
-  async getOperationsSupportTickets(cursor?:string,limit=50,query=""){const params=new URLSearchParams({limit:String(limit),...(cursor?{cursor}:{}),...(query?{q:query}:{})});return request<{tickets:import("./types").SupportTicket[];nextCursor:string|null}>(`/operations/support-tickets?${params}`);},
-  async getOperationsAuditEvents(cursor?:string,limit=50,query=""){const params=new URLSearchParams({limit:String(limit),...(cursor?{cursor}:{}),...(query?{q:query}:{})});return request<{events:AppState["auditEvents"];nextCursor:string|null}>(`/operations/audit-events?${params}`);},
-  async getRuntimeConfiguration(){const[zones,promotions]=await Promise.all([request<{zones:AppState["zones"]}>("/zones"),request<{promotions:AppState["promotions"]}>("/promotions")]);return{zones:zones.zones,promotions:promotions.promotions};},
-  async getPaymentClientConfiguration(merchantId?:string){return request<{provider:"mercadopago"|"disabled";publicKey:string|null;merchantReady:boolean;cardDataHandling:"provider_tokenization_only"}>(`/payment-provider/client-configuration${merchantId?`?merchantId=${encodeURIComponent(merchantId)}`:""}`);},
-  async getAccountContext(){return request<{account:{user:User;addresses:AppState["addresses"];paymentMethods:AppState["paymentMethods"];walletTransactions:AppState["walletTransactions"];supportTickets:AppState["supportTickets"];ratings:AppState["ratings"];favoriteRestaurantIds:string[];tips:NonNullable<AppState["tips"]>}}>("/me");},
-  async getActivity(cursor?:string,limit=20){const params=new URLSearchParams({limit:String(limit),...(cursor?{cursor}:{})});return request<{items:Array<{id:string;kind:"order"|"ride"|"shipment";createdAt:string;resource:unknown}>;nextCursor:string|null}>(`/me/activity?${params}`);},
-  async getNotifications(){return request<{notifications:import("./types").AppNotification[]}>("/notifications");},
-  async markNotificationRead(notificationId:string){return request<{notifications:import("./types").AppNotification[]}>(`/notifications/${notificationId}/read`,{method:"PATCH",body:"{}"});},
-  async getNotificationPreferences(){return request<{preferences:import("./types").NotificationPreference[]}>("/notification-preferences");},
-  async updateNotificationPreference(category:import("./types").NotificationPreference["category"],input:{pushEnabled:boolean;emailEnabled:boolean}){return request<{preferences:import("./types").NotificationPreference[]}>(`/notification-preferences/${category}`,{method:"PATCH",body:JSON.stringify(input)});},
-  async getCatalog(cursor?:string,limit=20,query=""){const params=new URLSearchParams({limit:String(limit),...(cursor?{cursor}:{}),...(query?{q:query}:{})});return request<{restaurants:Restaurant[];nextCursor:string|null}>(`/catalog/restaurants?${params}`);},
+  async getCurrentDriver() {
+    return request<{ driver: Driver }>("/driver/me");
+  },
+  async getCurrentMerchant() {
+    return request<{ restaurants: Restaurant[] }>("/merchant/me");
+  },
+  async getAssignedDrivers() {
+    return request<{ drivers: Driver[] }>("/me/assigned-drivers");
+  },
+  async getOperationsRestaurants(cursor?: string, limit = 50, query = "") {
+    const params = new URLSearchParams({
+      limit: String(limit),
+      ...(cursor ? { cursor } : {}),
+      ...(query ? { q: query } : {}),
+    });
+    return request<{ restaurants: Restaurant[]; nextCursor: string | null }>(
+      `/operations/restaurants?${params}`,
+    );
+  },
+  async getOperationsDrivers(cursor?: string, limit = 50, query = "") {
+    const params = new URLSearchParams({
+      limit: String(limit),
+      ...(cursor ? { cursor } : {}),
+      ...(query ? { q: query } : {}),
+    });
+    return request<{ drivers: Driver[]; nextCursor: string | null }>(
+      `/operations/drivers?${params}`,
+    );
+  },
+  async getOperationsUsers(cursor?: string, limit = 50, query = "") {
+    const params = new URLSearchParams({
+      limit: String(limit),
+      ...(cursor ? { cursor } : {}),
+      ...(query ? { q: query } : {}),
+    });
+    return request<{ users: User[]; nextCursor: string | null }>(`/operations/users?${params}`);
+  },
+  async getOperationsSupportTickets(cursor?: string, limit = 50, query = "") {
+    const params = new URLSearchParams({
+      limit: String(limit),
+      ...(cursor ? { cursor } : {}),
+      ...(query ? { q: query } : {}),
+    });
+    return request<{ tickets: import("./types").SupportTicket[]; nextCursor: string | null }>(
+      `/operations/support-tickets?${params}`,
+    );
+  },
+  async getOperationsAuditEvents(cursor?: string, limit = 50, query = "") {
+    const params = new URLSearchParams({
+      limit: String(limit),
+      ...(cursor ? { cursor } : {}),
+      ...(query ? { q: query } : {}),
+    });
+    return request<{ events: AppState["auditEvents"]; nextCursor: string | null }>(
+      `/operations/audit-events?${params}`,
+    );
+  },
+  async getRuntimeConfiguration() {
+    const [zones, promotions] = await Promise.all([
+      request<{ zones: AppState["zones"] }>("/zones"),
+      request<{ promotions: AppState["promotions"] }>("/promotions"),
+    ]);
+    return { zones: zones.zones, promotions: promotions.promotions };
+  },
+  async getPaymentClientConfiguration(merchantId?: string) {
+    return request<{
+      provider: "mercadopago" | "disabled";
+      publicKey: string | null;
+      merchantReady: boolean;
+      cardDataHandling: "provider_tokenization_only";
+    }>(
+      `/payment-provider/client-configuration${merchantId ? `?merchantId=${encodeURIComponent(merchantId)}` : ""}`,
+    );
+  },
+  async getAccountContext() {
+    return request<{
+      account: {
+        user: User;
+        addresses: AppState["addresses"];
+        paymentMethods: AppState["paymentMethods"];
+        walletTransactions: AppState["walletTransactions"];
+        supportTickets: AppState["supportTickets"];
+        ratings: AppState["ratings"];
+        favoriteRestaurantIds: string[];
+        tips: NonNullable<AppState["tips"]>;
+      };
+    }>("/me");
+  },
+  async getActivity(cursor?: string, limit = 20) {
+    const params = new URLSearchParams({ limit: String(limit), ...(cursor ? { cursor } : {}) });
+    return request<{
+      items: Array<{
+        id: string;
+        kind: "order" | "ride" | "shipment";
+        createdAt: string;
+        resource: unknown;
+      }>;
+      nextCursor: string | null;
+    }>(`/me/activity?${params}`);
+  },
+  async getNotifications() {
+    return request<{ notifications: import("./types").AppNotification[] }>("/notifications");
+  },
+  async markNotificationRead(notificationId: string) {
+    return request<{ notifications: import("./types").AppNotification[] }>(
+      `/notifications/${notificationId}/read`,
+      { method: "PATCH", body: "{}" },
+    );
+  },
+  async getNotificationPreferences() {
+    return request<{ preferences: import("./types").NotificationPreference[] }>(
+      "/notification-preferences",
+    );
+  },
+  async updateNotificationPreference(
+    category: import("./types").NotificationPreference["category"],
+    input: { pushEnabled: boolean; emailEnabled: boolean },
+  ) {
+    return request<{ preferences: import("./types").NotificationPreference[] }>(
+      `/notification-preferences/${category}`,
+      { method: "PATCH", body: JSON.stringify(input) },
+    );
+  },
+  async getCatalog(cursor?: string, limit = 20, query = "") {
+    const params = new URLSearchParams({
+      limit: String(limit),
+      ...(cursor ? { cursor } : {}),
+      ...(query ? { q: query } : {}),
+    });
+    return request<{ restaurants: Restaurant[]; nextCursor: string | null }>(
+      `/catalog/restaurants?${params}`,
+    );
+  },
   async route(from: GeoPoint, to: GeoPoint) {
     const params = new URLSearchParams({
       fromLat: String(from.lat),
@@ -318,9 +507,7 @@ export const api = {
       toLat: String(to.lat),
       toLng: String(to.lng),
     });
-    return request<{ route: RoadRoute; provider: string }>(
-      `/maps/route?${params.toString()}`,
-    );
+    return request<{ route: RoadRoute; provider: string }>(`/maps/route?${params.toString()}`);
   },
 
   async geocode(query: string) {
@@ -330,11 +517,7 @@ export const api = {
     }>(`/maps/geocode?q=${encodeURIComponent(query)}`);
   },
 
-  async updateProfile(payload: {
-    name: string;
-    phone: string;
-    defaultAddress: string;
-  }) {
+  async updateProfile(payload: { name: string; phone: string; defaultAddress: string }) {
     return request<{ account: { user: User } }>("/me", {
       method: "PATCH",
       body: JSON.stringify(payload),
@@ -422,7 +605,13 @@ export const api = {
       body: JSON.stringify({ challenge, code, deviceName: "Flash Web" }),
     });
     setAuthToken(session.token);
-    activeAudience=session.user.roles.includes("admin")?"operations":session.user.roles.includes("merchant")?"merchant":session.user.roles.includes("driver")?"driver":"customer";
+    activeAudience = session.user.roles.includes("admin")
+      ? "operations"
+      : session.user.roles.includes("merchant")
+        ? "merchant"
+        : session.user.roles.includes("driver")
+          ? "driver"
+          : "customer";
     persistRefreshToken(session.refreshToken || "");
     return session;
   },
@@ -470,16 +659,36 @@ export const api = {
       `/merchant/finance?merchantId=${encodeURIComponent(merchantId)}`,
     );
   },
-  async getMerchantPaymentConnection(merchantId:string){return request<{connection:import("./types").MerchantPaymentConnection|null;configured:boolean}>(`/merchant/payment-provider?merchantId=${encodeURIComponent(merchantId)}`);},
-  async beginMerchantPaymentConnection(merchantId:string){return request<{authorizationUrl:string;expiresAt:string}>("/merchant/payment-provider/connect",{method:"POST",body:JSON.stringify({merchantId})});},
-  async disconnectMerchantPaymentConnection(merchantId:string,password:string){return request<{connection:import("./types").MerchantPaymentConnection}>("/merchant/payment-provider/disconnect",{method:"POST",body:JSON.stringify({merchantId,password})});},
+  async getMerchantPaymentConnection(merchantId: string) {
+    return request<{
+      connection: import("./types").MerchantPaymentConnection | null;
+      configured: boolean;
+    }>(`/merchant/payment-provider?merchantId=${encodeURIComponent(merchantId)}`);
+  },
+  async beginMerchantPaymentConnection(merchantId: string) {
+    return request<{ authorizationUrl: string; expiresAt: string }>(
+      "/merchant/payment-provider/connect",
+      { method: "POST", body: JSON.stringify({ merchantId }) },
+    );
+  },
+  async disconnectMerchantPaymentConnection(merchantId: string, password: string) {
+    return request<{ connection: import("./types").MerchantPaymentConnection }>(
+      "/merchant/payment-provider/disconnect",
+      { method: "POST", body: JSON.stringify({ merchantId, password }) },
+    );
+  },
   async authorizeMerchantPayout(merchantId: string, amount: number, password: string) {
-    return request<{ authorizationToken:string;expiresAt:string;merchantId:string;amount:number }>("/merchant/payouts/authorize", {
-      method:"POST",
-      body:JSON.stringify({merchantId,amount,password}),
+    return request<{
+      authorizationToken: string;
+      expiresAt: string;
+      merchantId: string;
+      amount: number;
+    }>("/merchant/payouts/authorize", {
+      method: "POST",
+      body: JSON.stringify({ merchantId, amount, password }),
     });
   },
-  async requestMerchantPayout(merchantId: string, amount: number, authorizationToken:string) {
+  async requestMerchantPayout(merchantId: string, amount: number, authorizationToken: string) {
     return request<{ finance: MerchantFinance }>("/merchant/payouts", {
       method: "POST",
       headers: { "Idempotency-Key": crypto.randomUUID() },
@@ -487,49 +696,32 @@ export const api = {
     });
   },
   async getAdminPayouts() {
-    return request<{ payouts: import("./types").PayoutReview[] }>(
-      "/admin/payouts",
-    );
+    return request<{ payouts: import("./types").PayoutReview[] }>("/admin/payouts");
   },
-  async reviewPayout(
-    id: string,
-    decision: "approved" | "rejected",
-    note: string,
-  ) {
-    return request<{ payout: import("./types").PayoutReview }>(
-      `/admin/payouts/${id}/review`,
-      { method: "PATCH", body: JSON.stringify({ decision, note }) },
-    );
+  async reviewPayout(id: string, decision: "approved" | "rejected", note: string) {
+    return request<{ payout: import("./types").PayoutReview }>(`/admin/payouts/${id}/review`, {
+      method: "PATCH",
+      body: JSON.stringify({ decision, note }),
+    });
   },
   async getTipAdjustments() {
-    return request<{ adjustments: import("./types").TipAdjustment[] }>(
-      "/admin/tip-adjustments",
-    );
+    return request<{ adjustments: import("./types").TipAdjustment[] }>("/admin/tip-adjustments");
   },
   async requestTipAdjustment(tipId: string, amount: number, reason: string) {
-    return request<{ adjustment: import("./types").TipAdjustment }>(
-      "/admin/tip-adjustments",
-      {
-        method: "POST",
-        headers: { "Idempotency-Key": crypto.randomUUID() },
-        body: JSON.stringify({ tipId, amount, reason }),
-      },
-    );
+    return request<{ adjustment: import("./types").TipAdjustment }>("/admin/tip-adjustments", {
+      method: "POST",
+      headers: { "Idempotency-Key": crypto.randomUUID() },
+      body: JSON.stringify({ tipId, amount, reason }),
+    });
   },
-  async reviewTipAdjustment(
-    id: string,
-    decision: "approved" | "rejected",
-    note: string,
-  ) {
+  async reviewTipAdjustment(id: string, decision: "approved" | "rejected", note: string) {
     return request<{ adjustment: import("./types").TipAdjustment }>(
       `/admin/tip-adjustments/${id}/review`,
       { method: "PATCH", body: JSON.stringify({ decision, note }) },
     );
   },
   async getSupportAgents() {
-    return request<{ agents: import("./types").SupportAgent[] }>(
-      "/admin/support/agents",
-    );
+    return request<{ agents: import("./types").SupportAgent[] }>("/admin/support/agents");
   },
   async updateSupportAgent(
     userId: string,
@@ -539,10 +731,10 @@ export const api = {
       skills?: string[];
     },
   ) {
-    return request<{ agent: import("./types").SupportAgent }>(
-      `/admin/support/agents/${userId}`,
-      { method: "PATCH", body: JSON.stringify(payload) },
-    );
+    return request<{ agent: import("./types").SupportAgent }>(`/admin/support/agents/${userId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
   },
   async processSupportQueue(limit = 50) {
     return request<{
@@ -567,10 +759,10 @@ export const api = {
       assignedTo?: string;
     },
   ) {
-    return request<{ ticket: import("./types").SupportTicket }>(
-      `/support/tickets/${ticketId}`,
-      { method: "PATCH", body: JSON.stringify(payload) },
-    );
+    return request<{ ticket: import("./types").SupportTicket }>(`/support/tickets/${ticketId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
   },
   async getNotificationDeadLetters() {
     return request<{ deadLetters: import("./types").NotificationDeadLetter[] }>(
@@ -613,26 +805,18 @@ export const api = {
   async createOrderIssue(
     orderId: string,
     payload: {
-      category:
-        | "missing_item"
-        | "wrong_item"
-        | "damaged_item"
-        | "quality"
-        | "late"
-        | "other";
+      category: "missing_item" | "wrong_item" | "damaged_item" | "quality" | "late" | "other";
       description: string;
       requestedRefund: number;
     },
   ) {
-    return request<{ issue: import("./types").OrderIssue }>(
-      `/orders/${orderId}/issues`,
-      { method: "POST", body: JSON.stringify(payload) },
-    );
+    return request<{ issue: import("./types").OrderIssue }>(`/orders/${orderId}/issues`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
   async getOrderIssues(orderId: string) {
-    return request<{ issues: import("./types").OrderIssue[] }>(
-      `/orders/${orderId}/issues`,
-    );
+    return request<{ issues: import("./types").OrderIssue[] }>(`/orders/${orderId}/issues`);
   },
   async resolveOrderIssue(
     issueId: string,
@@ -642,10 +826,10 @@ export const api = {
       resolutionNote: string;
     },
   ) {
-    return request<{ issue: import("./types").OrderIssue }>(
-      `/order-issues/${issueId}/resolve`,
-      { method: "PATCH", body: JSON.stringify(payload) },
-    );
+    return request<{ issue: import("./types").OrderIssue }>(`/order-issues/${issueId}/resolve`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
   },
   async proposeOrderSubstitution(
     orderId: string,
@@ -665,10 +849,7 @@ export const api = {
       `/orders/${orderId}/substitutions`,
     );
   },
-  async decideOrderSubstitution(
-    substitutionId: string,
-    decision: "accepted" | "rejected",
-  ) {
+  async decideOrderSubstitution(substitutionId: string, decision: "accepted" | "rejected") {
     return request<{ substitution: import("./types").OrderSubstitution }>(
       `/order-substitutions/${substitutionId}`,
       { method: "PATCH", body: JSON.stringify({ decision }) },
@@ -679,7 +860,13 @@ export const api = {
     if (!authToken && !(await refreshAccessToken())) return null;
     try {
       const account = await request<{ account: { user: User } }>("/me");
-      activeAudience=account.account.user.roles.includes("admin")?"operations":account.account.user.roles.includes("merchant")?"merchant":account.account.user.roles.includes("driver")?"driver":"customer";
+      activeAudience = account.account.user.roles.includes("admin")
+        ? "operations"
+        : account.account.user.roles.includes("merchant")
+          ? "merchant"
+          : account.account.user.roles.includes("driver")
+            ? "driver"
+            : "customer";
       return account.account.user;
     } catch (_error) {
       clearAuthToken();
@@ -705,42 +892,46 @@ export const api = {
     branchId?: string;
     deliveryAddress: string;
     paymentMethod: string;
-    paymentMethodId?:string;
-    providerPayment?:{cardToken:string;paymentMethodId:string;installments:number};
+    paymentMethodId?: string;
+    providerPayment?: { cardToken: string; paymentMethodId: string; installments: number };
     promotionCode?: string;
     quoteToken?: string;
-    items: Array<
-      Pick<CartLine, "quantity" | "extras" | "note"> & { menuItemId: string }
-    >;
+    items: Array<Pick<CartLine, "quantity" | "extras" | "note"> & { menuItemId: string }>;
   }) {
     if (!payload.deliveryAddressId)
       throw new Error("Selecciona una dirección guardada antes de confirmar");
-    const quoteToken = payload.quoteToken || (await this.quoteFoodCheckout({
-      customerId: payload.customerId,
-      restaurantId: payload.restaurantId,
-      deliveryAddressId: payload.deliveryAddressId,
-      branchId: payload.branchId,
-      paymentMethod: payload.paymentMethod,
-      paymentMethodId: payload.paymentMethodId,
-      promotionCode: payload.promotionCode,
-      items: payload.items,
-    })).quote.quoteToken;
-    return request<{ order: AppState["orders"][number]; label: string }>(
-      "/orders",
-      {
-        method: "POST",
-        headers: { "Idempotency-Key": crypto.randomUUID() },
-        body: JSON.stringify({ ...payload, quoteToken }),
-      },
-    );
+    const quoteToken =
+      payload.quoteToken ||
+      (
+        await this.quoteFoodCheckout({
+          customerId: payload.customerId,
+          restaurantId: payload.restaurantId,
+          deliveryAddressId: payload.deliveryAddressId,
+          branchId: payload.branchId,
+          paymentMethod: payload.paymentMethod,
+          paymentMethodId: payload.paymentMethodId,
+          promotionCode: payload.promotionCode,
+          items: payload.items,
+        })
+      ).quote.quoteToken;
+    return request<{ order: AppState["orders"][number]; label: string }>("/orders", {
+      method: "POST",
+      headers: { "Idempotency-Key": crypto.randomUUID() },
+      body: JSON.stringify({ ...payload, quoteToken }),
+    });
   },
   async getMerchantDashboard(merchantId: string) {
     return request<{ dashboard: MerchantOperationsDashboard }>(
       `/merchant/dashboard?restaurantId=${encodeURIComponent(merchantId)}`,
     );
   },
-  async getMerchantActiveOrders(merchantId:string,limit=100){
-    return request<{generatedAt:string;source:"postgres-live-operations"|"sqlite-test-fallback";orders:AppState["orders"];hasMore:boolean}>(`/merchant/orders/active?restaurantId=${encodeURIComponent(merchantId)}&limit=${limit}`);
+  async getMerchantActiveOrders(merchantId: string, limit = 100) {
+    return request<{
+      generatedAt: string;
+      source: "postgres-live-operations" | "sqlite-test-fallback";
+      orders: AppState["orders"];
+      hasMore: boolean;
+    }>(`/merchant/orders/active?restaurantId=${encodeURIComponent(merchantId)}&limit=${limit}`);
   },
 
   async quoteFoodCheckout(payload: {
@@ -797,11 +988,7 @@ export const api = {
     );
   },
 
-  async setOrderStatus(
-    orderId: string,
-    status: string,
-    reason = "changed_mind",
-  ) {
+  async setOrderStatus(orderId: string, status: string, reason = "changed_mind") {
     return request<{ order: AppState["orders"][number]; label: string }>(
       `/orders/${orderId}/status`,
       {
@@ -817,11 +1004,7 @@ export const api = {
   async quoteRide(
     payload: Pick<
       RideForm,
-      | "pickup"
-      | "destination"
-      | "service"
-      | "pickupCoords"
-      | "destinationCoords"
+      "pickup" | "destination" | "service" | "pickupCoords" | "destinationCoords"
     >,
   ) {
     const response = await request<{ options: RideQuote[] }>("/rides/options", {
@@ -911,11 +1094,7 @@ export const api = {
     });
   },
 
-  async setShipmentStatus(
-    shipmentId: string,
-    status: "cancelled",
-    reason = "changed_mind",
-  ) {
+  async setShipmentStatus(shipmentId: string, status: "cancelled", reason = "changed_mind") {
     return request<{ shipment: Shipment }>(`/shipments/${shipmentId}/status`, {
       method: "PATCH",
       body: JSON.stringify({ status, reason }),
@@ -923,15 +1102,11 @@ export const api = {
   },
 
   async getShipmentDeliveryCode(shipmentId: string) {
-    return request<{ deliveryCode: string }>(
-      `/shipments/${shipmentId}/delivery-code`,
-    );
+    return request<{ deliveryCode: string }>(`/shipments/${shipmentId}/delivery-code`);
   },
 
   async getShipmentDeliveryEvidence(shipmentId: string) {
-    return request<{ evidence: DeliveryEvidence[] }>(
-      `/shipments/${shipmentId}/delivery-evidence`,
-    );
+    return request<{ evidence: DeliveryEvidence[] }>(`/shipments/${shipmentId}/delivery-evidence`);
   },
 
   async advanceRide(rideId: string) {
@@ -985,20 +1160,14 @@ export const api = {
     );
   },
 
-  async updateDriver(
-    driverId: string,
-    payload: Partial<Pick<Driver, "online" | "activeService">>,
-  ) {
+  async updateDriver(driverId: string, payload: Partial<Pick<Driver, "online" | "activeService">>) {
     return request<{ driver: Driver }>(`/drivers/${driverId}/availability`, {
       method: "PATCH",
       body: JSON.stringify(payload),
     });
   },
 
-  async updateDriverLocation(
-    driverId: string,
-    payload: GeoPoint & { label?: string },
-  ) {
+  async updateDriverLocation(driverId: string, payload: GeoPoint & { label?: string }) {
     return request<{ driver: Driver }>(`/drivers/${driverId}/location`, {
       method: "PATCH",
       body: JSON.stringify(payload),
@@ -1016,13 +1185,10 @@ export const api = {
   },
 
   async updateMenuStock(restaurantId: string, itemId: string, stock: boolean) {
-    return request<{ restaurant: Restaurant }>(
-      `/restaurants/${restaurantId}/menu/${itemId}`,
-      {
-        method: "PATCH",
-        body: JSON.stringify({ stock }),
-      },
-    );
+    return request<{ restaurant: Restaurant }>(`/restaurants/${restaurantId}/menu/${itemId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ stock }),
+    });
   },
 
   async addMenuItem(
@@ -1034,13 +1200,10 @@ export const api = {
       price: number;
     },
   ) {
-    return request<{ restaurant: Restaurant }>(
-      `/restaurants/${restaurantId}/menu`,
-      {
-        method: "POST",
-        body: JSON.stringify(payload),
-      },
-    );
+    return request<{ restaurant: Restaurant }>(`/restaurants/${restaurantId}/menu`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
   },
 
   async replaceItemModifiers(
@@ -1071,8 +1234,19 @@ export const api = {
       { method: "PUT", body: JSON.stringify(payload) },
     );
   },
-  async getDietaryPreferences(){return request<{preferences:import("./types").DietaryPreferences}>("/dietary-preferences");},
-  async updateDietaryPreferences(input:{dietaryLabels:string[];avoidedAllergens:string[];hideIncompatible:boolean}){return request<{preferences:import("./types").DietaryPreferences}>("/dietary-preferences",{method:"PUT",body:JSON.stringify(input)});},
+  async getDietaryPreferences() {
+    return request<{ preferences: import("./types").DietaryPreferences }>("/dietary-preferences");
+  },
+  async updateDietaryPreferences(input: {
+    dietaryLabels: string[];
+    avoidedAllergens: string[];
+    hideIncompatible: boolean;
+  }) {
+    return request<{ preferences: import("./types").DietaryPreferences }>("/dietary-preferences", {
+      method: "PUT",
+      body: JSON.stringify(input),
+    });
+  },
   async sendAnalyticsEvents(events: AnalyticsEvent[]) {
     return request<{ accepted: number; duplicates: number }>("/analytics/events", {
       method: "POST",
@@ -1080,12 +1254,26 @@ export const api = {
     });
   },
   async getDriverCompliance(driverId: string) {
-    return request<{ compliance: DriverCompliance }>(
-      `/drivers/${driverId}/compliance`,
+    return request<{ compliance: DriverCompliance }>(`/drivers/${driverId}/compliance`);
+  },
+  async getDriverVehicles(driverId: string, includeRetired = false) {
+    return request<{ vehicles: import("./types").DriverVehicle[] }>(
+      `/drivers/${driverId}/vehicles${includeRetired ? "?includeRetired=true" : ""}`,
     );
   },
-  async getDriverVehicles(driverId:string,includeRetired=false){return request<{vehicles:import("./types").DriverVehicle[]}>(`/drivers/${driverId}/vehicles${includeRetired?"?includeRetired=true":""}`);},
-  async reviewDriverVehicle(vehicleId:string,status:"approved"|"rejected",rejectionReason?:string){return request<{vehicle:import("./types").DriverVehicle}>(`/admin/driver-vehicles/${vehicleId}/review`,{method:"PATCH",body:JSON.stringify({status,rejectionReason:rejectionReason||null})});},
+  async reviewDriverVehicle(
+    vehicleId: string,
+    status: "approved" | "rejected",
+    rejectionReason?: string,
+  ) {
+    return request<{ vehicle: import("./types").DriverVehicle }>(
+      `/admin/driver-vehicles/${vehicleId}/review`,
+      {
+        method: "PATCH",
+        body: JSON.stringify({ status, rejectionReason: rejectionReason || null }),
+      },
+    );
+  },
   async reviewDriverDocument(
     documentId: string,
     status: "approved" | "rejected",
@@ -1162,11 +1350,7 @@ export const api = {
     );
   },
 
-  async updateUserStatus(
-    userId: string,
-    status: "active" | "suspended",
-    reason: string,
-  ) {
+  async updateUserStatus(userId: string, status: "active" | "suspended", reason: string) {
     return request<{
       moderation: {
         id: string;
@@ -1183,9 +1367,7 @@ export const api = {
     return request<import("./types").ShipmentOptions>("/shipment-options");
   },
   async getAdminShipmentOptions() {
-    return request<import("./types").ShipmentOptions>(
-      "/admin/shipment-options",
-    );
+    return request<import("./types").ShipmentOptions>("/admin/shipment-options");
   },
   async getAdminServiceQuickReplies() {
     return request<{ quickReplies: import("./types").ServiceQuickReply[] }>(
@@ -1202,9 +1384,7 @@ export const api = {
   },
   async updateServiceQuickReply(
     id: string,
-    input: Partial<
-      Omit<import("./types").ServiceQuickReply, "id" | "updatedAt">
-    >,
+    input: Partial<Omit<import("./types").ServiceQuickReply, "id" | "updatedAt">>,
   ) {
     return request<{ quickReply: import("./types").ServiceQuickReply }>(
       `/admin/service-chat/quick-replies/${id}`,
@@ -1212,9 +1392,7 @@ export const api = {
     );
   },
   async getShipmentClaims() {
-    return request<{ claims: import("./types").ShipmentClaim[] }>(
-      "/shipment-claims",
-    );
+    return request<{ claims: import("./types").ShipmentClaim[] }>("/shipment-claims");
   },
   async updateShipmentClaim(
     id: string,
@@ -1224,10 +1402,10 @@ export const api = {
       approvedAmount?: number;
     },
   ) {
-    return request<{ claim: import("./types").ShipmentClaim }>(
-      `/shipment-claims/${id}`,
-      { method: "PATCH", body: JSON.stringify(input) },
-    );
+    return request<{ claim: import("./types").ShipmentClaim }>(`/shipment-claims/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
   },
   async getShipmentClaimEvidenceContent(evidenceId: string) {
     return request<{
@@ -1236,15 +1414,12 @@ export const api = {
     }>(`/shipment-claim-evidence/${evidenceId}/content`);
   },
   async getPaymentReconciliation() {
-    return request<import("./types").PaymentReconciliation>(
-      "/admin/payment-reconciliation",
-    );
+    return request<import("./types").PaymentReconciliation>("/admin/payment-reconciliation");
   },
   async scanPaymentReconciliation() {
-    return request<import("./types").PaymentReconciliation>(
-      "/admin/payment-reconciliation/scan",
-      { method: "POST" },
-    );
+    return request<import("./types").PaymentReconciliation>("/admin/payment-reconciliation/scan", {
+      method: "POST",
+    });
   },
   async resolvePaymentReconciliationCase(
     id: string,
@@ -1301,11 +1476,7 @@ export const api = {
       { method: "POST", body: JSON.stringify(payload) },
     );
   },
-  async reviewPricingChange(
-    requestId: string,
-    decision: "approved" | "rejected",
-    note: string,
-  ) {
+  async reviewPricingChange(requestId: string, decision: "approved" | "rejected", note: string) {
     return request<{ changeRequest: import("./types").PricingChangeRequest }>(
       `/admin/pricing-changes/${requestId}/review`,
       { method: "PATCH", body: JSON.stringify({ decision, note }) },

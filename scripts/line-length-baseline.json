@@ -1,11 +1,5 @@
 {
-  "apps/mobile/App.tsx": 327,
-  "apps/mobile/src/DriverDemandMap.native.tsx": 15,
-  "apps/mobile/src/DriverDemandMap.web.tsx": 2,
-  "apps/mobile/src/api.ts": 45,
-  "apps/mobile/src/background-location.ts": 3,
-  "apps/mobile/src/session-storage.ts": 2,
-  "apps/mobile/src/types.ts": 21,
+  "apps/mobile/App.tsx": 1,
   "scripts/db-seed-addresses.mjs": 1,
   "scripts/driver-demand-smoke.mjs": 2,
   "scripts/driver-earnings-smoke.mjs": 2,
@@ -59,9 +53,5 @@
   "server/trusted-contact-repository.js": 2,
   "server/wallet-repository.js": 5,
   "server/zone-readiness-repository.js": 4,
-  "src/App.tsx": 49,
-  "src/NotificationCenter.tsx": 5,
-  "src/RideHome.tsx": 15,
-  "src/api.ts": 21,
-  "src/types.ts": 2
+  "src/App.tsx": 1
 }

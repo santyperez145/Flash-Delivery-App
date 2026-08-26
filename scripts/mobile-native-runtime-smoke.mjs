@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { contains } from "./source-contract.mjs";
 import path from "node:path";
 import { createRequire } from "node:module";
 
@@ -42,22 +43,22 @@ assert(
   "customer build excludes driver-only background location privilege",
 );
 assert(
-  background.includes("TaskManager.defineTask(TASK_NAME") &&
+  contains(background, "TaskManager.defineTask(TASK_NAME") &&
     background.indexOf("TaskManager.defineTask(TASK_NAME") <
       background.indexOf("export async function startDriverBackgroundLocation"),
   "location task is defined in module scope before registration",
 );
 assert(
-  background.includes("Flash Driver Background") &&
-    background.includes("/auth/refresh") &&
-    background.includes('source:"background"') &&
-    background.includes("stopLocationUpdatesAsync"),
+  contains(background, "Flash Driver Background") &&
+    contains(background, "/auth/refresh") &&
+    contains(background, 'source:"background"') &&
+    contains(background, "stopLocationUpdatesAsync"),
   "background task rotates sessions, attributes fixes and supports explicit shutdown",
 );
 assert(
-  session.includes("WHEN_UNLOCKED_THIS_DEVICE_ONLY") &&
-    session.includes('Platform.OS==="web"') &&
-    api.includes("loadMobileSession") &&
-    !api.includes("AsyncStorage"),
+  contains(session, "WHEN_UNLOCKED_THIS_DEVICE_ONLY") &&
+    contains(session, 'Platform.OS==="web"') &&
+    contains(api, "loadMobileSession") &&
+    !contains(api, "AsyncStorage"),
   "native refresh credentials use device-only Keychain/Keystore with isolated web fallback",
 );

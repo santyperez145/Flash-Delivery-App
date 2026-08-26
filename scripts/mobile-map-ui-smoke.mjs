@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { contains } from "./source-contract.mjs";
 import nodeAssert from "node:assert/strict";
 import { buildExternalNavigationUrl } from "../apps/mobile/src/navigation-links.ts";
 
@@ -25,11 +26,12 @@ assert(
   "Expo-compatible native map runtime and config plugin are pinned",
 );
 assert(
-  !webMap.includes("react-native-maps") && webMap.includes("no simula el SDK nativo"),
+  !contains(webMap, "react-native-maps") && contains(webMap, "no simula el SDK nativo"),
   "Expo web never evaluates native map code and degrades explicitly",
 );
 assert(
-  !demandWebMap.includes("react-native-maps") && demandWebMap.includes("no simula el mapa nativo"),
+  !contains(demandWebMap, "react-native-maps") &&
+    contains(demandWebMap, "no simula el mapa nativo"),
   "driver demand web fallback never loads or simulates the native SDK",
 );
 assert(
@@ -37,67 +39,67 @@ assert(
   "customer quotes/tracking plus driver preview and cockpit share the native map",
 );
 assert(
-  map.includes("fitToCoordinates") &&
-    map.includes("Polyline") &&
-    map.includes("validRoute.length > 1"),
+  contains(map, "fitToCoordinates") &&
+    contains(map, "Polyline") &&
+    contains(map, "validRoute.length > 1"),
   "map supports pan, zoom, recenter and draws only a real routed polyline",
 );
 assert(
-  demandMap.includes("<Polygon") &&
-    demandMap.includes("fitToCoordinates") &&
-    demandMap.includes("zone.boundary.map(coordinate)"),
+  contains(demandMap, "<Polygon") &&
+    contains(demandMap, "fitToCoordinates") &&
+    contains(demandMap, "zone.boundary.map(coordinate)"),
   "driver demand renders and fits real PostGIS polygons on the native map",
 );
 assert(
-  app.includes("api.getDriverDemand()") &&
-    app.includes("Actividad, no promesa") &&
-    app.includes("zone.openJobs") &&
-    app.includes("zone.eligibleDrivers"),
+  contains(app, "api.getDriverDemand()") &&
+    contains(app, "Actividad, no promesa") &&
+    contains(app, "zone.openJobs") &&
+    contains(app, "zone.eligibleDrivers"),
   "driver home consumes the private demand snapshot and labels its limits without hardcoded hotspots",
 );
 assert(
-  map.includes('mapType={Platform.OS === "ios" ? "mutedStandard" : "standard"}') &&
-    map.includes('customMapStyle={Platform.OS === "android" ? flashGoogleMapStyle : undefined}'),
+  contains(map, 'mapType={Platform.OS === "ios" ? "mutedStandard" : "standard"}') &&
+    contains(map, 'customMapStyle={Platform.OS === "android" ? flashGoogleMapStyle : undefined}'),
   "Android and iOS use their native base-map provider with an explicit visual treatment",
 );
 assert(
-  map.includes("driver = null") && app.includes("driver={driver?.location||null}"),
+  contains(map, "driver = null") && contains(app, "driver={driver?.location||null}"),
   "driver marker is sourced only from a persisted location",
 );
 assert(
-  !app.includes("buildTrackingMap") &&
-    !app.includes("tile.openstreetmap.org") &&
-    !app.includes("routeOverlay") &&
-    !app.includes("Santa Fe 1800"),
+  !contains(app, "buildTrackingMap") &&
+    !contains(app, "tile.openstreetmap.org") &&
+    !contains(app, "routeOverlay") &&
+    !contains(app, "Santa Fe 1800"),
   "manual tiles, projection and fictional shipment destination were removed",
 );
 assert(
-  app.includes("api.route(pickupPoint,destinationPoint).catch(()=>null)") &&
-    app.includes("setShipmentRoadRoute(routed?.route||null)"),
+  contains(app, "api.route(pickupPoint,destinationPoint).catch(()=>null)") &&
+    contains(app, "setShipmentRoadRoute(routed?.route||null)"),
   "shipment quote requests its real road geometry without making provider failure dishonest",
 );
 assert(
-  config.includes("GOOGLE_MAPS_ANDROID_API_KEY") &&
-    config.includes("androidGoogleMapsConfigured") &&
-    map.includes("Mapa Android pendiente de configuración"),
+  contains(config, "GOOGLE_MAPS_ANDROID_API_KEY") &&
+    contains(config, "androidGoogleMapsConfigured") &&
+    contains(map, "Mapa Android pendiente de configuración"),
   "Android key is build-time configured and missing credentials degrade explicitly",
 );
 assert(
-  app.includes('originRole="driver"') &&
-    app.includes("buildExternalNavigationUrl") &&
-    app.includes("setDriverRoute(null)"),
+  contains(app, 'originRole="driver"') &&
+    contains(app, "buildExternalNavigationUrl") &&
+    contains(app, "setDriverRoute(null)"),
   "driver app maps the live GPS route and hands turn-by-turn navigation to a supported provider without retaining stale geometry",
 );
 assert(
-  app.includes("function DriverNavigationModal") &&
-    app.includes("setDriverView(value)") &&
-    app.includes("Abrir guía giro a giro"),
+  contains(app, "function DriverNavigationModal") &&
+    contains(app, "setDriverView(value)") &&
+    contains(app, "Abrir guía giro a giro"),
   "driver navigation lives in a segmented operational cockpit with explicit external handoff",
 );
 assert(
-  app.includes("driverScrollRef.current?.scrollTo") &&
-    app.includes('driverView==="inbox"') &&
-    app.includes("api.getNotifications()"),
+  contains(app, "driverScrollRef.current?.scrollTo") &&
+    contains(app, 'driverView==="inbox"') &&
+    contains(app, "api.getNotifications()"),
   "driver tabs reset their viewport and Inbox consumes private persisted notifications",
 );
 assert(
@@ -106,9 +108,9 @@ assert(
   "customer ride tracking keeps map and ETA but never exposes driving maneuvers",
 );
 assert(
-  app.includes("defaultLocationSeededForUser") &&
-    app.includes("setPickupCoords(point)") &&
-    app.includes("setShipmentPickupCoords(point)"),
+  contains(app, "defaultLocationSeededForUser") &&
+    contains(app, "setPickupCoords(point)") &&
+    contains(app, "setShipmentPickupCoords(point)"),
   "customer ride and shipment maps seed the real geocoded default address instead of opening with an empty origin",
 );
 nodeAssert.equal(
