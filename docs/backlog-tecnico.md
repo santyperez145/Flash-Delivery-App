@@ -22,7 +22,7 @@ Cinco archivos concentran más de 1,3 MB de código: `apps/mobile/App.tsx` (433 
 2. Extraer features de los dos `App.tsx` hacia módulos por dominio.
 3. Crear entrypoints separados customer, driver y merchant en mobile.
 4. Descomponer `server/index.js` en controllers, separados de use cases y repositories.
-5. Dividir `commerce-repository.js` por subdominio (catálogo, sucursales, stock, finanzas).
+5. ~~Dividir `commerce-repository.js` por subdominio~~ **Hecho**: `catalog-repository.js` (539 líneas, lo que escribe el comercio), `order-repository.js` (1.103, el ciclo del pedido) y `driver-roster-repository.js` (134, el plantel). `usesPostgresCommerce` se mudó a `postgres.js`, que es de quien habla el predicado. La única dependencia entre partes es `mapCatalogItem`: pedidos importa de catálogo —un pedido está hecho de ítems— y nunca al revés.
 6. Crear contratos compartidos en un paquete propio.
 7. Limitar cada archivo a una responsabilidad concreta.
 
