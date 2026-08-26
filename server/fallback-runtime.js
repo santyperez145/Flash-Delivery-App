@@ -188,3 +188,13 @@ export const fallbackShipmentPricing = {
     sizeMultipliers: { small: 1, medium: 1.18, large: 1.42 },
   },
 };
+
+/**
+ * Busca un restaurante en el estado del respaldo SQLite.
+ *
+ * Vivía en `server/index.js`; lo comparten el router de catálogo y el flujo de
+ * pedidos del fallback, así que su lugar es el runtime compartido.
+ */
+export function findRestaurant(db, restaurantId) {
+  return db.restaurants.find((restaurant) => restaurant.id === restaurantId);
+}
