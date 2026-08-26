@@ -32,8 +32,14 @@ api.stderr.on("data", (data) => process.stderr.write(data));
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 try {
+  // 120 × 200 ms son 24 segundos, y un arranque en frío medido sobre Windows
+  // tarda 22: el margen era de dos segundos. Se cuenta tiempo en vez de
+  // intentos, con el mismo presupuesto que `security-smoke`.
+  const startupBudgetMs = 90000;
+  const deadline = Date.now() + startupBudgetMs;
   let ready = false;
-  for (let attempt = 0; attempt < 120; attempt += 1) {
+  let lastStatus = "sin respuesta";
+  while (Date.now() < deadline) {
     try {
       const response = await fetch(`http://127.0.0.1:${apiPort}/api/health`, {
         headers: { "x-request-id": "REQ-otel-smoke-0001" },
@@ -42,10 +48,16 @@ try {
         ready = true;
         break;
       }
-    } catch {}
-    await sleep(200);
+      lastStatus = `HTTP ${response.status}`;
+    } catch (error) {
+      lastStatus = error.cause?.code || error.message;
+    }
+    await sleep(250);
   }
-  if (!ready) throw new Error("API instrumentada no inició");
+  if (!ready)
+    throw new Error(
+      `API instrumentada no inició en ${startupBudgetMs / 1000}s (último: ${lastStatus})`,
+    );
   await fetch(`http://127.0.0.1:${apiPort}/api/ready`, {
     headers: { "x-request-id": "REQ-otel-smoke-0002" },
   });

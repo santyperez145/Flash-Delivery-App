@@ -55,16 +55,35 @@ async function login(email) {
   return response.body.token;
 }
 
+// Presupuesto de arranque, no cantidad de intentos.
+//
+// El bucle anterior daba 60 intentos con un `sleep` de 200 ms **dentro del
+// `catch`**: si `/health` respondía algo distinto de 200 sin lanzar, no dormía y
+// quemaba los 60 intentos de corrido. Y aun durmiendo, 60 × 200 ms son 12
+// segundos, menos de lo que tarda un arranque en frío —medido en 22 s sobre
+// Windows con la caché de módulos fría—.
+//
+// El resultado era una suite que pasa en el runner de CI y falla en la máquina
+// de quien la corre, que es la peor forma de falso negativo: entrena a ignorar
+// el rojo. Tres verificaciones de esta misma sesión se perdieron por esto.
+const STARTUP_BUDGET_MS = 90000;
+
 async function waitForApi() {
-  for (let attempt = 0; attempt < 60; attempt += 1) {
+  const deadline = Date.now() + STARTUP_BUDGET_MS;
+  let lastStatus = "sin respuesta";
+  while (Date.now() < deadline) {
     try {
       const health = await request("/health");
       if (health.status === 200) return;
-    } catch (_error) {
-      await sleep(200);
+      lastStatus = `HTTP ${health.status}`;
+    } catch (error) {
+      lastStatus = error.cause?.code || error.message;
     }
+    await sleep(250);
   }
-  throw new Error("backend did not start");
+  throw new Error(
+    `backend did not start within ${STARTUP_BUDGET_MS / 1000}s (last: ${lastStatus})`,
+  );
 }
 
 async function run() {

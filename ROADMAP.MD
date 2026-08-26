@@ -8,9 +8,9 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
-## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 6, el núcleo compartido
+## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 7, el núcleo compartido
 
-Entregas novena a decimotercera de la Fase 0. El paso 2 quedó sin registrar acá cuando se publicó, así que esta sección cubre los cinco.
+Entregas novena a decimocuarta de la Fase 0. El paso 2 quedó sin registrar acá cuando se publicó, así que esta sección cubre los seis.
 
 ### Lo que se extrajo
 
@@ -26,8 +26,9 @@ Entregas novena a decimotercera de la Fase 0. El paso 2 quedó sin registrar ac�
 | `server/audit-trail.js` | `auditRuntime`, la auditoría que sirve a los dos runtimes | 6 |
 | `server/http/notifications-router.js` | notificaciones, preferencias y dispositivos — 7 rutas | 6 |
 | `server/http/dietary-router.js` | preferencias alimentarias — 2 rutas | 6 |
+| `server/http/feedback-router.js` | favoritos y calificaciones — 4 rutas | 7 |
 
-`server/index.js`: 9.696 → **8.780 líneas**, 210 → **193 rutas**, 172 → **156 declaraciones de nivel superior**. Son 7 de 57 grupos de rutas. **Lo que importa no es cuánto se movió, sino qué quedó establecido.**
+`server/index.js`: 9.696 → **8.689 líneas**, 210 → **189 rutas**, 172 → **154 declaraciones de nivel superior**. Son 9 de 57 grupos de rutas. **Lo que importa no es cuánto se movió, sino qué quedó establecido.**
 
 ### La autorización deja de tocar la base de datos
 
@@ -87,9 +88,15 @@ Los tres subgrupos de notificaciones viajan juntos porque son un dominio visto d
 
 Los dos grupos elegidos tienen suite propia sobre el fallback —`test:dietary-local` y `test:notification-local`—, así que la extracción se verificó contra el contrato que ya existía en lugar de contra uno escrito para la ocasión.
 
+### Una suite que pasa en CI y falla en la máquina de quien la corre
+
+`test:security` es la puerta que cubre el runtime entero, y su espera de arranque tenía dos defectos. El `sleep` estaba **dentro del `catch`**: si `/health` respondía algo distinto de 200 sin lanzar, el bucle quemaba sus 60 intentos de corrido. Y aun durmiendo, 60 × 200 ms daban **12 segundos de presupuesto** contra un arranque en frío medido en **22**.
+
+Pasa en el runner de CI, que está caliente, y falla en la máquina de quien la corre. Es la peor forma de falso negativo, porque entrena a ignorar el rojo: **tres verificaciones de esta misma sesión se perdieron creyendo que había una regresión donde no la había.** Ahora se cuenta tiempo en lugar de intentos, con 90 s de presupuesto, y el error dice cuál fue la última respuesta. `test:telemetry` tenía la misma forma con 24 s —dos segundos de margen— y quedó igual.
+
 ### Lo que sigue faltando
 
-Idéntico al paso 1, menos siete grupos: separar entrypoints customer/driver/merchant, extraer features de los dos `App.tsx`, dividir `commerce-repository.js`, y los 50 grupos de rutas restantes. **El núcleo compartido está completo**: un grupo nuevo ya no necesita nada de `index.js`, así que lo que queda es trabajo repetitivo y no de diseño. Ninguna línea larga se corrigió: siguen 262, casi todas SQL en template literals.
+Idéntico al paso 1, menos nueve grupos: separar entrypoints customer/driver/merchant, extraer features de los dos `App.tsx`, dividir `commerce-repository.js`, y los 48 grupos de rutas restantes. **El núcleo compartido está completo**: un grupo nuevo ya no necesita nada de `index.js`, así que lo que queda es trabajo repetitivo y no de diseño. Ninguna línea larga se corrigió: siguen 262, casi todas SQL en template literals.
 
 ## Avance 26 de agosto de 2026 — ARC-001 paso 1, reformateo mecánico
 
