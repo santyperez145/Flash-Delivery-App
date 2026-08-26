@@ -39,6 +39,7 @@ import { requireAuth } from "./http/authentication.js";
 import { addressesRouter } from "./http/addresses-router.js";
 import { dietaryRouter } from "./http/dietary-router.js";
 import { feedbackRouter } from "./http/feedback-router.js";
+import { financialReviewRouter } from "./http/financial-review-router.js";
 import { notificationsRouter } from "./http/notifications-router.js";
 import {
   publishRealtimeEvent,
@@ -654,10 +655,6 @@ const payoutRequestSchema = z.object({
 const payoutAuthorizeSchema = payoutRequestSchema
   .omit({ authorizationToken: true })
   .extend({ password: z.string().min(4).max(128) });
-const payoutReviewSchema = z.object({
-  decision: z.enum(["approved", "rejected"]),
-  note: z.string().trim().min(5).max(1000),
-});
 const mercadoPagoWebhookSchema = z.object({
   id: z.union([z.string(), z.number()]),
   type: z.enum([
@@ -747,14 +744,6 @@ const driverDocumentReviewSchema = z
         message: "Explica el rechazo",
       });
   });
-const paymentReconciliationResolutionSchema = z.object({
-  status: z.enum(["resolved", "ignored"]),
-  resolutionNote: z.string().trim().min(5).max(1000),
-});
-const transactionRiskReviewSchema = z.object({
-  reviewStatus: z.enum(["confirmed_fraud", "false_positive", "cleared"]),
-  reviewNote: z.string().trim().min(5).max(1000),
-});
 
 const rideTrackingCreateSchema = z.object({
   ttlMinutes: z.coerce.number().int().min(15).max(1440).default(180),
@@ -4329,118 +4318,7 @@ app.post("/api/payments/webhooks/:provider", async (req, res) => {
   if (!signatureValid) return fail(res, 401, "Firma de webhook inválida");
   return ok(res, result);
 });
-app.get(
-  "/api/admin/payment-reconciliation",
-  requireAuth,
-  requireAnyRole("support", "admin"),
-  async (_req, res) => {
-    try {
-      return ok(res, await getPaymentReconciliation());
-    } catch (error) {
-      return failFrom(res, error, "No se pudo cargar la conciliación");
-    }
-  },
-);
-app.post(
-  "/api/admin/payment-reconciliation/scan",
-  requireAuth,
-  requireAnyRole("support", "admin"),
-  async (req, res) => {
-    try {
-      const reconciliation = await scanPaymentReconciliation();
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "payment.reconciliation_scanned",
-        entityType: "payment_reconciliation",
-        entityId: "scan",
-        requestId: req.requestId,
-        afterData: {
-          openCount: reconciliation.summary.openCount,
-          urgentCount: reconciliation.summary.urgentCount,
-        },
-      });
-      return ok(res, reconciliation);
-    } catch (error) {
-      return failFrom(res, error, "No se pudo ejecutar la conciliación");
-    }
-  },
-);
-app.patch(
-  "/api/admin/payment-reconciliation/:caseId",
-  requireAuth,
-  requireAnyRole("support", "admin"),
-  async (req, res) => {
-    const parsed = parseOrFail(paymentReconciliationResolutionSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const reconciliationCase = await resolvePaymentReconciliationCase({
-        casePublicId: req.params.caseId,
-        actorPublicId: req.auth.userId,
-        ...parsed.data,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "payment.reconciliation_resolved",
-        entityType: "payment_reconciliation",
-        entityId: reconciliationCase.id,
-        requestId: req.requestId,
-        afterData: {
-          status: reconciliationCase.status,
-          caseType: reconciliationCase.caseType,
-        },
-      });
-      return ok(res, { case: reconciliationCase });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo resolver el caso");
-    }
-  },
-);
-app.get(
-  "/api/admin/transaction-risks",
-  requireAuth,
-  requireAnyRole("support", "admin"),
-  async (_req, res) => {
-    try {
-      return ok(res, { assessments: await getTransactionRisks() });
-    } catch (error) {
-      return failFrom(res, error, "No se pudieron cargar las evaluaciones");
-    }
-  },
-);
-app.patch(
-  "/api/admin/transaction-risks/:assessmentId",
-  requireAuth,
-  requireAnyRole("support", "admin"),
-  async (req, res) => {
-    const parsed = parseOrFail(transactionRiskReviewSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const assessment = await reviewTransactionRisk({
-        assessmentPublicId: req.params.assessmentId,
-        actorPublicId: req.auth.userId,
-        ...parsed.data,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "risk.assessment_reviewed",
-        entityType: "risk_assessment",
-        entityId: assessment.id,
-        requestId: req.requestId,
-        afterData: {
-          decision: assessment.decision,
-          reviewStatus: assessment.reviewStatus,
-          score: assessment.score,
-        },
-      });
-      return ok(res, { assessment });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo revisar la evaluación");
-    }
-  },
-);
+app.use(financialReviewRouter);
 
 app.post("/api/auth/refresh", async (req, res) => {
   const parsed = parseOrFail(refreshSchema, {
@@ -5790,53 +5668,6 @@ app.post(
     }
   },
 );
-app.get("/api/admin/payouts", requireAuth, requireAnyRole("admin"), async (_req, res) => {
-  try {
-    return ok(res, { payouts: await getPayoutReviewQueue() });
-  } catch (error) {
-    return failFrom(res, error, "No se pudieron cargar los payouts");
-  }
-});
-app.patch(
-  "/api/admin/payouts/:payoutId/review",
-  requireAuth,
-  requireAnyRole("admin"),
-  async (req, res) => {
-    const parsed = parseOrFail(payoutReviewSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const payout = await reviewMerchantPayout({
-        payoutPublicId: req.params.payoutId,
-        actorPublicId: req.auth.userId,
-        ...parsed.data,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: `merchant.payout_${parsed.data.decision}`,
-        entityType: "payout",
-        entityId: payout.id,
-        requestId: req.requestId,
-        afterData: {
-          merchantId: payout.merchantId,
-          amount: payout.amount,
-          status: payout.status,
-        },
-      });
-      await publishRealtimeEvent({
-        req,
-        type: "merchant.finance.updated",
-        entityType: "restaurant",
-        entityId: payout.merchantId,
-        action: `merchant.payout_${parsed.data.decision}`,
-      });
-      return ok(res, { payout });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo revisar el payout");
-    }
-  },
-);
-
 app.post("/api/rides/options", async (req, res) => {
   const parsed = parseOrFail(rideQuoteSchema, req.body || {});
   if (!parsed.ok) return fail(res, 400, parsed.message);
