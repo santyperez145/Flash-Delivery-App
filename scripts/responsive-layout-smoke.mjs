@@ -1,8 +1,11 @@
 import fs from "node:fs";
-import { contains, squeeze } from "./source-contract.mjs";
+import { contains, readMobileSource, readWebSource, squeeze } from "./source-contract.mjs";
 
-const mobile = fs.readFileSync("apps/mobile/App.tsx", "utf8");
-const webApp = fs.readFileSync("src/App.tsx", "utf8");
+// La fuente se lee por audiencia y no por archivo (ARC-001 paso 8): la mitad del
+// trabajo que queda del ticket es partir `App.tsx`, y un contrato con la ruta
+// fija se rompe —o se vacía— en cuanto un componente cambia de archivo.
+const { source: mobile } = await readMobileSource();
+const { source: webApp } = await readWebSource();
 const mobilePackage = JSON.parse(fs.readFileSync("apps/mobile/package.json", "utf8"));
 const rootPackage = JSON.parse(fs.readFileSync("package.json", "utf8"));
 const desktop = fs.readFileSync("src/styles.css", "utf8");

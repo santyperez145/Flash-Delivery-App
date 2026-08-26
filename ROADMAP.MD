@@ -8,9 +8,9 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
-## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 7, el núcleo compartido
+## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 8, el núcleo compartido
 
-Entregas novena a decimocuarta de la Fase 0. El paso 2 quedó sin registrar acá cuando se publicó, así que esta sección cubre los seis.
+Entregas novena a decimoquinta de la Fase 0. El paso 2 quedó sin registrar acá cuando se publicó, así que esta sección cubre los siete.
 
 ### Lo que se extrajo
 
@@ -93,6 +93,18 @@ Los dos grupos elegidos tienen suite propia sobre el fallback —`test:dietary-l
 `test:security` es la puerta que cubre el runtime entero, y su espera de arranque tenía dos defectos. El `sleep` estaba **dentro del `catch`**: si `/health` respondía algo distinto de 200 sin lanzar, el bucle quemaba sus 60 intentos de corrido. Y aun durmiendo, 60 × 200 ms daban **12 segundos de presupuesto** contra un arranque en frío medido en **22**.
 
 Pasa en el runner de CI, que está caliente, y falla en la máquina de quien la corre. Es la peor forma de falso negativo, porque entrena a ignorar el rojo: **tres verificaciones de esta misma sesión se perdieron creyendo que había una regresión donde no la había.** Ahora se cuenta tiempo en lugar de intentos, con 90 s de presupuesto, y el error dice cuál fue la última respuesta. `test:telemetry` tenía la misma forma con 24 s —dos segundos de margen— y quedó igual.
+
+### El paso 8 no movió código: desarmó una trampa
+
+La mitad que falta de ARC-001 es partir `src/App.tsx` (10.553 líneas) y `apps/mobile/App.tsx` (**15.374 líneas y 600 KB, más grande de lo que `server/index.js` fue nunca**). Antes de tocarlos hubo que mirar quién los vigila.
+
+**Nueve suites los leían por ruta fija.** Y `section()`, el helper que recorta una región entre dos marcadores, devolvía `""` cuando no encontraba el inicio — de sus cuatro sitios de llamada, **sólo uno tenía guarda**.
+
+El caso peligroso no es la región vacía, es la que **encoge**. Medido, no supuesto: si `CartScreen` se muda a su propio archivo y queda la firma, `section` devuelve 60 caracteres, la guarda `if (!checkout) throw` no lo atrapa porque 60 es un valor verdadero, y `containsNone(checkout, ["Defensa 982"])` **pasa afirmando sobre nada** — justo cuando la dirección prohibida podría haberse ido con el componente.
+
+Ahora `section` lanza si el marcador falta o si la región cae por debajo de un piso, y `containsNone` se niega a responder sobre una región colapsada. Las nueve suites leen el árbol de su audiencia con `readAudienceSource`, así que un componente que cambie de archivo sigue bajo contrato.
+
+**Y ya había una víctima.** `test:web-tracking-maps` afirmaba que cuatro verticales comparten el mapa, contando sobre dos archivos. En el árbol hay cinco: cuando `RideHome` se extrajo a su propio archivo, su uso dejó de contarse **y el contrato siguió en verde**, afirmando una cobertura de cuatro mientras miraba tres.
 
 ### Lo que sigue faltando
 

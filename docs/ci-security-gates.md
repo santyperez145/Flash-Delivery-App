@@ -92,6 +92,16 @@ Existe porque hasta [ARC-001](backlog-tecnico.md#arc-001--modularización) paso 
 
 La suite también afirma que **el módulo no vuelve a depender de la base**. Sin esa aserción, la propiedad que hace verificable a todo lo demás se pierde en el primer PR que la olvide.
 
+### Contratos sobre código fuente
+
+Nueve suites del frente y varias del servidor afirman que cierta lógica existe leyendo el código. Dependen de dos propiedades, y las dos costaron un hallazgo cada una.
+
+**No dependen del formato.** `contains` compara ignorando el espaciado. Al reformatear en ARC-001 paso 1, ocho suites fallaron porque afirmaban sobre `entry.lat!==null` y Prettier escribió `entry.lat !== null`.
+
+**No dependen de la ubicación.** `readAudienceSource` lee el árbol de una audiencia entera, no un archivo. Un contrato con la ruta fija no se rompe cuando el código se mueve: **se vacía**, que es peor. Ya pasó dos veces en este repositorio — `test:realtime-audience` bajó de 43 a 37 publicaciones y `test:web-tracking-maps` contaba 4 de 5 usos del mapa desde que `RideHome` se extrajo, las dos en verde.
+
+**Y no pueden pasar sobre nada.** `section` lanza si el marcador de inicio falta o si la región entre marcadores colapsa por debajo de un piso; `containsNone` se niega a responder sobre una región demasiado chica. Una aserción de ausencia sobre una región vacía pasa siempre: no es una aserción débil, es ninguna.
+
 ### Formato
 
 `test:format` verifica que todo el código pase por Prettier. Es la puerta que impide que el código vuelva a derivar al estado del hallazgo [H-08](auditoria-2026-08-25.md#h-08--concentración-monolítica-extrema): líneas de hasta 4.061 caracteres que hacían ilegible cualquier diff.

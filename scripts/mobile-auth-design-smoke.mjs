@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { contains } from "./source-contract.mjs";
 import { readFile } from "node:fs/promises";
+import { contains, readMobileSource } from "./source-contract.mjs";
 
 const [app, api, roadmap, research] = await Promise.all([
-  readFile(new URL("../apps/mobile/App.tsx", import.meta.url), "utf8"),
+  readMobileSource().then(({ source }) => source),
   readFile(new URL("../apps/mobile/src/api.ts", import.meta.url), "utf8"),
   readFile(new URL("../docs/DESIGN_ROADMAP.md", import.meta.url), "utf8"),
   readFile(

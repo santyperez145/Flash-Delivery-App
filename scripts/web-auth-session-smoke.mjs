@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import fs from "node:fs/promises";
 import { createAuthRefreshCoordinator } from "../src/auth-refresh-coordinator.ts";
+import { readWebSource } from "./source-contract.mjs";
 
 let token = "expired";
 let refreshCalls = 0;
@@ -38,7 +38,10 @@ assert.equal(await retryable.refresh(), false);
 assert.equal(await retryable.refresh(), true);
 assert.equal(retryCalls, 2, "a completed failed attempt does not permanently lock the coordinator");
 
-const app = await fs.readFile(new URL("../src/App.tsx", import.meta.url), "utf8");
+// La fuente se lee por audiencia y no por archivo (ARC-001 paso 8): la mitad del
+// trabajo que queda del ticket es partir `App.tsx`, y un contrato con la ruta
+// fija se rompe —o se vacía— en cuanto un componente cambia de archivo.
+const { source: app } = await readWebSource();
 assert.match(app, /if \(loading \|\| authRequired \|\| !sessionUserId\) return;/);
 assert.equal(
   (app.match(/if \(loading \|\| authRequired \|\| !sessionUserId\) return;/g) || []).length,

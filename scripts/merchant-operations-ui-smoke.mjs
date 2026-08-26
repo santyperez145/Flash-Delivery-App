@@ -1,16 +1,32 @@
 import fs from "node:fs/promises";
-import { containsAll, containsNone, section } from "./source-contract.mjs";
+import {
+  containsAll,
+  containsNone,
+  readMobileSource,
+  readWebSource,
+  section,
+} from "./source-contract.mjs";
 
-const [desktop, desktopApi, desktopTypes, mobile, mobileApi, mobileTypes, styles] =
-  await Promise.all([
-    fs.readFile("src/App.tsx", "utf8"),
-    fs.readFile("src/api.ts", "utf8"),
-    fs.readFile("src/types.ts", "utf8"),
-    fs.readFile("apps/mobile/App.tsx", "utf8"),
-    fs.readFile("apps/mobile/src/api.ts", "utf8"),
-    fs.readFile("apps/mobile/src/types.ts", "utf8"),
-    fs.readFile("src/styles.css", "utf8"),
-  ]);
+// La fuente se lee por audiencia y no por archivo (ARC-001 paso 8): la mitad del
+// trabajo que queda del ticket es partir `App.tsx`, y un contrato con la ruta
+// fija se rompe —o se vacía— en cuanto un componente cambia de archivo.
+const [
+  { source: desktop },
+  { source: mobile },
+  desktopApi,
+  desktopTypes,
+  mobileApi,
+  mobileTypes,
+  styles,
+] = await Promise.all([
+  readWebSource(),
+  readMobileSource(),
+  fs.readFile("src/api.ts", "utf8"),
+  fs.readFile("src/types.ts", "utf8"),
+  fs.readFile("apps/mobile/src/api.ts", "utf8"),
+  fs.readFile("apps/mobile/src/types.ts", "utf8"),
+  fs.readFile("src/styles.css", "utf8"),
+]);
 const assert = (condition, label) => {
   if (!condition) throw new Error(`failed: ${label}`);
   console.log(`ok - ${label}`);
