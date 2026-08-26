@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { postgresPool } from "./postgres.js";
+import { sanitizeUser } from "./user-view.js";
 import { encryptEmailVerificationCode, encryptRecoveryToken } from "./secret-envelope.js";
 
 const refreshLifetimeMs = 30 * 24 * 60 * 60 * 1000;
@@ -203,7 +204,7 @@ export async function getPostgresOperationsUserPage({
     : { rows: [] };
   const byId = new Map(
       result.rows.map((row) => {
-        const { password, internalId, loginLockedUntil, ...safe } = mapUser(row);
+        const safe = sanitizeUser(mapUser(row));
         return [safe.id, safe];
       }),
     ),

@@ -60,6 +60,12 @@ jobs:
       - name: Module references
         run: npm run test:module-references
 
+      # `sanitizeUser` decide qué campos de un usuario salen por HTTP. Al
+      # volverse módulo propio quedó sin puerta; esta encontró una copia de la
+      # redacción escrita a mano en auth-repository.js.
+      - name: User redaction contract
+        run: npm run test:user-view
+
       # Un 500 no describe su causa. Lo decidia el manejador global, pero 130
       # handlers lo puenteaban capturando el error ellos mismos. Se encontro
       # probando en el navegador, no leyendo codigo.
