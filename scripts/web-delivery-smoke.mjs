@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { waitForHealthy } from "./wait-for-api.mjs";
 
 const port = 4217;
 const origin = `http://127.0.0.1:${port}`;
@@ -15,17 +16,8 @@ const assert = (condition, message) => {
 };
 
 try {
-  let online = false;
-  for (let attempt = 0; attempt < 60; attempt += 1) {
-    try {
-      if ((await fetch(`${origin}/api/health`)).ok) {
-        online = true;
-        break;
-      }
-    } catch {}
-    await sleep(200);
-  }
-  assert(online, "la API de prueba inició");
+  await waitForHealthy(`${origin}/api/health`);
+  assert(true, "la API de prueba inició");
   const indexResponse = await fetch(origin, { headers: { "Accept-Encoding": "gzip" } });
   const html = await indexResponse.text();
   assert(

@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { waitForHealthy } from "./wait-for-api.mjs";
 
 const port = 4218;
 const origin = `http://127.0.0.1:${port}`;
@@ -23,16 +24,7 @@ function collectRefs(value, refs = []) {
 
 try {
   let online = false;
-  for (let attempt = 0; attempt < 60; attempt += 1) {
-    try {
-      if ((await fetch(`${origin}/api/health`)).ok) {
-        online = true;
-        break;
-      }
-    } catch {}
-    await sleep(200);
-  }
-  assert(online, "la API de contrato inició");
+  await waitForHealthy(`${origin}/api/health`);
   const specResponse = await fetch(`${origin}/api/openapi.json`);
   const spec = await specResponse.json();
   assert(

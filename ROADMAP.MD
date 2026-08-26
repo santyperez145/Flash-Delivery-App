@@ -8,7 +8,7 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
-## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 8, el núcleo compartido
+## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 9, servidor y primer corte del frente
 
 Entregas novena a decimoquinta de la Fase 0. El paso 2 quedó sin registrar acá cuando se publicó, así que esta sección cubre los siete.
 
@@ -105,6 +105,24 @@ El caso peligroso no es la región vacía, es la que **encoge**. Medido, no supu
 Ahora `section` lanza si el marcador falta o si la región cae por debajo de un piso, y `containsNone` se niega a responder sobre una región colapsada. Las nueve suites leen el árbol de su audiencia con `readAudienceSource`, así que un componente que cambie de archivo sigue bajo contrato.
 
 **Y ya había una víctima.** `test:web-tracking-maps` afirmaba que cuatro verticales comparten el mapa, contando sobre dos archivos. En el árbol hay cinco: cuando `RideHome` se extrajo a su propio archivo, su uso dejó de contarse **y el contrato siguió en verde**, afirmando una cobertura de cuatro mientras miraba tres.
+
+### El frente: primer corte, y el mismo orden que en el servidor
+
+`src/App.tsx` tenía **10.553 líneas y 78 componentes**. El paso 9 se lleva la superficie administrativa entera —la consola y sus doce paneles, más diez tableros— a `src/backoffice/AdminConsole.tsx`: **10.553 → 7.420 líneas, 78 → 53 componentes**.
+
+El corte se eligió por una propiedad, no por tamaño: de los trece componentes del bloque **sólo `SuperAdminConsole` cruza la frontera**. Los otros doce se usan únicamente adentro.
+
+Y hubo que sacar el núcleo compartido primero, igual que en el servidor. `money` (47 usos), `initials` (6) y los tres mapas de etiquetas de estado vivían en `App.tsx`; exportarlos desde ahí habría cerrado un ciclo —`App` importa la consola, la consola importa `App`—. Salieron a `src/format.ts` y `src/labels.ts`.
+
+**El uso decidió, no el nombre.** `AdminKpi` y `AdminSectionHeader` comparten prefijo con los paneles administrativos, pero se usan 4 y 10 veces fuera del backoffice: son primitivas compartidas y quedaron en `src/ui/panels.tsx`. Renombrarlas es deuda anotada, no parte de esta entrega: mover y renombrar en el mismo commit hace irrevisable el diff.
+
+Un análisis por regex dijo que el bloque no dependía de nada externo. Era falso: `tsc` encontró 182 errores, entre ellos doce componentes de afuera. **El compilador es el analizador de dependencias, no una expresión regular.**
+
+### Diez suites esperaban 10 segundos un arranque de 22
+
+El paso 7 arregló esa carrera en dos scripts. Al correr la batería del frente aparecieron dos más, y al buscar la clase entera había **ocho**, con presupuestos de 10 a 12 segundos. Todas contaban intentos en lugar de tiempo, y varias dormían dentro del `catch`, así que una respuesta distinta de 200 que no lanzara quemaba los intentos de corrido.
+
+`scripts/wait-for-api.mjs` las reemplaza: un presupuesto, un lugar, y un error que dice si lo último fue `ECONNREFUSED` o `HTTP 503`. En una sola sesión esta clase costó cuatro verificaciones perdidas, una reportada como regresión inexistente.
 
 ### Lo que sigue faltando
 

@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { spawn } from "node:child_process";
 import { deleteLocalProductEvents } from "../server/store.js";
+import { waitForHealthy } from "./wait-for-api.mjs";
 
 const port = 4213;
 const base = `http://127.0.0.1:${port}/api`;
@@ -43,16 +44,7 @@ const login = async (email) =>
 
 try {
   let healthy = false;
-  for (let attempt = 0; attempt < 50; attempt += 1) {
-    try {
-      if ((await fetch(`${base}/health`)).ok) {
-        healthy = true;
-        break;
-      }
-    } catch {}
-    await sleep(200);
-  }
-  assert(healthy, "La API local no inició");
+  await waitForHealthy(`${base}/health`);
 
   const customer = await login("cliente@flash.app");
   const admin = await login("ops@flash.app");

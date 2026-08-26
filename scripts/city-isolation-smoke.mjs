@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { createPool } from "./db-client.mjs";
+import { waitForHealthy } from "./wait-for-api.mjs";
 
 const pool = createPool();
 const port = 4210;
@@ -43,16 +44,7 @@ try {
   );
 
   let online = false;
-  for (let attempt = 0; attempt < 50; attempt += 1) {
-    try {
-      if ((await fetch(`http://127.0.0.1:${port}/api/health`)).ok) {
-        online = true;
-        break;
-      }
-    } catch {}
-    await sleep(200);
-  }
-  assert(online, "La API no inició");
+  await waitForHealthy(`http://127.0.0.1:${port}/api/health`);
   const cities = await fetch(`http://127.0.0.1:${port}/api/cities`).then((response) =>
     response.json(),
   );
