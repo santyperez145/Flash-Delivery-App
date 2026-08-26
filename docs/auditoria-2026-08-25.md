@@ -343,7 +343,21 @@ psql "$DATABASE_URL" -c "SELECT count(*) FROM catalog_modifiers"   # → 0 sin d
 
 Se descubrió porque `test:rls` afirma sobre modificadores de catálogo y alérgenos, y falló en la primera corrida desde cero.
 
-**Corregido** con `npm run db:seed:derived`, que repite las mismas derivaciones de forma idempotente. **La deuda pendiente** es que la reproducibilidad no está garantizada hacia adelante: cada migración futura que haga backfill sobre datos existentes vuelve a introducir el problema. Debe entrar en la definición de terminado de [DAT-001](backlog-tecnico.md#dat-001--matriz-rls-default-deny).
+### Segunda cara del mismo hallazgo: nadie podía iniciar sesión
+
+El escaneo inicial buscó backfills de la forma `INSERT ... SELECT` y por eso omitió los que usan `UPDATE`. Hay 23, y la mayoría son guardas `WHERE ... IS NULL` sobre identificadores que las filas nuevas ya traen. Dos importan, y una es devastadora:
+
+`052_email_verification.sql`:
+
+```sql
+UPDATE users SET email_verified_at=COALESCE(email_verified_at,created_at);
+```
+
+Verifica el email de los usuarios que existían al aplicarse. En una base desde cero los seeds corren después, así que **todas las cuentas quedan sin verificar y la API rechaza cualquier login** con «Debes verificar tu email». La plataforma entera queda inaccesible.
+
+Se descubrió al levantar `ci-critical-flows` por primera vez: **28 de 32 suites fallaron por esta única causa.**
+
+**Corregido** con `npm run db:seed:derived`, que repite las mismas derivaciones de forma idempotente, incluida la verificación de email. **La deuda pendiente** es que la reproducibilidad no está garantizada hacia adelante: cada migración futura que haga backfill sobre datos existentes vuelve a introducir el problema. Debe entrar en la definición de terminado de [DAT-001](backlog-tecnico.md#dat-001--matriz-rls-default-deny).
 
 **Severidad: P0.**
 

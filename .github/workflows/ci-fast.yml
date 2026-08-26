@@ -47,6 +47,37 @@ jobs:
       - name: Line length ratchet
         run: npm run test:line-length
 
+      # Impide que una suite nueva quede fuera de toda puerta sin que se note,
+      # que fue exactamente lo que ocurrió con 89 de 104 scripts.
+      - name: CI coverage gate
+        run: npm run test:ci-coverage
+
+      # Contratos de pagos que no necesitan proveedor ni base: prueban el
+      # cliente de Mercado Pago con fetch interceptado y las funciones puras
+      # de liquidación. Son baratos y cubren el núcleo financiero.
+      - name: Payment provider contracts
+        run: |
+          npm run test:mercadopago-payment
+          npm run test:mercadopago-webhook
+          npm run test:payment-oauth
+          npm run test:marketplace-ledger
+
+      - name: Web and session contracts
+        run: |
+          npm run test:web-auth-session
+          npm run test:network-resilience
+          npm run test:web-checkout
+          npm run test:web-ride-home
+          npm run test:web-tracking-maps
+          npm run test:merchant-operations-ui
+          npm run test:product-analytics-local
+
+      - name: Mobile surface contracts
+        run: |
+          npm run test:mobile-maps
+          npm run test:mobile-auth-design
+          npm run test:mobile-food-design
+
       - name: Responsive layout contract
         run: npm run test:responsive-layout
 

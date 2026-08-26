@@ -8,6 +8,25 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 26 de agosto de 2026 — CI-001 con las tres puertas en verde
+
+Segunda entrega de la Fase 0, mediante [PR #1](https://github.com/santyperez145/Flash-Delivery-App/pull/1).
+
+- [x] **`ci-critical-flows.yml`.** Levanta la API contra PostgreSQL y cubre pagos, conciliación, riesgo, payouts, propinas, KYC, vehículos, ganancias, safety, chat, siniestros, SLA de soporte, notificaciones y recursos por audiencia.
+- [x] **Cobertura 15 → 73 de 76 suites**, 69 bloqueantes. Las 54 que estaban sin puerta se clasificaron por lo que realmente necesitan: 17 puras a `ci-fast`, 5 de sólo base a `ci-postgres`, 32 a flujos críticos.
+- [x] **`test:ci-coverage`.** Falla cuando un script `test:*` no está referenciado por ningún workflow o cuando una excepción quedó obsoleta. Es la puerta que impide que la brecha vuelva a abrirse en silencio.
+- [x] **`migrate-from-base` ejecutado por primera vez** y en verde: el PR fue justamente su primera validación real.
+- [~] **Cuatro suites en cuarentena declarada:** `test:postgres`, `test:support-routing`, `test:dietary-local` y `test:notification-local`. Corren en cada push y su salida se publica, pero no bloquean. Cerrarlas es condición para dar CI-001 por terminado.
+- [ ] **Falta `ci-nightly.yml`** (Playwright, carga k6, restore drill, provider sandbox) y la protección de rama, que es configuración manual en GitHub.
+
+### Defectos que sólo aparecieron al hacer cumplir las puertas
+
+- **Las cuentas sembradas no podían iniciar sesión.** La migración `052` verifica el email mediante `UPDATE` sobre los usuarios existentes; en una base desde cero quedan sin verificar y la API rechaza todo login. **28 de 32 suites fallaban por esta única causa.** Es la segunda cara de [H-11](docs/auditoria-2026-08-25.md#h-11--una-base-creada-desde-cero-no-es-equivalente-a-una-migrada), que el primer escaneo omitió por buscar sólo backfills `INSERT ... SELECT`.
+- **Rate limiting de autenticación.** Treinta suites contra una instancia agotan los 40 intentos por minuto por defecto; las suites que esperaban un `403` recibían un `429`.
+- **`test:operations-resources` dependía del orden de ejecución:** exige que ya exista un evento de auditoría y se apoyaba en que `test:postgres` corriera antes.
+
+Correr las suites en un bucle que registra cada resultado, en lugar de cortar en el primer fallo, es lo que permitió ver «28 fallos, una causa» en una sola corrida.
+
 ## Avance 26 de agosto de 2026 — SEC-001 y primera mitad de CI-001
 
 Primera entrega de la Fase 0. Detalle y estado en [`docs/plan-de-accion.md`](docs/plan-de-accion.md).
