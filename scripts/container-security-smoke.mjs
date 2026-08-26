@@ -22,3 +22,59 @@ assert(initMounts.some((entry) => String(entry).includes("/docker-entrypoint-ini
 const init = fs.readFileSync("database/docker-init/001-runtime-roles.sh", "utf8");
 for (const role of ["flash_app", "flash_runtime", "flash_rls_audit"])
   assert(init.includes(`${role} LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS`), `${role} queda sin privilegios administrativos ni BYPASSRLS`);
+
+// --- Imagen productiva (ticket INF-001, hallazgo H-05) ---------------------
+//
+// Contrato estático sobre el Dockerfile. La verificación real —construir la
+// imagen y comprobar que el proceso no corre como root— vive en el job
+// `container-image` de `ci-fast.yml`, que sí tiene demonio Docker.
+
+const dockerfile = fs.readFileSync("Dockerfile", "utf8");
+const stages = [...dockerfile.matchAll(/^FROM\s+\S+(?:\s+AS\s+(\S+))?/gim)];
+const runtimeStage = dockerfile.slice(dockerfile.lastIndexOf("FROM "));
+
+assert(stages.length >= 2, "la imagen es multi-etapa y no arrastra el toolchain de build");
+
+const userDirective = runtimeStage.match(/^USER\s+(\S+)/m);
+assert(Boolean(userDirective), "la etapa de runtime declara un USER explícito");
+assert(
+  userDirective[1] !== "root" && userDirective[1] !== "0",
+  "el proceso no corre como root",
+);
+assert(
+  /useradd|adduser/.test(runtimeStage) && new RegExp(userDirective[1]).test(runtimeStage),
+  "el usuario no privilegiado se crea en la propia imagen",
+);
+
+const cmd = dockerfile.match(/^CMD\s+(.+)$/m);
+assert(Boolean(cmd), "la imagen declara un CMD");
+assert(
+  cmd[1].includes("server/start.js"),
+  "la imagen arranca el entrypoint instrumentado y no `server/index.js`",
+);
+
+const composeCommand = String(api?.command || "");
+assert(
+  !composeCommand || composeCommand.includes("server/start.js"),
+  "Compose y la imagen arrancan el mismo entrypoint",
+);
+
+assert(
+  /npm ci --omit=dev/.test(dockerfile),
+  "las dependencias de producción se instalan sin devDependencies",
+);
+assert(
+  !/^COPY \. \.\s*$/m.test(runtimeStage),
+  "la etapa de runtime no copia el repositorio completo",
+);
+
+// Endurecimiento declarado en Compose. `cap_drop` y `no-new-privileges` valen
+// tanto en desarrollo como en producción y no dependen del orquestador.
+assert(
+  (api?.cap_drop || []).map(String).includes("ALL"),
+  "el contenedor de la API renuncia a todas las capabilities",
+);
+assert(
+  (api?.security_opt || []).some((entry) => String(entry).includes("no-new-privileges")),
+  "el contenedor de la API no permite escalar privilegios",
+);

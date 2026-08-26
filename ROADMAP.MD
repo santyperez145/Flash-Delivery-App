@@ -8,6 +8,20 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 26 de agosto de 2026 — INF-001, imagen productiva endurecida
+
+Tercera entrega de la Fase 0, mediante [PR #2](https://github.com/santyperez145/Flash-Delivery-App/pull/2). Cierra el hallazgo [H-05](docs/auditoria-2026-08-25.md#h-05--la-imagen-docker-no-corresponde-al-arranque-real-y-corre-como-root).
+
+- [x] **Imagen multi-etapa.** Dependencias completas para construir, dependencias de producción aparte, y un runtime que copia sólo `dist`, `server`, `database` y `scripts`.
+- [x] **Non-root verificado en una build real:** `uid=999(flash)`. No es un contrato sobre el texto del Dockerfile: el job `container-image` construye la imagen y comprueba el resultado.
+- [x] **Mismo entrypoint que Compose.** `CMD` usa `server/start.js`. Antes, la imagen desplegada tal cual perdía telemetría, apagado ordenado y readiness, porque sólo Compose sobrescribía el comando.
+- [x] **Sin devDependencies ni árbol de fuentes** en la imagen productiva.
+- [x] **Capabilities eliminadas** y sin escalada de privilegios en Compose, con `/tmp` como tmpfs.
+- [x] **`test:container-security` ampliado** de validar sólo roles de PostgreSQL a exigir el contrato de la imagen. Verificado que falla al quitar el `USER` y al divergir el entrypoint.
+- [ ] **Filesystem raíz de sólo lectura.** Necesita una corrida real para confirmar que nada escribe fuera del volumen montado; no hay demonio Docker en el entorno de desarrollo usado.
+- [ ] **380 MiB de imagen.** `react`, `react-dom`, `maplibre-gl`, `lucide-react`, `@mercadopago/sdk-react` y `concurrently` están en `dependencies` pese a que ningún archivo de `server/` ni `scripts/` los importa. Moverlos a `devDependencies` achicaría la imagen pero **los sacaría de `npm audit --omit=dev`**, y esos paquetes viajan al navegador. La decisión correcta es moverlos y ampliar la puerta de auditoría al árbol completo, no moverlos a secas.
+- [ ] SBOM, scan y firma de imagen.
+
 ## Avance 26 de agosto de 2026 — CI-001 con las tres puertas en verde
 
 Segunda entrega de la Fase 0, mediante [PR #1](https://github.com/santyperez145/Flash-Delivery-App/pull/1).

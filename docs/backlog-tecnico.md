@@ -84,11 +84,13 @@ Adoptar además un framework estándar de pruebas: **Vitest**, **Testcontainers*
 
 ### Criterios de aceptación
 
-- [ ] Un PR queda bloqueado si falla cualquier suite crítica.
-- [ ] La rama `main` está protegida y exige PR.
-- [ ] Pagos y seguridad exigen dos aprobaciones (`CODEOWNERS`).
+- [x] Un PR queda bloqueado si falla cualquier suite crítica — 73 de 76 suites con puerta, 69 bloqueantes.
+- [x] Ningún script de riesgo queda fuera de una puerta sin justificación escrita — lo verifica `npm run test:ci-coverage`.
+- [ ] Cerrar las cuatro suites en cuarentena: `test:postgres`, `test:support-routing`, `test:dietary-local`, `test:notification-local`.
+- [ ] `ci-nightly.yml` con Playwright, carga k6, restore drill y provider sandbox.
+- [ ] La rama `main` está protegida y exige PR — **configuración manual en GitHub**.
+- [ ] Pagos y seguridad exigen dos aprobaciones (`CODEOWNERS` ya existe; falta más de un revisor).
 - [ ] Los artefactos de test se almacenan y son consultables tras el run.
-- [ ] Ningún script de riesgo queda fuera de una puerta sin justificación escrita en este documento.
 
 ### Verificación
 
@@ -116,11 +118,12 @@ node -e "const p=require('./package.json'),fs=require('fs');const ci=fs.readdirS
 
 ### Criterios de aceptación
 
-- [ ] Un evento mal clasificado no llega a ningún cliente, comercio ni conductor.
-- [ ] Sólo `admin` recibe eventos operativos sin audiencia resoluble.
-- [ ] Existe cobertura de test para **todos** los `entityType` en uso.
-- [ ] Existe un test que agrega un `entityType` inventado y verifica que no hay broadcast.
-- [ ] La métrica de eventos sin clasificar es visible en el dashboard.
+- [x] Un evento mal clasificado no llega a ningún cliente, comercio ni conductor.
+- [x] Sólo `admin` recibe eventos operativos sin audiencia resoluble.
+- [x] Existe cobertura de test para **todos** los `entityType` en uso.
+- [x] Existe un test que agrega un `entityType` inventado y verifica que no hay broadcast.
+- [ ] Verificación de runtime de `resolveAudience` contra PostgreSQL con fixtures multiusuario. El contrato actual es estático.
+- [ ] La métrica de eventos sin clasificar es visible en un dashboard. Existe la métrica y la alerta; falta el panel.
 
 ---
 
@@ -206,10 +209,12 @@ Ampliar `scripts/container-security-smoke.mjs`, que hoy valida principalmente ro
 
 ### Criterios de aceptación
 
-- [ ] `docker run` sin Compose arranca `server/start.js` con toda su instrumentación.
-- [ ] El contenedor corre como usuario no root.
-- [ ] La imagen productiva no contiene devDependencies.
-- [ ] El smoke de contenedor valida usuario, capabilities y filesystem.
+- [x] `docker run` sin Compose arranca `server/start.js` con toda su instrumentación.
+- [x] El contenedor corre como usuario no root — verificado: `uid=999(flash)`.
+- [x] La imagen productiva no contiene devDependencies ni el árbol de fuentes.
+- [x] El smoke de contenedor valida usuario, entrypoint, etapas y capabilities.
+- [ ] Filesystem raíz de sólo lectura — necesita una corrida real para confirmar que nada escribe fuera del volumen montado.
+- [ ] Reducir los 380 MiB de imagen moviendo las dependencias de frontend, **sin perderlas de la puerta de auditoría**.
 - [ ] Existe SBOM y scan de imagen en el pipeline.
 
 ### Verificación

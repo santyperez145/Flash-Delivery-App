@@ -20,7 +20,7 @@ La Fase 0 está en marcha: ver el [plan de acción](docs/plan-de-accion.md) y el
 | H-02 | NOT-001 | Push productivo imposible: el enum de configuración sólo admite `disabled` y `sandbox` |
 | H-03 | SEC-001 | **Corregido.** Default-deny activo y con puerta CI; queda la verificación de runtime contra PostgreSQL |
 | H-04 | DAT-001 | 20 tablas sin política RLS y cero `FORCE ROW LEVEL SECURITY` |
-| H-05 | INF-001 | La imagen Docker corre como root y arranca un entrypoint distinto al de Compose |
+| H-05 | INF-001 | **Corregido.** Imagen multi-etapa, `uid=999(flash)` verificado en build real, mismo entrypoint que Compose |
 | H-06 | DSP-001 | Dispatch sin `ST_DWithin` ni KNN: recalcula todo el padrón por oleada |
 | H-07 | GEO-001 | Nominatim y OSRM públicos como valores por defecto |
 | H-08 | ARC-001 | Cinco archivos concentran más de 1,3 MB de código; un ratchet impide que crezca |
