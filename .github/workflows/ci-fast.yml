@@ -52,6 +52,11 @@ jobs:
       - name: CI coverage gate
         run: npm run test:ci-coverage
 
+      # Toda tabla nueva tiene que declarar su clase. El hallazgo H-04 fue que
+      # 20 de 106 no tenían política y nada lo hacía evidente.
+      - name: RLS coverage matrix
+        run: npm run test:rls-matrix
+
       # Contratos de pagos que no necesitan proveedor ni base: prueban el
       # cliente de Mercado Pago con fetch interceptado y las funciones puras
       # de liquidación. Son baratos y cubren el núcleo financiero.

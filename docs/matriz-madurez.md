@@ -80,7 +80,8 @@ El salto viene de las tres puertas del ticket CI-001. Las 51 en `CI` ya no son i
 | --- | --- | --- |
 | PostgreSQL/PostGIS runtime | `CI` | `ci-postgres.yml` levanta PostGIS 17 con roles separados |
 | 110 migraciones versionadas | `CI` | `ci-postgres.yml` corre desde cero y de forma incremental sobre la rama base |
-| Row-Level Security | `CI` | `test:rls` bloquea el merge · **20 tablas siguen sin política** — ticket DAT-001 |
+| Row-Level Security | `CI` | `test:rls` bloquea el merge · 60 de 65 tablas `por-usuario` con política |
+| Matriz de clasificación RLS | `CI` | `test:rls-matrix`: las 106 tablas clasificadas, deuda declarada que sólo puede achicarse |
 | `FORCE ROW LEVEL SECURITY` | — | **Cero sentencias** — ticket DAT-001 |
 | Auditoría encadenada SHA-256 | `CI` | `test:audit-immutability` en `ci-postgres.yml` |
 | Idempotencia y locks | `LOCAL` | `test:idempotency-prune` en CI; `test:postgres` necesita API levantada |

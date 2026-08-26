@@ -8,6 +8,25 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 26 de agosto de 2026 — DAT-001, matriz de cobertura RLS
+
+Cuarta entrega de la Fase 0. Clasifica el hallazgo [H-04](docs/auditoria-2026-08-25.md#h-04--20-tablas-sin-política-rls-y-cero-force-row-level-security) y lo convierte en contrato.
+
+- [x] **Las 106 tablas clasificadas** en [`database/rls-classification.json`](database/rls-classification.json): 65 `por-usuario` (60 con política), 24 `global-lectura`, 15 `servicio`, 2 `sin-uso`.
+- [x] **`test:rls-matrix` como puerta.** Falla si una tabla nueva no se clasifica, si la matriz se desalinea de las migraciones, si una clasificación sobrevive a su tabla, o si una tabla `por-usuario` queda sin política fuera de la deuda declarada. Verificado que detecta las tres derivas.
+- [x] **Deuda declarada que sólo puede achicarse:** `user_roles`, `drivers`, `merchants`, `shipment_details`, `promotion_redemptions`.
+- [x] **Regla en `AGENTS.md`:** toda migración que crea una tabla la clasifica en el mismo PR.
+- [ ] Aplicar política a las cinco tablas de la deuda.
+- [ ] Eliminar el esquema muerto con una migración.
+- [ ] `FORCE ROW LEVEL SECURITY` — sigue en cero.
+- [ ] Sustituir `GRANT ... ON ALL TABLES` por grants explícitos.
+
+### Dos cosas que la clasificación destapó
+
+**`user_roles` se lee antes de autenticar.** `findAuthUserByEmail` hace `JOIN` a `user_roles` sin contexto de usuario y con `postgresPool.query` directo. Una política `user_id = app.current_user_id()` devolvería cero filas y **rompería el login de toda la plataforma**. Aplicar RLS ahí exige mover el camino de login a una función `SECURITY DEFINER`: es un cambio de diseño, no una migración mecánica. Por eso queda declarado en lugar de improvisado.
+
+**`user_security_factors` es esquema muerto.** Ningún archivo de `server/` ni `scripts/` la referencia; la MFA real usa `user_mfa`. Declara columnas para secretos TOTP y credenciales WebAuthn que nada escribe ni lee, sin política RLS y con DML abierto al rol de runtime. `outbox_events` está igual. Superficie de ataque gratuita que existe sólo porque nadie las borró.
+
 ## Avance 26 de agosto de 2026 — INF-001, imagen productiva endurecida
 
 Tercera entrega de la Fase 0, mediante [PR #2](https://github.com/santyperez145/Flash-Delivery-App/pull/2). Cierra el hallazgo [H-05](docs/auditoria-2026-08-25.md#h-05--la-imagen-docker-no-corresponde-al-arranque-real-y-corre-como-root).

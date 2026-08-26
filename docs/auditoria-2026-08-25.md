@@ -188,7 +188,16 @@ grep -rhoiE "ALTER TABLE [a-zA-Z_]+ ENABLE ROW LEVEL SECURITY" database/migratio
 comm -23 /tmp/tables.txt /tmp/rls.txt
 ```
 
-No se afirma que exista una fuga explotable hoy: se afirma que **no existe evidencia de cobertura** y que el modelo no es *default deny*. Cada tabla nueva debe entrar en una matriz obligatoria con pruebas negativas por rol.
+No se afirma que exista una fuga explotable hoy: se afirma que **no existía evidencia de cobertura** y que el modelo no es *default deny*.
+
+**Clasificado el 26 de agosto de 2026.** Las 106 tablas están en [`database/rls-classification.json`](../database/rls-classification.json), que verifica `npm run test:rls-matrix` en cada PR: 65 `por-usuario` (60 con política), 24 `global-lectura`, 15 `servicio` y **2 de esquema muerto**. Ver [`docs/matriz-rls.md`](matriz-rls.md).
+
+Dos cosas que la clasificación destapó:
+
+- **`user_roles` se lee antes de autenticar.** `findAuthUserByEmail` hace `JOIN` a `user_roles` sin contexto de usuario, con `postgresPool.query` directo. Una política `user_id = app.current_user_id()` devolvería cero filas y **rompería el login de toda la plataforma**. Aplicar RLS ahí exige mover el camino de login a una función `SECURITY DEFINER` primero: es un cambio de diseño, no una migración mecánica.
+- **`user_security_factors` es esquema muerto.** Ningún archivo de `server/` ni `scripts/` la referencia; la MFA real usa `user_mfa`. Declara columnas para secretos TOTP y credenciales WebAuthn que nada escribe ni lee, sin política RLS y con DML abierto al rol de runtime. Superficie de ataque gratuita que existe sólo porque nadie la borró. `outbox_events` está en la misma situación.
+
+**Deuda abierta:** cinco tablas `por-usuario` sin política, `FORCE ROW LEVEL SECURITY` todavía en cero, los grants siguen siendo `ON ALL TABLES`, y el esquema muerto sin eliminar.
 
 **Severidad: P0.** Ticket [DAT-001](backlog-tecnico.md#dat-001--matriz-rls-default-deny).
 
