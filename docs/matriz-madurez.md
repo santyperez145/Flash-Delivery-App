@@ -33,16 +33,16 @@ Al **26 de agosto de 2026**, sobre **94 capacidades inventariadas**:
 | Estado | Capacidades | Proporción | Al 25-08 |
 | --- | ---: | ---: | ---: |
 | `IMPL` | 6 | 6,4% | 9 |
-| `LOCAL` | 9 | 9,6% | 50 |
-| `CI` | 62 | 66,0% | 14 |
+| `LOCAL` | 8 | 8,5% | 50 |
+| `CI` | 64 | 68,1% | 14 |
 | `PROV` | 0 | 0% | 0 |
 | `STG` | 0 | 0% | 0 |
 | `PROD` | 0 | 0% | 0 |
-| No existe | 17 | 18,1% | 18 |
+| No existe | 16 | 17,0% | 18 |
 
-**Lectura:** de las 77 capacidades que existen, **15 (19%) siguen en `IMPL` o `LOCAL`** — sin puerta automática que las proteja de una regresión. Eran 59 sobre 73 (81%) el 25 de agosto.
+**Lectura:** de las 78 capacidades que existen, **14 (18%) siguen en `IMPL` o `LOCAL`** — sin puerta automática que las proteja de una regresión. Eran 59 sobre 73 (81%) el 25 de agosto.
 
-El salto viene de las puertas del ticket CI-001. Las 62 en `CI` ya no son infraestructura: incluyen migraciones, RLS, cadena de auditoría, aislamiento por ciudad, audiencia realtime, ledger, conciliación, riesgo, payouts, KYC, vehículos, safety, chat, soporte, notificaciones, push y mapas.
+El salto viene de las puertas del ticket CI-001. Las 64 en `CI` ya no son infraestructura: incluyen migraciones, RLS, cadena de auditoría, aislamiento por ciudad, audiencia realtime, ledger, conciliación, riesgo, payouts, KYC, vehículos, safety, chat, soporte, notificaciones, push y mapas.
 
 **Ninguna capacidad alcanzó `PROV`.** Ni pagos, ni push, ni mapas, ni KYC fueron probados contra un proveedor real. Ese es el objetivo de la Fase 1, y es la distancia que esta matriz existe para no dejar olvidar: **una capacidad en `CI` está protegida contra regresiones, no demostrada contra el mundo real.**
 
@@ -52,7 +52,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 
 | Capacidad | Motivo |
 | --- | --- |
-| Ranking de dispatch con recorte espacial | No existe — ticket DSP-001 |
+| ETA vial en el scoring de dispatch | Route Matrix lista, falta API key — ticket DSP-001 |
 | SSE, event log, retención realtime | Sin suite dedicada |
 | Geocoding y routing | Proveedores públicos — ticket GEO-001 |
 | Backup y restore drill | Scripts PowerShell, van a `ci-nightly` |
@@ -114,8 +114,8 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | --- | --- | --- |
 | Ofertas privadas con TTL | `CI` | `test:postgres` bloquea el merge |
 | Aceptación atómica `SKIP LOCKED` | `CI` | `test:postgres` bloquea el merge |
-| Ranking explicable | `LOCAL` | Sin recorte espacial previo — ticket DSP-001 |
-| Recorte `ST_DWithin` + KNN | — | **Cero ocurrencias en el repositorio** |
+| Ranking explicable | `CI` | Selección en dos etapas · `test:dispatch-candidates` y `test:postgres` |
+| Recorte `ST_DWithin` + KNN | `CI` | Etapa 1 sobre el índice GiST parcial · **falta `EXPLAIN ANALYZE` con padrón sintético** |
 | Stats precomputadas de conductor | — | **No existe** · se recalcula historial de 30 días por oferta |
 | Route Matrix para dispatch | `CI` | `describeRouteMatrix` con contrato verificado · falta conectarla al scoring |
 | Zonas de demanda | `CI` | `test:driver-demand` en `ci-critical-flows` |
