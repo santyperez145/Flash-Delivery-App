@@ -298,9 +298,9 @@ Estado al **25 de agosto de 2026**. Se actualiza en el PR que cambia el estado, 
 
 | Ticket | Prioridad | Hallazgo | Estado | Fase |
 | --- | --- | --- | --- | --- |
-| [ARC-001](backlog-tecnico.md#arc-001--modularización) | P0 | H-08 | Pendiente | 0 |
-| [CI-001](backlog-tecnico.md#ci-001--pipeline-productivo) | P0 | H-01 | Pendiente | 0 |
-| [SEC-001](backlog-tecnico.md#sec-001--realtime-default-deny) | P0 | H-03 | Pendiente | 0 |
+| [SEC-001](backlog-tecnico.md#sec-001--realtime-default-deny) | P0 | H-03 | **En curso** | 0 |
+| [CI-001](backlog-tecnico.md#ci-001--pipeline-productivo) | P0 | H-01 | **En curso** | 0 |
+| [ARC-001](backlog-tecnico.md#arc-001--modularización) | P0 | H-08 | **En curso** | 0 |
 | [DAT-001](backlog-tecnico.md#dat-001--matriz-rls-default-deny) | P0 | H-04 | Pendiente | 0 |
 | [INF-001](backlog-tecnico.md#inf-001--imagen-productiva-endurecida) | P0 | H-05 | Pendiente | 0 |
 | [NOT-001](backlog-tecnico.md#not-001--push-real) | P0 | H-02 | Pendiente | 0 |
@@ -310,6 +310,28 @@ Estado al **25 de agosto de 2026**. Se actualiza en el PR que cambia el estado, 
 | [MOB-001](backlog-tecnico.md#mob-001--release-engineering) | P0 | — | Pendiente | 1 |
 | [OPS-001](backlog-tecnico.md#ops-001--operación-real) | P1 | — | Pendiente | 2 |
 | [INT-001](backlog-tecnico.md#int-001--pos-y-api) | P1 | — | Pendiente | 3 |
+
+### Detalle de lo que está en curso — 26 de agosto de 2026
+
+**SEC-001.** El fallback fail-open está eliminado. La política de audiencias vive
+ahora en `server/realtime-audience.js`, un módulo sin dependencias, y una entidad
+desconocida llega solamente a `admin`. Se descubrió que el defecto era mayor que
+lo estimado: **13 de las 44 publicaciones realtime difundían a todos los roles**,
+entre ellas las seis del libro de direcciones. `test:realtime-audience` bloquea el
+merge y se verificó que falla ante el defecto. Falta la verificación de runtime
+contra PostgreSQL y el dashboard de la métrica.
+
+**CI-001.** `ci.yml` se dividió en `ci-fast.yml` y `ci-postgres.yml`. PostgreSQL
+17 + PostGIS ya corre en CI con los tres roles separados, migraciones desde cero,
+migración incremental sobre la rama base, RLS, cadena de auditoría, aislamiento
+por ciudad y datos sensibles. La cobertura pasó de **15 a 24 scripts**. Faltan
+`ci-critical-flows.yml` — que necesita levantar la API porque esas suites usan
+`API_URL` — y `ci-nightly.yml`, más la protección de rama, que es configuración
+manual en GitHub.
+
+**ARC-001.** Todavía no empezó la modularización. Sí quedó activo un ratchet que
+impide que el problema crezca: `test:line-length` fija una línea base de **1.543
+líneas de más de 200 caracteres en 120 archivos** y sólo admite bajarla.
 
 Valores admitidos para **Estado**: `Pendiente` · `En curso` · `Bloqueado por externo` · `Cerrado`.
 

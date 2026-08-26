@@ -1,10 +1,15 @@
 const requests=new Map();
 const providerCalls=new Map();
+const realtimeAudiences=new Map();
 const latencyBucketsMs=[50,100,250,500,1000,2500,5000];
 const normalizePath=value=>String(value||"/").split("?",1)[0].replace(/\/(ORD|RIDE|SHIP|TCK|ITEM|PROMO|RATE|NTF)-[A-Z0-9-]+/gi,"/:id").replace(/\/[0-9a-f]{8}-[0-9a-f-]{27,}/gi,"/:id");
 const keyOf=(method,path,status)=>`${method}|${normalizePath(path)}|${status}`;
 export function observeHttpRequest({method,path,status,durationMs}){const key=keyOf(method,path,status),current=requests.get(key)||{count:0,durationMs:0,buckets:latencyBucketsMs.map(()=>0)};current.count+=1;current.durationMs+=durationMs;latencyBucketsMs.forEach((limit,index)=>{if(durationMs<=limit)current.buckets[index]+=1;});requests.set(key,current);}
 export function observeProviderCall({provider,operation,outcome}){const key=`${provider}|${operation}|${outcome}`;providerCalls.set(key,(providerCalls.get(key)||0)+1);}
+// `outcome=unclassified` significa que un evento realtime no pudo resolver su
+// audiencia y quedó restringido a operaciones. Es un defecto de clasificación,
+// no un estado normal: debe alertar.
+export function observeRealtimeAudience({entityType,outcome}){const key=`${entityType||"none"}|${outcome}`;realtimeAudiences.set(key,(realtimeAudiences.get(key)||0)+1);}
 const esc=value=>String(value).replace(/\\/g,"\\\\").replace(/"/g,'\\"').replace(/\n/g,"\\n");
 export function renderPrometheus({pool,business,startedAt,realtimeConnections=0}){const lines=[
   "# HELP flash_process_uptime_seconds API process uptime.","# TYPE flash_process_uptime_seconds gauge",`flash_process_uptime_seconds ${Math.max(0,(Date.now()-startedAt)/1000).toFixed(3)}`,
@@ -33,5 +38,7 @@ export function renderPrometheus({pool,business,startedAt,realtimeConnections=0}
   for(const row of business.idempotencyKeys||[])lines.push(`flash_idempotency_keys{status="${esc(row.status)}"} ${row.count}`);
   lines.push("# HELP flash_provider_calls_total External provider calls and controlled degradations.","# TYPE flash_provider_calls_total counter");
   for(const[key,value]of providerCalls){const[provider,operation,outcome]=key.split("|");lines.push(`flash_provider_calls_total{provider="${esc(provider)}",operation="${esc(operation)}",outcome="${esc(outcome)}"} ${value}`);}
+  lines.push("# HELP flash_realtime_audience_total Realtime events by audience resolution outcome.","# TYPE flash_realtime_audience_total counter");
+  for(const[key,value]of realtimeAudiences){const[entityType,outcome]=key.split("|");lines.push(`flash_realtime_audience_total{entity_type="${esc(entityType)}",outcome="${esc(outcome)}"} ${value}`);}
   return `${lines.join("\n")}\n`;
 }

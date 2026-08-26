@@ -1,28 +1,41 @@
 # Puertas CI de seguridad
 
-## Estado al 25 de agosto de 2026
+## Estado al 26 de agosto de 2026
 
-**`package.json` declara 104 scripts; `.github/workflows/ci.yml` ejecuta 15.** Quedan 89 fuera de toda puerta de merge.
+`ci.yml` se dividió en **`ci-fast.yml`** y **`ci-postgres.yml`**. La cobertura pasó de **15 a 24 scripts** y, por primera vez, **CI levanta PostgreSQL 17 + PostGIS**.
 
-La causa raíz es que **CI no levanta PostgreSQL/PostGIS**: el workflow sólo declara un servicio Redis, por lo que ninguna suite que necesite base de datos puede correr. Eso deja fuera de la puerta a todo el núcleo de riesgo:
+Contexto: hasta el 25 de agosto, `package.json` declaraba 104 scripts y el workflow ejecutaba 15. La causa raíz era que CI sólo declaraba un servicio Redis, así que ninguna suite que necesitara base de datos podía correr. Hallazgo [H-01](auditoria-2026-08-25.md#h-01--ci-no-ejecuta-el-86-de-su-propia-matriz-de-pruebas), ticket [CI-001](backlog-tecnico.md#ci-001--pipeline-productivo), **en curso**.
 
-`test:postgres` · `test:rls` · `test:audit-immutability` · `test:sensitive-data` · `test:mfa` · `test:payment-reconciliation` · `test:marketplace-ledger` · `test:mercadopago-payment` · `test:mercadopago-webhook` · `test:payment-oauth` · `test:payout-review` · `test:transaction-risk` · `test:driver-kyc` · `test:driver-vehicles` · `test:ride-safety` · `test:support-sla` · `test:support-routing` · `test:city-isolation` · `test:maps`
+### Lo que ahora bloquea un merge y antes no
 
-Consecuencia directa: **el repositorio puede tener 104 scripts, pero sin puertas bloqueantes no existe garantía continua** sobre migraciones, RLS, pagos, ledger, webhooks, refunds, dispatch, KYC, safety, soporte ni aislamiento por ciudad. Una regresión en cualquiera de esos caminos entra a `main` sin resistencia.
+Migraciones desde cero · migración incremental sobre la rama base · RLS · cadena de auditoría · aislamiento por ciudad · datos sensibles · poda de claves idempotentes · contrato de audiencias realtime · ratchet de longitud de línea.
 
-Este es el hallazgo [H-01](auditoria-2026-08-25.md#h-01--ci-no-ejecuta-el-86-de-su-propia-matriz-de-pruebas) y se corrige con el ticket [CI-001](backlog-tecnico.md#ci-001--pipeline-productivo).
+### Lo que sigue fuera de puerta
 
-### Comprobar la brecha
+Quedan **54 suites `test:*`** sin puerta. La mayoría necesita la API levantada — leen `API_URL` — no sólo una base de datos: pagos, Mercado Pago, conciliación, KYC, vehículos, safety, soporte y recursos por audiencia. Entran con **`ci-critical-flows.yml`**, que debe arrancar el servidor contra la misma instancia PostgreSQL.
 
-```bash
-node -e "const p=require('./package.json'),ci=require('fs').readFileSync('.github/workflows/ci.yml','utf8');const s=Object.keys(p.scripts);console.log(s.length,'declarados /',s.filter(x=>ci.includes('npm run '+x)).length,'en CI')"
-```
+`test:security` aparece fuera de la lista automática pero sí corre: está dentro de `npm run check`.
 
-## Lo que sí corre hoy
+## Workflows
 
-`check` (build + `test:security`) · `test:responsive-layout` · `test:web-bundle-budget` · `test:web-delivery` · `test:openapi-contract` · `test:graceful-shutdown` · `test:secrets` · `test:dependency-gate` · `test:telemetry` · `test:observability-rules` · `test:provider-resilience` · `test:container-security` · `test:redis-rate-limit` · `mobile:typecheck` · `test:mobile-native-runtime` · `test:mobile-build-variants`.
+| Workflow | Cuándo | Contenido | Estado |
+| --- | --- | --- | --- |
+| `ci-fast.yml` | Cada PR | Build · contratos estáticos · secret scan · dependency gate · telemetría · alertas · resiliencia de proveedores · contenedor · rate limit Redis · audiencias realtime · ratchet de línea · typecheck y variantes mobile | **Activo** |
+| `ci-postgres.yml` | Cada PR | PostGIS 17 · roles separados · migraciones desde cero · migración incremental sobre la base del PR · RLS · cadena de auditoría · aislamiento por ciudad · datos sensibles · idempotencia | **Activo** |
+| `ci-critical-flows.yml` | Cada PR | Pago · webhook · refund · ledger · dispatch · conciliación · KYC · support SLA · safety | Pendiente |
+| `ci-nightly.yml` | Cada noche | Playwright E2E · performance · carga k6 · provider sandbox · restore drill · dependency scan completo · mobile build preview | Pendiente |
 
-Son casi todas puertas de **infraestructura** (build, bundle, entrega HTTP, telemetría, apagado ordenado, rate limiting), no de **dominio**.
+### Roles de base de datos en CI
+
+`ci-postgres.yml` replica `database/docker-init/001-runtime-roles.sh`: crea `flash_app` (migrador y dueño de la base), `flash_runtime` y `flash_rls_audit`, los tres `NOSUPERUSER` y `NOBYPASSRLS`. Así el runtime en CI tiene exactamente los privilegios del runtime productivo, y `test:rls` puede demostrar denegación real desde un rol auditor sin ownership.
+
+Las contraseñas del workflow pertenecen a un contenedor efímero que sólo existe durante el run y nunca acepta conexiones externas. **No son credenciales y no deben moverse a secretos**: hacerlo daría la impresión de que protegen algo.
+
+### Migración incremental
+
+El job `migrate-from-base` existe porque **una migración puede pasar desde cero y romper sobre datos existentes**. Aplica primero el esquema de la rama base del PR y después las migraciones nuevas, que es lo que ocurre en un despliegue real. Sólo corre en pull requests.
+
+## Contratos individuales
 
 ### Escáner de secretos
 
@@ -30,48 +43,41 @@ Revisa archivos tracked y nuevos no ignorados buscando claves privadas y formato
 
 ### Gate de dependencias
 
-Bloquea vulnerabilidades **altas o críticas** en runtime web/API y mobile. Al 22-08-2026 ambos árboles reportaban cero vulnerabilidades conocidas. Mobile fija parches compatibles de Metro y reemplaza las versiones transitivas vulnerables de `image-size` y `uuid` mediante `overrides`; TypeScript, configuración Expo y bundles web/iOS/Android forman parte de la verificación antes de conservar esos overrides.
+Bloquea vulnerabilidades **altas o críticas** en runtime web/API y mobile. Al 26-08-2026 ambos árboles reportan cero vulnerabilidades conocidas. Mobile fija parches compatibles de Metro y reemplaza las versiones transitivas vulnerables de `image-size` y `uuid` mediante `overrides`; TypeScript, configuración Expo y bundles web/iOS/Android forman parte de la verificación antes de conservar esos overrides.
+
+### Audiencias realtime
+
+`test:realtime-audience` extrae del código todas las publicaciones de `publishRealtimeEvent` y exige que cada una resuelva una audiencia explícita. La difusión a todos los roles se compara contra una lista aprobada: **ampliarla exige tocar el test**, lo que la convierte en una decisión revisable en lugar de un efecto secundario. Es un contrato estático, así que corre en la puerta rápida sin necesidad de PostgreSQL. Ver [`docs/realtime.md`](realtime.md).
+
+### Ratchet de longitud de línea
+
+`test:line-length` fija una línea base por archivo y sólo admite bajarla. Existe porque el código tiene hoy **1.543 líneas de más de 200 caracteres en 120 archivos**, con máximos de 4.061: no se puede exigir el objetivo final antes de reformatear, pero sí impedir que el problema crezca mientras avanza [ARC-001](backlog-tecnico.md#arc-001--modularización).
+
+Tras mejorar un archivo, fijar la mejora con:
+
+```bash
+node scripts/line-length-ratchet.mjs --update
+```
 
 ### Contrato de contenedor
 
 `test:container-security` valida principalmente separación de roles de PostgreSQL: owner/migrador, runtime y auditor, y rechaza roles con `BYPASSRLS`. **No valida** usuario Linux, capabilities, seccomp ni filesystem de sólo lectura — ver el hallazgo [H-05](auditoria-2026-08-25.md#h-05--la-imagen-docker-no-corresponde-al-arranque-real-y-corre-como-root) y el ticket [INF-001](backlog-tecnico.md#inf-001--imagen-productiva-endurecida).
 
-## Arquitectura objetivo
+## Reglas de merge
 
-Cuatro workflows sustituyen al `ci.yml` único.
+| Regla | Estado |
+| --- | --- |
+| Un PR queda bloqueado si falla cualquier suite de `ci-fast` o `ci-postgres` | Activo |
+| `CODEOWNERS` declara propiedad de dinero, aislamiento y puertas de calidad | Activo |
+| Rama `main` protegida con PR obligatoria | **Pendiente: configuración manual en GitHub** |
+| Dos aprobaciones para pagos y seguridad | **Pendiente: requiere más de un revisor** |
+| Artefactos de test almacenados tras el run | Pendiente |
+| Ningún script de riesgo fuera de una puerta sin justificación escrita | Pendiente |
 
-| Workflow | Cuándo | Contenido |
-| --- | --- | --- |
-| `ci-fast.yml` | Cada PR | Typecheck · lint · unit tests · static security · secret scan · build · bundle budget · control de longitud de línea |
-| `ci-postgres.yml` | Cada PR | PostgreSQL/PostGIS · migraciones desde cero · migraciones desde snapshot anterior · RLS · audit chain · runtime smoke · city isolation · idempotencia |
-| `ci-critical-flows.yml` | Cada PR | Pago · webhook · refund · ledger · dispatch · reconciliation · KYC · support SLA · safety |
-| `ci-nightly.yml` | Cada noche | Playwright E2E · performance · load · provider sandbox · restore drill · dependency scan completo · mobile build preview |
+`CODEOWNERS` por sí solo no bloquea nada: exige activar «Require review from Code Owners» en Settings > Branches.
 
-Servicio PostgreSQL requerido en `ci-postgres.yml` y `ci-critical-flows.yml`:
-
-```yaml
-services:
-  postgres:
-    image: postgis/postgis:17-3.5
-    env:
-      POSTGRES_PASSWORD: ci
-      POSTGRES_DB: flash
-    ports: ["5432:5432"]
-    options: >-
-      --health-cmd "pg_isready -U postgres"
-      --health-interval 5s --health-timeout 3s --health-retries 20
-```
-
-## Reglas de merge objetivo
-
-- La rama `main` protegida, con PR obligatoria.
-- Un PR bloqueado si falla cualquier suite crítica.
-- Dos aprobaciones para cambios en pagos y seguridad, vía `CODEOWNERS`.
-- Artefactos de test almacenados y consultables tras el run.
-- **Ningún script de riesgo fuera de una puerta sin justificación escrita** en [`docs/backlog-tecnico.md`](backlog-tecnico.md).
-
-### Verificación de cobertura completa
+## Comprobar la cobertura
 
 ```bash
-node -e "const p=require('./package.json'),fs=require('fs');const ci=fs.readdirSync('.github/workflows').map(f=>fs.readFileSync('.github/workflows/'+f,'utf8')).join('');const out=Object.keys(p.scripts).filter(s=>s.startsWith('test:')&&!ci.includes('npm run '+s));console.log(out.length?'FUERA DE CI:\n'+out.join('\n'):'OK: toda suite de test está en CI')"
+node -e "const p=require('./package.json'),fs=require('fs');const ci=fs.readdirSync('.github/workflows').map(f=>fs.readFileSync('.github/workflows/'+f,'utf8')).join('');const out=Object.keys(p.scripts).filter(s=>s.startsWith('test:')&&!ci.includes('npm run '+s));console.log(out.length+' suites fuera de CI');console.log(out.join(' '))"
 ```

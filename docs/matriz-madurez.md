@@ -28,25 +28,25 @@ La auditoría del 25 de agosto identificó que el riesgo principal de Flash no e
 
 ## Estado consolidado
 
-Al 25 de agosto de 2026, sobre **91 capacidades inventariadas**:
+Al **26 de agosto de 2026**, sobre **91 capacidades inventariadas**:
 
-| Estado | Capacidades | Proporción |
-| --- | ---: | ---: |
-| `IMPL` | 9 | 9,9% |
-| `LOCAL` | 50 | 54,9% |
-| `CI` | 14 | 15,4% |
-| `PROV` | 0 | 0% |
-| `STG` | 0 | 0% |
-| `PROD` | 0 | 0% |
-| No existe | 18 | 19,8% |
+| Estado | Capacidades | Proporción | Al 25-08 |
+| --- | ---: | ---: | ---: |
+| `IMPL` | 9 | 9,9% | 9 |
+| `LOCAL` | 44 | 48,4% | 50 |
+| `CI` | 20 | 22,0% | 14 |
+| `PROV` | 0 | 0% | 0 |
+| `STG` | 0 | 0% | 0 |
+| `PROD` | 0 | 0% | 0 |
+| No existe | 18 | 19,8% | 18 |
 
-**Lectura:** de las 73 capacidades que existen, **59 (81%) están en `IMPL` o `LOCAL`** — es decir, sin puerta automática que las proteja de una regresión. Sólo 14 alcanzan `CI`, y esas 14 son casi todas de infraestructura (build, bundle, telemetría, apagado ordenado), no de dominio.
+**Lectura:** de las 73 capacidades que existen, **53 (73%) están en `IMPL` o `LOCAL`** — sin puerta automática que las proteja de una regresión. Eran 59 (81%) el 25 de agosto: `ci-postgres.yml` movió seis capacidades de datos y realtime a `CI`.
 
-**Ninguna capacidad alcanzó `PROV`.** Ni pagos, ni push, ni mapas, ni KYC fueron probados contra un proveedor real.
+Las 20 en `CI` ya no son sólo infraestructura: incluyen migraciones, RLS, cadena de auditoría, aislamiento por ciudad y audiencia realtime.
 
-Esto confirma cuantitativamente el dictamen de la auditoría: Flash es fuerte en capacidad modelada e integración preparada, y no tiene todavía evidencia en capacidad probada con proveedores ni operada.
+**Ninguna capacidad alcanzó `PROV`.** Ni pagos, ni push, ni mapas, ni KYC fueron probados contra un proveedor real. Ese es el objetivo de la Fase 1.
 
-El objetivo de la Fase 0 es llevar todo el núcleo de riesgo a `CI` y las capacidades dependientes de proveedor a `PROV`.
+El objetivo de la Fase 0 es llevar todo el núcleo de riesgo a `CI`. Lo que sigue fuera de puerta es, en su mayoría, lo que necesita la API levantada (`API_URL`): pagos, KYC, safety y soporte. Esas suites entran con `ci-critical-flows.yml`.
 
 ---
 
@@ -69,13 +69,13 @@ El objetivo de la Fase 0 es llevar todo el núcleo de riesgo a `CI` y las capaci
 
 | Capacidad | Estado | Evidencia / bloqueo |
 | --- | --- | --- |
-| PostgreSQL/PostGIS runtime | `LOCAL` | **CI no levanta PostgreSQL** — ticket CI-001 |
-| 110 migraciones versionadas | `LOCAL` | Sin puerta CI que las corra desde cero |
-| Row-Level Security | `LOCAL` | `test:rls` fuera de CI · **20 tablas sin política** — ticket DAT-001 |
+| PostgreSQL/PostGIS runtime | `CI` | `ci-postgres.yml` levanta PostGIS 17 con roles separados |
+| 110 migraciones versionadas | `CI` | `ci-postgres.yml` corre desde cero y de forma incremental sobre la rama base |
+| Row-Level Security | `CI` | `test:rls` bloquea el merge · **20 tablas siguen sin política** — ticket DAT-001 |
 | `FORCE ROW LEVEL SECURITY` | — | **Cero sentencias** — ticket DAT-001 |
-| Auditoría encadenada SHA-256 | `LOCAL` | `test:audit-immutability` fuera de CI |
-| Idempotencia y locks | `LOCAL` | `test:postgres`, `test:idempotency-prune` fuera de CI |
-| Aislamiento por ciudad | `LOCAL` | `test:city-isolation` fuera de CI |
+| Auditoría encadenada SHA-256 | `CI` | `test:audit-immutability` en `ci-postgres.yml` |
+| Idempotencia y locks | `LOCAL` | `test:idempotency-prune` en CI; `test:postgres` necesita API levantada |
+| Aislamiento por ciudad | `CI` | `test:city-isolation` en `ci-postgres.yml` |
 | Backup y restore drill | `LOCAL` | `db:restore:drill` fuera de CI · sin cronometrar contra RTO |
 | Separación de roles PostgreSQL | `CI` | `test:container-security` |
 
@@ -116,7 +116,7 @@ El objetivo de la Fase 0 es llevar todo el núcleo de riesgo a `CI` y las capaci
 | --- | --- | --- |
 | SSE con replay por cursor | `LOCAL` | Sin puerta CI |
 | Event log durable con secuencia | `LOCAL` | Sin puerta CI |
-| Audiencia por usuario y rol | `LOCAL` | **Fail-open ante entidad desconocida** — ticket SEC-001 |
+| Audiencia por usuario y rol | `CI` | Default-deny activo · `test:realtime-audience` bloquea el merge |
 | Retención y pruning | `LOCAL` | `realtime:prune` sin puerta CI |
 | Outbox de notificaciones | `LOCAL` | `test:notification-dead-letters` fuera de CI |
 | Preferencias de notificación | `LOCAL` | `test:notification-preferences` fuera de CI |

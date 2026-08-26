@@ -59,3 +59,8 @@ groups:
         for: 30m
         labels: { severity: ticket }
         annotations: { summary: "El backlog de claves idempotentes vencidas no está drenando", runbook: "docs/runbooks/idempotency-backlog.md" }
+      - alert: FlashRealtimeUnclassifiedAudience
+        expr: sum(increase(flash_realtime_audience_total{outcome="unclassified"}[15m])) > 0
+        for: 15m
+        labels: { severity: ticket }
+        annotations: { summary: "Eventos realtime sin audiencia resoluble quedaron restringidos a operaciones", runbook: "docs/runbooks/realtime-audience.md" }
