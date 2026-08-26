@@ -1,5 +1,5 @@
 import { postgresPool } from "./postgres.js";
-import { getPostgresOrders } from "./commerce-repository.js";
+import { getPostgresOrders } from "./order-repository.js";
 import { getPostgresRides, getPostgresShipments } from "./mobility-repository.js";
 
 const encodeCursor = (row) =>

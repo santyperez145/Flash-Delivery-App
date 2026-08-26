@@ -9,7 +9,7 @@
 // Este módulo es la única forma de escribir auditoría sin tener que saber cuál
 // de los dos está activo. Vivía en `server/index.js`, donde cada handler que lo
 // usaba quedaba a un `if` de distancia de auditar en el runtime equivocado.
-import { usesPostgresCommerce } from "./commerce-repository.js";
+import { usesPostgresCommerce } from "./postgres.js";
 import { audit } from "./fallback-runtime.js";
 import { recordPostgresAudit } from "./operations-repository.js";
 import { writeDb } from "./store.js";

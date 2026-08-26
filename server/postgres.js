@@ -16,6 +16,18 @@ export const postgresPool = config.databaseUrl
     })
   : null;
 
+// Si el pool existe, el comercio corre sobre PostgreSQL; si no, sobre el
+// respaldo SQLite. Vivía en `commerce-repository.js` y se mudó acá al partirlo,
+// porque gobierna a los tres pedazos por igual.
+//
+// Es literalmente el mismo chequeo que `usesPostgresAuth` en
+// `auth-repository.js`. Los dos nombres se conservan porque documentan qué
+// subsistema está gateando el llamador; si algún día auth y comercio dejan de
+// compartir pool, cada uno ya tiene su predicado.
+export function usesPostgresCommerce() {
+  return Boolean(postgresPool);
+}
+
 export async function postgresReadiness() {
   if (!postgresPool) return { configured: false, ready: false, reason: "DATABASE_URL missing" };
   try {
