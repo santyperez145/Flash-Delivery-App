@@ -112,6 +112,14 @@ node scripts/line-length-ratchet.mjs --update
 
 `test:container-security` valida principalmente separación de roles de PostgreSQL: owner/migrador, runtime y auditor, y rechaza roles con `BYPASSRLS`. **No valida** usuario Linux, capabilities, seccomp ni filesystem de sólo lectura — ver el hallazgo [H-05](auditoria-2026-08-25.md#h-05--la-imagen-docker-no-corresponde-al-arranque-real-y-corre-como-root) y el ticket [INF-001](backlog-tecnico.md#inf-001--imagen-productiva-endurecida).
 
+## Relanzar una corrida
+
+Los tres workflows aceptan `workflow_dispatch`: se relanzan a mano desde la pestaña **Actions**, eligiendo el workflow y pulsando **Run workflow**.
+
+No es una comodidad. El **26 de agosto de 2026** una corrida murió en `startup_failure` **con cero jobs**, y las otras dos ni siquiera se crearon. Los blobs de los tres workflows eran byte-idénticos a los de la corrida verde de quince minutos antes, el YAML parseaba con 7 jobs, el repositorio es público —así que no hay límite de minutos— y GitHub no reportaba incidentes. Fue un fallo de agendamiento de la plataforma.
+
+Sin `workflow_dispatch`, la única forma de limpiar eso era **empujar otro commit**. En un repositorio donde CI es la puerta de merge, eso convierte un problema transitorio de la plataforma en un commit basura en el historial, o —peor— en una entrega que se publica sin verificar porque relanzar costaba demasiado.
+
 ## Reglas de merge
 
 | Regla | Estado |
