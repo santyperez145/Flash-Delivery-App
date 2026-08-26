@@ -37,10 +37,10 @@ Cinco archivos concentran más de 1,3 MB de código: `apps/mobile/App.tsx` (433 
 - [x] **El núcleo compartido de HTTP está extraído.** Respuestas, autorización, autenticación, transporte realtime y runtime del fallback. Un grupo de rutas nuevo no necesita nada de `server/index.js`.
 - [x] **Ningún `App.tsx` supera 1.500 líneas.** `apps/mobile/App.tsx` 15.374 → **321**; `src/App.tsx` 10.553 → **1.245**. En los dos queda sólo el shell.
 - [ ] Ninguna línea de más de 200 caracteres. Quedan **260**, casi todas SQL en template literals. Las dos que bajaron lo hicieron por el mismo mecanismo: al aislarse en un archivo nuevo, el ratchet las vio sin línea base que las tolerara y exigió partirlas.
-- [ ] Ningún módulo de dominio importa React.
+- [x] **Ningún módulo de dominio importa React.** 93 módulos verificados por `test:domain-purity`, en `ci-fast.yml`. La regla es la convención del repositorio: `.ts` es lógica, `.tsx` es presentación. `react-native` no cuenta, porque ahí aporta primitivas de plataforma y no renderizado.
 - [ ] El build de driver no incluye pantallas de comercio.
 - [ ] El build de customer no incluye backoffice.
-- [ ] `server/index.js` deja de contener lógica de dominio. **11 de 57 grupos de rutas extraídos**; quedan 177 rutas en 45 grupos. `index.js` bajó de 9.696 a 8.196 líneas.
+- [ ] `server/index.js` deja de contener lógica de dominio. **12 de 57 grupos de rutas extraídos**; quedan 169 rutas en 42 grupos. `index.js` bajó de 9.696 a 7.916 líneas.
 
 ### Verificación
 
