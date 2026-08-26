@@ -24,6 +24,25 @@ const client = await pool.connect();
 
 const steps = [
   {
+    // 052_email_verification hizo `UPDATE users SET email_verified_at=...` sobre
+    // los usuarios que ya existían. En una base desde cero los seeds corren
+    // después, así que las cuentas quedan sin verificar y **no pueden iniciar
+    // sesión**: la API responde "Debes verificar tu email".
+    //
+    // Es el backfill más caro de omitir: sin él la plataforma entera queda
+    // inaccesible en un ambiente nuevo, incluido el primer despliegue.
+    label: "verificación de email de cuentas sembradas",
+    sql: `UPDATE users SET email_verified_at=COALESCE(email_verified_at,created_at)
+          WHERE email_verified_at IS NULL`,
+  },
+  {
+    // 089_driver_location_telemetry clasificó como 'legacy' las posiciones que
+    // ya existían. Una posición sembrada sin origen queda sin clasificar.
+    label: "origen de ubicación de conductores",
+    sql: `UPDATE drivers SET location_source='legacy'
+          WHERE current_location IS NOT NULL AND location_source IS NULL`,
+  },
+  {
     label: "sucursales principales",
     sql: `INSERT INTO merchant_branches(public_id,merchant_id,name,address,location,status,open,eta_min,service_radius_m,is_primary)
           SELECT 'branch_'||m.public_id,m.id,m.name||' · Principal',m.address,m.location,

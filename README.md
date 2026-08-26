@@ -8,7 +8,7 @@ Plataforma para operar comida, delivery y viajes tipo taxi/conductor en una sola
 
 La [auditoría integral del 25 de agosto de 2026](docs/auditoria-2026-08-25.md) evalúa el proyecto en **6,2/10** y lo declara apto para demo a inversores, desarrollo interno, staging serio y prueba cerrada de delivery una vez resueltos los P0. **No** está aprobado para lanzamiento público irrestricto, custodia de saldo real, pagos masivos sin supervisión, transporte público de pasajeros ni operación multiciudad.
 
-De 91 capacidades inventariadas en [`docs/matriz-madurez.md`](docs/matriz-madurez.md), el **73%** de las que existen no está protegido por una puerta CI, y **ninguna fue probada todavía contra un proveedor real**.
+De 91 capacidades inventariadas en [`docs/matriz-madurez.md`](docs/matriz-madurez.md), el **30%** de las que existen no está protegido por una puerta CI — eran el 81% el 25 de agosto — y **ninguna fue probada todavía contra un proveedor real**.
 
 La Fase 0 está en marcha: ver el [plan de acción](docs/plan-de-accion.md) y el [backlog técnico](docs/backlog-tecnico.md).
 
@@ -16,7 +16,7 @@ La Fase 0 está en marcha: ver el [plan de acción](docs/plan-de-accion.md) y el
 
 | Hallazgo | Ticket | Resumen |
 | --- | --- | --- |
-| H-01 | CI-001 | **En curso.** CI pasó de 15 a 24 scripts y ya levanta PostgreSQL; faltan los flujos críticos, que necesitan la API arriba |
+| H-01 | CI-001 | **En curso.** Tres puertas en verde y 73 de 76 suites cubiertas; faltan `ci-nightly`, 4 suites en cuarentena y la protección de rama |
 | H-02 | NOT-001 | Push productivo imposible: el enum de configuración sólo admite `disabled` y `sandbox` |
 | H-03 | SEC-001 | **Corregido.** Default-deny activo y con puerta CI; queda la verificación de runtime contra PostgreSQL |
 | H-04 | DAT-001 | 20 tablas sin política RLS y cero `FORCE ROW LEVEL SECURITY` |
@@ -25,7 +25,7 @@ La Fase 0 está en marcha: ver el [plan de acción](docs/plan-de-accion.md) y el
 | H-07 | GEO-001 | Nominatim y OSRM públicos como valores por defecto |
 | H-08 | ARC-001 | Cinco archivos concentran más de 1,3 MB de código; un ratchet impide que crezca |
 | H-09 | PAY-001 | Mercado Pago integrado pero nunca validado contra el proveedor |
-| H-11 | — | **Corregido.** Una base desde cero no equivalía a una migrada: `db:seed:derived` reaplica los backfills derivados |
+| H-11 | — | **Corregido.** Una base desde cero no equivalía a una migrada y las cuentas sembradas no podían iniciar sesión: `db:seed:derived` reaplica los backfills |
 
 **Congelamiento activo:** hasta el 20 de septiembre de 2026 no se agregan capacidades nuevas. Ver [`docs/plan-de-accion.md`](docs/plan-de-accion.md).
 

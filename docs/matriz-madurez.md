@@ -32,21 +32,30 @@ Al **26 de agosto de 2026**, sobre **91 capacidades inventariadas**:
 
 | Estado | Capacidades | Proporción | Al 25-08 |
 | --- | ---: | ---: | ---: |
-| `IMPL` | 9 | 9,9% | 9 |
-| `LOCAL` | 44 | 48,4% | 50 |
-| `CI` | 20 | 22,0% | 14 |
+| `IMPL` | 6 | 6,6% | 9 |
+| `LOCAL` | 16 | 17,6% | 50 |
+| `CI` | 51 | 56,0% | 14 |
 | `PROV` | 0 | 0% | 0 |
 | `STG` | 0 | 0% | 0 |
 | `PROD` | 0 | 0% | 0 |
 | No existe | 18 | 19,8% | 18 |
 
-**Lectura:** de las 73 capacidades que existen, **53 (73%) están en `IMPL` o `LOCAL`** — sin puerta automática que las proteja de una regresión. Eran 59 (81%) el 25 de agosto: `ci-postgres.yml` movió seis capacidades de datos y realtime a `CI`.
+**Lectura:** de las 73 capacidades que existen, **22 (30%) siguen en `IMPL` o `LOCAL`** — sin puerta automática que las proteja de una regresión. Eran 59 (81%) el 25 de agosto.
 
-Las 20 en `CI` ya no son sólo infraestructura: incluyen migraciones, RLS, cadena de auditoría, aislamiento por ciudad y audiencia realtime.
+El salto viene de las tres puertas del ticket CI-001. Las 51 en `CI` ya no son infraestructura: incluyen migraciones, RLS, cadena de auditoría, aislamiento por ciudad, audiencia realtime, ledger, conciliación, riesgo, payouts, KYC, vehículos, safety, chat, soporte y notificaciones.
 
-**Ninguna capacidad alcanzó `PROV`.** Ni pagos, ni push, ni mapas, ni KYC fueron probados contra un proveedor real. Ese es el objetivo de la Fase 1.
+**Ninguna capacidad alcanzó `PROV`.** Ni pagos, ni push, ni mapas, ni KYC fueron probados contra un proveedor real. Ese es el objetivo de la Fase 1, y es la distancia que esta matriz existe para no dejar olvidar: **una capacidad en `CI` está protegida contra regresiones, no demostrada contra el mundo real.**
 
-El objetivo de la Fase 0 es llevar todo el núcleo de riesgo a `CI`. Lo que sigue fuera de puerta es, en su mayoría, lo que necesita la API levantada (`API_URL`): pagos, KYC, safety y soporte. Esas suites entran con `ci-critical-flows.yml`.
+### Lo que sigue sin puerta
+
+| Capacidad | Motivo |
+| --- | --- |
+| Ofertas privadas, aceptación atómica, ranking | `test:postgres` está en cuarentena |
+| SSE, event log, retención realtime | Sin suite dedicada |
+| Geocoding y routing | Proveedores públicos — ticket GEO-001 |
+| Backup y restore drill | Scripts PowerShell, van a `ci-nightly` |
+| Wallet sandbox, moderación, notificación in-app | Sin suite dedicada |
+| Registro y login | `test:security` corre sobre el fallback SQLite, no sobre PostgreSQL |
 
 ---
 
@@ -55,13 +64,13 @@ El objetivo de la Fase 0 es llevar todo el núcleo de riesgo a `CI`. Lo que sigu
 | Capacidad | Estado | Evidencia / bloqueo |
 | --- | --- | --- |
 | Registro y login | `LOCAL` | `test:security` corre en CI vía `check`, pero sin PostgreSQL |
-| Access/refresh rotativo | `LOCAL` | `test:web-auth-session` fuera de CI |
-| Refresh en cookie HttpOnly | `LOCAL` | `test:web-auth-session` fuera de CI |
-| Sesiones remotas | `LOCAL` | `test:remote-sessions` fuera de CI |
-| Recuperación de contraseña | `LOCAL` | `test:password-recovery` fuera de CI |
-| Verificación de email | `LOCAL` | `test:email-verification` fuera de CI · SMTP real pendiente |
-| Verificación telefónica | `IMPL` | Adaptador Twilio presente · **sin prueba con cuenta habilitada** |
-| MFA administrativo | `LOCAL` | `test:mfa` fuera de CI |
+| Access/refresh rotativo | `CI` | `test:web-auth-session` en `ci-fast` |
+| Refresh en cookie HttpOnly | `CI` | `test:web-auth-session` en `ci-fast` |
+| Sesiones remotas | `CI` | `test:remote-sessions` en `ci-critical-flows` |
+| Recuperación de contraseña | `CI` | `test:password-recovery` en `ci-critical-flows` |
+| Verificación de email | `CI` | `test:email-verification` bloquea el merge · SMTP real pendiente |
+| Verificación telefónica | `CI` | `test:phone-verification` cubre el flujo sandbox · **sin prueba con cuenta Twilio habilitada** |
+| MFA administrativo | `CI` | `test:mfa` en `ci-critical-flows` |
 | Moderación y suspensión | `LOCAL` | Sin puerta CI |
 | RBAC y ownership | `CI` | `test:security` dentro de `check` |
 
@@ -83,16 +92,16 @@ El objetivo de la Fase 0 es llevar todo el núcleo de riesgo a `CI`. Lo que sigu
 
 | Capacidad | Estado | Evidencia / bloqueo |
 | --- | --- | --- |
-| Ledger de doble entrada | `LOCAL` | `test:marketplace-ledger` fuera de CI |
-| Payment intents | `LOCAL` | Sin puerta CI |
+| Ledger de doble entrada | `CI` | `test:marketplace-ledger` en `ci-fast` |
+| Payment intents | `CI` | `test:payment-methods` en `ci-critical-flows` |
 | Wallet sandbox | `LOCAL` | Sandbox interno · **no custodial por decisión** |
-| Mercado Pago OAuth PKCE | `IMPL` | **Sin sellers de prueba vinculados** — ticket PAY-001 |
-| Creación de pago con `application_fee` | `IMPL` | **Sin credenciales del proveedor** |
-| Webhook firmado | `LOCAL` | `test:mercadopago-webhook` fuera de CI · sin webhook real |
+| Mercado Pago OAuth PKCE | `CI` | `test:payment-oauth` cubre el contrato · **sin sellers de prueba vinculados** — ticket PAY-001 |
+| Creación de pago con `application_fee` | `CI` | `test:mercadopago-payment` con fetch interceptado · **sin credenciales del proveedor** |
+| Webhook firmado | `CI` | `test:mercadopago-webhook` en `ci-fast` · sin webhook real |
 | Refund | `IMPL` | **Caso de saldo insuficiente del vendedor no probado** |
-| Conciliación | `LOCAL` | `test:payment-reconciliation` fuera de CI · sin operación diaria |
-| Revisión de payouts | `LOCAL` | `test:payout-review` fuera de CI |
-| Riesgo transaccional | `LOCAL` | `test:transaction-risk` fuera de CI |
+| Conciliación | `CI` | `test:payment-reconciliation` bloquea el merge · sin operación diaria |
+| Revisión de payouts | `CI` | `test:payout-review` en `ci-critical-flows` |
+| Riesgo transaccional | `CI` | `test:transaction-risk` en `ci-critical-flows` |
 | Adaptador bancario para payout | — | **No existe** |
 
 ## Dispatch y geoespacial
@@ -100,14 +109,14 @@ El objetivo de la Fase 0 es llevar todo el núcleo de riesgo a `CI`. Lo que sigu
 | Capacidad | Estado | Evidencia / bloqueo |
 | --- | --- | --- |
 | Ofertas privadas con TTL | `LOCAL` | Sin puerta CI |
-| Aceptación atómica `SKIP LOCKED` | `LOCAL` | `test:postgres` fuera de CI |
+| Aceptación atómica `SKIP LOCKED` | `LOCAL` | `test:postgres` está **en cuarentena**: corre pero no bloquea |
 | Ranking explicable | `LOCAL` | Sin recorte espacial previo — ticket DSP-001 |
 | Recorte `ST_DWithin` + KNN | — | **Cero ocurrencias en el repositorio** |
 | Stats precomputadas de conductor | — | **No existe** · se recalcula historial de 30 días por oferta |
-| Zonas de demanda | `LOCAL` | `test:driver-demand` fuera de CI |
+| Zonas de demanda | `CI` | `test:driver-demand` en `ci-critical-flows` |
 | Geocoding | `LOCAL` | **Nominatim público por defecto** — ticket GEO-001 |
 | Routing | `LOCAL` | **OSRM público por defecto** · sin tráfico ni Route Matrix |
-| Cotización firmada | `LOCAL` | `test:maps` fuera de CI |
+| Cotización firmada | `CI` | `test:maps` en `ci-critical-flows` |
 | Caché, circuit breaker y presupuesto | `CI` | `test:provider-resilience` |
 
 ## Realtime y notificaciones
@@ -118,8 +127,8 @@ El objetivo de la Fase 0 es llevar todo el núcleo de riesgo a `CI`. Lo que sigu
 | Event log durable con secuencia | `LOCAL` | Sin puerta CI |
 | Audiencia por usuario y rol | `CI` | Default-deny activo · `test:realtime-audience` bloquea el merge |
 | Retención y pruning | `LOCAL` | `realtime:prune` sin puerta CI |
-| Outbox de notificaciones | `LOCAL` | `test:notification-dead-letters` fuera de CI |
-| Preferencias de notificación | `LOCAL` | `test:notification-preferences` fuera de CI |
+| Outbox de notificaciones | `CI` | `test:notification-dead-letters` en `ci-critical-flows` |
+| Preferencias de notificación | `CI` | `test:notification-preferences` en `ci-critical-flows` |
 | Notificación in-app | `LOCAL` | Canal activo real en desarrollo |
 | **Push productivo** | — | **Imposible por configuración** — ticket NOT-001 |
 | Email SMTP | `IMPL` | Proveedor no habilitado |
@@ -132,7 +141,7 @@ El objetivo de la Fase 0 es llevar todo el núcleo de riesgo a `CI`. Lo que sigu
 | Typecheck mobile | `CI` | `mobile-typecheck` |
 | Variantes customer/driver/merchant | `CI` | `test:mobile-build-variants` |
 | Runtime nativo | `CI` | `test:mobile-native-runtime` |
-| Mapas nativos | `LOCAL` | `test:mobile-maps` fuera de CI |
+| Mapas nativos | `CI` | `test:mobile-maps` en `ci-fast` |
 | Background location | `IMPL` | **Requiere development build · sin ensayo físico** |
 | Registro de push token | `IMPL` | Sin proveedor de destino |
 | Builds EAS firmados | — | **No existen** — ticket MOB-001 |
@@ -154,14 +163,14 @@ El objetivo de la Fase 0 es llevar todo el núcleo de riesgo a `CI`. Lo que sigu
 
 | Capacidad | Estado | Evidencia / bloqueo |
 | --- | --- | --- |
-| Backoffice de operaciones | `LOCAL` | `test:operations-resources` fuera de CI |
-| Routing de tickets y SLA | `LOCAL` | `test:support-sla`, `test:support-routing` fuera de CI |
-| Chat operativo cifrado | `LOCAL` | `test:service-chat` fuera de CI |
-| KYC de conductores | `LOCAL` | `test:driver-kyc` fuera de CI · sin proveedor KYC |
-| Revisión de vehículos | `LOCAL` | `test:driver-vehicles` fuera de CI |
-| Feature flags | `LOCAL` | `test:feature-flags` fuera de CI |
-| Readiness por zona | `LOCAL` | `test:zone-readiness` fuera de CI |
-| Analytics first-party | `LOCAL` | `test:product-analytics` fuera de CI · sin consentimiento legal |
+| Backoffice de operaciones | `CI` | `test:operations-resources` bloquea el merge |
+| Routing de tickets y SLA | `CI` | `test:support-sla` bloquea · `test:support-routing` **en cuarentena** |
+| Chat operativo cifrado | `CI` | `test:service-chat` en `ci-critical-flows` |
+| KYC de conductores | `CI` | `test:driver-kyc` bloquea el merge · sin proveedor KYC |
+| Revisión de vehículos | `CI` | `test:driver-vehicles` en `ci-critical-flows` |
+| Feature flags | `CI` | `test:feature-flags` en `ci-postgres` |
+| Readiness por zona | `CI` | `test:zone-readiness` en `ci-postgres` |
+| Analytics first-party | `CI` | `test:product-analytics` en `ci-postgres` · sin consentimiento legal |
 | Runbooks | `IMPL` | Documentados · **sin ensayo operativo** |
 | Operación humana sostenida | — | **No existe** — ticket OPS-001 |
 
@@ -169,9 +178,9 @@ El objetivo de la Fase 0 es llevar todo el núcleo de riesgo a `CI`. Lo que sigu
 
 | Capacidad | Estado | Evidencia / bloqueo |
 | --- | --- | --- |
-| PIN de retiro | `LOCAL` | `test:ride-safety` fuera de CI |
-| Contactos de confianza cifrados | `LOCAL` | Sin puerta CI |
-| Compartir recorrido | `LOCAL` | Sin puerta CI |
+| PIN de retiro | `CI` | `test:ride-safety` en `ci-critical-flows` |
+| Contactos de confianza cifrados | `CI` | `test:ride-safety` en `ci-critical-flows` |
+| Compartir recorrido | `CI` | `test:ride-safety` en `ci-critical-flows` |
 | Botón de emergencia | `LOCAL` | Sin procedimiento operativo detrás |
 | Detección de desvío y parada anómala | — | **No existe** |
 | Llamadas enmascaradas | — | **No existe** |
