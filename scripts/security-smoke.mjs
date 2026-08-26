@@ -461,6 +461,25 @@ async function run() {
   });
   assert(order.status === 200 && order.body?.order?.id, "customer creates order", order.text);
 
+  // Regresión: el PUT del carrito no tenía la guarda de fallback que sí tiene su
+  // GET, así que sobre SQLite reventaba con un TypeError. Se podía leer un
+  // carrito vacío pero no agregarle nada: el flujo de pedir comida quedaba muerto
+  // en el runtime que corre esta misma suite. Lo encontró el navegador.
+  const cartOnFallback = await request("/cart", {
+    method: "PUT",
+    headers: auth(customerToken),
+    body: JSON.stringify({
+      restaurantId: "rest_roja",
+      items: [{ menuItemId: "item_burger_brava", quantity: 1, extras: [], note: "" }],
+    }),
+  });
+  assert(
+    cartOnFallback.status === 503 &&
+      !/Cannot read|TypeError|undefined \(reading/.test(cartOnFallback.body?.message || ""),
+    "cart write degrades explicitly on the fallback instead of leaking a crash",
+    cartOnFallback.text,
+  );
+
   const orderRealtimeFrame = await readRealtimeUntil(realtimeReader, "order.created");
   assert(
     orderRealtimeFrame.includes("order.created"),

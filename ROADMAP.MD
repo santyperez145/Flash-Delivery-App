@@ -8,7 +8,7 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
-## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 14, servidor y frente
+## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 15, servidor y frente
 
 Entregas novena a decimoquinta de la Fase 0. El paso 2 quedó sin registrar acá cuando se publicó, así que esta sección cubre los siete.
 
@@ -193,6 +193,25 @@ De las cinco piezas **sólo `MerchantDesktopConsole` cruza la frontera**. `Order
 Es la superficie que el criterio «el build de driver no incluye pantallas de comercio» nombra literalmente.
 
 **La diferencia con las trece entregas anteriores es que ésta se verificó corriendo.** Entré como comercio y recorrí las cinco pestañas de la consola: 855, 915, 607, 793 y 1.101 caracteres de contenido real, sin un solo error. Eso no lo dice `tsc`, que sólo afirma que los tipos cierran.
+
+### La superficie de cliente, y un flujo que estaba muerto
+
+`src/App.tsx`: **5.645 → 2.041 líneas**. El paso 15 saca las quince pantallas del cliente y las diez primitivas que sólo ellas usan a `src/customer/CustomerSurface.tsx`.
+
+De las veinticinco piezas **sólo dos cruzan la frontera**: `CustomerApp`, que es la superficie, e `ItemSheet`, que `App` renderiza como hoja global porque se abre desde cualquier pantalla de comida. `SectionTitle`, `TopBar` e `IconButton` iban al revés —las usan también las consolas de operaciones— y salieron antes a `ui/panels.tsx`, junto con los helpers dietarios a `src/dietary.ts` y las progresiones de estado a `src/labels.ts`.
+
+### Lo que encontró el navegador esta vez
+
+Al recorrer el camino de compra —comercio, producto, agregar al carrito— la aplicación mostró **«Backend no disponible»**. No era el refactor:
+
+- `GET /api/cart` **sí** tenía guarda de fallback: `if (!usesPostgresCommerce()) return ok(res, { cart: [] })`
+- `PUT /api/cart` **no la tenía** e iba directo a PostgreSQL
+
+Sobre SQLite se podía leer un carrito vacío pero no agregarle nada: **el flujo de pedir comida estaba muerto en el runtime que corre el job `local-fallback` de CI y la máquina de cualquier desarrollador**. Idéntico en `e51caf0`, el commit donde empezó esta sesión.
+
+Antes del paso 13 el error además filtraba `Cannot read properties of null (reading query)`. Ahora degrada como las otras 136 rutas que dependen de PostgreSQL: 503 y un mensaje que dice por qué. Con su regresión en `test:security`.
+
+**Ningún contrato estático podía ver esto.** El código compilaba, los tipos cerraban y la asimetría entre el GET y el PUT no es un error de forma: es una guarda que falta.
 
 ### Lo que sigue faltando
 

@@ -39,3 +39,40 @@ export const shipmentStatusLabel: Record<Shipment["status"], string> = {
   delivered: "Entregado",
   cancelled: "Cancelado",
 };
+
+// --- Progresión de estados ------------------------------------------------
+//
+// El orden en que una pantalla dibuja los pasos de un pedido, un viaje o un
+// envío. Son listas y no los `Record` de arriba porque acá **el orden es el
+// dato**: un objeto no lo garantiza y una barra de progreso lo necesita.
+//
+// `cancelled` no aparece en ninguna: no es un paso del recorrido, es su
+// interrupción, y dibujarlo como quinto paso sugeriría que se llega ahí.
+
+export const orderSteps: OrderStatus[] = [
+  "requested",
+  "accepted",
+  "preparing",
+  "ready_for_pickup",
+  "courier_assigned",
+  "picked_up",
+  "delivering",
+  "delivered",
+];
+
+export const rideSteps: RideStatus[] = [
+  "requested",
+  "driver_assigned",
+  "arriving",
+  "in_progress",
+  "completed",
+];
+
+export const shipmentSteps: Shipment["status"][] = [
+  "requested",
+  "driver_assigned",
+  "arriving",
+  "picked_up",
+  "delivering",
+  "delivered",
+];
