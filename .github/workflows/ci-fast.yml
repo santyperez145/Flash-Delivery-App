@@ -1,4 +1,7 @@
-name: CI
+name: CI rápida
+
+# Puerta rápida: todo lo que puede verificarse sin PostgreSQL.
+# Las suites que necesitan base de datos viven en ci-postgres.yml.
 
 on:
   push:
@@ -8,6 +11,7 @@ on:
 
 jobs:
   build-and-security:
+    name: Build y contratos estáticos
     runs-on: ubuntu-latest
     timeout-minutes: 15
     services:
@@ -36,6 +40,12 @@ jobs:
 
       - name: Check
         run: npm run check
+
+      - name: Realtime audience contract
+        run: npm run test:realtime-audience
+
+      - name: Line length ratchet
+        run: npm run test:line-length
 
       - name: Responsive layout contract
         run: npm run test:responsive-layout
@@ -74,6 +84,7 @@ jobs:
         run: npm run test:redis-rate-limit
 
   mobile-typecheck:
+    name: Mobile typecheck y variantes
     runs-on: ubuntu-latest
     timeout-minutes: 15
 

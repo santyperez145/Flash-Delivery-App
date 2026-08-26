@@ -1,0 +1,156 @@
+name: CI PostgreSQL
+
+# Cierra el hallazgo H-01: hasta el 25 de agosto de 2026 CI no levantaba
+# PostgreSQL, así que migraciones, RLS, auditoría encadenada y aislamiento por
+# ciudad no bloqueaban ningún merge.
+#
+# Las contraseñas de abajo son de un contenedor efímero que sólo existe durante
+# el run y nunca acepta conexiones externas. No son credenciales.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  PGHOST: 127.0.0.1
+  PGPORT: "5432"
+  MIGRATION_DATABASE_URL: postgresql://flash_app:ci_migration@127.0.0.1:5432/flash
+  DATABASE_URL: postgresql://flash_runtime:ci_runtime@127.0.0.1:5432/flash
+  RLS_AUDIT_DATABASE_URL: postgresql://flash_rls_audit:ci_audit@127.0.0.1:5432/flash
+  DATABASE_SSL: "false"
+
+jobs:
+  schema-and-isolation:
+    name: Migraciones, RLS y aislamiento
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_DB: flash
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_admin
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d flash"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Replica database/docker-init/001-runtime-roles.sh. El runtime nunca debe
+      # ser superusuario, tener BYPASSRLS ni ser dueño del esquema: el readiness
+      # productivo rechaza esos roles y test:rls lo verifica.
+      - name: Create separated database roles
+        env:
+          PGPASSWORD: ci_admin
+        run: |
+          psql --set=ON_ERROR_STOP=1 -U postgres -d flash <<'SQL'
+          CREATE ROLE flash_app       LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD 'ci_migration';
+          CREATE ROLE flash_runtime   LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD 'ci_runtime';
+          CREATE ROLE flash_rls_audit LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD 'ci_audit';
+          ALTER DATABASE flash OWNER TO flash_app;
+          SQL
+
+      - name: Migrate from scratch
+        run: npm run db:migrate
+
+      - name: Verify schema
+        run: npm run db:check
+
+      - name: Row-Level Security isolation
+        run: npm run test:rls
+
+      - name: Audit chain immutability
+        run: npm run test:audit-immutability
+
+      - name: City isolation
+        run: npm run test:city-isolation
+
+      - name: Sensitive data at rest
+        run: npm run test:sensitive-data
+
+      - name: Idempotency key pruning
+        run: npm run test:idempotency-prune
+
+  migrate-from-base:
+    name: Migración incremental desde la base del PR
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name == 'pull_request'
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_DB: flash
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_admin
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d flash"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      # Una migración puede pasar desde cero y romper sobre datos existentes.
+      # Este job aplica primero el esquema de la rama base y después las
+      # migraciones nuevas, que es lo que ocurre en un despliegue real.
+      - name: Checkout base
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create separated database roles
+        env:
+          PGPASSWORD: ci_admin
+        run: |
+          psql --set=ON_ERROR_STOP=1 -U postgres -d flash <<'SQL'
+          CREATE ROLE flash_app       LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD 'ci_migration';
+          CREATE ROLE flash_runtime   LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD 'ci_runtime';
+          CREATE ROLE flash_rls_audit LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD 'ci_audit';
+          ALTER DATABASE flash OWNER TO flash_app;
+          SQL
+
+      - name: Migrate base schema
+        run: npm run db:migrate
+
+      - name: Checkout head
+        uses: actions/checkout@v4
+        with:
+          clean: false
+
+      - name: Install dependencies for head
+        run: npm ci
+
+      - name: Apply new migrations over the base schema
+        run: npm run db:migrate
+
+      - name: Verify schema
+        run: npm run db:check

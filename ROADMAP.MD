@@ -8,6 +8,21 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 26 de agosto de 2026 — SEC-001 y primera mitad de CI-001
+
+Primera entrega de la Fase 0. Detalle y estado en [`docs/plan-de-accion.md`](docs/plan-de-accion.md).
+
+- [x] **SEC-001 — realtime default-deny.** Eliminado el fallback `allRoles`. La política vive en `server/realtime-audience.js`, un módulo sin dependencias; una entidad desconocida llega solamente a `admin`. El defecto era mayor que el estimado: **13 de las 44 publicaciones difundían a todos los roles**, incluidas las seis del libro de direcciones y tres de `job`. `test:realtime-audience` bloquea el merge y se comprobó que falla ante el defecto.
+- [x] **Observabilidad de audiencias.** Métrica `flash_realtime_audience_total{entity_type,outcome}`, alerta `FlashRealtimeUnclassifiedAudience` y runbook [`docs/runbooks/realtime-audience.md`](docs/runbooks/realtime-audience.md).
+- [x] **CI con PostgreSQL.** `ci.yml` se dividió en `ci-fast.yml` y `ci-postgres.yml`. PostGIS 17 corre con los tres roles separados, migraciones desde cero, **migración incremental sobre la rama base del PR**, RLS, cadena de auditoría, aislamiento por ciudad, datos sensibles e idempotencia. Cobertura: **15 → 24 scripts**.
+- [x] **Ratchet de longitud de línea.** `test:line-length` fija una línea base de **1.543 líneas de más de 200 caracteres en 120 archivos** y sólo admite bajarla. Contiene H-08 mientras ARC-001 no empieza.
+- [x] **CODEOWNERS** para dinero, aislamiento y puertas de calidad.
+- [~] **CI-001 sigue abierto.** Faltan `ci-critical-flows.yml` — necesita levantar la API porque esas suites usan `API_URL` — y `ci-nightly.yml`. **54 suites siguen sin puerta.**
+- [~] **SEC-001 conserva deuda.** El contrato es estático: falta verificación de runtime de `resolveAudience` contra PostgreSQL con fixtures multiusuario, y el dashboard de la métrica.
+- [ ] **Protección de rama.** `CODEOWNERS` no bloquea nada por sí solo: exige activar PR obligatoria y «Require review from Code Owners» en Settings > Branches. Es configuración manual en GitHub, todavía pendiente.
+
+Deuda registrada: el fallback SQLite de `publishRealtimeEvent` difunde a todos los clientes SSE sin filtrar audiencia. Sólo es alcanzable sin `DATABASE_URL` — desarrollo y tests, nunca producción — pero conviene alinearlo.
+
 ## Auditoría integral — 25 de agosto de 2026
 
 **Este bloque manda sobre el resto del roadmap.** Se realizó una auditoría integral del repositorio cuyos hallazgos están verificados contra el código, no inferidos. Documentos rectores:

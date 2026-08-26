@@ -20,35 +20,60 @@ Los eventos transportan únicamente tipo, entidad, acción, request ID y timesta
 
 ## Audiencias
 
-Cada fila guarda usuarios públicos y roles autorizados. Pedidos, viajes y envíos se limitan al cliente, comercio, conductor asignado y operaciones. Soporte se limita al cliente y operaciones; wallet/perfil al titular y operaciones; restaurante al comercio propietario y operaciones. Eventos globales de configuración pueden dirigirse a todos los roles autenticados.
+Cada fila guarda usuarios públicos y roles autorizados. Pedidos, viajes, envíos y trabajos se limitan al cliente, comercio, conductor asignado y operaciones. Soporte se limita al cliente y operaciones; wallet, perfil y direcciones al titular y operaciones; restaurante al comercio propietario y operaciones. Sólo la configuración de plataforma declarada en una allowlist explícita se dirige a todos los roles autenticados.
 
 El mismo predicado se usa para fanout en vivo y replay, evitando que una reconexión revele eventos que el cliente no habría recibido en directo.
 
-### Defecto abierto — fallback fail-open
+### Default-deny (SEC-001, corregido el 26 de agosto de 2026)
 
-**`server/realtime-repository.js` tiene dos caminos que devuelven `allRoles` (`admin` + `customer` + `merchant` + `driver`):**
-
-```js
-async function resolveAudience(entityType,entityId){
-  if(!entityType||!entityId)return{users:[],roles:allRoles};   // línea 8
-  ...
-  return{users:[],roles:allRoles};                              // línea 16
-}
-```
-
-El segundo es el peligroso: un `entityType` nuevo, mal escrito o no contemplado convierte un error de clasificación en un broadcast a clientes, comercios y conductores. El patrón es *fail-open*, y **cada tipo de entidad que se agregue en el futuro entra por defecto en el camino inseguro**.
-
-El daño real está limitado porque el evento sólo transporta tipo, entidad, acción, requestId y timestamp, y la app revalida contra un recurso autorizado. Pero el modelo es incorrecto y debe invertirse:
+La política de audiencias vive en `server/realtime-audience.js`, un módulo sin dependencias que sólo decide **quién** puede recibir un evento. `realtime-repository.js` la usa para resolver participantes concretos.
 
 ```text
 Entidad conocida    → participantes + admin
 Entidad desconocida → solamente admin
-Sin entidad         → audiencia explícita obligatoria
+Sin entidad         → sólo los tipos declarados como globales llegan a todos
 ```
 
-Nunca `unknown → customer + merchant + driver + admin`.
+La difusión a todos los roles exige estar declarada en una de dos allowlists explícitas. **Nunca es el resultado de que un `entityType` no esté contemplado.**
 
-Hallazgo [H-03](auditoria-2026-08-25.md#h-03--realtime-hace-broadcast-a-todos-los-roles-ante-entidad-desconocida), ticket [SEC-001](backlog-tecnico.md#sec-001--realtime-default-deny). Prioridad P0.
+#### Qué se encontró
+
+El defecto era mayor de lo estimado. `resolveAudience` contemplaba 7 tipos de entidad, pero la API publica 11. **13 de las 44 publicaciones realtime difundían a clientes, comercios y conductores:**
+
+| Entidad | Publicaciones | Audiencia correcta |
+| --- | ---: | --- |
+| `address` | 6 | Titular de la dirección |
+| `job` | 3 | Participantes del trabajo |
+| `service_zone` | 1 | Global, deliberada |
+| `pricing_change_request` | 1 | Global, deliberada |
+| Sin entidad (`platform.reset`) | 1 | Global, deliberada |
+
+Las seis de `address` eran las más relevantes: cada alta, cambio de predeterminada o borrado en el libro de direcciones de un usuario despertaba a toda la plataforma. El evento no transporta la dirección, pero sí revela que ocurrió y fuerza a cada cliente conectado a revalidar.
+
+#### Resultados de resolución
+
+| `outcome` | Significado | ¿Alerta? |
+| --- | --- | --- |
+| `resolved` | Audiencia resuelta a participantes concretos | No |
+| `global` | Difusión a todos los roles, declarada explícitamente | No |
+| `actor_fallback` | La entidad ya no existe (borrado); se usó el actor autenticado | No |
+| `orphan` | Entidad inexistente y sin actor | Investigar si es sostenido |
+| `unclassified` | Clasificación faltante; sólo llegó a operaciones | **Sí** |
+
+`actor_fallback` existe porque los eventos de borrado se publican después del commit: la fila ya no está para resolver su dueño. El actor autenticado es la audiencia correcta, y el endpoint ya validó su propiedad. Nunca se recurre a un rol.
+
+La métrica es `flash_realtime_audience_total{entity_type,outcome}` y la alerta `FlashRealtimeUnclassifiedAudience` dispara ante cualquier `unclassified`. Runbook: [`docs/runbooks/realtime-audience.md`](runbooks/realtime-audience.md).
+
+#### Puerta
+
+`npm run test:realtime-audience` extrae del código todas las publicaciones y exige que cada una resuelva audiencia explícita. Corre en `ci-fast.yml`, sin necesidad de PostgreSQL. Se verificó que **falla** cuando un tipo publicado queda sin clasificar.
+
+Agregar un `entityType` nuevo sin clasificarlo rompe el build.
+
+#### Deuda
+
+- La verificación de runtime de `resolveAudience` contra PostgreSQL todavía no existe; el contrato actual es estático.
+- El fallback SQLite de `publishRealtimeEvent` (`server/index.js`) difunde a todos los clientes SSE conectados sin filtrar audiencia. Sólo es alcanzable sin `DATABASE_URL`, es decir en desarrollo y tests, nunca en producción — pero conviene alinearlo.
 
 ### Cobertura RLS de `realtime_events`
 
@@ -64,12 +89,13 @@ Por defecto conserva siete días y como máximo 100.000 filas. Se configura con 
 
 ## Evolución pendiente
 
-- **P0 —** Corregir el fallback fail-open de audiencias (ticket [SEC-001](backlog-tecnico.md#sec-001--realtime-default-deny)).
 - **P0 —** Clasificar `realtime_events` en la matriz RLS (ticket [DAT-001](backlog-tecnico.md#dat-001--matriz-rls-default-deny)).
+- **P0 —** Verificación de runtime de `resolveAudience` contra PostgreSQL, con fixtures multiusuario (cierra la deuda de SEC-001).
+- Alinear el fallback SQLite de `publishRealtimeEvent` con la política de audiencias.
 - Insertar el evento en la misma transacción de dominio mediante outbox para todas las mutaciones (actualmente se persiste inmediatamente después del commit).
 - WebSocket para presencia bidireccional, chat y tracking de alta frecuencia.
 - Métricas de latencia end-to-end, cursores demasiado antiguos y replay truncado.
-- Métrica de eventos descartados por audiencia no resoluble.
+- Dashboard para `flash_realtime_audience_total` (hoy existe la métrica y la alerta, no el panel).
 
 ### Cuándo cambiar de transporte
 

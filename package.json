@@ -35,6 +35,8 @@
     "preview": "vite preview --host 127.0.0.1",
     "start": "node --env-file-if-exists=.env.local server/start.js",
     "test:security": "node scripts/security-smoke.mjs",
+    "test:realtime-audience": "node scripts/realtime-audience-smoke.mjs",
+    "test:line-length": "node scripts/line-length-ratchet.mjs",
     "test:postgres": "node --env-file-if-exists=.env.local scripts/postgres-runtime-smoke.mjs",
     "test:rls": "node --env-file-if-exists=.env.local scripts/rls-smoke.mjs",
     "test:audit-immutability": "node --env-file-if-exists=.env.local scripts/audit-immutability-smoke.mjs",

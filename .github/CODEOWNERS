@@ -1,0 +1,35 @@
+# Propiedad de código (ticket CI-001).
+#
+# GitHub exige revisión del owner cuando la rama está protegida con
+# "Require review from Code Owners". Configurar esa protección en
+# Settings > Branches es un paso manual todavía pendiente: este archivo
+# por sí solo no bloquea ningún merge.
+#
+# El backlog exige dos aprobaciones para pagos y seguridad. Eso requiere
+# equipos de GitHub; mientras el proyecto tenga un solo mantenedor, la
+# regla queda declarada acá y se hace efectiva al sumar revisores.
+
+*                                   @santyperez145
+
+# --- Dinero -----------------------------------------------------------------
+/server/payment-*.js                @santyperez145
+/server/wallet-repository.js        @santyperez145
+/server/merchant-finance-*.js       @santyperez145
+/server/tip-repository.js           @santyperez145
+/docs/payment-provider-decision.md  @santyperez145
+
+# --- Aislamiento y seguridad -------------------------------------------------
+/server/auth-repository.js          @santyperez145
+/server/realtime-audience.js        @santyperez145
+/server/realtime-repository.js      @santyperez145
+/server/secret-envelope.js          @santyperez145
+/server/config.js                   @santyperez145
+/database/migrations/               @santyperez145
+/database/docker-init/              @santyperez145
+
+# --- Puertas de calidad ------------------------------------------------------
+# Un cambio acá puede desactivar una verificación sin que se note en el diff.
+/.github/workflows/                 @santyperez145
+/.github/CODEOWNERS                 @santyperez145
+/scripts/line-length-baseline.json  @santyperez145
+/AGENTS.md                          @santyperez145
