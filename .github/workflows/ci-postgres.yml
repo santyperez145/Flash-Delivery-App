@@ -105,6 +105,15 @@ jobs:
       - name: Idempotency key pruning
         run: npm run test:idempotency-prune
 
+      # Suites que consultan PostgreSQL directamente, sin necesitar la API.
+      - name: Merchant, zone and configuration state
+        run: |
+          npm run test:merchant-dashboard
+          npm run test:zone-readiness
+          npm run test:feature-flags
+          npm run test:product-analytics
+          npm run test:auth-audience
+
   migrate-from-base:
     name: Migración incremental desde la base del PR
     runs-on: ubuntu-latest
