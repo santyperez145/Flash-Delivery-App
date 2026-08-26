@@ -19,6 +19,7 @@ import {
   revokePostgresPaymentMethod,
   setDefaultPostgresPaymentMethod,
 } from "../auth-repository.js";
+import { config } from "../config.js";
 import { recordPostgresAudit } from "../operations-repository.js";
 import { requireAuth } from "./authentication.js";
 import { requireAnyRole } from "./authorization.js";

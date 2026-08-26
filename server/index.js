@@ -27,7 +27,7 @@ import {
   requireAnyRole,
 } from "./http/authorization.js";
 import { auditRuntime } from "./audit-trail.js";
-import { audit, readDb, sqliteReadCount } from "./fallback-runtime.js";
+import { audit, readDb, scopeStateForRequest, sqliteReadCount } from "./fallback-runtime.js";
 import { requireAuth } from "./http/authentication.js";
 import { addressesRouter } from "./http/addresses-router.js";
 import { dietaryRouter } from "./http/dietary-router.js";
@@ -1416,82 +1416,6 @@ function calculateRideQuote(
     estimated: coordinateDistance === null,
     routingMode: coordinateDistance === null ? "text-estimate" : "coordinates",
   };
-}
-
-function scopeStateForRequest(state, req) {
-  if (isAdmin(req) || hasRole(req, "support")) return state;
-  const userId = req.auth.userId;
-  const scoped = { ...state };
-  scoped.users = state.users.filter((user) => user.id === userId);
-  scoped.addresses = (state.addresses || []).filter((entry) => entry.userId === userId);
-  scoped.paymentMethods = (state.paymentMethods || []).filter((entry) => entry.userId === userId);
-  scoped.walletTransactions = (state.walletTransactions || []).filter(
-    (entry) => entry.userId === userId,
-  );
-  scoped.supportTickets = (state.supportTickets || []).filter(
-    (entry) => !entry.userId || entry.userId === userId,
-  );
-  scoped.ratings = (state.ratings || []).filter((entry) => entry.userId === userId);
-  scoped.auditEvents = [];
-
-  if (hasRole(req, "customer")) {
-    scoped.orders = state.orders.filter((entry) => entry.customerId === userId);
-    scoped.rides = state.rides.filter((entry) => entry.customerId === userId);
-    scoped.shipments = (state.shipments || []).filter((entry) => entry.customerId === userId);
-    const assignedDriverIds = new Set(
-      [
-        ...scoped.orders.map((entry) => entry.courierId),
-        ...scoped.rides.map((entry) => entry.driverId),
-        ...scoped.shipments.map((entry) => entry.driverId),
-      ].filter(Boolean),
-    );
-    scoped.drivers = state.drivers.filter((entry) => assignedDriverIds.has(entry.id));
-  } else if (hasRole(req, "merchant")) {
-    scoped.restaurants = state.restaurants.filter((entry) => entry.ownerId === userId);
-    const merchantIds = new Set(scoped.restaurants.map((entry) => entry.id));
-    scoped.orders = state.orders.filter((entry) => merchantIds.has(entry.restaurantId));
-    scoped.rides = [];
-    scoped.shipments = [];
-    const courierIds = new Set(scoped.orders.map((entry) => entry.courierId).filter(Boolean));
-    scoped.drivers = state.drivers.filter((entry) => courierIds.has(entry.id));
-  } else if (hasRole(req, "driver")) {
-    const driverId = req.auth.user.driverId;
-    scoped.orders = state.orders
-      .filter((entry) => !entry.courierId || entry.courierId === driverId)
-      .map((entry) =>
-        entry.courierId === driverId
-          ? entry
-          : {
-              ...entry,
-              customerId: "private",
-              deliveryAddress: "Disponible después de aceptar",
-              items: entry.items.map((item) => ({ ...item, note: "" })),
-            },
-      );
-    scoped.rides = state.rides
-      .filter((entry) => !entry.driverId || entry.driverId === driverId)
-      .map((entry) => (entry.driverId === driverId ? entry : { ...entry, customerId: "private" }));
-    scoped.shipments = (state.shipments || [])
-      .filter((entry) => !entry.driverId || entry.driverId === driverId)
-      .map((entry) =>
-        entry.driverId === driverId
-          ? entry
-          : {
-              ...entry,
-              customerId: "private",
-              recipientName: "Oculto hasta aceptar",
-              recipientPhone: "Oculto",
-              deliveryNotes: "",
-            },
-      );
-    scoped.drivers = state.drivers.filter((entry) => entry.id === driverId);
-  } else {
-    scoped.orders = [];
-    scoped.rides = [];
-    scoped.shipments = [];
-    scoped.drivers = [];
-  }
-  return scoped;
 }
 
 async function loadRuntimeState(req) {

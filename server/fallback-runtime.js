@@ -13,6 +13,7 @@
 // No es un módulo HTTP —no conoce `req` más que para leer el actor— así que vive
 // junto a `store.js` y no en `http/`.
 import { createId, getTimestamp, readDb as readStoredDb } from "./store.js";
+import { hasRole, isAdmin } from "./http/authorization.js";
 
 // El registro de auditoría del fallback es una ventana, no un historial: la base
 // local es de desarrollo y prueba, y dejar crecer el arreglo sin techo convierte
@@ -57,4 +58,90 @@ export function audit(db, req, entityType, entityId, action, payload = {}) {
     createdAt: getTimestamp(),
   };
   db.auditEvents = [event, ...(db.auditEvents || [])].slice(0, MAX_EVENTOS_AUDITORIA);
+}
+
+/**
+ * Recorta el estado del fallback a lo que la sesión puede ver.
+ *
+ * Vive acá y no en un router porque es la **única** defensa de aislamiento del
+ * fallback SQLite: ahí no hay RLS, así que si esta función deja pasar una fila
+ * de más, la deja pasar para toda la superficie que use el fallback.
+ *
+ * Operaciones y soporte ven el estado completo a propósito; el resto ve sólo lo
+ * propio, y la auditoría no la ve nadie.
+ */
+export function scopeStateForRequest(state, req) {
+  if (isAdmin(req) || hasRole(req, "support")) return state;
+  const userId = req.auth.userId;
+  const scoped = { ...state };
+  scoped.users = state.users.filter((user) => user.id === userId);
+  scoped.addresses = (state.addresses || []).filter((entry) => entry.userId === userId);
+  scoped.paymentMethods = (state.paymentMethods || []).filter((entry) => entry.userId === userId);
+  scoped.walletTransactions = (state.walletTransactions || []).filter(
+    (entry) => entry.userId === userId,
+  );
+  scoped.supportTickets = (state.supportTickets || []).filter(
+    (entry) => !entry.userId || entry.userId === userId,
+  );
+  scoped.ratings = (state.ratings || []).filter((entry) => entry.userId === userId);
+  scoped.auditEvents = [];
+
+  if (hasRole(req, "customer")) {
+    scoped.orders = state.orders.filter((entry) => entry.customerId === userId);
+    scoped.rides = state.rides.filter((entry) => entry.customerId === userId);
+    scoped.shipments = (state.shipments || []).filter((entry) => entry.customerId === userId);
+    const assignedDriverIds = new Set(
+      [
+        ...scoped.orders.map((entry) => entry.courierId),
+        ...scoped.rides.map((entry) => entry.driverId),
+        ...scoped.shipments.map((entry) => entry.driverId),
+      ].filter(Boolean),
+    );
+    scoped.drivers = state.drivers.filter((entry) => assignedDriverIds.has(entry.id));
+  } else if (hasRole(req, "merchant")) {
+    scoped.restaurants = state.restaurants.filter((entry) => entry.ownerId === userId);
+    const merchantIds = new Set(scoped.restaurants.map((entry) => entry.id));
+    scoped.orders = state.orders.filter((entry) => merchantIds.has(entry.restaurantId));
+    scoped.rides = [];
+    scoped.shipments = [];
+    const courierIds = new Set(scoped.orders.map((entry) => entry.courierId).filter(Boolean));
+    scoped.drivers = state.drivers.filter((entry) => courierIds.has(entry.id));
+  } else if (hasRole(req, "driver")) {
+    const driverId = req.auth.user.driverId;
+    scoped.orders = state.orders
+      .filter((entry) => !entry.courierId || entry.courierId === driverId)
+      .map((entry) =>
+        entry.courierId === driverId
+          ? entry
+          : {
+              ...entry,
+              customerId: "private",
+              deliveryAddress: "Disponible después de aceptar",
+              items: entry.items.map((item) => ({ ...item, note: "" })),
+            },
+      );
+    scoped.rides = state.rides
+      .filter((entry) => !entry.driverId || entry.driverId === driverId)
+      .map((entry) => (entry.driverId === driverId ? entry : { ...entry, customerId: "private" }));
+    scoped.shipments = (state.shipments || [])
+      .filter((entry) => !entry.driverId || entry.driverId === driverId)
+      .map((entry) =>
+        entry.driverId === driverId
+          ? entry
+          : {
+              ...entry,
+              customerId: "private",
+              recipientName: "Oculto hasta aceptar",
+              recipientPhone: "Oculto",
+              deliveryNotes: "",
+            },
+      );
+    scoped.drivers = state.drivers.filter((entry) => entry.id === driverId);
+  } else {
+    scoped.orders = [];
+    scoped.rides = [];
+    scoped.shipments = [];
+    scoped.drivers = [];
+  }
+  return scoped;
 }
