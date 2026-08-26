@@ -1,41 +1,48 @@
 # Mapas, geocodificación y rutas
 
-> **Bloqueador P0 abierto — proveedores públicos por defecto.**
+> **Proveedores públicos ya no pueden llegar a producción.**
 >
-> `server/config.js:42-44` y `.env.example:36-41` fijan como valores por defecto `https://nominatim.openstreetmap.org`, `https://router.project-osrm.org` y `https://tile.openstreetmap.org`. Es aceptable para desarrollo e **inaceptable para una plataforma comercial**: la política de uso de Nominatim prohíbe autocomplete de cliente contra la instancia pública y advierte expresamente a aplicaciones comerciales que no dependan de ella. Lo mismo aplica al demo público de OSRM.
+> Hasta el 26 de agosto de 2026 los valores por defecto eran Nominatim, OSRM y tiles públicos de OpenStreetMap, sin nada que impidiera desplegarlos. Es aceptable para desarrollo e **inaceptable para una plataforma comercial**: la política de uso de Nominatim prohíbe autocomplete de cliente contra la instancia pública y advierte expresamente a aplicaciones comerciales que no dependan de ella. El demo público de OSRM está igual.
 >
-> Además, sin routing vial real, cualquier tarifa calculada con distancia geodésica es una estimación que el cliente percibirá como incorrecta en cuanto el trayecto tenga un río, una vía de un solo sentido o una autopista.
+> Ahora `MAPS_PROVIDER=openstreetmap` **hace fallar el arranque en producción**, y existe un adapter con un proveedor comercial detrás.
 >
-> Hallazgo [H-07](auditoria-2026-08-25.md#h-07--proveedores-de-mapas-públicos-por-defecto), ticket [GEO-001](backlog-tecnico.md#geo-001--proveedor-de-mapas-comercial).
+> **Sigue abierto:** sin una API key habilitada no se puede verificar la calidad real de las rutas ni el costo por consulta, y ninguna tarifa productiva se calculó todavía con routing vial real. Hallazgo [H-07](auditoria-2026-08-25.md#h-07--proveedores-de-mapas-públicos-por-defecto), ticket [GEO-001](backlog-tecnico.md#geo-001--proveedor-de-mapas-comercial).
 
-Los clientes autenticados usan `GET /api/maps/geocode` como proxy de Nominatim y `GET /api/maps/route` como proxy de OSRM. Las credenciales o políticas del proveedor quedan del lado servidor y mobile recibe puntos, polilínea y pasos normalizados.
+Los clientes autenticados usan `GET /api/maps/geocode` y `GET /api/maps/route`. Las credenciales del proveedor quedan del lado servidor y mobile recibe puntos, polilínea y pasos normalizados, iguales sea cual sea el proveedor.
 
-## Arquitectura objetivo — adapter de proveedor
+## Adapter de proveedor
 
-La caché PostgreSQL, el circuit breaker, el presupuesto y las métricas ya existen y son la mitad difícil del trabajo. Falta el proveedor y la interfaz que lo aísle:
+`server/maps-provider.js` aísla al proveedor. Cada uno expone funciones **puras** `describe*` y `parse*`: el `describe` arma la petición y el `parse` normaliza la respuesta; ninguna toca la red.
 
-```text
-MapsProvider
-  autocomplete()
-  geocode()
-  reverseGeocode()
-  computeRoute()
-  computeRouteMatrix()
-  snapToRoad()
-```
+Así la caché PostgreSQL, el circuit breaker, el presupuesto y las métricas siguen viviendo donde ya estaban, y el contrato completo se verifica sin credenciales con `npm run test:maps-provider`.
 
-Para la beta se elige entre **Google Places + Routes**, **Mapbox Search + Directions** o **HERE Geocoding + Routing**. Mantener el adapter evita quedar atado a un proveedor y permite un fallback auditable entre ellos.
+| Proveedor | Uso | Geocoding | Routing | Matriz |
+| --- | --- | --- | --- | --- |
+| `openstreetmap` | **Sólo desarrollo** | Nominatim | OSRM | No ofrece |
+| `google` | Producción | Geocoding API | Routes API, `TRAFFIC_AWARE` | Route Matrix |
 
-Requisitos operativos: API keys restringidas · una clave móvil por plataforma · una clave de servidor · restricción por bundle ID y package name · cuotas · alertas de costo · field masks · caché · circuit breaker · métricas de fallback.
+`MAPS_PROVIDER=openstreetmap` **está prohibido en producción** por configuración: `server/config.js` no deja arrancar. Con `google`, `GOOGLE_MAPS_SERVER_API_KEY` es obligatoria.
 
-**Almacenar `place_id` en lugar de direcciones ambiguas como texto simple.** Reduce ambigüedades y mejora accesos, tráfico y routing.
+Ambos proveedores devuelven exactamente las mismas claves normalizadas, y el contrato lo verifica. Eso es lo que los hace intercambiables sin tocar código de dominio.
+
+### Decisiones que el adapter deja explícitas
+
+- **La field mask limita lo que se pide y por lo tanto lo que se paga.** Sin ella Google factura la respuesta completa.
+- **El `place_id` se conserva.** Una dirección estable no se reinterpreta en cada uso; sin él, cada consulta puede resolver un texto ambiguo distinto.
+- **El proveedor de desarrollo declara que no tiene matriz** en lugar de degradar en silencio. Dejar que el dispatch caiga a distancia geodésica sin decirlo es peor que fallar.
+- **Cada ruta declara `trafficAware`.** Una estimación sin tráfico no debe presentarse como si lo tuviera.
+
+### Requisitos operativos pendientes
+
+API keys restringidas · una clave móvil por plataforma · restricción por bundle ID y package name · cuotas · alertas de costo · métricas de fallback entre proveedores.
 
 ### Criterios de cierre
 
-- Ningún checkout usa una dirección ambigua sin validar.
-- Ninguna tarifa productiva usa distancia geodésica como estimación final.
-- Los costos por proveedor son visibles y tienen alerta de presupuesto.
-- Cambiar de proveedor no requiere tocar código de dominio.
+- [ ] Ningún checkout usa una dirección ambigua sin validar.
+- [ ] Ninguna tarifa productiva usa distancia geodésica como estimación final.
+- [ ] Los costos por proveedor son visibles y tienen alerta de presupuesto.
+- [x] Cambiar de proveedor no requiere tocar código de dominio.
+- [ ] **Calidad real de rutas y costo por consulta con una API key habilitada.** Es lo único que no se puede verificar sin credenciales.
 
 `computeRouteMatrix()` es además la dependencia de la etapa 2 del dispatch v2 — ver [`docs/dispatch-ranking.md`](dispatch-ranking.md).
 

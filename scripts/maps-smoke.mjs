@@ -1,6 +1,9 @@
 import {createPool} from "./db-client.mjs";
 import {config} from "../server/config.js";
 import {createMapCacheKey} from "../server/map-cache-repository.js";
+// La clave de caché se deriva del proveedor, no de su URL: cambiar de proveedor
+// no debe servir una entrada cacheada por otro con criterios distintos.
+import {mapsProvider} from "../server/maps-provider.js";
 
 const apiBase=process.env.API_URL||"http://127.0.0.1:4000/api";
 const pool=createPool();
@@ -15,7 +18,8 @@ try{
 
   const query="Fixture privada avenida 123";
   const normalized=query.normalize("NFKC").toLocaleLowerCase("es-AR").replace(/\s+/g," ");
-  const geocodeKey=createMapCacheKey(`${config.geocodingUrl}|${normalized}`);keys.push(geocodeKey);
+  const provider=mapsProvider();
+  const geocodeKey=createMapCacheKey(`${provider.name}|geocode|${normalized}`);keys.push(geocodeKey);
   const geocodePayload={results:[{label:"Resultado cacheado",point:{lat:-34.6037,lng:-58.3816},type:"address"}]};
   await pool.query(`INSERT INTO map_provider_cache(cache_key,kind,provider,payload,expires_at) VALUES($1,'geocode','smoke',$2,now()+interval '5 minutes')`,[geocodeKey,geocodePayload]);
   const geocodeResponse=await fetch(`${apiBase}/maps/geocode?q=${encodeURIComponent(query)}`,{headers});const geocode=await geocodeResponse.json();
@@ -23,7 +27,7 @@ try{
 
   const coordinates=[-34.6037,-58.3816,-34.6158,-58.4333];
   const routeIdentity=coordinates.map(value=>value.toFixed(5)).join(",");
-  const routeKey=createMapCacheKey(`${config.routingUrl}|driving|${routeIdentity}`);keys.push(routeKey);
+  const routeKey=createMapCacheKey(`${provider.routingName}|driving|${routeIdentity}`);keys.push(routeKey);
   const route={distanceKm:6.4,durationMin:18,coordinates:[{lat:coordinates[0],lng:coordinates[1]},{lat:coordinates[2],lng:coordinates[3]}],steps:[]};
   await pool.query(`INSERT INTO map_provider_cache(cache_key,kind,provider,payload,expires_at) VALUES($1,'route','smoke',$2,now()+interval '5 minutes')`,[routeKey,{route}]);
   const params=new URLSearchParams({fromLat:String(coordinates[0]),fromLng:String(coordinates[1]),toLat:String(coordinates[2]),toLng:String(coordinates[3])});

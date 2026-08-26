@@ -14,6 +14,6 @@ for (const rule of rules) {
 }
 if (!rules.some((rule) => String(rule.expr).includes("[5m]")) || !rules.some((rule) => String(rule.expr).includes("[3d]"))) throw new Error("El burn rate debe cubrir ventanas rápida y sostenida");
 const mapRule=rules.find(rule=>rule.alert==="FlashMapProviderDegraded"),paymentRule=rules.find(rule=>rule.alert==="FlashPaymentProviderDegraded");
-if(!String(mapRule.expr).includes('provider=~"openstreetmap|osrm"'))throw new Error("La alerta de mapas debe aislar sus proveedores");
+if(!String(mapRule.expr).includes('provider=~"openstreetmap|osrm|google"'))throw new Error("La alerta de mapas debe cubrir todos los proveedores del adapter, no sólo el de desarrollo");
 if(!String(paymentRule.expr).includes('provider="mercadopago"')||!String(paymentRule.expr).includes("increase("))throw new Error("La alerta PSP debe aislar proveedor y exigir volumen mínimo");
 console.log(`ok - ${rules.length} alertas Prometheus con severidad, espera y runbook verificadas`);

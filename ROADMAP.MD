@@ -8,6 +8,36 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 26 de agosto de 2026 — NOT-001 y GEO-001 hasta donde llegan sin credenciales
+
+Quinta entrega de la Fase 0. Los dos bloqueadores dependían de proveedores externos; se llevaron hasta el límite de lo verificable sin credenciales.
+
+### NOT-001 — push productivo ya es posible
+
+- [x] **`NOTIFICATION_PROVIDER` acepta `expo`.** Antes el enum sólo admitía `disabled` y `sandbox`, y producción prohibía `sandbox`: el único valor válido era `disabled`. No había forma de entregar un push y el esquema lo impedía por construcción.
+- [x] **`EXPO_ACCESS_TOKEN` obligatorio en producción.** Sin él, cualquiera que conozca un token de dispositivo puede enviarle notificaciones en nombre de Flash.
+- [x] `server/push-provider.js`: lotes de 100, recibos de 1000, clasificación de errores, reintentabilidad, timeout y métricas. Nunca pone un token de dispositivo en un error.
+- [x] **Migración `111`: estado `accepted`.** `notification_deliveries` sólo admitía `delivered` y `failed`, lo que obligaba a tratar un envío aceptado como una entrega.
+- [x] `worker:push-receipts`, alerta `FlashPushReceiptsStale` y su [runbook](docs/runbooks/push-receipts.md).
+- [ ] **Entrega en un dispositivo físico Android y iOS.** Exige credenciales FCM/APNs y un development build. Es la condición de cierre.
+
+**Un ticket aceptado no es una entrega.** Expo sólo confirma que tomó el mensaje y su servicio no ofrece SLA, así que un ticket deja la notificación en `sent` y sólo un recibo confirmado la promueve a `delivered`. Un recibo ausente queda pendiente en lugar de contarse como éxito: esa es la diferencia entre monitorear la entrega y suponerla.
+
+### GEO-001 — instancias públicas ya no llegan a producción
+
+- [x] **`MAPS_PROVIDER=openstreetmap` hace fallar el arranque en producción.** La política de uso de Nominatim excluye expresamente a las aplicaciones comerciales; el demo público de OSRM está igual.
+- [x] `server/maps-provider.js`: funciones **puras** `describe*`/`parse*` que no tocan la red, así el caché, el circuit breaker, el presupuesto y las métricas siguen donde estaban y el contrato se verifica entero sin credenciales.
+- [x] **Google Geocoding + Routes `TRAFFIC_AWARE` + Route Matrix**, con field mask (sin ella se factura la respuesta completa) y `place_id` conservado.
+- [x] Los endpoints `/api/maps/geocode` y `/api/maps/route` ya consumen el adapter: no es código muerto.
+- [x] La alerta de mapas cubre los tres proveedores, no sólo el de desarrollo.
+- [ ] **API key habilitada.** Sin ella no se puede verificar la calidad real de las rutas ni el costo por consulta, y ninguna tarifa se calculó todavía con routing vial real.
+
+`computeRouteMatrix()` es además la dependencia de la etapa 2 de [DSP-001](docs/backlog-tecnico.md#dsp-001--dispatch-v2): permite pedir el ETA vial de varios conductores a un pickup en una sola llamada en lugar de una por candidato.
+
+### La distancia que esto deja clara
+
+Ambos contratos se verifican con `fetch` interceptado. Que el contrato sea correcto **no dice nada** sobre si un push llega a un teléfono ni sobre cuánto cuesta una consulta de rutas. Por eso las dos capacidades quedan en `CI` y no en `PROV`: están protegidas contra regresiones, no demostradas contra el mundo real.
+
 ## Avance 26 de agosto de 2026 — DAT-001, matriz de cobertura RLS
 
 Cuarta entrega de la Fase 0. Clasifica el hallazgo [H-04](docs/auditoria-2026-08-25.md#h-04--20-tablas-sin-política-rls-y-cero-force-row-level-security) y lo convierte en contrato.

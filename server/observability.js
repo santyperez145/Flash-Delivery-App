@@ -38,6 +38,10 @@ export function renderPrometheus({pool,business,startedAt,realtimeConnections=0}
   for(const row of business.idempotencyKeys||[])lines.push(`flash_idempotency_keys{status="${esc(row.status)}"} ${row.count}`);
   lines.push("# HELP flash_provider_calls_total External provider calls and controlled degradations.","# TYPE flash_provider_calls_total counter");
   for(const[key,value]of providerCalls){const[provider,operation,outcome]=key.split("|");lines.push(`flash_provider_calls_total{provider="${esc(provider)}",operation="${esc(operation)}",outcome="${esc(outcome)}"} ${value}`);}
+  if(business.pushReceipts!==undefined)lines.push(
+    "# HELP flash_push_receipts_pending Accepted push tickets awaiting an Expo receipt.",
+    "# TYPE flash_push_receipts_pending gauge",
+    `flash_push_receipts_pending ${business.pushReceipts||0}`);
   lines.push("# HELP flash_realtime_audience_total Realtime events by audience resolution outcome.","# TYPE flash_realtime_audience_total counter");
   for(const[key,value]of realtimeAudiences){const[entityType,outcome]=key.split("|");lines.push(`flash_realtime_audience_total{entity_type="${esc(entityType)}",outcome="${esc(outcome)}"} ${value}`);}
   return `${lines.join("\n")}\n`;
