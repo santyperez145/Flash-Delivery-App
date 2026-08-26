@@ -51,6 +51,5 @@
   "server/tip-repository.js": 7,
   "server/trusted-contact-repository.js": 2,
   "server/wallet-repository.js": 5,
-  "server/zone-readiness-repository.js": 4,
-  "src/App.tsx": 1
+  "server/zone-readiness-repository.js": 4
 }
