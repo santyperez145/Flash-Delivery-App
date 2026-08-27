@@ -1,8 +1,10 @@
 # Puertas CI de seguridad
 
-## Estado al 26 de agosto de 2026
+## Estado al 27 de agosto de 2026
 
-`ci.yml` se dividió en tres workflows y **los cinco jobs están en verde**. La cobertura pasó de **15 a 80 de 83 suites** detrás de una puerta, 79 de ellas bloqueantes.
+`ci.yml` se dividió en tres workflows y **los cinco jobs están en verde**. La cobertura pasó de **15 a 87 de 90 suites** detrás de una puerta, 86 de ellas bloqueantes y una en cuarentena declarada.
+
+Desde el 27 de agosto la rama `main` **está protegida**: los siete checks son obligatorios, la rama debe estar al día, la historia es lineal y no hay excepción para administradores. Hasta ese día se habían mergeado once PR con CI en verde sin que nada lo exigiera.
 
 Contexto: hasta el 25 de agosto, `package.json` declaraba 104 scripts y el workflow ejecutaba 15. La causa raíz era que CI sólo declaraba un servicio Redis, así que ninguna suite que necesitara base de datos podía correr. Hallazgo [H-01](auditoria-2026-08-25.md#h-01--ci-no-ejecuta-el-86-de-su-propia-matriz-de-pruebas), ticket [CI-001](backlog-tecnico.md#ci-001--pipeline-productivo).
 
@@ -126,6 +128,51 @@ Tras mejorar un archivo, fijar la mejora con:
 node scripts/line-length-ratchet.mjs --update
 ```
 
+### Referencias sin resolver
+
+`test:module-references` recorre `server/**` con un AST y reporta cualquier nombre que no esté ligado ni importado. Existe por un error concreto de [ARC-001](backlog-tecnico.md#arc-001--modularización) que se repitió tres veces: el bloque de rutas movido usaba algo que se quedaba en `server/index.js`, y el import no se agregaba.
+
+Node no lo detecta al importar el módulo, porque la referencia está dentro del handler: falla recién cuando llega un request. Así el error llegaba a CI como suite roja en vez de fallo de arranque, con un mensaje que no dice qué falta.
+
+Pagó su costo repetidas veces. Dos de ellas evitaron un borrado silencioso: un `app.use(...)` que estaba entre las rutas de un grupo se venía con el bloque, y sin esta puerta el router quedaba desmontado —sus rutas dejaban de existir— con `npm run check` en verde, porque el respaldo SQLite no las ejercita.
+
+### Declaraciones internas muertas
+
+`test:dead-code` busca lo contrario que la puerta de arriba: una definición sin uso, no un uso sin definición. Existe porque extraer rutas hace fácil **copiar en lugar de mover**, y el resultado —dos definiciones idénticas, una muerta— no rompe nada y por eso no lo ve nadie.
+
+Encontró dos al escribirse: `publicRestaurantFallback`, duplicada al extraer el router de catálogo, y `GOOGLE_PLACES`, sobrante de [GEO-001](backlog-tecnico.md#geo-001--proveedor-de-mapas).
+
+Cuenta apariciones del identificador en vez de resolver referencias. Es una sobreaproximación hacia «está usado»: puede dejar pasar código muerto, pero **no puede acusar a código vivo**, que es la única forma de que una puerta así no termine desactivada.
+
+### Redacción del usuario
+
+`test:user-view` verifica que `sanitizeUser` siga sacando el hash de contraseña, la clave primaria interna y el bloqueo de login, y que **nadie duplique esa redacción**. La duplicación es el riesgo real: encontró una copia escrita a mano en `auth-repository.js` el día que se escribió.
+
+Busca la redacción de los tres campos y no cualquier `{ password, ... }`, porque el respaldo SQLite tiene su propia proyección que saca sólo `password` y **es correcta**: ahí los usuarios no tienen las otras dos columnas.
+
+### Conversión de dinero
+
+`test:money` impide una cuarta copia de `pesos`, que estaba definida tres veces con el mismo cuerpo, y fija en **26** las conversiones en línea que la unificación dejó a la vista.
+
+El trinquete no es cosmético. Las tres copias llevaban una guarda `|| 0` que convierte una columna ausente en cero —«no se cobró nada»—; las 26 restantes no la tienen y dan `NaN`. Las dos respuestas son defendibles y ninguna se eligió: se escribieron distinto en momentos distintos. El número sólo puede bajar, así que quien toque una tiene que decidir.
+
+### Negativa de arranque por rol con bypass de RLS
+
+`test:rls-guard` recorre la tabla de casos de `server/rls-guard.js`, que impide arrancar en producción con un rol de PostgreSQL que puede saltear las políticas. Cubre el riesgo que `FORCE ROW LEVEL SECURITY` no puede cubrir sin romper las migraciones — ver [la matriz](matriz-rls.md#force-row-level-security).
+
+Lo que se prueba es **cuándo se dice que no**, porque una guarda así se rompe por los dos lados: negarse de más deja la plataforma sin arrancar por una caída transitoria de base, y de menos deja servir datos con las políticas apagadas. Las tres excepciones —fuera de producción, sin base configurada, base caída— están declaradas.
+
+### Una pantalla por bundle móvil
+
+`test:mobile-variant-bundles` empaqueta las tres variantes con `expo export` y busca en el bytecode Hermes una cadena propia de cada pantalla, exigiendo una diagonal: cada bundle con la suya y sin las otras dos. Cierra los dos criterios de build de [ARC-001](backlog-tecnico.md#arc-001--modularización), que no se pueden verificar leyendo código porque dependen de qué módulos alcanza Metro.
+
+Los marcadores son ASCII a propósito: el primero llevaba tilde y daba ausente en el bundle que sí contenía esa pantalla, porque Hermes no guarda las cadenas no ASCII donde una búsqueda por bytes las encuentra. Un marcador así convierte la puerta en una que pasa siempre.
+
+### Cobertura documental de las puertas
+
+`test:docs-coverage` exige que cada script `test:` esté nombrado en algún documento de `docs/`. Una puerta que nadie sabe que existe no se mantiene: cuando falla, quien la encuentra no sabe qué protegía ni si conviene arreglarla o borrarla.
+
+Al escribirse había **14 suites sin mencionar en ningún lado**, casi todas anteriores a la auditoría. Es un trinquete: el número sólo puede bajar, así que una puerta nueva se documenta en el mismo PR que la crea, y la deuda heredada se paga cuando se toca cada suite.
 ### Contrato de contenedor
 
 `test:container-security` valida principalmente separación de roles de PostgreSQL: owner/migrador, runtime y auditor, y rechaza roles con `BYPASSRLS`. **No valida** usuario Linux, capabilities, seccomp ni filesystem de sólo lectura — ver el hallazgo [H-05](auditoria-2026-08-25.md#h-05--la-imagen-docker-no-corresponde-al-arranque-real-y-corre-como-root) y el ticket [INF-001](backlog-tecnico.md#inf-001--imagen-productiva-endurecida).

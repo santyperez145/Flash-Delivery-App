@@ -19,9 +19,9 @@ Cinco archivos concentran más de 1,3 MB de código: `apps/mobile/App.tsx` (433 
 ### Trabajo
 
 1. **Reformatear primero.** Antes de mover nada, aplicar un formateador con ancho máximo de línea a todo el código fuente. Es un commit mecánico, separado y sin cambios de comportamiento, que hace revisables todos los commits siguientes.
-2. Extraer features de los dos `App.tsx` hacia módulos por dominio.
-3. Crear entrypoints separados customer, driver y merchant en mobile.
-4. Descomponer `server/index.js` en controllers, separados de use cases y repositories.
+2. Extraer features de los dos `App.tsx` hacia módulos por dominio. **Parcial**: los dos shells bajaron a 321 y 1.245 líneas, pero el contenido del móvil se mudó a `CustomerScreen.tsx`, que hoy tiene 6.241 líneas y es el archivo más grande del repositorio.
+3. ~~Crear entrypoints separados customer, driver y merchant en mobile~~ **Hecho**: `metro.config.js` resuelve `./variant-screen` según `EXPO_PUBLIC_APP_VARIANT`, y `test:mobile-variant-bundles` lo verifica empaquetando las tres con `expo export`.
+4. ~~Descomponer `server/index.js`~~ **Hecho**: 57 grupos de rutas en 31 routers bajo `server/http/`. El archivo quedó en 872 líneas con 8 rutas de infraestructura.
 5. ~~Dividir `commerce-repository.js` por subdominio~~ **Hecho**: `catalog-repository.js` (539 líneas, lo que escribe el comercio), `order-repository.js` (1.103, el ciclo del pedido) y `driver-roster-repository.js` (134, el plantel). `usesPostgresCommerce` se mudó a `postgres.js`, que es de quien habla el predicado. La única dependencia entre partes es `mapCatalogItem`: pedidos importa de catálogo —un pedido está hecho de ítems— y nunca al revés.
 6. Crear contratos compartidos en un paquete propio.
 7. Limitar cada archivo a una responsabilidad concreta.
@@ -36,7 +36,7 @@ Cinco archivos concentran más de 1,3 MB de código: `apps/mobile/App.tsx` (433 
 - [x] **La autorización es un módulo propio, puro y con contrato.** `server/http/authorization.js`, 9 reglas, 81 usos, `test:authorization` en `ci-fast.yml`.
 - [x] **El núcleo compartido de HTTP está extraído.** Respuestas, autorización, autenticación, transporte realtime y runtime del fallback. Un grupo de rutas nuevo no necesita nada de `server/index.js`.
 - [x] **Ningún `App.tsx` supera 1.500 líneas.** `apps/mobile/App.tsx` 15.374 → **321**; `src/App.tsx` 10.553 → **1.245**. En los dos queda sólo el shell.
-- [ ] Ninguna línea de más de 200 caracteres. Quedan **260**, casi todas SQL en template literals. Las dos que bajaron lo hicieron por el mismo mecanismo: al aislarse en un archivo nuevo, el ratchet las vio sin línea base que las tolerara y exigió partirlas.
+- [ ] Ninguna línea de más de 200 caracteres. Quedan **260**, y **259 son SQL en template literals**: la clasificación se hizo el 27 de agosto de 2026 y la única excepción es una descripción larga en `server/openapi.js`. El trinquete `test:line-length` impide que crezcan. Se pospone a propósito frente a DAT-001: reformatear SQL es churn mecánico con riesgo no nulo, y el ratchet ya contiene el daño.
 - [x] **Ningún módulo de dominio importa React.** 93 módulos verificados por `test:domain-purity`, en `ci-fast.yml`. La regla es la convención del repositorio: `.ts` es lógica, `.tsx` es presentación. `react-native` no cuenta, porque ahí aporta primitivas de plataforma y no renderizado.
 - [x] **El build de driver no incluye pantallas de comercio.** `metro.config.js` resuelve `./variant-screen` según `EXPO_PUBLIC_APP_VARIANT`, así que las otras dos pantallas quedan sin arista que las alcance. Verificado sobre bytecode Hermes real: `test:mobile-variant-bundles` empaqueta las tres variantes y comprueba la diagonal.
 - [x] **El build de customer no incluye backoffice.** Mismo mecanismo y misma puerta. Los tres bundles bajaron de llevar las 9.715 líneas de las tres pantallas a llevar una: 2,3 MB customer, 2,4 MB driver, 2,1 MB merchant.

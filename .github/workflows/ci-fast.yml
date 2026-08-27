@@ -71,6 +71,11 @@ jobs:
       - name: RLS bypass refusal
         run: npm run test:rls-guard
 
+      # Una puerta que nadie sabe que existe no se mantiene. Esta exige que cada
+      # script test: este nombrado en docs/, con trinquete sobre la deuda previa.
+      - name: Gates are documented
+        run: npm run test:docs-coverage
+
       # `sanitizeUser` decide qué campos de un usuario salen por HTTP. Al
       # volverse módulo propio quedó sin puerta; esta encontró una copia de la
       # redacción escrita a mano en auth-repository.js.
