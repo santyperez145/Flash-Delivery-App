@@ -19,7 +19,14 @@ const { token } = await login.json(),
 const scenarios = [
   { name: "ready", path: "/ready", method: "GET", auth: false },
   { name: "catalog", path: "/restaurants", method: "GET", auth: false },
-  { name: "customer_state", path: "/state", method: "GET", auth: true },
+  // Medía `/state`, que fue retirado y responde 410 desde entonces: la suite
+  // llevaba tiempo midiendo un endpoint inexistente sin que nadie lo viera,
+  // porque estaba fuera de toda puerta. Es el argumento a favor del nocturno.
+  //
+  // El reemplazo es el que ocupó su lugar: el bootstrap por audiencia, que es lo
+  // primero que pide cualquier cliente al abrir y por lo tanto lo que conviene
+  // medir.
+  { name: "customer_bootstrap", path: "/bootstrap/customer", method: "GET", auth: true },
   { name: "catalog_search", path: "/catalog/search?q=pizza&limit=20", method: "GET", auth: true },
   {
     name: "ride_quote",
