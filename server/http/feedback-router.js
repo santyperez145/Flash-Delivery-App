@@ -78,6 +78,7 @@ feedbackRouter.put(
   },
 );
 feedbackRouter.get("/api/ratings", requireAuth, async (req, res) => {
+  if (!usesPostgresCommerce()) return fail(res, 503, "Las calificaciones requieren PostgreSQL");
   try {
     return ok(res, {
       ratings: await getPostgresRatings({

@@ -88,6 +88,8 @@ router.get(
   requireAuth,
   requireAnyRole("admin"),
   async (_req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "Los ajustes de propina requieren PostgreSQL");
     try {
       return ok(res, { adjustments: await getTipAdjustments() });
     } catch (error) {

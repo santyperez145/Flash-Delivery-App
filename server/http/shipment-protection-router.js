@@ -28,6 +28,7 @@ import {
   updatePostgresShipmentReturn,
 } from "../mobility-repository.js";
 import { recordPostgresAudit } from "../operations-repository.js";
+import { usesPostgresCommerce } from "../postgres.js";
 import { requireAuth } from "./authentication.js";
 import { isAdmin, requireAnyRole } from "./authorization.js";
 import { deliveryProofLimiter } from "./rate-limits.js";
@@ -64,6 +65,8 @@ router.get(
   requireAuth,
   requireAnyRole("customer", "support", "admin"),
   async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "Las devoluciones de envío requieren PostgreSQL");
     try {
       return ok(res, {
         returns: await getPostgresShipmentReturns({
@@ -144,6 +147,8 @@ router.get(
   requireAuth,
   requireAnyRole("customer", "support", "admin"),
   async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "Los siniestros de envío requieren PostgreSQL");
     try {
       return ok(res, {
         claims: await getPostgresShipmentClaims({

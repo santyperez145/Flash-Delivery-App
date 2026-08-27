@@ -27,6 +27,7 @@ import {
   scanPaymentReconciliation,
 } from "../payment-repository.js";
 import { getTransactionRisks, reviewTransactionRisk } from "../risk-repository.js";
+import { usesPostgresCommerce } from "../postgres.js";
 import { requireAuth } from "./authentication.js";
 import { requireAnyRole } from "./authorization.js";
 import { publishRealtimeEvent } from "./realtime.js";
@@ -55,6 +56,8 @@ router.get(
   requireAuth,
   requireAnyRole("support", "admin"),
   async (_req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "La conciliación de pagos requiere PostgreSQL");
     try {
       return ok(res, await getPaymentReconciliation());
     } catch (error) {
@@ -123,6 +126,8 @@ router.get(
   requireAuth,
   requireAnyRole("support", "admin"),
   async (_req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "Las evaluaciones de riesgo requieren PostgreSQL");
     try {
       return ok(res, { assessments: await getTransactionRisks() });
     } catch (error) {
@@ -164,6 +169,7 @@ router.patch(
 );
 
 router.get("/api/admin/payouts", requireAuth, requireAnyRole("admin"), async (_req, res) => {
+  if (!usesPostgresCommerce()) return fail(res, 503, "La cola de payouts requiere PostgreSQL");
   try {
     return ok(res, { payouts: await getPayoutReviewQueue() });
   } catch (error) {

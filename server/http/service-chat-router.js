@@ -21,6 +21,7 @@
 import { Router } from "express";
 import { z } from "zod";
 
+import { usesPostgresCommerce } from "../postgres.js";
 import { requireAuth } from "./authentication.js";
 import { requireAnyRole } from "./authorization.js";
 import { recordPostgresAudit } from "../operations-repository.js";
@@ -189,13 +190,26 @@ router.get(
   "/api/admin/service-chat/quick-replies",
   requireAuth,
   requireAnyRole("admin"),
-  async (_req, res) => ok(res, { quickReplies: await listServiceQuickReplies() }),
+  async (_req, res) => {
+    // Era una arrow concisa sin `try`, así que cualquier fallo escapaba al
+    // manejador global y salía como «Error interno del servidor»: un 500 que no
+    // dice nada. Sobre el respaldo SQLite fallaba siempre.
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "Las respuestas rápidas requieren PostgreSQL");
+    try {
+      return ok(res, { quickReplies: await listServiceQuickReplies() });
+    } catch (error) {
+      return failFrom(res, error, "No se pudieron cargar las respuestas rápidas");
+    }
+  },
 );
 router.post(
   "/api/admin/service-chat/quick-replies",
   requireAuth,
   requireAnyRole("admin"),
   async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "Las respuestas rápidas requieren PostgreSQL");
     const parsed = parseOrFail(serviceQuickReplyCreateSchema, req.body || {});
     if (!parsed.ok) return fail(res, 400, parsed.message);
     try {
