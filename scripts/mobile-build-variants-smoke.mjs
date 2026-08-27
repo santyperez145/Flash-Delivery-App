@@ -5,7 +5,9 @@ const require = createRequire(import.meta.url),
   factory = require("../apps/mobile/app.config.js"),
   eas = JSON.parse(fs.readFileSync(new URL("../apps/mobile/eas.json", import.meta.url), "utf8")),
   api = fs.readFileSync(new URL("../apps/mobile/src/api.ts", import.meta.url), "utf8"),
-  app = fs.readFileSync(new URL("../apps/mobile/App.tsx", import.meta.url), "utf8");
+  app = fs.readFileSync(new URL("../apps/mobile/App.tsx", import.meta.url), "utf8"),
+  metro = fs.readFileSync(new URL("../apps/mobile/metro.config.js", import.meta.url), "utf8"),
+  appConfig = fs.readFileSync(new URL("../apps/mobile/app.config.js", import.meta.url), "utf8");
 const assert = (condition, label) => {
   if (!condition) throw new Error(`failed: ${label}`);
   console.log(`ok - ${label}`);
@@ -96,3 +98,54 @@ assert(
   api.includes("user.roles.includes(mobileAppVariant)"),
   "login still refuses a user without the role the installed variant needs",
 );
+
+// La variante instalada tiene una sola fuente: `EXPO_PUBLIC_APP_VARIANT`.
+//
+// `api.ts` la leía de `Constants.expoConfig.extra.appVariant`, y en Expo web ese
+// manifiesto no llega al runtime: caía en el fallback "customer". Como
+// `allowsVariant` gatea el login contra ese valor, el build web de Flash Driver
+// exigía rol `customer` —rechazando al conductor y admitiendo al cliente—
+// mientras Metro sí había puesto la pantalla de conductor.
+//
+// Se comprobó en el navegador: antes del arreglo el build de driver mostraba
+// «Entrá a Flash» con los chips de cliente; después, «Entrá a Flash Driver».
+//
+// Lo que se afirma es que los tres lugares que deciden la variante lean la misma
+// variable. Que coincidan por casualidad es lo que ya falló una vez.
+assert(
+  contains(api, "process.env?.EXPO_PUBLIC_APP_VARIANT ||"),
+  "the runtime reads the variant from the same variable Metro and app.config use",
+);
+assert(
+  contains(metro, "process.env.EXPO_PUBLIC_APP_VARIANT") &&
+    contains(appConfig, "process.env.EXPO_PUBLIC_APP_VARIANT"),
+  "metro and app.config resolve the variant from that variable too",
+);
+
+// La audiencia que se pide al backend es la variante instalada, no la prioridad
+// de roles. Es el mismo defecto que el PR #23 corrigió en `App.tsx` y que había
+// quedado sin tocar acá.
+assert(
+  contains(api, "activeAudience = mobileAppVariant") &&
+    !contains(api, 'roles.includes("merchant") ? "merchant"'),
+  "the bootstrap audience follows the installed variant, not role priority",
+);
+
+// El marcador con el que la auditoría de navegador decide que entró no puede
+// existir antes de entrar. `readyText: "Comidas"` era también un chip de la
+// pantalla de login, así que las cinco afirmaciones de viewport del cliente se
+// medían sobre el login y la auditoría pasaba sin autenticarse nunca.
+const loginScreen = fs.readFileSync(
+  new URL("../apps/mobile/src/screens/LoginScreen.tsx", import.meta.url),
+  "utf8",
+);
+const browserSuite = fs.readFileSync(
+  new URL("../scripts/responsive-browser-smoke.mjs", import.meta.url),
+  "utf8",
+);
+for (const [, marcador] of browserSuite.matchAll(/readyText: "([^"]+)"/g)) {
+  assert(
+    !loginScreen.includes(`"${marcador}"`),
+    `the browser audit marker ${JSON.stringify(marcador)} does not exist before logging in`,
+  );
+}
