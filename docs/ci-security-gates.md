@@ -211,6 +211,22 @@ Eso cambia el modo de fallar, y a mejor: antes una tabla sin revisar quedaba sil
 La puerta persigue la forma `ON ALL TABLES` porque es la que uno escribe sin pensar cuando una migración falla por permisos, y resuelve el síntoma deshaciendo la decisión. La migración 010 queda exceptuada: es el registro histórico y las migraciones son de sólo agregar.
 
 **El inventario mecánico no alcanzaba.** Buscar `INSERT`/`UPDATE`/`DELETE` por tabla en `server/**` daba diez candidatas de sólo lectura, y dos eran falsas: `drivers` tiene disparadores que insertan en `driver_availability_sessions` y `driver_job_sessions` cuando alguien se pone en línea, y esas funciones **no** son `SECURITY DEFINER`, así que corren con los permisos de quien las dispara. Revocar ahí habría roto que un conductor se conecte, con un error de permisos dentro de un trigger.
+### Dependencias: qué se audita y qué se despliega
+
+Son dos puertas distintas y el orden entre ellas importó.
+
+`test:dependency-gate` audita **cuatro alcances**: raíz y móvil, cada uno en producción y en desarrollo. Antes auditaba sólo lo que se despliega —la pregunta correcta para decidir si un despliegue es seguro— y dejaba fuera el empaquetador, el formateador y el navegador de pruebas. Un compromiso ahí llega igual al artefacto, sólo que por el camino de la construcción.
+
+Los alcances se reportan por separado a propósito: «¿es seguro lo que desplegamos?» y «¿es seguro lo que usamos para construirlo?» son preguntas distintas, y mezclarlas haría que una vulnerabilidad del empaquetador se leyera como un problema de producción.
+
+`test:production-deps` exige que **cada paquete de `dependencies` esté importado por `server/` o `scripts/`**. La imagen instala con `--omit=dev`, así que todo lo que quede ahí se despliega, lo use el servidor o no. Siete paquetes que sólo usa el frente —React, React DOM, `lucide-react`, `maplibre-gl`, el SDK de Mercado Pago, `qrcode` y `concurrently`— viajaban en cada imagen.
+
+Eso no es sólo tamaño: cada paquete en la imagen es superficie —un `postinstall`, una dependencia transitiva, algo que un escáner mira y alguien actualiza—. Un paquete que el proceso nunca importa es riesgo sin contrapartida.
+
+**La auditoría se amplió antes de mover nada.** Con la versión anterior, pasarlos a desarrollo los habría sacado de la auditoría: se habría cambiado tamaño por cobertura, que no es una mejora.
+
+La segunda puerta nació sin poder fallar y hubo que corregirla dos veces. Buscaba el nombre del paquete como cadena suelta, y **los propios contratos de `scripts/` mencionan nombres de paquetes como dato**: `domain-purity-contract.mjs` explica su regla escribiendo `from "react"` en un comentario, así que React figuraba importado por el servidor. Ahora busca formas de importación reales y descarta los comentarios antes de mirar. Se comprobó devolviendo dos paquetes a `dependencies`: los reporta a los dos.
+
 ### Cobertura documental de las puertas
 
 `test:docs-coverage` exige que cada script `test:` esté nombrado en algún documento de `docs/`. Una puerta que nadie sabe que existe no se mantiene: cuando falla, quien la encuentra no sabe qué protegía ni si conviene arreglarla o borrarla.

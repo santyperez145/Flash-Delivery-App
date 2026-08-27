@@ -246,7 +246,7 @@ Ampliar `scripts/container-security-smoke.mjs`, que hoy valida principalmente ro
 - [x] La imagen productiva no contiene devDependencies ni el árbol de fuentes.
 - [x] El smoke de contenedor valida usuario, entrypoint, etapas y capabilities.
 - [x] **Filesystem raíz de sólo lectura.** `read_only: true` en Compose y **una corrida real en CI**: el job `container-image` arranca la imagen con `--read-only` hasta que responde, y después comprueba que un `touch` sobre la raíz falle —sin eso, el paso pasaría aunque la raíz fuera escribible—. Lo escribible queda declarado: `/tmp` y `/app/server/data`, éste último porque `server/store.js` abre la base SQLite del respaldo al importarse, sin mirar si hay `DATABASE_URL`. Hacer esa inicialización perezosa eliminaría el último punto de escritura.
-- [ ] Reducir los 380 MiB de imagen moviendo las dependencias de frontend, **sin perderlas de la puerta de auditoría**. El obstáculo es concreto y sigue vigente: están en `dependencies`, así que moverlas a `devDependencies` las sacaría de `npm audit --omit=dev`. Hay que ampliar primero `test:dependency-gate` para que audite también las de desarrollo del frente, y recién después mover.
+- [x] **Dependencias de frontend fuera de la imagen productiva, sin perderlas de la puerta de auditoría.** En ese orden: primero `test:dependency-gate` pasó a auditar cuatro alcances —raíz y móvil, producción y desarrollo— y recién después se movieron los siete paquetes que sólo usa el frente. `test:production-deps` exige que cada dependencia de producción esté importada por `server/` o `scripts/`; hoy son 20 y las 20 lo cumplen.
 - [ ] Existe SBOM y scan de imagen en el pipeline.
 
 ### Verificación
