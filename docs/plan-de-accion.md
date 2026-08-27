@@ -82,7 +82,7 @@ La matriz vive en `docs/matriz-madurez.md` y se actualiza en el mismo PR que cam
 | ~~PostgreSQL/PostGIS como servicio en CI~~ **hecho** | CI-001 | `ci-postgres.yml` corre migraciones desde cero y de forma incremental sobre la base del PR |
 | ~~Realtime default-deny~~ **hecho** | SEC-001 | Entidad desconocida sólo llega a `admin`; `test:realtime-audience` cubre todos los `entityType` |
 | ~~Imagen Docker multi-etapa non-root~~ **hecho** | INF-001 | `USER flash`, `server/start.js`, sin devDependencies · verificado en build real |
-| Protección de rama y CODEOWNERS | CI-001 | `CODEOWNERS` **hecho**; la protección de rama es configuración manual en GitHub, **pendiente** |
+| ~~Protección de rama y CODEOWNERS~~ **hecho** | CI-001 | Desde el 27 de agosto de 2026 `main` exige PR y los 7 checks, con `enforce_admins`. Sin aprobaciones ni Code Owners: con un solo colaborador, exigirlas dejaría el repositorio sin poder mergear |
 | ~~Matriz de madurez inicial~~ **hecho** | — | 91 capacidades clasificadas y actualizadas en cada entrega |
 
 #### Semana 2 (1–7 de septiembre) — Cobertura de riesgo
@@ -341,8 +341,12 @@ orden de ejecución.
 queda fuera de todo workflow. Sin ella, la próxima se suma en silencio a las 89
 que nadie corría.
 
-Quedan `ci-nightly.yml`, **una** suite en cuarentena (`test:support-routing`) y
-la protección de rama, que es configuración manual en GitHub.
+La protección de rama se activó el 27 de agosto de 2026, y con eso los 82 checks dejaron de ser
+informativos: `main` sólo acepta merges por PR, con los 7 contextos en verde y la rama al día.
+Hasta ese día se habían mergeado once PR en los que CI pasaba sin que nada lo exigiera —el
+trabajo estaba hecho y la puerta seguía abierta—.
+
+Quedan `ci-nightly.yml` y **una** suite en cuarentena (`test:support-routing`).
 
 Cerrar tres de las cuatro suites en cuarentena destapó cuatro defectos reales
 —ninguno era fragilidad de la prueba—, tres de ellos variantes de H-11. Uno
