@@ -28,15 +28,26 @@ Donde no hay política, la única barrera es el código de aplicación. Un bug d
 
 ## Deuda declarada
 
-Cinco tablas están clasificadas `por-usuario` y todavía no tienen política. La lista vive en `scripts/rls-matrix-check.mjs` y **sólo puede achicarse**: la puerta falla si aparece una sexta sin motivo escrito, y también si una de estas gana política y no se la quita de la lista.
+Cuatro tablas están clasificadas `por-usuario` y todavía no tienen política. La lista vive en `scripts/rls-matrix-check.mjs` y **sólo puede achicarse**: la puerta falla si aparece una sexta sin motivo escrito, y también si una de estas gana política y no se la quita de la lista.
 
 | Tabla | Por qué todavía no |
 | --- | --- |
 | `user_roles` | **Se lee antes de autenticar.** Ver abajo. |
 | `drivers` | 39 archivos la consultan, varios sin contexto de usuario |
 | `merchants` | 23 archivos la consultan, varios sin contexto de usuario |
-| `shipment_details` | Candidata más limpia: vínculo único por `job_id`. Falta la prueba negativa por rol |
 | `promotion_redemptions` | Falta la prueba negativa por rol |
+
+### Cerrada: `shipment_details`
+
+La migración `113_shipment_details_rls.sql` le aplicó política el 27 de agosto de 2026, y era la que más incomodaba de las cinco: guarda `recipient_name`, `recipient_phone` y `delivery_pin_hash` — el nombre y el teléfono de una persona que **ni siquiera es usuaria de la plataforma**, más el hash del PIN con el que se prueba la entrega.
+
+Sin `ENABLE ROW LEVEL SECURITY`, cualquier rol con un `GRANT SELECT` leía los datos de contacto de todos los destinatarios del sistema.
+
+La forma es la de `job_items_via_job` y no una nueva: la visibilidad cae en cascada por la política de `jobs`, que ya decide quién participa de un trabajo. Copiar esa decisión habría dejado dos reglas de acceso que en algún momento dejan de coincidir.
+
+**El `GRANT SELECT` al rol auditor se agregó en la misma migración, a propósito.** Sin él la prueba negativa demostraría que falta el permiso, no que la política funciona: con el permiso puesto, que el auditor siga viendo cero filas sólo lo puede explicar RLS.
+
+`test:rls` afirma las dos mitades, y la segunda importa tanto como la primera: **una política que niega a todo el mundo pasa el test negativo y rompe el producto.** Por eso se comprueba también que un cliente autenticado no vea destinatarios de envíos ajenos, lo que sólo puede pasar si la política discrimina en lugar de cerrar.
 
 ### El caso difícil: `user_roles`
 
