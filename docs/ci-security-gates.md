@@ -18,7 +18,7 @@ Además, `main` llevaba en rojo desde el 23 de agosto sin que nadie estuviera bl
 | `ci-postgres.yml` | Cada PR | PostGIS 17 · roles separados · migraciones desde cero · migración incremental sobre la base del PR · seeds reproducibles · RLS · cadena de auditoría · aislamiento por ciudad · datos sensibles · idempotencia · comercio, zonas y configuración | **Verde** |
 | `ci-critical-flows.yml` | Cada PR | API levantada contra PostgreSQL · runtime smoke · pagos · conciliación · riesgo · payouts · propinas · KYC · vehículos · ganancias · safety · chat · siniestros · SLA · notificaciones · recursos por audiencia | **Verde** |
 | `local-fallback` (en `ci-fast`) | Cada PR | API sobre el fallback SQLite · contratos que no son los de PostgreSQL | **Verde** |
-| `ci-nightly.yml` | 06:00 UTC y a mano | Auditoría responsive en navegador real, una corrida por variante · latencia de endpoints | **Existe** desde el 27-08. Sin k6, sandbox de proveedores, builds EAS ni restore drill |
+| `ci-nightly.yml` | 06:00 UTC y a mano | Auditoría responsive en navegador real, una corrida por variante · latencia de endpoints contra PostgreSQL | **Existe** desde el 27-08. Sin k6, sandbox de proveedores, builds EAS ni restore drill |
 
 ### Qué descubrió cada primera corrida
 
@@ -190,6 +190,14 @@ Las dos nocturnas están ahí por motivos distintos y los dos son legítimos: `t
 Lo que la categoría **no** permite es esconder una suite: si una nocturna no aparece invocada en ningún workflow, la puerta falla igual. La etiqueta explica por qué no bloquea, no la exime de correr.
 
 La auditoría de navegador vale la pena de noche por lo que encontró al arreglarse: hasta el 27 de agosto pasaba **sobre la pantalla de login**, porque su marcador de cliente era también el rótulo de un chip previo a autenticarse. Corregida, las tres variantes se auditan ya autenticadas.
+### Qué encontró la primera corrida del nocturno
+
+Las tres variantes del navegador pasaron. La latencia falló, y por dos motivos que sólo se ven corriéndola:
+
+**`test:performance` medía `/api/state`**, retirado hace tiempo y que responde 410 desde entonces. La suite llevaba midiendo un endpoint inexistente sin que nadie lo notara, porque estaba fuera de toda puerta. Es exactamente el óxido que acumula una suite excluida, y el argumento a favor de tener nocturno.
+
+**El job medía contra el respaldo SQLite.** Ahí la mitad de los escenarios degrada con 503 y los que responden lo hacen sobre un archivo local, que no se parece en nada a la latencia de producción. Ahora levanta PostgreSQL con roles separados, migra y siembra, como `ci-critical-flows`.
+
 ### Cobertura documental de las puertas
 
 `test:docs-coverage` exige que cada script `test:` esté nombrado en algún documento de `docs/`. Una puerta que nadie sabe que existe no se mantiene: cuando falla, quien la encuentra no sabe qué protegía ni si conviene arreglarla o borrarla.
