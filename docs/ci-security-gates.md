@@ -307,6 +307,18 @@ Para lo que sí origina el sistema hay `recordSystemAudit`, que exige declarar u
 
 Los eventos que la prueba escribe **no se borran**. `audit_events` es append-only por diseño, con su trigger y su cadena de hashes, y abrir el portillo de mantenimiento para limpiar una prueba sería usar la llave equivocada por comodidad.
 
+### La conciliación de pagos corre sola
+
+Hasta ahora `scanPaymentReconciliation()` sólo se disparaba desde `POST /api/admin/payment-reconciliation/scan`, es decir cuando alguien se acordaba de apretar el botón. Una conciliación que depende de que alguien se acuerde no es una conciliación: la diferencia aparece igual, lo que cambia es cuánto tarda en verse.
+
+`npm run job:payment-reconciliation` es el punto de entrada sin persona detrás. **No trae su propio planificador a propósito.** Un `setInterval` dentro del servidor corre una vez por réplica —con dos réplicas se concilia dos veces— y no sobrevive a un reinicio en el momento equivocado. El planificador es del entorno que despliega: `cron`, un `CronJob` de Kubernetes, lo que haya. Acá está lo que ese planificador invoca.
+
+Corre desatendido cada noche en `ci-nightly`, que no reemplaza al planificador productivo pero prueba la mitad que sí depende de este repositorio: que el punto de entrada funcione sin sesión.
+
+**Sale con cero aunque haya casos abiertos, y eso es deliberado.** Encontrar diferencias es el resultado esperado de conciliar, no una falla del trabajo. Un trabajo que se pone rojo cada vez que encuentra algo termina silenciado en dos semanas, y ahí sí se pierden las diferencias — el mismo mecanismo de [H-01](auditoria-2026-08-25.md#h-01--ci-no-ejecuta-el-86-de-su-propia-matriz-de-pruebas), una vez más. Lo que sale distinto de cero es que la conciliación no haya podido correr.
+
+El rastro queda en `audit_events` con `origin: scheduled-reconciliation`. Escribir esto es lo que destapó que `recordPostgresAudit` perdía el evento en silencio cuando no había actor: la conciliación programada habría corrido sin dejar rastro, que es justamente lo que un trabajo automático no puede permitirse.
+
 ### Cobertura documental de las puertas
 
 `test:docs-coverage` exige que cada script `test:` esté nombrado en algún documento de `docs/`. Una puerta que nadie sabe que existe no se mantiene: cuando falla, quien la encuentra no sabe qué protegía ni si conviene arreglarla o borrarla.
