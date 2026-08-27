@@ -132,6 +132,36 @@ try {
   }
   creado.transacciones.push(liquidacion);
 
+  // La parte mayor ya cobro lo suyo: se le vacia la cuenta con una transaccion
+  // que cuadra, como haria una liquidacion. Asi el reintegro la deja en -334 y
+  // se puede comprobar el caso operativo. Sin esto las tres partes terminan en
+  // positivo y la mitad interesante del comportamiento no se ejercita.
+  const mayor = partes.reduce((a, b) => (a.importe >= b.importe ? a : b));
+  const vaciado = await pool.connect();
+  let pagoPrevio;
+  try {
+    await vaciado.query("BEGIN");
+    pagoPrevio = (
+      await vaciado.query(
+        `INSERT INTO ledger_transactions(idempotency_key, kind, description)
+         VALUES($1, 'payout_reserve', 'Liquidacion previa de fixture') RETURNING id`,
+        [`${marca}-payout`],
+      )
+    ).rows[0].id;
+    await vaciado.query(
+      `INSERT INTO ledger_entries(transaction_id, account_id, direction, amount_cents, reference_type)
+       VALUES($1, $2, 'debit', $3, 'payout'), ($1, $4, 'credit', $3, 'payout')`,
+      [pagoPrevio, mayor.cuenta, mayor.importe, compensacion],
+    );
+    await vaciado.query("COMMIT");
+  } catch (error) {
+    await vaciado.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    vaciado.release();
+  }
+  creado.transacciones.push(pagoPrevio);
+
   creado.pago = (
     await pool.query(
       `INSERT INTO payment_intents(job_id, customer_id, provider, status, amount_cents, captured_amount_cents, currency, idempotency_key)
@@ -188,7 +218,6 @@ try {
 
   // El resto tiene que caer en la parte mayor, no en cualquiera. Sin el ORDER BY
   // esta comprobación es la que se vuelve intermitente.
-  const mayor = partes.reduce((a, b) => (a.importe >= b.importe ? a : b));
   const debitoDelMayor = debitos.find((fila) => String(fila.account_id) === String(mayor.cuenta));
   comparar(
     Number(debitoDelMayor?.amount_cents ?? 0),
@@ -207,6 +236,24 @@ try {
     Number(alCliente?.amount_cents ?? 0),
     REINTEGRO,
     "el cliente recibe exactamente el reintegro aprobado",
+  );
+
+  // --- El saldo en negativo se ve ------------------------------------------
+  const casos = await pool.query(
+    `SELECT entity_id, details FROM payment_reconciliation_cases
+     WHERE case_type = 'negative_balance' AND external_reference = $1`,
+    [issuePublicId],
+  );
+  comparar(casos.rowCount, 1, "una sola parte quedo en negativo y abrio un solo caso operativo");
+  comparar(
+    String(casos.rows[0]?.entity_id ?? ""),
+    String(mayor.cuenta),
+    "el caso apunta a la cuenta que efectivamente quedo en rojo",
+  );
+  comparar(
+    Number(casos.rows[0]?.details?.balanceCents ?? 0),
+    -334,
+    "el caso registra el saldo real, no solo que hubo reintegro",
   );
 
   // --- Guardas -------------------------------------------------------------
@@ -237,6 +284,11 @@ try {
       creado.transacciones,
     ]);
   }
+  await pool
+    .query("DELETE FROM payment_reconciliation_cases WHERE external_reference = $1", [
+      issuePublicId,
+    ])
+    .catch(() => {});
   if (creado.issue) {
     // `reason` es el literal 'order_issue'; el id de la incidencia viaja en
     // `provider_refund_id`. Borrar por `reason` no borraba nada y la limpieza
