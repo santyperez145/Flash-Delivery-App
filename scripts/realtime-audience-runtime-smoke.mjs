@@ -68,8 +68,15 @@ try {
   if (!trabajo) throw new Error("No hay un servicio con cliente, comercio y conductor sembrado");
 
   const ajeno = await unaFila(
-    `SELECT public_id FROM users
-     WHERE public_id <> ALL($1::text[]) AND NOT ('admin' = ANY(roles)) LIMIT 1`,
+    // Los roles viven en `user_roles`, no en una columna de `users`. Se excluye
+    // a quien tenga `admin` porque ese rol recibe todo por diseño y no sirve de
+    // control negativo.
+    `SELECT u.public_id FROM users u
+     WHERE u.public_id <> ALL($1::text[])
+       AND NOT EXISTS (
+         SELECT 1 FROM user_roles r WHERE r.user_id = u.id AND r.role = 'admin'
+       )
+     LIMIT 1`,
     [[trabajo.cliente, trabajo.duenio, trabajo.conductor_usuario]],
   );
   if (!ajeno) throw new Error("No hay un usuario ajeno sin rol admin para el control negativo");
