@@ -25,7 +25,7 @@ const mapEvent = (row) => ({
 async function ownerOfDriver(entityId) {
   const row = (
     await postgresPool.query(
-      "SELECT u.public_id FROM drivers d JOIN users u ON u.id=d.user_id WHERE d.public_id=$1",
+      "SELECT u.public_id FROM drivers d JOIN jobs j ON j.driver_id=d.id JOIN users u ON u.id=j.customer_id WHERE d.public_id=$1 LIMIT 1",
       [entityId],
     )
   ).rows[0];
