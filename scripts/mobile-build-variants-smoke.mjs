@@ -1,9 +1,11 @@
 import fs from "node:fs";
+import { contains } from "./source-contract.mjs";
 import { createRequire } from "node:module";
 const require = createRequire(import.meta.url),
   factory = require("../apps/mobile/app.config.js"),
   eas = JSON.parse(fs.readFileSync(new URL("../apps/mobile/eas.json", import.meta.url), "utf8")),
-  api = fs.readFileSync(new URL("../apps/mobile/src/api.ts", import.meta.url), "utf8");
+  api = fs.readFileSync(new URL("../apps/mobile/src/api.ts", import.meta.url), "utf8"),
+  app = fs.readFileSync(new URL("../apps/mobile/App.tsx", import.meta.url), "utf8");
 const assert = (condition, label) => {
   if (!condition) throw new Error(`failed: ${label}`);
   console.log(`ok - ${label}`);
@@ -64,4 +66,33 @@ assert(
   api.includes("allowsVariant(session.user)") &&
     api.includes("allowsVariant(account.account.user)"),
   "login and restored sessions are gated by the installed app variant",
+);
+
+// El modo de la aplicación es la variante instalada, y no la prioridad de roles
+// del usuario.
+//
+// Estaban desacopladas: `allowsVariant` gateaba el login contra la variante,
+// pero `App.tsx` elegía la pantalla con `roles.includes("driver") ? ... :
+// roles.includes("merchant") ? ...`, sin mirar qué app estaba instalada. Como
+// `user_roles` tiene `PRIMARY KEY (user_id, role)`, un mismo usuario puede ser
+// conductor y cliente —un conductor que pide comida es lo normal—, y entonces
+// Flash le abría el tablero de Flash Driver.
+//
+// No lo pegó nadie porque los cuatro usuarios sembrados tienen un rol cada uno.
+//
+// Además de un error de producto, era el obstáculo para los dos criterios de
+// ARC-001 que faltan: mientras el modo pueda ser cualquiera de los tres, cada
+// build tiene que incluir las tres pantallas. Con el modo fijado a la variante,
+// cada entrypoint necesita exactamente una.
+assert(
+  contains(app, "useState<Mode>(mobileAppVariant)"),
+  "the mobile app opens in the mode of the installed variant",
+);
+assert(
+  !contains(app, 'user.roles.includes("driver") ? "driver"'),
+  "the screen is not chosen by role priority, which ignored the installed variant",
+);
+assert(
+  api.includes("user.roles.includes(mobileAppVariant)"),
+  "login still refuses a user without the role the installed variant needs",
 );
