@@ -42,6 +42,7 @@
     "test:module-references": "node scripts/module-references-contract.mjs",
     "test:dead-code": "node scripts/dead-code-contract.mjs",
     "test:docs-coverage": "node scripts/docs-coverage-contract.mjs",
+    "test:grant-scope": "node scripts/grant-scope-contract.mjs",
     "test:fallback-degradation": "node scripts/fallback-degradation-smoke.mjs",
     "test:money": "node scripts/money-contract.mjs",
     "test:user-view": "node scripts/user-view-contract.mjs",

@@ -12,6 +12,8 @@ El hallazgo no fue «hay tablas sin RLS». Fue que **nada hacía evidente cuále
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO flash_runtime;
 ```
 
+Desde la migración 116 eso está acotado en dos frentes: el runtime perdió la escritura sobre las ocho tablas de referencia donde nunca escribe, y **se retiró la regla de privilegios por omisión** que hacía nacer con DML a toda tabla nueva. `test:grant-scope` impide que cualquiera de las dos vuelva. Falta acotar por operación las 96 restantes.
+
 Donde no hay política, la única barrera es el código de aplicación. Un bug de ownership en un handler equivale a exposición total de esa tabla. Y sin una matriz, cada tabla nueva reproduce el problema en silencio.
 
 ## Estado

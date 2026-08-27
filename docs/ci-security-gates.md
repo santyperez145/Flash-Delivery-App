@@ -198,6 +198,19 @@ Las tres variantes del navegador pasaron. La latencia falló, y por dos motivos 
 
 **El job medía contra el respaldo SQLite.** Ahí la mitad de los escenarios degrada con 503 y los que responden lo hacen sobre un archivo local, que no se parece en nada a la latencia de producción. Ahora levanta PostgreSQL con roles separados, migra y siembra, como `ci-critical-flows`.
 
+### Alcance de los permisos del runtime
+
+`test:grant-scope` impide que `flash_runtime` recupere el permiso general que la migración 010 le había dado: DML sobre todas las tablas, más una regla de privilegios por omisión que repetía ese permiso sobre **toda tabla futura**.
+
+Esa segunda parte es la que dejó alcanzable un almacén de credenciales muerto durante meses. Nadie tuvo que otorgar nada: `user_security_factors` nació con DML porque la regla existía.
+
+La migración 116 revocó la escritura sobre las ocho tablas de referencia donde el código nunca escribe, y retiró la herencia. **No revoca nada existente** —el permiso se materializa al crear la tabla— pero a partir de ahora una tabla nueva nace sin acceso y hay que otorgárselo a mano en la misma migración que la crea.
+
+Eso cambia el modo de fallar, y a mejor: antes una tabla sin revisar quedaba silenciosamente escribible; ahora falla fuerte y temprano, en CI, con «permission denied for table».
+
+La puerta persigue la forma `ON ALL TABLES` porque es la que uno escribe sin pensar cuando una migración falla por permisos, y resuelve el síntoma deshaciendo la decisión. La migración 010 queda exceptuada: es el registro histórico y las migraciones son de sólo agregar.
+
+**El inventario mecánico no alcanzaba.** Buscar `INSERT`/`UPDATE`/`DELETE` por tabla en `server/**` daba diez candidatas de sólo lectura, y dos eran falsas: `drivers` tiene disparadores que insertan en `driver_availability_sessions` y `driver_job_sessions` cuando alguien se pone en línea, y esas funciones **no** son `SECURITY DEFINER`, así que corren con los permisos de quien las dispara. Revocar ahí habría roto que un conductor se conecte, con un error de permisos dentro de un trigger.
 ### Cobertura documental de las puertas
 
 `test:docs-coverage` exige que cada script `test:` esté nombrado en algún documento de `docs/`. Una puerta que nadie sabe que existe no se mantiene: cuando falla, quien la encuentra no sabe qué protegía ni si conviene arreglarla o borrarla.

@@ -28,21 +28,21 @@ La auditoría del 25 de agosto identificó que el riesgo principal de Flash no e
 
 ## Estado consolidado
 
-Al **27 de agosto de 2026**, sobre **99 capacidades inventariadas**:
+Al **27 de agosto de 2026**, sobre **100 capacidades inventariadas**:
 
 | Estado | Capacidades | Proporción | Al 26-08 | Al 25-08 |
 | --- | ---: | ---: | ---: | ---: |
 | `IMPL` | 7 | 7,1% | 6 | 9 |
 | `LOCAL` | 8 | 8,1% | 8 | 50 |
-| `CI` | 70 | 70,7% | 64 | 14 |
+| `CI` | 71 | 71,0% | 64 | 14 |
 | `PROV` | 0 | 0% | 0 | 0 |
 | `STG` | 0 | 0% | 0 | 0 |
 | `PROD` | 0 | 0% | 0 | 0 |
 | No existe | 14 | 14,1% | 16 | 18 |
 
-**Lectura:** de las 85 capacidades que existen, **15 (18%) siguen en `IMPL` o `LOCAL`** — sin puerta automática que las proteja de una regresión. Eran 59 sobre 73 (81%) el 25 de agosto.
+**Lectura:** de las 86 capacidades que existen, **15 (18%) siguen en `IMPL` o `LOCAL`** — sin puerta automática que las proteja de una regresión. Eran 59 sobre 73 (81%) el 25 de agosto.
 
-El salto viene de las puertas del ticket CI-001. Las 70 en `CI` ya no son infraestructura: incluyen migraciones, RLS, cadena de auditoría, aislamiento por ciudad, audiencia realtime, ledger, conciliación, riesgo, payouts, KYC, vehículos, safety, chat, soporte, notificaciones, push y mapas.
+El salto viene de las puertas del ticket CI-001. Las 71 en `CI` ya no son infraestructura: incluyen migraciones, RLS, cadena de auditoría, aislamiento por ciudad, audiencia realtime, ledger, conciliación, riesgo, payouts, KYC, vehículos, safety, chat, soporte, notificaciones, push y mapas.
 
 **Ninguna capacidad alcanzó `PROV`.** Ni pagos, ni push, ni mapas, ni KYC fueron probados contra un proveedor real. Ese es el objetivo de la Fase 1, y es la distancia que esta matriz existe para no dejar olvidar: **una capacidad en `CI` está protegida contra regresiones, no demostrada contra el mundo real.**
 
@@ -81,7 +81,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Capacidad | Estado | Evidencia / bloqueo |
 | --- | --- | --- |
 | PostgreSQL/PostGIS runtime | `CI` | `ci-postgres.yml` levanta PostGIS 17 con roles separados |
-| 115 migraciones versionadas | `CI` | `ci-postgres.yml` corre desde cero y de forma incremental sobre la rama base |
+| 116 migraciones versionadas | `CI` | `ci-postgres.yml` corre desde cero y de forma incremental sobre la rama base |
 | Row-Level Security | `CI` | `test:rls` bloquea el merge · **64 de 65** tablas `por-usuario` con política. `shipment_details` y `promotion_redemptions` cerraron el 27-08: la primera guardaba nombre, teléfono y PIN del destinatario sin `ENABLE` |
 | Matriz de clasificación RLS | `CI` | `test:rls-matrix`: las 104 tablas clasificadas, deuda declarada que sólo puede achicarse. Desde el 27/08 también resta los `DROP TABLE`: una clasificación no sobrevive a su tabla |
 | `FORCE ROW LEVEL SECURITY` | — | **Cero sentencias.** El dueño es `flash_app`, que migra y hace backfill sobre filas de todos: `FORCE` a todo rompe ese trabajo — ticket DAT-001 |
@@ -92,6 +92,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Aislamiento por ciudad | `CI` | `test:city-isolation` en `ci-postgres.yml` |
 | Backup y restore drill | `LOCAL` | `db:restore:drill` fuera de CI · sin cronometrar contra RTO |
 | Separación de roles PostgreSQL | `CI` | `test:container-security` |
+| Alcance de permisos del runtime | `CI` | `test:grant-scope`. La 116 revocó escritura en 8 tablas de referencia y retiró la herencia que hacía nacer con DML a toda tabla nueva |
 | Imagen productiva non-root | `CI` | Job `container-image` construye la imagen y verifica `uid=999(flash)` |
 
 ## Pagos y finanzas
