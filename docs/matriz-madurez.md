@@ -104,7 +104,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 
 | Capacidad | Estado | Evidencia / bloqueo |
 | --- | --- | --- |
-| Ledger de doble entrada | `CI` | `test:marketplace-ledger` en `ci-fast` |
+| Ledger de doble entrada | `CI` | `test:ledger-balance` en `ci-postgres`: barre el libro, exige el trigger diferido de la migración 118 y le prueba las dos mitades. `test:marketplace-ledger` cubre la aritmética del split |
 | Payment intents | `CI` | `test:payment-methods` en `ci-critical-flows` |
 | Wallet sandbox | `CI` | `test:postgres` cubre captura y reintegro · **no custodial por decisión** |
 | Mercado Pago OAuth PKCE | `CI` | `test:payment-oauth` cubre el contrato · **sin sellers de prueba vinculados** — ticket PAY-001 |

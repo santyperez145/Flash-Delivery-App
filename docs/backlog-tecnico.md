@@ -400,7 +400,7 @@ Sellers de test vinculados · OAuth completo · refresh y expiración probados �
 
 ### Criterios de aceptación
 
-- [ ] El ledger queda balanceado tras cada operación.
+- [x] **El ledger queda balanceado tras cada operación.** Deja de depender de que dieciocho puntos de escritura en nueve repositorios acierten cada uno por su cuenta: la migración 118 agrega un `CONSTRAINT TRIGGER` diferido que rechaza al commit toda transacción cuyos débitos no igualen a sus créditos. Diferido y no inmediato porque la reversión proporcional de incidencias inserta N débitos antes de su crédito. `test:ledger-balance` barre el libro entero, exige que el trigger siga existiendo y siendo diferido, y **le prueba las dos mitades en cada corrida** —rechaza lo torcido, acepta lo que cuadra—, todo dentro de un ROLLBACK. La fila de la matriz ya decía `CI`, pero descansaba sobre `test:marketplace-ledger`, que prueba la aritmética del split y no la partida doble.
 - [ ] Un pago duplicado es idempotente y no genera doble asiento.
 - [ ] Un reembolso proporcional se refleja correctamente en el split.
 - [ ] Una diferencia de conciliación genera un caso operativo, no un error silencioso.
