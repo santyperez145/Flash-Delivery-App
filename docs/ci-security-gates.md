@@ -363,6 +363,22 @@ Se escribe a archivo y después se imprime, en vez de `| tee`: en una tubería e
 
 No amplía quién ve qué: un artefacto lo descarga quien ya puede leer el log de la corrida, que hoy publica un `tail` del mismo archivo. Lo que cambia es que el contenido deja de estar truncado.
 
+### Ensayo de restore en cada PR
+
+Un backup que nunca se restauró no es un backup. `scripts/restore-drill.ps1` hace el ensayo que importa —levanta un cluster nuevo, restaura el dump más reciente y verifica invariantes— pero corre sobre la máquina que guarda los backups y es PowerShell: no puede estar en CI.
+
+`test:restore-drill` es **otro** ensayo, no un reemplazo. Vuelca la base de CI, la restaura en una segunda base y corre los invariantes contra la copia.
+
+No prueba que los backups del dueño sean restaurables —eso sólo se puede probar donde están—, pero prueba lo que el ensayo local no puede probar en cada PR: que el esquema, las extensiones, las políticas y los permisos **sobreviven al viaje por `pg_dump`**, en la versión de hoy del esquema. Lo que se rompe en un restore no suele ser el dump; es algo que el dump no lleva.
+
+Lo que verifica: migraciones completas y la última coincidiendo con el repositorio, PostGIS presente, ninguna restricción sin validar, los conteos de filas iguales a los del origen, el ledger cuadrado, **las mismas tablas con RLS activo**, el mismo número de políticas, los mismos permisos de `flash_runtime` y `flash_rls_audit` tabla por tabla, y la cadena de auditoría válida sobre los datos restaurados.
+
+La comprobación de RLS es la que más rinde: una tabla restaurada sin `ENABLE ROW LEVEL SECURITY` responde a todo el mundo **y no falla nunca**. La de permisos cubre el caso de alguien que agrega una tabla y olvida su GRANT — en la base viva no se nota, porque el rol ya tiene permiso sobre las demás.
+
+`pg_dump` y `pg_restore` corren **dentro del contenedor de servicio**: el runner trae un cliente más viejo que el servidor 17 y `pg_dump` se niega a volcar un servidor mayor que él. Adentro la versión coincide por construcción; las comprobaciones corren desde Node por TCP, donde la versión del cliente no importa.
+
+**Limitación declarada:** restaura en el mismo cluster, así que los roles ya existen. Un `pg_dump` de una base no lleva las definiciones de rol, que son de cluster y salen de `pg_dumpall --roles-only`. Que los roles sean recuperables es una pregunta legítima y ésta no la responde.
+
 ### Cobertura documental de las puertas
 
 `test:docs-coverage` exige que cada script `test:` esté nombrado en algún documento de `docs/`. Una puerta que nadie sabe que existe no se mantiene: cuando falla, quien la encuentra no sabe qué protegía ni si conviene arreglarla o borrarla.
