@@ -18,7 +18,6 @@
 import { config } from "./config.js";
 
 const GOOGLE_ROUTES = "https://routes.googleapis.com";
-const GOOGLE_PLACES = "https://places.googleapis.com";
 const GOOGLE_GEOCODE = "https://maps.googleapis.com/maps/api/geocode/json";
 
 // --- OpenStreetMap: sólo desarrollo -----------------------------------------
