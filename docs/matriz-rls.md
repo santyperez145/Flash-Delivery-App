@@ -28,13 +28,11 @@ Donde no hay política, la única barrera es el código de aplicación. Un bug d
 
 ## Deuda declarada
 
-Tres tablas están clasificadas `por-usuario` y todavía no tienen política. La lista vive en `scripts/rls-matrix-check.mjs` y **sólo puede achicarse**: la puerta falla si aparece una sexta sin motivo escrito, y también si una de estas gana política y no se la quita de la lista.
+Una tabla está clasificada `por-usuario` y todavía no tiene política. La lista vive en `scripts/rls-matrix-check.mjs` y **sólo puede achicarse**: la puerta falla si aparece una sexta sin motivo escrito, y también si una de estas gana política y no se la quita de la lista.
 
 | Tabla | Por qué todavía no |
 | --- | --- |
 | `user_roles` | **Se lee antes de autenticar.** Ver abajo. |
-| `drivers` | 39 archivos la consultan, varios sin contexto de usuario |
-| `merchants` | 23 archivos la consultan, varios sin contexto de usuario |
 
 ### Cerrada: `shipment_details`
 
@@ -59,6 +57,18 @@ Tres consultas del runtime cuentan filas de todos los usuarios a propósito: `or
 Si la política alcanzara al runtime, el efecto no sería un error visible sino algo peor: **una promoción con tope de 100 no se agotaría nunca**, porque cada persona contaría sólo sus propias redenciones. Un descuento sin tope efectivo es dinero.
 
 Aplicarla destapó que **nada afirmaba que ese conteo global funcionara**. `postgres-runtime-smoke.mjs` verificaba la redención leyendo con el rol migrador, que es dueño del esquema y saltea RLS: no podía demostrar nada sobre visibilidad. Ahora hay una afirmación que consulta `usageCount` por la API —es decir, como `flash_runtime`— y exige que siga contando todo.
+
+### Cerradas: `drivers` y `merchants`
+
+La migración `115_driver_merchant_rls.sql` las cerró el 27 de agosto de 2026, y el motivo registrado para no hacerlo —«39 y 23 archivos las consultan, varios sin contexto»— **no resistió el inventario**.
+
+El conteo real sobre `drivers` da **55 consultas SQL en 20 archivos**: 26 corren con contexto (`client.query` dentro de `withDatabaseContext`) y 16 usan `postgresPool.query` directo. Entre esas 16 hay casos que **tienen que** ver filas ajenas: `ownerOfDriver` resuelve de quién es una entidad justo antes de saber a quién mostrarla, y el listado de backoffice cruza inquilinos por definición.
+
+Pero eso sólo bloquearía si la política tuviera que alcanzar al runtime, y no tiene: `flash_runtime` recibe su política de servicio como en las otras 66 tablas. **La objeción heredada asumía una política más estricta de la que este esquema usa en todas partes.**
+
+Lo que sí estaba abierto era peor de lo que decía la nota: **`flash_rls_audit` tiene `GRANT SELECT` sobre las dos desde la migración 011 y ninguna tenía `ENABLE`.** El rol que existe para demostrar aislamiento leía el nombre, la patente, la posición en vivo y la calificación de todos los conductores, y el dueño y la ubicación de todos los comercios.
+
+Las políticas incluyen `support` además de `admin`, igual que `jobs_participants`: soporte atiende casos sobre conductores y comercios que no son suyos.
 
 ### El caso difícil: `user_roles`
 
