@@ -154,11 +154,40 @@ jobs:
   latency:
     name: Latencia de endpoints
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
 
-    # `test:performance` esta fuera de la puerta de merge porque mide tiempos en
-    # un runner compartido. Acá tampoco garantiza nada absoluto, pero una
-    # regresion sostenida noche tras noche sí se ve.
+    # Se mide contra PostgreSQL y no contra el respaldo SQLite. La primera
+    # version de este job usaba el respaldo y no servia: la mitad de los
+    # escenarios degradan con 503 ahi, y los que responden lo hacen sobre un
+    # archivo local, que no se parece en nada a la latencia de produccion.
+    services:
+      postgres:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_DB: flash
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci_admin
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d flash"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      MIGRATION_DATABASE_URL: postgresql://flash_app:ci_migration@127.0.0.1:5432/flash
+      DATABASE_URL: postgresql://flash_runtime:ci_runtime@127.0.0.1:5432/flash
+      DATABASE_SSL: "false"
+      API_URL: http://127.0.0.1:4000/api
+      JWT_SECRET: flash-ci-secret-not-used-anywhere-else
+      PAYMENT_WEBHOOK_SECRET: local-payment-webhook-secret-change-me
+      METRICS_TOKEN: local-metrics-token-change-before-prod
+      # Cada escenario dispara treinta peticiones: el limitador por defecto
+      # las corta y la medicion pasaria a ser del rate limiter.
+      RATE_LIMIT_MAX: "100000"
+      AUTH_RATE_LIMIT_MAX: "100000"
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -172,18 +201,43 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Replica database/docker-init/001-runtime-roles.sh: el runtime nunca es
+      # duenio del esquema ni tiene BYPASSRLS, y `server/rls-guard.js` se niega
+      # a arrancar en produccion si lo fuera.
+      - name: Create separated database roles
+        env:
+          PGPASSWORD: ci_admin
+        run: |
+          psql --set=ON_ERROR_STOP=1 -U postgres -d flash -h 127.0.0.1 <<'SQL'
+          CREATE ROLE flash_app     LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD 'ci_migration';
+          CREATE ROLE flash_runtime LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD 'ci_runtime';
+          ALTER DATABASE flash OWNER TO flash_app;
+          SQL
+
+      - name: Migrate and seed
+        run: |
+          npm run db:migrate
+          npm run db:check
+          npm run db:seed:auth
+          npm run db:seed:addresses
+          npm run db:seed:commerce
+          npm run db:seed:orders
+          npm run db:seed:mobility
+          npm run db:seed:wallet
+          npm run db:seed:derived
+
       - name: Build web assets
         run: npm run build
 
-      - name: Start API on the SQLite fallback
-        env:
-          NODE_ENV: test
-          LOG_LEVEL: silent
+      - name: Start API
         run: |
           node server/start.js > /tmp/perf-api.log 2>&1 &
           echo $! > /tmp/perf-api.pid
           for attempt in $(seq 1 60); do
-            if curl -fsS http://127.0.0.1:4000/api/ready > /dev/null 2>&1; then exit 0; fi
+            if curl -fsS "$API_URL/ready" > /dev/null 2>&1; then
+              echo "API lista tras ${attempt}s"
+              exit 0
+            fi
             sleep 1
           done
           echo "::error::La API no alcanzo readiness"
@@ -192,6 +246,10 @@ jobs:
 
       - name: Endpoint latency
         run: npm run test:performance
+
+      - name: API log
+        if: failure()
+        run: tail -120 /tmp/perf-api.log || true
 
       - name: Detener API
         if: always()
