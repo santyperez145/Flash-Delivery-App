@@ -45,7 +45,14 @@ const mapCase = (row) => ({
   resolutionNote: row.resolution_note || null,
   resolvedAt: row.resolved_at ? new Date(row.resolved_at).toISOString() : null,
 });
-async function upsertCase(
+/**
+ * Abre o actualiza un caso de conciliacion.
+ *
+ * Se exporta porque no todos los casos nacen del escaneo: la reversion de un
+ * reintegro abre uno cuando deja el saldo de un comercio en negativo, y ese
+ * hallazgo aparece en el momento de escribir el asiento, no despues.
+ */
+export async function upsertCase(
   client,
   {
     fingerprint,

@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { postgresPool } from "./postgres.js";
 import { enqueueNotificationForInternalUser } from "./notification-repository.js";
+import { upsertCase } from "./payment-repository.js";
 
 const publicId = () => `ISS-${crypto.randomBytes(6).toString("hex").toUpperCase()}`;
 const money = (cents) => Number(cents || 0) / 100;
@@ -153,6 +154,40 @@ export async function resolveOrderIssue({
           `INSERT INTO ledger_entries(transaction_id,account_id,direction,amount_cents,reference_type,reference_id,metadata) VALUES($1,$2,'credit',$3,'order_issue',$4,$5)`,
           [reversal.id, clearing.id, refundCents, issue.job_id, { issueId: issuePublicId }],
         );
+
+        // Decision tomada: el reintegro al cliente nunca se bloquea por el saldo
+        // de un tercero, asi que una parte puede quedar en negativo si ya cobro
+        // lo que ahora devuelve. La deuda se netea contra liquidaciones futuras.
+        // Lo que no puede pasar es que nadie se entere: un comercio que deja de
+        // vender con saldo negativo se lleva la deuda puesta.
+        for (const row of settlement.rows) {
+          const saldo = Number(
+            (
+              await client.query(
+                `SELECT COALESCE(sum(CASE WHEN direction='credit' THEN amount_cents ELSE -amount_cents END),0)::bigint saldo
+                 FROM ledger_entries WHERE account_id=$1`,
+                [row.account_id],
+              )
+            ).rows[0].saldo,
+          );
+          if (saldo >= 0) continue;
+          await upsertCase(client, {
+            fingerprint: `negative_balance:${row.account_id}:${issuePublicId}`,
+            provider: payment.provider,
+            caseType: "negative_balance",
+            severity: "medium",
+            entityType: "ledger_account",
+            entityId: row.account_id,
+            externalReference: issuePublicId,
+            summary: `Saldo en negativo tras reintegro de ${issue.job_public_id}`,
+            details: {
+              balanceCents: saldo,
+              refundCents,
+              issueId: issuePublicId,
+              jobPublicId: issue.job_public_id,
+            },
+          });
+        }
       }
       const transaction = (
         await client.query(
