@@ -104,6 +104,12 @@ jobs:
       - name: Audit chain immutability
         run: npm run test:audit-immutability
 
+      # La cadena es inmutable, pero eso no sirve si un evento nunca llega a
+      # escribirse. `INSERT ... SELECT` con un actor inexistente inserta cero
+      # filas y no falla; esto exige que falle.
+      - name: Atribucion de auditoria
+        run: npm run test:audit-actor
+
       - name: City isolation
         run: npm run test:city-isolation
 
