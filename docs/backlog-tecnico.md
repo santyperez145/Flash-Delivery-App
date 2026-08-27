@@ -119,7 +119,7 @@ Adoptar además un framework estándar de pruebas: **Vitest**, **Testcontainers*
 - [ ] `ci-nightly.yml`. **Existe desde el 27-08** con la auditoría responsive en Chromium —una corrida por variante— y la latencia de endpoints. Faltan carga k6, sandbox de proveedores y builds EAS, que necesitan credenciales, y el restore drill, que es PowerShell y no corre en ubuntu.
 - [x] **La rama `main` está protegida y exige PR** desde el 27-08: los 7 checks son obligatorios, la rama debe estar al día, la historia es lineal y no hay excepción para administradores.
 - [ ] Pagos y seguridad exigen dos aprobaciones (`CODEOWNERS` ya existe; falta más de un revisor).
-- [ ] Los artefactos de test se almacenan y son consultables tras el run.
+- [x] **Los artefactos de test se almacenan y son consultables tras el run.** `ci-critical-flows` guarda la salida de **cada suite en su propio archivo** —cuarenta suites en un solo paso son un muro donde el error que importa queda a tres mil líneas del final— más el log completo de la API, y `ci-fast` sube el del respaldo SQLite. Se suben **pase o falle** la corrida: guardarlos sólo ante un fallo impide la comparación que más sirve, la de una verde contra una roja. Retención de 14 días. No amplía quién ve qué: un artefacto lo descarga quien ya puede leer el log, que hoy publica un `tail` del mismo archivo; lo que cambia es que deja de estar truncado.
 
 ### Verificación
 

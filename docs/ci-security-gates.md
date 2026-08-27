@@ -351,6 +351,18 @@ También acota la ventana: un `hours` gigante no puede convertirse en un barrido
 
 La última comprobación es la que evita que la puerta pase por el motivo equivocado: el total que devuelve la ruta tiene que **coincidir con lo que hay en la base**. Sin eso, una implementación que devolviera la forma correcta con ceros aprobaría todo lo anterior.
 
+### Artefactos que sobreviven a la corrida
+
+`ci-critical-flows` corre más de cuarenta suites en un solo paso. El log de Actions sirve para leer mientras pasa, pero es un muro de texto donde el error que importa queda a tres mil líneas del final, y buscar dentro o comparar contra otra corrida no es práctico.
+
+Cada suite escribe además su propia salida a `test-artifacts/suites/<suite>.log`, y todo se sube como artefacto junto con el log completo de la API. `ci-fast` hace lo mismo con el del respaldo SQLite, donde el fallo típico está en el arranque —justo lo que un `tail -200` se come—.
+
+Se escribe a archivo y después se imprime, en vez de `| tee`: en una tubería el código de salida es el del último comando, así que `tee` convertiría cualquier suite roja en verde. Es el tipo de detalle que apaga una puerta sin que nadie lo note.
+
+**Se suben pase o falle la corrida.** Guardarlos sólo ante un fallo impide la comparación que más sirve: la de una corrida verde contra una roja. Retención de 14 días.
+
+No amplía quién ve qué: un artefacto lo descarga quien ya puede leer el log de la corrida, que hoy publica un `tail` del mismo archivo. Lo que cambia es que el contenido deja de estar truncado.
+
 ### Cobertura documental de las puertas
 
 `test:docs-coverage` exige que cada script `test:` esté nombrado en algún documento de `docs/`. Una puerta que nadie sabe que existe no se mantiene: cuando falla, quien la encuentra no sabe qué protegía ni si conviene arreglarla o borrarla.
