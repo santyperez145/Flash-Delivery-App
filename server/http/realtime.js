@@ -19,12 +19,15 @@ import { postgresPool } from "../postgres.js";
 import {
   canReceiveRealtimeEvent,
   getPostgresRealtimeCursor,
+  getRealtimeAudienceHealth,
   getPostgresRealtimeReplay,
   persistPostgresRealtimeEvent,
   startPostgresRealtimeListener,
 } from "../realtime-repository.js";
 import { createId, getTimestamp } from "../store.js";
 import { requireAuth } from "./authentication.js";
+import { requireAnyRole } from "./authorization.js";
+import { failFrom, ok } from "./responses.js";
 
 /**
  * Clientes SSE conectados: `res` → `{ userPublicId, roles }`.
@@ -115,6 +118,34 @@ export function startRealtimeListener() {
 }
 
 export const realtimeRouter = Router();
+
+// Salud de la clasificacion de audiencias, para el panel de operaciones.
+//
+// Vive con el hub y no en un router de backoffice porque es una pregunta sobre
+// realtime, no sobre negocio: quien la responde es el mismo modulo que decide
+// la audiencia. `postgresOnly` porque el respaldo SQLite no lleva log de
+// eventos, y devolver ceros ahi seria peor que decir que no se puede.
+realtimeRouter.get(
+  "/api/admin/realtime-audience",
+  requireAuth,
+  requireAnyRole("support", "admin"),
+  async (req, res) => {
+    if (!postgresPool) {
+      return failFrom(
+        res,
+        Object.assign(new Error("El log de eventos realtime requiere PostgreSQL"), {
+          status: 503,
+        }),
+        "No se pudo leer la salud de audiencias",
+      );
+    }
+    try {
+      return ok(res, await getRealtimeAudienceHealth({ hours: req.query.hours }));
+    } catch (error) {
+      return failFrom(res, error, "No se pudo leer la salud de audiencias");
+    }
+  },
+);
 
 realtimeRouter.get("/api/events", requireAuth, async (req, res) => {
   res.status(200);
