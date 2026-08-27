@@ -2,7 +2,7 @@
 
 ## Estado al 27 de agosto de 2026
 
-`ci.yml` se dividió en tres workflows y **los cinco jobs están en verde**. La cobertura pasó de **15 a 87 de 90 suites** detrás de una puerta, 86 de ellas bloqueantes y una en cuarentena declarada.
+`ci.yml` se dividió en tres workflows y **los cinco jobs están en verde**. La cobertura pasó de **15 a 91 de 92 suites** detrás de una puerta: **88 bloquean el merge**, 2 corren de noche y 1 está en cuarentena declarada.
 
 Desde el 27 de agosto la rama `main` **está protegida**: los siete checks son obligatorios, la rama debe estar al día, la historia es lineal y no hay excepción para administradores. Hasta ese día se habían mergeado once PR con CI en verde sin que nada lo exigiera.
 
@@ -18,7 +18,7 @@ Además, `main` llevaba en rojo desde el 23 de agosto sin que nadie estuviera bl
 | `ci-postgres.yml` | Cada PR | PostGIS 17 · roles separados · migraciones desde cero · migración incremental sobre la base del PR · seeds reproducibles · RLS · cadena de auditoría · aislamiento por ciudad · datos sensibles · idempotencia · comercio, zonas y configuración | **Verde** |
 | `ci-critical-flows.yml` | Cada PR | API levantada contra PostgreSQL · runtime smoke · pagos · conciliación · riesgo · payouts · propinas · KYC · vehículos · ganancias · safety · chat · siniestros · SLA · notificaciones · recursos por audiencia | **Verde** |
 | `local-fallback` (en `ci-fast`) | Cada PR | API sobre el fallback SQLite · contratos que no son los de PostgreSQL | **Verde** |
-| `ci-nightly.yml` | Cada noche | Playwright E2E · performance · carga k6 · provider sandbox · restore drill · dependency scan completo · mobile build preview | Pendiente |
+| `ci-nightly.yml` | 06:00 UTC y a mano | Auditoría responsive en navegador real, una corrida por variante · latencia de endpoints | **Existe** desde el 27-08. Sin k6, sandbox de proveedores, builds EAS ni restore drill |
 
 ### Qué descubrió cada primera corrida
 
@@ -181,6 +181,15 @@ El defecto tiene una forma reconocible y el repositorio ya la había documentado
 Lo que se afirma es la degradación, no la funcionalidad. Una ruta puede responder 200 vacío, 400, 401, 403, 404 o **503 porque necesita PostgreSQL**. Lo único inadmisible es 500: significa que el servidor no anticipó su propio runtime.
 
 Apareció levantando la aplicación de conductor en un navegador. Ninguna puerta estática lo veía, y no por descuido: estáticamente el código es correcto —la llamada existe, el nombre está importado, el error está capturado—. Es el argumento a favor de tener una suite que ejerza el runtime además de las que leen el código.
+### Nocturnas frente a bloqueantes
+
+Desde el 27 de agosto `test:ci-coverage` distingue tres categorías y no dos. Una suite nocturna **tiene** puerta, pero no bloquea un merge, así que contarla junto a las que sí diría que un PR queda frenado por algo que en realidad corre ocho horas después.
+
+Las dos nocturnas están ahí por motivos distintos y los dos son legítimos: `test:performance` mide latencia en un runner compartido, donde bloquear un merge produce reintentos y no calidad; `test:responsive-browser` necesita un navegador real, tres servidores y un bundle de Expo por variante, que es demasiada infraestructura para cada PR.
+
+Lo que la categoría **no** permite es esconder una suite: si una nocturna no aparece invocada en ningún workflow, la puerta falla igual. La etiqueta explica por qué no bloquea, no la exime de correr.
+
+La auditoría de navegador vale la pena de noche por lo que encontró al arreglarse: hasta el 27 de agosto pasaba **sobre la pantalla de login**, porque su marcador de cliente era también el rótulo de un chip previo a autenticarse. Corregida, las tres variantes se auditan ya autenticadas.
 ### Cobertura documental de las puertas
 
 `test:docs-coverage` exige que cada script `test:` esté nombrado en algún documento de `docs/`. Una puerta que nadie sabe que existe no se mantiene: cuando falla, quien la encuentra no sabe qué protegía ni si conviene arreglarla o borrarla.

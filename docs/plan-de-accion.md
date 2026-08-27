@@ -346,7 +346,15 @@ informativos: `main` sólo acepta merges por PR, con los 7 contextos en verde y 
 Hasta ese día se habían mergeado once PR en los que CI pasaba sin que nada lo exigiera —el
 trabajo estaba hecho y la puerta seguía abierta—.
 
-Quedan `ci-nightly.yml` y **una** suite en cuarentena (`test:support-routing`).
+`ci-nightly.yml` existe desde el 27 de agosto: corre la auditoría responsive en
+Chromium —una vez por variante móvil— y la latencia de endpoints. Con eso las
+dos suites que estaban declaradas como excepción pasaron a tener puerta, y
+`test:ci-coverage` distingue ahora nocturna de bloqueante para que el número
+que publica no exagere lo que un PR realmente frena.
+
+Queda **una** suite en cuarentena (`test:support-routing`), y del nocturno
+faltan carga k6, sandbox de proveedores y builds EAS —los tres necesitan
+credenciales— más el restore drill, que hoy es un script PowerShell.
 
 Cerrar tres de las cuatro suites en cuarentena destapó cuatro defectos reales
 —ninguno era fragilidad de la prueba—, tres de ellos variantes de H-11. Uno
