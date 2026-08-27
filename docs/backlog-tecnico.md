@@ -40,7 +40,7 @@ Cinco archivos concentran más de 1,3 MB de código: `apps/mobile/App.tsx` (433 
 - [x] **Ningún módulo de dominio importa React.** 93 módulos verificados por `test:domain-purity`, en `ci-fast.yml`. La regla es la convención del repositorio: `.ts` es lógica, `.tsx` es presentación. `react-native` no cuenta, porque ahí aporta primitivas de plataforma y no renderizado.
 - [x] **El build de driver no incluye pantallas de comercio.** `metro.config.js` resuelve `./variant-screen` según `EXPO_PUBLIC_APP_VARIANT`, así que las otras dos pantallas quedan sin arista que las alcance. Verificado sobre bytecode Hermes real: `test:mobile-variant-bundles` empaqueta las tres variantes y comprueba la diagonal.
 - [x] **El build de customer no incluye backoffice.** Mismo mecanismo y misma puerta. Los tres bundles bajaron de llevar las 9.715 líneas de las tres pantallas a llevar una: 2,3 MB customer, 2,4 MB driver, 2,1 MB merchant.
-- [ ] `server/index.js` deja de contener lógica de dominio. **35 de 57 grupos de rutas extraídos**; quedan 85 rutas en 24 grupos. `index.js` bajó de 9.696 a 4293 líneas (−56%). El dominio de viajes salió entero —cotización firmada, ciclo y seguridad— y dejó `server/geo.js`, que comparten viajes, envíos y la posición del conductor.
+- [ ] `server/index.js` deja de contener lógica de dominio. **38 de 57 grupos de rutas extraídos**; quedan 75 rutas en 22 grupos. `index.js` bajó de 9.696 a 3535 líneas (−64%). Los tres dominios de movilidad —pedidos, viajes y envíos— salieron enteros, cada uno con su router y compartiendo `geo.js`, `driver-earnings.js`, `http/cancellation.js` y `addTimeline`.
 
 ### Verificación
 
