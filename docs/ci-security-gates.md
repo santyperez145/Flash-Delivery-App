@@ -287,6 +287,26 @@ La prueba llama a la captura dos veces con el mismo pago y verifica que quede un
 
 De paso adelanta el chequeo diferido con `SET CONSTRAINTS ... IMMEDIATE`, así que también queda probado que la captura escribe asientos que cuadran y no sólo que no los duplica. Todo termina en `ROLLBACK`.
 
+### Una auditoría que no se escribe hace ruido
+
+`recordPostgresAudit` inserta con `INSERT ... SELECT ... FROM users WHERE public_id = $1`. Si el actor no existe eso inserta **cero filas y no falla**: la acción privilegiada ocurre y su rastro desaparece sin que nadie se entere.
+
+Apareció al escribir la conciliación programada, que no tiene persona detrás. **No era un agujero abierto**: `requireAuth` verifica que el usuario exista antes de dejar pasar la petición, así que las 87 llamadas actuales pasan un actor que siempre resuelve. Era una trampa puesta para el próximo que llamara desde fuera de una sesión — y el próximo era yo.
+
+Ahora hay tres formas, distintas a propósito:
+
+| Actor | Qué pasa |
+| --- | --- |
+| existe | evento normal, con su `actor_id` |
+| no se pasa ninguno | evento anónimo, `actor_id` nulo — «alguien hizo esto y no sabemos quién» es peor que un nombre y muchísimo mejor que nada |
+| se pasa y no existe | **error**, porque eso es un defecto de quien llama |
+
+Para lo que sí origina el sistema hay `recordSystemAudit`, que exige declarar un `origin`. Está separada y no es «un actor nulo» porque un evento de sistema y uno cuyo actor no se pudo identificar son cosas distintas, y quien lee la auditoría necesita poder distinguirlas: `actor_id` nulo por sí solo no dice cuál de las dos es.
+
+`test:audit-actor` cubre las cinco formas. La tercera es la que importa; las otras están para que la puerta no pase por el motivo equivocado — una implementación que lance siempre aprobaría la comprobación del error y rompería las 87 llamadas que hoy andan.
+
+Los eventos que la prueba escribe **no se borran**. `audit_events` es append-only por diseño, con su trigger y su cadena de hashes, y abrir el portillo de mantenimiento para limpiar una prueba sería usar la llave equivocada por comodidad.
+
 ### Cobertura documental de las puertas
 
 `test:docs-coverage` exige que cada script `test:` esté nombrado en algún documento de `docs/`. Una puerta que nadie sabe que existe no se mantiene: cuando falla, quien la encuentra no sabe qué protegía ni si conviene arreglarla o borrarla.
