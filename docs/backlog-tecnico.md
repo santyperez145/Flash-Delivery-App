@@ -180,8 +180,8 @@ node -e "const p=require('./package.json'),fs=require('fs');const ci=fs.readdirS
 - [x] CI falla si aparece una tabla sin clasificar, si la matriz se desalinea de las migraciones, o si una tabla `por-usuario` queda sin política fuera de la deuda declarada.
 - [x] Las 106 tablas están clasificadas: 65 `por-usuario` (60 con política), 24 `global-lectura`, 15 `servicio`, 2 `sin-uso`.
 - [ ] Las cinco tablas de la deuda tienen política y prueba negativa. `user_roles` exige mover el login a `SECURITY DEFINER` primero.
-- [ ] Eliminar el esquema muerto: `outbox_events` y `user_security_factors`.
-- [ ] `FORCE ROW LEVEL SECURITY` donde corresponda — sigue en cero.
+- [x] **Esquema muerto eliminado.** `112_drop_dead_schema.sql` borró `outbox_events` y `user_security_factors`; la matriz pasó de 106 tablas a 104. La segunda tenía forma de almacén de credenciales —TOTP y WebAuthn— sin política RLS y alcanzable por el rol de runtime a través del `GRANT ... ON ALL TABLES`. Borrarla es la única manera de cerrar su deuda: una tabla sin uso no se puede probar.
+- [ ] `FORCE ROW LEVEL SECURITY` donde corresponda — sigue en cero, y [la matriz explica por qué no alcanza con aplicarlo](matriz-rls.md#force-row-level-security): el dueño es `flash_app`, que corre migraciones y backfills sobre filas de todos los usuarios, así que `FORCE` a todo rompe ese trabajo. El riesgo real es de configuración —apuntar `DATABASE_URL` al rol migrador desactivaría todas las políticas en silencio— y hoy sólo lo cubre el 503 de `/api/ready`, que saca la instancia del balanceador pero no impide que el proceso responda.
 - [ ] Los grants dejan de ser `ON ALL TABLES`.
 
 ### Verificación
