@@ -204,6 +204,10 @@ jobs:
       # Replica database/docker-init/001-runtime-roles.sh: el runtime nunca es
       # duenio del esquema ni tiene BYPASSRLS, y `server/rls-guard.js` se niega
       # a arrancar en produccion si lo fuera.
+      #
+      # Los tres roles hacen falta aunque este job solo use dos: las migraciones
+      # otorgan permisos a `flash_rls_audit` por nombre, asi que sin crearlo
+      # fallan con `role "flash_rls_audit" does not exist`.
       - name: Create separated database roles
         env:
           PGPASSWORD: ci_admin
@@ -211,6 +215,7 @@ jobs:
           psql --set=ON_ERROR_STOP=1 -U postgres -d flash -h 127.0.0.1 <<'SQL'
           CREATE ROLE flash_app     LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD 'ci_migration';
           CREATE ROLE flash_runtime LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD 'ci_runtime';
+          CREATE ROLE flash_rls_audit LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOBYPASSRLS PASSWORD 'ci_audit';
           ALTER DATABASE flash OWNER TO flash_app;
           SQL
 
