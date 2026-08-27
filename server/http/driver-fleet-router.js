@@ -139,6 +139,8 @@ router.get(
   requireAuth,
   requireAnyRole("driver", "support", "admin"),
   async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "La flota del conductor requiere PostgreSQL");
     try {
       return ok(res, {
         vehicles: await getDriverVehicles({
@@ -373,6 +375,8 @@ router.get(
   requireAuth,
   requireAnyRole("driver", "support", "admin"),
   async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "El legajo del conductor requiere PostgreSQL");
     try {
       return ok(res, {
         compliance: await getDriverCompliance({

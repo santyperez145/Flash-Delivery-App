@@ -34,6 +34,7 @@ import {
   replayNotificationDeadLetter,
 } from "../notification-repository.js";
 import { processSupportQueue, recordPostgresAudit } from "../operations-repository.js";
+import { usesPostgresCommerce } from "../postgres.js";
 import { requireAuth } from "./authentication.js";
 import { requireAnyRole } from "./authorization.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";
@@ -115,6 +116,7 @@ router.get(
   requireAuth,
   requireAnyRole("admin"),
   async (_req, res) => {
+    if (!usesPostgresCommerce()) return fail(res, 503, "La cola de descarte requiere PostgreSQL");
     try {
       return ok(res, { deadLetters: await getNotificationDeadLetters() });
     } catch (error) {

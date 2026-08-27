@@ -128,6 +128,7 @@ router.get(
   requireAuth,
   requireAnyRole("admin"),
   async (_req, res) => {
+    if (!usesPostgresCommerce()) return fail(res, 503, "La cola tarifaria requiere PostgreSQL");
     try {
       return ok(res, { requests: await getPostgresPricingChangeRequests() });
     } catch (error) {

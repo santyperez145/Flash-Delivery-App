@@ -199,6 +199,8 @@ router.get(
   requireAuth,
   requireAnyRole("support", "admin"),
   async (_req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "Los agentes de soporte requieren PostgreSQL");
     try {
       return ok(res, { agents: await getSupportAgents() });
     } catch (error) {

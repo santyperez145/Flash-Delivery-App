@@ -41,6 +41,7 @@ Cinco archivos concentran más de 1,3 MB de código: `apps/mobile/App.tsx` (433 
 - [x] **El build de driver no incluye pantallas de comercio.** `metro.config.js` resuelve `./variant-screen` según `EXPO_PUBLIC_APP_VARIANT`, así que las otras dos pantallas quedan sin arista que las alcance. Verificado sobre bytecode Hermes real: `test:mobile-variant-bundles` empaqueta las tres variantes y comprueba la diagonal.
 - [x] **El build de customer no incluye backoffice.** Mismo mecanismo y misma puerta. Los tres bundles bajaron de llevar las 9.715 líneas de las tres pantallas a llevar una: 2,3 MB customer, 2,4 MB driver, 2,1 MB merchant.
 - [x] **`server/index.js` deja de contener lógica de dominio.** 57 de 57 grupos de rutas extraídos a 31 routers en `server/http/`. `index.js` bajó de 9.696 a 873 líneas (−91%) y quedan 8 rutas, todas infraestructura del servidor: salud, readiness, OpenAPI, bootstrap por audiencia, las dos de métricas, el 410 de `/api/state` y el reset de la plataforma. El archivo es hoy el arranque, el middleware y el montaje, que es lo que el ticket pedía.
+- [x] **Ninguna ruta responde 500 sobre el respaldo SQLite.** `test:fallback-degradation` sondea 55 rutas × 4 audiencias en el job `local-fallback`. Encontró 17 rotas —incluido todo el flujo de conductor y la cola administrativa— por llamar a repositorios de PostgreSQL sin guarda. Apareció levantando la app en un navegador: ninguna puerta estática podía verlo, porque el código es estáticamente correcto.
 
 ### Verificación
 

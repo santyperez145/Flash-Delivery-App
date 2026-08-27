@@ -270,6 +270,8 @@ router.get(
   requireAuth,
   requireAnyRole("driver", "admin"),
   async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "Las ofertas de despacho requieren PostgreSQL");
     const driverId = isAdmin(req)
       ? String(req.query.driverId || req.auth.user.driverId || "")
       : req.auth.user.driverId;

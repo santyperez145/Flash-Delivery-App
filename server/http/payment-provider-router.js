@@ -23,6 +23,7 @@ import bcrypt from "bcryptjs";
 import { Router } from "express";
 import { z } from "zod";
 
+import { usesPostgresCommerce } from "../postgres.js";
 import { requireAuth } from "./authentication.js";
 import { requireAnyRole } from "./authorization.js";
 import { config } from "../config.js";
@@ -87,6 +88,8 @@ router.get(
   requireAuth,
   requireAnyRole("merchant"),
   async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "La vinculación con el proveedor de cobro requiere PostgreSQL");
     const merchantId = String(req.query.merchantId || req.auth.user.restaurantId || "");
     if (!merchantId) return fail(res, 400, "Falta el comercio");
     try {
