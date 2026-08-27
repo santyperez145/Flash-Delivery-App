@@ -334,8 +334,8 @@
     },
     "shipment_details": {
       "clase": "por-usuario",
-      "rls": false,
-      "nota": "Detalle del envío, vinculado por `job_id`. Candidata más limpia para aplicar RLS primero."
+      "rls": true,
+      "nota": "Datos de contacto del destinatario y hash del PIN de entrega. Política `shipment_details_via_job`: la visibilidad cae en cascada por `jobs`, que ya decide quién participa del trabajo."
     },
     "shipment_item_categories": {
       "clase": "global-lectura",
