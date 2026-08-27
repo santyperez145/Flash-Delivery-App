@@ -95,7 +95,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Alcance de permisos del runtime | `CI` | `test:grant-scope`. La 116 revocó escritura en 8 tablas de referencia y retiró la herencia que hacía nacer con DML a toda tabla nueva |
 | Imagen productiva non-root | `CI` | Job `container-image` construye la imagen y verifica `uid=999(flash)` |
 | Auditoría de dependencias de desarrollo | `CI` | `test:dependency-gate` cubre cuatro alcances: raíz y móvil, producción y desarrollo |
-| Dependencias de producción acotadas | `CI` | `test:production-deps`: las 20 están importadas por el servidor. Siete paquetes de frente salieron de la imagen |
+| Dependencias de producción acotadas | `CI` | `test:production-deps`: las 20 están importadas por el servidor. Siete paquetes de frente salieron de la imagen: 381 → 303 MiB |
 | Filesystem raíz de sólo lectura | `CI` | El job arranca la imagen con `--read-only` hasta que responde y comprueba que la raíz rechace escrituras. Escribible sólo `/tmp` y el volumen de datos |
 
 ## Pagos y finanzas
