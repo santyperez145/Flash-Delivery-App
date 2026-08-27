@@ -198,3 +198,17 @@ export const fallbackShipmentPricing = {
 export function findRestaurant(db, restaurantId) {
   return db.restaurants.find((restaurant) => restaurant.id === restaurantId);
 }
+
+/**
+ * Devuelve la entidad con el estado nuevo y su línea de tiempo extendida.
+ *
+ * Es la transición de estado del respaldo SQLite: pedidos, viajes y envíos
+ * avanzan con ella. En PostgreSQL la línea de tiempo la escribe la base.
+ */
+export function addTimeline(entity, status) {
+  return {
+    ...entity,
+    status,
+    timeline: [...(entity.timeline || []), { status, at: getTimestamp() }],
+  };
+}
