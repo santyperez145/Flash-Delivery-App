@@ -323,6 +323,18 @@ Corre desatendido cada noche en `ci-nightly`, que no reemplaza al planificador p
 
 El rastro queda en `audit_events` con `origin: scheduled-reconciliation`. Escribir esto es lo que destapó que `recordPostgresAudit` perdía el evento en silencio cuando no había actor: la conciliación programada habría corrido sin dejar rastro, que es justamente lo que un trabajo automático no puede permitirse.
 
+### La audiencia realtime, contra la base
+
+`test:realtime-audience` es estático: comprueba `classifyRealtimeAudience` —una función pura— y que ninguna publicación del servidor difunda a todos los roles por omisión. Es una buena puerta y corre en cada PR sin necesitar base de datos.
+
+Lo que no puede tocar es la mitad donde viviría una fuga de verdad. `ownerOfDriver`, `ownerOfMerchant`, `ownerOfSupportTicket`, `ownerOfAddress` y `participantsOfJob` son consultas SQL con JOINs, y un JOIN mal escrito devuelve al usuario equivocado sin que ninguna comprobación estática se entere. **La clasificación puede estar perfecta y el evento llegar igual a quien no debe.**
+
+`test:realtime-audience-runtime` no verifica `resolveAudience` en aislamiento: publica de verdad sobre los datos sembrados y después le pregunta al **replay** qué recibiría cada usuario, que es la consulta que decide la entrega. La propiedad que interesa no es «el arreglo guardado tiene los ids correctos» sino «este usuario no recibe este evento».
+
+Cada caso tiene sus dos mitades: el dueño recibe y un tercero no. Sin la primera, una implementación que no entregara nada a nadie pasaría entera y rompería el producto; sin la segunda no se estaría probando nada de lo que SEC-001 vino a arreglar. El ticket de soporte y la dirección se eligen con dueño distinto del usuario de control, para que el negativo no pase por casualidad.
+
+Se ejercitan además los tres caminos que tienen que cerrarse —`entityType` inventado, evento sin entidad, e identificador mal formado en `address`, que tiene su propia guarda antes de consultar— y en los tres se exige que **sí** llegue a operaciones: un default-deny que también le cierre la puerta a quien tiene que diagnosticar convierte cada incidente en una excavación.
+
 ### Cobertura documental de las puertas
 
 `test:docs-coverage` exige que cada script `test:` esté nombrado en algún documento de `docs/`. Una puerta que nadie sabe que existe no se mantiene: cuando falla, quien la encuentra no sabe qué protegía ni si conviene arreglarla o borrarla.

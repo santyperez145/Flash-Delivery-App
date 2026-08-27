@@ -151,7 +151,7 @@ node -e "const p=require('./package.json'),fs=require('fs');const ci=fs.readdirS
 - [x] Sólo `admin` recibe eventos operativos sin audiencia resoluble.
 - [x] Existe cobertura de test para **todos** los `entityType` en uso.
 - [x] Existe un test que agrega un `entityType` inventado y verifica que no hay broadcast.
-- [ ] Verificación de runtime de `resolveAudience` contra PostgreSQL con fixtures multiusuario. El contrato actual es estático.
+- [x] **Verificación de runtime de `resolveAudience` contra PostgreSQL con fixtures multiusuario.** `test:realtime-audience-runtime` publica eventos reales sobre datos sembrados y después le pregunta al **replay** qué recibiría cada usuario, que es la consulta que decide la entrega. Cubre la mitad que el contrato estático no puede tocar: los resolutores de propiedad son JOINs contra tablas reales, y uno mal escrito devuelve al usuario equivocado sin que ninguna comprobación estática se entere. Cada caso tiene sus dos mitades —el dueño recibe, un tercero no— y se ejercitan además los tres caminos que deben cerrarse: `entityType` inventado, evento sin entidad, e identificador mal formado en `address`.
 - [ ] La métrica de eventos sin clasificar es visible en un dashboard. Existe la métrica y la alerta; falta el panel.
 
 ---
