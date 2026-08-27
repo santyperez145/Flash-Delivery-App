@@ -182,7 +182,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Capacidad | Estado | Evidencia / bloqueo |
 | --- | --- | --- |
 | Backoffice de operaciones | `CI` | `test:operations-resources` bloquea el merge |
-| Routing de tickets y SLA | `CI` | `test:support-sla` bloquea · `test:support-routing` sigue **en cuarentena** |
+| Routing de tickets y SLA | `CI` | `test:support-sla` y `test:support-routing` bloquean el merge · la cuarentena quedó vacía el 27-08 |
 | Chat operativo cifrado | `CI` | `test:service-chat` en `ci-critical-flows` |
 | KYC de conductores | `CI` | `test:driver-kyc` bloquea el merge · sin proveedor KYC |
 | Revisión de vehículos | `CI` | `test:driver-vehicles` en `ci-critical-flows` |

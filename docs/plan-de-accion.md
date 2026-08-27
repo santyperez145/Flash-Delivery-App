@@ -352,9 +352,11 @@ dos suites que estaban declaradas como excepción pasaron a tener puerta, y
 `test:ci-coverage` distingue ahora nocturna de bloqueante para que el número
 que publica no exagere lo que un PR realmente frena.
 
-Queda **una** suite en cuarentena (`test:support-routing`), y del nocturno
-faltan carga k6, sandbox de proveedores y builds EAS —los tres necesitan
-credenciales— más el restore drill, que hoy es un script PowerShell.
+La cuarentena quedó **vacía** el 27 de agosto: `test:support-routing` salió y ya
+bloquea. Su causa anotada era falsa —le faltaba la cabecera `Idempotency-Key`,
+así que nunca llegó a probar el ruteo del que la acusaban—. Del nocturno faltan
+carga k6, sandbox de proveedores y builds EAS —los tres necesitan credenciales—
+más el restore drill, que hoy es un script PowerShell.
 
 Cerrar tres de las cuatro suites en cuarentena destapó cuatro defectos reales
 —ninguno era fragilidad de la prueba—, tres de ellos variantes de H-11. Uno

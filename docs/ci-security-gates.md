@@ -57,18 +57,22 @@ El job `migrate-from-base` existe porque **una migración puede pasar desde cero
 
 ## Cuarentena
 
-Una sola suite corre en cada push **sin bloquear** el merge:
+**La cuarentena está vacía desde el 27 de agosto.** No queda ninguna suite corriendo sin bloquear, y el paso que las ejecutaba se quitó del workflow en lugar de dejarlo iterando sobre una lista vacía.
 
-| Suite | Causa |
-| --- | --- |
-| `test:support-routing` | Ruteo atómico de un caso de safety a un agente con skill |
+Si hiciera falta volver a usarla, el patrón era un paso con `continue-on-error: true` que corre las suites en un bucle y publica su salida: no bloquean el merge, pero su resultado aparece en cada corrida para que la deuda sea visible en lugar de silenciosa.
 
-Eran cuatro. Las otras tres se cerraron el 26 de agosto y sus causas resultaron ser defectos reales, no fragilidad de las pruebas:
+Las cuatro se cerraron, y **en las cuatro la causa anotada estaba equivocada o incompleta**:
+
+- **`test:support-routing`** figuró un mes bajo la causa «ruteo atómico de un caso de safety a un agente con skill». No era eso: `POST /api/support/tickets` exige una cabecera `Idempotency-Key` y responde 400 sin ella, y la suite no la mandaba en ninguno de sus seis POST. **Nunca llegó a ejercitar el ruteo**, se caía en la validación. Con la cabecera puesta, sus diez afirmaciones pasan sin tocar una línea de producto.
+
+  Parte de por qué duró un mes es que todo colgaba de una única aserción compuesta cuyo mensaje era `failed: new safety case routes atomically to skilled available agent` —que no distingue «no se creó» de «se asignó a otro» de «se asignó sin historial»—. Separarla en tres, cada una diciendo qué obtuvo, resolvió el diagnóstico en una corrida.
+
+Y las otras tres, cerradas el 26 de agosto, resultaron ser defectos reales y no fragilidad de las pruebas:
 
 - **`test:postgres`** fallaba por tres causas encadenadas, todas variantes de [H-11](auditoria-2026-08-25.md#h-11--una-base-creada-desde-cero-no-es-equivalente-a-una-migrada): declaraciones de alérgenos sobre ítems de catálogo que ya no existían, sucursales sin horario —que dejaban **todo el catálogo invisible**— y cuentas de fixture recién creadas que el motor de riesgo trataba como nuevas y bloqueaba.
 - **`test:dietary-local`** y **`test:notification-local`** afirman el contrato del **fallback SQLite**, que no es el de PostgreSQL: devuelven etiquetas dietarias como strings donde el runtime PostgreSQL devuelve objetos con `.code`. No era interferencia de estado, como suponía la nota de cuarentena: era la prueba equivocada contra el runtime equivocado. Ahora corren en el job `local-fallback`, sin `DATABASE_URL`.
 
-La cuarentena **no es una forma de esconder suites**: siguen corriendo, su salida se publica y `test:ci-coverage` imprime cada una con su motivo. Cerrarlas es condición para dar CI-001 por terminado.
+La cuarentena **no era una forma de esconder suites**: seguían corriendo y su salida se publicaba. Pero el patrón tiene un costo que conviene recordar la próxima vez que se use: **una causa anotada con cautela se lee después como un hecho**. Ninguna de las cuatro causas registradas sobrevivió al contacto con la evidencia, y la de `test:support-routing` mandó a buscar un defecto de concurrencia que no existía. Si una suite entra en cuarentena, la causa debería decir **qué se midió**, no qué se supone.
 
 ## Contratos individuales
 
