@@ -40,7 +40,7 @@ Cinco archivos concentran más de 1,3 MB de código: `apps/mobile/App.tsx` (433 
 - [x] **Ningún módulo de dominio importa React.** 93 módulos verificados por `test:domain-purity`, en `ci-fast.yml`. La regla es la convención del repositorio: `.ts` es lógica, `.tsx` es presentación. `react-native` no cuenta, porque ahí aporta primitivas de plataforma y no renderizado.
 - [x] **El build de driver no incluye pantallas de comercio.** `metro.config.js` resuelve `./variant-screen` según `EXPO_PUBLIC_APP_VARIANT`, así que las otras dos pantallas quedan sin arista que las alcance. Verificado sobre bytecode Hermes real: `test:mobile-variant-bundles` empaqueta las tres variantes y comprueba la diagonal.
 - [x] **El build de customer no incluye backoffice.** Mismo mecanismo y misma puerta. Los tres bundles bajaron de llevar las 9.715 líneas de las tres pantallas a llevar una: 2,3 MB customer, 2,4 MB driver, 2,1 MB merchant.
-- [ ] `server/index.js` deja de contener lógica de dominio. **41 de 57 grupos de rutas extraídos**; quedan 60 rutas en 21 grupos. `index.js` bajó de 9.696 a 2969 líneas (−69%). Credenciales y sesiones salieron juntas —son el mismo dominio con dos prefijos— y dejaron `http/web-origin.js`, la guarda de origen web que cubre a `/api/auth` por montaje y a `revoke-others` explícitamente.
+- [ ] `server/index.js` deja de contener lógica de dominio. **48 de 57 grupos de rutas extraídos**; quedan 47 rutas en 17 grupos. `index.js` bajó de 9.696 a 2487 líneas (−74%). El bloque de comercio se partió en dos por ciclo de vida: `merchant-router.js` es el negocio de todos los días y `payment-provider-router.js` el vínculo OAuth con Mercado Pago, que se establece una vez.
 
 ### Verificación
 
