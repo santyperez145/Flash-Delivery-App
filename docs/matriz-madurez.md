@@ -98,7 +98,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Dependencias de producción acotadas | `CI` | `test:production-deps`: las 20 están importadas por el servidor. Siete paquetes de frente salieron de la imagen: 381 → 303 MiB |
 | Filesystem raíz de sólo lectura | `CI` | El job arranca la imagen con `--read-only` hasta que responde y comprueba que la raíz rechace escrituras. Escribible sólo `/tmp` y el volumen de datos |
 | SBOM de la imagen productiva | `CI` | CycloneDX publicado como artefacto en cada corrida del job `container-image` |
-| Scan de vulnerabilidades de imagen | `CI` | Trivy fijado. Bloquea las HIGH/CRITICAL **con arreglo disponible**; las no arreglables se informan sin cortar |
+| Scan de vulnerabilidades de imagen | `CI` | Trivy fijado. Bloquea las HIGH/CRITICAL **arreglables por el equipo**, fuera del npm de la imagen base; lo heredado se informa sin cortar |
 
 ## Pagos y finanzas
 
