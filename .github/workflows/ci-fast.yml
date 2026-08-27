@@ -60,6 +60,12 @@ jobs:
       - name: Module references
         run: npm run test:module-references
 
+      # La extraccion de rutas hace facil copiar en lugar de mover. Esta puerta
+      # busca lo contrario que la de arriba: una definicion sin uso, no un uso
+      # sin definicion. Encontro dos al escribirse.
+      - name: Dead internal declarations
+        run: npm run test:dead-code
+
       # `sanitizeUser` decide qué campos de un usuario salen por HTTP. Al
       # volverse módulo propio quedó sin puerta; esta encontró una copia de la
       # redacción escrita a mano en auth-repository.js.
