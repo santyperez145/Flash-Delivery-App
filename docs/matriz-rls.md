@@ -28,14 +28,13 @@ Donde no hay política, la única barrera es el código de aplicación. Un bug d
 
 ## Deuda declarada
 
-Cuatro tablas están clasificadas `por-usuario` y todavía no tienen política. La lista vive en `scripts/rls-matrix-check.mjs` y **sólo puede achicarse**: la puerta falla si aparece una sexta sin motivo escrito, y también si una de estas gana política y no se la quita de la lista.
+Tres tablas están clasificadas `por-usuario` y todavía no tienen política. La lista vive en `scripts/rls-matrix-check.mjs` y **sólo puede achicarse**: la puerta falla si aparece una sexta sin motivo escrito, y también si una de estas gana política y no se la quita de la lista.
 
 | Tabla | Por qué todavía no |
 | --- | --- |
 | `user_roles` | **Se lee antes de autenticar.** Ver abajo. |
 | `drivers` | 39 archivos la consultan, varios sin contexto de usuario |
 | `merchants` | 23 archivos la consultan, varios sin contexto de usuario |
-| `promotion_redemptions` | Falta la prueba negativa por rol |
 
 ### Cerrada: `shipment_details`
 
@@ -48,6 +47,18 @@ La forma es la de `job_items_via_job` y no una nueva: la visibilidad cae en casc
 **El `GRANT SELECT` al rol auditor se agregó en la misma migración, a propósito.** Sin él la prueba negativa demostraría que falta el permiso, no que la política funciona: con el permiso puesto, que el auditor siga viendo cero filas sólo lo puede explicar RLS.
 
 `test:rls` afirma las dos mitades, y la segunda importa tanto como la primera: **una política que niega a todo el mundo pasa el test negativo y rompe el producto.** Por eso se comprueba también que un cliente autenticado no vea destinatarios de envíos ajenos, lo que sólo puede pasar si la política discrimina en lugar de cerrar.
+
+### Cerrada: `promotion_redemptions`
+
+La migración `114_promotion_redemptions_rls.sql` la cerró el mismo día. Dice qué promoción usó cada persona, cuándo y por cuánto dinero: sin `ENABLE`, cualquier rol con un grant reconstruye el historial de descuentos de todos.
+
+El vínculo es directo por `user_id`, así que la política es la de `addresses_owner`. **Lo delicado no fue la forma sino a quién debía alcanzar.**
+
+Tres consultas del runtime cuentan filas de todos los usuarios a propósito: `order-repository.js` resuelve el cupo global con `count(*) total, count(*) FILTER(WHERE user_id=$2) user_total`, y `configuration-repository.js` publica `usage_count` por promoción con `postgresPool.query` directo, sin contexto de usuario.
+
+Si la política alcanzara al runtime, el efecto no sería un error visible sino algo peor: **una promoción con tope de 100 no se agotaría nunca**, porque cada persona contaría sólo sus propias redenciones. Un descuento sin tope efectivo es dinero.
+
+Aplicarla destapó que **nada afirmaba que ese conteo global funcionara**. `postgres-runtime-smoke.mjs` verificaba la redención leyendo con el rol migrador, que es dueño del esquema y saltea RLS: no podía demostrar nada sobre visibilidad. Ahora hay una afirmación que consulta `usageCount` por la API —es decir, como `flash_runtime`— y exige que siga contando todo.
 
 ### El caso difícil: `user_roles`
 

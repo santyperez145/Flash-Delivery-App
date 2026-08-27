@@ -162,6 +162,24 @@ try {
     recipientRows.rows[0].count === 0 && recipientWriteDenied,
     "audit credentials without user context see no shipment recipient data at all",
   );
+
+  // `promotion_redemptions` dice que promocion uso cada persona, cuando y por
+  // cuanto dinero. Mismo trato que la anterior: el grant al auditor se agrego
+  // con la politica para que ver cero filas signifique RLS y no permiso
+  // faltante.
+  const redemptionRows = await client.query(
+    "SELECT count(*)::int count FROM promotion_redemptions",
+  );
+  let redemptionWriteDenied = false;
+  try {
+    await client.query("UPDATE promotion_redemptions SET discount_cents=discount_cents");
+  } catch (error) {
+    redemptionWriteDenied = error.code === "42501";
+  }
+  assert(
+    redemptionRows.rows[0].count === 0 && redemptionWriteDenied,
+    "audit credentials cannot reconstruct anyone discount history",
+  );
   const visibleModifiers = await client.query(
     "SELECT count(*)::int count FROM catalog_modifiers WHERE available",
   );

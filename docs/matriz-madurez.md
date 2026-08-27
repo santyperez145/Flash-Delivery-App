@@ -81,8 +81,8 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Capacidad | Estado | Evidencia / bloqueo |
 | --- | --- | --- |
 | PostgreSQL/PostGIS runtime | `CI` | `ci-postgres.yml` levanta PostGIS 17 con roles separados |
-| 113 migraciones versionadas | `CI` | `ci-postgres.yml` corre desde cero y de forma incremental sobre la rama base |
-| Row-Level Security | `CI` | `test:rls` bloquea el merge · **61 de 65** tablas `por-usuario` con política. `shipment_details` cerró el 27-08: guardaba nombre, teléfono y PIN del destinatario sin `ENABLE` |
+| 114 migraciones versionadas | `CI` | `ci-postgres.yml` corre desde cero y de forma incremental sobre la rama base |
+| Row-Level Security | `CI` | `test:rls` bloquea el merge · **62 de 65** tablas `por-usuario` con política. `shipment_details` y `promotion_redemptions` cerraron el 27-08: la primera guardaba nombre, teléfono y PIN del destinatario sin `ENABLE` |
 | Matriz de clasificación RLS | `CI` | `test:rls-matrix`: las 104 tablas clasificadas, deuda declarada que sólo puede achicarse. Desde el 27/08 también resta los `DROP TABLE`: una clasificación no sobrevive a su tabla |
 | `FORCE ROW LEVEL SECURITY` | — | **Cero sentencias.** El dueño es `flash_app`, que migra y hace backfill sobre filas de todos: `FORCE` a todo rompe ese trabajo — ticket DAT-001 |
 | Negativa de arranque con rol que saltea RLS | `CI` | `test:rls-guard`. Cubre el riesgo que `FORCE` no puede cubrir: apuntar `DATABASE_URL` al rol migrador desactivaría las políticas en silencio |
