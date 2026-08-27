@@ -94,8 +94,8 @@
     },
     "drivers": {
       "clase": "por-usuario",
-      "rls": false,
-      "nota": "Perfil del conductor. 39 archivos lo consultan, varios sin contexto."
+      "rls": true,
+      "nota": "Perfil operativo del conductor. Política `drivers_owner` por `user_id`, con admin y support. El runtime queda exento: 16 de 55 consultas corren sin contexto y varias deben ver filas ajenas por diseño."
     },
     "email_verification_challenges": {
       "clase": "por-usuario",
@@ -167,8 +167,8 @@
     },
     "merchants": {
       "clase": "por-usuario",
-      "rls": false,
-      "nota": "Comercio y su dueño. 23 archivos lo consultan."
+      "rls": true,
+      "nota": "Comercio y su dueño. Política `merchants_owner` por `owner_id`, con admin y support. Mismo trato que `drivers`."
     },
     "notification_dead_letters": {
       "clase": "servicio",
