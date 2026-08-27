@@ -140,7 +140,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | --- | --- | --- |
 | SSE con replay por cursor | `LOCAL` | Sin puerta CI |
 | Event log durable con secuencia | `LOCAL` | Sin puerta CI |
-| Audiencia por usuario y rol | `CI` | Default-deny activo · `test:realtime-audience` bloquea el merge |
+| Audiencia por usuario y rol | `CI` | Default-deny activo · `test:realtime-audience` cubre la clasificación sin base · `test:realtime-audience-runtime` cubre los resolutores de propiedad contra PostgreSQL con fixtures multiusuario |
 | Retención y pruning | `LOCAL` | `realtime:prune` sin puerta CI |
 | Outbox de notificaciones | `CI` | `test:notification-dead-letters` en `ci-critical-flows` |
 | Preferencias de notificación | `CI` | `test:notification-preferences` en `ci-critical-flows` |
