@@ -91,10 +91,11 @@ import {
 
 import { styles } from "./src/styles";
 import { ActionButton, KpiRow, NativeMapUnavailable, OrderCard, ServiceChatModal } from "./src/ui";
-import { CustomerScreen } from "./src/screens/CustomerScreen";
-import { DriverScreen } from "./src/screens/DriverScreen";
 import { LoginScreen } from "./src/screens/LoginScreen";
-import { MerchantScreen } from "./src/screens/MerchantScreen";
+// La pantalla de la variante instalada. `metro.config.js` resuelve este
+// especificador al archivo de la variante que se empaqueta, así que las otras
+// dos pantallas no quedan alcanzables desde el grafo de módulos.
+import { variantHeader, variantScreen } from "./src/variant-screen";
 
 function MobileNetworkStatus({ online }: { online: boolean }) {
   if (online) return null;
@@ -232,6 +233,22 @@ function AppContent() {
   const activeDriver = state?.drivers.find((driver) => driver.id === sessionUser?.driverId) || null;
   const activeUser = state?.users.find((user) => user.id === sessionUser?.id) || sessionUser;
 
+  // El caparazón arma el contexto una vez y la variante toma lo que necesita.
+  // `state` va aparte en la llamada a `variantScreen` porque ahí ya está
+  // comprobado que no es nulo.
+  const variantContext = {
+    state: state as AppState,
+    activeUser,
+    activeDriver,
+    activeRestaurant,
+    sessionUser,
+    orders: state?.orders || [],
+    busy,
+    runAction,
+    refresh,
+    logout,
+  };
+
   if (!loading && !sessionUser)
     return (
       <SafeAreaView style={styles.loginSafeArea}>
@@ -250,59 +267,16 @@ function AppContent() {
         ]}
       >
         <MobileNetworkStatus online={networkOnline} />
-        {mode === "merchant" && (
-          <View style={styles.header}>
-            <View style={styles.headerCopy}>
-              <Text style={styles.eyebrow}>Flash Negocios</Text>
-              <Text style={styles.title}>Control en vivo de tu local</Text>
-            </View>
-            <Pressable onPress={logout} style={styles.logoutButton}>
-              <Text style={styles.logoutText}>Salir</Text>
-            </Pressable>
-          </View>
-        )}
-
-        {mode === "merchant" && (
-          <View style={styles.sessionBar}>
-            <Text style={styles.sessionRole}>Cuenta comercio</Text>
-            <Text style={styles.sessionName} numberOfLines={1}>
-              {sessionUser?.name}
-            </Text>
-          </View>
-        )}
+        {variantHeader(variantContext)}
 
         {loading || !state ? (
           <View style={styles.loader}>
             <ActivityIndicator color="#f4511e" />
             <Text style={styles.muted}>Conectando con backend...</Text>
           </View>
-        ) : mode === "customer" && activeUser ? (
-          <CustomerScreen
-            state={state}
-            user={activeUser}
-            busy={busy}
-            runAction={runAction}
-            refresh={refresh}
-            onLogout={logout}
-          />
-        ) : mode === "driver" && activeDriver ? (
-          <DriverScreen
-            state={state}
-            driver={activeDriver}
-            busy={busy}
-            runAction={runAction}
-            onLogout={logout}
-            onRefresh={refresh}
-          />
-        ) : mode === "merchant" && activeRestaurant ? (
-          <MerchantScreen
-            restaurant={activeRestaurant}
-            orders={state.orders}
-            busy={busy}
-            runAction={runAction}
-            onRefresh={refresh}
-          />
-        ) : null}
+        ) : (
+          variantScreen({ ...variantContext, state })
+        )}
       </View>
     </SafeAreaView>
   );
