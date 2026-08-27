@@ -94,29 +94,43 @@ try {
     });
   }
 
-  // La liquidación sembrada también tiene que cuadrar: desde la migración 118 la
-  // base rechaza al commit una transacción cuyos débitos no igualen a sus
-  // créditos, y un fixture no es una excepción.
-  const liquidacion = (
-    await pool.query(
-      `INSERT INTO ledger_transactions(idempotency_key, kind, description, metadata)
-       VALUES($1, 'payment', 'Liquidacion de fixture', $2) RETURNING id`,
-      [`settlement-${trabajo.public_id}`, { marca }],
-    )
-  ).rows[0].id;
-  creado.transacciones.push(liquidacion);
-  for (const parte of partes) {
-    await pool.query(
+  // La liquidación sembrada tiene que cuadrar como cualquier otra, y por eso va
+  // en **una** transacción explícita. La primera versión usaba `pool.query`
+  // suelto para cada asiento: cada uno tiene su commit implícito, así que el
+  // trigger diferido de la migración 118 miraba después del primer crédito y
+  // encontraba 0 débitos contra 3333. Falló en CI, y con razón —el fixture
+  // estaba escribiendo tres transacciones desbalanceadas, no una que cuadra—.
+  const sembrador = await pool.connect();
+  let liquidacion;
+  try {
+    await sembrador.query("BEGIN");
+    liquidacion = (
+      await sembrador.query(
+        `INSERT INTO ledger_transactions(idempotency_key, kind, description, metadata)
+         VALUES($1, 'payment', 'Liquidacion de fixture', $2) RETURNING id`,
+        [`settlement-${trabajo.public_id}`, { marca }],
+      )
+    ).rows[0].id;
+    for (const parte of partes) {
+      await sembrador.query(
+        `INSERT INTO ledger_entries(transaction_id, account_id, direction, amount_cents, reference_type, reference_id)
+         VALUES($1, $2, 'credit', $3, 'settlement', $4)`,
+        [liquidacion, parte.cuenta, parte.importe, trabajo.id],
+      );
+    }
+    await sembrador.query(
       `INSERT INTO ledger_entries(transaction_id, account_id, direction, amount_cents, reference_type, reference_id)
-       VALUES($1, $2, 'credit', $3, 'settlement', $4)`,
-      [liquidacion, parte.cuenta, parte.importe, trabajo.id],
+       VALUES($1, $2, 'debit', $3, 'settlement', $4)`,
+      [liquidacion, compensacion, TOTAL, trabajo.id],
     );
+    await sembrador.query("COMMIT");
+  } catch (error) {
+    await sembrador.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    sembrador.release();
   }
-  await pool.query(
-    `INSERT INTO ledger_entries(transaction_id, account_id, direction, amount_cents, reference_type, reference_id)
-     VALUES($1, $2, 'debit', $3, 'settlement', $4)`,
-    [liquidacion, compensacion, TOTAL, trabajo.id],
-  );
+  creado.transacciones.push(liquidacion);
 
   creado.pago = (
     await pool.query(

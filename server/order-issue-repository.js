@@ -116,7 +116,10 @@ export async function resolveOrderIssue({
       // que el resto lo absorbe la parte con mayor participacion, que es la que menos
       // se distorsiona en terminos relativos; `account_id` desempata.
       const settlement = await client.query(
-        `SELECT e.account_id,e.direction,e.amount_cents,e.metadata FROM ledger_transactions t JOIN ledger_entries e ON e.transaction_id=t.id WHERE t.idempotency_key=$1 AND e.direction='credit' ORDER BY e.amount_cents,e.account_id`,
+        `SELECT e.account_id,e.direction,e.amount_cents,e.metadata
+         FROM ledger_transactions t JOIN ledger_entries e ON e.transaction_id=t.id
+         WHERE t.idempotency_key=$1 AND e.direction='credit'
+         ORDER BY e.amount_cents,e.account_id`,
         [`settlement-${issue.job_public_id}`],
       );
       if (settlement.rowCount) {
