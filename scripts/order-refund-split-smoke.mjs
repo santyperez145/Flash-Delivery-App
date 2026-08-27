@@ -238,7 +238,10 @@ try {
     ]);
   }
   if (creado.issue) {
-    await pool.query("DELETE FROM refunds WHERE reason = $1", [issuePublicId]);
+    // `reason` es el literal 'order_issue'; el id de la incidencia viaja en
+    // `provider_refund_id`. Borrar por `reason` no borraba nada y la limpieza
+    // moria contra la clave foranea de `payment_intents`.
+    await pool.query("DELETE FROM refunds WHERE provider_refund_id = $1", [issuePublicId]);
     await pool.query("DELETE FROM order_issues WHERE id = $1", [creado.issue]);
   }
   if (creado.transacciones.length) {
