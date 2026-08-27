@@ -252,6 +252,14 @@ jobs:
       - name: Endpoint latency
         run: npm run test:performance
 
+      # La conciliacion programada corre acá para que exista una corrida
+      # desatendida de verdad. No reemplaza al planificador productivo —que no
+      # existe todavia porque no hay produccion— pero prueba que el punto de
+      # entrada funciona sin persona detras, que es la mitad que si depende de
+      # este repositorio.
+      - name: Conciliacion de pagos programada
+        run: npm run job:payment-reconciliation
+
       - name: API log
         if: failure()
         run: tail -120 /tmp/perf-api.log || true
