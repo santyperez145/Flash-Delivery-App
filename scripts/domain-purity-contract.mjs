@@ -22,8 +22,23 @@ import path from "node:path";
 const ROOTS = ["server", "src", "apps/mobile/src"];
 const IGNORED_DIRS = new Set(["node_modules", "data"]);
 
-// Sólo React: un `.ts` que importe hooks o JSX está del lado equivocado.
-const REACT_IMPORT = /(?:^|\n)\s*import[^;]*?from\s+["']react["']/;
+// Sólo React, y sólo como valor: un `.ts` que importe hooks o JSX está del lado
+// equivocado.
+//
+// `import type { ReactElement } from "react"` no cuenta, y la razón es la misma
+// que sostiene la regla. Lo que se quiere evitar es que un módulo de lógica
+// arrastre el árbol de renderizado a un worker o a un script; un import de tipo
+// lo borra TypeScript al compilar, así que no llega a existir en runtime y no
+// puede arrastrar nada. Excluirlo no afloja la regla: la ajusta a lo que la
+// regla dice que le importa.
+//
+// El caso que lo motivó es `apps/mobile/src/variant-screen.types.ts`, que
+// describe la forma de las tres variantes de pantalla. Renombrarlo a `.tsx`
+// para pasar la puerta habría sido mentir sobre su contenido: no tiene JSX.
+//
+// La negación se limita a `import type` al principio. Un `import { type X }`
+// con el modificador adentro sigue marcándose, que es el lado conservador.
+const REACT_IMPORT = /(?:^|\n)\s*import\s+(?!type\s)[^;]*?from\s+["']react["']/;
 
 // El servidor es `.js` y el frente es `.ts`: los dos son dominio.
 const isDomainModule = (entry) =>

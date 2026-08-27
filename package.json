@@ -98,6 +98,7 @@
     "test:secrets": "node scripts/secret-scan.mjs",
     "test:dependency-gate": "npm audit --omit=dev --audit-level=high && npm --prefix apps/mobile audit --omit=dev --audit-level=high",
     "test:mobile-build-variants": "node scripts/mobile-build-variants-smoke.mjs",
+    "test:mobile-variant-bundles": "node scripts/mobile-variant-bundles-smoke.mjs",
     "test:catalog-pagination": "node --env-file-if-exists=.env.local scripts/catalog-pagination-smoke.mjs",
     "test:operations-resources": "node --env-file-if-exists=.env.local scripts/operations-resources-smoke.mjs",
     "test:telemetry": "node scripts/telemetry-smoke.mjs",
