@@ -49,6 +49,7 @@
     "test:format": "prettier --check \"src/**/*.{ts,tsx,css}\" \"server/**/*.js\" \"scripts/**/*.mjs\" \"apps/mobile/App.tsx\" \"apps/mobile/src/**/*.{ts,tsx}\"",
     "test:line-length": "node scripts/line-length-ratchet.mjs",
     "test:rls-matrix": "node scripts/rls-matrix-check.mjs",
+    "test:rls-guard": "node scripts/rls-guard-contract.mjs",
     "test:push-provider": "node scripts/push-provider-smoke.mjs",
     "test:maps-provider": "node scripts/maps-provider-smoke.mjs",
     "test:dispatch-candidates": "node scripts/dispatch-candidates-smoke.mjs",
