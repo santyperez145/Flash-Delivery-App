@@ -28,21 +28,21 @@ La auditoría del 25 de agosto identificó que el riesgo principal de Flash no e
 
 ## Estado consolidado
 
-Al **26 de agosto de 2026**, sobre **94 capacidades inventariadas**:
+Al **27 de agosto de 2026**, sobre **97 capacidades inventariadas**:
 
-| Estado | Capacidades | Proporción | Al 25-08 |
-| --- | ---: | ---: | ---: |
-| `IMPL` | 6 | 6,4% | 9 |
-| `LOCAL` | 8 | 8,5% | 50 |
-| `CI` | 64 | 68,1% | 14 |
-| `PROV` | 0 | 0% | 0 |
-| `STG` | 0 | 0% | 0 |
-| `PROD` | 0 | 0% | 0 |
-| No existe | 16 | 17,0% | 18 |
+| Estado | Capacidades | Proporción | Al 26-08 | Al 25-08 |
+| --- | ---: | ---: | ---: | ---: |
+| `IMPL` | 7 | 7,2% | 6 | 9 |
+| `LOCAL` | 8 | 8,2% | 8 | 50 |
+| `CI` | 68 | 70,1% | 64 | 14 |
+| `PROV` | 0 | 0% | 0 | 0 |
+| `STG` | 0 | 0% | 0 | 0 |
+| `PROD` | 0 | 0% | 0 | 0 |
+| No existe | 14 | 14,4% | 16 | 18 |
 
-**Lectura:** de las 78 capacidades que existen, **14 (18%) siguen en `IMPL` o `LOCAL`** — sin puerta automática que las proteja de una regresión. Eran 59 sobre 73 (81%) el 25 de agosto.
+**Lectura:** de las 83 capacidades que existen, **15 (18%) siguen en `IMPL` o `LOCAL`** — sin puerta automática que las proteja de una regresión. Eran 59 sobre 73 (81%) el 25 de agosto.
 
-El salto viene de las puertas del ticket CI-001. Las 64 en `CI` ya no son infraestructura: incluyen migraciones, RLS, cadena de auditoría, aislamiento por ciudad, audiencia realtime, ledger, conciliación, riesgo, payouts, KYC, vehículos, safety, chat, soporte, notificaciones, push y mapas.
+El salto viene de las puertas del ticket CI-001. Las 68 en `CI` ya no son infraestructura: incluyen migraciones, RLS, cadena de auditoría, aislamiento por ciudad, audiencia realtime, ledger, conciliación, riesgo, payouts, KYC, vehículos, safety, chat, soporte, notificaciones, push y mapas.
 
 **Ninguna capacidad alcanzó `PROV`.** Ni pagos, ni push, ni mapas, ni KYC fueron probados contra un proveedor real. Ese es el objetivo de la Fase 1, y es la distancia que esta matriz existe para no dejar olvidar: **una capacidad en `CI` está protegida contra regresiones, no demostrada contra el mundo real.**
 
@@ -81,10 +81,12 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Capacidad | Estado | Evidencia / bloqueo |
 | --- | --- | --- |
 | PostgreSQL/PostGIS runtime | `CI` | `ci-postgres.yml` levanta PostGIS 17 con roles separados |
-| 110 migraciones versionadas | `CI` | `ci-postgres.yml` corre desde cero y de forma incremental sobre la rama base |
+| 112 migraciones versionadas | `CI` | `ci-postgres.yml` corre desde cero y de forma incremental sobre la rama base |
 | Row-Level Security | `CI` | `test:rls` bloquea el merge · 60 de 65 tablas `por-usuario` con política |
-| Matriz de clasificación RLS | `CI` | `test:rls-matrix`: las 106 tablas clasificadas, deuda declarada que sólo puede achicarse |
-| `FORCE ROW LEVEL SECURITY` | — | **Cero sentencias** — ticket DAT-001 |
+| Matriz de clasificación RLS | `CI` | `test:rls-matrix`: las 104 tablas clasificadas, deuda declarada que sólo puede achicarse. Desde el 27/08 también resta los `DROP TABLE`: una clasificación no sobrevive a su tabla |
+| `FORCE ROW LEVEL SECURITY` | — | **Cero sentencias.** El dueño es `flash_app`, que migra y hace backfill sobre filas de todos: `FORCE` a todo rompe ese trabajo — ticket DAT-001 |
+| Negativa de arranque con rol que saltea RLS | `CI` | `test:rls-guard`. Cubre el riesgo que `FORCE` no puede cubrir: apuntar `DATABASE_URL` al rol migrador desactivaría las políticas en silencio |
+| Esquema muerto eliminado | `CI` | `112_drop_dead_schema.sql` borró `outbox_events` y `user_security_factors`, que era un almacén de credenciales sin política |
 | Auditoría encadenada SHA-256 | `CI` | `test:audit-immutability` en `ci-postgres.yml` |
 | Idempotencia y locks | `CI` | `test:idempotency-prune` y `test:postgres` bloquean el merge |
 | Aislamiento por ciudad | `CI` | `test:city-isolation` en `ci-postgres.yml` |
@@ -151,7 +153,8 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Registro de push token | `IMPL` | Sin proveedor de destino |
 | Builds EAS firmados | — | **No existen** — ticket MOB-001 |
 | Crash reporting | — | **No existe** |
-| Entrypoints separados por audiencia | — | Un solo `App.tsx` de 433 KB — ticket ARC-001 |
+| Entrypoints separados por audiencia | `CI` | `metro.config.js` resuelve la pantalla según `EXPO_PUBLIC_APP_VARIANT`; `test:mobile-variant-bundles` empaqueta las tres y exige que cada bundle Hermes lleve una sola |
+| Variante instalada con fuente única | `CI` | `test:mobile-build-variants`. El runtime la leía del manifiesto de Expo, que en web no llega: el build de conductor pedía rol `customer` y rechazaba al conductor |
 
 ## Web y entrega
 
@@ -162,7 +165,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Compresión y caché | `CI` | `test:web-delivery` |
 | Contrato responsive | `CI` | `test:responsive-layout` |
 | CSP activa | `LOCAL` | Sin puerta dedicada |
-| Separación por audiencia | — | Un solo `App.tsx` de 360 KB — ticket ARC-001 |
+| Separación por audiencia | `IMPL` | `src/App.tsx` bajó a 1.245 líneas y hay carpetas por audiencia, pero sin puerta que impida volver a mezclarlas — ticket ARC-001 |
 
 ## Operación y soporte
 
