@@ -110,6 +110,12 @@ jobs:
       - name: Atribucion de auditoria
         run: npm run test:audit-actor
 
+      # `test:realtime-audience` es estatico y cubre la clasificacion. Esto cubre
+      # la otra mitad: los resolutores de propiedad, que son JOINs contra tablas
+      # reales y donde viviria una fuga que ninguna comprobacion estatica ve.
+      - name: Audiencia realtime contra PostgreSQL
+        run: npm run test:realtime-audience-runtime
+
       - name: City isolation
         run: npm run test:city-isolation
 
