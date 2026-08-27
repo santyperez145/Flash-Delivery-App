@@ -168,6 +168,9 @@ jobs:
           docker exec "$cid" pg_dump -U postgres -d flash -Fc -f /tmp/flash.dump
           docker exec "$cid" createdb -U postgres flash_restore
           docker exec "$cid" pg_restore -U postgres -d flash_restore --exit-on-error /tmp/flash.dump
+          # TEMPORAL: simula un restore que pierde RLS y un GRANT en una tabla.
+          docker exec "$cid" psql -U postgres -d flash_restore -c "ALTER TABLE users DISABLE ROW LEVEL SECURITY"
+          docker exec "$cid" psql -U postgres -d flash_restore -c "REVOKE SELECT ON jobs FROM flash_runtime"
           npm run test:restore-drill
 
       # Suites que consultan PostgreSQL directamente, sin necesitar la API.
