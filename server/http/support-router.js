@@ -23,6 +23,8 @@ import {
   getPostgresSupportTickets,
   recordPostgresAudit,
   updatePostgresSupportTicket,
+  getSupportAgents,
+  updateSupportAgent,
 } from "../operations-repository.js";
 import { requireAuth } from "./authentication.js";
 import { isAdmin, requireAnyRole } from "./authorization.js";
@@ -175,6 +177,59 @@ router.patch(
       return ok(res, { ticket });
     } catch (error) {
       return failFrom(res, error, "No se pudo actualizar el ticket");
+    }
+  },
+);
+
+const supportAgentUpdateSchema = z
+  .object({
+    availability: z.enum(["available", "busy", "offline"]).optional(),
+    maxActiveTickets: z.coerce.number().int().min(1).max(100).optional(),
+    skills: z.array(z.string().trim().min(1).max(80)).min(1).max(20).optional(),
+  })
+  .refine((value) => Object.keys(value).length > 0, "Debes indicar un cambio");
+
+// La configuración de quién atiende: disponibilidad, carga máxima y skills.
+// Vivía suelta en `server/index.js` bajo `/api/admin`, que no es un dominio sino
+// una audiencia. Lo que define a estas dos rutas es que gobiernan el ruteo de los
+// tickets de arriba: separarlas dejaría el ticket sin la regla que decide a quién
+// le toca.
+router.get(
+  "/api/admin/support/agents",
+  requireAuth,
+  requireAnyRole("support", "admin"),
+  async (_req, res) => {
+    try {
+      return ok(res, { agents: await getSupportAgents() });
+    } catch (error) {
+      return failFrom(res, error, "No se pudieron cargar los agentes");
+    }
+  },
+);
+router.patch(
+  "/api/admin/support/agents/:userId",
+  requireAuth,
+  requireAnyRole("support", "admin"),
+  async (req, res) => {
+    const parsed = parseOrFail(supportAgentUpdateSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const agent = await updateSupportAgent({
+        userPublicId: req.params.userId,
+        ...parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "support.agent_updated",
+        entityType: "support_agent",
+        entityId: agent.userId,
+        requestId: req.requestId,
+        afterData: parsed.data,
+      });
+      return ok(res, { agent });
+    } catch (error) {
+      return failFrom(res, error, "No se pudo actualizar el agente");
     }
   },
 );

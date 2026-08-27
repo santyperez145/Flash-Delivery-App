@@ -48,6 +48,7 @@ import { rideRouter } from "./http/ride-router.js";
 import { shipmentRouter } from "./http/shipment-router.js";
 import { authRouter } from "./http/auth-router.js";
 import { merchantRouter } from "./http/merchant-router.js";
+import { serviceChatRouter } from "./http/service-chat-router.js";
 import { paymentProviderRouter } from "./http/payment-provider-router.js";
 import { orderIssuesRouter } from "./http/order-issues-router.js";
 import { cancellationSchema } from "./http/cancellation.js";
@@ -545,44 +546,6 @@ const driverDocumentReviewSchema = z
       });
   });
 
-const serviceMessageSchema = z
-  .object({
-    body: z.string().trim().max(1000).optional().default(""),
-    attachment: z
-      .object({
-        fileName: z.string().trim().min(1).max(160),
-        mimeType: z.enum(["image/jpeg", "image/png", "application/pdf"]),
-        contentBase64: z.string().min(4).max(1024000),
-      })
-      .optional(),
-  })
-  .refine(
-    (value) => Boolean(value.body || value.attachment),
-    "El mensaje requiere texto o adjunto",
-  );
-const serviceQuickReplyFields = {
-  serviceScope: z.enum(["all", "food", "ride", "shipment"]),
-  audience: z.enum(["customer", "driver", "merchant"]),
-  locale: z.string().regex(/^[a-z]{2}-[A-Z]{2}$/),
-  body: z.string().trim().min(1).max(160),
-  position: z.coerce.number().int().min(0).max(1000),
-  active: z.boolean(),
-};
-const serviceQuickReplyCreateSchema = z.object(serviceQuickReplyFields),
-  serviceQuickReplyUpdateSchema = z
-    .object(
-      Object.fromEntries(
-        Object.entries(serviceQuickReplyFields).map(([key, value]) => [key, value.optional()]),
-      ),
-    )
-    .refine((value) => Object.keys(value).length > 0, "No hay cambios");
-const supportAgentUpdateSchema = z
-  .object({
-    availability: z.enum(["available", "busy", "offline"]).optional(),
-    maxActiveTickets: z.coerce.number().int().min(1).max(100).optional(),
-    skills: z.array(z.string().trim().min(1).max(80)).min(1).max(20).optional(),
-  })
-  .refine((value) => Object.keys(value).length > 0, "Debes indicar un cambio");
 const userStatusSchema = z.object({
   status: z.enum(["active", "suspended"]),
   reason: z.string().trim().min(5).max(240),
@@ -1364,6 +1327,7 @@ app.use(rideRouter);
 app.use(shipmentRouter);
 app.use(authRouter);
 app.use(merchantRouter);
+app.use(serviceChatRouter);
 app.use(paymentProviderRouter);
 app.use(shipmentProtectionRouter);
 app.use(orderIssuesRouter);
@@ -1376,230 +1340,9 @@ app.get("/api/state", requireAuth, (_req, res) => {
   return fail(res, 410, "El estado global fue retirado; usa bootstrap y recursos segmentados");
 });
 
-app.get(
-  "/api/jobs/:jobId/messages",
-  requireAuth,
-  requireAnyRole("customer", "driver", "merchant"),
-  async (req, res) => {
-    try {
-      return ok(
-        res,
-        await getServiceMessages({
-          jobPublicId: req.params.jobId,
-          userPublicId: req.auth.userId,
-        }),
-      );
-    } catch (error) {
-      return failFrom(res, error, "No se pudo abrir la conversación");
-    }
-  },
-);
-app.post(
-  "/api/jobs/:jobId/messages/read",
-  requireAuth,
-  requireAnyRole("customer", "driver", "merchant"),
-  async (req, res) => {
-    try {
-      return ok(res, {
-        receipt: await markServiceMessagesRead({
-          jobPublicId: req.params.jobId,
-          userPublicId: req.auth.userId,
-        }),
-      });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo confirmar la lectura");
-    }
-  },
-);
-app.post(
-  "/api/jobs/:jobId/messages",
-  serviceChatLimiter,
-  requireAuth,
-  requireAnyRole("customer", "driver", "merchant"),
-  async (req, res) => {
-    const parsed = parseOrFail(serviceMessageSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const message = await createServiceMessage({
-        jobPublicId: req.params.jobId,
-        userPublicId: req.auth.userId,
-        ...parsed.data,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "service_message.created",
-        entityType: "job",
-        entityId: req.params.jobId,
-        requestId: req.requestId,
-        afterData: {
-          messageId: message.id,
-          attachmentIds: message.attachments.map((entry) => entry.id),
-        },
-      });
-      await publishRealtimeEvent({
-        req,
-        type: "service.message_created",
-        entityType: "job",
-        entityId: req.params.jobId,
-        action: "service_message.created",
-      });
-      return res.status(201).json({ ok: true, requestId: req.requestId, message });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo enviar el mensaje");
-    }
-  },
-);
-app.get(
-  "/api/service-message-attachments/:attachmentId/content",
-  serviceChatLimiter,
-  requireAuth,
-  requireAnyRole("customer", "driver", "merchant"),
-  async (req, res) => {
-    try {
-      return ok(
-        res,
-        await getServiceAttachmentContent({
-          attachmentPublicId: req.params.attachmentId,
-          userPublicId: req.auth.userId,
-        }),
-      );
-    } catch (error) {
-      return failFrom(res, error, "No se pudo abrir el adjunto");
-    }
-  },
-);
-app.get(
-  "/api/jobs/:jobId/quick-replies",
-  requireAuth,
-  requireAnyRole("customer", "driver", "merchant"),
-  async (req, res) => {
-    try {
-      return ok(
-        res,
-        await getServiceQuickReplies({
-          jobPublicId: req.params.jobId,
-          userPublicId: req.auth.userId,
-          locale: String(req.query.locale || "es-AR"),
-        }),
-      );
-    } catch (error) {
-      return failFrom(res, error, "No se pudieron cargar respuestas rápidas");
-    }
-  },
-);
-app.get(
-  "/api/admin/service-chat/quick-replies",
-  requireAuth,
-  requireAnyRole("admin"),
-  async (_req, res) => ok(res, { quickReplies: await listServiceQuickReplies() }),
-);
-app.post(
-  "/api/admin/service-chat/quick-replies",
-  requireAuth,
-  requireAnyRole("admin"),
-  async (req, res) => {
-    const parsed = parseOrFail(serviceQuickReplyCreateSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const quickReply = await createServiceQuickReply(parsed.data);
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "service_chat.quick_reply_created",
-        entityType: "service_chat_quick_reply",
-        entityId: quickReply.id,
-        requestId: req.requestId,
-        afterData: quickReply,
-      });
-      return res.status(201).json({ ok: true, requestId: req.requestId, quickReply });
-    } catch (error) {
-      return failFrom(
-        res,
-        // Una violación de unicidad es un conflicto del cliente, no una falla
-        // del servidor: conserva su 409 y su mensaje propio.
-        error.code === "23505" ? { status: 409, message: "La respuesta ya existe" } : error,
-        "La respuesta ya existe",
-      );
-    }
-  },
-);
-app.patch(
-  "/api/admin/service-chat/quick-replies/:quickReplyId",
-  requireAuth,
-  requireAnyRole("admin"),
-  async (req, res) => {
-    const parsed = parseOrFail(serviceQuickReplyUpdateSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const quickReply = await updateServiceQuickReply({
-        publicId: req.params.quickReplyId,
-        ...parsed.data,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "service_chat.quick_reply_updated",
-        entityType: "service_chat_quick_reply",
-        entityId: quickReply.id,
-        requestId: req.requestId,
-        afterData: quickReply,
-      });
-      return ok(res, { quickReply });
-    } catch (error) {
-      return failFrom(
-        res,
-        // Una violación de unicidad es un conflicto del cliente, no una falla
-        // del servidor: conserva su 409 y su mensaje propio.
-        error.code === "23505" ? { status: 409, message: "La respuesta ya existe" } : error,
-        "La respuesta ya existe",
-      );
-    }
-  },
-);
-
 app.use(paymentMethodsRouter);
 
 app.use(supportRouter);
-app.get(
-  "/api/admin/support/agents",
-  requireAuth,
-  requireAnyRole("support", "admin"),
-  async (_req, res) => {
-    try {
-      return ok(res, { agents: await getSupportAgents() });
-    } catch (error) {
-      return failFrom(res, error, "No se pudieron cargar los agentes");
-    }
-  },
-);
-app.patch(
-  "/api/admin/support/agents/:userId",
-  requireAuth,
-  requireAnyRole("support", "admin"),
-  async (req, res) => {
-    const parsed = parseOrFail(supportAgentUpdateSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const agent = await updateSupportAgent({
-        userPublicId: req.params.userId,
-        ...parsed.data,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "support.agent_updated",
-        entityType: "support_agent",
-        entityId: agent.userId,
-        requestId: req.requestId,
-        afterData: parsed.data,
-      });
-      return ok(res, { agent });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo actualizar el agente");
-    }
-  },
-);
 app.use(queueTriggersRouter);
 app.use(notificationsRouter);
 app.use(dietaryRouter);
