@@ -26,6 +26,23 @@ Este diseño sigue la verificación de identidad que Uber aplica antes de modifi
 datos bancarios y el patrón de step-up de Stripe. OWASP Transaction Authorization
 aporta el requisito WYSIWYS, credencial corta, única y ligada a datos significativos.
 
+## Saldo en negativo por reintegro
+
+El pago al comercio verifica saldo: `requestMerchantPayout` refusa con 409 «Saldo comercial insuficiente» si la cuenta `payable` no alcanza. La reversión de un reintegro debita esa misma cuenta **sin mirar el saldo**, así que esta secuencia es posible:
+
+1. el comercio vende y se le acredita en `payable`;
+2. pide su pago y se le liquida — `payable` queda en cero;
+3. un cliente reporta un ítem faltante y operaciones aprueba el reintegro;
+4. la reversión debita `payable` a números rojos.
+
+**Que quede en negativo es la decisión tomada, y es deliberada:** el reintegro al cliente no puede depender del saldo de un tercero. Un pedido mal entregado es un problema entre la plataforma y el cliente; que el comercio ya haya cobrado es un problema entre la plataforma y el comercio, y mezclarlos hace que el cliente pague por una cuenta que no es suya.
+
+La deuda se netea contra liquidaciones futuras: la próxima venta acredita sobre un saldo negativo y lo va cerrando sola. No hay tope ni bloqueo.
+
+Lo que **no** puede pasar es que nadie se entere. Un comercio que deja de vender con saldo negativo se lleva la deuda puesta, y sin registro eso se descubre auditando a mano. Por eso cada vez que una reversión deja una cuenta en rojo se abre un caso `negative_balance` en la bandeja de operaciones, con el saldo real en `details.balanceCents` — no sólo el aviso de que hubo un reintegro. Se abre en la misma transacción que escribe el asiento: si el reintegro se confirma, el caso existe.
+
+Antes de esto el comportamiento era el mismo, sólo que **no era una decisión sino una consecuencia**, y no dejaba rastro.
+
 ## Pendiente productivo
 
 - Completar alta comercial/KYC, credenciales y ensayo sandbox del onboarding OAuth

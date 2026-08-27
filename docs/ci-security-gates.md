@@ -277,6 +277,10 @@ La regla ahora está escrita: **el resto lo absorbe la parte con mayor participa
 
 El fixture sembrado tiene que cuadrar como cualquier otra transacción: el trigger de la migración 118 no hace excepciones con las pruebas, y eso es deseable.
 
+La misma prueba cubre el saldo en negativo. Antes del reintegro le vacía la cuenta a la parte mayor con una transacción que cuadra —como haría una liquidación ya cobrada—, así que el reintegro la deja en −334. Sin eso las tres partes terminan en positivo y la mitad interesante del comportamiento no se ejercita nunca. Verifica que se abra **un** caso `negative_balance`, que apunte a la cuenta que efectivamente quedó en rojo, y que registre el saldo real y no sólo el aviso de que hubo un reintegro. Las dos partes que siguen en positivo no abren caso: una implementación que abriera uno por cada reintegro llenaría la bandeja de ruido y aprobaría la comprobación igual.
+
+La regla de negocio detrás está en [Finanzas de comercios](merchant-finance.md#saldo-en-negativo-por-reintegro): el reintegro al cliente nunca se bloquea por el saldo de un tercero.
+
 ### Un pago repetido no duplica asientos
 
 `recordMarketplaceCapture` inserta la transacción contable con `ON CONFLICT(idempotency_key) DO NOTHING` y clave `marketplace-capture-<providerPaymentId>`. De ahí sale la idempotencia: si el webhook de Mercado Pago llega dos veces —cosa que pasa, los proveedores reintentan— la segunda no escribe nada y el dinero no se cuenta dos veces.
