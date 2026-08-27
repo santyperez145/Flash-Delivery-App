@@ -113,6 +113,12 @@ jobs:
       - name: Idempotency key pruning
         run: npm run test:idempotency-prune
 
+      # Barre el ledger, confirma que el trigger de la migracion 118 esta y es
+      # diferido, y le prueba las dos mitades: rechaza una transaccion torcida y
+      # acepta una que cuadra. Todo dentro de un ROLLBACK.
+      - name: Partida doble garantizada por la base
+        run: npm run test:ledger-balance
+
       # Suites que consultan PostgreSQL directamente, sin necesitar la API.
       - name: Merchant, zone and configuration state
         run: |
