@@ -277,6 +277,16 @@ La regla ahora está escrita: **el resto lo absorbe la parte con mayor participa
 
 El fixture sembrado tiene que cuadrar como cualquier otra transacción: el trigger de la migración 118 no hace excepciones con las pruebas, y eso es deseable.
 
+### Un pago repetido no duplica asientos
+
+`recordMarketplaceCapture` inserta la transacción contable con `ON CONFLICT(idempotency_key) DO NOTHING` y clave `marketplace-capture-<providerPaymentId>`. De ahí sale la idempotencia: si el webhook de Mercado Pago llega dos veces —cosa que pasa, los proveedores reintentan— la segunda no escribe nada y el dinero no se cuenta dos veces.
+
+La garantía tiene dos mitades. La **estructural** es que la columna siga siendo UNIQUE, y la exige `test:ledger-balance`: sin el UNIQUE nada fallaría a la vista y la idempotencia moriría en silencio. La **de comportamiento** es que el código efectivamente use esa clave y trate el conflicto como «ya estaba», y la cubre `test:payment-idempotency`.
+
+La prueba llama a la captura dos veces con el mismo pago y verifica que quede una sola transacción y un solo par de asientos. Después llama con un pago distinto y verifica que **sí** se registre: una implementación que considere duplicado todo pasaría la primera comprobación y perdería pagos, que es peor que contarlos dos veces.
+
+De paso adelanta el chequeo diferido con `SET CONSTRAINTS ... IMMEDIATE`, así que también queda probado que la captura escribe asientos que cuadran y no sólo que no los duplica. Todo termina en `ROLLBACK`.
+
 ### Cobertura documental de las puertas
 
 `test:docs-coverage` exige que cada script `test:` esté nombrado en algún documento de `docs/`. Una puerta que nadie sabe que existe no se mantiene: cuando falla, quien la encuentra no sabe qué protegía ni si conviene arreglarla o borrarla.
