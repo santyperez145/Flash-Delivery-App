@@ -40,7 +40,7 @@ Cinco archivos concentran más de 1,3 MB de código: `apps/mobile/App.tsx` (433 
 - [x] **Ningún módulo de dominio importa React.** 93 módulos verificados por `test:domain-purity`, en `ci-fast.yml`. La regla es la convención del repositorio: `.ts` es lógica, `.tsx` es presentación. `react-native` no cuenta, porque ahí aporta primitivas de plataforma y no renderizado.
 - [x] **El build de driver no incluye pantallas de comercio.** `metro.config.js` resuelve `./variant-screen` según `EXPO_PUBLIC_APP_VARIANT`, así que las otras dos pantallas quedan sin arista que las alcance. Verificado sobre bytecode Hermes real: `test:mobile-variant-bundles` empaqueta las tres variantes y comprueba la diagonal.
 - [x] **El build de customer no incluye backoffice.** Mismo mecanismo y misma puerta. Los tres bundles bajaron de llevar las 9.715 líneas de las tres pantallas a llevar una: 2,3 MB customer, 2,4 MB driver, 2,1 MB merchant.
-- [ ] `server/index.js` deja de contener lógica de dominio. **51 de 57 grupos de rutas extraídos**; quedan 37 rutas en 16 grupos. `index.js` bajó de 9.696 a 2230 líneas (−77%). El chat de servicio salió entero y los agentes de soporte volvieron a `support-router.js`, que ya tenía los tickets que esos agentes atienden.
+- [ ] `server/index.js` deja de contener lógica de dominio. **53 de 57 grupos de rutas extraídos**; quedan 23 rutas en 13 grupos. `index.js` bajó de 9.696 a 1693 líneas (−83%). El conductor se partió en dos por lo que decide cada mitad: `driver-router.js` es lo que hace con su habilitación, y las seis rutas de aptitud se sumaron a `driver-fleet-router.js`, porque `assertDriverCanGoOnline` consulta legajo y vehículo en la misma sentencia.
 
 ### Verificación
 
