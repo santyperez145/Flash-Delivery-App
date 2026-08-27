@@ -411,8 +411,8 @@
     },
     "user_roles": {
       "clase": "por-usuario",
-      "rls": false,
-      "nota": "Se lee ANTES de autenticar: `findAuthUserByEmail` hace JOIN sin contexto de usuario. Una política `user_id = app.current_user_id()` rompería todo login. Necesita SECURITY DEFINER para el camino de login antes de aplicar RLS."
+      "rls": true,
+      "nota": "Mapa de personas a privilegios. Política `user_roles_owner`. El runtime queda exento: el login resuelve identidad con un JOIN a esta tabla antes de que exista contexto de usuario. Sin recursión: `app.has_role()` lee una variable de sesión, no esta tabla."
     },
     "users": {
       "clase": "por-usuario",
