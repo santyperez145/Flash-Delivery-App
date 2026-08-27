@@ -48,26 +48,58 @@ Aplicar RLS acá exige primero mover el camino de login a una función `SECURITY
 
 Esto vale como advertencia general: **antes de aplicar una política hay que saber si la tabla se consulta sin contexto.** El resto de la deuda comparte esa incógnita en distinto grado.
 
-## Esquema muerto
+## Esquema muerto — eliminado
 
-Dos tablas no las referencia ningún archivo de `server/` ni de `scripts/`:
+La migración `112_drop_dead_schema.sql` borró las dos tablas que ningún archivo
+de `server/` ni de `scripts/` referenciaba. La matriz pasó de 106 tablas a 104.
 
-| Tabla | Situación |
+| Tabla | Por qué se borró |
 | --- | --- |
-| `outbox_events` | Ninguna referencia. El outbox real de notificaciones usa otras tablas. |
-| `user_security_factors` | Superada por `user_mfa`. Declara columnas para **secretos TOTP y credenciales WebAuthn** que nada escribe ni lee. |
+| `outbox_events` | El patrón outbox de la migración 001, nunca implementado. La entrega diferida real vive en `notifications` y `notification_deliveries`. |
+| `user_security_factors` | Superada por `user_mfa`. Declaraba columnas para **secretos TOTP y credenciales WebAuthn** que nada escribía ni leía. |
 
-`user_security_factors` es la más incómoda: una tabla con forma de almacén de credenciales, sin política RLS y con DML abierto al rol de runtime, que existe sólo porque nadie la borró. No guarda datos hoy, pero es superficie de ataque gratuita y confunde cualquier revisión.
+`user_security_factors` era la incómoda, y conviene entender por qué antes de
+que alguien cree otra igual: una tabla con forma de almacén de credenciales, sin
+política RLS, alcanzable por el rol de runtime a través del `GRANT ... ON ALL
+TABLES` que este ticket todavía debe restringir. Existía un depósito de segundos
+factores sin condición de fila y sin nadie vigilándolo, precisamente porque nadie
+lo usaba. El día que alguien la hubiera adoptado, habría heredado esa ausencia de
+política sin notarlo.
 
-**Ambas deberían eliminarse con una migración**, no clasificarse indefinidamente. Queda como trabajo de DAT-001.
+Se borran en lugar de dejarlas clasificadas: **una tabla sin uso no se puede
+probar**, así que su deuda de RLS no se cierra de otra forma. Si alguna vuelve a
+hacer falta, vuelve con su política y su prueba negativa en el mismo PR.
+
+Borrarlas expuso que la puerta contaba `CREATE TABLE` y nunca `DROP TABLE`, así
+que una tabla eliminada habría seguido clasificada —y contando como cubierta por
+una política que se fue con ella— para siempre. La regla 4 de abajo ya lo exigía;
+ahora `test:rls-matrix` la verifica.
 
 ## `FORCE ROW LEVEL SECURITY`
 
-Sigue en **cero sentencias**. Sin `FORCE`, las políticas no se aplican al dueño de la tabla, que es `flash_app` — el rol migrador.
+Sigue en **cero sentencias**, y esta es la explicación de por qué no alcanza con
+aplicarlo y listo.
 
-No es una brecha para el runtime, porque `flash_runtime` no es dueño y sí queda sujeto a las políticas. Pero significa que cualquier consulta hecha con las credenciales de migración omite RLS por completo, y que la separación de roles depende de que nadie use esa conexión para leer datos.
+Sin `FORCE`, las políticas no rigen para el dueño de la tabla. El dueño es
+`flash_app`, el rol migrador, que es también el que corre las migraciones y
+`scripts/db-seed-derived.mjs` —trabajo que por definición tiene que tocar filas
+de todos los usuarios—. Aplicar `FORCE` a todo rompería ese trabajo, así que no
+es una casilla pendiente por descuido: es una decisión con un costo real del otro
+lado.
 
-Aplicarlo requiere revisar antes qué migraciones y scripts de mantenimiento leen datos con el rol dueño; hacerlo a ciegas rompería el propio proceso de migración.
+**No es una brecha para el runtime.** `flash_runtime` no es dueño y es
+`NOBYPASSRLS`, así que las políticas se le aplican enteras.
+
+El riesgo concreto es otro y es de configuración: si `DATABASE_URL` apuntara
+alguna vez a `flash_app` en lugar de a `flash_runtime` —una copia de `.env`, una
+sesión de depuración, un despliegue mal armado—, **todas las políticas dejarían
+de aplicarse en silencio**. Ninguna consulta fallaría; simplemente devolverían
+las filas de todo el mundo.
+
+Contra eso ya hay algo: `GET /api/ready` devuelve 503 en producción cuando el rol
+conectado puede saltear RLS —`least_privilege` compara `rolbypassrls` y el dueño
+de `users` contra el rol actual—. Eso quita la instancia del balanceador, pero el
+proceso sigue corriendo y sigue respondiendo a quien lo alcance directo.
 
 ## Reglas
 
