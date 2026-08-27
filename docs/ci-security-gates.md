@@ -331,6 +331,8 @@ Lo que no puede tocar es la mitad donde viviría una fuga de verdad. `ownerOfDri
 
 `test:realtime-audience-runtime` no verifica `resolveAudience` en aislamiento: publica de verdad sobre los datos sembrados y después le pregunta al **replay** qué recibiría cada usuario, que es la consulta que decide la entrega. La propiedad que interesa no es «el arreglo guardado tiene los ids correctos» sino «este usuario no recibe este evento».
 
+El ticket de soporte se **siembra** en lugar de buscarse. La primera corrida no encontró ninguno en los datos de CI y el caso se saltó con una nota prolija, que es exactamente la forma en que una puerta pierde cobertura sin ponerse roja: `ownerOfSupportTicket` es uno de los cinco resolutores que esto viene a cubrir. Crear la fila ejercita el mismo JOIN contra la misma tabla, y si el fixture no se puede sembrar la puerta falla en lugar de avisar.
+
 Cada caso tiene sus dos mitades: el dueño recibe y un tercero no. Sin la primera, una implementación que no entregara nada a nadie pasaría entera y rompería el producto; sin la segunda no se estaría probando nada de lo que SEC-001 vino a arreglar. El ticket de soporte y la dirección se eligen con dueño distinto del usuario de control, para que el negativo no pase por casualidad.
 
 Se ejercitan además los tres caminos que tienen que cerrarse —`entityType` inventado, evento sin entidad, e identificador mal formado en `address`, que tiene su propia guarda antes de consultar— y en los tres se exige que **sí** llegue a operaciones: un default-deny que también le cierre la puerta a quien tiene que diagnosticar convierte cada incidente en una excavación.

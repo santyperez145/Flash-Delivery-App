@@ -37,6 +37,7 @@ const pool = new pg.Pool({
 
 const marca = crypto.randomBytes(4).toString("hex");
 const publicados = [];
+const ticketsSembrados = [];
 
 let fallos = 0;
 const ok = (etiqueta) => console.log(`ok - ${etiqueta}`);
@@ -81,13 +82,21 @@ try {
   );
   if (!ajeno) throw new Error("No hay un usuario ajeno sin rol admin para el control negativo");
 
-  // El ticket y la dirección se eligen con dueño distinto del usuario ajeno: si
-  // coincidieran, el control negativo fallaría por casualidad y no por una fuga.
+  // El ticket se **siembra** en lugar de buscarse. La primera corrida no encontró
+  // ninguno y el caso se saltó con una nota: `ownerOfSupportTicket` es uno de los
+  // cinco resolutores que esto viene a cubrir, y un caso que se saltea en silencio
+  // no es cobertura por más prolija que sea la nota. Crear la fila ejercita el
+  // mismo JOIN contra la misma tabla.
   const ticket = await unaFila(
-    `SELECT t.public_id, u.public_id duenio FROM support_tickets t
-     JOIN users u ON u.id = t.user_id WHERE u.public_id <> $1 LIMIT 1`,
-    [ajeno.public_id],
+    `INSERT INTO support_tickets(public_id, user_id, category, subject)
+     SELECT $1, u.id, 'contract', 'Fixture de audiencia realtime' FROM users u WHERE u.public_id = $2
+     RETURNING public_id, $2::text duenio`,
+    [`TCK-CONTRACT-${marca.toUpperCase()}`, trabajo.cliente],
   );
+  if (ticket) ticketsSembrados.push(ticket.public_id);
+
+  // La dirección se elige con dueño distinto del usuario ajeno: si coincidieran,
+  // el control negativo pasaría por casualidad y no por ausencia de fuga.
   const direccion = await unaFila(
     `SELECT a.id, u.public_id duenio FROM addresses a
      JOIN users u ON u.id = a.user_id WHERE u.public_id <> $1 LIMIT 1`,
@@ -182,7 +191,10 @@ try {
       noReciben: [["un usuario ajeno", ajeno.public_id]],
     });
   } else {
-    console.log("nota - no hay tickets de soporte sembrados: ese caso no se ejercitó");
+    fallo(
+      "no se pudo sembrar el ticket de soporte",
+      "ownerOfSupportTicket queda sin ejercitar y eso no puede pasar en silencio",
+    );
   }
 
   if (direccion) {
@@ -194,7 +206,10 @@ try {
       noReciben: [["un usuario ajeno", ajeno.public_id]],
     });
   } else {
-    console.log("nota - no hay direcciones sembradas: ese caso no se ejercitó");
+    fallo(
+      "no hay direcciones sembradas",
+      "ownerOfAddress queda sin ejercitar y eso no puede pasar en silencio",
+    );
   }
 
   // --- Los tres caminos que tienen que cerrarse ------------------------------
@@ -247,6 +262,11 @@ try {
     }
   }
 } finally {
+  if (ticketsSembrados.length) {
+    await pool
+      .query("DELETE FROM support_tickets WHERE public_id = ANY($1)", [ticketsSembrados])
+      .catch(() => {});
+  }
   if (publicados.length) {
     await pool
       .query("DELETE FROM realtime_events WHERE public_id = ANY($1)", [publicados])
