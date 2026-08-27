@@ -91,7 +91,7 @@ La matriz vive en `docs/matriz-madurez.md` y se actualiza en el mismo PR que cam
 | --- | --- | --- |
 | ~~`ci-critical-flows.yml`~~ **hecho** | CI-001 | Pagos, ledger, webhooks, conciliación, KYC, soporte y safety bloquean el merge · 4 suites en cuarentena |
 | ~~Matriz formal de cobertura RLS~~ **hecho** | DAT-001 | Las 106 tablas clasificadas y con puerta CI; `FORCE ROW LEVEL SECURITY` sigue pendiente |
-| Pruebas negativas por rol | DAT-001 | Cada tabla con datos por usuario tiene un test que demuestra denegación. **Avanzado**: el esquema muerto se borró (`112_drop_dead_schema.sql`, 106 → 104 tablas) y `server/rls-guard.js` cierra el riesgo que `FORCE` no puede cubrir. Faltan las 5 tablas de la deuda declarada |
+| ~~Pruebas negativas por rol~~ **hecho** | DAT-001 | Las cinco tablas de la deuda cerraron el 27-08: `test:rls-matrix` reporta 65 de 65 y `test:rls` afirma las dos mitades de cada una —el rol auditor no ve nada, y el dueño sí ve lo suyo—. Falta acotar los grants por operación |
 | Vitest + Testcontainers | CI-001 | Framework estándar adoptado; primeras suites migradas |
 
 #### Semana 3 (8–14 de septiembre) — Proveedores reales

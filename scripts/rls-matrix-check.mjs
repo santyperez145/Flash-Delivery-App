@@ -14,16 +14,15 @@ import path from "node:path";
 const MIGRATIONS_DIR = "database/migrations";
 const CLASSIFICATION_PATH = "database/rls-classification.json";
 
-// Tablas `por-usuario` que todavía no tienen política. La lista sólo puede
+// Tablas `por-usuario` que todavía no tienen política. **Hoy está vacía**: las
+// cinco se cerraron el 27 de agosto de 2026. La lista sólo puede
 // achicarse: agregar una entrada exige explicar por qué no se puede aplicar la
 // política todavía.
 //
 // `user_roles` es el caso difícil y conviene leerlo antes de tocarlo: se
 // consulta ANTES de autenticar, así que una política por usuario rompería el
 // login de toda la plataforma.
-const DEUDA = new Map([
-  ["user_roles", "se lee antes de autenticar; necesita SECURITY DEFINER para el login primero"],
-]);
+const DEUDA = new Map([]);
 
 const files = (await fs.readdir(MIGRATIONS_DIR)).filter((file) => file.endsWith(".sql")).sort();
 const sql = (

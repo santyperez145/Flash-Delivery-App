@@ -30,11 +30,19 @@ Donde no hay política, la única barrera es el código de aplicación. Un bug d
 
 ## Deuda declarada
 
-Una tabla está clasificada `por-usuario` y todavía no tiene política. La lista vive en `scripts/rls-matrix-check.mjs` y **sólo puede achicarse**: la puerta falla si aparece una sexta sin motivo escrito, y también si una de estas gana política y no se la quita de la lista.
+**Ya no hay deuda declarada.** Las cinco tablas que estaban sin política cerraron el 27 de agosto de 2026, y `test:rls-matrix` reporta **65 de 65**.
 
-| Tabla | Por qué todavía no |
-| --- | --- |
-| `user_roles` | **Se lee antes de autenticar.** Ver abajo. |
+La lista de deuda sigue existiendo en `scripts/rls-matrix-check.mjs` y sólo puede achicarse: hoy está vacía, y agregar una entrada exige explicar por escrito por qué no se puede aplicar la política todavía.
+
+Vale registrar el patrón, porque se repitió tres veces: **el motivo anotado para no aplicar una política resultó más restrictivo que el esquema real.** `drivers`, `merchants` y `user_roles` estaban bloqueadas por consultas que corren sin contexto de usuario, y eso sólo bloquea si la política tuviera que alcanzar al runtime — que queda exento como en las otras 67 tablas. Las notas asumían una política más estricta de la que este esquema usa en ningún lado.
+
+### Cerrada: `user_roles`
+
+La migración `117_user_roles_rls.sql` la cerró. Es el mapa de personas a privilegios —quién es administrador, quién es soporte, quién conduce— y por eso la que más justifica el default-deny.
+
+El motivo registrado era «se lee antes de autenticar; necesita `SECURITY DEFINER` para el login primero», y confundía dos cosas. Es cierto que el login resuelve identidad con un `LEFT JOIN user_roles` **antes de que exista contexto**: en ese momento no se sabe quién pregunta, que es lo que la consulta va a averiguar. Pero mover esa resolución a una función `SECURITY DEFINER` es lo que haría falta para **constreñir al runtime**, un objetivo distinto y más grande que cambia el camino de autenticación. No es requisito para que la tabla tenga política.
+
+**No hay recursión**, que es la trampa clásica de poner RLS sobre una tabla de roles: `app.has_role()` lee `current_setting('app.roles')`, una variable de sesión, no esta tabla. Si algún día leyera de acá, la política se invocaría a sí misma para evaluarse.
 
 ### Cerrada: `shipment_details`
 
@@ -71,16 +79,6 @@ Pero eso sólo bloquearía si la política tuviera que alcanzar al runtime, y no
 Lo que sí estaba abierto era peor de lo que decía la nota: **`flash_rls_audit` tiene `GRANT SELECT` sobre las dos desde la migración 011 y ninguna tenía `ENABLE`.** El rol que existe para demostrar aislamiento leía el nombre, la patente, la posición en vivo y la calificación de todos los conductores, y el dueño y la ubicación de todos los comercios.
 
 Las políticas incluyen `support` además de `admin`, igual que `jobs_participants`: soporte atiende casos sobre conductores y comercios que no son suyos.
-
-### El caso difícil: `user_roles`
-
-`server/auth-repository.js` resuelve la identidad con un `JOIN` a `user_roles` **antes de que exista contexto de usuario** — es el propio camino de login, y usa `postgresPool.query` directo en lugar de `withDatabaseContext`.
-
-Una política del estilo `USING (user_id = app.current_user_id())` devolvería cero filas en esa consulta y **rompería el login de toda la plataforma**.
-
-Aplicar RLS acá exige primero mover el camino de login a una función `SECURITY DEFINER` acotada, que resuelva credenciales y roles sin exponer la tabla al resto de las consultas. Es un cambio de diseño, no una migración mecánica, y por eso queda declarado en lugar de improvisado.
-
-Esto vale como advertencia general: **antes de aplicar una política hay que saber si la tabla se consulta sin contexto.** El resto de la deuda comparte esa incógnita en distinto grado.
 
 ## Esquema muerto — eliminado
 
