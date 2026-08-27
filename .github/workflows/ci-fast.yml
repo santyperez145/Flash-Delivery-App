@@ -334,3 +334,10 @@ jobs:
 
       - name: Validate native runtime and build variants
         run: npm run test:mobile-native-runtime && npm run test:mobile-build-variants
+
+      # Los dos criterios de build de ARC-001 no se pueden leer del codigo:
+      # dependen de que modulos alcanza Metro. Esto empaqueta las tres variantes
+      # de verdad y comprueba que cada bundle Hermes lleve una sola pantalla.
+      - name: Variant bundles contain a single screen
+        run: npm run test:mobile-variant-bundles
+        working-directory: ${{ github.workspace }}
