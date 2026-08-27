@@ -20,6 +20,7 @@ import {
   LocateFixed,
   PackageCheck,
   Plus,
+  ShieldAlert,
   ShieldCheck,
   ShoppingBag,
   Store,
@@ -29,6 +30,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 import { api } from "../api";
+import type { RealtimeAudienceHealth } from "../types";
 import { initials, money } from "../format";
 import { orderStatusLabel, rideStatusLabel } from "../labels";
 import { Metric, OrderOpsCard, SectionTitle, TopBar } from "../ui/panels";
@@ -528,6 +530,7 @@ export function OpsApp({
         <MetricCard label="Tickets" value={state.metrics.openTickets} tone="dark" />
       </div>
       <OpsRiskBoard state={state} />
+      <RealtimeAudiencePanel />
       <section className="control-map">
         {state.zones.slice(0, 3).map((zone, index) => (
           <div className={`zone zone-${["one", "two", "three"][index]}`} key={zone.id}>
@@ -564,6 +567,94 @@ export function OpsApp({
         ))}
       </div>
     </div>
+  );
+}
+
+/**
+ * Salud de la clasificación de audiencias realtime (SEC-001).
+ *
+ * La métrica Prometheus ya existía y ya alertaba, pero es un contador en
+ * memoria: por réplica y borrado en cada reinicio. Servía para saber que estaba
+ * pasando algo y no para saber **qué**. Este panel lee el desenlace que desde la
+ * migración 120 viaja con el evento, así que puede nombrar los eventos sin
+ * clasificar en lugar de contarlos.
+ *
+ * Cuando no hay ninguno el panel se calla. Un tablero que muestra un cero
+ * permanente enseña a no mirarlo, y este tiene que llamar la atención el día que
+ * deje de ser cero.
+ */
+function RealtimeAudiencePanel() {
+  const [salud, setSalud] = useState<RealtimeAudienceHealth | null>(null);
+  const [sinSoporte, setSinSoporte] = useState(false);
+
+  useEffect(() => {
+    let vigente = true;
+    api
+      .getRealtimeAudienceHealth(24)
+      .then((datos) => {
+        if (vigente) setSalud(datos);
+      })
+      .catch(() => {
+        // El respaldo SQLite no lleva log de eventos y responde 503. No es un
+        // error que operaciones deba resolver: es una capacidad ausente, y
+        // decirlo es más honesto que dibujar ceros.
+        if (vigente) setSinSoporte(true);
+      });
+    return () => {
+      vigente = false;
+    };
+  }, []);
+
+  if (sinSoporte) {
+    return (
+      <section className="ops-audience ops-audience-idle">
+        <ShieldAlert size={16} aria-hidden />
+        <span>Clasificación de audiencias sin registro: requiere PostgreSQL.</span>
+      </section>
+    );
+  }
+  if (!salud) return null;
+  if (salud.unclassified.total === 0) {
+    return (
+      <section className="ops-audience ops-audience-idle">
+        <ShieldCheck size={16} aria-hidden />
+        <span>
+          Sin eventos mal clasificados en {salud.windowHours} h · {salud.total} publicados
+        </span>
+      </section>
+    );
+  }
+  return (
+    <section className="ops-audience ops-audience-alert">
+      <header>
+        <ShieldAlert size={16} aria-hidden />
+        <strong>
+          {salud.unclassified.total} evento(s) sin clasificar en {salud.windowHours} h
+        </strong>
+      </header>
+      <p>
+        Un evento sin clasificar sólo llega a operaciones. No se filtró nada, pero quien debía
+        recibirlo no lo recibió.
+      </p>
+      <ul>
+        {salud.unclassified.byEntityType.map((fila) => (
+          <li key={fila.entityType}>
+            <code>{fila.entityType}</code> · {fila.total}
+          </li>
+        ))}
+      </ul>
+      <details>
+        <summary>Ver los últimos {salud.unclassified.recent.length}</summary>
+        <ul>
+          {salud.unclassified.recent.map((evento) => (
+            <li key={evento.id}>
+              <code>{evento.id}</code> · {evento.type}
+              {evento.entityType ? ` · ${evento.entityType}` : ""}
+            </li>
+          ))}
+        </ul>
+      </details>
+    </section>
   );
 }
 
