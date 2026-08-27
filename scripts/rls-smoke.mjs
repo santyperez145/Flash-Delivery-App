@@ -196,6 +196,19 @@ try {
     fleetVisibility.rows[0].drivers === 0 && fleetVisibility.rows[0].merchants === 0,
     "audit credentials see no driver identity or merchant ownership without context",
   );
+
+  // `user_roles` es el mapa de personas a privilegios: quien es administrador,
+  // quien es soporte, quien conduce. Fue la ultima de la deuda y la que mas
+  // justifica el default-deny.
+  //
+  // El grant al auditor se agrego con la politica en la migracion 117, no antes:
+  // hasta entonces no tenia permiso sobre la tabla, asi que sin el grant esto
+  // demostraria eso y no la politica.
+  const rolesVisibility = await client.query("SELECT count(*)::int count FROM user_roles");
+  assert(
+    rolesVisibility.rows[0].count === 0,
+    "audit credentials cannot read who holds administrative roles",
+  );
   const visibleModifiers = await client.query(
     "SELECT count(*)::int count FROM catalog_modifiers WHERE available",
   );
@@ -685,6 +698,16 @@ try {
   assert(
     customerUsers.rowCount === 1 && customerUsers.rows[0].public_id === "usr_customer",
     "RLS exposes only current customer row",
+  );
+  // La otra mitad de `user_roles`: el cliente ve su rol y solo el suyo. Sin
+  // esto, una politica que niegue a todos pasaria el test negativo de arriba.
+  const ownRoles = await client.query(
+    "SELECT count(*)::int total,count(*) FILTER(WHERE user_id=$1)::int propio FROM user_roles",
+    [customer.id],
+  );
+  assert(
+    ownRoles.rows[0].propio >= 1 && ownRoles.rows[0].total === ownRoles.rows[0].propio,
+    "RLS exposes the customer own roles and nobody else privileges",
   );
   const customerAddresses = await client.query("SELECT DISTINCT user_id FROM addresses");
   assert(
