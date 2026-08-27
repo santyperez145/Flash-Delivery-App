@@ -11,3 +11,7 @@ vite-dev*.log
 .env.*
 !.env.example
 .DS_Store
+
+# SBOM que genera el job container-image. Es un artefacto de la corrida, no
+# del repositorio: describe la imagen construida en ese momento.
+sbom-flash.cdx.json
