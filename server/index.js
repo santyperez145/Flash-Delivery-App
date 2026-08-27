@@ -33,6 +33,7 @@ import {
   fallbackRidePricing,
   fallbackShipmentPricing,
   readDb,
+  addTimeline,
   findRestaurant,
   scopeStateForRequest,
   sqliteReadCount,
@@ -40,6 +41,10 @@ import {
 import { requireAuth } from "./http/authentication.js";
 import { backofficeReportsRouter } from "./http/backoffice-reports-router.js";
 import { catalogRouter } from "./http/catalog-router.js";
+import { orderRouter } from "./http/order-router.js";
+import { orderIssuesRouter } from "./http/order-issues-router.js";
+import { cancellationSchema } from "./http/cancellation.js";
+import { creditDriverEarningsRuntime } from "./driver-earnings.js";
 import { addressesRouter } from "./http/addresses-router.js";
 import { dietaryRouter } from "./http/dietary-router.js";
 import { featureFlagsRouter } from "./http/feature-flags-router.js";
@@ -305,7 +310,6 @@ import {
 } from "./store.js";
 
 const app = express();
-const serviceFee = 520;
 const jwtSecret = config.jwtSecret;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -536,41 +540,6 @@ const coordinateSchema = z.object({
   lng: z.coerce.number().min(-180).max(180),
 });
 
-const orderSchema = z.object({
-  customerId: z.string().min(1),
-  restaurantId: z.string().min(1),
-  deliveryAddressId: z.string().uuid().optional(),
-  branchId: z.string().min(3).max(100).optional(),
-  deliveryAddress: z.string().min(3),
-  paymentMethod: z.string().min(2),
-  paymentMethodId: z.string().uuid().optional(),
-  promotionCode: z.string().trim().min(3).max(40).optional(),
-  quoteToken: z.string().min(20).optional(),
-  providerPayment: z
-    .object({
-      cardToken: z
-        .string()
-        .regex(/^[A-Za-z0-9._-]{8,256}$/)
-        .refine(
-          (value) => !/^\d{13,19}$/.test(value),
-          "Debes enviar un token del proveedor, no el número de tarjeta",
-        ),
-      paymentMethodId: z.string().regex(/^[A-Za-z0-9_-]{2,64}$/),
-      installments: z.coerce.number().int().min(1).max(48).default(1),
-    })
-    .optional(),
-  items: z
-    .array(
-      z.object({
-        menuItemId: z.string().min(1),
-        quantity: z.coerce.number().int().min(1).max(30),
-        extras: z.array(z.string().trim().min(1).max(100)).max(20).default([]),
-        note: z.string().trim().max(500).default(""),
-      }),
-    )
-    .min(1),
-});
-
 const rideQuoteSchema = z.object({
   pickup: z.string().min(3, "Origen obligatorio"),
   destination: z.string().min(3, "Destino obligatorio"),
@@ -585,42 +554,6 @@ const rideCreateSchema = rideQuoteSchema.extend({
   quoteToken: z.string().min(20).optional(),
   scheduledFor: z.string().datetime().optional(),
 });
-const foodOrderQuoteSchema = z.object({
-  customerId: z.string().min(1),
-  restaurantId: z.string().min(1),
-  deliveryAddressId: z.string().uuid(),
-  branchId: z.string().min(3).max(100).optional(),
-  paymentMethod: z.string().min(2).optional(),
-  paymentMethodId: z.string().uuid().optional(),
-  promotionCode: z.string().trim().min(3).max(40).optional(),
-  items: z
-    .array(
-      z.object({
-        menuItemId: z.string().min(1),
-        quantity: z.coerce.number().int().min(1).max(30),
-        extras: z.array(z.string().trim().min(1).max(100)).max(20).default([]),
-        note: z.string().trim().max(500).default(""),
-      }),
-    )
-    .min(1)
-    .max(50)
-    .optional(),
-});
-
-const cartSchema = z.object({
-  restaurantId: z.string().min(1).optional(),
-  items: z
-    .array(
-      z.object({
-        menuItemId: z.string().min(1),
-        quantity: z.coerce.number().int().min(1).max(99),
-        extras: z.array(z.string().trim().min(1).max(100)).max(20).default([]),
-        note: z.string().trim().max(500).default(""),
-      }),
-    )
-    .max(99),
-});
-
 const refreshSchema = z.object({
   refreshToken: z.string().min(32),
   deviceName: z.string().trim().max(160).optional(),
@@ -863,67 +796,6 @@ const tipAdjustmentReviewSchema = z.object({
   decision: z.enum(["approved", "rejected"]),
   note: z.string().trim().min(5).max(1000),
 });
-const orderIssueSchema = z.object({
-  category: z.enum(["missing_item", "wrong_item", "damaged_item", "quality", "late", "other"]),
-  description: z.string().trim().min(5).max(1000),
-  requestedRefund: z.coerce.number().nonnegative().max(1000000),
-});
-const orderIssueResolutionSchema = z
-  .object({
-    status: z.enum(["approved", "rejected"]),
-    approvedRefund: z.coerce.number().nonnegative().max(1000000).default(0),
-    resolutionNote: z.string().trim().min(3).max(1000),
-  })
-  .superRefine((value, ctx) => {
-    if (value.status === "rejected" && value.approvedRefund !== 0)
-      ctx.addIssue({
-        code: "custom",
-        path: ["approvedRefund"],
-        message: "Una incidencia rechazada no puede reintegrar dinero",
-      });
-  });
-const substitutionProposalSchema = z.object({
-  originalMenuItemId: z.string().min(3).max(100),
-  replacementMenuItemId: z.string().min(3).max(100),
-  reason: z.string().trim().min(3).max(500),
-});
-const substitutionDecisionSchema = z.object({
-  decision: z.enum(["accepted", "rejected"]),
-});
-const cancellationSchema = z
-  .object({
-    status: z.literal("cancelled"),
-    reason: z.enum([
-      "changed_mind",
-      "wrong_address",
-      "long_wait",
-      "price",
-      "driver_issue",
-      "merchant_issue",
-      "recipient_unavailable",
-      "other",
-    ]),
-    reasonDetail: z.string().trim().min(3).max(500).nullable().optional(),
-  })
-  .superRefine((value, ctx) => {
-    if (value.reason === "other" && !value.reasonDetail)
-      ctx.addIssue({
-        code: "custom",
-        path: ["reasonDetail"],
-        message: "Describe el motivo",
-      });
-  });
-const orderLabels = {
-  accepted: "Aceptado",
-  preparing: "Preparando",
-  ready_for_pickup: "Listo para retirar",
-  courier_assigned: "Repartidor asignado",
-  picked_up: "Retirado",
-  delivering: "En camino",
-  delivered: "Entregado",
-  cancelled: "Cancelado",
-};
-
 const rideLabels = {
   requested: "Buscando conductor",
   driver_assigned: "Conductor asignado",
@@ -948,46 +820,6 @@ function accountSnapshot(db, userId) {
     walletTransactions: (db.walletTransactions || []).filter((entry) => entry.userId === userId),
     supportTickets: (db.supportTickets || []).filter((entry) => entry.userId === userId),
     ratings: (db.ratings || []).filter((entry) => entry.userId === userId),
-  };
-}
-
-function calculateOrderTotals(restaurant, items) {
-  let subtotal = 0;
-  const expandedItems = items.map((entry) => {
-    const menuItem = restaurant.menu.find((item) => item.id === entry.menuItemId);
-    if (!menuItem || !menuItem.stock) {
-      throw new Error(`Producto no disponible: ${entry.menuItemId}`);
-    }
-    const quantity = Math.max(1, Number(entry.quantity || 1));
-    const extras = Array.isArray(entry.extras) ? entry.extras : [];
-    const extrasTotal = extras.reduce((sum, extraIdOrName) => {
-      const extra = restaurant.extras.find(
-        (item) => item.id === extraIdOrName || item.name === extraIdOrName,
-      );
-      return sum + (extra?.price || 0);
-    }, 0);
-    subtotal += (menuItem.price + extrasTotal) * quantity;
-    return {
-      menuItemId: menuItem.id,
-      name: menuItem.name,
-      quantity,
-      unitPrice: menuItem.price,
-      extras: extras.map((extraIdOrName) => {
-        const extra = restaurant.extras.find(
-          (item) => item.id === extraIdOrName || item.name === extraIdOrName,
-        );
-        return extra?.name || extraIdOrName;
-      }),
-      note: String(entry.note || ""),
-    };
-  });
-
-  return {
-    items: expandedItems,
-    subtotal,
-    deliveryFee: restaurant.deliveryFee,
-    serviceFee,
-    total: subtotal + restaurant.deliveryFee + serviceFee,
   };
 }
 
@@ -1201,36 +1033,6 @@ function deliverSession(req, res, session) {
   setRefreshCookie(res, session.refreshToken, session.refreshExpiresAt);
   const { refreshToken: _refreshToken, ...publicSession } = session;
   return publicSession;
-}
-
-function creditDriverEarnings(db, driverId, amount, reference) {
-  const driver = db.drivers.find((entry) => entry.id === driverId);
-  if (!driver || !Number.isFinite(amount) || amount <= 0) return;
-  driver.earningsToday = Number(driver.earningsToday || 0) + Math.round(amount);
-  const user = db.users.find((entry) => entry.id === driver.userId);
-  if (user) user.wallet = Number(user.wallet || 0) + Math.round(amount);
-  db.walletTransactions ||= [];
-  db.walletTransactions.unshift({
-    id: createId("WAL"),
-    userId: driver.userId,
-    kind: "credit",
-    amount: Math.round(amount),
-    description: `Ganancia ${reference}`,
-    createdAt: getTimestamp(),
-  });
-}
-
-async function creditDriverEarningsRuntime(db, driverId, amount, reference) {
-  if (!usesPostgresCommerce()) return creditDriverEarnings(db, driverId, amount, reference);
-  const driver = (await getPostgresDrivers()).find((entry) => entry.id === driverId);
-  if (!driver || amount <= 0) return;
-  const publicId = reference.replace(/^(viaje|envio)-/, "");
-  return settleMobilityWalletPayment({
-    publicId,
-    driverPublicId: driverId,
-    driverAmount: Math.round(amount),
-    reference,
-  });
 }
 
 const rideServiceCatalog = {
@@ -1447,34 +1249,11 @@ function assignRideDriver(db, ride) {
   };
 }
 
-function nextOrderStatus(order) {
-  if (order.status === "accepted") return "preparing";
-  if (order.status === "preparing") return "ready_for_pickup";
-  if (order.status === "courier_assigned") return "picked_up";
-  if (order.status === "picked_up") return "delivering";
-  if (order.status === "delivering") return "delivered";
-  return null;
-}
-
 function nextRideStatus(ride) {
   if (ride.status === "driver_assigned") return "arriving";
   if (ride.status === "arriving") return "in_progress";
   if (ride.status === "in_progress") return "completed";
   return null;
-}
-
-function addTimeline(entity, status) {
-  return {
-    ...entity,
-    status,
-    timeline: [
-      ...(entity.timeline || []),
-      {
-        status,
-        at: getTimestamp(),
-      },
-    ],
-  };
 }
 
 function metrics(db) {
@@ -2160,6 +1939,8 @@ const publicRestaurantFallback = (restaurant) => {
   };
 };
 app.use(catalogRouter);
+app.use(orderRouter);
+app.use(orderIssuesRouter);
 
 app.use(backofficeReportsRouter);
 app.use(featureFlagsRouter);
@@ -3000,188 +2781,6 @@ app.patch(
     }
   },
 );
-app.post(
-  "/api/orders/:orderId/issues",
-  requireAuth,
-  requireAnyRole("customer"),
-  async (req, res) => {
-    if (!usesPostgresCommerce()) return fail(res, 503, "Las incidencias requieren PostgreSQL");
-    const parsed = parseOrFail(orderIssueSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const issue = await createOrderIssue({
-        orderPublicId: req.params.orderId,
-        customerPublicId: req.auth.userId,
-        ...parsed.data,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "order_issue.created",
-        entityType: "order_issue",
-        entityId: issue.id,
-        requestId: req.requestId,
-        afterData: {
-          orderId: req.params.orderId,
-          category: issue.category,
-          requestedRefund: issue.requestedRefund,
-        },
-      });
-      await publishRealtimeEvent({
-        req,
-        type: "order.issue_updated",
-        entityType: "order",
-        entityId: req.params.orderId,
-        action: "order_issue.created",
-      });
-      return res.status(201).json({ ok: true, requestId: req.requestId, issue });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo crear la incidencia");
-    }
-  },
-);
-app.get("/api/orders/:orderId/issues", requireAuth, async (req, res) => {
-  try {
-    return ok(res, {
-      issues: await getOrderIssues({
-        orderPublicId: req.params.orderId,
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-      }),
-    });
-  } catch (error) {
-    return failFrom(res, error, "No se pudieron cargar las incidencias");
-  }
-});
-app.patch(
-  "/api/order-issues/:issueId/resolve",
-  requireAuth,
-  requireAnyRole("admin"),
-  async (req, res) => {
-    const parsed = parseOrFail(orderIssueResolutionSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const issue = await resolveOrderIssue({
-        issuePublicId: req.params.issueId,
-        actorPublicId: req.auth.userId,
-        ...parsed.data,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: `order_issue.${issue.status}`,
-        entityType: "order_issue",
-        entityId: issue.id,
-        requestId: req.requestId,
-        afterData: {
-          orderId: issue.orderId,
-          approvedRefund: issue.approvedRefund,
-        },
-      });
-      await publishRealtimeEvent({
-        req,
-        type: "order.issue_updated",
-        entityType: "order",
-        entityId: issue.orderId,
-        action: `order_issue.${issue.status}`,
-      });
-      return ok(res, { issue });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo resolver la incidencia");
-    }
-  },
-);
-app.post(
-  "/api/orders/:orderId/substitutions",
-  requireAuth,
-  requireAnyRole("merchant", "admin"),
-  async (req, res) => {
-    const parsed = parseOrFail(substitutionProposalSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const substitution = await proposeOrderSubstitution({
-        orderPublicId: req.params.orderId,
-        merchantOwnerPublicId: req.auth.userId,
-        admin: isAdmin(req),
-        ...parsed.data,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "order_substitution.proposed",
-        entityType: "order_substitution",
-        entityId: substitution.id,
-        requestId: req.requestId,
-        afterData: {
-          orderId: req.params.orderId,
-          original: substitution.original.id,
-          replacement: substitution.replacement.id,
-        },
-      });
-      await publishRealtimeEvent({
-        req,
-        type: "order.substitution_updated",
-        entityType: "order",
-        entityId: req.params.orderId,
-        action: "order_substitution.proposed",
-      });
-      return res.status(201).json({ ok: true, requestId: req.requestId, substitution });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo proponer la sustitución");
-    }
-  },
-);
-app.get("/api/orders/:orderId/substitutions", requireAuth, async (req, res) => {
-  try {
-    return ok(res, {
-      substitutions: await getOrderSubstitutions({
-        orderPublicId: req.params.orderId,
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-      }),
-    });
-  } catch (error) {
-    return failFrom(res, error, "No se pudieron cargar las sustituciones");
-  }
-});
-app.patch(
-  "/api/order-substitutions/:substitutionId",
-  requireAuth,
-  requireAnyRole("customer"),
-  async (req, res) => {
-    const parsed = parseOrFail(substitutionDecisionSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    try {
-      const substitution = await decideOrderSubstitution({
-        substitutionPublicId: req.params.substitutionId,
-        customerPublicId: req.auth.userId,
-        ...parsed.data,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: `order_substitution.${substitution.status}`,
-        entityType: "order_substitution",
-        entityId: substitution.id,
-        requestId: req.requestId,
-        afterData: {
-          orderId: substitution.orderId,
-          refundAmount: substitution.refundAmount,
-        },
-      });
-      await publishRealtimeEvent({
-        req,
-        type: "order.substitution_updated",
-        entityType: "order",
-        entityId: substitution.orderId,
-        action: `order_substitution.${substitution.status}`,
-      });
-      return ok(res, { substitution });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo responder la sustitución");
-    }
-  },
-);
 app.get(
   "/api/jobs/:jobId/receipt",
   requireAuth,
@@ -3767,432 +3366,6 @@ app.post("/api/auth/register", async (req, res) => {
       await issueSession(user, req.body?.deviceName || req.get("user-agent") || "unknown"),
     ),
   });
-});
-
-app.get("/api/cart", requireAuth, requireAnyRole("customer", "admin"), async (req, res) => {
-  if (!usesPostgresCommerce()) return ok(res, { cart: [] });
-  return ok(res, { cart: await getPostgresCart(req.auth.userId) });
-});
-
-app.put("/api/cart", requireAuth, requireAnyRole("customer", "admin"), async (req, res) => {
-  // El GET de al lado devuelve un carrito vacío sobre el fallback; este PUT no
-  // tenía la guarda equivalente e iba directo a PostgreSQL. Sobre SQLite eso
-  // reventaba con un TypeError, así que se podía leer un carrito vacío pero no
-  // agregarle nada: el flujo de pedir comida quedaba muerto en el runtime que
-  // corre el job local-fallback de CI y la máquina de cualquier desarrollador.
-  //
-  // Degradar explícito es lo que hacen las otras 136 rutas que dependen de
-  // PostgreSQL. Un 503 que dice por qué es honesto; un 500 con un TypeError no.
-  if (!usesPostgresCommerce()) return fail(res, 503, "El carrito persistente requiere PostgreSQL");
-  const parsed = parseOrFail(cartSchema, req.body || {});
-  if (!parsed.ok) return fail(res, 400, parsed.message);
-  try {
-    const cart = await replacePostgresCart(
-      req.auth.userId,
-      parsed.data.restaurantId,
-      parsed.data.items,
-    );
-    return ok(res, { cart });
-  } catch (error) {
-    return failFrom(res, error, "No se pudo guardar el carrito");
-  }
-});
-
-app.post(
-  "/api/orders/:orderId/reorder",
-  requireAuth,
-  requireAnyRole("customer"),
-  async (req, res) => {
-    if (!usesPostgresCommerce()) return fail(res, 503, "La recompra requiere PostgreSQL");
-    try {
-      const result = await reorderPostgresOrder({
-        customerPublicId: req.auth.userId,
-        orderPublicId: req.params.orderId,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "order.reordered_to_cart",
-        entityType: "order",
-        entityId: req.params.orderId,
-        requestId: req.requestId,
-        afterData: {
-          restaurantId: result.restaurantId,
-          lineCount: result.cart.length,
-        },
-      });
-      return ok(res, result);
-    } catch (error) {
-      return failFrom(res, error, "No se pudo reconstruir el carrito");
-    }
-  },
-);
-
-app.post(
-  "/api/orders/quote",
-  requireAuth,
-  requireAnyRole("customer", "admin"),
-  async (req, res) => {
-    if (!usesPostgresCommerce())
-      return fail(res, 503, "La cotización geográfica requiere PostgreSQL");
-    const parsed = parseOrFail(foodOrderQuoteSchema, req.body || {});
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    if (!canActAsCustomer(req, parsed.data.customerId))
-      return fail(res, 403, "No puedes cotizar para otro cliente");
-    try {
-      const calculated = parsed.data.items
-        ? await getPostgresFoodCheckoutQuote({
-            customerPublicId: parsed.data.customerId,
-            merchantPublicId: parsed.data.restaurantId,
-            deliveryAddressId: parsed.data.deliveryAddressId,
-            branchPublicId: parsed.data.branchId,
-            items: parsed.data.items,
-            paymentMethod: parsed.data.paymentMethod || "Flash Wallet",
-            paymentMethodId: parsed.data.paymentMethodId,
-            promotionCode: parsed.data.promotionCode,
-          })
-        : await getPostgresFoodDeliveryQuote({
-            customerPublicId: parsed.data.customerId,
-            merchantPublicId: parsed.data.restaurantId,
-            deliveryAddressId: parsed.data.deliveryAddressId,
-            branchPublicId: parsed.data.branchId,
-          });
-      const quoteId = createId("QUOTE"),
-        expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-      const quoteToken = jwt.sign({ kind: "food_quote", quoteId, ...calculated }, jwtSecret, {
-        expiresIn: "5m",
-      });
-      return ok(res, {
-        quote: { ...calculated, quoteId, quoteToken, expiresAt },
-      });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo cotizar la entrega");
-    }
-  },
-);
-
-app.post("/api/orders", requireAuth, requireAnyRole("customer", "admin"), async (req, res) => {
-  const parsed = parseOrFail(orderSchema, req.body || {});
-  if (!parsed.ok) return fail(res, 400, parsed.message);
-  const {
-    customerId,
-    restaurantId,
-    items,
-    deliveryAddressId,
-    deliveryAddress,
-    paymentMethod,
-    paymentMethodId,
-    providerPayment,
-    promotionCode,
-    quoteToken,
-  } = parsed.data;
-  const idempotencyKey = req.get("idempotency-key");
-  if (
-    usesPostgresCommerce() &&
-    (!idempotencyKey || !/^[a-zA-Z0-9._:-]{16,128}$/.test(idempotencyKey))
-  ) {
-    return fail(res, 400, "Idempotency-Key válido es obligatorio para crear pedidos");
-  }
-  const db = usesPostgresCommerce() ? {} : readDb();
-  const customer = usesPostgresAuth()
-    ? await findAuthUserByPublicId(customerId)
-    : db.users.find((user) => user.id === customerId);
-  if (!customer) return fail(res, 404, "Cliente no encontrado");
-  if (!canActAsCustomer(req, customerId))
-    return fail(res, 403, "No puedes crear pedidos para otro cliente");
-  let lockedQuote = null;
-  if (usesPostgresCommerce()) {
-    if (!quoteToken) return fail(res, 400, "Debes cotizar la entrega antes de confirmar el pedido");
-    try {
-      lockedQuote = jwt.verify(quoteToken, jwtSecret);
-      if (
-        lockedQuote.kind !== "food_quote" ||
-        lockedQuote.customerId !== customerId ||
-        lockedQuote.restaurantId !== restaurantId ||
-        lockedQuote.deliveryAddressId !== deliveryAddressId
-      )
-        return fail(res, 409, "La cotización no corresponde a este pedido");
-    } catch (_error) {
-      return fail(res, 409, "La cotización venció; actualiza el precio antes de confirmar");
-    }
-  }
-  const restaurant = usesPostgresCommerce()
-    ? (await getPostgresRestaurants()).find((entry) => entry.id === restaurantId)
-    : findRestaurant(db, restaurantId);
-  if (!restaurant || !restaurant.open) return fail(res, 404, "Restaurante no disponible");
-  if (!Array.isArray(items) || items.length === 0)
-    return fail(res, 400, "Agrega productos al pedido");
-
-  let totals;
-  try {
-    totals = calculateOrderTotals(restaurant, items);
-  } catch (error) {
-    return fail(res, 400, error.message);
-  }
-  let riskAssessment = null;
-  if (usesPostgresCommerce()) {
-    try {
-      riskAssessment = await assessTransactionRisk({
-        customerPublicId: customerId,
-        service: "food",
-        amount: lockedQuote?.total ?? totals.total,
-        requestId: req.requestId,
-        idempotencyKey,
-      });
-      if (riskAssessment.decision === "block") {
-        await recordPostgresAudit({
-          actorPublicId: req.auth.userId,
-          roles: req.auth.roles,
-          action: "risk.transaction_blocked",
-          entityType: "risk_assessment",
-          entityId: riskAssessment.id,
-          requestId: req.requestId,
-          afterData: { service: "food", score: riskAssessment.score },
-        });
-        return fail(
-          res,
-          403,
-          "La operación requiere verificación de seguridad. Contactá a soporte.",
-        );
-      }
-    } catch (error) {
-      return failFrom(res, error, "No se pudo verificar el riesgo de la operación");
-    }
-  }
-
-  const status = "accepted";
-  const createdAt = getTimestamp();
-  let order = {
-    id: createId("ORD"),
-    customerId,
-    restaurantId,
-    courierId: null,
-    status,
-    deliveryAddress: String(deliveryAddress || customer.defaultAddress || ""),
-    paymentMethod: String(paymentMethod || "Flash Wallet"),
-    ...totals,
-    etaMin: restaurant.etaMin + 8,
-    createdAt,
-    timeline: [{ status, at: createdAt }],
-  };
-  if (usesPostgresCommerce()) {
-    try {
-      order = await createPostgresOrder({
-        publicId: order.id,
-        customerPublicId: customerId,
-        merchantPublicId: restaurantId,
-        deliveryAddressId,
-        deliveryAddress: order.deliveryAddress,
-        paymentMethod: order.paymentMethod,
-        paymentMethodId,
-        providerPayment,
-        promotionCode,
-        items,
-        serviceFee: lockedQuote?.serviceFee ?? serviceFee,
-        lockedQuote,
-        idempotencyKey,
-      });
-      if (providerPayment && !String(order.paymentMethod).toLowerCase().includes("wallet"))
-        order = await processPostgresOrderMarketplacePayment({
-          orderPublicId: order.id,
-          customerPublicId: customerId,
-          idempotencyKey,
-          cardToken: providerPayment.cardToken,
-          paymentMethodId: providerPayment.paymentMethodId,
-          installments: providerPayment.installments,
-        });
-      if (riskAssessment)
-        await setRiskEntity({
-          assessmentPublicId: riskAssessment.id,
-          entityPublicId: order.id,
-        });
-    } catch (error) {
-      return failFrom(res, error, "No se pudo crear el pedido");
-    }
-  } else {
-    db.orders.unshift(order);
-  }
-  await auditRuntime(db, req, "order", order.id, "order.created", {
-    restaurantId,
-    total: order.total,
-    itemCount: order.items.length,
-  });
-  if (!usesPostgresCommerce())
-    createLocalNotification({
-      userId: order.customerId,
-      template: "order_status",
-      payload: { orderId: order.id, status: order.status, etaMin: order.etaMin },
-    });
-  await publishRealtimeEvent({
-    req,
-    type: "order.created",
-    entityType: "order",
-    entityId: order.id,
-    action: "order.created",
-  });
-  return ok(res, { order, label: orderLabels[status] });
-});
-
-app.post(
-  "/api/orders/:orderId/accept-delivery",
-  requireAuth,
-  requireAnyRole("driver", "admin"),
-  async (req, res) => {
-    const { driverId } = req.body || {};
-    const db = usesPostgresCommerce() ? {} : readDb();
-    let order = usesPostgresCommerce()
-      ? (await getPostgresOrders()).find((entry) => entry.id === req.params.orderId)
-      : db.orders.find((entry) => entry.id === req.params.orderId);
-    const driver = usesPostgresCommerce()
-      ? (await getPostgresDrivers()).find((entry) => entry.id === driverId)
-      : db.drivers.find((entry) => entry.id === driverId);
-    if (!order) return fail(res, 404, "Pedido no encontrado");
-    if (!canActAsDriver(req, driverId))
-      return fail(res, 403, "No puedes aceptar pedidos con otro conductor");
-    if (!driver || !driver.online || !driver.serviceModes.includes("delivery")) {
-      return fail(res, 409, "Repartidor no disponible");
-    }
-    if (order.courierId) return fail(res, 409, "El pedido ya tiene repartidor");
-    if (order.status !== "ready_for_pickup")
-      return fail(res, 409, "El comercio todavía no marcó el pedido como listo");
-    if (["delivered", "cancelled"].includes(order.status)) {
-      return fail(res, 409, "El pedido ya no esta disponible");
-    }
-    if (usesPostgresCommerce()) {
-      try {
-        order = await assignPostgresOrderDriver(order.id, driverId, req.auth.userId);
-      } catch (error) {
-        return failFrom(res, error, "No se pudo asignar el repartidor");
-      }
-    } else {
-      order.courierId = driverId;
-      Object.assign(order, addTimeline(order, "courier_assigned"));
-    }
-    await auditRuntime(db, req, "order", order.id, "order.delivery_accepted", {
-      driverId,
-    });
-    await publishRealtimeEvent({
-      req,
-      type: "order.updated",
-      entityType: "order",
-      entityId: order.id,
-      action: "order.delivery_accepted",
-    });
-    return ok(res, { order, label: orderLabels[order.status] });
-  },
-);
-
-app.post(
-  "/api/orders/:orderId/advance",
-  requireAuth,
-  requireAnyRole("merchant", "driver", "admin"),
-  async (req, res) => {
-    const db = usesPostgresCommerce() ? {} : readDb();
-    if (usesPostgresCommerce())
-      [db.orders, db.drivers, db.restaurants] = await Promise.all([
-        getPostgresOrders(),
-        getPostgresDrivers(),
-        getPostgresRestaurants(),
-      ]);
-    const index = db.orders.findIndex((entry) => entry.id === req.params.orderId);
-    if (index < 0) return fail(res, 404, "Pedido no encontrado");
-    const next = nextOrderStatus(db.orders[index]);
-    if (!next) return fail(res, 409, "El pedido no puede avanzar desde este estado");
-    if (
-      !canAdvanceOrder(req, {
-        order: db.orders[index],
-        restaurant: findRestaurant(db, db.orders[index].restaurantId),
-        nextStatus: next,
-      })
-    )
-      return fail(res, 403, "Esta etapa corresponde a otro participante del pedido");
-    db.orders[index] = usesPostgresCommerce()
-      ? await setPostgresOrderStatus(db.orders[index].id, next, req.auth.userId)
-      : addTimeline(db.orders[index], next);
-    if (next === "delivered") {
-      db.orders[index].etaMin = 0;
-      if (!usesPostgresCommerce())
-        await creditDriverEarningsRuntime(
-          db,
-          db.orders[index].courierId,
-          db.orders[index].deliveryFee,
-          `delivery-${db.orders[index].id}`,
-        );
-    }
-    await auditRuntime(db, req, "order", db.orders[index].id, "order.status_advanced", {
-      status: next,
-    });
-    if (!usesPostgresCommerce())
-      createLocalNotification({
-        userId: db.orders[index].customerId,
-        template: "order_status",
-        payload: { orderId: db.orders[index].id, status: next, etaMin: db.orders[index].etaMin },
-      });
-    await publishRealtimeEvent({
-      req,
-      type: "order.updated",
-      entityType: "order",
-      entityId: db.orders[index].id,
-      action: "order.status_advanced",
-    });
-    return ok(res, { order: db.orders[index], label: orderLabels[next] });
-  },
-);
-
-app.patch("/api/orders/:orderId/status", requireAuth, async (req, res) => {
-  const { status } = req.body || {};
-  if (!orderStatuses.includes(status)) return fail(res, 400, "Estado de pedido invalido");
-  const cancellation =
-    status === "cancelled" ? parseOrFail(cancellationSchema, req.body || {}) : null;
-  if (cancellation && !cancellation.ok) return fail(res, 400, cancellation.message);
-  const db = usesPostgresCommerce() ? {} : readDb();
-  if (usesPostgresCommerce())
-    [db.orders, db.restaurants] = await Promise.all([
-      getPostgresOrders(),
-      getPostgresRestaurants(),
-    ]);
-  const index = db.orders.findIndex((entry) => entry.id === req.params.orderId);
-  if (index < 0) return fail(res, 404, "Pedido no encontrado");
-  if (
-    !canMutateOrderStatus(req, {
-      order: db.orders[index],
-      restaurant: findRestaurant(db, db.orders[index].restaurantId),
-      status,
-    })
-  ) {
-    return fail(res, 403, "No puedes cambiar este estado de pedido");
-  }
-  if (usesPostgresCommerce() && status === "cancelled") {
-    const cancellationResult =
-      (await cancelMarketplaceOrderAndRefund({
-        orderPublicId: db.orders[index].id,
-        actorPublicId: req.auth.userId,
-        reason: cancellation.data.reason,
-        reasonDetail: cancellation.data.reasonDetail,
-      })) ||
-      (await cancelOrderAndRefundWallet({
-        orderPublicId: db.orders[index].id,
-        actorPublicId: req.auth.userId,
-        reason: cancellation.data.reason,
-        reasonDetail: cancellation.data.reasonDetail,
-      }));
-    db.orders[index] = (await getPostgresOrders()).find(
-      (entry) => entry.id === db.orders[index].id,
-    );
-    db.orders[index].cancellation = cancellationResult;
-  } else
-    db.orders[index] = usesPostgresCommerce()
-      ? await setPostgresOrderStatus(db.orders[index].id, status, req.auth.userId)
-      : addTimeline(db.orders[index], status);
-  await auditRuntime(db, req, "order", db.orders[index].id, "order.status_set", { status });
-  await publishRealtimeEvent({
-    req,
-    type: "order.updated",
-    entityType: "order",
-    entityId: db.orders[index].id,
-    action: "order.status_set",
-  });
-  return ok(res, { order: db.orders[index], label: orderLabels[status] });
 });
 
 app.post("/api/rides/quote", async (req, res) => {
