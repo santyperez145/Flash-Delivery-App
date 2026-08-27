@@ -90,3 +90,32 @@ assert(
   (api?.security_opt || []).some((entry) => String(entry).includes("no-new-privileges")),
   "el contenedor de la API no permite escalar privilegios",
 );
+
+// Filesystem raíz de sólo lectura (ticket INF-001).
+//
+// Es la diferencia entre un contenedor comprometido que puede dejar algo
+// escrito —un binario, una tarea, una clave— y uno que no. El endurecimiento
+// anterior ya le quitaba capabilities y escalada de privilegios; sin esto, el
+// proceso todavía podía escribir en cualquier parte de su propia imagen.
+//
+// Lo escribible queda declarado y es poco: `/tmp` y `/app/server/data`. El
+// segundo existe porque `server/store.js` abre la base SQLite del respaldo **al
+// importarse**, sin mirar si hay `DATABASE_URL`. Es una consecuencia de cómo
+// arranca el respaldo y no una necesidad del producto: hacer esa inicialización
+// perezosa eliminaría el último punto de escritura.
+assert(api?.read_only === true, "el contenedor de la API monta su raíz de sólo lectura");
+assert(
+  (api?.tmpfs || []).some((entry) => String(entry).startsWith("/tmp")),
+  "el contenedor declara /tmp escribible en lugar de abrir la raíz entera",
+);
+assert(
+  (api?.volumes || []).some((entry) => String(entry).includes("/app/server/data")),
+  "el respaldo SQLite escribe en un volumen y no en la imagen",
+);
+
+// `npm run` escribe su caché y su log en el home, que con la raíz de sólo
+// lectura no acepta escrituras. El comando invoca el script directamente.
+assert(
+  !String(api?.command || "").includes("npm run"),
+  "el arranque no pasa por npm, que necesitaría escribir en el home",
+);

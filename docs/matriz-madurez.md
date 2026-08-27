@@ -28,21 +28,21 @@ La auditoría del 25 de agosto identificó que el riesgo principal de Flash no e
 
 ## Estado consolidado
 
-Al **27 de agosto de 2026**, sobre **100 capacidades inventariadas**:
+Al **27 de agosto de 2026**, sobre **101 capacidades inventariadas**:
 
 | Estado | Capacidades | Proporción | Al 26-08 | Al 25-08 |
 | --- | ---: | ---: | ---: | ---: |
-| `IMPL` | 7 | 7,1% | 6 | 9 |
-| `LOCAL` | 8 | 8,1% | 8 | 50 |
-| `CI` | 71 | 71,0% | 64 | 14 |
+| `IMPL` | 7 | 6,9% | 6 | 9 |
+| `LOCAL` | 8 | 7,9% | 8 | 50 |
+| `CI` | 72 | 71,3% | 64 | 14 |
 | `PROV` | 0 | 0% | 0 | 0 |
 | `STG` | 0 | 0% | 0 | 0 |
 | `PROD` | 0 | 0% | 0 | 0 |
-| No existe | 14 | 14,1% | 16 | 18 |
+| No existe | 14 | 13,9% | 16 | 18 |
 
 **Lectura:** de las 86 capacidades que existen, **15 (18%) siguen en `IMPL` o `LOCAL`** — sin puerta automática que las proteja de una regresión. Eran 59 sobre 73 (81%) el 25 de agosto.
 
-El salto viene de las puertas del ticket CI-001. Las 71 en `CI` ya no son infraestructura: incluyen migraciones, RLS, cadena de auditoría, aislamiento por ciudad, audiencia realtime, ledger, conciliación, riesgo, payouts, KYC, vehículos, safety, chat, soporte, notificaciones, push y mapas.
+El salto viene de las puertas del ticket CI-001. Las 72 en `CI` ya no son infraestructura: incluyen migraciones, RLS, cadena de auditoría, aislamiento por ciudad, audiencia realtime, ledger, conciliación, riesgo, payouts, KYC, vehículos, safety, chat, soporte, notificaciones, push y mapas.
 
 **Ninguna capacidad alcanzó `PROV`.** Ni pagos, ni push, ni mapas, ni KYC fueron probados contra un proveedor real. Ese es el objetivo de la Fase 1, y es la distancia que esta matriz existe para no dejar olvidar: **una capacidad en `CI` está protegida contra regresiones, no demostrada contra el mundo real.**
 
@@ -94,6 +94,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Separación de roles PostgreSQL | `CI` | `test:container-security` |
 | Alcance de permisos del runtime | `CI` | `test:grant-scope`. La 116 revocó escritura en 8 tablas de referencia y retiró la herencia que hacía nacer con DML a toda tabla nueva |
 | Imagen productiva non-root | `CI` | Job `container-image` construye la imagen y verifica `uid=999(flash)` |
+| Filesystem raíz de sólo lectura | `CI` | El job arranca la imagen con `--read-only` hasta que responde y comprueba que la raíz rechace escrituras. Escribible sólo `/tmp` y el volumen de datos |
 
 ## Pagos y finanzas
 
