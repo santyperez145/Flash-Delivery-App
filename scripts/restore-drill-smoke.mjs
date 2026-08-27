@@ -66,7 +66,9 @@ try {
   );
   comparar(
     migraciones.rows.at(-1)?.version,
-    archivos.at(-1)?.replace(/\.sql$/, ""),
+    // `schema_migrations.version` guarda el nombre de archivo entero, `.sql`
+    // incluido. Quitarle la extension hacia fallar la comparacion por un sufijo.
+    archivos.at(-1),
     "la última migración de la copia es la última del repositorio",
     "un restore que se queda corto pasa desapercibido hasta que falta una columna",
   );
@@ -108,6 +110,11 @@ try {
             <> COALESCE(sum(amount_cents) FILTER (WHERE direction = 'credit'), 0)
      ) t`,
   );
+  // En CI la base sembrada no tiene asientos, asi que esto recorre cero
+  // transacciones. Vale igual: contra una base con datos —que es donde un
+  // restore se usa de verdad— es la comprobacion que dice si el dinero llego
+  // entero. Lo que sostiene esta puerta en CI son las politicas y los permisos,
+  // que si son cientos.
   comparar(desbalance.n, 0, "el ledger de la copia cuadra");
 
   // 6. Row-Level Security viaja con el dump. Es lo que más silenciosamente se
