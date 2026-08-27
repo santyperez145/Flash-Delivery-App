@@ -393,9 +393,14 @@ registro de clientes SSE). El paso 5 cerró el núcleo con
 `http/authentication.js`, `http/rate-limits.js` y `fallback-runtime.js`: los
 routers dejaron de ser factories porque ya no queda nada que recibir.
 
-Con el núcleo cerrado, cada grupo nuevo es una extracción y nada más. Van **22
-de 57 grupos** repartidos en 14 routers, y `server/index.js` bajó de 9.696 a
-**6.771 líneas**: quedan 135 rutas en 35 grupos.
+Con el núcleo cerrado, cada grupo nuevo fue una extracción y nada más. **Los 57
+grupos están extraídos**, repartidos en 31 routers, y `server/index.js` bajó de
+9.696 a **873 líneas**: el 91 por ciento.
+
+Las 8 rutas que quedan no son dominio: salud, readiness, el documento OpenAPI,
+el bootstrap por audiencia, las dos de métricas, el 410 que retiró `/api/state`
+y el reset de la plataforma. El archivo es hoy el arranque, el middleware y el
+montaje —lo que el ticket pedía que fuera—.
 El paso 5 cerró el núcleo con `http/authentication.js` y `fallback-runtime.js`:
 los tres routers dejaron de ser factories porque ya no queda nada que
 recibir.
@@ -422,8 +427,12 @@ router equivocado: `PATCH /api/zones/:zoneId`, separada de su `GET` porque su
 path no empieza con el prefijo del grupo al que pertenece, y las dos de payouts,
 ochocientas líneas más abajo, entre rutas de viajes.
 
-Falta el resto: extraer features de los dos `App.tsx`, separar entrypoints por
-audiencia, los 35 grupos de rutas restantes y dividir `commerce-repository.js`.
+Los entrypoints por audiencia también están: `metro.config.js` resuelve la
+pantalla según la variante y cada bundle lleva una sola, verificado empaquetando
+las tres con `expo export`. Y `commerce-repository.js` se partió por dueño del
+dato en catálogo, pedidos y plantel.
+
+Falta extraer features de los dos `App.tsx`, que es lo que queda del paso 8.
 Sí quedó activo un ratchet que impide que el problema crezca:
 `test:line-length` fija una línea base de **1.543 líneas de más de 200
 caracteres en 120 archivos** y sólo admite bajarla.
