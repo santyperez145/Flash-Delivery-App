@@ -40,8 +40,10 @@ const fallo = (etiqueta, detalle) => {
   if (detalle) console.error(`        ${detalle}`);
 };
 
-// 1. Lo que ya está escrito cuadra.
-const desbalanceadas = await pool.query(`
+// La consulta del barrido se define una sola vez y se usa en los dos lugares:
+// contra la base real y contra la sonda que la falsea. Tener dos copias probaría
+// que la copia funciona, que no es lo que interesa saber.
+const CONSULTA_DESBALANCE = `
   SELECT transaction_id,
          COALESCE(sum(amount_cents) FILTER (WHERE direction = 'debit'), 0) AS debitos,
          COALESCE(sum(amount_cents) FILTER (WHERE direction = 'credit'), 0) AS creditos
@@ -50,7 +52,14 @@ const desbalanceadas = await pool.query(`
   HAVING COALESCE(sum(amount_cents) FILTER (WHERE direction = 'debit'), 0)
        <> COALESCE(sum(amount_cents) FILTER (WHERE direction = 'credit'), 0)
   ORDER BY transaction_id
-`);
+`;
+
+// 1. Lo que ya está escrito cuadra.
+//
+// En CI la base viene recién migrada y esto barre cero transacciones. La
+// comprobación 5 existe justamente por eso: sin ella, este ok sería un barrido
+// que nunca encontró nada y del que nadie probó que sepa encontrar.
+const desbalanceadas = await pool.query(CONSULTA_DESBALANCE);
 const total = await pool.query("SELECT count(DISTINCT transaction_id)::int n FROM ledger_entries");
 if (desbalanceadas.rowCount) {
   fallo(`${desbalanceadas.rowCount} transacción(es) contable(s) no cuadran`);
@@ -172,6 +181,53 @@ if (unica.rowCount) {
     "ledger_transactions.idempotency_key perdio su restriccion de unicidad",
     "sin ella un pago repetido genera un segundo asiento y nada lo delata",
   );
+}
+
+// 5. El barrido sabe encontrar un desbalance.
+//
+// Sin esto, la comprobacion 1 en CI es una consulta que devuelve cero filas
+// sobre una tabla vacia: pasaria igual con un HAVING mal escrito, y seguiria
+// pasando para siempre. Se escriben asientos torcidos sin llegar al commit —el
+// trigger es diferido, todavia no miro— y se le pide al barrido que los vea.
+const clienteBarrido = await pool.connect();
+try {
+  await clienteBarrido.query("BEGIN");
+  const cuenta = (
+    await clienteBarrido.query(
+      `INSERT INTO ledger_accounts(owner_type, owner_id, currency, account_type)
+       VALUES('contract_probe', gen_random_uuid(), 'ARS', 'probe') RETURNING id`,
+    )
+  ).rows[0].id;
+  const transaccion = (
+    await clienteBarrido.query(
+      `INSERT INTO ledger_transactions(idempotency_key, kind, description)
+       VALUES('ledger-sweep-probe-' || gen_random_uuid(), 'adjustment', 'sonda de barrido')
+       RETURNING id`,
+    )
+  ).rows[0].id;
+  await clienteBarrido.query(
+    `INSERT INTO ledger_entries(transaction_id, account_id, direction, amount_cents, reference_type)
+     VALUES($1, $2, 'debit', 1000, 'probe'), ($1, $2, 'credit', 400, 'probe')`,
+    [transaccion, cuenta],
+  );
+  const visto = await clienteBarrido.query(CONSULTA_DESBALANCE);
+  const fila = visto.rows.find((r) => r.transaction_id === transaccion);
+  if (!fila) {
+    fallo(
+      "el barrido no vio un desbalance de 600 centavos",
+      "la comprobacion 1 no prueba nada: revisa el HAVING de CONSULTA_DESBALANCE",
+    );
+  } else if (Number(fila.debitos) !== 1000 || Number(fila.creditos) !== 400) {
+    fallo(
+      "el barrido vio el desbalance pero mal sumado",
+      `reporto debitos ${fila.debitos} y creditos ${fila.creditos}, esperaba 1000 y 400`,
+    );
+  } else {
+    ok("el barrido encuentra un desbalance cuando lo hay");
+  }
+} finally {
+  await clienteBarrido.query("ROLLBACK").catch(() => {});
+  clienteBarrido.release();
 }
 
 await pool.end();
