@@ -119,6 +119,11 @@ jobs:
       - name: Partida doble garantizada por la base
         run: npm run test:ledger-balance
 
+      # Ejercita el prorrateo real de una incidencia aprobada con numeros que
+      # fuerzan el redondeo: 3333/3333/3334 sobre 10000 y un reintegro de 1000.
+      - name: Reparto proporcional de un reintegro
+        run: npm run test:order-refund-split
+
       # Suites que consultan PostgreSQL directamente, sin necesitar la API.
       - name: Merchant, zone and configuration state
         run: |

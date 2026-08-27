@@ -109,8 +109,17 @@ export async function resolveOrderIssue({
           "SELECT id FROM ledger_accounts WHERE owner_type='platform' AND owner_id IS NULL AND account_type='cash_clearing' FOR UPDATE",
         )
       ).rows[0];
+      // El orden importa: el bucle de abajo reparte el reintegro con `floor` y le
+      // da el resto al ultimo renglon. Sin `ORDER BY` ese ultimo lo elegia el
+      // planificador, asi que el centavo sobrante caia en una parte u otra sin regla
+      // —y el mismo reintegro podia repartirse distinto al repetirse—. La regla es
+      // que el resto lo absorbe la parte con mayor participacion, que es la que menos
+      // se distorsiona en terminos relativos; `account_id` desempata.
       const settlement = await client.query(
-        `SELECT e.account_id,e.direction,e.amount_cents,e.metadata FROM ledger_transactions t JOIN ledger_entries e ON e.transaction_id=t.id WHERE t.idempotency_key=$1 AND e.direction='credit'`,
+        `SELECT e.account_id,e.direction,e.amount_cents,e.metadata
+         FROM ledger_transactions t JOIN ledger_entries e ON e.transaction_id=t.id
+         WHERE t.idempotency_key=$1 AND e.direction='credit'
+         ORDER BY e.amount_cents,e.account_id`,
         [`settlement-${issue.job_public_id}`],
       );
       if (settlement.rowCount) {

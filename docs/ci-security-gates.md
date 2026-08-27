@@ -265,6 +265,18 @@ Ahora el trigger `ledger_entries_balance` rechaza al commit toda transacción qu
 
 Nada de esto deja datos: las pruebas corren dentro de una transacción que termina en `ROLLBACK`, y el chequeo diferido se adelanta con `SET CONSTRAINTS ... IMMEDIATE` en lugar de llegar al commit.
 
+### Reparto proporcional de un reintegro
+
+Cuando se aprueba una incidencia con reintegro, `resolveOrderIssue` revierte la liquidación del pedido: debita a cada parte —comercio, repartidor, plataforma— en proporción a lo que cobró, acredita el total a la cuenta de compensación, y en una segunda transacción acredita al cliente. **El módulo entero estaba sin cobertura.**
+
+`test:order-refund-split` lo ejercita contra PostgreSQL con números elegidos para que el redondeo importe: una liquidación de 3333/3333/3334 sobre 10000 y un reintegro de 1000. Los ideales caen en 333,3 y 333,4, así que el reparto tiene que dar 333/333/334. Con proporciones exactas cualquier implementación pasa; el valor de la prueba está en los números.
+
+**Lo que destapó:** la consulta que alimenta el prorrateo no tenía `ORDER BY`. El bucle reparte con `floor` y le da el resto al último renglón, y cuál era el último lo elegía el planificador. El centavo sobrante caía en una parte u otra sin regla, y el mismo reintegro podía repartirse distinto al repetirse. No es un error de importes —el total siempre cerraba— sino contabilidad no determinista, que es peor de diagnosticar que un número mal.
+
+La regla ahora está escrita: **el resto lo absorbe la parte con mayor participación**, que es la que menos se distorsiona en términos relativos, y `account_id` desempata. La prueba lo verifica, no sólo comprueba que la suma cierre.
+
+El fixture sembrado tiene que cuadrar como cualquier otra transacción: el trigger de la migración 118 no hace excepciones con las pruebas, y eso es deseable.
+
 ### Cobertura documental de las puertas
 
 `test:docs-coverage` exige que cada script `test:` esté nombrado en algún documento de `docs/`. Una puerta que nadie sabe que existe no se mantiene: cuando falla, quien la encuentra no sabe qué protegía ni si conviene arreglarla o borrarla.
