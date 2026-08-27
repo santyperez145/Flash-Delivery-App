@@ -81,11 +81,21 @@ try {
   });
   ticketIds.push(first.body.ticket?.id);
   requestIds.push(first.body.requestId);
+  // Tres afirmaciones separadas y no una conjunción. La versión anterior decía
+  // sólo «failed: new safety case routes atomically...», que no distingue entre
+  // «no se creó», «se asignó a otro» y «se asignó sin dejar historial». Esta
+  // suite lleva en cuarentena desde el 25-08 y ese mensaje es parte de la razón:
+  // no había por dónde empezar a mirar.
+  assert(first.status === 201, `safety case created (status ${first.status})`);
   assert(
-    first.status === 201 &&
-      first.body.ticket?.assignedTo === supportId &&
-      first.body.ticket.assignmentHistory?.[0]?.reason === "auto_create",
-    "new safety case routes atomically to skilled available agent",
+    first.body.ticket?.assignedTo === supportId,
+    `safety case routes to the skilled available agent
+     (esperaba ${supportId}, obtuvo ${first.body.ticket?.assignedTo ?? "sin asignar"})`,
+  );
+  assert(
+    first.body.ticket.assignmentHistory?.[0]?.reason === "auto_create",
+    `the assignment leaves its reason in the history
+     (obtuvo ${JSON.stringify(first.body.ticket.assignmentHistory ?? [])})`,
   );
   const second = await call("/support/tickets", {
     method: "POST",
