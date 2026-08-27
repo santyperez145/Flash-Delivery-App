@@ -124,6 +124,12 @@ jobs:
       - name: Reparto proporcional de un reintegro
         run: npm run test:order-refund-split
 
+      # La mitad de comportamiento de la idempotencia: que el codigo use la clave
+      # y trate el conflicto como «ya estaba». La mitad estructural —que la
+      # columna siga siendo UNIQUE— la cubre test:ledger-balance.
+      - name: Un pago repetido no duplica asientos
+        run: npm run test:payment-idempotency
+
       # Suites que consultan PostgreSQL directamente, sin necesitar la API.
       - name: Merchant, zone and configuration state
         run: |
