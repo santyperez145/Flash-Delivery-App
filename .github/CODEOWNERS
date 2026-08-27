@@ -1,13 +1,20 @@
 # Propiedad de código (ticket CI-001).
 #
-# GitHub exige revisión del owner cuando la rama está protegida con
-# "Require review from Code Owners". Configurar esa protección en
-# Settings > Branches es un paso manual todavía pendiente: este archivo
-# por sí solo no bloquea ningún merge.
+# La rama `main` está protegida desde el 27 de agosto de 2026: PR obligatoria,
+# los 7 checks de CI exigidos, historia lineal y sin excepción para
+# administradores.
 #
-# El backlog exige dos aprobaciones para pagos y seguridad. Eso requiere
-# equipos de GitHub; mientras el proyecto tenga un solo mantenedor, la
-# regla queda declarada acá y se hace efectiva al sumar revisores.
+# Lo que ese candado NO incluye es "Require review from Code Owners", así que
+# este archivo todavía no bloquea ningún merge. El motivo es aritmético:
+# GitHub no deja aprobar el PR propio y el proyecto tiene un solo
+# colaborador, de modo que exigir la revisión del owner dejaría el
+# repositorio sin poder mergear nada.
+#
+# Hasta que haya un segundo revisor, lo de abajo dice quién debería mirar cada
+# área —y GitHub lo pide como revisor automáticamente— sin poder exigirlo. El
+# día que se sume alguien, se activan "Require approvals" y "Require review
+# from Code Owners", y el backlog pide además dos aprobaciones para pagos y
+# seguridad, que necesita equipos de GitHub.
 
 *                                   @santyperez145
 

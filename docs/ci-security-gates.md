@@ -145,11 +145,27 @@ Sin `workflow_dispatch`, la única forma de limpiar eso era **empujar otro commi
 | Un PR queda bloqueado si falla cualquier suite de las tres puertas | Activo |
 | Una suite nueva no puede quedar fuera de toda puerta sin motivo escrito | Activo (`test:ci-coverage`) |
 | `CODEOWNERS` declara propiedad de dinero, aislamiento y puertas de calidad | Activo |
-| Rama `main` protegida con PR obligatoria | **Pendiente: configuración manual en GitHub** |
+| ~~Rama `main` protegida con PR obligatoria~~ | **Hecho** (27 de agosto de 2026): PR obligatoria, los 7 checks exigidos, rama al día, historia lineal, sin force push ni borrado, y `enforce_admins` activo |
 | Dos aprobaciones para pagos y seguridad | **Pendiente: requiere más de un revisor** |
 | Artefactos de test almacenados tras el run | Pendiente |
 
-`CODEOWNERS` por sí solo no bloquea nada: exige activar «Require review from Code Owners» y «Require status checks» en Settings > Branches.
+`CODEOWNERS` por sí solo no bloquea nada: necesita que la rama esté protegida. Desde el 27 de
+agosto de 2026 lo está, con los 7 checks exigidos por nombre exacto.
+
+Lo que **no** se activó es «Require review from Code Owners», y tampoco «Require approvals».
+No es un olvido: el proyecto tiene un solo colaborador y GitHub no deja aprobar el PR propio,
+así que exigir una aprobación dejaría el repositorio sin poder mergear nada. Las dos opciones
+se suben el día que haya un segundo revisor; hasta entonces `CODEOWNERS` documenta quién
+debería mirar cada área sin poder exigirlo.
+
+Sí se activó **«Do not allow bypassing the above settings»** (`enforce_admins`). Sin eso la
+protección es decorativa para el dueño del repositorio, que es justamente quien más mergea.
+
+Se comprueba con:
+
+```bash
+gh api repos/santyperez145/Flash-Delivery-App/branches/main/protection --jq '{checks:.required_status_checks.contexts|length,estricto:.required_status_checks.strict,admins:.enforce_admins.enabled}'
+```
 
 ## Comprobar la cobertura
 
