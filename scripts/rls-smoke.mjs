@@ -141,6 +141,27 @@ try {
       shipmentConfigurationWriteDenied,
     "restricted audit role reads shipment SLA posture but cannot alter customer pricing",
   );
+
+  // `shipment_details` guarda el nombre y el telefono de una persona que ni
+  // siquiera es usuaria de la plataforma, mas el hash del PIN de entrega. Hasta
+  // la migracion 113 no tenia RLS, asi que cualquier rol con un grant leia los
+  // datos de contacto de todos los destinatarios del sistema.
+  //
+  // El grant al rol auditor se agrego en esa misma migracion **para que esta
+  // prueba signifique algo**: sin el, ver cero filas demostraria que falta el
+  // permiso, no que la politica funciona. Con el permiso puesto, cero filas solo
+  // lo puede explicar RLS.
+  const recipientRows = await client.query("SELECT count(*)::int count FROM shipment_details");
+  let recipientWriteDenied = false;
+  try {
+    await client.query("UPDATE shipment_details SET delivery_notes=delivery_notes");
+  } catch (error) {
+    recipientWriteDenied = error.code === "42501";
+  }
+  assert(
+    recipientRows.rows[0].count === 0 && recipientWriteDenied,
+    "audit credentials without user context see no shipment recipient data at all",
+  );
   const visibleModifiers = await client.query(
     "SELECT count(*)::int count FROM catalog_modifiers WHERE available",
   );
@@ -635,6 +656,21 @@ try {
   assert(
     customerAddresses.rows.every((row) => row.user_id === customer.id),
     "RLS exposes only the current customer's saved addresses",
+  );
+
+  // La otra mitad de la politica de `shipment_details`. Sin esto la prueba de
+  // arriba solo demostraria que la tabla esta cerrada, no que discrimina: una
+  // politica que niega a todo el mundo pasa el test negativo y rompe el
+  // producto.
+  const shipmentDetailsVisibles = await client.query(
+    `SELECT count(*)::int count FROM shipment_details d
+     JOIN jobs j ON j.id = d.job_id
+     WHERE j.customer_id <> $1`,
+    [customer.id],
+  );
+  assert(
+    shipmentDetailsVisibles.rows[0].count === 0,
+    "RLS hides shipment recipients belonging to other customers",
   );
   assert(
     (
