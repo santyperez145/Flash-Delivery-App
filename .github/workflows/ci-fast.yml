@@ -336,6 +336,16 @@ jobs:
       # Los dos montajes escribibles son los mismos que declara docker-compose.
       # `/app/server/data` hace falta porque `server/store.js` abre la base
       # SQLite del respaldo al importarse, sin mirar si hay PostgreSQL.
+      #
+      # Corre con `NODE_ENV=test` y sin `DATABASE_URL` a proposito, y no es una
+      # concesion: asi arranca sobre el respaldo SQLite, que **escribe mas** que
+      # el runtime de PostgreSQL —abre la base, el WAL y el shm en disco, donde
+      # el otro lee y escribe por red—. Es el caso mas exigente para una raiz de
+      # solo lectura.
+      #
+      # En produccion no arrancaria sin `DATABASE_URL`: `config.js` lo exige, y
+      # el primer intento de este paso lo demostro fallando con
+      # «DATABASE_URL must point to PostgreSQL/PostGIS in production».
       - name: El proceso arranca con la raiz de solo lectura
         run: |
           docker run -d --name flash-readonly \
@@ -343,7 +353,7 @@ jobs:
             --tmpfs /tmp \
             --tmpfs /app/server/data:uid=999,gid=999 \
             --cap-drop=ALL --security-opt=no-new-privileges:true \
-            -e NODE_ENV=production \
+            -e NODE_ENV=test \
             -e JWT_SECRET=ci-readonly-secret-not-used-anywhere-else \
             -p 4010:4000 flash:ci
           listo=0
