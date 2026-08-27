@@ -131,6 +131,7 @@
     "test:mobile-food-design": "node scripts/mobile-food-design-smoke.mjs",
     "test:openapi-contract": "node scripts/openapi-contract-smoke.mjs",
     "test:graceful-shutdown": "node scripts/graceful-shutdown-smoke.mjs",
+    "job:payment-reconciliation": "node --env-file-if-exists=.env.local scripts/job-payment-reconciliation.mjs",
     "test:audit-actor": "node --env-file-if-exists=.env.local scripts/audit-actor-contract.mjs",
     "test:payment-idempotency": "node --env-file-if-exists=.env.local scripts/payment-idempotency-smoke.mjs",
     "test:order-refund-split": "node --env-file-if-exists=.env.local scripts/order-refund-split-smoke.mjs",
