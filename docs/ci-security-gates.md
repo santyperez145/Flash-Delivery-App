@@ -227,6 +227,26 @@ Eso no es sólo tamaño: cada paquete en la imagen es superficie —un `postinst
 
 La segunda puerta nació sin poder fallar y hubo que corregirla dos veces. Buscaba el nombre del paquete como cadena suelta, y **los propios contratos de `scripts/` mencionan nombres de paquetes como dato**: `domain-purity-contract.mjs` explica su regla escribiendo `from "react"` en un comentario, así que React figuraba importado por el servidor. Ahora busca formas de importación reales y descarta los comentarios antes de mirar. Se comprobó devolviendo dos paquetes a `dependencies`: los reporta a los dos.
 
+### SBOM y scan de la imagen
+
+El job `container-image` genera un SBOM en CycloneDX y lo publica como artefacto de la corrida. Sirve para responder después *«¿esta imagen tenía el paquete X?»* sin reconstruirla — que es exactamente la pregunta que aparece el día que se publica una vulnerabilidad, cuando reconstruir una imagen de hace tres semanas no da el mismo resultado.
+
+Se usa Trivy por **imagen fijada** y no por una acción del marketplace. Una acción es código de terceros corriendo con el token del workflow, y para esto no hace falta: una etiqueta fija es revisable y se actualiza a propósito.
+
+**La política de fallo bloquea lo que este equipo puede arreglar** — que resultó no ser lo mismo que lo que tiene parche publicado.
+
+La primera versión de esta puerta usaba sólo `--ignore-unfixed` y falló en su primera corrida, con cuatro CVEs altas en `brace-expansion`, `ip-address` y `tar`. Ninguna era del proyecto: son dependencias del propio npm que viene dentro de `node:24-bookworm-slim`, en `/usr/local/lib/node_modules`. Tienen versión corregida upstream, así que `--ignore-unfixed` las conservaba, pero acá no se pueden actualizar sin cambiar de imagen base. La capa Debian, por su parte, dio cero.
+
+El detalle importa porque `npm audit` reportaba **cero** al mismo tiempo. No es que una de las dos se equivoque: miran cosas distintas. `npm audit` mira el árbol declarado del proyecto; Trivy mira todo lo que quedó dentro de la imagen, incluido lo que trae la base. Ninguna de las dos sola responde «¿qué estamos desplegando?».
+
+Bloquear por lo heredado dejaría el merge cerrado por algo que el equipo no puede resolver, y el desenlace conocido de eso es que alguien desactive la puerta — el hallazgo [H-01](auditoria-2026-08-25.md#h-01--ci-no-ejecuta-el-86-de-su-propia-matriz-de-pruebas) otra vez, por otro camino. Por eso el scan que corta se salta el `node_modules` de npm y mira lo que agregamos nosotros, que es donde una CVE con arreglo sí es una orden de actualizar.
+
+Lo heredado **no se ignora, se informa**: el paso siguiente lista todo sin cortar, para que cambiar de imagen base siga siendo una decisión con datos y no un descubrimiento.
+
+Que la puerta siguiera pudiendo fallar después de estrecharle el alcance se verificó fijando `jsonwebtoken` en `8.5.1` —CVEs altas con arreglo, dentro de `/app`— y confirmando que el paso corta: 1 HIGH en la capa Node, 0 en Debian. Estrechar el alcance de una puerta es justo el cambio que más fácil la deja inerte.
+
+Esa distinción es la diferencia entre una puerta que se respeta y una que se saltea.
+
 ### Cobertura documental de las puertas
 
 `test:docs-coverage` exige que cada script `test:` esté nombrado en algún documento de `docs/`. Una puerta que nadie sabe que existe no se mantiene: cuando falla, quien la encuentra no sabe qué protegía ni si conviene arreglarla o borrarla.

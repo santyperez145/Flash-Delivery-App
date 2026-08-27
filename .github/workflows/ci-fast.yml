@@ -391,6 +391,75 @@ jobs:
           size=$(docker image inspect flash:ci --format '{{ .Size }}')
           echo "imagen productiva: $((size / 1024 / 1024)) MiB"
 
+      # SBOM y scan de la imagen (ticket INF-001).
+      #
+      # Se usa Trivy por imagen fijada y no por una accion del marketplace: una
+      # accion es codigo de terceros que corre con el token del workflow, y para
+      # esto no hace falta. Una etiqueta fija es revisable y se actualiza a
+      # proposito.
+      #
+      # El SBOM se publica como artefacto en formato CycloneDX. Sirve para
+      # responder despues «¿esta imagen tenia el paquete X?» sin reconstruirla,
+      # que es la pregunta que aparece el dia que se publica una vulnerabilidad.
+      - name: SBOM de la imagen productiva
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD:/salida" \
+            aquasec/trivy:0.58.1 image \
+            --format cyclonedx \
+            --output /salida/sbom-flash.cdx.json \
+            flash:ci
+          paquetes=$(node -e "const s=require('./sbom-flash.cdx.json');console.log((s.components||[]).length)")
+          echo "SBOM generado: $paquetes componentes"
+
+      - name: SBOM como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-flash-cyclonedx
+          path: sbom-flash.cdx.json
+          if-no-files-found: error
+
+      # La politica de fallo bloquea **lo que este equipo puede arreglar**, que
+      # resulto no ser lo mismo que lo que tiene parche publicado.
+      #
+      # La primera version usaba solo `--ignore-unfixed` y fallo en su primera
+      # corrida con cuatro CVEs altas en `brace-expansion`, `ip-address` y `tar`.
+      # Ninguna es del proyecto: son dependencias del npm que viene dentro de
+      # `node:24-bookworm-slim`, en `/usr/local/lib/node_modules`. Tienen version
+      # corregida upstream, asi que `--ignore-unfixed` las conservaba, pero aca no
+      # se pueden actualizar sin cambiar de imagen base. La capa Debian dio 0.
+      #
+      # Bloquear por esas cerraria el merge por algo que no se puede resolver, y
+      # el desenlace conocido de eso es que alguien apague la puerta: el hallazgo
+      # H-01 otra vez, por otro camino. Por eso el scan que corta se salta el
+      # `node_modules` de npm y mira lo que agregamos nosotros, que es donde una
+      # CVE con arreglo si es una orden de actualizar.
+      #
+      # Lo heredado no se ignora, se informa: el paso siguiente lista todo, sin
+      # cortar, para que cambiar de base siga siendo una decision con datos.
+      - name: Vulnerabilidades que podemos arreglar
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:0.58.1 image \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --skip-dirs /usr/local/lib/node_modules \
+            --exit-code 1 \
+            --no-progress \
+            flash:ci
+
+      - name: Inventario completo, incluida la imagen base
+        if: always()
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:0.58.1 image \
+            --severity HIGH,CRITICAL \
+            --no-progress \
+            flash:ci || true
+
   mobile-typecheck:
     name: Mobile typecheck y variantes
     runs-on: ubuntu-latest
