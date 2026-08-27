@@ -329,6 +329,48 @@ jobs:
           docker run --rm --cap-drop=ALL --security-opt=no-new-privileges:true \
             flash:ci node -e "console.log('el runtime arranca sin capabilities')"
 
+      # El criterio de INF-001 pedia una corrida real, no un contrato de texto:
+      # un filesystem de solo lectura falla en el primer write, y la unica forma
+      # de saber si hay alguno es arrancar el proceso hasta que responda.
+      #
+      # Los dos montajes escribibles son los mismos que declara docker-compose.
+      # `/app/server/data` hace falta porque `server/store.js` abre la base
+      # SQLite del respaldo al importarse, sin mirar si hay PostgreSQL.
+      - name: El proceso arranca con la raiz de solo lectura
+        run: |
+          docker run -d --name flash-readonly \
+            --read-only \
+            --tmpfs /tmp \
+            --tmpfs /app/server/data:uid=999,gid=999 \
+            --cap-drop=ALL --security-opt=no-new-privileges:true \
+            -e NODE_ENV=production \
+            -e JWT_SECRET=ci-readonly-secret-not-used-anywhere-else \
+            -p 4010:4000 flash:ci
+          listo=0
+          for attempt in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:4010/api/health > /dev/null 2>&1; then
+              echo "la imagen responde con la raiz de solo lectura tras ${attempt}s"
+              listo=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$listo" -ne 1 ]; then
+            echo "::error::La imagen no arranco con --read-only"
+            docker logs flash-readonly
+            docker rm -f flash-readonly
+            exit 1
+          fi
+          # Un write fuera de los montajes declarados tiene que fallar. Si esto
+          # pasara, la raiz no era de solo lectura y el paso no probaba nada.
+          if docker exec flash-readonly sh -c "touch /app/prueba-escritura" 2>/dev/null; then
+            echo "::error::La raiz acepta escrituras: --read-only no esta activo"
+            docker rm -f flash-readonly
+            exit 1
+          fi
+          echo "la raiz rechaza escrituras fuera de los montajes declarados"
+          docker rm -f flash-readonly
+
       - name: Tamaño de la imagen
         run: |
           size=$(docker image inspect flash:ci --format '{{ .Size }}')
