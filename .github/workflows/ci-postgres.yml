@@ -142,6 +142,34 @@ jobs:
       - name: Un pago repetido no duplica asientos
         run: npm run test:payment-idempotency
 
+      # Ensayo de restore. Vuelca la base y la restaura en otra, de verdad, para
+      # comprobar que el esquema, las extensiones, las politicas y los permisos
+      # sobreviven al viaje por `pg_dump`.
+      #
+      # `pg_dump` y `pg_restore` corren **dentro del contenedor de servicio** y no
+      # en el runner: el runner trae un cliente de PostgreSQL mas viejo que el
+      # servidor 17, y `pg_dump` se niega a volcar un servidor mayor que el.
+      # Adentro la version coincide por construccion. Las comprobaciones corren
+      # desde Node por TCP, donde la version del cliente no importa.
+      #
+      # No reemplaza a `scripts/restore-drill.ps1`, que ensaya los backups reales
+      # sobre la maquina que los guarda. Responde otra pregunta, y la responde en
+      # cada PR.
+      - name: Ensayo de restore
+        env:
+          PGPASSWORD: ci_admin
+          RESTORE_DATABASE_URL: postgresql://postgres:ci_admin@127.0.0.1:5432/flash_restore
+        run: |
+          cid=$(docker ps --filter "ancestor=postgis/postgis:17-3.5" --format "{{.ID}}" | head -1)
+          if [ -z "$cid" ]; then
+            echo "::error::No se encontro el contenedor de PostgreSQL"
+            exit 1
+          fi
+          docker exec "$cid" pg_dump -U postgres -d flash -Fc -f /tmp/flash.dump
+          docker exec "$cid" createdb -U postgres flash_restore
+          docker exec "$cid" pg_restore -U postgres -d flash_restore --exit-on-error /tmp/flash.dump
+          npm run test:restore-drill
+
       # Suites que consultan PostgreSQL directamente, sin necesitar la API.
       - name: Merchant, zone and configuration state
         run: |

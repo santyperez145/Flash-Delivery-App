@@ -58,6 +58,7 @@
     "test:dispatch-candidates": "node scripts/dispatch-candidates-smoke.mjs",
     "test:ci-coverage": "node scripts/ci-coverage-check.mjs",
     "test:postgres": "node --env-file-if-exists=.env.local scripts/postgres-runtime-smoke.mjs",
+    "test:restore-drill": "node --env-file-if-exists=.env.local scripts/restore-drill-smoke.mjs",
     "test:realtime-audience-api": "node --env-file-if-exists=.env.local scripts/realtime-audience-api-smoke.mjs",
     "test:realtime-audience-runtime": "node --env-file-if-exists=.env.local scripts/realtime-audience-runtime-smoke.mjs",
     "test:rls": "node --env-file-if-exists=.env.local scripts/rls-smoke.mjs",
