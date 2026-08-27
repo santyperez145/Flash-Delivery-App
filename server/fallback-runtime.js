@@ -14,6 +14,7 @@
 // junto a `store.js` y no en `http/`.
 import { createId, getTimestamp, readDb as readStoredDb } from "./store.js";
 import { hasRole, isAdmin } from "./http/authorization.js";
+import { publicUser } from "./user-view.js";
 
 // El registro de auditoría del fallback es una ventana, no un historial: la base
 // local es de desarrollo y prueba, y dejar crecer el arreglo sin techo convierte
@@ -210,5 +211,27 @@ export function addTimeline(entity, status) {
     ...entity,
     status,
     timeline: [...(entity.timeline || []), { status, at: getTimestamp() }],
+  };
+}
+
+/**
+ * Todo lo que la cuenta propia muestra, armado desde el estado SQLite.
+ *
+ * Es la contraparte de respaldo de lo que en PostgreSQL son seis consultas
+ * separadas. Vive acá y no en el router porque la comparten la lectura del
+ * perfil, el reclamo de un referido y la carga de saldo: las tres devuelven la
+ * cuenta después de tocarla.
+ *
+ * Pasa por `publicUser`, así que el hash de contraseña no sale por más que el
+ * resto del objeto se arme a mano.
+ */
+export function accountSnapshot(db, userId) {
+  return {
+    user: publicUser(db, userId),
+    addresses: (db.addresses || []).filter((entry) => entry.userId === userId),
+    paymentMethods: (db.paymentMethods || []).filter((entry) => entry.userId === userId),
+    walletTransactions: (db.walletTransactions || []).filter((entry) => entry.userId === userId),
+    supportTickets: (db.supportTickets || []).filter((entry) => entry.userId === userId),
+    ratings: (db.ratings || []).filter((entry) => entry.userId === userId),
   };
 }
