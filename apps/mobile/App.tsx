@@ -122,7 +122,7 @@ export default function App() {
 }
 
 function AppContent() {
-  const [mode, setMode] = useState<Mode>("customer");
+  const [mode, setMode] = useState<Mode>(mobileAppVariant);
   const [state, setState] = useState<AppState | null>(null);
   const [sessionUser, setSessionUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -156,13 +156,7 @@ function AppContent() {
       const user = await api.restoreSession();
       if (user) {
         setSessionUser(user);
-        setMode(
-          user.roles.includes("driver")
-            ? "driver"
-            : user.roles.includes("merchant")
-              ? "merchant"
-              : "customer",
-        );
+        setMode(mobileAppVariant);
         await refresh();
       }
     } catch (error) {
@@ -205,13 +199,7 @@ function AppContent() {
     try {
       const user = await api.login(email, password);
       setSessionUser(user);
-      setMode(
-        user.roles.includes("driver")
-          ? "driver"
-          : user.roles.includes("merchant")
-            ? "merchant"
-            : "customer",
-      );
+      setMode(mobileAppVariant);
       await refresh();
     } finally {
       setBusy(false);
