@@ -35,9 +35,16 @@ const NIGHTLY = new Map([
 // No son una excepción — siguen corriendo y su resultado se publica — pero la
 // deuda tiene que decirse en voz alta en cada corrida, no quedar escondida en
 // un `continue-on-error` del YAML.
-const QUARANTINED = new Map([
-  ["test:support-routing", "ruteo atómico de caso de safety a agente con skill"],
-]);
+// Vacía desde el 27-08. Se deja el mecanismo porque la cuarentena es la forma
+// honesta de tener una suite rota —corre, se publica y se nombra— frente a la
+// alternativa de borrarla del pipeline.
+//
+// Con una advertencia ganada a pulso: **una causa anotada con cautela se lee
+// después como un hecho**. Ninguna de las cuatro causas que pasaron por acá
+// sobrevivió al contacto con la evidencia, y la última mandó a buscar durante un
+// mes un defecto de concurrencia que no existía —a la suite le faltaba una
+// cabecera—. Lo que se escriba acá debería decir qué se midió, no qué se supone.
+const QUARANTINED = new Map();
 
 const pkg = JSON.parse(await fs.readFile("package.json", "utf8"));
 const suites = Object.keys(pkg.scripts).filter((name) => name.startsWith("test:"));

@@ -148,6 +148,7 @@ jobs:
           test:service-chat
           test:shipment-claims
           test:support-sla
+          test:support-routing
           test:notification-preferences
           test:notification-dead-letters
           test:remote-sessions
@@ -176,19 +177,6 @@ jobs:
             exit 1
           fi
           echo "todas las suites de flujos críticos pasaron"
-
-      # Cuarentena declarada. Estas suites fallan con causa conocida y ticket
-      # abierto: no bloquean el merge, pero su resultado se publica en cada
-      # corrida para que la deuda sea visible en lugar de silenciosa.
-      #
-      # Cerrarlas es condición para dar CI-001 por terminado.
-      - name: Quarantined suites (no bloqueante)
-        continue-on-error: true
-        run: |
-          for suite in test:support-routing; do
-            echo "---- CUARENTENA $suite ----"
-            npm run "$suite" --silent || echo "---- sigue roja: $suite ----"
-          done
 
       - name: API log
         if: failure()
