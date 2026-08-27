@@ -262,6 +262,18 @@ jobs:
         if: failure()
         run: tail -200 /tmp/local-api.log
 
+      # El `tail` de arriba sirve para leer mientras pasa; el archivo entero sirve
+      # para volver despues. Un fallo del respaldo suele estar en el arranque, que
+      # es justo lo que las ultimas 200 lineas se comen.
+      - name: Artefactos del respaldo
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fallback-local-${{ github.run_attempt }}
+          path: /tmp/local-api.log
+          retention-days: 14
+          if-no-files-found: warn
+
       - name: Stop API
         if: always()
         run: |

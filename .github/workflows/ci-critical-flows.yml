@@ -157,15 +157,28 @@ jobs:
           "
           passed=0
           failed=""
+          # La salida de cada suite se guarda ademas en su propio archivo. El log
+          # de la corrida sirve para leer mientras pasa; un archivo por suite
+          # sirve para volver despues, buscar dentro y comparar contra otra
+          # corrida. Treinta y una suites en un solo paso son un muro de texto
+          # donde el error que importa esta lejos del final.
+          #
+          # Se escribe a archivo y despues se imprime, en vez de `| tee`: en una
+          # tuberia el codigo de salida es el del ultimo comando, asi que `tee`
+          # convertiria cualquier suite roja en verde.
+          mkdir -p test-artifacts/suites
           for suite in $suites; do
             # Marcador propio: Actions consume las anotaciones ::group:: y el log
             # descargado pierde la correspondencia entre suite y error.
             echo "---- SUITE $suite ----"
-            if npm run "$suite" --silent; then
+            log="test-artifacts/suites/$(echo "$suite" | tr ":" "-").log"
+            if npm run "$suite" --silent > "$log" 2>&1; then
               passed=$((passed + 1))
+              cat "$log"
               echo "---- OK $suite ----"
             else
               failed="$failed $suite"
+              cat "$log"
               echo "---- FALLA $suite ----"
             fi
           done
@@ -181,6 +194,30 @@ jobs:
       - name: API log
         if: failure()
         run: tail -200 /tmp/api.log
+
+      # El log de la API se copia dentro de `test-artifacts/` en vez de subirse
+      # por su ruta absoluta. Mezclar una ruta relativa con una absoluta hace que
+      # la accion tome `/` como raiz comun y el artefacto quede anidado bajo
+      # `home/runner/work/...`, que es un arbol incomodo de recorrer.
+      - name: Reunir artefactos
+        if: always()
+        run: cp /tmp/api.log test-artifacts/api.log 2>/dev/null || true
+
+      # No amplia quien ve que: un artefacto lo descarga quien ya puede leer el
+      # log de la corrida, que hoy publica un `tail` del mismo archivo. Lo que
+      # cambia es que el contenido deja de estar truncado.
+      #
+      # Los artefactos se suben pase o falle la corrida. Guardarlos solo cuando
+      # algo se rompe impide la comparacion que mas sirve: la de una corrida
+      # verde contra una roja.
+      - name: Artefactos de test
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flujos-criticos-${{ github.run_attempt }}
+          path: test-artifacts/
+          retention-days: 14
+          if-no-files-found: warn
 
       - name: Stop API
         if: always()

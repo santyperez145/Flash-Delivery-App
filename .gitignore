@@ -15,3 +15,5 @@ vite-dev*.log
 # SBOM que genera el job container-image. Es un artefacto de la corrida, no
 # del repositorio: describe la imagen construida en ese momento.
 sbom-flash.cdx.json
+
+test-artifacts/
