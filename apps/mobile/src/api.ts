@@ -19,19 +19,48 @@ import type { AnalyticsEvent } from "./analytics";
 import { loadMobileSession, mobileSessionStorage, saveMobileSession } from "./session-storage";
 import Constants from "expo-constants";
 
-declare const process: { env?: { EXPO_PUBLIC_API_URL?: string } };
+declare const process: {
+  env?: { EXPO_PUBLIC_API_URL?: string; EXPO_PUBLIC_APP_VARIANT?: string };
+};
 
 const API_BASE = process.env?.EXPO_PUBLIC_API_URL || "http://127.0.0.1:4000/api";
 
 let token = "";
 let refreshToken = "";
 let sessionDriverId: string | null = null;
-let activeAudience: "customer" | "merchant" | "driver" = "customer";
-export const mobileAppVariant = String(Constants.expoConfig?.extra?.appVariant || "customer") as
-  | "customer"
-  | "merchant"
-  | "driver";
+// La variante instalada sale de `EXPO_PUBLIC_APP_VARIANT`, que es la misma
+// variable que `metro.config.js` usa para elegir la pantalla y `app.config.js`
+// para el identificador y los permisos.
+//
+// Antes se leía de `Constants.expoConfig.extra.appVariant`, y en Expo web ese
+// manifiesto no llega al runtime: la lectura caía en el fallback `"customer"`.
+// El efecto no era cosmético. `allowsVariant` gatea el login contra este valor,
+// así que el build web de Flash Driver exigía rol `customer` —rechazando al
+// conductor y admitiendo al cliente—, mientras Metro sí había puesto la pantalla
+// de conductor. Dos fuentes para una sola decisión, que es el mismo defecto que
+// separaba `allowsVariant` de `setMode`.
+//
+// Se conserva el manifiesto como respaldo: en nativo los dos caminos coinciden,
+// y si alguno faltara el otro responde.
+const declaredVariant =
+  process.env?.EXPO_PUBLIC_APP_VARIANT || Constants.expoConfig?.extra?.appVariant;
+export const mobileAppVariant = (
+  ["customer", "merchant", "driver"].includes(String(declaredVariant))
+    ? String(declaredVariant)
+    : "customer"
+) as "customer" | "merchant" | "driver";
 const allowsVariant = (user: import("./types").User) => user.roles.includes(mobileAppVariant);
+
+// La audiencia es la variante instalada, no la prioridad de roles del usuario.
+//
+// Se derivaba con `roles.includes("merchant") ? ... : roles.includes("driver")
+// ? ...`, que es el mismo defecto que el PR #23 corrigió en `App.tsx` y que acá
+// quedó sin tocar. Como `user_roles` admite varios roles por persona, un comercio
+// que además es cliente abriendo Flash pedía el bootstrap de comercio.
+//
+// `allowsVariant` ya garantiza que quien entró tiene el rol que la variante
+// exige, así que la variante instalada es siempre una audiencia válida.
+let activeAudience: "customer" | "merchant" | "driver" = mobileAppVariant;
 
 type Envelope<T> = T & { ok: boolean; message?: string };
 const SAFE_READ_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -184,11 +213,7 @@ export const api = {
     token = session.token;
     refreshToken = session.refreshToken;
     sessionDriverId = session.user.driverId || null;
-    activeAudience = session.user.roles.includes("merchant")
-      ? "merchant"
-      : session.user.roles.includes("driver")
-        ? "driver"
-        : "customer";
+    activeAudience = mobileAppVariant;
     await persistSession();
     return session.user;
   },
@@ -257,11 +282,7 @@ export const api = {
       }
       sessionDriverId = account.account.user.driverId || null;
       await persistSession();
-      activeAudience = account.account.user.roles.includes("merchant")
-        ? "merchant"
-        : account.account.user.roles.includes("driver")
-          ? "driver"
-          : "customer";
+      activeAudience = mobileAppVariant;
       return account.account.user;
     } catch (_error) {
       token = "";

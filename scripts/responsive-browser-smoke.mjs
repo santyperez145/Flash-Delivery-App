@@ -20,17 +20,22 @@ const desktopViewports = [
 const mobileAudiences = {
   customer: {
     email: "cliente@flash.app",
-    readyText: "Comidas",
+    // "Comidas" NO sirve: es también el rótulo de un chip de la pantalla de
+    // login, así que `getByText` lo encontraba sin haber entrado y las cinco
+    // afirmaciones de viewport se medían sobre el login. La auditoría de cliente
+    // pasó así hasta el 27 de agosto de 2026. El marcador tiene que existir sólo
+    // después de autenticarse.
+    readyText: "Buscar platos, tiendas o restaurantes",
     tabs: ["Inicio", "Buscar", "Actividad", "Cuenta"],
   },
   driver: {
     email: "conductor@flash.app",
-    readyText: "FLASH DRIVER",
+    readyText: "Abrir guía operativa del conductor",
     tabs: ["Mapa", "Ganancias", "Inbox", "Cuenta"],
   },
   merchant: {
     email: "comercio@flash.app",
-    readyText: "Flash Negocios",
+    readyText: "Abierto y recibiendo",
     tabs: ["Hoy", "Pedidos", "Catálogo", "Cuenta"],
   },
 };
@@ -111,6 +116,14 @@ async function auditMobile(browser) {
   const page = await context.newPage();
 
   await login(page, mobileUrl, audience.email, "Continuar");
+
+  // Se comprueba que el login haya entrado antes de esperar la pantalla. Sin
+  // esto, un rechazo del servidor se manifestaba como un timeout de 15 segundos
+  // sobre un texto, sin decir que la sesión nunca se abrió.
+  const errorDeLogin = page.getByText(/rechazada|no permitido|inválid/i).first();
+  if (await errorDeLogin.isVisible().catch(() => false)) {
+    throw new Error(`login de ${audience.email} rechazado: ${await errorDeLogin.innerText()}`);
+  }
   await page.getByText(audience.readyText, { exact: true }).first().waitFor({ timeout: 15_000 });
 
   if (mobileVariant === "customer") {
