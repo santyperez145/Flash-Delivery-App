@@ -27,6 +27,7 @@ import {
   persistPostgresRealtimeEvent,
   getPostgresRealtimeCursor,
   getPostgresRealtimeReplay,
+  getRealtimeAudienceHealth,
 } from "../server/realtime-repository.js";
 import { postgresPool } from "../server/postgres.js";
 
@@ -106,7 +107,8 @@ try {
   // --- Utilidad --------------------------------------------------------------
   // Publica un evento y devuelve quién lo recibiría. El corte del replay se toma
   // justo antes de publicar, así la ventana contiene sólo este evento.
-  const publicar = async ({ entityType, entityId, type = `contract.${marca}` }) => {
+  const desenlaceEsperado = new Map();
+  const publicar = async ({ entityType, entityId, type = `contract.${marca}`, espera }) => {
     const corte = Number(await getPostgresRealtimeCursor());
     const evento = await persistPostgresRealtimeEvent({
       type,
@@ -115,6 +117,7 @@ try {
       action: "updated",
     });
     publicados.push(evento.id);
+    if (espera) desenlaceEsperado.set(evento.id, espera);
     const recibe = async (userPublicId, roles) =>
       (await getPostgresRealtimeReplay({ after: corte, userPublicId, roles })).some(
         (fila) => fila.id === evento.id,
@@ -123,7 +126,7 @@ try {
   };
 
   const comprobar = async ({ etiqueta, entityType, entityId, reciben, noReciben }) => {
-    const { recibe } = await publicar({ entityType, entityId });
+    const { recibe } = await publicar({ entityType, entityId, espera: "resolved" });
     for (const [quien, id] of reciben) {
       if (await recibe(id, ["customer", "merchant", "driver"])) {
         ok(`${etiqueta}: ${quien} lo recibe`);
@@ -218,12 +221,14 @@ try {
       etiqueta: "entityType inventado",
       entityType: `inventado_${marca}`,
       entityId: trabajo.job_id,
+      espera: "unclassified",
       porque: "un tipo no contemplado no puede abrir la audiencia",
     },
     {
       etiqueta: "evento sin entidad",
       entityType: null,
       entityId: null,
+      espera: "unclassified",
       porque: "sin entidad no hay participantes que resolver",
     },
     {
@@ -232,12 +237,17 @@ try {
       etiqueta: "dirección con identificador mal formado",
       entityType: "address",
       entityId: "no-es-un-uuid",
+      espera: "orphan",
       porque: "un identificador basura no puede abrir la audiencia",
     },
   ];
 
   for (const caso of cerrados) {
-    const { recibe } = await publicar({ entityType: caso.entityType, entityId: caso.entityId });
+    const { recibe } = await publicar({
+      entityType: caso.entityType,
+      entityId: caso.entityId,
+      espera: caso.espera,
+    });
     const filtrados = [];
     for (const [quien, id] of [
       ["el cliente", trabajo.cliente],
@@ -260,6 +270,64 @@ try {
         "un evento mal clasificado que además se pierde no se puede diagnosticar",
       );
     }
+  }
+  // --- El desenlace queda guardado, y se puede consultar despues ------------
+  //
+  // El contador Prometheus dice cuantos hubo desde el ultimo arranque de esta
+  // replica. Esto comprueba lo que el contador nunca pudo: que el desenlace
+  // viaja con el evento y que se puede ir a buscar cual fue.
+  const guardados = await pool.query(
+    "SELECT public_id, audience_outcome FROM realtime_events WHERE public_id = ANY($1)",
+    [[...desenlaceEsperado.keys()]],
+  );
+  const desviados = guardados.rows.filter(
+    (fila) => fila.audience_outcome !== desenlaceEsperado.get(fila.public_id),
+  );
+  if (guardados.rowCount !== desenlaceEsperado.size) {
+    fallo(
+      "no todos los eventos publicados quedaron guardados",
+      `${guardados.rowCount} de ${desenlaceEsperado.size}`,
+    );
+  } else if (desviados.length) {
+    for (const fila of desviados) {
+      fallo(
+        `el evento ${fila.public_id} guardo el desenlace equivocado`,
+        `esperaba ${desenlaceEsperado.get(fila.public_id)}, guardo ${fila.audience_outcome}`,
+      );
+    }
+  } else {
+    ok(`los ${guardados.rowCount} eventos guardaron su desenlace de audiencia`);
+  }
+
+  const salud = await getRealtimeAudienceHealth({ hours: 1 });
+  const sinClasificarEsperados = [...desenlaceEsperado.entries()]
+    .filter(([, desenlace]) => desenlace === "unclassified")
+    .map(([id]) => id);
+  const listados = salud.unclassified.recent.map((evento) => evento.id);
+  const faltantes = sinClasificarEsperados.filter((id) => !listados.includes(id));
+  if (faltantes.length) {
+    fallo(
+      "la salud de audiencias no lista los eventos sin clasificar",
+      `faltan ${faltantes.join(", ")}`,
+    );
+  } else {
+    ok("la salud de audiencias nombra los eventos sin clasificar, no solo los cuenta");
+  }
+
+  // `orphan` no se cuenta como sin clasificar: una entidad que ya no existe no
+  // es un defecto de clasificacion, y mezclarlos haria que un borrado normal se
+  // lea como un problema de politica.
+  const huerfanos = [...desenlaceEsperado.entries()]
+    .filter(([, desenlace]) => desenlace === "orphan")
+    .map(([id]) => id);
+  const huerfanoListado = huerfanos.find((id) => listados.includes(id));
+  if (huerfanoListado) {
+    fallo(
+      "un evento huerfano aparece como sin clasificar",
+      "son cosas distintas: una entidad borrada no es un defecto de politica",
+    );
+  } else {
+    ok("un evento huerfano no se cuenta como sin clasificar");
   }
 } finally {
   if (ticketsSembrados.length) {

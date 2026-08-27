@@ -127,8 +127,8 @@ export async function persistPostgresRealtimeEvent({
   observeRealtimeAudience({ entityType, outcome: audience.outcome });
   const row = (
     await postgresPool.query(
-      `INSERT INTO realtime_events(public_id,type,entity_type,entity_id,action,request_id,actor_public_id,audience_user_ids,audience_roles)
-  VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      `INSERT INTO realtime_events(public_id,type,entity_type,entity_id,action,request_id,actor_public_id,audience_user_ids,audience_roles,audience_outcome)
+  VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
       [
         publicId(),
         type,
@@ -139,6 +139,10 @@ export async function persistPostgresRealtimeEvent({
         actorPublicId,
         audience.users,
         audience.roles,
+        // El desenlace se guarda con el evento y no solo en el contador de
+        // memoria: el contador es por replica y se borra al reiniciar, asi que
+        // no puede decir cuales eventos quedaron sin clasificar ni cuando.
+        audience.outcome,
       ],
     )
   ).rows[0];
@@ -158,6 +162,81 @@ export async function getPostgresRealtimeReplay({ after = 0, userPublicId, roles
   );
   return result.rows.map(mapEvent);
 }
+/**
+ * Salud de la clasificacion de audiencias sobre una ventana de tiempo.
+ *
+ * El contador Prometheus de `observability.js` alcanza para alertar —«esta
+ * pasando algo»— y no para nada mas: es por replica y se borra al reiniciar.
+ * Esto responde las preguntas que siguen a la alerta: **cuales** eventos
+ * quedaron sin clasificar, de que `entity_type` y cuando.
+ *
+ * `unclassified` y `orphan` se cuentan por separado aunque produzcan la misma
+ * audiencia guardada. Son cosas distintas: el primero es un tipo que la
+ * politica no contempla —un defecto de clasificacion— y el segundo una entidad
+ * que ya no existe, que suele ser un borrado publicando su evento despues del
+ * commit. Mezclarlos haria que un borrado normal se lea como un defecto.
+ *
+ * La retencion del log es de siete dias, asi que la ventana no tiene sentido
+ * mas alla de ese punto.
+ */
+export async function getRealtimeAudienceHealth({ hours = 24, sampleSize = 20 } = {}) {
+  const ventana = Math.min(24 * 7, Math.max(1, Number(hours) || 24));
+  const porDesenlace = await postgresPool.query(
+    `SELECT COALESCE(audience_outcome, 'sin_registrar') outcome,
+            count(*)::int total,
+            max(occurred_at) last_seen
+     FROM realtime_events
+     WHERE occurred_at > now() - ($1 * interval '1 hour')
+     GROUP BY 1 ORDER BY total DESC`,
+    [ventana],
+  );
+  const porTipo = await postgresPool.query(
+    `SELECT COALESCE(entity_type, '(sin entidad)') entity_type,
+            count(*)::int total,
+            max(occurred_at) last_seen
+     FROM realtime_events
+     WHERE audience_outcome = 'unclassified'
+       AND occurred_at > now() - ($1 * interval '1 hour')
+     GROUP BY 1 ORDER BY total DESC`,
+    [ventana],
+  );
+  // La muestra es lo que el contador nunca pudo dar: los eventos concretos, con
+  // su identificador, para ir a buscarlos.
+  const muestra = await postgresPool.query(
+    `SELECT public_id, type, entity_type, entity_id, occurred_at
+     FROM realtime_events
+     WHERE audience_outcome = 'unclassified'
+       AND occurred_at > now() - ($1 * interval '1 hour')
+     ORDER BY occurred_at DESC LIMIT $2`,
+    [ventana, Math.min(100, Math.max(1, Number(sampleSize) || 20))],
+  );
+  const sinClasificar = porDesenlace.rows.find((f) => f.outcome === "unclassified");
+  return {
+    windowHours: ventana,
+    total: porDesenlace.rows.reduce((suma, f) => suma + f.total, 0),
+    byOutcome: porDesenlace.rows.map((f) => ({
+      outcome: f.outcome,
+      total: f.total,
+      lastSeen: new Date(f.last_seen).toISOString(),
+    })),
+    unclassified: {
+      total: sinClasificar?.total ?? 0,
+      byEntityType: porTipo.rows.map((f) => ({
+        entityType: f.entity_type,
+        total: f.total,
+        lastSeen: new Date(f.last_seen).toISOString(),
+      })),
+      recent: muestra.rows.map((f) => ({
+        id: f.public_id,
+        type: f.type,
+        entityType: f.entity_type,
+        entityId: f.entity_id,
+        at: new Date(f.occurred_at).toISOString(),
+      })),
+    },
+  };
+}
+
 export async function getPostgresRealtimeCursor() {
   return String(
     (
