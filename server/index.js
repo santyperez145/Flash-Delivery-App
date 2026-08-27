@@ -1306,21 +1306,6 @@ app.get(
   },
 );
 
-const publicRestaurantFallback = (restaurant) => {
-  const { ownerId: _ownerId, manualOpen: _manualOpen, ...safe } = restaurant;
-  return {
-    ...safe,
-    branches: (restaurant.branches || []).map(
-      ({
-        manualOpen: _branchManual,
-        weeklyHours: _hours,
-        scheduleExceptions: _exceptions,
-        inventory: _inventory,
-        ...branch
-      }) => branch,
-    ),
-  };
-};
 app.use(catalogRouter);
 app.use(orderRouter);
 app.use(rideRouter);
