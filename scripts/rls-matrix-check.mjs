@@ -25,7 +25,6 @@ const DEUDA = new Map([
   ["user_roles", "se lee antes de autenticar; necesita SECURITY DEFINER para el login primero"],
   ["drivers", "39 archivos lo consultan, varios sin contexto de usuario"],
   ["merchants", "23 archivos lo consultan, varios sin contexto de usuario"],
-  ["promotion_redemptions", "falta la prueba negativa por rol"],
 ]);
 
 const files = (await fs.readdir(MIGRATIONS_DIR)).filter((file) => file.endsWith(".sql")).sort();

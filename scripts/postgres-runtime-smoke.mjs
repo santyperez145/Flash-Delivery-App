@@ -1098,6 +1098,24 @@ try {
       redemption.rows[0].count === 1,
     "checkout validates and redeems promotion atomically",
   );
+
+  // El cupo global de una promocion se cuenta sobre las redenciones de todos,
+  // y nada lo afirmaba hasta que `promotion_redemptions` recibio politica RLS
+  // en la migracion 114.
+  //
+  // Esta comprobacion va por la API a proposito, que consulta como
+  // `flash_runtime`. La lectura de arriba usa el pool del rol migrador, que es
+  // duenio del esquema y saltea RLS: no puede demostrar nada sobre visibilidad.
+  //
+  // Lo que se protege es un fallo silencioso: si el runtime quedara sujeto a la
+  // politica por usuario, `usageCount` daria 0 y **un tope de promocion no se
+  // agotaria nunca**. No habria error, solo descuentos sin limite.
+  const promotionsAfterRedemption = await request("/promotions"),
+    flash40 = promotionsAfterRedemption.body.promotions?.find((entry) => entry.code === "FLASH40");
+  assert(
+    flash40 !== undefined && flash40.usageCount >= 1,
+    "the runtime still counts every redemption, so a promotion cap can be reached",
+  );
   const captured = await pool.query(
     "SELECT p.status,p.captured_amount_cents FROM payment_intents p JOIN jobs j ON j.id=p.job_id WHERE j.public_id=$1",
     [orderId],

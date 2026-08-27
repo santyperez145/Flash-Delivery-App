@@ -236,8 +236,8 @@
     },
     "promotion_redemptions": {
       "clase": "por-usuario",
-      "rls": false,
-      "nota": "Redención por usuario y trabajo."
+      "rls": true,
+      "nota": "Historial de descuentos por usuario. Política `promotion_redemptions_owner` por `user_id`. El runtime queda exento a propósito: el cupo global de la promoción se cuenta sobre todas las redenciones, y sin esa exención un tope no se agotaría nunca."
     },
     "promotions": {
       "clase": "global-lectura",
