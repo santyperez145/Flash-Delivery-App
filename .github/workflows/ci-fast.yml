@@ -243,6 +243,11 @@ jobs:
           npm run test:dietary-local
           npm run test:notification-local
 
+      # Ninguna ruta puede responder 500 sobre este runtime. Levanta su propia
+      # instancia en otro puerto, asi que no depende de la API de arriba.
+      - name: No route answers 500 on the fallback
+        run: npm run test:fallback-degradation
+
       - name: API log
         if: failure()
         run: tail -200 /tmp/local-api.log

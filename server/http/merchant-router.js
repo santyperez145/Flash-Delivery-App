@@ -217,6 +217,8 @@ router.get(
   requireAuth,
   requireAnyRole("merchant", "admin"),
   async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "Las finanzas del comercio requieren PostgreSQL");
     const merchantId = String(req.query.merchantId || req.auth.user.restaurantId || "");
     if (!merchantId) return fail(res, 400, "Falta el comercio");
     try {

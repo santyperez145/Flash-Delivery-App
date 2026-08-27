@@ -26,6 +26,7 @@ import {
   updateFeatureFlag,
 } from "../feature-flag-repository.js";
 import { recordPostgresAudit } from "../operations-repository.js";
+import { usesPostgresCommerce } from "../postgres.js";
 import { requireAuth } from "./authentication.js";
 import { requireAnyRole } from "./authorization.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";
@@ -75,6 +76,7 @@ router.get(
   requireAuth,
   requireAnyRole("admin"),
   async (_req, res) => {
+    if (!usesPostgresCommerce()) return fail(res, 503, "Los feature flags requieren PostgreSQL");
     try {
       res.set("Cache-Control", "no-store, private");
       return ok(res, { flags: await getFeatureFlags() });

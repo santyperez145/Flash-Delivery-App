@@ -168,6 +168,19 @@ Lo que se prueba es **cuándo se dice que no**, porque una guarda así se rompe 
 
 Los marcadores son ASCII a propósito: el primero llevaba tilde y daba ausente en el bundle que sí contenía esa pantalla, porque Hermes no guarda las cadenas no ASCII donde una búsqueda por bytes las encuentra. Un marcador así convierte la puerta en una que pasa siempre.
 
+### Degradación sobre el respaldo SQLite
+
+`test:fallback-degradation` levanta la API sin `DATABASE_URL` y sondea 55 rutas `GET` con las cuatro audiencias sembradas. **Ninguna puede responder 500.**
+
+El respaldo es el runtime del job `local-fallback` y el de cualquier persona que clone el repositorio sin PostgreSQL. Una ruta que ahí revienta no es un detalle de desarrollo: es la diferencia entre poder trabajar en el proyecto y no poder.
+
+Encontró **17 rutas rotas** —24 respuestas contando audiencias—, entre ellas tres del flujo de conductor que dejaban esa aplicación inutilizable, y toda la cola administrativa: payouts, conciliación, riesgos, tarifas, propinas, cartas muertas y agentes de soporte.
+
+El defecto tiene una forma reconocible y el repositorio ya la había documentado al corregir `PUT /api/cart`: el handler llama a un repositorio de PostgreSQL sin preguntar por `usesPostgresCommerce()`, el pool es `null`, el repositorio lanza un `TypeError` y el `catch` lo convierte en 500. El comentario de aquella corrección sigue siendo la mejor explicación: **un 503 que dice por qué es honesto; un 500 con un `TypeError` no.**
+
+Lo que se afirma es la degradación, no la funcionalidad. Una ruta puede responder 200 vacío, 400, 401, 403, 404 o **503 porque necesita PostgreSQL**. Lo único inadmisible es 500: significa que el servidor no anticipó su propio runtime.
+
+Apareció levantando la aplicación de conductor en un navegador. Ninguna puerta estática lo veía, y no por descuido: estáticamente el código es correcto —la llamada existe, el nombre está importado, el error está capturado—. Es el argumento a favor de tener una suite que ejerza el runtime además de las que leen el código.
 ### Cobertura documental de las puertas
 
 `test:docs-coverage` exige que cada script `test:` esté nombrado en algún documento de `docs/`. Una puerta que nadie sabe que existe no se mantiene: cuando falla, quien la encuentra no sabe qué protegía ni si conviene arreglarla o borrarla.
