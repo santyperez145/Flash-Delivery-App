@@ -179,6 +179,11 @@ jobs:
       - name: Production dependency gate
         run: npm run test:dependency-gate
 
+      # Todo lo que quede en `dependencies` se despliega: la imagen instala con
+      # --omit=dev. Siete paquetes que solo usa el frente viajaban en cada imagen.
+      - name: Production dependencies are used by the server
+        run: npm run test:production-deps
+
       - name: OpenTelemetry export contract
         run: npm run test:telemetry
 
