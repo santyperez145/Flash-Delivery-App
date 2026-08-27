@@ -88,7 +88,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Negativa de arranque con rol que saltea RLS | `CI` | `test:rls-guard`. Cubre el riesgo que `FORCE` no puede cubrir: apuntar `DATABASE_URL` al rol migrador desactivaría las políticas en silencio |
 | Esquema muerto eliminado | `CI` | `112_drop_dead_schema.sql` borró `outbox_events` y `user_security_factors`, que era un almacén de credenciales sin política |
 | Auditoría encadenada SHA-256 | `CI` | `test:audit-immutability` en `ci-postgres.yml` |
-| Idempotencia y locks | `CI` | `test:idempotency-prune` y `test:postgres` bloquean el merge |
+| Idempotencia y locks | `CI` | `test:idempotency-prune` y `test:postgres` bloquean el merge · `test:payment-idempotency` cubre la captura repetida, y sus dos mitades |
 | Aislamiento por ciudad | `CI` | `test:city-isolation` en `ci-postgres.yml` |
 | Backup y restore drill | `LOCAL` | `db:restore:drill` fuera de CI · sin cronometrar contra RTO |
 | Separación de roles PostgreSQL | `CI` | `test:container-security` |
