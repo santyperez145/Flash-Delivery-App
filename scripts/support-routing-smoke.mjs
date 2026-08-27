@@ -16,11 +16,27 @@ const assert = (value, label) => {
   if (!value) throw new Error(`failed: ${label}`);
   console.log(`ok - ${label}`);
 };
+// Cada llamada lleva su propia `Idempotency-Key`.
+//
+// `POST /api/support/tickets` la exige —devuelve 400 sin ella— y esta suite no
+// la mandaba en ninguno de sus seis POST. Por eso estuvo un mes en cuarentena
+// bajo la causa anotada «ruteo atómico de un caso de safety a un agente con
+// skill»: nunca llegó a ejercitar el ruteo, se caía en la validación de la
+// cabecera. La causa registrada era una conjetura que se leyó después como un
+// hecho.
+//
+// La clave es distinta en cada llamada a propósito. Con una compartida, el
+// segundo ticket replicaría la respuesta del primero, y las dos invocaciones
+// concurrentes de `/admin/support/process` dejarían de competir, que es
+// justamente lo que esa parte de la prueba quiere ver.
+let llamadas = 0;
 const call = async (path, options = {}) => {
+  llamadas += 1;
   const response = await fetch(`${base}${path}`, {
     ...options,
     headers: {
       "content-type": "application/json",
+      "Idempotency-Key": `support-routing-${stamp}-${llamadas}`,
       ...(token ? { authorization: `Bearer ${token}` } : {}),
       ...(options.headers || {}),
     },
@@ -202,6 +218,10 @@ try {
       ticketIds.filter(Boolean),
     ]);
   }
+  // Las claves de idempotencia son de esta corrida y no le sirven a nadie mas.
+  await pool
+    .query("DELETE FROM idempotency_keys WHERE key LIKE $1", [`support-routing-${stamp}-%`])
+    .catch(() => {});
   if (originalProfile)
     await pool.query(
       "UPDATE support_agent_profiles SET availability=$1,max_active_tickets=$2,skills=$3,last_assigned_at=$4,updated_at=now() WHERE user_id=(SELECT id FROM users WHERE public_id='usr_admin')",
