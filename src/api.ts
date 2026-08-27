@@ -1413,6 +1413,11 @@ export const api = {
       contentBase64: string;
     }>(`/shipment-claim-evidence/${evidenceId}/content`);
   },
+  async getRealtimeAudienceHealth(hours = 24) {
+    return request<import("./types").RealtimeAudienceHealth>(
+      `/admin/realtime-audience?hours=${hours}`,
+    );
+  },
   async getPaymentReconciliation() {
     return request<import("./types").PaymentReconciliation>("/admin/payment-reconciliation");
   },

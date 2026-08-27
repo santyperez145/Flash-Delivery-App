@@ -133,6 +133,7 @@ jobs:
           test:phone-verification
           test:payment-methods
           test:payment-reconciliation
+          test:realtime-audience-api
           test:transaction-risk
           test:payout-review
           test:tip-adjustments

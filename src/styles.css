@@ -1303,6 +1303,76 @@ textarea::placeholder {
 .promise-grid,
 .driver-ops-grid,
 .merchant-command,
+/* Salud de la clasificación de audiencias realtime (SEC-001).
+
+   Dos estados con peso visual muy distinto a propósito. En reposo es una línea
+   discreta que confirma que se está mirando; con hallazgos se pone en el color
+   de acento y ocupa lugar. Un panel que se ve igual con cero que con veinte
+   enseña a no mirarlo. */
+.ops-audience {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  padding: 12px;
+  font-size: 13px;
+}
+
+.ops-audience-idle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-soft);
+}
+
+.ops-audience-idle svg {
+  color: var(--mint);
+  flex: none;
+}
+
+.ops-audience-alert {
+  border-color: var(--accent);
+  background: #fff6f2;
+}
+
+.ops-audience-alert header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent-deep);
+}
+
+.ops-audience-alert header svg {
+  flex: none;
+}
+
+.ops-audience-alert p {
+  margin: 8px 0 0;
+  color: var(--ink-soft);
+}
+
+.ops-audience-alert ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--ink);
+}
+
+.ops-audience-alert code {
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.ops-audience-alert details {
+  margin-top: 8px;
+}
+
+.ops-audience-alert summary {
+  cursor: pointer;
+  color: var(--ink-soft);
+  min-height: var(--layout-touch);
+  display: flex;
+  align-items: center;
+}
+
 .ops-risk-board {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

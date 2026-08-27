@@ -337,6 +337,16 @@ Cada caso tiene sus dos mitades: el dueño recibe y un tercero no. Sin la primer
 
 Se ejercitan además los tres caminos que tienen que cerrarse —`entityType` inventado, evento sin entidad, e identificador mal formado en `address`, que tiene su propia guarda antes de consultar— y en los tres se exige que **sí** llegue a operaciones: un default-deny que también le cierre la puerta a quien tiene que diagnosticar convierte cada incidente en una excavación.
 
+### La ruta del panel de audiencias
+
+`test:realtime-audience-runtime` prueba `getRealtimeAudienceHealth` llamándola directamente, lo que cubre la consulta y la agregación. No cubre la ruta: quién puede pedirla, qué devuelve por HTTP y qué pasa con un parámetro hostil.
+
+Importa porque la respuesta **enumera eventos mal clasificados con su tipo y su entidad**, que no es material para alguien con rol de cliente. `test:realtime-audience-api` exige 401 sin sesión, 403 para un cliente autenticado y 200 para operaciones con la forma que el panel consume.
+
+También acota la ventana: un `hours` gigante no puede convertirse en un barrido de la tabla entera desde una ruta autenticada. El log retiene siete días, así que más allá de eso el número sólo sirve para hacer trabajar a la base. Un `hours` no numérico cae en el valor por omisión en lugar de producir un intervalo inválido.
+
+La última comprobación es la que evita que la puerta pase por el motivo equivocado: el total que devuelve la ruta tiene que **coincidir con lo que hay en la base**. Sin eso, una implementación que devolviera la forma correcta con ceros aprobaría todo lo anterior.
+
 ### Cobertura documental de las puertas
 
 `test:docs-coverage` exige que cada script `test:` esté nombrado en algún documento de `docs/`. Una puerta que nadie sabe que existe no se mantiene: cuando falla, quien la encuentra no sabe qué protegía ni si conviene arreglarla o borrarla.

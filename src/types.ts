@@ -718,9 +718,12 @@ export type PaymentReconciliationCase = {
     | "capture_mismatch"
     | "refund_mismatch"
     | "orphan_webhook"
-    | "webhook_failure";
+    | "webhook_failure"
+    // No nace del escaneo: lo abre la reversión de un reintegro cuando deja el
+    // saldo de una parte en negativo.
+    | "negative_balance";
   severity: "low" | "medium" | "high" | "critical";
-  entityType: "payment_intent" | "refund" | "webhook_event";
+  entityType: "payment_intent" | "refund" | "webhook_event" | "ledger_account";
   externalReference: string | null;
   summary: string;
   details: Record<string, unknown>;
@@ -731,6 +734,31 @@ export type PaymentReconciliationCase = {
   resolutionNote: string | null;
   resolvedAt: string | null;
 };
+/**
+ * Salud de la clasificación de audiencias realtime (SEC-001).
+ *
+ * `unclassified` y `orphan` se cuentan por separado a propósito: el primero es
+ * un `entityType` que la política no contempla —un defecto—, el segundo una
+ * entidad que ya no existe, que suele ser un borrado publicando después del
+ * commit. Sólo el primero es un problema.
+ */
+export type RealtimeAudienceHealth = {
+  windowHours: number;
+  total: number;
+  byOutcome: { outcome: string; total: number; lastSeen: string }[];
+  unclassified: {
+    total: number;
+    byEntityType: { entityType: string; total: number; lastSeen: string }[];
+    recent: {
+      id: string;
+      type: string;
+      entityType: string | null;
+      entityId: string | null;
+      at: string;
+    }[];
+  };
+};
+
 export type PaymentReconciliation = {
   summary: { openCount: number; urgentCount: number; resolvedCount: number };
   cases: PaymentReconciliationCase[];
