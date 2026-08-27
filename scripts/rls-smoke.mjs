@@ -180,6 +180,22 @@ try {
     redemptionRows.rows[0].count === 0 && redemptionWriteDenied,
     "audit credentials cannot reconstruct anyone discount history",
   );
+
+  // `drivers` y `merchants` son el caso mas incomodo que cerro la migracion 115:
+  // el rol auditor ya tenia `GRANT SELECT` sobre las dos desde la migracion 011
+  // y ninguna tenia RLS. Es decir, el rol que existe para demostrar aislamiento
+  // leia el nombre, la patente, la posicion en vivo y la calificacion de todos
+  // los conductores, y el duenio y la ubicacion de todos los comercios.
+  //
+  // El grant sigue puesto a proposito: sin el, cero filas demostraria permiso
+  // faltante en vez de politica.
+  const fleetVisibility = await client.query(
+    "SELECT (SELECT count(*) FROM drivers)::int drivers,(SELECT count(*) FROM merchants)::int merchants",
+  );
+  assert(
+    fleetVisibility.rows[0].drivers === 0 && fleetVisibility.rows[0].merchants === 0,
+    "audit credentials see no driver identity or merchant ownership without context",
+  );
   const visibleModifiers = await client.query(
     "SELECT count(*)::int count FROM catalog_modifiers WHERE available",
   );
@@ -858,6 +874,17 @@ try {
       ])
     ).rows[0].count === 0,
     "RLS hides the customer receipt from driver",
+  );
+  // La otra mitad de la politica de `drivers`. Sin esto, la prueba del auditor
+  // solo demostraria que la tabla esta cerrada: una politica que niega a todos
+  // pasa el test negativo y deja al conductor sin poder verse a si mismo.
+  const ownFleetRow = await client.query(
+    "SELECT count(*)::int total,count(*) FILTER(WHERE id=$1)::int propio FROM drivers",
+    [fixtureDriverId],
+  );
+  assert(
+    ownFleetRow.rows[0].propio === 1 && ownFleetRow.rows[0].total === 1,
+    "RLS exposes the driver own row and no other driver identity",
   );
   assert(
     (await client.query("SELECT count(*)::int count FROM driver_compliance")).rows[0].count === 1,

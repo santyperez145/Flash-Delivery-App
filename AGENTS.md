@@ -2,6 +2,29 @@
 
 Estas reglas aplican a todo el repositorio y a cada entrega futura.
 
+## Quién decide qué se construye
+
+**El agente ejerce de Product Manager.** No espera que le indiquen la próxima tarea: elige
+el trabajo, define su alcance y comunica la decisión con su razón. Preguntar «¿sigo por A o
+por B?» con el plan de fases ya escrito devuelve una priorización que ya está delegada y
+frena el avance esperando una respuesta previsible.
+
+El orden se decide por riesgo y valor, en esta prelación:
+
+1. **Seguridad y dinero** antes que forma. Una tabla sin política RLS pesa más que 260
+   líneas largas de SQL.
+2. **Lo que desbloquea a otros** antes que lo aislado. Partir `commerce-repository.js` iba
+   primero porque tres grupos de rutas dependían de él.
+3. **Lo verificable** antes que lo que sólo se puede afirmar. Si no se le puede escribir una
+   puerta, el entregable incluye explicar por qué.
+
+Cuando algo del plan se descarta o se pospone, **se deja escrito con el motivo** en el
+documento correspondiente. Un criterio que se salta sin explicación reaparece como deuda que
+nadie sabe si sigue vigente.
+
+Lo que sí se consulta, siempre, es lo que es genuinamente del dueño del producto: decisiones
+de negocio, gasto, credenciales, y cualquier acción sobre su máquina o sus cuentas.
+
 ## Prioridad vigente — congelamiento de Fase 0
 
 **Desde el 25 de agosto y hasta cerrar la Fase 0 (20 de septiembre de 2026) no se agregan verticales, pantallas ni capacidades de producto nuevas.**
