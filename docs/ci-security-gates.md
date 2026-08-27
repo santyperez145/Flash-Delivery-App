@@ -216,6 +216,16 @@ La puerta persigue la forma `ON ALL TABLES` porque es la que uno escribe sin pen
 `test:docs-coverage` exige que cada script `test:` esté nombrado en algún documento de `docs/`. Una puerta que nadie sabe que existe no se mantiene: cuando falla, quien la encuentra no sabe qué protegía ni si conviene arreglarla o borrarla.
 
 Al escribirse había **14 suites sin mencionar en ningún lado**, casi todas anteriores a la auditoría. Es un trinquete: el número sólo puede bajar, así que una puerta nueva se documenta en el mismo PR que la crea, y la deuda heredada se paga cuando se toca cada suite.
+### Raíz de sólo lectura, verificada arrancando
+
+El job `container-image` arranca la imagen con `--read-only` hasta que responde, y **después comprueba que un `touch` sobre la raíz falle**. Esa segunda mitad importa: sin ella el paso pasaría igual aunque la raíz fuera escribible, y estaríamos verificando que la imagen arranca, que ya se sabía.
+
+Es la diferencia entre un contenedor comprometido que puede dejar algo escrito —un binario, una tarea, una clave— y uno que no.
+
+Lo escribible queda declarado y es poco: `/tmp` y `/app/server/data`. El segundo existe porque **`server/store.js` abre la base SQLite del respaldo al importarse**, sin mirar si hay `DATABASE_URL`. Es una consecuencia de cómo arranca el respaldo, no una necesidad del producto: con PostgreSQL configurado esa base no se usa. Hacer esa inicialización perezosa eliminaría el último punto de escritura, y queda anotado en INF-001.
+
+El arranque tampoco pasa por `npm run`: npm escribe su caché y su log en el home, que con la raíz de sólo lectura no acepta escrituras. El comando invoca `scripts/db-migrate.mjs` directamente.
+
 ### Contrato de contenedor
 
 `test:container-security` valida principalmente separación de roles de PostgreSQL: owner/migrador, runtime y auditor, y rechaza roles con `BYPASSRLS`. **No valida** usuario Linux, capabilities, seccomp ni filesystem de sólo lectura — ver el hallazgo [H-05](auditoria-2026-08-25.md#h-05--la-imagen-docker-no-corresponde-al-arranque-real-y-corre-como-root) y el ticket [INF-001](backlog-tecnico.md#inf-001--imagen-productiva-endurecida).

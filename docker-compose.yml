@@ -58,6 +58,19 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+    # Filesystem raíz de sólo lectura. Todo lo que el proceso escribe está
+    # declarado abajo, y son dos cosas:
+    #
+    #   * `/tmp`, para archivos temporales del runtime.
+    #   * `/app/server/data`, porque `server/store.js` abre la base SQLite del
+    #     respaldo **al importarse**, sin mirar si hay PostgreSQL configurado.
+    #     El modo WAL además escribe archivos `-wal` y `-shm` al lado.
+    #
+    # Esa segunda es una consecuencia de cómo arranca el respaldo, no una
+    # necesidad del producto: con `DATABASE_URL` puesto no se usa. Hacer esa
+    # inicialización perezosa eliminaría el único punto de escritura que queda,
+    # y está anotado en INF-001.
+    read_only: true
     tmpfs:
       - /tmp
     volumes:
@@ -67,7 +80,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: ["sh", "-c", "npm run db:migrate && node server/start.js"]
+    # Se invoca el script directamente en vez de `npm run`: con la raíz de sólo
+    # lectura, npm falla al intentar escribir su caché y su log en el home, que
+    # es `/app`. El comando hace exactamente lo mismo sin ese intermediario.
+    command: ["sh", "-c", "node scripts/db-migrate.mjs && node server/start.js"]
     restart: unless-stopped
     stop_grace_period: 20s
 
