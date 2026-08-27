@@ -28,10 +28,20 @@ const NIVEL = "high";
 // Se invoca npm por su entrada de Node y no por el ejecutable del sistema.
 // `npm.cmd` no se resuelve sin shell en Windows, y pasar argumentos a un shell
 // los concatena sin escapar. Llamar al archivo evita las dos cosas.
+// `npm_execpath` lo define npm al ejecutar un script, y apunta a su propio
+// `npm-cli.js`. Es la fuente correcta porque esto siempre corre por `npm run`.
+//
+// Las rutas junto al ejecutable son el respaldo para cuando se invoca a mano.
+// Hacen falta las dos formas: en Windows npm queda en `<node>/node_modules`, y
+// en Linux un nivel más arriba, en `<node>/../lib/node_modules`. Buscar sólo la
+// primera hacía fallar la puerta en el runner de CI.
+const raiz = path.dirname(process.execPath);
 const NPM_CLI = [
-  path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js"),
-  path.join(path.dirname(process.execPath), "lib", "node_modules", "npm", "bin", "npm-cli.js"),
-].find((candidato) => fs.existsSync(candidato));
+  process.env.npm_execpath,
+  path.join(raiz, "node_modules", "npm", "bin", "npm-cli.js"),
+  path.join(raiz, "lib", "node_modules", "npm", "bin", "npm-cli.js"),
+  path.join(raiz, "..", "lib", "node_modules", "npm", "bin", "npm-cli.js"),
+].find((candidato) => candidato && fs.existsSync(candidato));
 
 if (!NPM_CLI) throw new Error("No se encontró el CLI de npm junto al ejecutable de Node");
 
