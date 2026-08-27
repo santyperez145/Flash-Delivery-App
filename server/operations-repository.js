@@ -539,10 +539,57 @@ export async function recordPostgresAudit({
   beforeData = null,
   afterData = {},
 }) {
-  await postgresPool.query(
+  // Sin actor identificado el evento se anota igual, con `actor_id` nulo. Pasa
+  // en las rutas que no exigen sesión: «alguien hizo esto y no sabemos quién» es
+  // peor que un nombre, pero es muchísimo mejor que nada.
+  if (!actorPublicId) {
+    await postgresPool.query(
+      `INSERT INTO audit_events(actor_id,actor_roles,action,entity_type,entity_id,request_id,before_data,after_data)
+      VALUES(NULL,$1::user_role[],$2,$3,$4,$5,$6,$7)`,
+      [roles, action, entityType, entityId, requestId || null, beforeData, afterData],
+    );
+    return;
+  }
+  const escrito = await postgresPool.query(
     `INSERT INTO audit_events(actor_id,actor_roles,action,entity_type,entity_id,request_id,before_data,after_data)
     SELECT u.id,$2::user_role[],$3,$4,$5,$6,$7,$8 FROM users u WHERE u.public_id=$1`,
     [actorPublicId, roles, action, entityType, entityId, requestId || null, beforeData, afterData],
+  );
+  // `INSERT ... SELECT` con un actor que no existe inserta cero filas y no falla.
+  // Es decir: la acción privilegiada ocurre y su rastro desaparece sin que nadie
+  // se entere. Hoy no es alcanzable —`requireAuth` verifica que el usuario exista
+  // antes de dejar pasar la petición— pero es una trampa puesta para el próximo
+  // que llame desde fuera de una sesión, que fue exactamente lo que pasó al
+  // escribir la conciliación programada.
+  if (!escrito.rowCount) {
+    throw new Error(
+      `No se registró la auditoría de "${action}": el actor ${actorPublicId} no existe`,
+    );
+  }
+}
+
+/**
+ * Anota un evento originado por el sistema, sin persona detrás.
+ *
+ * Existe separado y no como un `actorPublicId` nulo a propósito: un evento de
+ * sistema y uno cuyo actor no se pudo identificar son cosas distintas, y quien
+ * lee la auditoría necesita poder distinguirlas. El origen queda en
+ * `after_data.origin`, porque `actor_id` nulo por sí solo no dice cuál de las
+ * dos es.
+ */
+export async function recordSystemAudit({
+  action,
+  entityType,
+  entityId,
+  origin,
+  beforeData = null,
+  afterData = {},
+}) {
+  if (!origin) throw new Error("Un evento de sistema tiene que declarar su origen");
+  await postgresPool.query(
+    `INSERT INTO audit_events(actor_id,actor_roles,action,entity_type,entity_id,request_id,before_data,after_data)
+    VALUES(NULL,NULL,$1,$2,$3,NULL,$4,$5)`,
+    [action, entityType, entityId, beforeData, { ...afterData, origin }],
   );
 }
 
