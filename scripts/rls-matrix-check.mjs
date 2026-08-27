@@ -39,6 +39,19 @@ const declared = new Set(
     m[1].toLowerCase(),
   ),
 );
+
+// Una tabla borrada deja de existir, y hasta acá la matriz no lo sabía: contaba
+// `CREATE TABLE` y nunca `DROP TABLE`, así que una tabla eliminada seguía
+// clasificada para siempre. Peor todavía, seguía contando como cubierta por su
+// política, que se fue con ella.
+//
+// Las migraciones se aplican en orden y son de sólo agregar, así que el estado
+// real es el `CREATE` menos el `DROP` posterior. Se resta después de recolectar
+// porque un `DROP` sólo puede venir después del `CREATE` que lo hizo posible.
+for (const match of sql.matchAll(/DROP TABLE (?:IF EXISTS )?([a-zA-Z_]+)/gi)) {
+  declared.delete(match[1].toLowerCase());
+}
+
 const withRls = new Set(
   [...sql.matchAll(/ALTER TABLE ([a-zA-Z_]+) ENABLE ROW LEVEL SECURITY/gi)].map((m) =>
     m[1].toLowerCase(),

@@ -190,11 +190,6 @@
       "clase": "por-usuario",
       "rls": true
     },
-    "outbox_events": {
-      "clase": "sin-uso",
-      "rls": false,
-      "nota": "Esquema muerto: ningún archivo de `server/` ni `scripts/` la referencia."
-    },
     "password_recovery_tokens": {
       "clase": "por-usuario",
       "rls": true
@@ -418,11 +413,6 @@
       "clase": "por-usuario",
       "rls": false,
       "nota": "Se lee ANTES de autenticar: `findAuthUserByEmail` hace JOIN sin contexto de usuario. Una política `user_id = app.current_user_id()` rompería todo login. Necesita SECURITY DEFINER para el camino de login antes de aplicar RLS."
-    },
-    "user_security_factors": {
-      "clase": "sin-uso",
-      "rls": false,
-      "nota": "Esquema muerto, superado por `user_mfa`. Declara columnas para secretos TOTP y credenciales WebAuthn que nada escribe ni lee."
     },
     "users": {
       "clase": "por-usuario",
