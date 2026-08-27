@@ -14,7 +14,7 @@ import { z } from "zod";
 import { SpanStatusCode, trace } from "@opentelemetry/api";
 import { config } from "./config.js";
 import { coordinateSchema, distanceBetween } from "./geo.js";
-import { sanitizeUser } from "./user-view.js";
+import { publicUser, sanitizeUser } from "./user-view.js";
 import { fail, failFrom, ok, parseOrFail } from "./http/responses.js";
 import {
   canActAsCustomer,
@@ -40,11 +40,13 @@ import {
   sqliteReadCount,
 } from "./fallback-runtime.js";
 import { requireAuth } from "./http/authentication.js";
+import { isSameOrigin, requireTrustedWebOrigin } from "./http/web-origin.js";
 import { backofficeReportsRouter } from "./http/backoffice-reports-router.js";
 import { catalogRouter } from "./http/catalog-router.js";
 import { orderRouter } from "./http/order-router.js";
 import { rideRouter } from "./http/ride-router.js";
 import { shipmentRouter } from "./http/shipment-router.js";
+import { authRouter } from "./http/auth-router.js";
 import { orderIssuesRouter } from "./http/order-issues-router.js";
 import { cancellationSchema } from "./http/cancellation.js";
 import { creditDriverEarningsRuntime } from "./driver-earnings.js";
@@ -374,25 +376,6 @@ function requestLogger(req, res, next) {
 
 const stopRealtimeListener = await startRealtimeListener();
 
-function isSameOrigin(req, origin) {
-  if (!origin) return false;
-  try {
-    const parsed = new URL(origin);
-    return parsed.protocol === `${req.protocol}:` && parsed.host === req.get("host");
-  } catch {
-    return false;
-  }
-}
-
-function isAllowedOrigin(req, origin) {
-  return (
-    !origin ||
-    config.corsOrigins.includes("*") ||
-    config.corsOrigins.includes(origin) ||
-    isSameOrigin(req, origin)
-  );
-}
-
 function corsOrigin(origin, callback) {
   if (!origin || config.corsOrigins.includes("*") || config.corsOrigins.includes(origin)) {
     return callback(null, true);
@@ -406,19 +389,6 @@ const apiCors = cors({ origin: corsOrigin, credentials: true });
 function apiCorsMiddleware(req, res, next) {
   if (isSameOrigin(req, req.get("origin"))) return next();
   return apiCors(req, res, next);
-}
-
-function requireTrustedWebOrigin(req, res, next) {
-  if (req.get("x-flash-client") !== "web") return next();
-  const origin = req.get("origin");
-  const fetchSite = req.get("sec-fetch-site");
-  if (fetchSite === "cross-site") {
-    return fail(res, 403, "Solicitud web cross-site rechazada");
-  }
-  if (!isAllowedOrigin(req, origin)) {
-    return fail(res, 403, "Origen web no permitido");
-  }
-  return next();
 }
 
 app.use(requestContext);
@@ -498,51 +468,9 @@ app.use(
 // The database independently locks PIN verification after five failures. This
 // wider edge budget also covers authorized photo upload/download operations.
 
-const loginSchema = z.object({
-  email: z.string().email("Email invalido"),
-  password: z.string().min(4, "Password demasiado corto"),
-  deviceName: z.string().trim().max(160).optional(),
-  audience: z.enum(["customer", "driver", "merchant"]).optional(),
-});
-
-const registerSchema = z.object({
-  name: z.string().min(2, "Nombre obligatorio"),
-  email: z.string().email("Email invalido"),
-  password: z.string().min(8, "Password minimo 8 caracteres").max(128, "Password demasiado largo"),
-  phone: z
-    .string()
-    .trim()
-    .regex(/^\+[1-9][0-9]{7,14}$/, "Usa formato internacional, por ejemplo +5491112345678")
-    .optional(),
-  deviceName: z.string().trim().max(160).optional(),
-});
-const passwordRecoveryRequestSchema = z.object({
-  email: z.string().email("Email inválido"),
-});
-const passwordRecoveryConsumeSchema = z.object({
-  token: z.string().min(40).max(128),
-  password: z.string().min(8, "Password mínimo 8 caracteres").max(128, "Password demasiado largo"),
-});
-const emailVerificationRequestSchema = z.object({
-  email: z.string().email("Email inválido"),
-});
-const emailVerificationConfirmSchema = emailVerificationRequestSchema.extend({
-  code: z.string().regex(/^\d{6}$/, "Código inválido"),
-});
 const phoneVerificationConfirmSchema = z.object({
   code: z.string().regex(/^\d{6}$/, "Código inválido"),
 });
-const mfaCodeSchema = z.object({ code: z.string().trim().min(6).max(32) });
-const mfaCompleteSchema = mfaCodeSchema.extend({
-  challenge: z.string().min(20),
-  deviceName: z.string().trim().max(160).optional(),
-});
-
-const refreshSchema = z.object({
-  refreshToken: z.string().min(32),
-  deviceName: z.string().trim().max(160).optional(),
-});
-
 const payoutRequestSchema = z.object({
   amount: z.coerce.number().positive().max(100000000),
   merchantId: z.string().optional(),
@@ -695,13 +623,6 @@ const tipAdjustmentReviewSchema = z.object({
   decision: z.enum(["approved", "rejected"]),
   note: z.string().trim().min(5).max(1000),
 });
-function publicUser(db, userId) {
-  const user = db.users.find((entry) => entry.id === userId);
-  if (!user) return null;
-  const { password, ...safeUser } = user;
-  return safeUser;
-}
-
 function accountSnapshot(db, userId) {
   return {
     user: publicUser(db, userId),
@@ -790,74 +711,6 @@ async function loadRuntimeState(req) {
   });
   return state;
 }
-
-function issueAccessToken(user, { mfaVerified = false } = {}) {
-  return jwt.sign({ sub: user.id, roles: user.roles, mfa: mfaVerified }, jwtSecret, {
-    expiresIn: "15m",
-  });
-}
-
-function issueMfaChallenge(user) {
-  return jwt.sign({ sub: user.id, purpose: "admin_mfa" }, jwtSecret, {
-    expiresIn: "5m",
-  });
-}
-
-async function issueSession(user, deviceName, { mfaVerified = false } = {}) {
-  const session = usesPostgresAuth()
-    ? await createPostgresSession(user, deviceName)
-    : createAuthSession(user.id, deviceName);
-  return {
-    token: issueAccessToken(user, { mfaVerified }),
-    refreshToken: session.refreshToken,
-    refreshExpiresAt: session.expiresAt,
-  };
-}
-
-const refreshCookieName = config.isProduction ? "__Host-flash_refresh" : "flash_refresh";
-function isWebSessionRequest(req) {
-  return req.get("x-flash-client") === "web";
-}
-function readRefreshCookie(req) {
-  if (!isWebSessionRequest(req)) return "";
-  const cookies = String(req.headers.cookie || "").split(";");
-  for (const cookie of cookies) {
-    const separator = cookie.indexOf("=");
-    if (separator < 0 || cookie.slice(0, separator).trim() !== refreshCookieName) continue;
-    try {
-      return decodeURIComponent(cookie.slice(separator + 1).trim());
-    } catch {
-      return "";
-    }
-  }
-  return "";
-}
-function setRefreshCookie(res, refreshToken, expiresAt) {
-  res.cookie(refreshCookieName, refreshToken, {
-    httpOnly: true,
-    sameSite: "strict",
-    secure: config.isProduction,
-    path: config.isProduction ? "/" : "/api",
-    expires: new Date(expiresAt),
-  });
-}
-function clearRefreshCookie(res) {
-  res.clearCookie(refreshCookieName, {
-    httpOnly: true,
-    sameSite: "strict",
-    secure: config.isProduction,
-    path: config.isProduction ? "/" : "/api",
-  });
-}
-function deliverSession(req, res, session) {
-  if (!isWebSessionRequest(req)) return session;
-  setRefreshCookie(res, session.refreshToken, session.refreshExpiresAt);
-  const { refreshToken: _refreshToken, ...publicSession } = session;
-  return publicSession;
-}
-
-const requireAdminIdentity = (req, res, next) =>
-  hasRole(req, "admin") ? next() : fail(res, 403, "MFA administrativo requiere rol admin");
 
 function metrics(db) {
   const activeOrderStatuses = [
@@ -1545,6 +1398,7 @@ app.use(catalogRouter);
 app.use(orderRouter);
 app.use(rideRouter);
 app.use(shipmentRouter);
+app.use(authRouter);
 app.use(shipmentProtectionRouter);
 app.use(orderIssuesRouter);
 
@@ -2332,75 +2186,6 @@ app.get("/api/admin/dashboard", requireAuth, requireAnyRole("admin"), async (req
   });
 });
 
-app.post("/api/auth/login", async (req, res) => {
-  const parsed = parseOrFail(loginSchema, req.body || {});
-  if (!parsed.ok) return fail(res, 400, parsed.message);
-  const { email, password } = parsed.data;
-  const db = usesPostgresAuth() ? null : readDb();
-  const user = usesPostgresAuth()
-    ? await findAuthUserByEmail(email)
-    : db.users.find(
-        (entry) =>
-          entry.email.toLowerCase() ===
-          String(email || "")
-            .trim()
-            .toLowerCase(),
-      );
-  const passwordMatches = bcrypt.compareSync(
-    password,
-    user?.password || "$2b$10$qJvN1MRgLJYlRirjP6N7ruoJc0mKlf2klq7iW03DIdDgV7gKDCl7.",
-  );
-  const accountLocked = Boolean(
-    user?.loginLockedUntil && new Date(user.loginLockedUntil) > new Date(),
-  );
-  if (!user || accountLocked || !passwordMatches) {
-    if (usesPostgresAuth() && user && !accountLocked) await recordPostgresLoginFailure(email);
-    return fail(res, 401, "Credenciales invalidas");
-  }
-  if (usesPostgresAuth() && !user.emailVerifiedAt)
-    return res.status(403).json({
-      ok: false,
-      requestId: req.requestId,
-      message: "Debes verificar tu email",
-      verificationRequired: true,
-      email: user.email,
-    });
-  if (parsed.data.audience && !user.roles?.includes(parsed.data.audience)) {
-    const productName =
-      parsed.data.audience === "driver"
-        ? "Flash Driver"
-        : parsed.data.audience === "merchant"
-          ? "Flash Negocios"
-          : "Flash";
-    return fail(res, 403, `Esta cuenta no pertenece a ${productName}`);
-  }
-  if (usesPostgresAuth()) await recordPostgresLoginSuccess(user.id);
-  if (
-    usesPostgresAuth() &&
-    user.roles?.includes("admin") &&
-    (await getAdminMfaStatus(user.id)).enabled
-  ) {
-    return ok(res, {
-      user: sanitizeUser(user),
-      mfaRequired: true,
-      mfaChallenge: issueMfaChallenge(user),
-    });
-  }
-  return ok(res, {
-    user: usesPostgresAuth() ? sanitizeUser(user) : publicUser(db, user.id),
-    ...deliverSession(
-      req,
-      res,
-      await issueSession(user, parsed.data.deviceName || req.get("user-agent") || "unknown"),
-    ),
-  });
-});
-
-app.get("/api/auth/mfa/status", requireAuth, async (req, res) => {
-  if (!hasRole(req, "admin")) return fail(res, 403, "MFA administrativo requiere rol admin");
-  return ok(res, { mfa: await getAdminMfaStatus(req.auth.userId) });
-});
-
 app.patch(
   "/api/admin/users/:userId/status",
   requireAuth,
@@ -2431,108 +2216,6 @@ app.patch(
   },
 );
 
-app.post("/api/auth/mfa/enroll", requireAuth, requireAdminIdentity, async (req, res) => {
-  if (!usesPostgresAuth()) return fail(res, 503, "MFA real requiere PostgreSQL");
-  try {
-    const enrollment = await beginAdminMfaEnrollment({
-      userPublicId: req.auth.userId,
-      email: req.auth.user.email,
-    });
-    await recordPostgresAudit({
-      actorPublicId: req.auth.userId,
-      roles: req.auth.roles,
-      action: "admin.mfa_enrollment_started",
-      entityType: "user",
-      entityId: req.auth.userId,
-      requestId: req.requestId,
-    });
-    return ok(res, { enrollment });
-  } catch (error) {
-    return failFrom(res, error, "No se pudo iniciar MFA");
-  }
-});
-
-app.post("/api/auth/mfa/confirm", requireAuth, requireAdminIdentity, async (req, res) => {
-  const parsed = parseOrFail(mfaCodeSchema, req.body || {});
-  if (!parsed.ok) return fail(res, 400, parsed.message);
-  try {
-    const mfa = await confirmAdminMfa({
-      userPublicId: req.auth.userId,
-      code: parsed.data.code,
-    });
-    await recordPostgresAudit({
-      actorPublicId: req.auth.userId,
-      roles: req.auth.roles,
-      action: "admin.mfa_enabled",
-      entityType: "user",
-      entityId: req.auth.userId,
-      requestId: req.requestId,
-    });
-    return ok(res, {
-      mfa,
-      ...deliverSession(
-        req,
-        res,
-        await issueSession(
-          req.auth.user,
-          req.body?.deviceName || req.get("user-agent") || "unknown",
-          { mfaVerified: true },
-        ),
-      ),
-    });
-  } catch (error) {
-    return failFrom(res, error, "No se pudo confirmar MFA");
-  }
-});
-
-app.post("/api/auth/mfa/complete", async (req, res) => {
-  const parsed = parseOrFail(mfaCompleteSchema, req.body || {});
-  if (!parsed.ok) return fail(res, 400, parsed.message);
-  try {
-    const challenge = jwt.verify(parsed.data.challenge, jwtSecret);
-    if (challenge.purpose !== "admin_mfa") return fail(res, 401, "Desafío MFA inválido");
-    const user = await findAuthUserByPublicId(challenge.sub);
-    if (!user?.roles?.includes("admin")) return fail(res, 401, "Desafío MFA inválido");
-    const verification = await verifyAdminMfa({
-      userPublicId: user.id,
-      code: parsed.data.code,
-    });
-    await recordPostgresAudit({
-      actorPublicId: user.id,
-      roles: user.roles,
-      action: verification.recoveryCodeUsed ? "admin.mfa_recovery_used" : "admin.mfa_verified",
-      entityType: "user",
-      entityId: user.id,
-      requestId: req.requestId,
-    });
-    return ok(res, {
-      user: sanitizeUser(user),
-      verification,
-      ...deliverSession(
-        req,
-        res,
-        await issueSession(user, parsed.data.deviceName || req.get("user-agent") || "unknown", {
-          mfaVerified: true,
-        }),
-      ),
-    });
-  } catch (error) {
-    // Un desafío vencido o mal firmado es un error del cliente y se le dice cuál
-    // de los dos; cualquier otra falla es interna y no describe su causa.
-    const jwtInvalido = { status: 401, message: "Desafío MFA inválido" };
-    const jwtVencido = { status: 401, message: "Desafío MFA expirado" };
-    return failFrom(
-      res,
-      error.name === "TokenExpiredError"
-        ? jwtVencido
-        : error.name === "JsonWebTokenError"
-          ? jwtInvalido
-          : error,
-      "No se pudo verificar MFA",
-    );
-  }
-});
-
 app.post("/api/payments/webhooks/:provider", async (req, res) => {
   const provider = String(req.params.provider || "").toLowerCase();
   if (!/^[a-z0-9_-]{2,40}$/.test(provider)) return fail(res, 400, "Proveedor inválido");
@@ -2555,255 +2238,6 @@ app.post("/api/payments/webhooks/:provider", async (req, res) => {
   return ok(res, result);
 });
 app.use(financialReviewRouter);
-
-app.post("/api/auth/refresh", async (req, res) => {
-  const parsed = parseOrFail(refreshSchema, {
-    ...(req.body || {}),
-    refreshToken: req.body?.refreshToken || readRefreshCookie(req),
-  });
-  if (!parsed.ok) return fail(res, 400, parsed.message);
-  const rotated = usesPostgresAuth()
-    ? await rotatePostgresSession(
-        parsed.data.refreshToken,
-        parsed.data.deviceName || req.get("user-agent") || "unknown",
-      )
-    : consumeAuthSession(
-        parsed.data.refreshToken,
-        parsed.data.deviceName || req.get("user-agent") || "unknown",
-      );
-  if (!rotated) return fail(res, 401, "Sesion expirada o revocada");
-  const db = usesPostgresAuth() ? null : readDb();
-  const user = usesPostgresAuth()
-    ? rotated.user
-    : db.users.find((entry) => entry.id === rotated.userId);
-  if (!user) return fail(res, 401, "Usuario no existe");
-  if (
-    usesPostgresAuth() &&
-    user.roles?.includes("admin") &&
-    (await getAdminMfaStatus(user.id)).enabled
-  ) {
-    await revokePostgresSession(rotated.refreshToken);
-    if (isWebSessionRequest(req)) clearRefreshCookie(res);
-    return ok(res, {
-      user: sanitizeUser(user),
-      mfaRequired: true,
-      mfaChallenge: issueMfaChallenge(user),
-    });
-  }
-  return ok(res, {
-    user: usesPostgresAuth() ? sanitizeUser(user) : publicUser(db, user.id),
-    token: issueAccessToken(user),
-    ...deliverSession(req, res, {
-      refreshToken: rotated.refreshToken,
-      refreshExpiresAt: rotated.expiresAt,
-    }),
-  });
-});
-
-app.post("/api/auth/logout", async (req, res) => {
-  const parsed = parseOrFail(refreshSchema.pick({ refreshToken: true }), {
-    ...(req.body || {}),
-    refreshToken: req.body?.refreshToken || readRefreshCookie(req),
-  });
-  if (!parsed.ok) return fail(res, 400, parsed.message);
-  if (usesPostgresAuth()) await revokePostgresSession(parsed.data.refreshToken);
-  else revokeAuthSession(parsed.data.refreshToken);
-  if (isWebSessionRequest(req)) clearRefreshCookie(res);
-  return ok(res, { loggedOut: true });
-});
-app.get("/api/me/sessions", requireAuth, async (req, res) => {
-  if (!usesPostgresAuth()) return ok(res, { sessions: [] });
-  try {
-    res.set("Cache-Control", "no-store, private");
-    return ok(res, { sessions: await getPostgresUserSessions(req.auth.userId) });
-  } catch (error) {
-    return failFrom(res, error, "No se pudieron cargar las sesiones");
-  }
-});
-app.delete("/api/me/sessions/:sessionId", requireAuth, async (req, res) => {
-  if (!usesPostgresAuth()) return fail(res, 503, "El cierre remoto requiere PostgreSQL");
-  try {
-    const result = await revokeOwnedPostgresSession({
-      userPublicId: req.auth.userId,
-      sessionPublicId: req.params.sessionId,
-    });
-    await recordPostgresAudit({
-      actorPublicId: req.auth.userId,
-      roles: req.auth.roles,
-      action: "auth.session_revoked",
-      entityType: "refresh_session",
-      entityId: req.params.sessionId,
-      requestId: req.requestId,
-    });
-    return ok(res, result);
-  } catch (error) {
-    return failFrom(res, error, "No se pudo cerrar la sesión");
-  }
-});
-app.post(
-  "/api/me/sessions/revoke-others",
-  requireTrustedWebOrigin,
-  requireAuth,
-  async (req, res) => {
-    const parsed = parseOrFail(refreshSchema.pick({ refreshToken: true }), {
-      ...(req.body || {}),
-      refreshToken: req.body?.refreshToken || readRefreshCookie(req),
-    });
-    if (!parsed.ok) return fail(res, 400, parsed.message);
-    if (!usesPostgresAuth()) return fail(res, 503, "El cierre remoto requiere PostgreSQL");
-    try {
-      const result = await revokeOtherPostgresSessions({
-        userPublicId: req.auth.userId,
-        currentRefreshToken: parsed.data.refreshToken,
-      });
-      await recordPostgresAudit({
-        actorPublicId: req.auth.userId,
-        roles: req.auth.roles,
-        action: "auth.other_sessions_revoked",
-        entityType: "user",
-        entityId: req.auth.userId,
-        requestId: req.requestId,
-        afterData: result,
-      });
-      return ok(res, result);
-    } catch (error) {
-      return failFrom(res, error, "No se pudieron cerrar las demás sesiones");
-    }
-  },
-);
-
-app.post("/api/auth/password-recovery/request", async (req, res) => {
-  const parsed = parseOrFail(passwordRecoveryRequestSchema, req.body || {});
-  if (!parsed.ok) return fail(res, 400, parsed.message);
-  try {
-    const fingerprint = crypto
-        .createHmac("sha256", jwtSecret)
-        .update(`${req.ip || ""}|${req.get("user-agent") || ""}`)
-        .digest("hex"),
-      recovery = await requestPasswordRecovery({
-        email: parsed.data.email,
-        requesterFingerprintHash: fingerprint,
-      });
-    return ok(res, {
-      message: "Si la cuenta existe, enviamos las instrucciones de recuperación.",
-      ...(!config.isProduction && recovery
-        ? { developmentToken: recovery.token, expiresAt: recovery.expiresAt }
-        : {}),
-    });
-  } catch (_error) {
-    return fail(res, 500, "No se pudo procesar la recuperación");
-  }
-});
-app.post("/api/auth/password-recovery/confirm", async (req, res) => {
-  const parsed = parseOrFail(passwordRecoveryConsumeSchema, req.body || {});
-  if (!parsed.ok) return fail(res, 400, parsed.message);
-  try {
-    const result = await consumePasswordRecovery({
-      token: parsed.data.token,
-      password: parsed.data.password,
-    });
-    return ok(res, {
-      passwordChanged: true,
-      revokedSessions: result.revokedSessions,
-    });
-  } catch (error) {
-    return failFrom(res, error, "No se pudo cambiar la contraseña");
-  }
-});
-app.post("/api/auth/email-verification/resend", async (req, res) => {
-  const parsed = parseOrFail(emailVerificationRequestSchema, req.body || {});
-  if (!parsed.ok) return fail(res, 400, parsed.message);
-  try {
-    const challenge = await resendEmailVerification(parsed.data.email);
-    return ok(res, {
-      message: "Si la cuenta está pendiente, enviamos un código nuevo.",
-      ...(!config.isProduction && challenge
-        ? { developmentCode: challenge.code, expiresAt: challenge.expiresAt }
-        : {}),
-    });
-  } catch (_error) {
-    return fail(res, 500, "No se pudo reenviar el código");
-  }
-});
-app.post("/api/auth/email-verification/confirm", async (req, res) => {
-  const parsed = parseOrFail(emailVerificationConfirmSchema, req.body || {});
-  if (!parsed.ok) return fail(res, 400, parsed.message);
-  try {
-    const user = await confirmEmailVerification(parsed.data);
-    return ok(res, { verified: true, user: sanitizeUser(user) });
-  } catch (error) {
-    return failFrom(res, error, "No se pudo verificar el email");
-  }
-});
-
-app.post("/api/auth/register", async (req, res) => {
-  const parsed = parseOrFail(registerSchema, req.body || {});
-  if (!parsed.ok) return fail(res, 400, parsed.message);
-  const { name, email, password, phone } = parsed.data;
-  const db = usesPostgresAuth() ? null : readDb();
-  const exists = usesPostgresAuth()
-    ? await findAuthUserByEmail(email)
-    : db.users.some((entry) => entry.email.toLowerCase() === String(email).trim().toLowerCase());
-  if (exists) return fail(res, 409, "Ese email ya existe");
-  let user = {
-    id: createId("USR"),
-    name: String(name),
-    email: String(email).trim().toLowerCase(),
-    password: bcrypt.hashSync(String(password), 10),
-    roles: ["customer"],
-    phone: String(phone || ""),
-    wallet: 0,
-    defaultAddress: "",
-  };
-  if (usesPostgresAuth()) {
-    user = await registerAuthUser({
-      publicId: user.id,
-      name: user.name,
-      email: user.email,
-      passwordHash: user.password,
-      phone: user.phone,
-    });
-  } else {
-    db.users.push(user);
-  }
-  const verificationCode = user.verificationCode;
-  delete user.verificationCode;
-  if (usesPostgresAuth())
-    await recordPostgresAudit({
-      actorPublicId: user.id,
-      roles: user.roles,
-      action: "user.registered",
-      entityType: "user",
-      entityId: user.id,
-      requestId: req.requestId,
-      afterData: { email: user.email },
-    });
-  else {
-    audit(db, { auth: { userId: user.id } }, "user", user.id, "user.registered", {
-      email: user.email,
-    });
-    writeDb(db);
-  }
-  if (usesPostgresAuth())
-    return ok(res, {
-      user: sanitizeUser(user),
-      verificationRequired: true,
-      ...(!config.isProduction
-        ? {
-            developmentCode: verificationCode.code,
-            expiresAt: verificationCode.expiresAt,
-          }
-        : {}),
-    });
-  return ok(res, {
-    user: publicUser(db, user.id),
-    ...deliverSession(
-      req,
-      res,
-      await issueSession(user, req.body?.deviceName || req.get("user-agent") || "unknown"),
-    ),
-  });
-});
 
 app.get(
   "/api/merchant/dashboard",
