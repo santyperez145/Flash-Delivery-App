@@ -420,29 +420,37 @@ jobs:
           path: sbom-flash.cdx.json
           if-no-files-found: error
 
-      # La politica de fallo es deliberada y conviene entenderla antes de
-      # cambiarla: **bloquea solo lo que tiene arreglo disponible**.
+      # La politica de fallo bloquea **lo que este equipo puede arreglar**, que
+      # resulto no ser lo mismo que lo que tiene parche publicado.
       #
-      # Una imagen base acumula CVEs altas y criticas sin parche upstream de
-      # forma permanente. Bloquear por esas dejaria el merge cerrado por algo que
-      # el equipo no puede resolver, y el desenlace conocido de eso es que
-      # alguien desactive la puerta. Con `--ignore-unfixed` lo que corta es
-      # accionable: hay version corregida, hay que actualizar.
+      # La primera version usaba solo `--ignore-unfixed` y fallo en su primera
+      # corrida con cuatro CVEs altas en `brace-expansion`, `ip-address` y `tar`.
+      # Ninguna es del proyecto: son dependencias del npm que viene dentro de
+      # `node:24-bookworm-slim`, en `/usr/local/lib/node_modules`. Tienen version
+      # corregida upstream, asi que `--ignore-unfixed` las conservaba, pero aca no
+      # se pueden actualizar sin cambiar de imagen base. La capa Debian dio 0.
       #
-      # Lo no arreglable no se ignora, se informa: el paso siguiente lo lista sin
-      # cortar, para que exista el registro y se pueda decidir cambiar de base.
-      - name: Vulnerabilidades con arreglo disponible
+      # Bloquear por esas cerraria el merge por algo que no se puede resolver, y
+      # el desenlace conocido de eso es que alguien apague la puerta: el hallazgo
+      # H-01 otra vez, por otro camino. Por eso el scan que corta se salta el
+      # `node_modules` de npm y mira lo que agregamos nosotros, que es donde una
+      # CVE con arreglo si es una orden de actualizar.
+      #
+      # Lo heredado no se ignora, se informa: el paso siguiente lista todo, sin
+      # cortar, para que cambiar de base siga siendo una decision con datos.
+      - name: Vulnerabilidades que podemos arreglar
         run: |
           docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
             aquasec/trivy:0.58.1 image \
             --severity HIGH,CRITICAL \
             --ignore-unfixed \
+            --skip-dirs /usr/local/lib/node_modules \
             --exit-code 1 \
             --no-progress \
             flash:ci
 
-      - name: Vulnerabilidades sin arreglo, informativo
+      - name: Inventario completo, incluida la imagen base
         if: always()
         run: |
           docker run --rm \
