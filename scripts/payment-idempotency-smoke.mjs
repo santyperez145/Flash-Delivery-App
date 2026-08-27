@@ -73,9 +73,13 @@ try {
   );
   comparar(transacciones.rowCount, 1, "el pago repetido deja una sola transaccion contable");
 
+  // Ordena por `direction::text` a proposito. `ORDER BY direction` a secas usa el
+  // orden declarado del enum —('debit','credit')— y no el alfabetico, que es
+  // justo lo que asumia la primera version de esta comprobacion. Castear saca la
+  // ambiguedad y aguanta que alguien agregue un valor al enum.
   const asientos = await client.query(
     `SELECT direction, amount_cents FROM ledger_entries WHERE transaction_id = $1
-     ORDER BY direction`,
+     ORDER BY direction::text`,
     [transacciones.rows[0]?.id ?? null],
   );
   comparar(
