@@ -227,6 +227,20 @@ Eso no es sólo tamaño: cada paquete en la imagen es superficie —un `postinst
 
 La segunda puerta nació sin poder fallar y hubo que corregirla dos veces. Buscaba el nombre del paquete como cadena suelta, y **los propios contratos de `scripts/` mencionan nombres de paquetes como dato**: `domain-purity-contract.mjs` explica su regla escribiendo `from "react"` en un comentario, así que React figuraba importado por el servidor. Ahora busca formas de importación reales y descarta los comentarios antes de mirar. Se comprobó devolviendo dos paquetes a `dependencies`: los reporta a los dos.
 
+### SBOM y scan de la imagen
+
+El job `container-image` genera un SBOM en CycloneDX y lo publica como artefacto de la corrida. Sirve para responder después *«¿esta imagen tenía el paquete X?»* sin reconstruirla — que es exactamente la pregunta que aparece el día que se publica una vulnerabilidad, cuando reconstruir una imagen de hace tres semanas no da el mismo resultado.
+
+Se usa Trivy por **imagen fijada** y no por una acción del marketplace. Una acción es código de terceros corriendo con el token del workflow, y para esto no hace falta: una etiqueta fija es revisable y se actualiza a propósito.
+
+**La política de fallo es deliberada: bloquea sólo lo que tiene arreglo disponible.**
+
+Una imagen base acumula CVEs altas y críticas sin parche upstream de forma permanente. Bloquear por ésas dejaría el merge cerrado por algo que el equipo no puede resolver, y el desenlace conocido de eso es que alguien desactive la puerta — que es el hallazgo [H-01](auditoria-2026-08-25.md#h-01--ci-no-ejecuta-el-86-de-su-propia-matriz-de-pruebas) otra vez, por otro camino.
+
+Con `--ignore-unfixed` lo que corta es accionable: hay versión corregida, hay que actualizar. Lo no arreglable **no se ignora, se informa**: un paso siguiente lo lista sin cortar, para que exista el registro y se pueda decidir cambiar de base.
+
+Esa distinción es la diferencia entre una puerta que se respeta y una que se saltea.
+
 ### Cobertura documental de las puertas
 
 `test:docs-coverage` exige que cada script `test:` esté nombrado en algún documento de `docs/`. Una puerta que nadie sabe que existe no se mantiene: cuando falla, quien la encuentra no sabe qué protegía ni si conviene arreglarla o borrarla.

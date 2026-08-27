@@ -28,21 +28,21 @@ La auditoría del 25 de agosto identificó que el riesgo principal de Flash no e
 
 ## Estado consolidado
 
-Al **27 de agosto de 2026**, sobre **103 capacidades inventariadas**:
+Al **27 de agosto de 2026**, sobre **105 capacidades inventariadas**:
 
 | Estado | Capacidades | Proporción | Al 26-08 | Al 25-08 |
 | --- | ---: | ---: | ---: | ---: |
-| `IMPL` | 7 | 6,8% | 6 | 9 |
-| `LOCAL` | 8 | 7,8% | 8 | 50 |
-| `CI` | 74 | 71,8% | 64 | 14 |
+| `IMPL` | 7 | 6,7% | 6 | 9 |
+| `LOCAL` | 8 | 7,6% | 8 | 50 |
+| `CI` | 76 | 72,4% | 64 | 14 |
 | `PROV` | 0 | 0% | 0 | 0 |
 | `STG` | 0 | 0% | 0 | 0 |
 | `PROD` | 0 | 0% | 0 | 0 |
-| No existe | 14 | 13,6% | 16 | 18 |
+| No existe | 14 | 13,3% | 16 | 18 |
 
-**Lectura:** de las 89 capacidades que existen, **15 (18%) siguen en `IMPL` o `LOCAL`** — sin puerta automática que las proteja de una regresión. Eran 59 sobre 73 (81%) el 25 de agosto.
+**Lectura:** de las 91 capacidades que existen, **15 (16%) siguen en `IMPL` o `LOCAL`** — sin puerta automática que las proteja de una regresión. Eran 59 sobre 73 (81%) el 25 de agosto.
 
-El salto viene de las puertas del ticket CI-001. Las 74 en `CI` ya no son infraestructura: incluyen migraciones, RLS, cadena de auditoría, aislamiento por ciudad, audiencia realtime, ledger, conciliación, riesgo, payouts, KYC, vehículos, safety, chat, soporte, notificaciones, push y mapas.
+El salto viene de las puertas del ticket CI-001. Las 76 en `CI` ya no son infraestructura: incluyen migraciones, RLS, cadena de auditoría, aislamiento por ciudad, audiencia realtime, ledger, conciliación, riesgo, payouts, KYC, vehículos, safety, chat, soporte, notificaciones, push y mapas.
 
 **Ninguna capacidad alcanzó `PROV`.** Ni pagos, ni push, ni mapas, ni KYC fueron probados contra un proveedor real. Ese es el objetivo de la Fase 1, y es la distancia que esta matriz existe para no dejar olvidar: **una capacidad en `CI` está protegida contra regresiones, no demostrada contra el mundo real.**
 
@@ -97,6 +97,8 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Auditoría de dependencias de desarrollo | `CI` | `test:dependency-gate` cubre cuatro alcances: raíz y móvil, producción y desarrollo |
 | Dependencias de producción acotadas | `CI` | `test:production-deps`: las 20 están importadas por el servidor. Siete paquetes de frente salieron de la imagen: 381 → 303 MiB |
 | Filesystem raíz de sólo lectura | `CI` | El job arranca la imagen con `--read-only` hasta que responde y comprueba que la raíz rechace escrituras. Escribible sólo `/tmp` y el volumen de datos |
+| SBOM de la imagen productiva | `CI` | CycloneDX publicado como artefacto en cada corrida del job `container-image` |
+| Scan de vulnerabilidades de imagen | `CI` | Trivy fijado. Bloquea las HIGH/CRITICAL **con arreglo disponible**; las no arreglables se informan sin cortar |
 
 ## Pagos y finanzas
 

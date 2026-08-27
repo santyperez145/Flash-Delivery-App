@@ -391,6 +391,67 @@ jobs:
           size=$(docker image inspect flash:ci --format '{{ .Size }}')
           echo "imagen productiva: $((size / 1024 / 1024)) MiB"
 
+      # SBOM y scan de la imagen (ticket INF-001).
+      #
+      # Se usa Trivy por imagen fijada y no por una accion del marketplace: una
+      # accion es codigo de terceros que corre con el token del workflow, y para
+      # esto no hace falta. Una etiqueta fija es revisable y se actualiza a
+      # proposito.
+      #
+      # El SBOM se publica como artefacto en formato CycloneDX. Sirve para
+      # responder despues «¿esta imagen tenia el paquete X?» sin reconstruirla,
+      # que es la pregunta que aparece el dia que se publica una vulnerabilidad.
+      - name: SBOM de la imagen productiva
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$PWD:/salida" \
+            aquasec/trivy:0.58.1 image \
+            --format cyclonedx \
+            --output /salida/sbom-flash.cdx.json \
+            flash:ci
+          paquetes=$(node -e "const s=require('./sbom-flash.cdx.json');console.log((s.components||[]).length)")
+          echo "SBOM generado: $paquetes componentes"
+
+      - name: SBOM como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-flash-cyclonedx
+          path: sbom-flash.cdx.json
+          if-no-files-found: error
+
+      # La politica de fallo es deliberada y conviene entenderla antes de
+      # cambiarla: **bloquea solo lo que tiene arreglo disponible**.
+      #
+      # Una imagen base acumula CVEs altas y criticas sin parche upstream de
+      # forma permanente. Bloquear por esas dejaria el merge cerrado por algo que
+      # el equipo no puede resolver, y el desenlace conocido de eso es que
+      # alguien desactive la puerta. Con `--ignore-unfixed` lo que corta es
+      # accionable: hay version corregida, hay que actualizar.
+      #
+      # Lo no arreglable no se ignora, se informa: el paso siguiente lo lista sin
+      # cortar, para que exista el registro y se pueda decidir cambiar de base.
+      - name: Vulnerabilidades con arreglo disponible
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:0.58.1 image \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 1 \
+            --no-progress \
+            flash:ci
+
+      - name: Vulnerabilidades sin arreglo, informativo
+        if: always()
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:0.58.1 image \
+            --severity HIGH,CRITICAL \
+            --no-progress \
+            flash:ci || true
+
   mobile-typecheck:
     name: Mobile typecheck y variantes
     runs-on: ubuntu-latest
