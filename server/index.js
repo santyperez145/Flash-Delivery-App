@@ -13,6 +13,7 @@ import jwt from "jsonwebtoken";
 import { z } from "zod";
 import { SpanStatusCode, trace } from "@opentelemetry/api";
 import { config } from "./config.js";
+import { bypassRefusalReason } from "./rls-guard.js";
 import { coordinateSchema, distanceBetween } from "./geo.js";
 import { publicUser, sanitizeUser } from "./user-view.js";
 import { fail, failFrom, ok, parseOrFail } from "./http/responses.js";
@@ -836,6 +837,17 @@ app.use((error, req, res, _next) => {
     status >= 500 ? "Error interno del servidor" : error.message,
   );
 });
+
+// Antes de escuchar: si el rol de PostgreSQL puede saltear RLS, este proceso no
+// atiende. `/api/ready` ya devolvía 503, pero eso sólo lo saca del balanceador;
+// un proceso que falla readiness sigue respondiendo a quien lo alcance directo.
+const negativa = bypassRefusalReason(await postgresReadiness(), {
+  isProduction: config.isProduction,
+});
+if (negativa) {
+  console.error(`Flash API se niega a arrancar: ${negativa}`);
+  process.exit(1);
+}
 
 const server = app.listen(config.port, config.host, () => {
   console.log(`Flash API running on http://${config.host}:${config.port}`);

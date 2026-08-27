@@ -96,10 +96,24 @@ sesión de depuración, un despliegue mal armado—, **todas las políticas deja
 de aplicarse en silencio**. Ninguna consulta fallaría; simplemente devolverían
 las filas de todo el mundo.
 
-Contra eso ya hay algo: `GET /api/ready` devuelve 503 en producción cuando el rol
-conectado puede saltear RLS —`least_privilege` compara `rolbypassrls` y el dueño
-de `users` contra el rol actual—. Eso quita la instancia del balanceador, pero el
-proceso sigue corriendo y sigue respondiendo a quien lo alcance directo.
+Contra eso hay dos capas. `GET /api/ready` devuelve 503 en producción cuando el
+rol conectado puede saltear RLS —`least_privilege` compara `rolbypassrls` y el
+dueño de `users` contra el rol actual—, lo que quita la instancia del
+balanceador. Y desde `server/rls-guard.js`, **el proceso directamente no
+arranca**: un proceso que falla readiness sigue respondiendo a quien lo alcance
+directo, y «directo» incluye un balanceador mal configurado, un `port-forward` y
+cualquier tráfico interno.
+
+La negativa tiene tres excepciones, cada una por un motivo distinto:
+
+| Caso | Por qué arranca igual |
+| --- | --- |
+| Fuera de producción | El desarrollador corre migraciones y aplicación con la misma URL; negarse volvería inusable el entorno local sin proteger nada real. |
+| Sin `DATABASE_URL` | Corre el respaldo SQLite, que no tiene RLS que saltear. |
+| Base caída | No se puede afirmar nada del rol. Negarse convertiría una caída transitoria en un proceso que no levanta —daño seguro a cambio de uno hipotético— y `/api/ready` ya devuelve 503 mientras tanto. |
+
+`test:rls-guard` recorre esa tabla sin levantar base ni proceso, porque la
+decisión es una función pura sobre el resultado de `postgresReadiness()`.
 
 ## Reglas
 

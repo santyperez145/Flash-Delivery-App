@@ -66,6 +66,11 @@ jobs:
       - name: Dead internal declarations
         run: npm run test:dead-code
 
+      # El proceso no atiende en produccion si el rol de PostgreSQL puede saltear
+      # RLS. Es decision pura sobre el readiness, asi que corre sin base.
+      - name: RLS bypass refusal
+        run: npm run test:rls-guard
+
       # `sanitizeUser` decide qué campos de un usuario salen por HTTP. Al
       # volverse módulo propio quedó sin puerta; esta encontró una copia de la
       # redacción escrita a mano en auth-repository.js.
