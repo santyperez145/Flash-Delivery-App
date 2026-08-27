@@ -30,12 +30,17 @@ const mobileAudiences = {
   },
   driver: {
     email: "conductor@flash.app",
-    readyText: "Abrir guía operativa del conductor",
+    // Texto visible del encabezado en la vista por omisión. El intento previo,
+    // "Abrir guía operativa del conductor", era un `accessibilityLabel`: nunca es
+    // contenido de texto, así que `getByText` no podía encontrarlo jamás.
+    readyText: "Tu jornada",
     tabs: ["Mapa", "Ganancias", "Inbox", "Cuenta"],
   },
   merchant: {
     email: "comercio@flash.app",
-    readyText: "Abierto y recibiendo",
+    // "Abierto y recibiendo" servía menos: depende del estado del local y la hoja
+    // de estilos lo muestra en mayúsculas. Se elige un título que siempre se dibuja.
+    readyText: "Pulso de cocina",
     tabs: ["Hoy", "Pedidos", "Catálogo", "Cuenta"],
   },
 };

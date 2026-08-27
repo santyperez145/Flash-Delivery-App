@@ -113,11 +113,11 @@ Adoptar además un framework estándar de pruebas: **Vitest**, **Testcontainers*
 
 ### Criterios de aceptación
 
-- [x] Un PR queda bloqueado si falla cualquier suite crítica — 73 de 76 suites con puerta, 69 bloqueantes.
+- [x] Un PR queda bloqueado si falla cualquier suite crítica — **91 de 92 suites con puerta, 88 bloqueantes**, 2 nocturnas y 1 en cuarentena.
 - [x] Ningún script de riesgo queda fuera de una puerta sin justificación escrita — lo verifica `npm run test:ci-coverage`.
-- [ ] Cerrar las cuatro suites en cuarentena: `test:postgres`, `test:support-routing`, `test:dietary-local`, `test:notification-local`.
-- [ ] `ci-nightly.yml` con Playwright, carga k6, restore drill y provider sandbox.
-- [ ] La rama `main` está protegida y exige PR — **configuración manual en GitHub**.
+- [ ] Cerrar las suites en cuarentena. **Van tres de cuatro**: `test:postgres`, `test:dietary-local` y `test:notification-local` salieron —las dos últimas estaban apuntadas al runtime equivocado, no eran frágiles—. Queda `test:support-routing`.
+- [ ] `ci-nightly.yml`. **Existe desde el 27-08** con la auditoría responsive en Chromium —una corrida por variante— y la latencia de endpoints. Faltan carga k6, sandbox de proveedores y builds EAS, que necesitan credenciales, y el restore drill, que es PowerShell y no corre en ubuntu.
+- [x] **La rama `main` está protegida y exige PR** desde el 27-08: los 7 checks son obligatorios, la rama debe estar al día, la historia es lineal y no hay excepción para administradores.
 - [ ] Pagos y seguridad exigen dos aprobaciones (`CODEOWNERS` ya existe; falta más de un revisor).
 - [ ] Los artefactos de test se almacenan y son consultables tras el run.
 

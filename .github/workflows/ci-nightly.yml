@@ -1,0 +1,199 @@
+# Suites que no pueden bloquear un PR pero tampoco deberian dejar de correr
+# (ticket CI-001).
+#
+# Hay dos razones legitimas para que una suite quede fuera de la puerta de merge,
+# y las dos estan acá:
+#
+#   - Necesita infraestructura que un PR no justifica levantar: navegador real,
+#     tres servidores y un bundle de Expo por variante.
+#   - Mide latencia, que en un runner compartido depende del ruido del vecino.
+#     Bloquear un merge con eso produce reintentos, no calidad.
+#
+# Lo que NO esta acá, dicho a proposito para que no se lea como cobertura que no
+# existe: carga con k6, sandbox de proveedores de pago, builds EAS firmados y el
+# restore drill. Las tres primeras necesitan credenciales; la cuarta es
+# `scripts/restore-drill.ps1`, que es PowerShell y no corre en ubuntu.
+name: CI nocturno
+
+on:
+  schedule:
+    # 06:00 UTC = 03:00 en Argentina. Fuera de horario de trabajo, para que un
+    # fallo se lea a la mañana y no interrumpa a nadie de noche.
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: nightly-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser-matrix:
+    name: Auditoria responsive en navegador
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    # Una corrida por variante, porque cada bundle de Expo se empaqueta con su
+    # `EXPO_PUBLIC_APP_VARIANT` y sirve una sola pantalla desde el PR #25.
+    #
+    # El escritorio se audita una sola vez: no depende de la variante movil.
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [customer, driver, merchant]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install mobile dependencies
+        run: npm ci
+        working-directory: apps/mobile
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build web assets
+        run: npm run build
+
+      - name: Start API on the SQLite fallback
+        env:
+          NODE_ENV: test
+          LOG_LEVEL: silent
+        run: |
+          node server/start.js > /tmp/nightly-api.log 2>&1 &
+          echo $! > /tmp/nightly-api.pid
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4000/api/ready > /dev/null 2>&1; then
+              echo "API lista tras ${attempt}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::La API no alcanzo readiness"
+          cat /tmp/nightly-api.log
+          exit 1
+
+      - name: Start the web dev server
+        if: matrix.variant == 'customer'
+        run: |
+          npm run dev:web > /tmp/nightly-web.log 2>&1 &
+          echo $! > /tmp/nightly-web.pid
+          for attempt in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:5173/ > /dev/null 2>&1; then
+              echo "Vite listo tras ${attempt}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Vite no respondio"
+          cat /tmp/nightly-web.log
+          exit 1
+
+      - name: Start Expo web for ${{ matrix.variant }}
+        env:
+          EXPO_PUBLIC_APP_VARIANT: ${{ matrix.variant }}
+          EXPO_PUBLIC_API_URL: http://127.0.0.1:4000/api
+        run: |
+          npx expo start --web --port 8081 > /tmp/nightly-expo.log 2>&1 &
+          echo $! > /tmp/nightly-expo.pid
+          # El primer empaquetado de Metro tarda: se espera hasta tres minutos.
+          for attempt in $(seq 1 180); do
+            if curl -fsS http://127.0.0.1:8081/ > /dev/null 2>&1; then
+              echo "Expo web listo tras ${attempt}s"
+              grep -i "empaquetando la variante" /tmp/nightly-expo.log || true
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::Expo web no respondio"
+          cat /tmp/nightly-expo.log
+          exit 1
+        working-directory: apps/mobile
+
+      - name: Responsive browser audit
+        env:
+          FLASH_MOBILE_VARIANT: ${{ matrix.variant }}
+          FLASH_MOBILE_URL: http://127.0.0.1:8081
+          FLASH_DESKTOP_URL: http://127.0.0.1:5173
+          # El escritorio no depende de la variante movil, asi que se audita una
+          # sola vez en lugar de tres.
+          FLASH_SKIP_DESKTOP: ${{ matrix.variant == 'customer' && '0' || '1' }}
+        run: npm run test:responsive-browser
+
+      - name: Capturas de las fallas
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: responsive-${{ matrix.variant }}
+          path: qa-responsive-*.png
+          if-no-files-found: ignore
+
+      - name: Logs de los servidores
+        if: failure()
+        run: |
+          echo "--- API ---"; tail -100 /tmp/nightly-api.log || true
+          echo "--- Expo ---"; tail -100 /tmp/nightly-expo.log || true
+          echo "--- Vite ---"; tail -100 /tmp/nightly-web.log || true
+
+      - name: Detener servidores
+        if: always()
+        run: |
+          for archivo in /tmp/nightly-api.pid /tmp/nightly-web.pid /tmp/nightly-expo.pid; do
+            if [ -f "$archivo" ]; then kill "$(cat "$archivo")" 2>/dev/null || true; fi
+          done
+
+  latency:
+    name: Latencia de endpoints
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    # `test:performance` esta fuera de la puerta de merge porque mide tiempos en
+    # un runner compartido. Acá tampoco garantiza nada absoluto, pero una
+    # regresion sostenida noche tras noche sí se ve.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web assets
+        run: npm run build
+
+      - name: Start API on the SQLite fallback
+        env:
+          NODE_ENV: test
+          LOG_LEVEL: silent
+        run: |
+          node server/start.js > /tmp/perf-api.log 2>&1 &
+          echo $! > /tmp/perf-api.pid
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:4000/api/ready > /dev/null 2>&1; then exit 0; fi
+            sleep 1
+          done
+          echo "::error::La API no alcanzo readiness"
+          cat /tmp/perf-api.log
+          exit 1
+
+      - name: Endpoint latency
+        run: npm run test:performance
+
+      - name: Detener API
+        if: always()
+        run: |
+          if [ -f /tmp/perf-api.pid ]; then kill "$(cat /tmp/perf-api.pid)" 2>/dev/null || true; fi

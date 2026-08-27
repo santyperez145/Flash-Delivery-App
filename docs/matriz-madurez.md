@@ -28,21 +28,21 @@ La auditoría del 25 de agosto identificó que el riesgo principal de Flash no e
 
 ## Estado consolidado
 
-Al **27 de agosto de 2026**, sobre **98 capacidades inventariadas**:
+Al **27 de agosto de 2026**, sobre **99 capacidades inventariadas**:
 
 | Estado | Capacidades | Proporción | Al 26-08 | Al 25-08 |
 | --- | ---: | ---: | ---: | ---: |
 | `IMPL` | 7 | 7,1% | 6 | 9 |
-| `LOCAL` | 8 | 8,2% | 8 | 50 |
-| `CI` | 69 | 70,4% | 64 | 14 |
+| `LOCAL` | 8 | 8,1% | 8 | 50 |
+| `CI` | 70 | 70,7% | 64 | 14 |
 | `PROV` | 0 | 0% | 0 | 0 |
 | `STG` | 0 | 0% | 0 | 0 |
 | `PROD` | 0 | 0% | 0 | 0 |
-| No existe | 14 | 14,3% | 16 | 18 |
+| No existe | 14 | 14,1% | 16 | 18 |
 
-**Lectura:** de las 84 capacidades que existen, **15 (18%) siguen en `IMPL` o `LOCAL`** — sin puerta automática que las proteja de una regresión. Eran 59 sobre 73 (81%) el 25 de agosto.
+**Lectura:** de las 85 capacidades que existen, **15 (18%) siguen en `IMPL` o `LOCAL`** — sin puerta automática que las proteja de una regresión. Eran 59 sobre 73 (81%) el 25 de agosto.
 
-El salto viene de las puertas del ticket CI-001. Las 69 en `CI` ya no son infraestructura: incluyen migraciones, RLS, cadena de auditoría, aislamiento por ciudad, audiencia realtime, ledger, conciliación, riesgo, payouts, KYC, vehículos, safety, chat, soporte, notificaciones, push y mapas.
+El salto viene de las puertas del ticket CI-001. Las 70 en `CI` ya no son infraestructura: incluyen migraciones, RLS, cadena de auditoría, aislamiento por ciudad, audiencia realtime, ledger, conciliación, riesgo, payouts, KYC, vehículos, safety, chat, soporte, notificaciones, push y mapas.
 
 **Ninguna capacidad alcanzó `PROV`.** Ni pagos, ni push, ni mapas, ni KYC fueron probados contra un proveedor real. Ese es el objetivo de la Fase 1, y es la distancia que esta matriz existe para no dejar olvidar: **una capacidad en `CI` está protegida contra regresiones, no demostrada contra el mundo real.**
 
@@ -164,6 +164,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Presupuesto de bundle | `CI` | `test:web-bundle-budget` |
 | Compresión y caché | `CI` | `test:web-delivery` |
 | Contrato responsive | `CI` | `test:responsive-layout` |
+| Auditoría responsive en navegador real | `CI` | `test:responsive-browser` en `ci-nightly.yml`, una corrida por variante. Hasta el 27-08 pasaba sobre la pantalla de login |
 | Degradación explícita sobre el respaldo | `CI` | `test:fallback-degradation`: 55 rutas × 4 audiencias sin 500. Encontró 17 rutas que reventaban con `TypeError` en vez de responder 503 |
 | CSP activa | `LOCAL` | Sin puerta dedicada |
 | Separación por audiencia | `IMPL` | `src/App.tsx` bajó a 1.245 líneas y hay carpetas por audiencia, pero sin puerta que impida volver a mezclarlas — ticket ARC-001 |
