@@ -160,8 +160,8 @@ jobs:
           # La salida de cada suite se guarda ademas en su propio archivo. El log
           # de la corrida sirve para leer mientras pasa; un archivo por suite
           # sirve para volver despues, buscar dentro y comparar contra otra
-          # corrida. Cuarenta suites en un solo paso son un muro de texto donde
-          # el error que importa esta a tres mil lineas del final.
+          # corrida. Treinta y una suites en un solo paso son un muro de texto
+          # donde el error que importa esta lejos del final.
           #
           # Se escribe a archivo y despues se imprime, en vez de `| tee`: en una
           # tuberia el codigo de salida es el del ultimo comando, asi que `tee`
@@ -195,6 +195,14 @@ jobs:
         if: failure()
         run: tail -200 /tmp/api.log
 
+      # El log de la API se copia dentro de `test-artifacts/` en vez de subirse
+      # por su ruta absoluta. Mezclar una ruta relativa con una absoluta hace que
+      # la accion tome `/` como raiz comun y el artefacto quede anidado bajo
+      # `home/runner/work/...`, que es un arbol incomodo de recorrer.
+      - name: Reunir artefactos
+        if: always()
+        run: cp /tmp/api.log test-artifacts/api.log 2>/dev/null || true
+
       # No amplia quien ve que: un artefacto lo descarga quien ya puede leer el
       # log de la corrida, que hoy publica un `tail` del mismo archivo. Lo que
       # cambia es que el contenido deja de estar truncado.
@@ -207,9 +215,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: flujos-criticos-${{ github.run_attempt }}
-          path: |
-            test-artifacts/
-            /tmp/api.log
+          path: test-artifacts/
           retention-days: 14
           if-no-files-found: warn
 

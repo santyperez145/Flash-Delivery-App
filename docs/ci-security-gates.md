@@ -353,7 +353,7 @@ La última comprobación es la que evita que la puerta pase por el motivo equivo
 
 ### Artefactos que sobreviven a la corrida
 
-`ci-critical-flows` corre más de cuarenta suites en un solo paso. El log de Actions sirve para leer mientras pasa, pero es un muro de texto donde el error que importa queda a tres mil líneas del final, y buscar dentro o comparar contra otra corrida no es práctico.
+`ci-critical-flows` corre treinta y una suites en un solo paso. El log de Actions sirve para leer mientras pasa, pero es un muro de texto donde el error que importa queda lejos del final, y buscar dentro o comparar contra otra corrida no es práctico.
 
 Cada suite escribe además su propia salida a `test-artifacts/suites/<suite>.log`, y todo se sube como artefacto junto con el log completo de la API. `ci-fast` hace lo mismo con el del respaldo SQLite, donde el fallo típico está en el arranque —justo lo que un `tail -200` se come—.
 
