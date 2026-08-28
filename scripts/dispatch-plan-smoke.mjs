@@ -68,9 +68,11 @@ try {
     [marca, PADRON],
   );
   await cliente.query(
-    `INSERT INTO drivers(user_id, online, active_mode, service_modes, rating,
+    // `public_id` es NOT NULL y sin default desde la migración 007: se deriva
+    // del `public_id` del usuario para que sea único sin coordinar contadores.
+    `INSERT INTO drivers(public_id, user_id, online, active_mode, service_modes, rating,
                          current_location, location_updated_at, location_accuracy_m)
-     SELECT u.id, true, 'delivery', ARRAY['delivery']::job_kind[], 4.5,
+     SELECT 'DRV-' || u.public_id, u.id, true, 'delivery', ARRAY['delivery']::job_kind[], 4.5,
             ST_SetSRID(ST_MakePoint($2 + (random() - 0.5) * 0.8, $3 + (random() - 0.5) * 0.8), 4326)::geography,
             now(), 20
      FROM users u WHERE u.public_id LIKE $1 || '-%'`,
