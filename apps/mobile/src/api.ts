@@ -18,6 +18,7 @@ import type {
 import type { AnalyticsEvent } from "./analytics";
 import { loadMobileSession, mobileSessionStorage, saveMobileSession } from "./session-storage";
 import Constants from "expo-constants";
+import { registrarDispositivoParaPush } from "./push-registration";
 
 declare const process: {
   env?: { EXPO_PUBLIC_API_URL?: string; EXPO_PUBLIC_APP_VARIANT?: string };
@@ -27,6 +28,10 @@ const API_BASE = process.env?.EXPO_PUBLIC_API_URL || "http://127.0.0.1:4000/api"
 
 let token = "";
 let refreshToken = "";
+// Id del dispositivo registrado en esta sesión, para poder darlo de baja al
+// salir. El servidor deduplica por hash del token, así que volver a registrar
+// en cada login es seguro; lo que no se puede es revocar sin el id.
+let registeredDeviceId: string | null = null;
 let sessionDriverId: string | null = null;
 // La variante instalada sale de `EXPO_PUBLIC_APP_VARIANT`, que es la misma
 // variable que `metro.config.js` usa para elegir la pantalla y `app.config.js`
@@ -215,8 +220,36 @@ export const api = {
     sessionDriverId = session.user.driverId || null;
     activeAudience = mobileAppVariant;
     await persistSession();
+    // No se espera: pedir permiso de notificaciones abre un diálogo del sistema,
+    // y bloquear el login detrás de él haría que la app parezca colgada. Quedarse
+    // sin push es una degradación, no una falla de sesión.
+    void registrarDispositivoParaPush(async (cuerpo) => {
+      const { device } = await api.registerDevice(cuerpo);
+      registeredDeviceId = device.id;
+    });
     return session.user;
   },
+  // Registro y baja del dispositivo para push. La cadena completa —proveedor,
+  // cola, reintentos y recibos— existía del lado servidor desde el 26 de agosto;
+  // lo que faltaba era que algún dispositivo se registrara.
+  async registerDevice(cuerpo: {
+    platform: "ios" | "android";
+    pushToken: string;
+    appVersion?: string;
+    deviceFingerprint: string;
+  }) {
+    return request<{ device: { id: string } }>("/devices", {
+      method: "POST",
+      body: JSON.stringify(cuerpo),
+    });
+  },
+  async revokeDevice(deviceId: string) {
+    return request<{ ok: boolean }>(`/devices/${deviceId}`, { method: "DELETE" });
+  },
+  // `GET /api/devices` no se cablea todavía: sin una pantalla de «dispositivos
+  // conectados» sería un método cliente que nadie llama, y agregarlo sólo para
+  // que la puerta de cableado no lo cuente sería hacer trampa con la propia
+  // regla. La pantalla es trabajo de MOB-001, junto con la de sesiones.
   async register(input: { name: string; email: string; password: string; phone?: string }) {
     return request<{
       user: import("./types").User;
@@ -294,6 +327,12 @@ export const api = {
   },
   async logout() {
     const currentRefreshToken = refreshToken;
+    // La baja va **antes** de limpiar el token: la ruta exige sesión, y hacerlo
+    // después dejaría el dispositivo recibiendo push de una cuenta cerrada.
+    if (registeredDeviceId) {
+      await api.revokeDevice(registeredDeviceId).catch(() => undefined);
+      registeredDeviceId = null;
+    }
     token = "";
     refreshToken = "";
     sessionDriverId = null;
