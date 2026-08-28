@@ -1,6 +1,6 @@
 // Primitivas compartidas de la aplicación móvil (ticket ARC-001, paso 11).
 //
-// Cinco componentes que **usan más de una audiencia**, y por eso no pueden vivir
+// Seis componentes que **usan más de una audiencia**, y por eso no pueden vivir
 // dentro de la pantalla de ninguna. La decisión salió de contar usos por zona del
 // archivo, no de los nombres: `ActionButton` aparece 16 veces repartidas entre
 // cliente, comercio y conductor; `OrderCard` y `KpiRow` las usan comercio y
@@ -14,6 +14,7 @@
 // Los tipos y la API llegan por import: este módulo no conoce el estado de
 // ninguna pantalla, sólo recibe props.
 import { useCallback, useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
@@ -21,13 +22,16 @@ import { Ionicons } from "@expo/vector-icons";
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { api } from "./api";
 import { mobileOrderStatusLabel, money } from "./format";
@@ -46,6 +50,58 @@ export function NativeMapUnavailable({
       <Text style={styles.nativeMapEmptyTitle}>Mapa pendiente de coordenadas</Text>
       <Text style={styles.nativeMapEmptyText}>{message}</Text>
     </View>
+  );
+}
+
+export function MobileTaskSheet({
+  visible = true,
+  eyebrow,
+  title,
+  accessibilityLabel,
+  onClose,
+  children,
+}: {
+  visible?: boolean;
+  eyebrow: string;
+  title: string;
+  accessibilityLabel: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const insets = useSafeAreaInsets();
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Math.max(insets.top, 12)}
+        style={styles.trackingBackdrop}
+      >
+        <View
+          accessibilityViewIsModal
+          accessibilityLabel={accessibilityLabel}
+          style={[styles.trackingSheet, { paddingBottom: Math.max(insets.bottom, 18) }]}
+        >
+          <View style={styles.trackingHeader}>
+            <View style={styles.itemCopy}>
+              <Text style={styles.orderConfirmationEyebrow}>{eyebrow}</Text>
+              <Text style={styles.foodRestaurantTitle} numberOfLines={2}>
+                {title}
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Cerrar ${accessibilityLabel.toLowerCase()}`}
+              hitSlop={8}
+              style={styles.foodBack}
+              onPress={onClose}
+            >
+              <Ionicons name="close" size={21} color="#222" />
+            </Pressable>
+          </View>
+          {children}
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 }
 
@@ -172,146 +228,129 @@ export function ServiceChatModal({
     }
   };
   return (
-    <Modal visible={Boolean(jobId)} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.trackingBackdrop}>
-        <View style={styles.trackingSheet}>
-          <View style={styles.trackingHeader}>
-            <View>
-              <Text style={styles.orderConfirmationEyebrow}>CHAT DEL SERVICIO</Text>
-              <Text style={styles.foodRestaurantTitle}>{jobId}</Text>
-            </View>
-            <Pressable style={styles.foodBack} onPress={onClose}>
-              <Ionicons name="close" size={21} color="#222" />
-            </Pressable>
+    <MobileTaskSheet
+      visible={Boolean(jobId)}
+      eyebrow="Chat del servicio"
+      title={jobId || "Conversación"}
+      accessibilityLabel="Chat del servicio"
+      onClose={onClose}
+    >
+      <View style={styles.issueSecurityNote}>
+        <Ionicons name="lock-closed-outline" size={18} color="#087a50" />
+        <Text style={styles.issueSecurityText}>
+          Mensajes y adjuntos cifrados; sólo participan las personas del servicio.
+        </Text>
+      </View>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.supportMessages}>
+        {loading ? (
+          <ActivityIndicator color="#7c3cff" />
+        ) : messages.length === 0 ? (
+          <View style={styles.foodEmpty}>
+            <Ionicons name="chatbubbles-outline" size={42} color="#7c3cff" />
+            <Text style={styles.cardText}>Todavía no hay mensajes.</Text>
           </View>
-          <View style={styles.issueSecurityNote}>
-            <Ionicons name="lock-closed-outline" size={18} color="#087a50" />
-            <Text style={styles.issueSecurityText}>
-              Mensajes y adjuntos cifrados; sólo participan las personas del servicio.
-            </Text>
-          </View>
-          <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.supportMessages}>
-            {loading ? (
-              <ActivityIndicator color="#7c3cff" />
-            ) : messages.length === 0 ? (
-              <View style={styles.foodEmpty}>
-                <Ionicons name="chatbubbles-outline" size={42} color="#7c3cff" />
-                <Text style={styles.cardText}>Todavía no hay mensajes.</Text>
-              </View>
-            ) : (
-              messages.map((message) => {
-                const own = message.senderId === currentUserId,
-                  read = own && message.readBy.some((entry) => entry.userId !== currentUserId);
-                return (
-                  <View
-                    key={message.id}
-                    style={[
-                      styles.supportMessage,
-                      own ? styles.supportMessageOwn : styles.supportMessageStaff,
-                    ]}
-                  >
-                    {message.body ? (
-                      <Text
-                        style={[styles.supportMessageText, own && styles.supportMessageTextOwn]}
-                      >
-                        {message.body}
-                      </Text>
-                    ) : null}
-                    {message.attachments.map((attachment) => (
-                      <Pressable
-                        key={attachment.id}
-                        style={styles.issueCategoryPill}
-                        onPress={() => void openAttachment(attachment.id)}
-                      >
-                        <Ionicons
-                          name={
-                            attachment.mimeType === "application/pdf"
-                              ? "document-text-outline"
-                              : "image-outline"
-                          }
-                          size={16}
-                          color={own ? "#fff" : "#7c3cff"}
-                        />
-                        <Text
-                          style={[styles.issueCategoryText, own && styles.supportMessageTextOwn]}
-                          numberOfLines={1}
-                        >
-                          {attachment.fileName} · {Math.ceil(attachment.sizeBytes / 1024)} KB
-                        </Text>
-                      </Pressable>
-                    ))}
-                    <Text style={[styles.supportMessageTime, own && styles.supportMessageTextOwn]}>
-                      {own ? "Vos" : message.senderName} ·{" "}
-                      {new Date(message.createdAt).toLocaleTimeString("es-AR", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                      {own ? (read ? " · Leído" : " · Enviado") : ""}
-                    </Text>
-                  </View>
-                );
-              })
-            )}
-          </ScrollView>
-          {error ? <Text style={styles.complianceRejection}>{error}</Text> : null}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.paymentBrandRail}
-          >
-            {quickReplies.map((reply) => (
-              <Pressable
-                key={reply}
-                style={styles.issueCategoryPill}
-                onPress={() => setBody(reply)}
+        ) : (
+          messages.map((message) => {
+            const own = message.senderId === currentUserId,
+              read = own && message.readBy.some((entry) => entry.userId !== currentUserId);
+            return (
+              <View
+                key={message.id}
+                style={[
+                  styles.supportMessage,
+                  own ? styles.supportMessageOwn : styles.supportMessageStaff,
+                ]}
               >
-                <Text style={styles.issueCategoryText}>{reply}</Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-          {pendingAttachment ? (
-            <View style={styles.issueSecurityNote}>
-              <Ionicons name="attach-outline" size={18} color="#7c3cff" />
-              <View style={styles.itemCopy}>
-                <Text style={styles.issueSecurityText} numberOfLines={1}>
-                  {pendingAttachment.fileName} · {Math.ceil(pendingAttachment.sizeBytes / 1024)} KB
+                {message.body ? (
+                  <Text style={[styles.supportMessageText, own && styles.supportMessageTextOwn]}>
+                    {message.body}
+                  </Text>
+                ) : null}
+                {message.attachments.map((attachment) => (
+                  <Pressable
+                    key={attachment.id}
+                    style={styles.issueCategoryPill}
+                    onPress={() => void openAttachment(attachment.id)}
+                  >
+                    <Ionicons
+                      name={
+                        attachment.mimeType === "application/pdf"
+                          ? "document-text-outline"
+                          : "image-outline"
+                      }
+                      size={16}
+                      color={own ? "#fff" : "#7c3cff"}
+                    />
+                    <Text
+                      style={[styles.issueCategoryText, own && styles.supportMessageTextOwn]}
+                      numberOfLines={1}
+                    >
+                      {attachment.fileName} · {Math.ceil(attachment.sizeBytes / 1024)} KB
+                    </Text>
+                  </Pressable>
+                ))}
+                <Text style={[styles.supportMessageTime, own && styles.supportMessageTextOwn]}>
+                  {own ? "Vos" : message.senderName} ·{" "}
+                  {new Date(message.createdAt).toLocaleTimeString("es-AR", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                  {own ? (read ? " · Leído" : " · Enviado") : ""}
                 </Text>
               </View>
-              <Pressable onPress={() => setPendingAttachment(null)}>
-                <Ionicons name="close-circle" size={20} color="#8f3840" />
-              </Pressable>
-            </View>
-          ) : null}
-          <View style={styles.supportReplyRow}>
-            <Pressable
-              disabled={sending}
-              style={styles.foodBack}
-              onPress={() => void pickAttachment()}
-            >
-              <Ionicons name="attach" size={20} color="#7c3cff" />
-            </Pressable>
-            <TextInput
-              style={[styles.input, styles.supportReplyInput]}
-              value={body}
-              onChangeText={setBody}
-              maxLength={1000}
-              placeholder="Escribí un mensaje"
-              multiline
-            />
-            <Pressable
-              disabled={sending || (!body.trim() && !pendingAttachment)}
-              style={[
-                styles.supportSendButton,
-                (sending || (!body.trim() && !pendingAttachment)) && styles.disabledButton,
-              ]}
-              onPress={() => void send()}
-            >
-              <Ionicons name="send" size={18} color="#fff" />
-            </Pressable>
+            );
+          })
+        )}
+      </ScrollView>
+      {error ? <Text style={styles.complianceRejection}>{error}</Text> : null}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.paymentBrandRail}
+      >
+        {quickReplies.map((reply) => (
+          <Pressable key={reply} style={styles.issueCategoryPill} onPress={() => setBody(reply)}>
+            <Text style={styles.issueCategoryText}>{reply}</Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+      {pendingAttachment ? (
+        <View style={styles.issueSecurityNote}>
+          <Ionicons name="attach-outline" size={18} color="#7c3cff" />
+          <View style={styles.itemCopy}>
+            <Text style={styles.issueSecurityText} numberOfLines={1}>
+              {pendingAttachment.fileName} · {Math.ceil(pendingAttachment.sizeBytes / 1024)} KB
+            </Text>
           </View>
+          <Pressable onPress={() => setPendingAttachment(null)}>
+            <Ionicons name="close-circle" size={20} color="#8f3840" />
+          </Pressable>
         </View>
+      ) : null}
+      <View style={styles.supportReplyRow}>
+        <Pressable disabled={sending} style={styles.foodBack} onPress={() => void pickAttachment()}>
+          <Ionicons name="attach" size={20} color="#7c3cff" />
+        </Pressable>
+        <TextInput
+          style={[styles.input, styles.supportReplyInput]}
+          value={body}
+          onChangeText={setBody}
+          maxLength={1000}
+          placeholder="Escribí un mensaje"
+          multiline
+        />
+        <Pressable
+          disabled={sending || (!body.trim() && !pendingAttachment)}
+          style={[
+            styles.supportSendButton,
+            (sending || (!body.trim() && !pendingAttachment)) && styles.disabledButton,
+          ]}
+          onPress={() => void send()}
+        >
+          <Ionicons name="send" size={18} color="#fff" />
+        </Pressable>
       </View>
-    </Modal>
+    </MobileTaskSheet>
   );
 }
 

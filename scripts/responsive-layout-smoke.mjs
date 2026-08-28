@@ -48,6 +48,15 @@ assert(
 );
 
 assert(
+  contains(mobile, "export function MobileTaskSheet") &&
+    contains(mobile, "useSafeAreaInsets()") &&
+    contains(mobile, "Math.max(insets.bottom, 18)") &&
+    contains(mobile, "KeyboardAvoidingView") &&
+    (mobile.match(/<MobileTaskSheet\b/g) || []).length === 4,
+  "food, ride, shipment and chat sheets share safe-area and keyboard containment",
+);
+
+assert(
   ["foodBottomNav", "merchantBottomNav", "driverBottomNav"].every((name) =>
     contains(mobile, `${name}:`),
   ) &&

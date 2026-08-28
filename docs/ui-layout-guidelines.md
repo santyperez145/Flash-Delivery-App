@@ -52,7 +52,9 @@ terceros.
    del contenido nunca se colocan como destinos de navegación.
 7. Una hoja modal ejecuta una tarea acotada. Sólo se muestra una por vez, tiene
    cierre visible, ancho máximo, alto máximo desplazable y acción primaria dentro
-   del área segura.
+   del área segura. En mobile, tracking y chat usan `MobileTaskSheet`: el marco
+   mide el inset nativo, evita el teclado en iOS, limita títulos variables a dos
+   líneas y conserva un cierre accesible de al menos 44 × 44.
 8. Mapas llenan el contexto disponible, pero dirección, ETA, estado y próxima
    acción siguen legibles sin mapa. El conductor recibe cockpit/guía; cliente y
    comercio reciben seguimiento, no instrucciones de conducción.
@@ -108,7 +110,7 @@ Una ventana redimensionable debe poder atravesarlos sin recargar ni perder estad
 ## Verificación por entrega
 
 - `npm run test:responsive-layout` protege safe areas, viewport dinámico,
-  breakpoints, barras y límites de sheets.
+  breakpoints, barras, límites de sheets y el marco compartido de tracking/chat.
 - `npm run test:responsive-browser` recorre Chromium real en 320×568, 390×844,
   768×1024, 1024×768 y 1440×900; valida acceso, overflow horizontal, destinos
   mobile, cambio compact/tablet/desktop, navegación sticky y targets mínimos.
