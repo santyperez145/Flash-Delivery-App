@@ -150,6 +150,12 @@ jobs:
       - name: Alcance de escritura del runtime
         run: npm run test:runtime-write-scope
 
+      # La decision de no aplicar FORCE ROW LEVEL SECURITY descansa en que el rol
+      # de runtime no sea dueno de nada y no pueda volverse el dueno. Eso estaba
+      # afirmado en la matriz y no probado en ningun lado.
+      - name: Forma del rol de runtime
+        run: npm run test:runtime-role-shape
+
       # Ensayo de restore. Vuelca la base y la restaura en otra, de verdad, para
       # comprobar que el esquema, las extensiones, las politicas y los permisos
       # sobreviven al viaje por `pg_dump`.

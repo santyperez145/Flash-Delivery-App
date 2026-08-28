@@ -119,7 +119,15 @@ de todos los usuarios—. Aplicar `FORCE` a todo rompería ese trabajo, así que
 es una casilla pendiente por descuido: es una decisión con un costo real del otro
 lado.
 
-**No es una brecha para el runtime.** `flash_runtime` no es dueño y es
+**No es una brecha para el runtime, y eso dejó de ser una afirmación.** Hasta el
+27 de agosto esta sección lo decía y ninguna puerta lo miraba: `test:rls` se
+conecta como el rol auditor y como el migrador, nunca como el rol que atiende
+cada petición. `test:runtime-role-shape` verifica ahora los atributos del rol,
+que no sea dueño de ninguna tabla y que no sea miembro del migrador —porque un
+`SET ROLE` le daría la excepción de dueño sin necesitar `rolbypassrls`—, e
+intenta ese `SET ROLE` de verdad para exigir que la base lo rechace.
+
+`flash_runtime` no es dueño y es
 `NOBYPASSRLS`, así que las políticas se le aplican enteras.
 
 El riesgo concreto es otro y es de configuración: si `DATABASE_URL` apuntara
