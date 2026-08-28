@@ -63,13 +63,46 @@ const leer = async (dir, extension, encontrados = []) => {
   return encontrados;
 };
 
-/** Un parámetro con nombre y una interpolación son la misma cosa acá: un hueco. */
+/**
+ * Un parámetro con nombre y una interpolación son la misma cosa acá: un hueco.
+ *
+ * El `*` pegado al final de un segmento se descarta —`.../configuration*` sale de
+ * una query interpolada, no de un parámetro— pero el que ocupa un segmento entero
+ * se conserva, porque `/zones/*` sí es un hueco de ruta. La diferencia es si la
+ * barra viene antes.
+ */
 const normalizar = (ruta) =>
   ruta
     .replace(/:[A-Za-z_]+/g, "*")
     .replace(/\$\{[^}]*\}/g, "*")
     .split("?")[0]
+    .replace(/(?<=[^/])\*+$/, "")
     .replace(/\/+$/, "") || "/";
+
+/**
+ * Reemplaza cada `${...}` por `*`, respetando anidamiento.
+ *
+ * Una interpolacion puede contener otra plantilla completa, con sus backticks.
+ * Contar llaves alcanza para saltearla entera sin interpretar lo de adentro.
+ */
+function quitarInterpolaciones(texto) {
+  let salida = "";
+  for (let i = 0; i < texto.length; i++) {
+    if (texto[i] !== "$" || texto[i + 1] !== "{") {
+      salida += texto[i];
+      continue;
+    }
+    let profundidad = 1;
+    let j = i + 2;
+    for (; j < texto.length && profundidad > 0; j++) {
+      if (texto[j] === "{") profundidad += 1;
+      else if (texto[j] === "}") profundidad -= 1;
+    }
+    salida += "*";
+    i = j - 1;
+  }
+  return salida;
+}
 
 // --- Lo que el servidor expone ----------------------------------------------
 //
@@ -102,17 +135,23 @@ const clientes = [
 ];
 for (const archivo of clientes) {
   const fuente = await fs.readFile(archivo, "utf8").catch(() => "");
-  // Cualquier literal que arranque con `/`, hasta su comilla de cierre. Cortar
-  // en el primer carácter "raro" perdía toda ruta con una interpolación que
-  // llevara paréntesis, que son casi todas las que llevan parámetros.
-  // Segunda forma: `${API_BASE}/ruta`. Es como se llaman `logout`, `refresh` y
-  // el stream de eventos, y el patrón de arriba no las ve porque el literal no
-  // empieza con `/`. Sin esto, tres rutas vivas aparecían como huérfanas.
-  for (const encontrada of fuente.matchAll(/API_BASE\}(\/[a-z][^`"'\n]*)/gi)) {
-    literales.add(normalizar(`/api${encontrada[1]}`));
-  }
-  for (const encontrada of fuente.matchAll(/[`"'](\/[a-z][^`"'\n]*)[`"']/gi)) {
-    const crudo = encontrada[1];
+  // Las interpolaciones se reemplazan por `*` **antes** de buscar literales.
+  //
+  // Sin esto, `/payment-provider/client-configuration${x ? `?y=${z}` : ""}` rompe
+  // cualquier patron que corte en el primer backtick: lleva una plantilla dentro
+  // de su interpolacion, el patron se queda con medio literal y la ruta aparece
+  // huerfana. Paso de verdad, y casi termino cableando algo que ya lo estaba —el
+  // mismo defecto que esta puerta busca en otros, cometido por ella misma.
+  //
+  // Quitarlas primero es mas simple que recorrer plantillas: no hay que adivinar
+  // donde empieza una, y un backtick suelto en un comentario deja de importar.
+  const sinInterpolaciones = quitarInterpolaciones(fuente);
+  // El `*` inicial admite la forma `${API_BASE}/ruta`, que tras el reemplazo
+  // queda como `*/ruta`. Asi se llaman `logout`, `refresh` y el stream de
+  // eventos: sin contemplarlo, tres rutas vivas volvian a figurar huerfanas.
+  const literalDeRuta = /[`"'](\*?\/[a-z][^`"'\n]*)[`"']/gi;
+  for (const encontrada of sinInterpolaciones.matchAll(literalDeRuta)) {
+    const crudo = encontrada[1].replace(/^\*/, "");
     literales.add(normalizar(crudo.startsWith("/api/") ? crudo : `/api${crudo}`));
   }
 }

@@ -1393,6 +1393,19 @@ export const api = {
   },
   // Devoluciones de envío. El móvil ya las listaba y nadie podía resolverlas: la
   // cola se miraba y no se tocaba.
+  // Catálogo de ciudades habilitadas. El producto asumía `buenos-aires` fijo en
+  // todas partes; esto es la base para que la expansión a otra ciudad no sea un
+  // cambio de código.
+  async getCities() {
+    return request<{
+      cities: Array<{ id: string; slug: string; name: string; currency: string }>;
+    }>("/cities");
+  },
+  async getZonesByCity(citySlug: string) {
+    return request<{ city: string; zones: import("./types").Zone[] }>(
+      `/zones?city=${encodeURIComponent(citySlug)}`,
+    );
+  },
   async getShipmentReturns() {
     return request<{ returns: import("./types").ShipmentReturn[] }>("/shipment-returns");
   },
