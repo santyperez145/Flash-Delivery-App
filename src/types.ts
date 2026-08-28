@@ -688,6 +688,17 @@ export type ServiceQuickReply = {
   active: boolean;
   updatedAt: string;
 };
+/** Devolución de un envío protegido. La resuelve soporte u operaciones. */
+export type ShipmentReturn = {
+  id: string;
+  shipmentId: string;
+  reason: string;
+  status: "requested" | "approved" | "rejected" | "in_transit" | "completed";
+  resolutionNote: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ShipmentClaimEvidence = {
   id: string;
   fileName: string;
