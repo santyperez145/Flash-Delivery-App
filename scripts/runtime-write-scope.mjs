@@ -74,19 +74,42 @@ const ESCRITORAS = [
   ["DELETE", /DELETE\s+FROM\s+(?:ONLY\s+)?([a-zA-Z0-9_."]+)/gi],
 ];
 
-/** Devuelve Map<tabla, Set<operación>> con lo que el texto escribe. */
+/**
+ * Devuelve Map<tabla, Set<operación>> con lo que el texto escribe.
+ *
+ * `INSERT ... ON CONFLICT ... DO UPDATE` cuenta **también** como UPDATE, porque
+ * PostgreSQL exige los dos permisos para ejecutarlo. Sin esta regla la
+ * herramienta decía que a `ledger_accounts` le sobraba UPDATE, y hacerle caso
+ * habría roto `systemAccount`, que es un upsert. Hay 27 en `server/`, sobre al
+ * menos doce tablas.
+ *
+ * Es el mismo error que estuvo por meterse en produccion con los triggers, en
+ * otra forma: el permiso que hace falta no siempre esta escrito donde uno lo
+ * busca. Por eso la herramienta se verifica contra casos conocidos antes de
+ * creerle, y no al reves.
+ */
 function escriturasEn(texto) {
   const encontradas = new Map();
+  const anotar = (tabla, operacion) => {
+    if (!encontradas.has(tabla)) encontradas.set(tabla, new Set());
+    encontradas.get(tabla).add(operacion);
+  };
   for (const [operacion, patron] of ESCRITORAS) {
     for (const coincidencia of texto.matchAll(patron)) {
       const tabla = normalizar(coincidencia[1]);
-      if (!encontradas.has(tabla)) encontradas.set(tabla, new Set());
-      encontradas.get(tabla).add(operacion);
+      anotar(tabla, operacion);
+      if (operacion !== "INSERT") continue;
+      // La ventana llega hasta el proximo INSERT o hasta el final: en este
+      // codigo cada sentencia vive en su propio literal, asi que un
+      // `DO UPDATE` que aparezca antes del siguiente INSERT es de esta.
+      const desde = coincidencia.index + coincidencia[0].length;
+      const siguiente = texto.slice(desde).search(/INSERT\s+INTO/i);
+      const ventana = texto.slice(desde, siguiente === -1 ? undefined : desde + siguiente);
+      if (/ON\s+CONFLICT[\s\S]*?DO\s+UPDATE/i.test(ventana)) anotar(tabla, "UPDATE");
     }
   }
   return encontradas;
 }
-
 try {
   // --- 1. Lo que la base permite hoy ----------------------------------------
   // `privilege_type` es un dominio de `information_schema`, y agregarlo sin
