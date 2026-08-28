@@ -584,6 +584,84 @@ Object.assign(openApiDocument.paths, {
   // relacion entre varias personas y un comercio: quien integre tiene que poder
   // ver quien puede hacer que, y sobre todo que **confirmar no vive aca** — el
   // grupo cerrado se convierte en un pedido normal por /api/orders.
+  // Las dos intervenciones de operaciones (OPS-001). Se publican porque son
+  // acciones sobre el registro de un tercero: quien audite tiene que poder ver
+  // que exigen motivo y que alcance tienen.
+  "/api/admin/merchants/{merchantId}/status": {
+    patch: {
+      tags: ["Operations"],
+      operationId: "setMerchantStatus",
+      summary: "Suspender o reactivar el ingreso de pedidos de un comercio",
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: "merchantId",
+          in: "path",
+          required: true,
+          schema: { type: "string", maxLength: 100 },
+        },
+      ],
+      requestBody: body("MerchantStatusRequest"),
+      responses: {
+        200: success({
+          type: "object",
+          required: ["merchant"],
+          properties: {
+            merchant: {
+              type: "object",
+              properties: {
+                id: { type: "string" },
+                name: { type: "string" },
+                previousStatus: { type: "string" },
+                status: { type: "string", enum: ["active", "suspended"] },
+                // Suspender frena lo nuevo y no cancela lo que esta en curso.
+                // Este numero es lo que decide que hace el operador despues.
+                openJobs: { type: "integer", minimum: 0 },
+              },
+            },
+          },
+        }),
+        ...bearerErrors,
+        409: { description: "El comercio ya esta en ese estado", content: json },
+      },
+    },
+  },
+  "/api/admin/jobs/{jobId}/release": {
+    post: {
+      tags: ["Operations"],
+      operationId: "releaseJob",
+      summary: "Devolver al despacho un servicio asignado que el conductor no retiro",
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        { name: "jobId", in: "path", required: true, schema: { type: "string", maxLength: 100 } },
+      ],
+      requestBody: body("JobReleaseRequest"),
+      responses: {
+        200: success({
+          type: "object",
+          required: ["job"],
+          properties: {
+            job: {
+              type: "object",
+              properties: {
+                id: { type: "string" },
+                kind: { type: "string" },
+                releasedFrom: { type: "string" },
+                status: { type: "string" },
+              },
+            },
+          },
+        }),
+        ...bearerErrors,
+        // Despues de retirar, el conductor tiene la comida encima: ahi la salida
+        // es cancelar con su politica o abrir una incidencia, no reasignar.
+        409: {
+          description: "El servicio no tiene conductor, o el conductor ya lo retiro",
+          content: json,
+        },
+      },
+    },
+  },
   "/api/group-orders": {
     get: {
       tags: ["Commerce"],
@@ -1769,6 +1847,21 @@ Object.assign(openApiDocument.components.schemas, {
       spendLimitCents: { type: "integer", minimum: 10000, maximum: 100000000 },
       closesAt: { type: "string", format: "date-time" },
     },
+  },
+  MerchantStatusRequest: {
+    type: "object",
+    required: ["status", "reason"],
+    properties: {
+      status: { type: "string", enum: ["active", "suspended"] },
+      // Obligatorio: es una decision sobre el registro de un tercero, y el dia
+      // del reclamo lo que se lee es el log de auditoria.
+      reason: { type: "string", minLength: 5, maxLength: 500 },
+    },
+  },
+  JobReleaseRequest: {
+    type: "object",
+    required: ["reason"],
+    properties: { reason: { type: "string", minLength: 5, maxLength: 500 } },
   },
   GroupOrderJoinRequest: {
     type: "object",

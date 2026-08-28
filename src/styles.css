@@ -7709,3 +7709,58 @@ textarea {
   min-width: 6ch;
   text-align: right;
 }
+
+/* Intervenciones de operaciones (OPS-001).
+   El botón destructivo se distingue por borde y color de texto, no por relleno:
+   en una lista de comercios, un botón rojo sólido por fila convierte la pantalla
+   en una alarma y deja de leerse como una lista. */
+.intervencion-lista {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 12px;
+}
+.intervencion-lista li {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.1));
+  border-radius: 12px;
+}
+.intervencion-encabezado small {
+  display: block;
+  opacity: 0.65;
+  font-size: 0.8rem;
+}
+.intervencion-motivo {
+  display: grid;
+  gap: 4px;
+  font-size: 0.85rem;
+}
+.intervencion-motivo input {
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.14));
+  border-radius: 10px;
+  font: inherit;
+}
+.intervencion-lista button {
+  justify-self: start;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.14));
+  border-radius: 12px;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+.intervencion-lista button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.intervencion-peligro {
+  border-color: #b91c1c;
+  color: #b91c1c;
+  font-weight: 600;
+}

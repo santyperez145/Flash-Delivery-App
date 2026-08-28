@@ -1995,6 +1995,125 @@ try {
     ).status === 403,
     "customer cannot manage merchant branches",
   );
+  // -------------------------------------------------------------------------
+  // Suspender un comercio (OPS-001).
+  //
+  // Va junto a la pausa de sucursal porque son dos cosas que se confunden y no
+  // son la misma: pausar una sucursal es una decision del local, suspender el
+  // comercio es una decision de operaciones sobre el registro de un tercero.
+  //
+  // El bloque se abre su propia sesion de operaciones y **restituye el comercio
+  // antes de salir**: dejarlo suspendido rompe todas las cotizaciones que siguen
+  // en este archivo, y la ultima vez que un bloque no restituyo estado la falla
+  // aparecio doscientas lineas mas abajo sin conexion visible.
+  // -------------------------------------------------------------------------
+  const canceladosDeRojaAntes = Number(
+    (
+      await pool.query(
+        `SELECT count(*)::int total FROM jobs j JOIN merchants m ON m.id=j.merchant_id
+         WHERE m.public_id='rest_roja' AND j.status='cancelled'`,
+      )
+    ).rows[0].total,
+  );
+  const opsLoginSuspension = await request("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({
+      email: "ops@flash.app",
+      password: "demo123",
+      deviceName: "postgres-smoke-ops-suspension",
+    }),
+  });
+  token = opsLoginSuspension.body.token;
+  const suspensionSinMotivo = await request("/admin/merchants/rest_roja/status", {
+    method: "PATCH",
+    body: JSON.stringify({ status: "suspended" }),
+  });
+  const suspension = await request("/admin/merchants/rest_roja/status", {
+    method: "PATCH",
+    body: JSON.stringify({ status: "suspended", reason: "Prueba de suspension del smoke" }),
+  });
+  if (suspension.status !== 200)
+    console.error("merchant suspension diagnostic", {
+      login: opsLoginSuspension.status,
+      tieneToken: Boolean(opsLoginSuspension.body.token),
+      sinMotivo: suspensionSinMotivo,
+      suspension,
+    });
+  assert(
+    // El motivo no es burocracia: es lo que se lee el dia del reclamo. Sin el,
+    // el log dice quien suspendio a quien y no por que.
+    suspensionSinMotivo.status === 400 &&
+      suspension.status === 200 &&
+      suspension.body.merchant.status === "suspended" &&
+      suspension.body.merchant.previousStatus === "active",
+    "suspender un comercio exige motivo y devuelve el estado anterior",
+  );
+  token = customerToken;
+  const cotizacionSuspendida = await request("/orders/quote", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  const catalogoSuspendido = await request("/catalog/restaurants?limit=50");
+  assert(
+    cotizacionSuspendida.status >= 400 &&
+      !(catalogoSuspendido.body.restaurants || []).some((fila) => fila.id === "rest_roja"),
+    "un comercio suspendido no cotiza ni aparece en el catalogo",
+  );
+  // **Lo que ya estaba en curso sigue en curso.** Cancelar en masa castigaria a
+  // clientes que no hicieron nada y dejaria comida hecha sin destino.
+  //
+  // Se compara contra el conteo previo y no contra una ventana de tiempo: el
+  // smoke cancela pedidos por su cuenta unas lineas antes, y una ventana de
+  // quince segundos los cuenta como si los hubiera cancelado la suspension. Lo
+  // que hay que medir es el delta que provoca esta operacion, no el ambiente.
+  assert(
+    Number(
+      (
+        await pool.query(
+          `SELECT count(*)::int total FROM jobs j JOIN merchants m ON m.id=j.merchant_id
+           WHERE m.public_id='rest_roja' AND j.status='cancelled'`,
+        )
+      ).rows[0].total,
+    ) === canceladosDeRojaAntes,
+    "suspender no cancela los pedidos que ya estaban en curso",
+  );
+  token = opsLoginSuspension.body.token;
+  // El tablero de colas, contra la base de verdad, con la sesion de operaciones
+  // puesta: la ruta la leen `admin` y `support`, no el cliente.
+  //
+  // **Su consulta nunca se habia ejecutado.** Son doce subconsultas unidas por
+  // `UNION ALL` sobre doce tablas, escritas sin base local: un solo nombre de
+  // columna equivocado rompe la consulta entera, y ninguna puerta estatica mira
+  // columnas. Llamarlo una vez desde el smoke convierte eso en una falla de CI
+  // en vez de un 500 en produccion.
+  const colas = await request("/operations/work-queues");
+  if (colas.status !== 200) console.error("work queue diagnostic", colas);
+  assert(
+    colas.status === 200 &&
+      colas.body.queues?.length === 12 &&
+      colas.body.queues.every(
+        (cola) => typeof cola.pending === "number" && typeof cola.oldestMinutes === "number",
+      ) &&
+      colas.body.queues.some((cola) => cola.key === "dispatch"),
+    "el tablero de colas responde las doce colas con profundidad y antiguedad",
+  );
+  const reactivacionComercio = await request("/admin/merchants/rest_roja/status", {
+    method: "PATCH",
+    body: JSON.stringify({ status: "active", reason: "Fin de la prueba del smoke" }),
+  });
+  const reactivacionRepetida = await request("/admin/merchants/rest_roja/status", {
+    method: "PATCH",
+    body: JSON.stringify({ status: "active", reason: "Fin de la prueba del smoke" }),
+  });
+  assert(
+    reactivacionComercio.status === 200 &&
+      reactivacionComercio.body.merchant.status === "active" &&
+      // Reactivar lo ya activo es 409 y no un exito silencioso: si alguien creyo
+      // suspender y no suspendio, tiene que enterarse.
+      reactivacionRepetida.status === 409,
+    "reactivar restituye el comercio y repetirlo se rechaza",
+  );
+
   token = merchantSubLogin.body.token;
   const pausedBranch = await request("/restaurants/rest_roja/branches/branch_rest_roja", {
     method: "PATCH",
@@ -2158,6 +2277,90 @@ try {
       ).status === 200,
     "driver accepts the settlement order from a private offer",
   );
+
+  // -------------------------------------------------------------------------
+  // Soltar un servicio asignado (OPS-001).
+  //
+  // El telefono que se apaga, la moto que se rompe, el que acepto y desaparecio.
+  // Antes el trabajo quedaba con conductor puesto y sin forma de devolverlo al
+  // despacho: se arreglaba con un UPDATE a mano.
+  //
+  // Se prueba justo despues de aceptar porque es el unico estado en que la
+  // operacion es legitima, y el pedido se vuelve a tomar enseguida para que el
+  // resto del flujo de liquidacion siga igual.
+  // -------------------------------------------------------------------------
+  const opsLoginRelease = await request("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({
+      email: "ops@flash.app",
+      password: "demo123",
+      deviceName: "postgres-smoke-ops-release",
+    }),
+  });
+  token = opsLoginRelease.body.token;
+  const soltarSinMotivo = await request(`/admin/jobs/${settlementOrderId}/release`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+  const soltado = await request(`/admin/jobs/${settlementOrderId}/release`, {
+    method: "POST",
+    body: JSON.stringify({ reason: "El conductor del smoke se quedo sin bateria" }),
+  });
+  const trasSoltar = (
+    await pool.query(
+      `SELECT j.driver_id, j.status,
+              (SELECT count(*)::int FROM dispatch_offers o
+                WHERE o.job_id=j.id AND o.status='pending') pendientes
+       FROM jobs j WHERE j.public_id=$1`,
+      [settlementOrderId],
+    )
+  ).rows[0];
+  assert(
+    soltarSinMotivo.status === 400 &&
+      soltado.status === 200 &&
+      trasSoltar.driver_id === null &&
+      // Un pedido de comida se asigna solo desde `ready_for_pickup`, asi que ahi
+      // vuelve: devolverlo a otro estado lo dejaria fuera del alcance del
+      // despacho, que es lo contrario de lo que la operacion busca.
+      trasSoltar.status === "ready_for_pickup" &&
+      trasSoltar.pendientes === 0,
+    "soltar exige motivo, quita el conductor, retira las ofertas y devuelve el pedido al despacho",
+  );
+  // Ya sin conductor, soltarlo otra vez no tiene sentido y se rechaza.
+  assert(
+    (
+      await request(`/admin/jobs/${settlementOrderId}/release`, {
+        method: "POST",
+        body: JSON.stringify({ reason: "No deberia poder soltarse dos veces" }),
+      })
+    ).status === 409,
+    "un servicio sin conductor no se puede soltar",
+  );
+  // Restituir la asignacion para que la liquidacion siga su curso.
+  //
+  // **Por la base y no por el despacho, a proposito.** Volver a ofrecerlo y
+  // aceptarlo dependeria de a que conductor elige el despacho, que es una
+  // decision de cercania y capacidad y no algo que esta prueba controle: el paso
+  // fallaba de forma intermitente por un motivo que no tiene nada que ver con lo
+  // que se esta probando. Lo que se afirma —que soltar funciona— ya se afirmo
+  // arriba contra la API. Esto es preparacion de estado, y para eso el smoke usa
+  // el pool privilegiado en todo el archivo.
+  await pool.query(
+    `UPDATE jobs SET driver_id=(SELECT id FROM drivers WHERE public_id=$2),
+       status='driver_assigned', version=version+1, updated_at=now()
+     WHERE public_id=$1`,
+    [settlementOrderId, runtimeDriverId],
+  );
+  assert(
+    (
+      await pool.query(
+        "SELECT driver_id IS NOT NULL AS asignado, status FROM jobs WHERE public_id=$1",
+        [settlementOrderId],
+      )
+    ).rows[0]?.asignado === true,
+    "el pedido queda reasignado para que la liquidacion siga su curso",
+  );
+  token = driverToken;
   await request(`/orders/${settlementOrderId}/advance`, {
     method: "POST",
     body: "{}",
@@ -4207,6 +4410,10 @@ try {
       await pool.query("DELETE FROM audit_events WHERE entity_id=$1", [grupoPublicId]);
       await pool.query("DELETE FROM group_orders WHERE public_id=$1", [grupoPublicId]);
     }
+    // Red de seguridad: si el bloque de suspension corta antes de restituir, el
+    // comercio queda suspendido y la corrida siguiente no puede cotizar nada.
+    // Restituirlo dos veces no cuesta nada; no restituirlo cuesta la corrida.
+    await pool.query("UPDATE merchants SET status='active' WHERE public_id='rest_roja'");
     await pool.query("UPDATE catalog_items SET available=true WHERE public_id='item_burger_brava'");
     await pool.query(
       "UPDATE catalog_branch_inventory SET available=true,stock_quantity=NULL WHERE catalog_item_id=(SELECT id FROM catalog_items WHERE public_id='item_burger_brava')",

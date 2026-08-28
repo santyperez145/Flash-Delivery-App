@@ -10,6 +10,7 @@ export async function getPostgresMerchantDashboard({
   const result = await postgresPool.query(
     `WITH selected AS (
        SELECT m.id AS merchant_id, m.public_id AS merchant_public_id,
+         m.status AS merchant_status,
          b.id AS branch_id, b.public_id AS branch_public_id, b.name AS branch_name,
          b.timezone, b.open AS manual_open, b.status AS branch_status, b.eta_min,
          b.open AND b.status='active' AND app.branch_is_scheduled_open(b.id, now()) AS effective_open
@@ -20,8 +21,13 @@ export async function getPostgresMerchantDashboard({
          WHERE branch.merchant_id=m.id AND branch.is_primary
          LIMIT 1
        ) b ON true
-       WHERE m.status='active'
-         AND (($3::boolean AND m.public_id=$2) OR (NOT $3::boolean AND owner.public_id=$1 AND ($2::text IS NULL OR m.public_id=$2)))
+       -- **Sin filtrar por estado, a proposito.** Suspender un comercio corta los
+       -- pedidos nuevos, no los que ya estan cocinandose. Si el panel exigiera
+       -- que el comercio estuviera activo, el local suspendido perderia de vista
+       -- los doce pedidos que todavia tiene en el horno, y esos pedidos son de
+       -- clientes que no hicieron nada. El estado se publica abajo para que sepa
+       -- por que no entra ninguno mas.
+       WHERE (($3::boolean AND m.public_id=$2) OR (NOT $3::boolean AND owner.public_id=$1 AND ($2::text IS NULL OR m.public_id=$2)))
        ORDER BY m.created_at, m.id
        LIMIT 1
      ), terminal_events AS (
@@ -77,7 +83,8 @@ export async function getPostgresMerchantDashboard({
        ) AS unavailable_items
      FROM selected selection
      LEFT JOIN food_con_ventana food ON true
-     GROUP BY selection.merchant_id, selection.merchant_public_id, selection.branch_id,
+     GROUP BY selection.merchant_id, selection.merchant_public_id, selection.merchant_status,
+       selection.branch_id,
        selection.branch_public_id, selection.branch_name, selection.timezone,
        selection.manual_open, selection.branch_status, selection.eta_min, selection.effective_open`,
     [actorPublicId, merchantPublicId, admin],
@@ -101,6 +108,10 @@ export async function getPostgresMerchantDashboard({
       status: row.branch_status,
       etaMin: Number(row.eta_min),
     },
+    // El estado del comercio, no el de la sucursal. Son dos cosas: una sucursal
+    // cerrada es una decision del local; un comercio suspendido es una decision
+    // de operaciones, y el local tiene que poder distinguirlas.
+    merchantStatus: row.merchant_status,
     metrics: {
       activeOrders: Number(row.active_orders),
       needsAction: Number(row.needs_action),

@@ -1698,6 +1698,30 @@ export const api = {
   // siempre opera sobre la propia, nunca sobre la de otro.
   // Tablero de colas de trabajo (OPS-001). Lo lee `admin` y `support`: quien
   // atiende la cola tiene que poder ver si se está acumulando.
+  // Las dos intervenciones de OPS-001. El motivo es obligatorio del lado del
+  // servidor; el cliente lo exige antes para no ofrecer un botón que da 400.
+  async setMerchantStatus(merchantId: string, status: "active" | "suspended", reason: string) {
+    return request<{
+      merchant: {
+        id: string;
+        name: string;
+        previousStatus: string;
+        status: string;
+        openJobs: number;
+      };
+    }>(`/admin/merchants/${merchantId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status, reason }),
+    });
+  },
+  async releaseJob(jobId: string, reason: string) {
+    return request<{
+      job: { id: string; kind: string; releasedFrom: string; status: string };
+    }>(`/admin/jobs/${jobId}/release`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    });
+  },
   async getWorkQueues() {
     return request<{
       generatedAt: string;
