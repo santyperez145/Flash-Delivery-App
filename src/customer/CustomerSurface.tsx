@@ -394,7 +394,8 @@ export function CustomerApp(props: {
 /**
  * Selector de servicio, con el envío detrás de su flag.
  *
- * `shipment_beta` existía en la base desde la migración 093 y **nadie lo leía**:
+ * `shipment_beta` y `public_rides` existían en la base desde la migración 093 y
+ * **nadie los leía**:
  * el panel de operaciones podía apagarlo y la pestaña seguía ahí. Ahora apagarlo
  * la esconde, que es lo que un control de release tiene que hacer.
  *
@@ -412,6 +413,7 @@ function ServiceToggle({
   features: Record<string, { active: boolean; variant: Record<string, unknown> }> | null;
 }) {
   const enviosHabilitados = features?.shipment_beta?.active ?? true;
+  const viajesHabilitados = features?.public_rides?.active ?? true;
   return (
     <div className="service-toggle">
       <button
@@ -421,13 +423,15 @@ function ServiceToggle({
       >
         <ShoppingBag size={16} /> Comida
       </button>
-      <button
-        className={service === "ride" ? "active" : ""}
-        onClick={() => setService("ride")}
-        type="button"
-      >
-        <Car size={16} /> Taxi
-      </button>
+      {viajesHabilitados && (
+        <button
+          className={service === "ride" ? "active" : ""}
+          onClick={() => setService("ride")}
+          type="button"
+        >
+          <Car size={16} /> Taxi
+        </button>
+      )}
       {enviosHabilitados && (
         <button
           className={service === "shipment" ? "active" : ""}

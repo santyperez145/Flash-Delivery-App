@@ -64,7 +64,11 @@ router.get("/api/features", requireAuth, async (req, res) => {
         : {
             delivery_beta: { active: true, variant: { phase: "local_demo" } },
             shipment_beta: { active: true, variant: { phase: "local_demo" } },
-            public_rides: { active: false, variant: {} },
+            // Espeja lo que la migración 124 dejó en la base. El respaldo tiene
+            // los flags fijos, y dejarlos derivar hace que la demo se comporte
+            // distinto del producto: con el gate de la pestaña cableado, un
+            // `false` acá escondería Taxi sólo en modo local.
+            public_rides: { active: true, variant: {} },
           },
     });
   } catch (_error) {
