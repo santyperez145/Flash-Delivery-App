@@ -1389,6 +1389,29 @@ textarea::placeholder {
    Las dos mueven dinero. El botón de aplicar queda deshabilitado hasta que hay
    un cambio real, y el valor vigente se muestra al lado del campo: sin eso, un
    número solo no dice si se está subiendo o bajando. */
+/* El selector de ciudad sólo aparece con más de una habilitada: un desplegable
+   de un solo elemento es ruido que además sugiere una elección que no existe. */
+.zona-ciudad {
+  display: block;
+  margin-bottom: 14px;
+}
+
+.zona-ciudad span {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.zona-ciudad select {
+  width: 100%;
+  min-height: var(--layout-touch);
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
 .demanda-promos,
 .demanda-zonas {
   margin: 0;
