@@ -624,6 +624,7 @@ function App() {
         promotionCode: promotionCode.trim() || undefined,
         quoteToken: checkout.quoteToken,
         tipCents: checkout.tipCents,
+        scheduledFor: checkout.scheduledFor ?? undefined,
         items: cart.map((line) => ({
           menuItemId: line.item.id,
           quantity: line.quantity,

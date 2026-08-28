@@ -7415,3 +7415,87 @@ textarea {
   font-size: 0.8rem;
   opacity: 0.7;
 }
+
+/* Reservar y reprogramar un servicio (GTM-001).
+   Comparte la forma con el selector de propina: los dos son una decisión del
+   checkout tomada sobre opciones cortas, y dos gramáticas distintas en la misma
+   pantalla obligan a releer la segunda. */
+.programar-selector {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+}
+.programar-opciones {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.programar-opcion {
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.14));
+  border-radius: 12px;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+.programar-opcion.activa {
+  border-color: #ff6a21;
+  background: rgba(255, 106, 33, 0.1);
+  font-weight: 700;
+}
+.programar-opcion:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.programar-campo {
+  display: grid;
+  gap: 6px;
+}
+.programar-campo input,
+.reprogramar-panel input {
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.14));
+  border-radius: 12px;
+  font: inherit;
+  width: 100%;
+}
+.programar-nota {
+  margin: 0;
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+/* Dentro de la tarjeta de actividad: secundario, porque la acción frecuente ahí
+   es seguir el pedido, no cambiarlo de hora. */
+.reprogramar-abrir {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.14));
+  border-radius: 10px;
+  background: none;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.reprogramar-panel {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+.reprogramar-acciones {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+}
+.reprogramar-acciones button {
+  min-height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.14));
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+.reprogramar-acciones .primary-button {
+  border-color: transparent;
+}

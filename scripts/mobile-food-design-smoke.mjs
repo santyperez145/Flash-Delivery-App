@@ -134,3 +134,24 @@ assert(
   "las opciones de propina son objetivos tactiles de 44px",
 );
 assert(contains(api, "tipCents?: number"), "la propina viaja a la API movil en centavos");
+
+// **Los topes de reserva del cliente son los del servidor.** Mismo riesgo que
+// con la propina: los dos clientes duplican la ventana para no ofrecer un
+// horario que el confirmar va a rechazar, y esa copia es lo que se desincroniza.
+// Los numeros se leen del servidor en vez de escribirse aca, para que este
+// contrato no pueda quedar viejo junto con el codigo que vigila.
+const reglaServidor = fs.readFileSync("server/scheduling.js", "utf8");
+const minimoServidor = reglaServidor.match(/MINUTOS_MINIMOS_DE_ANTICIPACION = (\d+)/)?.[1];
+const horizonteServidor = reglaServidor.match(/DIAS_MAXIMOS_DE_HORIZONTE = (\d+)/)?.[1];
+if (!minimoServidor || !horizonteServidor)
+  throw new Error("No se pudieron leer los topes de reserva del servidor");
+const programador = fs.readFileSync("apps/mobile/src/SchedulePicker.tsx", "utf8");
+assert(
+  contains(programador, `MINUTOS_MINIMOS = ${minimoServidor}`) &&
+    contains(programador, `DIAS_MAXIMOS = ${horizonteServidor}`),
+  "los topes de reserva del checkout movil son los mismos que aplica el servidor",
+);
+assert(
+  contains(app, "api.rescheduleJob") && contains(app, "SchedulePicker"),
+  "el checkout movil reserva horario y la lista de pedidos permite moverlo",
+);

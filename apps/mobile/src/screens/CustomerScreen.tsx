@@ -34,6 +34,7 @@ import { track } from "../analytics";
 import { api } from "../api";
 import { SubscriptionCard } from "../SubscriptionCard";
 import { TipSelector } from "../TipSelector";
+import { RescheduleControl, SchedulePicker } from "../SchedulePicker";
 import { flashDesign } from "../design-system";
 import FlashNativeMap from "../FlashNativeMap";
 import { mobileOrderStatusLabel, money, navigationInstruction } from "../format";
@@ -876,6 +877,8 @@ export function CustomerScreen({
   const [foodCheckoutQuote, setFoodCheckoutQuote] = useState<FoodCheckoutQuote | null>(null);
   // Propina del checkout (GTM-001). En centavos, como viaja a la API.
   const [foodTipCents, setFoodTipCents] = useState(0);
+  // Reserva de horario (GTM-001). `null` es «lo antes posible».
+  const [foodScheduledFor, setFoodScheduledFor] = useState<string | null>(null);
   const [selectedFoodPaymentId, setSelectedFoodPaymentId] = useState(
     () =>
       state.paymentMethods.find((method) => method.userId === user.id && method.isDefault)?.id ||
@@ -1609,6 +1612,7 @@ export function CustomerScreen({
         promotionCode: foodCheckoutQuote.promotionCode || undefined,
         quoteToken: foodCheckoutQuote.quoteToken,
         tipCents: foodTipCents,
+        scheduledFor: foodScheduledFor ?? undefined,
         items: foodCheckoutItems,
       });
       setLastCreatedOrder(result.order);
@@ -1616,8 +1620,10 @@ export function CustomerScreen({
       setFoodCheckoutQuote(null);
       setFoodPromotionCode("");
       // Sin esto la próxima compra arrancaría con la propina de la anterior ya
-      // elegida, que es cobrar sin preguntar.
+      // elegida, que es cobrar sin preguntar; y con el horario de la anterior,
+      // que es reservar sin preguntar.
       setFoodTipCents(0);
+      setFoodScheduledFor(null);
       setFoodScreen("orders");
       track("job_created", "customer_app", { service: "food" });
     }, "Pedido enviado al comercio");
@@ -3354,6 +3360,14 @@ export function CustomerScreen({
                     </Text>
                   </View>
                 </View>
+                {/* El horario antes que la propina: primero cuándo llega,
+                    después cuánto se deja. Al revés obligaría a repensar la
+                    propina tras descubrir que el pedido es para mañana. */}
+                <SchedulePicker
+                  scheduledFor={foodScheduledFor}
+                  onChange={setFoodScheduledFor}
+                  disabled={busy}
+                />
                 {/* Antes del bloque de seguridad y del botón de confirmar: la
                     propina se elige mirando el total, no después de darlo por
                     bueno. */}
@@ -3509,6 +3523,18 @@ export function CustomerScreen({
                         <Text style={styles.foodActiveOrderPrimaryText}>Ver seguimiento</Text>
                       </Pressable>
                     </View>
+                    {/* Sólo mientras nadie empezó. Después el comercio ya está
+                        cocinando o hay conductor en camino, y el servidor lo
+                        rechaza: ofrecerlo igual sería prometer un 409. */}
+                    {order.scheduledFor && ["requested", "accepted"].includes(order.status) ? (
+                      <RescheduleControl
+                        scheduledFor={order.scheduledFor}
+                        disabled={busy}
+                        onReschedule={(iso) =>
+                          runAction(() => api.rescheduleJob(order.id, iso), "Pedido reprogramado")
+                        }
+                      />
+                    ) : null}
                     {!["delivered", "cancelled"].includes(order.status) ? (
                       <Pressable
                         disabled={busy}

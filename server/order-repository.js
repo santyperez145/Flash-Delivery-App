@@ -106,7 +106,13 @@ function rowsToOrders(rows) {
         deliveryFee: Number(metadata.deliveryFee || 0),
         serviceFee: Number(metadata.serviceFee || 0),
         discount: Number(metadata.discount || 0),
+        subscriptionDiscount: Number(metadata.subscriptionDiscount || 0),
+        tip: Number(metadata.tip || 0),
         promotionCode: metadata.promotionCode || null,
+        // Se lee de la columna y no del metadata: reprogramar actualiza las dos,
+        // pero la columna es la que manda para el despacho, y una pantalla que
+        // mostrara el metadata podria prometer un horario que el despacho ignora.
+        scheduledFor: row.scheduled_for ? new Date(row.scheduled_for).toISOString() : null,
         total: pesos(row.final_amount_cents ?? row.quoted_amount_cents),
         etaMin: Number(metadata.etaMin ?? Math.round(row.estimated_duration_s / 60)),
         createdAt: new Date(row.created_at).toISOString(),
@@ -415,6 +421,7 @@ export async function createPostgresOrder({
   serviceFee,
   lockedQuote,
   tipCents = 0,
+  scheduledFor = null,
   idempotencyKey,
 }) {
   const client = await postgresPool.connect();
@@ -660,6 +667,7 @@ export async function createPostgresOrder({
       // Lo cobrado al cliente es `total + tip`. Guardar la propina aca es lo que
       // despues le permite a la liquidacion repartir sobre el total sin ella.
       tip: pesos(tipCents),
+      scheduledFor: scheduledFor || null,
       promotionCode: promotion?.code || null,
       etaMin: merchant.rows[0].branch_eta_min + travelMinutes,
       locationEstimated: false,
@@ -672,11 +680,19 @@ export async function createPostgresOrder({
     };
     const initialStatus = walletPayment ? "accepted" : "requested";
     const job = await client.query(
+      // `merchant_ready_due_at` cuenta desde el horario reservado, no desde
+      // ahora: un pedido para mañana con vencimiento de cocina para dentro de 20
+      // minutos aparece atrasado apenas se crea, y ensucia la métrica de
+      // demoras del comercio con trabajo que todavía no le toca hacer.
       `INSERT INTO jobs(public_id, kind, customer_id, merchant_id, branch_id, status, pickup_address, pickup_location,
         dropoff_address, dropoff_location, service_level, quoted_amount_cents, final_amount_cents,
-        distance_m, estimated_duration_s, payment_method_label, metadata, merchant_prep_minutes, merchant_ready_due_at)
+        distance_m, estimated_duration_s, payment_method_label, metadata, merchant_prep_minutes,
+        scheduled_for, merchant_ready_due_at)
        VALUES ($1, 'delivery', $2, $3, $4, $14, $5, $6, $7, $8, 'food', $9, $9, $10, $11, $12, $13, $15::smallint,
-         CASE WHEN $14::job_status='accepted' THEN now()+make_interval(mins=>$15::integer) ELSE NULL END)
+         $16::timestamptz,
+         CASE WHEN $14::job_status='accepted'
+           THEN COALESCE($16::timestamptz, now()) + make_interval(mins=>$15::integer)
+           ELSE NULL END)
        RETURNING id,
          ST_Y(pickup_location::geometry) AS pickup_lat,
          ST_X(pickup_location::geometry) AS pickup_lng,
@@ -698,6 +714,7 @@ export async function createPostgresOrder({
         metadata,
         initialStatus,
         Number(merchant.rows[0].branch_eta_min),
+        scheduledFor,
       ],
     );
     for (const { entry, item, selection, unitPriceCents } of snapshots) {
@@ -964,7 +981,12 @@ export async function processPostgresOrderMarketplacePayment({
       });
     if (decision.fulfill && context.status === "requested") {
       await client.query(
-        "UPDATE jobs SET status='accepted',merchant_ready_due_at=CASE WHEN merchant_prep_minutes IS NULL THEN NULL ELSE now()+make_interval(mins=>merchant_prep_minutes::integer) END,updated_at=now() WHERE id=$1",
+        // El vencimiento de cocina cuenta desde el horario reservado, no desde el
+        // cobro: un pedido programado que se paga hoy no se cocina hoy.
+        `UPDATE jobs SET status='accepted',
+           merchant_ready_due_at=CASE WHEN merchant_prep_minutes IS NULL THEN NULL
+             ELSE COALESCE(scheduled_for, now())+make_interval(mins=>merchant_prep_minutes::integer) END,
+           updated_at=now() WHERE id=$1`,
         [context.job_id],
       );
       await client.query(

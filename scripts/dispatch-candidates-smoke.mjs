@@ -99,3 +99,71 @@ ok("el dispatch no puede volver a quedarse sin recorte espacial");
 
 console.log("\nok - contrato de candidatos de dispatch verificado");
 console.log("     pendiente: EXPLAIN ANALYZE con padrón sintético y ETA vial por Route Matrix");
+
+// --- Reservas: cuándo entra un trabajo a la cola (GTM-001) -------------------
+//
+// La programación y el dispatch son la misma pregunta mirada desde dos lados:
+// cuándo un trabajo pasa a estar disponible. La ventana de reserva se afirma
+// acá y no en su propio archivo porque romperla rompe el dispatch, no la
+// pantalla.
+const { validarHorarioProgramado, MINUTOS_MINIMOS_DE_ANTICIPACION, DIAS_MAXIMOS_DE_HORIZONTE } =
+  await import("../server/scheduling.js");
+
+// `ahora` fijo: un caso sobre «justo 30 minutos» que dependiera del reloj real
+// pasaría o fallaría según cuánto tardó en correr el test.
+const AHORA = Date.UTC(2026, 7, 28, 12, 0, 0);
+const enMinutos = (minutos) => new Date(AHORA + minutos * 60_000).toISOString();
+
+assert.equal(
+  validarHorarioProgramado(enMinutos(MINUTOS_MINIMOS_DE_ANTICIPACION), AHORA),
+  null,
+  "justo en el mínimo de anticipación se acepta",
+);
+assert.ok(
+  validarHorarioProgramado(enMinutos(MINUTOS_MINIMOS_DE_ANTICIPACION - 1), AHORA),
+  "un minuto por debajo del mínimo se rechaza",
+);
+assert.equal(
+  validarHorarioProgramado(enMinutos(DIAS_MAXIMOS_DE_HORIZONTE * 24 * 60), AHORA),
+  null,
+  "justo en el horizonte máximo se acepta",
+);
+assert.ok(
+  validarHorarioProgramado(enMinutos(DIAS_MAXIMOS_DE_HORIZONTE * 24 * 60 + 1), AHORA),
+  "un minuto más allá del horizonte se rechaza",
+);
+assert.ok(validarHorarioProgramado("mañana a la tarde", AHORA), "una fecha inválida se rechaza");
+assert.ok(validarHorarioProgramado(enMinutos(-60), AHORA), "una fecha pasada se rechaza");
+ok("la ventana de reserva acepta y rechaza en los bordes exactos");
+
+// **Una sola copia de la ventana.** Vivía escrita a mano en el router de viajes
+// y era la única parte del producto que sabía reservar; al programar pedidos de
+// comida, una segunda copia habría divergido en silencio.
+const routers = await Promise.all(
+  [
+    "server/http/ride-router.js",
+    "server/http/order-router.js",
+    "server/http/job-closure-router.js",
+  ].map((ruta) => fs.readFile(ruta, "utf8")),
+);
+for (const [indice, fuente] of routers.entries()) {
+  assert.ok(
+    fuente.includes("validarHorarioProgramado"),
+    `el router ${indice} valida la reserva con la regla compartida`,
+  );
+  assert.ok(
+    !/30 \* 60 \* 1000/.test(fuente),
+    `el router ${indice} no volvió a escribir la ventana a mano`,
+  );
+}
+ok("las tres rutas que tocan horarios usan la misma ventana, sin copias");
+
+// El dispatch sigue ignorando lo que todavía no entra en ventana. Si esto se
+// perdiera, un pedido reservado para la semana que viene se ofrecería hoy.
+const dispatch = await fs.readFile("server/dispatch-repository.js", "utf8");
+const ventanas = dispatch.match(/scheduled_for IS NULL OR j\.scheduled_for<=now\(\)/g) || [];
+assert.ok(
+  ventanas.length >= 4,
+  `el dispatch dejó de filtrar reservas futuras (${ventanas.length} filtros)`,
+);
+ok("el dispatch sigue sin ofrecer trabajos reservados fuera de ventana");

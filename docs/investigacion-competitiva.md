@@ -107,7 +107,7 @@ Lo que sigue se verificó contra el código y las migraciones, no contra la memo
 
 ### Lo que falta para competir, y no es técnico
 
-Cuatro huecos con nombre. Los dos primeros **están cerrados desde el 28 de agosto**; quedan dos.
+Cuatro huecos con nombre. **Tres están cerrados al 28 de agosto**; queda uno: los pedidos grupales.
 
 **1. ~~No hay producto de suscripción.~~ Hay uno: *Flash Más*.** Uber One, DashPass y
 PedidosYa Plus son el motor de retención y de margen de la categoría, y era el hueco que
@@ -150,8 +150,20 @@ no suba cuando sube el envío o la tarifa de servicio.
 **3. No hay pedidos grupales.** Uber Eats, DoorDash y Rappi los tienen. Es la vía natural
 al ticket promedio alto y al pedido de oficina.
 
-**4. Un pedido programado no se puede reprogramar.** Existe `scheduled_for` y no existe el
-camino para moverlo, así que hoy la salida es cancelar y volver a pedir.
+**4. ~~Un pedido programado no se puede reprogramar.~~ Ahora se programa y se mueve.** El
+hueco era más grande de lo que decía su nombre: **un pedido de comida no se podía programar
+en absoluto.** `scheduled_for` existía desde la primera migración y sólo lo escribía el alta
+de viajes, mientras la portada prometía «Programar · Food o taxi».
+
+Hoy el checkout reserva horario en las dos plataformas, y `PATCH /api/jobs/:id/schedule` lo
+mueve —pedido o viaje, la misma ruta— mientras nadie haya empezado. Después no: mover la
+hora cuando el comercio ya está cocinando tira comida, y con conductor asignado le hace
+perder el viaje a alguien que se comprometió. Ahí la salida correcta es cancelar con su
+política, no mover la hora como si no hubiera costado nada.
+
+El detalle que la categoría suele resolver mal: **una reserva no es trabajo activo.** Las
+reservas fuera de ventana salen de la cola del comercio y de su métrica de demora, y se
+cuentan aparte para que pueda planificar el turno.
 
 ### Lo que Flash tiene y no es habitual a esta altura
 

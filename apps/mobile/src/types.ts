@@ -121,6 +121,8 @@ export type Order = {
   pickupLocation?: GeoPoint | null;
   deliveryLocation?: GeoPoint | null;
   paymentMethod?: string;
+  /** Horario reservado. `null` es «lo antes posible». */
+  scheduledFor?: string | null;
   total: number;
   etaMin: number;
   createdAt?: string;

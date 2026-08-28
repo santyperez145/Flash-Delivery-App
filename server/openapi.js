@@ -526,6 +526,52 @@ Object.assign(openApiDocument.paths, {
   // Suscripcion de Flash (GTM-001). Va en el contrato publico porque es una
   // relacion recurrente con la persona: quien integre o audite la API tiene que
   // poder ver que se cobra, que devuelve y como se da de baja.
+  // Mover el horario de un servicio reservado (GTM-001). Vale para pedidos y
+  // viajes: los dos son trabajos con horario, y una ruta por servicio serian dos
+  // versiones de la misma politica de cuando se puede mover algo.
+  "/api/jobs/{jobId}/schedule": {
+    patch: {
+      tags: ["Commerce"],
+      operationId: "rescheduleJob",
+      summary: "Mover el horario de un servicio reservado",
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        { name: "jobId", in: "path", required: true, schema: { type: "string", maxLength: 100 } },
+      ],
+      requestBody: body("RescheduleRequest"),
+      responses: {
+        200: success({
+          type: "object",
+          required: ["job"],
+          properties: {
+            job: {
+              type: "object",
+              required: ["id", "scheduledFor", "previousScheduledFor"],
+              properties: {
+                id: { type: "string" },
+                kind: { type: "string" },
+                status: { type: "string" },
+                // Se devuelve el horario anterior: quien reprograma tiene que
+                // poder ver desde donde se movio, y sin esto la pantalla tendria
+                // que recordarlo por su cuenta.
+                previousScheduledFor: { type: "string", format: "date-time" },
+                scheduledFor: { type: "string", format: "date-time" },
+                version: { type: "integer" },
+              },
+            },
+          },
+        }),
+        ...bearerErrors,
+        // 409, no 403: el servicio es tuyo y existe, lo que ya no se puede es
+        // moverlo. El comercio empezo a cocinar o hay un conductor en camino, y
+        // ahi la salida correcta es cancelar con su politica, no mover la hora.
+        409: {
+          description: "El servicio no esta reservado o ya esta en curso",
+          content: json,
+        },
+      },
+    },
+  },
   "/api/subscription/plans": {
     get: {
       tags: ["Commerce"],
@@ -1529,6 +1575,14 @@ Object.assign(openApiDocument.components.schemas, {
       },
     ],
   },
+  RescheduleRequest: {
+    type: "object",
+    required: ["scheduledFor"],
+    // La ventana la aplica `server/scheduling.js`: al menos 30 minutos de
+    // anticipacion —lo que tarda el despacho en conseguir a alguien— y hasta 30
+    // dias —mas alla el precio cotizado deja de significar algo—.
+    properties: { scheduledFor: { type: "string", format: "date-time" } },
+  },
   SubscribeRequest: {
     type: "object",
     required: ["planKey"],
@@ -1587,6 +1641,10 @@ Object.assign(openApiDocument.components.schemas, {
           // hasta que hay conductor y el servicio se completa. Si el pedido se
           // reintegra, vuelve entera.
           tipCents: { type: "integer", minimum: 0, maximum: 10000000, default: 0 },
+          // Reserva de horario (GTM-001). Ausente es «lo antes posible». Los
+          // pedidos de comida no se podian programar: `jobs.scheduled_for`
+          // existia desde la migracion 001 y solo lo escribia el alta de viajes.
+          scheduledFor: { type: "string", format: "date-time" },
           providerPayment: { $ref: "#/components/schemas/ProviderPaymentInput" },
         },
       },

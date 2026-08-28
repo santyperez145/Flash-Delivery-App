@@ -453,7 +453,7 @@ Al 28 de agosto la paridad funcional con Uber Eats, DoorDash, Rappi y PedidosYa 
 
 Quedan **cuatro huecos**, y ninguno es de ingeniería: son decisiones de producto comercial. Vivían sólo en el documento de investigación, que es exactamente cómo H-10 se perdió un mes sin dueño.
 
-> **Al 28 de agosto:** los dos primeros —la suscripción y la propina en el checkout— están construidos y cableados en sus dos extremos. Quedan dos: pedidos grupales y reprogramar un pedido programado.
+> **Al 28 de agosto:** tres de los cuatro están construidos y cableados en sus dos extremos: la suscripción, la propina en el checkout y la reserva de horario con su reprogramación. Queda uno: pedidos grupales.
 
 ### Criterios de aceptación
 
@@ -468,7 +468,11 @@ Quedan **cuatro huecos**, y ninguno es de ingeniería: son decisiones de product
   - **Los porcentajes se calculan sobre el subtotal, no sobre el total.** Sobre el total, la propina subiría cuando sube el envío o la tarifa de servicio, que no tienen nada que ver con quien reparte.
   - **Los topes del cliente son los del servidor, y hay una puerta que lo vigila.** `test:web-checkout` y `test:mobile-food-design` leen el piso, el techo y la proporción del propio `tip-repository.js`: si el servidor cambia y el cliente no, la pantalla ofrecería un botón que devuelve 409.
 - [ ] **Existen pedidos grupales.** Vía natural al ticket promedio alto y al pedido de oficina.
-- [ ] **Un pedido programado se puede reprogramar.** `jobs.scheduled_for` existe y no hay camino para moverlo: hoy la única salida es cancelar y volver a pedir, que además penaliza al cliente.
+- [x] **Un pedido programado se puede reprogramar.** Migración 127, y el criterio resultó ser dos cosas.
+  - **Los pedidos de comida no se podían programar en absoluto.** `jobs.scheduled_for` existía desde la migración 001 y **sólo lo escribía el alta de viajes** — mientras la portada del cliente prometía «Programar · Food o taxi» desde antes de que existiera la mitad de comida de esa promesa. Ahora el checkout reserva horario en web y móvil.
+  - **`PATCH /api/jobs/:id/schedule` mueve el horario**, de un pedido o de un viaje: los dos son filas de `jobs` con horario, y una ruta por servicio serían dos versiones de la misma política. Sólo en `requested` o `accepted` y sin conductor asignado; después, mover la hora tira comida o le hace perder el viaje a alguien que se comprometió, y ahí la salida correcta es cancelar con su política.
+  - **La ventana de reserva dejó de estar duplicada.** Vivía escrita a mano dentro del router de viajes; ahora es `server/scheduling.js` y la usan las tres rutas que tocan horarios. `test:dispatch-candidates` afirma los cuatro bordes exactos y que ningún router vuelva a escribirla a mano.
+  - **Una reserva ya no ensucia la cola del comercio.** `merchant_ready_due_at` cuenta desde el horario reservado y no desde el cobro; las reservas fuera de ventana salen de `activeOrders` y de `oldestActiveMinutes` —una reserva para la semana que viene aparecía como un pedido de siete días de antigüedad y disparaba la alarma de demora— y se publican aparte en `scheduledAhead`, para que el comercio pueda planificar sin que le cuenten como trabajo pendiente.
 
 ### Nota de alcance
 

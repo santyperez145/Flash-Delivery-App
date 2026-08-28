@@ -14,6 +14,7 @@
 // [`../ui/panels.tsx`](../ui/panels.tsx). El criterio fue contar usos por zona,
 // no leer nombres.
 import { lazy, Suspense, useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import type { ComponentType } from "react";
 import {
   ArrowLeft,
@@ -58,6 +59,7 @@ import type { LucideIcon } from "lucide-react";
 import { api } from "../api";
 import { Beneficios, SubscriptionPanel, useSubscription } from "./SubscriptionPanel";
 import { TipSelector } from "./TipSelector";
+import { RescheduleControl, SchedulePicker } from "./SchedulePicker";
 import { allergenOptions, dietOptions, itemMatchesDietary } from "../dietary";
 import { initials, money } from "../format";
 import {
@@ -1192,7 +1194,20 @@ function CustomerActivity({
                 : undefined
             }
             disabled={busy}
-          />
+          >
+            {/* Sólo mientras nadie empezó. Después el comercio ya está cocinando
+                o hay un conductor en camino, y el servidor lo rechaza: ofrecer
+                el botón igual sería prometer algo que devuelve 409. */}
+            {order.scheduledFor && ["requested", "accepted"].includes(order.status) && (
+              <RescheduleControl
+                scheduledFor={order.scheduledFor}
+                disabled={busy}
+                onReschedule={(iso) =>
+                  runAction(() => api.rescheduleJob(order.id, iso), "Pedido reprogramado")
+                }
+              />
+            )}
+          </StatusCard>
         );
       })}
       <SectionTitle title="Viajes" />
@@ -2739,6 +2754,9 @@ function CartScreen({
   );
   // Propina del checkout (GTM-001). En centavos, como viaja a la API.
   const [tipCents, setTipCents] = useState(0);
+  // Reserva de horario (GTM-001). `null` es «lo antes posible», que es el camino
+  // normal y por eso es el valor inicial.
+  const [scheduledFor, setScheduledFor] = useState<string | null>(null);
   const [checkoutQuote, setCheckoutQuote] = useState<FoodCheckoutQuote | null>(null),
     [quoteBusy, setQuoteBusy] = useState(false),
     [quoteError, setQuoteError] = useState(""),
@@ -2868,6 +2886,7 @@ function CartScreen({
           paymentMethodId: checkoutQuote.paymentMethodId || undefined,
           quoteToken: checkoutQuote.quoteToken,
           tipCents,
+          scheduledFor,
         }
       : null;
   // Los mismos topes que aplica el servidor. Duplicarlos acá evita ofrecer un
@@ -3114,6 +3133,16 @@ function CartScreen({
           {/* Antes del resumen, para que el total que se lee ya incluya lo que
               se acaba de elegir. Después del total sería pedir una decisión que
               cambia una cifra que la persona ya dio por buena. */}
+          {/* El horario antes que la propina: primero cuándo llega, después
+              cuánto se deja. Al revés obligaría a repensar la propina después de
+              descubrir que el pedido es para mañana. */}
+          {checkoutOpen && checkoutQuote && (
+            <SchedulePicker
+              scheduledFor={scheduledFor}
+              onChange={setScheduledFor}
+              disabled={busy || quoteBusy}
+            />
+          )}
           {checkoutOpen && checkoutQuote && (
             <TipSelector
               subtotal={checkoutQuote.subtotal}
@@ -3584,6 +3613,7 @@ function StatusCard({
   secondaryActionLabel,
   onSecondaryAction,
   disabled,
+  children,
 }: {
   icon: LucideIcon;
   title: string;
@@ -3595,6 +3625,9 @@ function StatusCard({
   secondaryActionLabel?: string;
   onSecondaryAction?: () => void;
   disabled: boolean;
+  /** Controles propios del servicio, debajo del cuerpo y encima de las acciones.
+   *  Hoy: reprogramar una reserva. */
+  children?: ReactNode;
 }) {
   return (
     <article className="status-card">
@@ -3607,6 +3640,7 @@ function StatusCard({
         <small>
           {status} · {money.format(amount)}
         </small>
+        {children}
       </div>
       {(actionLabel || secondaryActionLabel) && (
         <div className="status-card-actions">

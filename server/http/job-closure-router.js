@@ -31,10 +31,13 @@ import {
   requestTipAdjustment,
   reviewTipAdjustment,
 } from "../tip-repository.js";
+import { reschedulePostgresJob } from "../schedule-repository.js";
+import { validarHorarioProgramado } from "../scheduling.js";
 
 const tipSchema = z.object({
   amount: z.coerce.number().int().min(100).max(100000),
 });
+const rescheduleSchema = z.object({ scheduledFor: z.string().datetime() });
 const tipAdjustmentRequestSchema = z.object({
   tipId: z.string().trim().min(8).max(80),
   amount: z.coerce.number().positive().max(100000),
@@ -201,6 +204,62 @@ router.get(
       return ok(res, { receipt: result.receipt });
     } catch (error) {
       return failFrom(res, error, "No se pudo obtener el comprobante");
+    }
+  },
+);
+
+/**
+ * Mover el horario de un servicio reservado (GTM-001).
+ *
+ * Vive en este router aunque no sea un cierre: cuelga de `/api/jobs/:jobId` como
+ * el resto, y vale igual para un pedido y para un viaje. Meterla en el router de
+ * pedidos obligaría a escribirla dos veces, una por servicio, con dos versiones
+ * de la misma política de cuándo se puede mover algo.
+ *
+ * **`PATCH` y no `POST`**: cambia un campo de un recurso que ya existe. Un POST
+ * sugeriría que se crea otra reserva, que es justo lo que esto viene a evitar.
+ */
+router.patch(
+  "/api/jobs/:jobId/schedule",
+  requireAuth,
+  requireAnyRole("customer", "admin"),
+  async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "Reprogramar un servicio requiere PostgreSQL");
+    const parsed = parseOrFail(rescheduleSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    // La misma ventana que valida el alta. Una segunda copia acá dejaría crear
+    // reservas que no se pueden mover, o mover reservas a horarios que el alta
+    // habría rechazado.
+    const invalido = validarHorarioProgramado(parsed.data.scheduledFor);
+    if (invalido) return fail(res, 400, invalido);
+    try {
+      const job = await reschedulePostgresJob({
+        jobPublicId: req.params.jobId,
+        actorPublicId: req.auth.userId,
+        admin: isAdmin(req),
+        scheduledFor: parsed.data.scheduledFor,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "job.rescheduled",
+        entityType: "job",
+        entityId: req.params.jobId,
+        requestId: req.requestId,
+        beforeData: { scheduledFor: job.previousScheduledFor },
+        afterData: { scheduledFor: job.scheduledFor },
+      });
+      await publishRealtimeEvent({
+        req,
+        type: "job.updated",
+        entityType: "job",
+        entityId: req.params.jobId,
+        action: "service.rescheduled",
+      });
+      return ok(res, { job });
+    } catch (error) {
+      return failFrom(res, error, "No se pudo reprogramar el servicio");
     }
   },
 );

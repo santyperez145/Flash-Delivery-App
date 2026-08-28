@@ -689,6 +689,22 @@ export const api = {
       method: "DELETE",
     });
   },
+  // Mover el horario de un servicio reservado (GTM-001). Vale para pedidos y
+  // viajes: los dos son trabajos con horario, y la ruta es la misma.
+  async rescheduleJob(jobId: string, scheduledFor: string) {
+    return request<{
+      job: {
+        id: string;
+        kind: string;
+        status: string;
+        previousScheduledFor: string;
+        scheduledFor: string;
+      };
+    }>(`/jobs/${jobId}/schedule`, {
+      method: "PATCH",
+      body: JSON.stringify({ scheduledFor }),
+    });
+  },
   async createOrder(payload: {
     customerId: string;
     restaurantId: string;
@@ -703,6 +719,8 @@ export const api = {
     // Propina del checkout (GTM-001), en centavos y entera: en pesos con
     // decimales cada cliente redondea distinto, y esto es dinero.
     tipCents?: number;
+    /** Reserva de horario en ISO. Ausente es «lo antes posible». */
+    scheduledFor?: string;
     items: Array<{ menuItemId: string; quantity: number; extras: string[]; note: string }>;
   }) {
     if (!payload.deliveryAddressId)

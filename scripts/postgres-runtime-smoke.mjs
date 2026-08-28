@@ -1464,6 +1464,54 @@ try {
       scheduledStored.rows[0]?.reminders === 1,
     "scheduled ride persists without dispatch and creates a reminder",
   );
+  // Reprogramar (GTM-001). Hasta ahora nada podia mover un horario: la unica
+  // salida era cancelar y volver a pedir, que ademas le cuenta la cancelacion al
+  // cliente. Se prueba sobre el viaje reservado porque ya existe y ya esta fuera
+  // de ventana, que es justo el estado en el que mover la hora es legitimo.
+  const nuevoHorario = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString();
+  const reprogramado = await request(`/jobs/${scheduledRideId}/schedule`, {
+    method: "PATCH",
+    body: JSON.stringify({ scheduledFor: nuevoHorario }),
+  });
+  const horarioEnBase = (
+    await pool.query("SELECT scheduled_for FROM jobs WHERE public_id=$1", [scheduledRideId])
+  ).rows[0];
+  assert(
+    reprogramado.status === 200 &&
+      reprogramado.body.job.scheduledFor === nuevoHorario &&
+      // El horario anterior viaja en la respuesta: quien reprograma tiene que
+      // poder ver desde donde se movio, y la auditoria lo necesita para el
+      // `beforeData`.
+      reprogramado.body.job.previousScheduledFor === scheduledFor &&
+      new Date(horarioEnBase.scheduled_for).toISOString() === nuevoHorario,
+    "reprogramar mueve el horario reservado y devuelve el anterior",
+  );
+  assert(
+    Number(
+      (
+        await pool.query(
+          `SELECT count(*)::int count FROM job_events e JOIN jobs j ON j.id=e.job_id
+           WHERE j.public_id=$1 AND e.payload->>'rescheduledFrom' IS NOT NULL`,
+          [scheduledRideId],
+        )
+      ).rows[0].count,
+    ) === 1,
+    "el cambio de horario queda en la linea de tiempo del servicio, no solo en auditoria",
+  );
+  // Las dos mitades del rechazo, que es donde vive el dinero: un servicio sin
+  // reserva no se puede "mover", y un horario fuera de la ventana no se acepta.
+  const sinReserva = await request(`/jobs/${orderId}/schedule`, {
+    method: "PATCH",
+    body: JSON.stringify({ scheduledFor: nuevoHorario }),
+  });
+  const fueraDeVentana = await request(`/jobs/${scheduledRideId}/schedule`, {
+    method: "PATCH",
+    body: JSON.stringify({ scheduledFor: new Date(Date.now() + 5 * 60 * 1000).toISOString() }),
+  });
+  assert(
+    sinReserva.status === 409 && fueraDeVentana.status === 400,
+    "no se reprograma un servicio sin reserva ni a un horario fuera de la ventana",
+  );
   await pool.query(
     "UPDATE jobs SET scheduled_for=now()+interval '10 minutes',metadata=metadata-'dispatchNextAttemptAt' WHERE public_id=$1",
     [scheduledRideId],
@@ -1478,6 +1526,18 @@ try {
     ).rows[0].count,
   );
   assert(activatedOffers > 0, "scheduled ride enters dispatch inside the lead window");
+  // Con oferta pendiente el viaje sigue sin conductor, asi que todavia se puede
+  // mover; lo que no se puede es moverlo despues, y eso lo cubre el estado. Aca
+  // se afirma que la ventana sigue mandando aunque ya este en despacho: un
+  // horario a cinco minutos no se acepta ni siquiera cuando el trabajo ya entro.
+  const enDespachoFueraDeVentana = await request(`/jobs/${scheduledRideId}/schedule`, {
+    method: "PATCH",
+    body: JSON.stringify({ scheduledFor: new Date(Date.now() + 60 * 1000).toISOString() }),
+  });
+  assert(
+    enDespachoFueraDeVentana.status === 400,
+    "un trabajo ya en despacho tampoco se mueve a un horario invalido",
+  );
   const cancelledScheduled = await request(`/rides/${scheduledRideId}/status`, {
     method: "PATCH",
     body: JSON.stringify({ status: "cancelled", reason: "changed_mind" }),
