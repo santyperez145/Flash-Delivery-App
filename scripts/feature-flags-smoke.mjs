@@ -45,11 +45,16 @@ try {
   const customerToken = await login("cliente@flash.app");
   adminToken = await login("ops@flash.app");
   const customer = await call("/features", { token: customerToken });
+  // Esto comprueba que la evaluación devuelve los flags habilitados, no que el
+  // gate funcione: hasta la migración 124 `public_rides` estaba apagado y servía
+  // de ejemplo de flag cerrado, pero era un valor del sembrado y el sembrado
+  // cambia por decisión de producto. La propiedad del gate se prueba más abajo
+  // bajando `delivery_beta` a rollout 0, que no depende de ningún valor sembrado.
   assert(
     customer.response.status === 200 &&
       customer.body.features.delivery_beta.active === true &&
-      customer.body.features.public_rides.active === false,
-    "La evaluación inicial no respeta los gates",
+      customer.body.features.public_rides.active === true,
+    "La evaluación inicial no devuelve los flags habilitados",
   );
   assert(
     !JSON.stringify(customer.body).includes("rolloutPercentage") &&
