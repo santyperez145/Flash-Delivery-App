@@ -265,10 +265,45 @@ export function canReceiveRealtimeEvent(event, { userPublicId, roles }) {
   );
 }
 
+/**
+ * Estado observable del escucha de eventos.
+ *
+ * **Existe porque una escucha muerta no se nota.** El listener se reconecta solo
+ * cada segundo, y esa resiliencia es justamente lo que la hace silenciosa: una
+ * instancia que no logra escuchar nunca —porque le estrangularon la CPU, o
+ * porque la conexion pasa por un pooler en modo transaccion, donde `LISTEN` no
+ * sobrevive— sigue respondiendo, sigue aceptando clientes SSE, y no entrega
+ * nada. Es la misma forma de falla que los lotes sin planificador: algo que
+ * existe, no corre, y no falla.
+ *
+ * `intentosFallidos` es lo que distingue un parpadeo de una imposibilidad. Un
+ * reintento suelto es normal; treinta seguidos significan que esta conexion no
+ * puede escuchar, y eso hay que decirlo en vez de esperar a que alguien note que
+ * el tracking dejo de moverse.
+ */
+const estadoDelEscucha = {
+  conectado: false,
+  desde: null,
+  intentosFallidos: 0,
+};
+
+export function realtimeListenerReadiness() {
+  return {
+    listening: estadoDelEscucha.conectado,
+    since: estadoDelEscucha.desde,
+    failedAttempts: estadoDelEscucha.intentosFallidos,
+  };
+}
+
 export async function startPostgresRealtimeListener(onEvent) {
   let stopped = false,
     client = null,
     retry = null;
+  const caido = () => {
+    estadoDelEscucha.conectado = false;
+    estadoDelEscucha.desde = null;
+    estadoDelEscucha.intentosFallidos += 1;
+  };
   const connect = async () => {
     if (stopped) return;
     try {
@@ -279,12 +314,20 @@ export async function startPostgresRealtimeListener(onEvent) {
         if (event) onEvent(event);
       });
       client.on("error", () => {
+        caido();
         client?.release(true);
         client = null;
         if (!stopped) retry = setTimeout(connect, 1000);
       });
       await client.query("LISTEN flash_realtime");
+      // Se marca conectado **despues** del LISTEN, no despues del connect: una
+      // conexion abierta que no puede suscribirse es exactamente el caso del
+      // pooler en modo transaccion, y darla por buena seria mentir en verde.
+      estadoDelEscucha.conectado = true;
+      estadoDelEscucha.desde = new Date().toISOString();
+      estadoDelEscucha.intentosFallidos = 0;
     } catch (_error) {
+      caido();
       client?.release(true);
       client = null;
       if (!stopped) retry = setTimeout(connect, 1000);
@@ -294,6 +337,8 @@ export async function startPostgresRealtimeListener(onEvent) {
   return async () => {
     stopped = true;
     if (retry) clearTimeout(retry);
+    estadoDelEscucha.conectado = false;
+    estadoDelEscucha.desde = null;
     if (client) {
       await client.query("UNLISTEN flash_realtime").catch(() => {});
       client.release();
