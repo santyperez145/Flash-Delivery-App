@@ -41,10 +41,11 @@ export async function setMerchantStatus({ merchantPublicId, status, reason }) {
     if (comercio.status === status)
       throw Object.assign(new Error(`El comercio ya está ${status}`), { status: 409 });
 
-    await client.query("UPDATE merchants SET status=$2, updated_at=now() WHERE id=$1", [
-      comercio.id,
-      status,
-    ]);
+    // Sin `updated_at`: **la tabla `merchants` no la tiene.** Lo descubrio CI con
+    // un 500, y no lo atrapa `test:module-references`, que verifica que las
+    // tablas existan y no que las columnas existan. Cuando cambio el estado
+    // queda en el evento de auditoria, que es donde se lo busca.
+    await client.query("UPDATE merchants SET status=$2 WHERE id=$1", [comercio.id, status]);
     const enCurso = Number(
       (
         await client.query(

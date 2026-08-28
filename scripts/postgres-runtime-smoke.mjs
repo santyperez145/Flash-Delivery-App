@@ -2065,6 +2065,25 @@ try {
     ) === 0,
     "suspender no cancela los pedidos que ya estaban en curso",
   );
+  // El tablero de colas, contra la base de verdad.
+  //
+  // **Su consulta nunca se habia ejecutado.** Son doce subconsultas unidas por
+  // `UNION ALL` sobre doce tablas, escritas sin base local: un solo nombre de
+  // columna equivocado rompe la consulta entera, y ninguna puerta estatica mira
+  // columnas. Llamarlo una vez desde el smoke es lo que convierte eso en una
+  // falla de CI en vez de un 500 en produccion.
+  const colas = await request("/operations/work-queues");
+  assert(
+    colas.status === 200 &&
+      colas.body.queues?.length === 12 &&
+      colas.body.queues.every(
+        (cola) => typeof cola.pending === "number" && typeof cola.oldestMinutes === "number",
+      ) &&
+      // La cola de despacho existe y se mide con el mismo predicado que el lote.
+      colas.body.queues.some((cola) => cola.key === "dispatch"),
+    "el tablero de colas responde las doce colas con profundidad y antiguedad",
+  );
+
   token = opsLoginSuspension.body.token;
   const reactivacionComercio = await request("/admin/merchants/rest_roja/status", {
     method: "PATCH",
