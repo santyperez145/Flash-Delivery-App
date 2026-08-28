@@ -401,7 +401,11 @@ La medida inicial: **114 permisos de más en 86 tablas**, sobre 98 con escritura
 
 El primer lote (migración 122) quitó **16**, todos de tablas que se escriben una vez y no se tocan más: el libro contable, los registros de eventos, los cobros y los reintegros. Pasan a ser **append-only para el runtime**.
 
-El segundo (migración 123) quitó **27**, la misma idea aplicada a lo que el producto anota porque pasó: un mensaje enviado, una propina dada, un pedido cancelado, una incidencia reportada. Ninguna de esas filas se corrige editándola; si algo estuvo mal, corresponde otra fila que lo diga, que además es lo único que deja rastro de que hubo una corrección.
+El segundo (migración 123) quitó **26**, la misma idea aplicada a lo que el producto anota porque pasó: un mensaje enviado, una propina dada, un pedido cancelado, una incidencia reportada. Ninguna de esas filas se corrige editándola; si algo estuvo mal, corresponde otra fila que lo diga, que además es lo único que deja rastro de que hubo una corrección.
+
+Ese lote enseñó además la **tercera forma de permiso implícito**, después de los triggers y de `ON CONFLICT DO UPDATE`: un `SELECT ... FOR UPDATE` exige el permiso UPDATE, porque PostgreSQL lo pide para tomar el candado de fila. La encontró `test:tip-adjustments` al ponerse roja — que es exactamente para lo que se acota de a lotes con la suite corriendo como `flash_runtime`.
+
+La herramienta la aprendió, y con un matiz que costó una iteración: sólo cuentan las tablas del nivel exterior. Buscar el `SELECT` más cercano hacia atrás devuelve el de la subconsulta, y `mobility-repository.js` lee `schema_migrations` dentro de un subselect de una sentencia con `FOR UPDATE`. Darla por bloqueada habría conservado la escritura sobre el registro de migraciones — justo el hallazgo que sigue.
 
 Ese lote incluyó el hallazgo más serio del inventario: **`flash_runtime` tenía INSERT, UPDATE y DELETE sobre `schema_migrations`**, el registro de qué migraciones se aplicaron. Con eso, un handler comprometido podía declarar aplicada una migración que no corrió, o borrar el rastro de una que sí — y tanto el despliegue como el ensayo de restore, que compara ese registro contra los archivos del repositorio, descansan en que diga la verdad.
 
