@@ -57,6 +57,23 @@ assert(
 );
 
 assert(
+  contains(mobile, "export function CustomerTrackingProgress") &&
+    contains(mobile, 'activeColor="#ff6a21"') &&
+    contains(mobile, 'activeColor="#7c3cff"') &&
+    contains(mobile, 'activeColor="#087a50"') &&
+    (mobile.match(/<CustomerTrackingProgress\b/g) || []).length === 3 &&
+    !contains(mobile, "trackingStageDotActive"),
+  "food, ride and shipment timelines share one accessible component with vertical accents",
+);
+
+assert(
+  contains(mobile, "Abrir seguimiento del pedido") &&
+    contains(mobile, "Abrir seguimiento del viaje") &&
+    contains(mobile, "Abrir seguimiento del envío"),
+  "activity tracking cards expose named button semantics across all three verticals",
+);
+
+assert(
   ["foodBottomNav", "merchantBottomNav", "driverBottomNav"].every((name) =>
     contains(mobile, `${name}:`),
   ) &&

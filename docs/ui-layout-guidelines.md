@@ -84,7 +84,11 @@ Una ventana redimensionable debe poder atravesarlos sin recargar ni perder estad
   permanece fijo al pie.
 - Checkout y cotizadores son una secuencia vertical; resumen y CTA no compiten
   con el teclado.
-- Tracking usa mapa + hoja de estado y conserva chat/seguridad accesibles.
+- Tracking usa mapa + hoja de estado y conserva chat/seguridad accesibles. El
+  timeline comparte estructura, pero usa el acento de su vertical y anuncia cada
+  etapa como completada, actual o pendiente; el color nunca es la única señal.
+  Las cards que lo abren son botones nombrados por servicio, no contenedores
+  enfocables sin rol.
 
 ### Driver
 

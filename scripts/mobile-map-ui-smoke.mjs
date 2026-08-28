@@ -124,6 +124,12 @@ assert(
   "customer ride tracking keeps map and ETA but never exposes driving maneuvers",
 );
 assert(
+  contains(app, "activityOrders.find((order) => order.id === trackingOrderId") &&
+    contains(app, "activityRides.find((ride) => ride.id === trackingRideId") &&
+    contains(app, "activityShipments.find((shipment) => shipment.id === trackingShipmentId"),
+  "activity opens tracking from the paginated resource the customer selected",
+);
+assert(
   contains(app, "defaultLocationSeededForUser") &&
     contains(app, "setPickupCoords(point)") &&
     contains(app, "setShipmentPickupCoords(point)"),

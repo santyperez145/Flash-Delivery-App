@@ -184,8 +184,8 @@ prueba física pendiente conserva `[~]`.
   hardcodeados cuando exista contrato backend.
 - [~] Consolidar cards, app bars, chips, sheets, estados y navegación: Home de
   Comidas ya consume tokens y componentes locales; tracking de comida, viaje,
-  envío y chat ya comparten marco modal con safe area/teclado; faltan cards,
-  app bars y chips.
+  envío y chat ya comparten marco modal con safe area/teclado y un timeline
+  accesible por vertical; faltan cards, app bars y chips.
 - [ ] Completar la misma base en Actividad, Cuenta, Viajes y Envíos.
 
 ### P1 — apps operativas
@@ -333,3 +333,17 @@ Una pantalla sólo pasa a `[x]` cuando:
 - El contrato responsive trinqueta cuatro consumidores, safe area y
   `KeyboardAvoidingView`. Continúa `[~]` hasta probar teclado, gestos y Dynamic
   Type en builds Android/iOS físicos, como exige este roadmap.
+
+### 28 de agosto de 2026 — Timeline de tracking por vertical
+
+- Comida, Viajes y Envíos dejan de duplicar el timeline y de heredar el naranja
+  de Comidas. `CustomerTrackingProgress` aplica Food, Ride o Shipment sin cambiar
+  la máquina de estados recibida del backend.
+- Cada etapa anuncia posición, etiqueta y condición —completada, actual o
+  pendiente— para que el color no sea la única señal de progreso.
+- El contrato responsive trinqueta los tres consumidores y elimina el estilo
+  naranja global que permitía volver a mezclar identidades visuales.
+- La prueba Chromium abrió un pedido activo desde `Actividad` y reveló que la
+  card paginada podía no existir en el bootstrap inicial. Las tres hojas resuelven
+  ahora el recurso paginado seleccionado; comida, viaje y envío dejan de ser
+  cards enfocables sin rol y se anuncian como botones de seguimiento.

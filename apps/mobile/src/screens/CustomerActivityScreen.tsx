@@ -133,7 +133,12 @@ export function CustomerActivityScreen({
       )}
       {activeOrders.map((order) => (
         <View key={order.id} style={styles.stack}>
-          <Pressable style={styles.activityCard} onPress={() => onTrackOrder(order.id)}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Abrir seguimiento del pedido ${order.id}`}
+            style={styles.activityCard}
+            onPress={() => onTrackOrder(order.id)}
+          >
             <View style={styles.activityIconFood}>
               <Ionicons name="fast-food" size={21} color="#fff" />
             </View>
@@ -149,7 +154,12 @@ export function CustomerActivityScreen({
       ))}
       {activeRides.map((ride) => (
         <View key={ride.id} style={styles.stack}>
-          <Pressable style={styles.activityCard} onPress={() => onTrackRide(ride.id)}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Abrir seguimiento del viaje ${ride.id}`}
+            style={styles.activityCard}
+            onPress={() => onTrackRide(ride.id)}
+          >
             <View style={styles.activityIconRide}>
               <Ionicons name="car-sport" size={21} color="#fff" />
             </View>
@@ -167,7 +177,12 @@ export function CustomerActivityScreen({
       ))}
       {activeShipments.map((shipment) => (
         <View key={shipment.id} style={styles.stack}>
-          <Pressable style={styles.activityCard} onPress={() => onTrackShipment(shipment.id)}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Abrir seguimiento del envío ${shipment.id}`}
+            style={styles.activityCard}
+            onPress={() => onTrackShipment(shipment.id)}
+          >
             <View style={styles.activityIconRide}>
               <Ionicons name="cube" size={21} color="#fff" />
             </View>

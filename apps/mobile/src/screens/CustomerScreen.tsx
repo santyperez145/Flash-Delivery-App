@@ -34,6 +34,7 @@ import { mobileOrderStatusLabel, money, navigationInstruction } from "../format"
 import { styles } from "../styles";
 import { ActionButton, MobileTaskSheet, NativeMapUnavailable, ServiceChatModal } from "../ui";
 import { CustomerActivityScreen } from "./CustomerActivityScreen";
+import { CustomerTrackingProgress } from "./CustomerTrackingProgress";
 import type {
   AppNotification,
   AppState,
@@ -156,25 +157,7 @@ function OrderTrackingSheet({
             ? "Tu pedido fue entregado."
             : `ETA publicada: ${order.etaMin} min`}
         </Text>
-        <View style={styles.trackingProgress}>
-          {labels.map((label, index) => (
-            <View style={styles.trackingStage} key={label}>
-              <View
-                style={[styles.trackingStageDot, index <= current && styles.trackingStageDotActive]}
-              >
-                {index < current ? <Ionicons name="checkmark" size={11} color="#fff" /> : null}
-              </View>
-              <Text
-                style={[
-                  styles.trackingStageText,
-                  index === current && styles.trackingStageTextActive,
-                ]}
-              >
-                {label}
-              </Text>
-            </View>
-          ))}
-        </View>
+        <CustomerTrackingProgress labels={labels} current={current} activeColor="#ff6a21" />
       </View>
       <Pressable
         style={styles.orderConfirmationAction}
@@ -296,28 +279,7 @@ function RideTrackingSheet({
           <Text style={styles.cardText}>
             {ride.pickup} → {ride.destination}
           </Text>
-          <View style={styles.trackingProgress}>
-            {labels.map((label, index) => (
-              <View style={styles.trackingStage} key={label}>
-                <View
-                  style={[
-                    styles.trackingStageDot,
-                    index <= current && styles.trackingStageDotActive,
-                  ]}
-                >
-                  {index < current ? <Ionicons name="checkmark" size={11} color="#fff" /> : null}
-                </View>
-                <Text
-                  style={[
-                    styles.trackingStageText,
-                    index === current && styles.trackingStageTextActive,
-                  ]}
-                >
-                  {label}
-                </Text>
-              </View>
-            ))}
-          </View>
+          <CustomerTrackingProgress labels={labels} current={current} activeColor="#7c3cff" />
         </View>
         {driver ? (
           <View style={styles.shipmentTrackingSummary}>
@@ -506,28 +468,7 @@ function ShipmentTrackingSheet({
           <Text style={styles.cardText}>
             {shipment.pickup} → {shipment.destination}
           </Text>
-          <View style={styles.trackingProgress}>
-            {labels.map((label, index) => (
-              <View style={styles.trackingStage} key={label}>
-                <View
-                  style={[
-                    styles.trackingStageDot,
-                    index <= current && styles.trackingStageDotActive,
-                  ]}
-                >
-                  {index < current ? <Ionicons name="checkmark" size={11} color="#fff" /> : null}
-                </View>
-                <Text
-                  style={[
-                    styles.trackingStageText,
-                    index === current && styles.trackingStageTextActive,
-                  ]}
-                >
-                  {label}
-                </Text>
-              </View>
-            ))}
-          </View>
+          <CustomerTrackingProgress labels={labels} current={current} activeColor="#087a50" />
         </View>
         <View style={styles.shipmentTrackingSummary}>
           <View>
@@ -5510,27 +5451,27 @@ export function CustomerScreen({
       </ScrollView>
       <OrderTrackingSheet
         order={
-          state.orders.find(
+          activityOrders.find(
             (order) => order.id === trackingOrderId && order.customerId === user.id,
           ) || null
         }
         driver={
           state.drivers.find(
             (driver) =>
-              driver.id === state.orders.find((order) => order.id === trackingOrderId)?.courierId,
+              driver.id === activityOrders.find((order) => order.id === trackingOrderId)?.courierId,
           ) || null
         }
         onClose={() => setTrackingOrderId(null)}
       />
       <RideTrackingSheet
         ride={
-          state.rides.find((ride) => ride.id === trackingRideId && ride.customerId === user.id) ||
+          activityRides.find((ride) => ride.id === trackingRideId && ride.customerId === user.id) ||
           null
         }
         driver={
           state.drivers.find(
             (driver) =>
-              driver.id === state.rides.find((ride) => ride.id === trackingRideId)?.driverId,
+              driver.id === activityRides.find((ride) => ride.id === trackingRideId)?.driverId,
           ) || null
         }
         contacts={rideTrustedContacts}
@@ -5541,11 +5482,11 @@ export function CustomerScreen({
           setRidePickupCodes((current) => ({ ...current, [trackingRideId]: result.pickupCode }));
         }}
         onShare={(contact) => {
-          const ride = state.rides.find((entry) => entry.id === trackingRideId);
+          const ride = activityRides.find((entry) => entry.id === trackingRideId);
           if (ride) shareRideLive(ride, contact);
         }}
         onSos={() => {
-          const ride = state.rides.find((entry) => entry.id === trackingRideId);
+          const ride = activityRides.find((entry) => entry.id === trackingRideId);
           if (ride) confirmRideSos(ride);
         }}
         onCancel={() => {
@@ -5555,7 +5496,7 @@ export function CustomerScreen({
       />
       <ShipmentTrackingSheet
         shipment={
-          state.shipments.find(
+          activityShipments.find(
             (shipment) => shipment.id === trackingShipmentId && shipment.customerId === user.id,
           ) || null
         }
@@ -5563,7 +5504,7 @@ export function CustomerScreen({
           state.drivers.find(
             (driver) =>
               driver.id ===
-              state.shipments.find((shipment) => shipment.id === trackingShipmentId)?.driverId,
+              activityShipments.find((shipment) => shipment.id === trackingShipmentId)?.driverId,
           ) || null
         }
         shipmentReturn={
