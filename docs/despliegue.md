@@ -8,6 +8,11 @@ las columnas `PROV`, `STG` y `PROD` de [`docs/matriz-madurez.md`](matriz-madurez
 > como tal hasta que alguien lo ejecute y anote el resultado. Un runbook que aparenta haber
 > funcionado es peor que no tenerlo.
 
+> **Versión para compartir:** [`docs/despliegue.html`](despliegue.html) es el mismo contenido
+> como página autónoma, servible desde GitHub Pages en la cuenta del proyecto. Se actualiza a
+> mano junto con este documento; si alguna vez divergen, **manda este archivo**, que es el que
+> pasa por revisión.
+
 ## La decisión
 
 **Google Cloud, región `southamerica-east1` (São Paulo).**
