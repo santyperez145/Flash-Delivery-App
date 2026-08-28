@@ -230,7 +230,7 @@ npm run db:restore:drill
 
 Levanta un cluster PostgreSQL efímero enlazado únicamente a `127.0.0.1` en un
 puerto aleatorio, precrea roles sin privilegios, restaura el dump y valida:
-checksum, 41 migraciones, PostGIS, tablas/datos críticos, constraints, RLS,
+checksum, el recuento de migraciones, PostGIS, tablas/datos críticos, constraints, RLS,
 aislamiento del auditor, protección de secretos MFA y balance de cada transacción
 del ledger. Finalmente detiene y elimina sólo el cluster temporal verificado;
 la base activa nunca recibe conexiones ni escrituras del drill. `-KeepFailed`
