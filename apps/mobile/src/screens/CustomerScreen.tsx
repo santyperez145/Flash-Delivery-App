@@ -35,6 +35,7 @@ import { api } from "../api";
 import { SubscriptionCard } from "../SubscriptionCard";
 import { TipSelector } from "../TipSelector";
 import { RescheduleControl, SchedulePicker } from "../SchedulePicker";
+import { GroupOrderPanel } from "../GroupOrderPanel";
 import { flashDesign } from "../design-system";
 import FlashNativeMap from "../FlashNativeMap";
 import { mobileOrderStatusLabel, money, navigationInstruction } from "../format";
@@ -48,6 +49,7 @@ import type {
   FoodCheckoutQuote,
   GeoPoint,
   MobileCartLine,
+  GroupOrder as GroupOrderType,
   NotificationPreference,
   Order,
   OrderSubstitution,
@@ -879,6 +881,8 @@ export function CustomerScreen({
   const [foodTipCents, setFoodTipCents] = useState(0);
   // Reserva de horario (GTM-001). `null` es «lo antes posible».
   const [foodScheduledFor, setFoodScheduledFor] = useState<string | null>(null);
+  // Grupo que se está por confirmar (GTM-001).
+  const [pendingGroupId, setPendingGroupId] = useState<string | null>(null);
   const [selectedFoodPaymentId, setSelectedFoodPaymentId] = useState(
     () =>
       state.paymentMethods.find((method) => method.userId === user.id && method.isDefault)?.id ||
@@ -1578,6 +1582,41 @@ export function CustomerScreen({
     }, "Precio final actualizado");
   };
 
+  /**
+   * Lleva un grupo cerrado al checkout de siempre.
+   *
+   * Se vuelcan sus ítems en el carrito y se abre el checkout normal, en vez de
+   * tener un camino propio: un segundo checkout serían dos versiones de la
+   * cotización firmada, la propina, el horario y el riesgo.
+   */
+  const checkoutGroupOrder = (group: GroupOrderType) =>
+    runAction(async () => {
+      const checkout = await api.getGroupOrderCheckout(group.id);
+      const restaurante = state.restaurants.find((entry) => entry.id === checkout.merchantPublicId);
+      if (!restaurante) throw new Error("El restaurante del grupo ya no está disponible");
+      const lineas: MobileCartLine[] = checkout.items.map((entrada, indice) => {
+        const item = restaurante.menu.find((plato) => plato.id === entrada.menuItemId);
+        if (!item) throw new Error("Un producto del grupo ya no está disponible");
+        return {
+          lineId: `${group.id}-${indice}`,
+          restaurantId: restaurante.id,
+          menuItemId: item.id,
+          name: item.name,
+          unitPrice: item.price,
+          quantity: entrada.quantity,
+          extras: entrada.extras,
+          note: entrada.note,
+        };
+      });
+      setCart(lineas);
+      // Se recuerda para atarlo al pedido **después** de que el pedido exista:
+      // marcarlo antes dejaría grupos «confirmados» apuntando a pedidos que
+      // nunca se crearon.
+      setPendingGroupId(group.id);
+      setSharedView("service");
+      setFoodScreen("checkout");
+    }, "Revisá el pedido del grupo y confirmá");
+
   const createOrder = () => {
     const selectedDeliveryAddress = state.addresses.find(
       (item) =>
@@ -1615,6 +1654,13 @@ export function CustomerScreen({
         scheduledFor: foodScheduledFor ?? undefined,
         items: foodCheckoutItems,
       });
+      // El grupo se marca con el pedido ya creado. Si esto fallara, el pedido
+      // igual existe y el grupo queda cerrado sin atar — el lado seguro de
+      // fallar: se cobró una vez y hay un pedido real detrás.
+      if (pendingGroupId) {
+        await api.markGroupOrderPlaced(pendingGroupId, result.order.id);
+        setPendingGroupId(null);
+      }
       setLastCreatedOrder(result.order);
       setCart([]);
       setFoodCheckoutQuote(null);
@@ -4397,6 +4443,15 @@ export function CustomerScreen({
               <Text style={styles.foodRestaurantTitle}>Actividad</Text>
               <Text style={styles.cardText}>Pedidos, viajes y envíos en un solo lugar.</Text>
             </View>
+            {/* Los grupos viven en Actividad: son pedidos en curso, y es donde
+                alguien vuelve a mirar «cómo va lo que pedimos». */}
+            <GroupOrderPanel
+              restaurantId={cartRestaurant?.id ?? null}
+              cart={cart}
+              userId={user.id}
+              onCheckoutGroup={checkoutGroupOrder}
+              busy={busy}
+            />
             {activeOrders.length + activeRides.length + activeShipments.length === 0 &&
               pendingSubstitutions.length === 0 &&
               completedForTips.length === 0 &&

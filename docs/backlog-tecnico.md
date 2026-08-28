@@ -453,7 +453,7 @@ Al 28 de agosto la paridad funcional con Uber Eats, DoorDash, Rappi y PedidosYa 
 
 Quedan **cuatro huecos**, y ninguno es de ingeniería: son decisiones de producto comercial. Vivían sólo en el documento de investigación, que es exactamente cómo H-10 se perdió un mes sin dueño.
 
-> **Al 28 de agosto:** tres de los cuatro están construidos y cableados en sus dos extremos: la suscripción, la propina en el checkout y la reserva de horario con su reprogramación. Queda uno: pedidos grupales.
+> **Al 28 de agosto los cuatro están construidos y cableados en sus dos extremos**: la suscripción, la propina en el checkout, la reserva de horario con su reprogramación, y los pedidos grupales. Lo que queda del ticket es comercial —precio, oferta, medición—, no de ingeniería.
 
 ### Criterios de aceptación
 
@@ -467,7 +467,11 @@ Quedan **cuatro huecos**, y ninguno es de ingeniería: son decisiones de product
   - **No se reparte.** La liquidación la saca del total antes de dividir entre comercio, conductor y plataforma, y la acredita aparte. Sin eso el comercio se llevaba parte de la propina; con split de Mercado Pago hacía falta además sumarla a la comisión de aplicación, o el proveedor se la depositaba directamente a él.
   - **Los porcentajes se calculan sobre el subtotal, no sobre el total.** Sobre el total, la propina subiría cuando sube el envío o la tarifa de servicio, que no tienen nada que ver con quien reparte.
   - **Los topes del cliente son los del servidor, y hay una puerta que lo vigila.** `test:web-checkout` y `test:mobile-food-design` leen el piso, el techo y la proporción del propio `tip-repository.js`: si el servidor cambia y el cliente no, la pantalla ofrecería un botón que devuelve 409.
-- [ ] **Existen pedidos grupales.** Vía natural al ticket promedio alto y al pedido de oficina.
+- [x] **Existen pedidos grupales.** Migración 128, web y móvil. Cada participante tiene su propia canasta, el anfitrión ve quién pidió qué, y cierra y paga uno solo.
+  - **Un grupo confirmado se convierte en un pedido normal.** No hay una segunda tubería: se juntan los ítems, se cotiza y se crea por `/api/orders` como cualquier pedido. De ahí en adelante propina, suscripción, horario reservado, despacho y liquidación no saben que empezó como grupo — que es exactamente lo que evita que cada una crezca un caso especial.
+  - **No se toca el carrito personal de nadie.** Reusar `carts` habría sido menos código, pero tiene un único activo por (cliente, comercio): sumarse a un grupo del mismo restaurante donde ya tenías algo guardado te lo habría pisado sin avisar.
+  - **Tope de gasto por persona**, verificado contra los precios de la base y no contra los que manda el cliente: un tope que se pueda esquivar mandando precios inventados no es un tope. Es la diferencia entre un pedido entre amigos y uno de oficina con presupuesto.
+  - **El código de seis caracteres no da lectura por sí solo.** Primero se entra, después se ve; al revés, cualquiera con un código filtrado leería quién pidió qué en una oficina. El alfabeto excluye `0/O` y `1/I/L`, que son los pares que se copian mal al dictarlo.
 - [x] **Un pedido programado se puede reprogramar.** Migración 127, y el criterio resultó ser dos cosas.
   - **Los pedidos de comida no se podían programar en absoluto.** `jobs.scheduled_for` existía desde la migración 001 y **sólo lo escribía el alta de viajes** — mientras la portada del cliente prometía «Programar · Food o taxi» desde antes de que existiera la mitad de comida de esa promesa. Ahora el checkout reserva horario en web y móvil.
   - **`PATCH /api/jobs/:id/schedule` mueve el horario**, de un pedido o de un viaje: los dos son filas de `jobs` con horario, y una ruta por servicio serían dos versiones de la misma política. Sólo en `requested` o `accepted` y sin conductor asignado; después, mover la hora tira comida o le hace perder el viaje a alguien que se comprometió, y ahí la salida correcta es cancelar con su política.

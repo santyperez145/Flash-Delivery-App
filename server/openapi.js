@@ -492,6 +492,14 @@ const operationsPageParameters = [
   { name: "cursor", in: "query", required: false, schema: { type: "string" } },
   { name: "q", in: "query", required: false, schema: { type: "string", maxLength: 100 } },
 ];
+// El grupo entero se devuelve en cada respuesta que lo cambia: la pantalla
+// necesita el estado nuevo completo, y devolver solo lo que cambio la obligaria
+// a reconstruirlo por su cuenta.
+const groupResponse = {
+  type: "object",
+  required: ["group"],
+  properties: { group: { $ref: "#/components/schemas/GroupOrder" } },
+};
 const body = (schema) => ({
   required: true,
   content: { "application/json": { schema: { $ref: `#/components/schemas/${schema}` } } },
@@ -570,6 +578,149 @@ Object.assign(openApiDocument.paths, {
           content: json,
         },
       },
+    },
+  },
+  // Pedidos grupales (GTM-001). Se publica el ciclo entero porque es una
+  // relacion entre varias personas y un comercio: quien integre tiene que poder
+  // ver quien puede hacer que, y sobre todo que **confirmar no vive aca** — el
+  // grupo cerrado se convierte en un pedido normal por /api/orders.
+  "/api/group-orders": {
+    get: {
+      tags: ["Commerce"],
+      operationId: "listGroupOrders",
+      summary: "Listar los pedidos grupales propios abiertos",
+      security: [{ bearerAuth: [] }],
+      responses: {
+        200: success({
+          type: "object",
+          required: ["groups"],
+          properties: {
+            groups: { type: "array", items: { $ref: "#/components/schemas/GroupOrder" } },
+          },
+        }),
+        ...bearerErrors,
+      },
+    },
+    post: {
+      tags: ["Commerce"],
+      operationId: "createGroupOrder",
+      summary: "Abrir un pedido grupal en un comercio",
+      security: [{ bearerAuth: [] }],
+      requestBody: body("GroupOrderCreateRequest"),
+      responses: { 200: success(groupResponse), ...bearerErrors },
+    },
+  },
+  // Sumarse no lleva el id del grupo: quien comparte un enlace comparte el
+  // codigo, no la direccion interna de nada.
+  "/api/group-orders/join": {
+    post: {
+      tags: ["Commerce"],
+      operationId: "joinGroupOrder",
+      summary: "Sumarse a un pedido grupal con su codigo",
+      security: [{ bearerAuth: [] }],
+      requestBody: body("GroupOrderJoinRequest"),
+      responses: {
+        200: success(groupResponse),
+        ...bearerErrors,
+        409: { description: "El grupo ya esta cerrado o vencido", content: json },
+      },
+    },
+  },
+  "/api/group-orders/{groupId}": {
+    parameters: [
+      { name: "groupId", in: "path", required: true, schema: { type: "string", maxLength: 100 } },
+    ],
+    get: {
+      tags: ["Commerce"],
+      operationId: "getGroupOrder",
+      summary: "Ver un pedido grupal del que se forma parte",
+      security: [{ bearerAuth: [] }],
+      // 404 y no 403 para un grupo ajeno: decir «existe pero no es tuyo» ya
+      // filtra que ese codigo corresponde a algo.
+      responses: { 200: success(groupResponse), ...bearerErrors },
+    },
+    patch: {
+      tags: ["Commerce"],
+      operationId: "setGroupOrderStatus",
+      summary: "Cerrar, reabrir o cancelar un pedido grupal",
+      security: [{ bearerAuth: [] }],
+      requestBody: body("GroupOrderStatusRequest"),
+      responses: {
+        200: success(groupResponse),
+        ...bearerErrors,
+        409: { description: "Solo el anfitrion, y solo si sigue abierto", content: json },
+      },
+    },
+  },
+  "/api/group-orders/{groupId}/items": {
+    put: {
+      tags: ["Commerce"],
+      operationId: "setGroupOrderItems",
+      summary: "Reemplazar la canasta propia dentro del grupo",
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        { name: "groupId", in: "path", required: true, schema: { type: "string", maxLength: 100 } },
+      ],
+      requestBody: body("GroupOrderItemsRequest"),
+      responses: {
+        200: success(groupResponse),
+        ...bearerErrors,
+        // El tope de gasto se verifica contra los precios de la base, no contra
+        // los que manda el cliente.
+        409: { description: "Grupo cerrado, vencido, o por encima del tope", content: json },
+      },
+    },
+  },
+  "/api/group-orders/{groupId}/checkout": {
+    get: {
+      tags: ["Commerce"],
+      operationId: "getGroupOrderCheckout",
+      summary: "Obtener los items del grupo juntos, para cotizar y confirmar",
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        { name: "groupId", in: "path", required: true, schema: { type: "string", maxLength: 100 } },
+      ],
+      responses: {
+        200: success({
+          type: "object",
+          required: ["merchantPublicId", "branchPublicId", "items"],
+          properties: {
+            merchantPublicId: { type: "string" },
+            branchPublicId: { type: "string" },
+            // Las lineas vienen sumadas por producto y opciones: dos personas
+            // que piden lo mismo son una linea de cantidad dos, y las notas de
+            // las dos sobreviven.
+            items: {
+              type: "array",
+              items: {
+                type: "object",
+                required: ["menuItemId", "quantity"],
+                properties: {
+                  menuItemId: { type: "string" },
+                  quantity: { type: "integer", minimum: 1 },
+                  extras: { type: "array", items: { type: "string" } },
+                  note: { type: "string", maxLength: 500 },
+                },
+              },
+            },
+          },
+        }),
+        ...bearerErrors,
+        409: { description: "El grupo no esta cerrado o no tiene productos", content: json },
+      },
+    },
+  },
+  "/api/group-orders/{groupId}/placed": {
+    post: {
+      tags: ["Commerce"],
+      operationId: "markGroupOrderPlaced",
+      summary: "Atar el grupo al pedido ya creado",
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        { name: "groupId", in: "path", required: true, schema: { type: "string", maxLength: 100 } },
+      ],
+      requestBody: body("GroupOrderPlacedRequest"),
+      responses: { 200: success(groupResponse), ...bearerErrors },
     },
   },
   "/api/subscription/plans": {
@@ -1574,6 +1725,74 @@ Object.assign(openApiDocument.components.schemas, {
         },
       },
     ],
+  },
+  GroupOrder: {
+    type: "object",
+    required: ["id", "joinCode", "status", "hostId", "participants", "subtotal"],
+    properties: {
+      id: { type: "string" },
+      // Solo viaja a quien ya es parte. El codigo es para entrar, no para leer.
+      joinCode: { type: "string", minLength: 6, maxLength: 6 },
+      status: { type: "string", enum: ["open", "locked", "placed", "cancelled"] },
+      restaurantId: { type: "string" },
+      restaurantName: { type: "string" },
+      branchId: { type: "string" },
+      hostId: { type: "string" },
+      hostName: { type: "string" },
+      // Tope por persona. `null` es sin tope.
+      spendLimit: { type: "number", nullable: true },
+      closesAt: { type: "string", format: "date-time", nullable: true },
+      orderId: { type: "string", nullable: true },
+      subtotal: { type: "number" },
+      participants: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["userId", "name", "isHost", "items", "subtotal"],
+          properties: {
+            userId: { type: "string" },
+            name: { type: "string" },
+            isHost: { type: "boolean" },
+            subtotal: { type: "number" },
+            items: { type: "array", items: { type: "object" } },
+          },
+        },
+      },
+    },
+  },
+  GroupOrderCreateRequest: {
+    type: "object",
+    required: ["restaurantId"],
+    properties: {
+      restaurantId: { type: "string", maxLength: 100 },
+      branchId: { type: "string", maxLength: 100 },
+      spendLimitCents: { type: "integer", minimum: 10000, maximum: 100000000 },
+      closesAt: { type: "string", format: "date-time" },
+    },
+  },
+  GroupOrderJoinRequest: {
+    type: "object",
+    required: ["joinCode"],
+    properties: { joinCode: { type: "string", pattern: "^[A-Za-z0-9]{6}$" } },
+  },
+  GroupOrderItemsRequest: {
+    type: "object",
+    required: ["items"],
+    properties: {
+      // La lista vacia es valida: es como alguien se saca de un pedido sin
+      // abandonar el grupo.
+      items: { type: "array", maxItems: 50, items: { type: "object" } },
+    },
+  },
+  GroupOrderStatusRequest: {
+    type: "object",
+    required: ["status"],
+    properties: { status: { type: "string", enum: ["open", "locked", "cancelled"] } },
+  },
+  GroupOrderPlacedRequest: {
+    type: "object",
+    required: ["orderId"],
+    properties: { orderId: { type: "string", maxLength: 100 } },
   },
   RescheduleRequest: {
     type: "object",

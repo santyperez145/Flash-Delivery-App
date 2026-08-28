@@ -60,6 +60,7 @@ import { api } from "../api";
 import { Beneficios, SubscriptionPanel, useSubscription } from "./SubscriptionPanel";
 import { TipSelector } from "./TipSelector";
 import { RescheduleControl, SchedulePicker } from "./SchedulePicker";
+import { GroupOrderPanel } from "./GroupOrderPanel";
 import { allergenOptions, dietOptions, itemMatchesDietary } from "../dietary";
 import { initials, money } from "../format";
 import {
@@ -81,6 +82,7 @@ import type {
   FoodCheckoutQuote,
   FoodCheckoutSelection,
   GeoPoint,
+  GroupOrder,
   MenuItem,
   Order,
   Restaurant,
@@ -138,6 +140,7 @@ export function CustomerApp(props: {
   promotionCode: string;
   setPromotionCode: (code: string) => void;
   cartRestaurant: Restaurant | null;
+  onCheckoutGroup: (group: GroupOrder) => void;
   openItem: (restaurant: Restaurant, item: MenuItem) => void;
   createOrder: (
     checkout: FoodCheckoutSelection,
@@ -206,6 +209,7 @@ export function CustomerApp(props: {
     promotionCode,
     setPromotionCode,
     cartRestaurant,
+    onCheckoutGroup,
     openItem,
     createOrder,
     rideForm,
@@ -395,6 +399,17 @@ export function CustomerApp(props: {
           que paga. Se monta al lado del perfil y no dentro para que su carga
           fallida no se lleve puesta la pantalla de la cuenta. */}
       {tab === "profile" && <SubscriptionPanel />}
+      {/* Los grupos viven en Actividad y no en Perfil: son pedidos en curso, y
+          es donde alguien vuelve a mirar «cómo va lo que pedimos». */}
+      {tab === "activity" && (
+        <GroupOrderPanel
+          restaurantId={cartRestaurant?.id ?? null}
+          cart={cart}
+          userId={user?.id ?? null}
+          onCheckoutGroup={onCheckoutGroup}
+          busy={busy}
+        />
+      )}
       <BottomNav tab={tab} onTabChange={setTab} />
     </div>
   );

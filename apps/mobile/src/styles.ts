@@ -2856,6 +2856,57 @@ export const styles = StyleSheet.create({
   suscripcionBajaText: { color: "#27242a", fontWeight: "600" },
   suscripcionOk: { fontSize: 13, color: "#087a50" },
   suscripcionError: { fontSize: 13, color: "#b91c1c" },
+
+  // Pedidos grupales (GTM-001). Reutiliza la tarjeta de suscripción para que la
+  // pantalla no cambie de idioma visual a mitad de scroll.
+  grupoSumarse: { flexDirection: "row", alignItems: "center", gap: 10 },
+  grupoCodigoInput: {
+    flex: 1,
+    minHeight: 44,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#efe9f0",
+    color: "#27242a",
+    // El código se lee desde la pantalla de otra persona: monoespaciado y
+    // espaciado para que no se confundan caracteres.
+    fontFamily: "monospace",
+    letterSpacing: 3,
+  },
+  grupoTarjeta: {
+    borderWidth: 1,
+    borderColor: "#efe9f0",
+    borderRadius: 14,
+    padding: 14,
+    gap: 10,
+  },
+  grupoCodigo: {
+    alignItems: "center",
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,106,33,0.12)",
+    gap: 2,
+  },
+  grupoCodigoTexto: {
+    fontFamily: "monospace",
+    letterSpacing: 4,
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#b4460f",
+  },
+  grupoParticipante: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  grupoTotal: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    borderTopWidth: 1,
+    borderTopColor: "#efe9f0",
+    paddingTop: 8,
+  },
   foodSearch: {
     minHeight: 48,
     borderRadius: 16,

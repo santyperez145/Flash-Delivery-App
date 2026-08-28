@@ -107,7 +107,7 @@ Lo que sigue se verificó contra el código y las migraciones, no contra la memo
 
 ### Lo que falta para competir, y no es técnico
 
-Cuatro huecos con nombre. **Tres están cerrados al 28 de agosto**; queda uno: los pedidos grupales.
+Cuatro huecos con nombre. **Los cuatro están cerrados al 28 de agosto.** Lo que queda es comercial —precio, oferta, medición—, no de ingeniería.
 
 **1. ~~No hay producto de suscripción.~~ Hay uno: *Flash Más*.** Uber One, DashPass y
 PedidosYa Plus son el motor de retención y de margen de la categoría, y era el hueco que
@@ -147,8 +147,20 @@ total antes de dividir entre comercio, conductor y plataforma, así que nadie se
 una parte— y **los porcentajes se calculan sobre el subtotal, no sobre el total**, para que
 no suba cuando sube el envío o la tarifa de servicio.
 
-**3. No hay pedidos grupales.** Uber Eats, DoorDash y Rappi los tienen. Es la vía natural
-al ticket promedio alto y al pedido de oficina.
+**3. ~~No hay pedidos grupales.~~ Los hay, en web y en móvil.** Es la vía natural al ticket
+promedio alto y al pedido de oficina, donde un pedido reemplaza a diez.
+
+Tres decisiones que la categoría no siempre toma:
+
+- **El grupo confirmado se vuelve un pedido normal.** No hay una segunda tubería de pedidos,
+  así que la propina, la suscripción, el horario reservado y la liquidación no necesitan un
+  caso especial de grupo. Es lo que evita que la mitad de las funciones nuevas se olviden
+  del camino grupal seis meses después.
+- **El tope de gasto se verifica contra los precios de la base.** Un tope que se pueda
+  esquivar mandando precios inventados no es un tope, y es la diferencia entre un pedido
+  entre amigos y uno de oficina con presupuesto.
+- **El código para sumarse no da lectura por sí solo.** Primero se entra, después se ve. Al
+  revés, cualquiera con un código filtrado leería quién pidió qué en una oficina.
 
 **4. ~~Un pedido programado no se puede reprogramar.~~ Ahora se programa y se mueve.** El
 hueco era más grande de lo que decía su nombre: **un pedido de comida no se podía programar

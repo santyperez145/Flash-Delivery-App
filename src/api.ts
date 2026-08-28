@@ -901,6 +901,61 @@ export const api = {
       body: JSON.stringify({ scheduledFor }),
     });
   },
+  // Pedidos grupales (GTM-001). Confirmar no vive acá: se piden los ítems
+  // juntos, se crean por `/orders` como cualquier pedido, y se avisa con
+  // `markGroupOrderPlaced`. Un camino de creación paralelo habría duplicado
+  // idempotencia, riesgo y cotización firmada sólo para el caso grupal.
+  async getGroupOrders() {
+    return request<{ groups: import("./types").GroupOrder[] }>("/group-orders");
+  },
+  async getGroupOrder(groupId: string) {
+    return request<{ group: import("./types").GroupOrder }>(`/group-orders/${groupId}`);
+  },
+  async createGroupOrder(payload: {
+    restaurantId: string;
+    branchId?: string;
+    spendLimitCents?: number;
+    closesAt?: string;
+  }) {
+    return request<{ group: import("./types").GroupOrder }>("/group-orders", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  async joinGroupOrder(joinCode: string) {
+    return request<{ group: import("./types").GroupOrder }>("/group-orders/join", {
+      method: "POST",
+      body: JSON.stringify({ joinCode }),
+    });
+  },
+  async setGroupOrderItems(
+    groupId: string,
+    items: Array<{ menuItemId: string; quantity: number; extras: string[]; note: string }>,
+  ) {
+    return request<{ group: import("./types").GroupOrder }>(`/group-orders/${groupId}/items`, {
+      method: "PUT",
+      body: JSON.stringify({ items }),
+    });
+  },
+  async setGroupOrderStatus(groupId: string, status: "open" | "locked" | "cancelled") {
+    return request<{ group: import("./types").GroupOrder }>(`/group-orders/${groupId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+  },
+  async getGroupOrderCheckout(groupId: string) {
+    return request<{
+      merchantPublicId: string;
+      branchPublicId: string;
+      items: Array<{ menuItemId: string; quantity: number; extras: string[]; note: string }>;
+    }>(`/group-orders/${groupId}/checkout`);
+  },
+  async markGroupOrderPlaced(groupId: string, orderId: string) {
+    return request<{ group: import("./types").GroupOrder }>(`/group-orders/${groupId}/placed`, {
+      method: "POST",
+      body: JSON.stringify({ orderId }),
+    });
+  },
   async createOrder(payload: {
     customerId: string;
     restaurantId: string;

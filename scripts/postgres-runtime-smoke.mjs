@@ -28,6 +28,7 @@ let rideDestinationId = null;
 let trustedContactId = null;
 const feedbackAuditRequestIds = [];
 let orderId = null;
+let grupoPublicId = null;
 let idempotencyKey = null;
 let walletKey = null;
 let rideId = null;
@@ -639,6 +640,128 @@ try {
   assert(
     profileCannotDrift.body.account.user.defaultAddress.includes("Santa Fe"),
     "profile edits cannot desynchronize a geocoded default address",
+  );
+
+  // -------------------------------------------------------------------------
+  // Pedidos grupales (GTM-001). Se prueban aca porque hay dos identidades
+  // vivas: sin una segunda persona, un pedido grupal no prueba nada.
+  // -------------------------------------------------------------------------
+  token = customerToken;
+  const grupoCreado = await request("/group-orders", {
+    method: "POST",
+    body: JSON.stringify({ restaurantId: "rest_roja", spendLimitCents: 900000 }),
+  });
+  grupoPublicId = grupoCreado.body.group?.id;
+  assert(
+    grupoCreado.status === 200 &&
+      grupoPublicId &&
+      grupoCreado.body.group.participants.length === 1 &&
+      grupoCreado.body.group.participants[0].isHost === true &&
+      /^[A-Z0-9]{6}$/.test(grupoCreado.body.group.joinCode || ""),
+    "abrir un grupo deja al anfitrion adentro con un codigo compartible",
+  );
+  const codigoGrupo = grupoCreado.body.group.joinCode;
+
+  // Sin ser parte no se ve, ni siquiera conociendo el id. El codigo es para
+  // entrar, no para leer: al reves, cualquiera con un codigo filtrado leeria
+  // quien pidio que en una oficina.
+  token = registeredToken;
+  const grupoAjeno = await request(`/group-orders/${grupoPublicId}`);
+  const codigoInvalido = await request("/group-orders/join", {
+    method: "POST",
+    body: JSON.stringify({ joinCode: "ZZZZZZ" }),
+  });
+  assert(
+    grupoAjeno.status === 404 && codigoInvalido.status === 404,
+    "un grupo ajeno no se lee y un codigo inexistente no suma",
+  );
+
+  const sumado = await request("/group-orders/join", {
+    method: "POST",
+    body: JSON.stringify({ joinCode: codigoGrupo }),
+  });
+  const sumadoDeNuevo = await request("/group-orders/join", {
+    method: "POST",
+    body: JSON.stringify({ joinCode: codigoGrupo }),
+  });
+  assert(
+    sumado.status === 200 &&
+      sumado.body.group.participants.length === 2 &&
+      // Volver a entrar con el mismo codigo no es un error: pasa cada vez que
+      // alguien abre el enlace dos veces.
+      sumadoDeNuevo.status === 200 &&
+      sumadoDeNuevo.body.group.participants.length === 2,
+    "sumarse con el codigo funciona y repetirlo no duplica ni falla",
+  );
+
+  // **El tope se verifica contra los precios de la base, no contra los que manda
+  // el cliente.** Un tope que se pueda esquivar mandando precios inventados no
+  // es un tope. La hamburguesa del padron vale $6.500, asi que dos superan el
+  // tope de $9.000 y una no.
+  const sobreTope = await request(`/group-orders/${grupoPublicId}/items`, {
+    method: "PUT",
+    body: JSON.stringify({
+      items: [{ menuItemId: "item_burger_brava", quantity: 2, extras: [], note: "" }],
+    }),
+  });
+  const bajoTope = await request(`/group-orders/${grupoPublicId}/items`, {
+    method: "PUT",
+    body: JSON.stringify({
+      items: [{ menuItemId: "item_burger_brava", quantity: 1, extras: [], note: "sin cebolla" }],
+    }),
+  });
+  assert(
+    sobreTope.status === 409 &&
+      bajoTope.status === 200 &&
+      // Y lo rechazado no quedo guardado: la transaccion vuelve atras entera, o
+      // el tope habria sido un cartel y no un limite.
+      bajoTope.body.group.participants.find((p) => !p.isHost)?.items.length === 1,
+    "el tope de gasto se aplica contra los precios de la base y lo rechazado no queda",
+  );
+
+  token = customerToken;
+  await request(`/group-orders/${grupoPublicId}/items`, {
+    method: "PUT",
+    body: JSON.stringify({
+      items: [{ menuItemId: "item_burger_brava", quantity: 1, extras: [], note: "bien cocida" }],
+    }),
+  });
+  // Cerrar es del anfitrion. Sin esto, cualquiera del grupo podria cortar el
+  // agregado de los demas.
+  token = registeredToken;
+  const cierreAjeno = await request(`/group-orders/${grupoPublicId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status: "locked" }),
+  });
+  token = customerToken;
+  const cierre = await request(`/group-orders/${grupoPublicId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status: "locked" }),
+  });
+  assert(
+    cierreAjeno.status === 409 && cierre.status === 200 && cierre.body.group.status === "locked",
+    "solo el anfitrion cierra el grupo",
+  );
+  token = registeredToken;
+  const agregarCerrado = await request(`/group-orders/${grupoPublicId}/items`, {
+    method: "PUT",
+    body: JSON.stringify({ items: [] }),
+  });
+  assert(agregarCerrado.status === 409, "con el grupo cerrado ya no se agrega ni se saca");
+
+  token = customerToken;
+  const checkoutGrupo = await request(`/group-orders/${grupoPublicId}/checkout`);
+  assert(
+    checkoutGrupo.status === 200 &&
+      // Dos personas que piden lo mismo son **una linea de cantidad dos**: la
+      // cocina lee un pedido, no un acta de quien pidio que.
+      checkoutGrupo.body.items.length === 1 &&
+      checkoutGrupo.body.items[0].quantity === 2 &&
+      // Y las notas de las dos sobreviven. Perder «sin cebolla» porque otro
+      // pidio lo mismo seria el error caro de esta funcion.
+      checkoutGrupo.body.items[0].note.includes("sin cebolla") &&
+      checkoutGrupo.body.items[0].note.includes("bien cocida"),
+    "el grupo se entrega junto, con las lineas sumadas y sin perder notas",
   );
   token = customerToken;
   assert(
@@ -4042,6 +4165,11 @@ try {
       "DELETE FROM user_subscriptions WHERE plan_id IN(SELECT id FROM subscription_plans WHERE key='smoke_plan')",
     );
     await pool.query("DELETE FROM subscription_plans WHERE key='smoke_plan'");
+    // El grupo del smoke. Participantes e items caen por cascada; el grupo no,
+    // porque nada lo referencia y borrarlo explicitamente deja claro que la
+    // corrida no ensucia el padron.
+    if (grupoPublicId)
+      await pool.query("DELETE FROM group_orders WHERE public_id=$1", [grupoPublicId]);
     await pool.query("UPDATE catalog_items SET available=true WHERE public_id='item_burger_brava'");
     await pool.query(
       "UPDATE catalog_branch_inventory SET available=true,stock_quantity=NULL WHERE catalog_item_id=(SELECT id FROM catalog_items WHERE public_id='item_burger_brava')",

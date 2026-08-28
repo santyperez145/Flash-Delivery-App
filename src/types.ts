@@ -1114,3 +1114,39 @@ export type Subscription = SubscriptionPlan & {
   /** `false` mientras el cobro recurrente (PAY-001) no tenga credenciales. */
   billed: boolean;
 };
+
+/** Pedido grupal (GTM-001). Cada participante tiene su propia canasta; el
+ *  anfitrión cierra y confirma, y el grupo se vuelve un pedido normal. */
+export type GroupOrderParticipant = {
+  userId: string;
+  name: string;
+  isHost: boolean;
+  items: Array<{
+    menuItemId: string;
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    extras: string[];
+    note: string;
+  }>;
+  subtotal: number;
+};
+
+export type GroupOrder = {
+  id: string;
+  /** Seis caracteres para compartir. Sólo lo ve quien ya está adentro. */
+  joinCode: string;
+  status: "open" | "locked" | "placed" | "cancelled";
+  restaurantId: string;
+  restaurantName: string;
+  branchId: string;
+  hostId: string;
+  hostName: string;
+  /** Tope de gasto por persona. `null` es sin tope. */
+  spendLimit: number | null;
+  closesAt: string | null;
+  orderId: string | null;
+  createdAt: string;
+  participants: GroupOrderParticipant[];
+  subtotal: number;
+};

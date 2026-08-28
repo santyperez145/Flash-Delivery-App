@@ -81,6 +81,7 @@ import type {
   FoodCheckoutQuote,
   FoodCheckoutSelection,
   GeoPoint,
+  GroupOrder,
   MenuItem,
   MerchantFinance,
   MerchantOperationsDashboard,
@@ -151,6 +152,10 @@ function App() {
   const [draftExtras, setDraftExtras] = useState<string[]>([]);
   const [draftNote, setDraftNote] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
+  // Grupo que se está por confirmar (GTM-001). Se recuerda para poder atarlo al
+  // pedido *después* de que el pedido exista: marcarlo antes dejaría grupos
+  // «confirmados» apuntando a pedidos que nunca se crearon.
+  const [pendingGroupId, setPendingGroupId] = useState<string | null>(null);
   const [dietaryPreferences, setDietaryPreferences] = useState<DietaryPreferences | null>(null);
   const [rideForm, setRideForm] = useState<RideForm>({
     pickup: "",
@@ -508,6 +513,46 @@ function App() {
     );
   }, [dietaryPreferences, state]);
 
+  /**
+   * Lleva un grupo cerrado al checkout de siempre.
+   *
+   * Se vuelcan sus ítems en el carrito y se abre el checkout normal, en vez de
+   * tener un camino de confirmación propio: un segundo checkout serían dos
+   * versiones de la cotización firmada, la propina, el horario y el riesgo.
+   */
+  const checkoutGroupOrder = async (group: GroupOrder) => {
+    if (!state) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const checkout = await api.getGroupOrderCheckout(group.id);
+      const restaurante = state.restaurants.find((entry) => entry.id === checkout.merchantPublicId);
+      if (!restaurante) throw new Error("El restaurante del grupo ya no está disponible");
+      const lineas: CartLine[] = checkout.items.map((entrada) => {
+        const item = restaurante.menu.find((plato) => plato.id === entrada.menuItemId);
+        if (!item) throw new Error("Un producto del grupo ya no está disponible");
+        return {
+          restaurantId: restaurante.id,
+          item,
+          quantity: entrada.quantity,
+          extras: entrada.extras,
+          note: entrada.note,
+        };
+      });
+      // `saveCart` ya traduce las líneas al formato de la API: mapearlas acá
+      // sería una segunda copia de esa conversión.
+      await api.saveCart(restaurante.id, lineas);
+      setCart(lineas);
+      setPendingGroupId(group.id);
+      setCartOpen(true);
+      setCheckoutOpen(true);
+    } catch (fallo) {
+      setError(fallo instanceof Error ? fallo.message : "No se pudo preparar el pedido grupal");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const cartRestaurant = useMemo(() => {
     if (!state || !cart.length) return null;
     return state.restaurants.find((restaurant) => restaurant.id === cart[0].restaurantId) || null;
@@ -613,7 +658,7 @@ function App() {
     setBusy(true);
     setError(null);
     try {
-      await api.createOrder({
+      const { order } = await api.createOrder({
         customerId: activeUser.id,
         restaurantId: cartRestaurant.id,
         deliveryAddressId: checkout.deliveryAddressId,
@@ -632,6 +677,14 @@ function App() {
           note: line.note,
         })),
       });
+      const orderId = order.id;
+      // El grupo se marca con el pedido ya creado. Si esto fallara, el pedido
+      // igual existe y el grupo queda cerrado sin atar — que es el lado seguro
+      // de fallar: se cobró una vez y hay un pedido real detrás.
+      if (pendingGroupId) {
+        await api.markGroupOrderPlaced(pendingGroupId, orderId);
+        setPendingGroupId(null);
+      }
       await api.saveCart(cartRestaurant.id, []);
       setCart([]);
       setPromotionCode("");
@@ -941,6 +994,7 @@ function App() {
                   cartRestaurant={cartRestaurant}
                   openItem={openItem}
                   createOrder={createOrder}
+                  onCheckoutGroup={checkoutGroupOrder}
                   rideForm={rideForm}
                   setRideForm={setRideForm}
                   quote={quote}
