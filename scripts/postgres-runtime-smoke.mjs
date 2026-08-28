@@ -2024,6 +2024,13 @@ try {
     method: "PATCH",
     body: JSON.stringify({ status: "suspended", reason: "Prueba de suspension del smoke" }),
   });
+  if (suspension.status !== 200)
+    console.error("merchant suspension diagnostic", {
+      login: opsLoginSuspension.status,
+      tieneToken: Boolean(opsLoginSuspension.body.token),
+      sinMotivo: suspensionSinMotivo,
+      suspension,
+    });
   assert(
     // El motivo no es burocracia: es lo que se lee el dia del reclamo. Sin el,
     // el log dice quien suspendio a quien y no por que.
