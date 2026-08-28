@@ -142,6 +142,14 @@ jobs:
       - name: Un pago repetido no duplica asientos
         run: npm run test:payment-idempotency
 
+      # Cruza tres fuentes —permisos de la base, writes del codigo y writes de
+      # rebote por trigger— y trinquetea la lista de tablas donde el runtime
+      # puede escribir y nadie escribe. No revoca nada: reune la evidencia para
+      # decidir tabla por tabla, que es como se evita el error de creerle a un
+      # inventario mecanico.
+      - name: Alcance de escritura del runtime
+        run: npm run test:runtime-write-scope
+
       # Ensayo de restore. Vuelca la base y la restaura en otra, de verdad, para
       # comprobar que el esquema, las extensiones, las politicas y los permisos
       # sobreviven al viaje por `pg_dump`.

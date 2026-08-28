@@ -379,6 +379,22 @@ La comprobación de RLS es la que más rinde: una tabla restaurada sin `ENABLE R
 
 **Limitación declarada:** restaura en el mismo cluster, así que los roles ya existen. Un `pg_dump` de una base no lleva las definiciones de rol, que son de cluster y salen de `pg_dumpall --roles-only`. Que los roles sean recuperables es una pregunta legítima y ésta no la responde.
 
+### Alcance de escritura del runtime
+
+La migración 116 le quitó a `flash_runtime` la escritura sobre las ocho tablas de referencia donde nunca escribe, y retiró la herencia automática que hacía nacer con DML a toda tabla nueva. Quedaba acotar **por operación**, que exige decidir tabla por tabla.
+
+`test:runtime-write-scope` no decide: reúne la evidencia y evita que la lista crezca. Cruza tres fuentes —los permisos de la base, las tablas que un `INSERT`, `UPDATE` o `DELETE` nombra en `server/`, y las que se escriben de rebote por un trigger sin `SECURITY DEFINER`— y trinquetea la cuenta de pares (tabla, operación) que el rol tiene y nadie usa.
+
+Se cuenta por operación y no por tabla porque ésa es la pregunta: la mayoría de las tablas que sobran permisos escriben algo, sólo que menos de lo que pueden. Una tabla que sólo recibe INSERT y UPDATE no necesita DELETE.
+
+**Por qué no revoca solo.** Un inventario mecánico ya se equivocó una vez y por poco mete un fallo en producción: decía que `driver_availability_sessions` y `driver_job_sessions` eran de sólo lectura porque ningún `INSERT` del servidor las nombra. Las escriben triggers sobre `drivers` que **no** son `SECURITY DEFINER`, así que corren con los permisos de quien dispara. La herramienta las detecta ahora, y ése es el motivo de que el análisis de triggers no sea un extra.
+
+Escribirla destapó la misma clase de error en otra forma: `INSERT ... ON CONFLICT ... DO UPDATE` **exige el permiso UPDATE**, y la primera versión sólo veía el INSERT. Reportaba UPDATE como sobrante en `ledger_accounts`, y hacerle caso habría roto `systemAccount`. Hay 27 upserts en `server/`, sobre al menos doce tablas.
+
+La detección se queda del lado seguro: un falso «esta tabla se escribe» conserva un permiso de más, un falso «nadie la escribe» propone quitar uno que hace falta. El primero cuesta una revisión, el segundo un incidente.
+
+La medida inicial: **114 permisos de más en 86 tablas**, sobre 98 con escritura. La lista se acota por lotes, con la suite entera corriendo detrás — y esa verificación es real, porque en CI la API se conecta como `flash_runtime`.
+
 ### Cobertura documental de las puertas
 
 `test:docs-coverage` exige que cada script `test:` esté nombrado en algún documento de `docs/`. Una puerta que nadie sabe que existe no se mantiene: cuando falla, quien la encuentra no sabe qué protegía ni si conviene arreglarla o borrarla.
