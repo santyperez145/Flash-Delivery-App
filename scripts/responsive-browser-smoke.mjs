@@ -250,6 +250,39 @@ async function auditDesktopRole(browser, role) {
   await context.close();
 }
 
+async function auditDesktopAccessGate(browser) {
+  const context = await browser.newContext({
+    viewport: desktopViewports.at(-1),
+    locale: "es-AR",
+    timezoneId: "America/Argentina/Buenos_Aires",
+    reducedMotion: "reduce",
+  });
+  const page = await context.newPage();
+
+  await login(page, desktopUrl, "cliente@flash.app", "Ingresar");
+  await page.locator(".role-gate-shell").waitFor({ timeout: 15_000 });
+
+  for (const viewport of desktopViewports.filter(({ width }) => width >= 620)) {
+    await page.setViewportSize(viewport);
+    await withAuditScreenshot(page, `customer-access-gate-${viewport.width}`, async () => {
+      const gate = page.locator(".role-gate-card");
+      await gate.waitFor();
+      await assertNoPageOverflow(page, `customer access gate at ${viewport.width}px`);
+      await assertLocatorInsideViewport(
+        page,
+        page.getByRole("button", { name: "Cambiar de cuenta" }),
+        `customer access gate action at ${viewport.width}px`,
+      );
+      const cardWidth = await gate.evaluate((element) => element.getBoundingClientRect().width);
+      assert.ok(cardWidth <= 520, `customer access gate card exceeds its readable width`);
+    });
+    ok(`customer access gate fits ${viewport.width}x${viewport.height}`);
+  }
+
+  await page.getByRole("button", { name: "Cambiar de cuenta" }).click();
+  await context.close();
+}
+
 if (!skipDesktop) await assertReachable(`${desktopUrl}/`, "desktop web");
 await assertReachable(`${mobileUrl}/`, `${mobileVariant} mobile web`);
 
@@ -257,6 +290,7 @@ const browser = await chromium.launch({ headless: true });
 try {
   await auditMobile(browser);
   if (!skipDesktop) {
+    await auditDesktopAccessGate(browser);
     await auditDesktopRole(browser, "merchant");
     await auditDesktopRole(browser, "operations");
   }

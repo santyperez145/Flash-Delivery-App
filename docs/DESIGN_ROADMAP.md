@@ -310,3 +310,14 @@ Una pantalla sólo pasa a `[x]` cuando:
   entry bajó de 575,7 a 65,7 KiB sin esconder lógica ni debilitar el presupuesto.
 - Chromium verificó Customer, Merchant y Operaciones en cinco viewports; el acceso
   se inspeccionó visualmente sin overflow y con controles de 44/52 px.
+
+### 28 de agosto de 2026 — Estados transversales web
+
+- Carga inicial, carga por audiencia, indisponibilidad y acceso por rol convergen
+  en una composición Flash compartida con safe areas, ancho legible y targets de
+  50 px; desaparecen las tarjetas de loading reutilizadas como error o login.
+- Los estados comunican la condición real con `status`, `alert` y `aria-busy`, y
+  sólo muestran `Reintentar` o `Cambiar de cuenta` cuando existe esa operación.
+- La derivación Customer desde web se verifica en Chromium en 768×1024,
+  1024×768 y 1440×900. El texto habla de servicios habilitados por cuenta y no
+  promete verticales que los flags o permisos del servidor podrían desactivar.

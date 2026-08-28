@@ -1,0 +1,130 @@
+.system-state-shell,
+.role-gate-shell {
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  padding: calc(24px + var(--layout-safe-top)) calc(18px + var(--layout-safe-right))
+    calc(24px + var(--layout-safe-bottom)) calc(18px + var(--layout-safe-left));
+  background:
+    radial-gradient(circle at 5% 0%, rgba(255, 106, 33, 0.14), transparent 24rem),
+    radial-gradient(circle at 100% 100%, rgba(124, 60, 255, 0.12), transparent 26rem),
+    var(--paper-soft);
+}
+
+.system-state-card,
+.role-gate-card {
+  display: grid;
+  gap: 22px;
+  width: min(100%, 520px);
+  padding: clamp(26px, 5vw, 44px);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.system-state-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  justify-self: start;
+}
+
+.system-state-brand > span {
+  display: inline-grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(145deg, var(--food), #ff8b52);
+  border-radius: 12px;
+}
+
+.system-state-icon,
+.role-gate-icon {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  color: var(--brand);
+  background: #f0eaff;
+  border-radius: var(--radius-card);
+}
+
+.system-state-error .system-state-icon {
+  color: var(--danger);
+  background: #fff1f0;
+}
+
+.system-state-card small,
+.role-gate-card small {
+  color: var(--brand);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.system-state-card h1,
+.role-gate-card h1 {
+  margin: 7px 0 10px;
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  line-height: 1.04;
+  letter-spacing: -0.04em;
+}
+
+.system-state-card p,
+.role-gate-card p {
+  margin: 0;
+  color: var(--ink-soft);
+  line-height: 1.55;
+}
+
+.system-state-card > button,
+.role-gate-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 50px;
+  padding: 0 16px;
+  color: #fff;
+  font-weight: 900;
+  background: var(--brand);
+  border: 0;
+  box-shadow: 0 12px 24px rgba(124, 60, 255, 0.2);
+}
+
+.role-gate-icon {
+  color: var(--shipment);
+  background: #e9f6f0;
+}
+
+.role-gate-actions {
+  display: grid;
+  gap: 12px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.role-gate-actions > span {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-transform: capitalize;
+}
+
+.role-gate-actions button {
+  justify-content: center;
+  gap: 8px;
+  background: var(--ink);
+  box-shadow: none;
+}
+
+@media (max-width: 420px) {
+  .system-state-card,
+  .role-gate-card {
+    gap: 18px;
+    padding: 24px 20px;
+    border-radius: 20px;
+  }
+}
