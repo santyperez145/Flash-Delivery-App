@@ -472,7 +472,7 @@ Case ownership · SLA · escalation · aprobación de refunds · suspensión de 
 ### Criterios de aceptación
 
 - [ ] Ningún incidente requiere ejecutar SQL manual.
-- [ ] Toda acción operativa registra actor y motivo.
+- [ ] Toda acción operativa registra actor y motivo. **Avanzado**: el actor ya estaba —`recordPostgresAudit` lo exige y `test:audit-actor` verifica que una auditoría sin actor resoluble falle en vez de perderse—. El motivo **no**: en ocho decisiones que cambian el estado de un tercero, el esquema exigía una nota de al menos cinco caracteres, la nota se guardaba en la tabla del dominio, y el evento de auditoría registraba sólo el resultado. La diferencia aparece el día del incidente: lo que se lee entonces es el log, y si dice quién cerró qué sin decir por qué, hay que reconstruir el motivo desde una tabla que **pudo cambiar después** —el log es append-only, el caso no—. Las ocho ya lo registran. **Falta la puerta que impida que la próxima se olvide**, y está escrita pero sin subir: el token de GitHub no tiene permiso `workflow`, y una suite sin workflow no protege nada.
 - [ ] Los tickets críticos escalan automáticamente al vencer su SLA.
 - [ ] Existen dashboards por cola de trabajo.
 

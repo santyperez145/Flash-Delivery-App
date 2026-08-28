@@ -113,6 +113,11 @@ router.patch(
         afterData: {
           status: reconciliationCase.status,
           caseType: reconciliationCase.caseType,
+          // El motivo va en la auditoría y no sólo en la tabla del caso. Durante
+          // un incidente se lee el log, y un log que dice quién cerró qué sin
+          // decir por qué obliga a reconstruirlo desde otra fuente que además
+          // pudo cambiar después.
+          reason: parsed.data.resolutionNote,
         },
       });
       return ok(res, { case: reconciliationCase });
@@ -157,6 +162,7 @@ router.patch(
         requestId: req.requestId,
         afterData: {
           decision: assessment.decision,
+          reason: parsed.data.reviewNote,
           reviewStatus: assessment.reviewStatus,
           score: assessment.score,
         },
@@ -200,6 +206,7 @@ router.patch(
           merchantId: payout.merchantId,
           amount: payout.amount,
           status: payout.status,
+          reason: parsed.data.note,
         },
       });
       await publishRealtimeEvent({
