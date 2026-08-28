@@ -156,6 +156,12 @@ jobs:
       - name: Forma del rol de runtime
         run: npm run test:runtime-role-shape
 
+      # Carga mil conductores sinteticos y explica la consulta real del recorte
+      # espacial. Con los tres del sembrado el planificador elige Seq Scan y hace
+      # bien, asi que explicarla ahi mediria el caso que no importa.
+      - name: Plan del recorte espacial
+        run: npm run test:dispatch-plan
+
       # Ensayo de restore. Vuelca la base y la restaura en otra, de verdad, para
       # comprobar que el esquema, las extensiones, las politicas y los permisos
       # sobreviven al viaje por `pg_dump`.
