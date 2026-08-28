@@ -73,6 +73,8 @@ import { initials, money } from "../format";
 import { orderStatusLabel, rideStatusLabel } from "../labels";
 import { AdminKpi, AdminSectionHeader } from "../ui/panels";
 import { PromotionControlsPanel, ZoneDemandPanel } from "./DemandControlsBoard";
+import { abrirContenidoProtegido } from "./open-protected-content";
+import { ShipmentReturnsPanel } from "./ShipmentReturnsPanel";
 import {
   FeatureFlagsPanel,
   ProductFunnelPanel,
@@ -490,7 +492,15 @@ export function SuperAdminConsole({
           <ShipmentConfigurationPanel busy={busy} runAction={runAction} />
         )}
 
-        {section === "claims" && <ShipmentClaimsPanel />}
+        {/* Siniestros y devoluciones son la misma clase de excepción y viven
+            juntos. La cola de devoluciones se listaba desde el móvil y no tenía
+            forma de resolverse hasta el 28 de agosto. */}
+        {section === "claims" && (
+          <div className="admin-grid">
+            <ShipmentClaimsPanel />
+            <ShipmentReturnsPanel runAction={runAction} busy={busy} />
+          </div>
+        )}
         {section === "payments" && <PaymentReconciliationPanel />}
 
         {section === "pricing" && (
@@ -619,6 +629,20 @@ function DriverCompliancePanel({
           <span>
             {document.type.replaceAll("_", " ")} · {(document.sizeBytes / 1024).toFixed(0)} KB
           </span>
+          {/* Hasta el 28 de agosto se aprobaba o rechazaba un documento sin poder
+              mirarlo: la ruta de contenido existía y ninguna pantalla la llamaba. */}
+          <button
+            disabled={busy}
+            onClick={() =>
+              runAction(async () => {
+                const contenido = await api.getDriverDocumentContent(document.id);
+                abrirContenidoProtegido(contenido.contentBase64, contenido.document.mimeType);
+                return contenido;
+              }, "Documento abierto")
+            }
+          >
+            Ver
+          </button>
           <button
             disabled={busy}
             onClick={() =>
@@ -1562,15 +1586,8 @@ function ShipmentClaimsPanel() {
   const openEvidence = async (id: string) => {
     try {
       setBusy(true);
-      const result = await api.getShipmentClaimEvidenceContent(id),
-        bytes = Uint8Array.from(atob(result.contentBase64), (character) => character.charCodeAt(0)),
-        url = URL.createObjectURL(new Blob([bytes], { type: result.evidence.mimeType })),
-        link = document.createElement("a");
-      link.href = url;
-      link.target = "_blank";
-      link.rel = "noopener";
-      link.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+      const result = await api.getShipmentClaimEvidenceContent(id);
+      abrirContenidoProtegido(result.contentBase64, result.evidence.mimeType);
     } catch (openError) {
       setError(openError instanceof Error ? openError.message : "No se pudo abrir la evidencia");
     } finally {

@@ -1303,6 +1303,87 @@ textarea::placeholder {
 .promise-grid,
 .driver-ops-grid,
 .merchant-command,
+/* Cola de devoluciones de envío (ARC-001, cableado de la API).
+
+   El estado va con color propio porque una devolución abierta y una cerrada se
+   leen distinto de un vistazo, y quien atiende la cola mira eso primero. */
+.devoluciones {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.devoluciones li {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.devoluciones li:last-child {
+  border-bottom: none;
+}
+
+.devolucion-encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.devoluciones p {
+  margin: 6px 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.devolucion-nota {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+}
+
+.devolucion-estado {
+  flex: none;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: var(--paper-soft);
+  color: var(--ink-soft);
+}
+
+.estado-requested {
+  background: #fff6f2;
+  color: var(--accent-deep);
+}
+
+.estado-completed {
+  background: #eaf8f1;
+  color: #0b6b45;
+}
+
+.devoluciones input {
+  width: 100%;
+  min-height: var(--layout-touch);
+  margin-bottom: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.devolucion-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.devolucion-acciones button {
+  min-height: var(--layout-touch);
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  cursor: pointer;
+}
+
 /* Palancas de demanda: promociones y multiplicadores de zona (ARC-001).
 
    Las dos mueven dinero. El botón de aplicar queda deshabilitado hasta que hay

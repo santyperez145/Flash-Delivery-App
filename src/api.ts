@@ -1391,6 +1391,28 @@ export const api = {
       { method: "PATCH", body: JSON.stringify(input) },
     );
   },
+  // Devoluciones de envío. El móvil ya las listaba y nadie podía resolverlas: la
+  // cola se miraba y no se tocaba.
+  async getShipmentReturns() {
+    return request<{ returns: import("./types").ShipmentReturn[] }>("/shipment-returns");
+  },
+  async updateShipmentReturn(
+    returnId: string,
+    patch: { status: import("./types").ShipmentReturn["status"]; resolutionNote?: string },
+  ) {
+    return request<{ return: import("./types").ShipmentReturn }>(`/shipment-returns/${returnId}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    });
+  },
+  // El contenido del documento llega en base64, igual que la evidencia de un
+  // siniestro: una URL firmada que se pueda compartir deja de estar protegida.
+  async getDriverDocumentContent(documentId: string) {
+    return request<{
+      document: { mimeType: string; sizeBytes: number };
+      contentBase64: string;
+    }>(`/driver-documents/${documentId}/content`);
+  },
   async getShipmentClaims() {
     return request<{ claims: import("./types").ShipmentClaim[] }>("/shipment-claims");
   },
