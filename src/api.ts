@@ -1418,6 +1418,28 @@ export const api = {
       `/admin/realtime-audience?hours=${hours}`,
     );
   },
+  // Palancas de demanda. Ambas mueven dinero, así que el llamado es explícito y
+  // no se dispara al escribir: la pantalla junta el cambio y lo confirma.
+  async updatePromotion(
+    promotionId: string,
+    patch: Partial<Pick<import("./types").Promotion, "active">>,
+  ) {
+    return request<{ promotion: import("./types").Promotion }>(`/promotions/${promotionId}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    });
+  },
+  async updateZone(
+    zoneId: string,
+    patch: Partial<
+      Pick<import("./types").Zone, "demandLevel" | "deliveryMultiplier" | "rideMultiplier">
+    >,
+  ) {
+    return request<{ zone: import("./types").Zone }>(`/zones/${zoneId}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    });
+  },
   async getProductMetrics(days = 7) {
     return request<{ metrics: import("./types").ProductMetrics }>(
       `/operations/product-metrics?days=${days}`,
