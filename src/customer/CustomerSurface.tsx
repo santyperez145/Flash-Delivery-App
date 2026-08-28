@@ -105,6 +105,7 @@ export function CustomerApp(props: {
   user: User | null;
   service: Service;
   setService: (service: Service) => void;
+  features: Record<string, { active: boolean; variant: Record<string, unknown> }> | null;
   tab: CustomerTab;
   setTab: (tab: CustomerTab) => void;
   query: string;
@@ -293,7 +294,7 @@ export function CustomerApp(props: {
         </div>
       </header>
 
-      <ServiceToggle service={service} setService={setService} />
+      <ServiceToggle service={service} setService={setService} features={props.features} />
 
       {tab === "home" && service === "food" && (
         <FoodHome
@@ -390,13 +391,27 @@ export function CustomerApp(props: {
   );
 }
 
+/**
+ * Selector de servicio, con el envío detrás de su flag.
+ *
+ * `shipment_beta` existía en la base desde la migración 093 y **nadie lo leía**:
+ * el panel de operaciones podía apagarlo y la pestaña seguía ahí. Ahora apagarlo
+ * la esconde, que es lo que un control de release tiene que hacer.
+ *
+ * Un flag desconocido —`features` en `null` porque la llamada falló o todavía no
+ * volvió— deja la pestaña visible. Esconder producto por una llamada que no
+ * respondió sería peor que mostrar de más.
+ */
 function ServiceToggle({
   service,
   setService,
+  features,
 }: {
   service: Service;
   setService: (service: Service) => void;
+  features: Record<string, { active: boolean; variant: Record<string, unknown> }> | null;
 }) {
+  const enviosHabilitados = features?.shipment_beta?.active ?? true;
   return (
     <div className="service-toggle">
       <button
@@ -413,13 +428,15 @@ function ServiceToggle({
       >
         <Car size={16} /> Taxi
       </button>
-      <button
-        className={service === "shipment" ? "active" : ""}
-        onClick={() => setService("shipment")}
-        type="button"
-      >
-        <PackageCheck size={16} /> Envíos
-      </button>
+      {enviosHabilitados && (
+        <button
+          className={service === "shipment" ? "active" : ""}
+          onClick={() => setService("shipment")}
+          type="button"
+        >
+          <PackageCheck size={16} /> Envíos
+        </button>
+      )}
     </div>
   );
 }

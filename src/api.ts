@@ -1440,6 +1440,14 @@ export const api = {
       body: JSON.stringify(patch),
     });
   },
+  // Flags evaluados para la sesión actual. Es la mitad que faltaba del sistema
+  // de release control: el panel de operaciones podía encender un flag y nadie
+  // lo leía, así que encenderlo no hacía nada.
+  async getFeatures() {
+    return request<{
+      features: Record<string, { active: boolean; variant: Record<string, unknown> }>;
+    }>("/features");
+  },
   async getProductMetrics(days = 7) {
     return request<{ metrics: import("./types").ProductMetrics }>(
       `/operations/product-metrics?days=${days}`,

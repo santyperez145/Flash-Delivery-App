@@ -124,6 +124,14 @@ const FlashMap = lazy(() => import("./maps/FlashMap"));
 
 function App() {
   const [state, setState] = useState<AppState | null>(null);
+  // Flags evaluados por el servidor para esta sesión. `null` mientras no se
+  // cargaron: la diferencia importa, porque «todavía no sé» no es «apagado».
+  // Un flag desconocido deja la superficie visible; esconder producto por una
+  // llamada que falló sería peor que mostrar de más.
+  const [features, setFeatures] = useState<Record<
+    string,
+    { active: boolean; variant: Record<string, unknown> }
+  > | null>(null);
   const [adminDashboard, setAdminDashboard] = useState<AdminDashboard | null>(null);
   const [mode, setMode] = useState<Mode>("customer");
   const [sessionUserId, setSessionUserId] = useState("usr_customer");
@@ -212,6 +220,10 @@ function App() {
     async (knownUserId = sessionUserId) => {
       const response = await api.state();
       setState(response.state);
+      api
+        .getFeatures()
+        .then((datos) => setFeatures(datos.features))
+        .catch(() => setFeatures(null));
       const refreshedUser = response.state.users.find((user) => user.id === knownUserId);
       if (isDesktop && desktopPortal === "admin" && refreshedUser?.roles.includes("admin")) {
         try {
@@ -902,6 +914,7 @@ function App() {
                   user={activeUser}
                   service={service}
                   setService={setService}
+                  features={features}
                   tab={tab}
                   setTab={setTab}
                   query={query}
