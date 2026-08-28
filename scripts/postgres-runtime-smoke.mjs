@@ -28,6 +28,7 @@ let rideDestinationId = null;
 let trustedContactId = null;
 const feedbackAuditRequestIds = [];
 let orderId = null;
+let grupoPublicId = null;
 let idempotencyKey = null;
 let walletKey = null;
 let rideId = null;
@@ -640,6 +641,128 @@ try {
     profileCannotDrift.body.account.user.defaultAddress.includes("Santa Fe"),
     "profile edits cannot desynchronize a geocoded default address",
   );
+
+  // -------------------------------------------------------------------------
+  // Pedidos grupales (GTM-001). Se prueban aca porque hay dos identidades
+  // vivas: sin una segunda persona, un pedido grupal no prueba nada.
+  // -------------------------------------------------------------------------
+  token = customerToken;
+  const grupoCreado = await request("/group-orders", {
+    method: "POST",
+    body: JSON.stringify({ restaurantId: "rest_roja", spendLimitCents: 900000 }),
+  });
+  grupoPublicId = grupoCreado.body.group?.id;
+  assert(
+    grupoCreado.status === 200 &&
+      grupoPublicId &&
+      grupoCreado.body.group.participants.length === 1 &&
+      grupoCreado.body.group.participants[0].isHost === true &&
+      /^[A-Z0-9]{6}$/.test(grupoCreado.body.group.joinCode || ""),
+    "abrir un grupo deja al anfitrion adentro con un codigo compartible",
+  );
+  const codigoGrupo = grupoCreado.body.group.joinCode;
+
+  // Sin ser parte no se ve, ni siquiera conociendo el id. El codigo es para
+  // entrar, no para leer: al reves, cualquiera con un codigo filtrado leeria
+  // quien pidio que en una oficina.
+  token = registeredToken;
+  const grupoAjeno = await request(`/group-orders/${grupoPublicId}`);
+  const codigoInvalido = await request("/group-orders/join", {
+    method: "POST",
+    body: JSON.stringify({ joinCode: "ZZZZZZ" }),
+  });
+  assert(
+    grupoAjeno.status === 404 && codigoInvalido.status === 404,
+    "un grupo ajeno no se lee y un codigo inexistente no suma",
+  );
+
+  const sumado = await request("/group-orders/join", {
+    method: "POST",
+    body: JSON.stringify({ joinCode: codigoGrupo }),
+  });
+  const sumadoDeNuevo = await request("/group-orders/join", {
+    method: "POST",
+    body: JSON.stringify({ joinCode: codigoGrupo }),
+  });
+  assert(
+    sumado.status === 200 &&
+      sumado.body.group.participants.length === 2 &&
+      // Volver a entrar con el mismo codigo no es un error: pasa cada vez que
+      // alguien abre el enlace dos veces.
+      sumadoDeNuevo.status === 200 &&
+      sumadoDeNuevo.body.group.participants.length === 2,
+    "sumarse con el codigo funciona y repetirlo no duplica ni falla",
+  );
+
+  // **El tope se verifica contra los precios de la base, no contra los que manda
+  // el cliente.** Un tope que se pueda esquivar mandando precios inventados no
+  // es un tope. La hamburguesa del padron vale $6.500, asi que dos superan el
+  // tope de $9.000 y una no.
+  const sobreTope = await request(`/group-orders/${grupoPublicId}/items`, {
+    method: "PUT",
+    body: JSON.stringify({
+      items: [{ menuItemId: "item_burger_brava", quantity: 2, extras: [], note: "" }],
+    }),
+  });
+  const bajoTope = await request(`/group-orders/${grupoPublicId}/items`, {
+    method: "PUT",
+    body: JSON.stringify({
+      items: [{ menuItemId: "item_burger_brava", quantity: 1, extras: [], note: "sin cebolla" }],
+    }),
+  });
+  assert(
+    sobreTope.status === 409 &&
+      bajoTope.status === 200 &&
+      // Y lo rechazado no quedo guardado: la transaccion vuelve atras entera, o
+      // el tope habria sido un cartel y no un limite.
+      bajoTope.body.group.participants.find((p) => !p.isHost)?.items.length === 1,
+    "el tope de gasto se aplica contra los precios de la base y lo rechazado no queda",
+  );
+
+  token = customerToken;
+  await request(`/group-orders/${grupoPublicId}/items`, {
+    method: "PUT",
+    body: JSON.stringify({
+      items: [{ menuItemId: "item_burger_brava", quantity: 1, extras: [], note: "bien cocida" }],
+    }),
+  });
+  // Cerrar es del anfitrion. Sin esto, cualquiera del grupo podria cortar el
+  // agregado de los demas.
+  token = registeredToken;
+  const cierreAjeno = await request(`/group-orders/${grupoPublicId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status: "locked" }),
+  });
+  token = customerToken;
+  const cierre = await request(`/group-orders/${grupoPublicId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status: "locked" }),
+  });
+  assert(
+    cierreAjeno.status === 409 && cierre.status === 200 && cierre.body.group.status === "locked",
+    "solo el anfitrion cierra el grupo",
+  );
+  token = registeredToken;
+  const agregarCerrado = await request(`/group-orders/${grupoPublicId}/items`, {
+    method: "PUT",
+    body: JSON.stringify({ items: [] }),
+  });
+  assert(agregarCerrado.status === 409, "con el grupo cerrado ya no se agrega ni se saca");
+
+  token = customerToken;
+  const checkoutGrupo = await request(`/group-orders/${grupoPublicId}/checkout`);
+  assert(
+    checkoutGrupo.status === 200 &&
+      // Dos personas que piden lo mismo son **una linea de cantidad dos**: la
+      // cocina lee un pedido, no un acta de quien pidio que.
+      checkoutGrupo.body.items.length === 1 &&
+      checkoutGrupo.body.items[0].quantity === 2 &&
+      // Y las notas de las dos sobreviven. Perder «sin cebolla» porque otro
+      // pidio lo mismo seria el error caro de esta funcion.
+      checkoutGrupo.body.items[0].note.includes("sin cebolla") &&
+      checkoutGrupo.body.items[0].note.includes("bien cocida"),
+    "el grupo se entrega junto, con las lineas sumadas y sin perder notas",
+  );
   token = customerToken;
   assert(
     (
@@ -936,6 +1059,165 @@ try {
       duplicateModifierQuote.status === 409,
     "checkout prices configured modifiers and rejects unknown or duplicate selections",
   );
+
+  // -------------------------------------------------------------------------
+  // Suscripcion de Flash (GTM-001).
+  //
+  // Se prueba contra un plan propio del smoke y no contra el sembrado: mover el
+  // umbral por encima y por debajo del subtotal real del pedido demuestra las
+  // dos mitades sobre la misma orden, y demuestra ademas lo que el diseño
+  // afirma —que el beneficio sale de la fila del plan y no del codigo—. Con el
+  // plan sembrado habria que adivinar precios de semilla para cruzar el umbral.
+  // -------------------------------------------------------------------------
+  const planKeySmoke = "smoke_plan";
+  const quoteSinPlan = await request("/orders/quote", {
+    method: "POST",
+    body: JSON.stringify({ ...payload, promotionCode: undefined }),
+  });
+  assert(
+    quoteSinPlan.status === 200 && quoteSinPlan.body.quote.subscriptionDiscount === 0,
+    "sin suscripcion la cotizacion no descuenta el envio",
+  );
+  const subtotalPedido = Math.round(quoteSinPlan.body.quote.subtotal * 100);
+  const envioPedido = quoteSinPlan.body.quote.deliveryFee;
+  assert(envioPedido > 0, "el pedido del smoke tiene un envio con cargo que descontar");
+
+  await pool.query("DELETE FROM subscription_plans WHERE key=$1", [planKeySmoke]);
+  await pool.query(
+    `INSERT INTO subscription_plans(public_id, key, name, description, price_cents,
+       billing_period_days, free_delivery_min_subtotal_cents, ride_discount_bps, dispatch_priority_boost)
+     VALUES('PLAN-SMOKE','smoke_plan','Plan smoke','Plan de prueba del smoke',100000,30,$1,500,5)`,
+    [subtotalPedido],
+  );
+
+  const planesPublicos = await fetch(`${base}/subscription/plans`).then((r) => r.json());
+  assert(
+    planesPublicos.plans?.some((plan) => plan.planKey === planKeySmoke),
+    "el catalogo de planes se lee sin sesion",
+  );
+
+  const alta = await request("/subscription", {
+    method: "POST",
+    body: JSON.stringify({ planKey: planKeySmoke }),
+  });
+  assert(
+    alta.status === 200 &&
+      alta.body.subscription.planKey === planKeySmoke &&
+      alta.body.subscription.renews === true &&
+      // Se otorga sin cobrar mientras PAY-001 no tenga credenciales, y la
+      // respuesta lo dice en vez de disimularlo.
+      alta.body.subscription.billed === false,
+    "el alta devuelve la suscripcion y declara que el periodo no se cobro",
+  );
+  const altaDuplicada = await request("/subscription", {
+    method: "POST",
+    body: JSON.stringify({ planKey: planKeySmoke }),
+  });
+  assert(altaDuplicada.status === 409, "una segunda alta sobre una suscripcion vigente se rechaza");
+
+  // Umbral exactamente en el subtotal: aplica.
+  const quoteConPlan = await request("/orders/quote", {
+    method: "POST",
+    body: JSON.stringify({ ...payload, promotionCode: undefined }),
+  });
+  assert(
+    quoteConPlan.status === 200 &&
+      quoteConPlan.body.quote.subscriptionDiscount === envioPedido &&
+      quoteConPlan.body.quote.subscriptionPlan === planKeySmoke &&
+      // El total baja exactamente el envio, ni mas ni menos.
+      Math.round((quoteSinPlan.body.quote.total - quoteConPlan.body.quote.total) * 100) ===
+        Math.round(envioPedido * 100),
+    "desde el umbral la suscripcion cubre el envio y el total baja exactamente eso",
+  );
+
+  // Mismo pedido, umbral un centavo mas arriba: no aplica. La otra mitad, y sin
+  // tocar codigo — solo la fila del plan.
+  await pool.query(
+    "UPDATE subscription_plans SET free_delivery_min_subtotal_cents=$1 WHERE key=$2",
+    [subtotalPedido + 1, planKeySmoke],
+  );
+  const quoteBajoUmbral = await request("/orders/quote", {
+    method: "POST",
+    body: JSON.stringify({ ...payload, promotionCode: undefined }),
+  });
+  assert(
+    quoteBajoUmbral.status === 200 && quoteBajoUmbral.body.quote.subscriptionDiscount === 0,
+    "un centavo por debajo del umbral el beneficio no se aplica",
+  );
+
+  // Un cupon de envio sin cargo no se acumula con el beneficio: el envio se
+  // descontaria dos veces y el pedido devolveria plata que nadie cobro.
+  await pool.query(
+    "UPDATE subscription_plans SET free_delivery_min_subtotal_cents=0 WHERE key=$1",
+    [planKeySmoke],
+  );
+  const quoteConCupon = await request("/orders/quote", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  assert(
+    quoteConCupon.status === 200 &&
+      Math.round(quoteConCupon.body.quote.total * 100) >= 0 &&
+      quoteConCupon.body.quote.subscriptionDiscount + quoteConCupon.body.quote.discount <=
+        quoteConCupon.body.quote.subtotal + quoteConCupon.body.quote.deliveryFee,
+    "el alivio combinado de cupon y suscripcion nunca supera lo que se cobra",
+  );
+
+  const baja = await request("/subscription", { method: "DELETE" });
+  const trasBaja = await request("/subscription");
+  assert(
+    baja.status === 200 &&
+      baja.body.cancelled === true &&
+      trasBaja.body.subscription?.renews === false &&
+      // **Cancelar no es perder lo pago.** El periodo sigue y el beneficio
+      // tambien: cortarlo el dia de la baja seria cobrar un mes y entregar
+      // menos.
+      new Date(trasBaja.body.subscription.currentPeriodEnd) > new Date(),
+    "cancelar deja de renovar y conserva el periodo ya pago",
+  );
+  const quoteTrasBaja = await request("/orders/quote", {
+    method: "POST",
+    body: JSON.stringify({ ...payload, promotionCode: undefined }),
+  });
+  assert(
+    quoteTrasBaja.body.quote.subscriptionDiscount === envioPedido,
+    "el beneficio sigue aplicando despues de cancelar, hasta que termine el periodo",
+  );
+  const reactivacion = await request("/subscription", {
+    method: "POST",
+    body: JSON.stringify({ planKey: planKeySmoke }),
+  });
+  assert(
+    reactivacion.status === 200 && reactivacion.body.subscription.renews === true,
+    "reactivar dentro del periodo vuelve a renovar sin abrir un periodo nuevo",
+  );
+  assert(
+    Number(
+      (
+        await pool.query(
+          `SELECT count(*)::int count FROM user_subscriptions s JOIN users u ON u.id=s.user_id
+           WHERE u.public_id=$1 AND s.status='active'`,
+          ["usr_customer"],
+        )
+      ).rows[0].count,
+    ) === 1,
+    "reactivar no deja dos periodos superpuestos cobrandose a la vez",
+  );
+  // **El bloque devuelve el padron como lo encontro.** Dejar a `usr_customer`
+  // suscripto con umbral cero le regala el envio a todas las cotizaciones que
+  // siguen en este archivo, y la primera que fallo fue una asercion de desglose
+  // a doscientas lineas de distancia. Un bloque de prueba que cambia el estado
+  // compartido y no lo restituye convierte cualquier agregado posterior en una
+  // caceria.
+  await pool.query(
+    `DELETE FROM user_subscriptions
+     WHERE plan_id IN(SELECT id FROM subscription_plans WHERE key=$1)`,
+    [planKeySmoke],
+  );
+  assert(
+    (await request("/subscription")).body.subscription === null,
+    "el bloque de suscripcion deja al cliente como lo encontro",
+  );
   payload = { ...payload, quoteToken: foodQuote.body.quote.quoteToken };
   const foreignAddressKey = `foreign-address-${crypto.randomUUID()}`;
   const foreignQuote = await request("/orders/quote", {
@@ -994,7 +1276,11 @@ try {
         checkoutQuote.body.quote.subtotal +
           checkoutQuote.body.quote.deliveryFee +
           checkoutQuote.body.quote.serviceFee -
-          checkoutQuote.body.quote.discount,
+          checkoutQuote.body.quote.discount -
+          // El envio cubierto por la suscripcion es un termino propio del
+          // desglose desde GTM-001. Sin el, esta asercion se rompe apenas el
+          // cliente tiene una suscripcion activa — que es como aparecio.
+          checkoutQuote.body.quote.subscriptionDiscount,
     "checkout returns an exact signed server-side breakdown",
   );
   payload = {
@@ -1320,6 +1606,54 @@ try {
       scheduledStored.rows[0]?.reminders === 1,
     "scheduled ride persists without dispatch and creates a reminder",
   );
+  // Reprogramar (GTM-001). Hasta ahora nada podia mover un horario: la unica
+  // salida era cancelar y volver a pedir, que ademas le cuenta la cancelacion al
+  // cliente. Se prueba sobre el viaje reservado porque ya existe y ya esta fuera
+  // de ventana, que es justo el estado en el que mover la hora es legitimo.
+  const nuevoHorario = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString();
+  const reprogramado = await request(`/jobs/${scheduledRideId}/schedule`, {
+    method: "PATCH",
+    body: JSON.stringify({ scheduledFor: nuevoHorario }),
+  });
+  const horarioEnBase = (
+    await pool.query("SELECT scheduled_for FROM jobs WHERE public_id=$1", [scheduledRideId])
+  ).rows[0];
+  assert(
+    reprogramado.status === 200 &&
+      reprogramado.body.job.scheduledFor === nuevoHorario &&
+      // El horario anterior viaja en la respuesta: quien reprograma tiene que
+      // poder ver desde donde se movio, y la auditoria lo necesita para el
+      // `beforeData`.
+      reprogramado.body.job.previousScheduledFor === scheduledFor &&
+      new Date(horarioEnBase.scheduled_for).toISOString() === nuevoHorario,
+    "reprogramar mueve el horario reservado y devuelve el anterior",
+  );
+  assert(
+    Number(
+      (
+        await pool.query(
+          `SELECT count(*)::int count FROM job_events e JOIN jobs j ON j.id=e.job_id
+           WHERE j.public_id=$1 AND e.payload->>'rescheduledFrom' IS NOT NULL`,
+          [scheduledRideId],
+        )
+      ).rows[0].count,
+    ) === 1,
+    "el cambio de horario queda en la linea de tiempo del servicio, no solo en auditoria",
+  );
+  // Las dos mitades del rechazo, que es donde vive el dinero: un servicio sin
+  // reserva no se puede "mover", y un horario fuera de la ventana no se acepta.
+  const sinReserva = await request(`/jobs/${orderId}/schedule`, {
+    method: "PATCH",
+    body: JSON.stringify({ scheduledFor: nuevoHorario }),
+  });
+  const fueraDeVentana = await request(`/jobs/${scheduledRideId}/schedule`, {
+    method: "PATCH",
+    body: JSON.stringify({ scheduledFor: new Date(Date.now() + 5 * 60 * 1000).toISOString() }),
+  });
+  assert(
+    sinReserva.status === 409 && fueraDeVentana.status === 400,
+    "no se reprograma un servicio sin reserva ni a un horario fuera de la ventana",
+  );
   await pool.query(
     "UPDATE jobs SET scheduled_for=now()+interval '10 minutes',metadata=metadata-'dispatchNextAttemptAt' WHERE public_id=$1",
     [scheduledRideId],
@@ -1334,6 +1668,18 @@ try {
     ).rows[0].count,
   );
   assert(activatedOffers > 0, "scheduled ride enters dispatch inside the lead window");
+  // Con oferta pendiente el viaje sigue sin conductor, asi que todavia se puede
+  // mover; lo que no se puede es moverlo despues, y eso lo cubre el estado. Aca
+  // se afirma que la ventana sigue mandando aunque ya este en despacho: un
+  // horario a cinco minutos no se acepta ni siquiera cuando el trabajo ya entro.
+  const enDespachoFueraDeVentana = await request(`/jobs/${scheduledRideId}/schedule`, {
+    method: "PATCH",
+    body: JSON.stringify({ scheduledFor: new Date(Date.now() + 60 * 1000).toISOString() }),
+  });
+  assert(
+    enDespachoFueraDeVentana.status === 400,
+    "un trabajo ya en despacho tampoco se mueve a un horario invalido",
+  );
   const cancelledScheduled = await request(`/rides/${scheduledRideId}/status`, {
     method: "PATCH",
     body: JSON.stringify({ status: "cancelled", reason: "changed_mind" }),
@@ -1370,12 +1716,18 @@ try {
     method: "POST",
     body: JSON.stringify(settlementPayload),
   });
+  // Propina tomada en el checkout (GTM-001). Va sobre el pedido que se liquida
+  // porque el riesgo esta justo ahi: que el comercio o la plataforma se queden
+  // con parte de ella. Es un error silencioso — nadie reclama una propina que
+  // llego a la cuenta equivocada, porque nadie la ve.
+  const propinaCents = 120000;
   const settlementOrder = await request("/orders", {
     method: "POST",
     headers: { "Idempotency-Key": settlementOrderKey },
     body: JSON.stringify({
       ...settlementPayload,
       quoteToken: settlementQuote.body.quote?.quoteToken,
+      tipCents: propinaCents,
     }),
   });
   settlementOrderId = settlementOrder.body.order?.id;
@@ -1396,6 +1748,28 @@ try {
   assert(
     preReadyDispatchOffers === 0,
     "paid food remains out of dispatch until merchant readiness",
+  );
+  const propinaRetenida = (
+    await pool.query(
+      `SELECT t.status, t.amount_cents, t.driver_id, p.amount_cents charged_cents
+       FROM service_tips t JOIN jobs j ON j.id=t.job_id
+       JOIN payment_intents p ON p.job_id=j.id
+       WHERE j.public_id=$1`,
+      [settlementOrderId],
+    )
+  ).rows[0];
+  assert(
+    propinaRetenida?.status === "held" &&
+      Number(propinaRetenida.amount_cents) === propinaCents &&
+      // Sin conductor asignado todavia: en el checkout no hay a quien pagarle, y
+      // por eso la propina se retiene en vez de transferirse.
+      propinaRetenida.driver_id === null,
+    "la propina del checkout queda retenida y sin destinatario hasta que haya conductor",
+  );
+  assert(
+    Number(propinaRetenida.charged_cents) ===
+      Math.round(settlementQuote.body.quote.total * 100) + propinaCents,
+    "se cobra el pedido y la propina en un solo cargo, no en dos",
   );
   const substitutionWalletBefore = (await request("/me")).body.account.user.wallet;
   const merchantSubLogin = await request("/auth/login", {
@@ -1820,6 +2194,39 @@ try {
       merchantBalanceAfter,
     });
   assert(settlementOk, "completed order creates an exact balanced merchant/driver/platform split");
+  // La propina, ya liberada. El asiento cuadrado que se afirma arriba es lo que
+  // atrapa el error grande: si la liquidacion repartiera la propina en vez de
+  // sacarla del total, el trigger `ledger_entries_must_balance` de la migracion
+  // 003 rechazaria la transaccion entera al hacer commit.
+  const propinaLiberada = (
+    await pool.query(
+      `SELECT t.status, t.driver_id, t.ledger_transaction_id, t.settled_at,
+              (SELECT COALESCE(sum(e.amount_cents),0)::bigint
+                 FROM ledger_entries e
+                 JOIN ledger_accounts a ON a.id=e.account_id
+                 JOIN drivers dr ON dr.user_id=a.owner_id
+                WHERE e.transaction_id=t.ledger_transaction_id
+                  AND e.direction='credit' AND a.account_type='wallet'
+                  AND dr.id=t.driver_id) credito_al_conductor
+       FROM service_tips t JOIN jobs j ON j.id=t.job_id WHERE j.public_id=$1`,
+      [settlementOrderId],
+    )
+  ).rows[0];
+  assert(
+    propinaLiberada?.status === "released" &&
+      propinaLiberada.driver_id !== null &&
+      propinaLiberada.ledger_transaction_id !== null &&
+      propinaLiberada.settled_at !== null,
+    "al liquidar, la propina retenida queda pagada con destinatario y asiento",
+  );
+  assert(
+    // El conductor cobra su parte del envio **mas** la propina completa. Si el
+    // comercio o la plataforma se hubieran quedado con una parte, este credito
+    // seria mas chico.
+    Number(propinaLiberada.credito_al_conductor) ===
+      Math.round(settlementQuote.body.quote.deliveryFee * 100) + propinaCents,
+    "el conductor cobra el envio mas la propina entera, sin que nadie retenga una parte",
+  );
   token = registeredToken;
   const foreignReorder = await request(`/orders/${settlementOrderId}/reorder`, {
     method: "POST",
@@ -2071,7 +2478,15 @@ try {
   assert(
     ridePayment.rows[0]?.status === "captured" &&
       (await request("/me")).body.account.user.wallet ===
-        rideWalletBefore - rideFirst.body.ride.fare - substitutionOrder.total,
+        rideWalletBefore -
+          rideFirst.body.ride.fare -
+          substitutionOrder.total -
+          // `substitutionOrder` **es** el pedido de liquidacion, y desde GTM-001
+          // lleva propina: la billetera se debita `total + propina` en un solo
+          // cargo. Restar solo el total dejaba la cuenta corta por exactamente
+          // la propina, y afirmarla aca prueba de paso que se cobro una vez y no
+          // dos.
+          propinaCents / 100,
     "ride captures wallet atomically",
   );
   await pool.query("UPDATE jobs SET status='completed' WHERE public_id=$1", [rideId]);
@@ -2127,7 +2542,10 @@ try {
     rideCancelled.status === 200 &&
       rideCancelled.body.ride.status === "cancelled" &&
       (await request("/me")).body.account.user.wallet ===
-        rideWalletBefore - substitutionOrder.total,
+        // Misma correccion que en la captura: lo cobrado por el pedido de
+        // liquidacion fue `total + propina`, y el reintegro del viaje devuelve
+        // solo la tarifa del viaje.
+        rideWalletBefore - substitutionOrder.total - propinaCents / 100,
     "ride cancellation refunds wallet atomically",
   );
   dispatchDriverOriginalOnline =
@@ -3750,6 +4168,13 @@ try {
       "DELETE FROM payment_intents WHERE job_id=(SELECT id FROM jobs WHERE public_id=$1)",
       [settlementOrderId],
     );
+    // Antes que los asientos y que el pedido: `service_tips` referencia a los dos
+    // sin cascada, asi que borrarlos primero fallaria por clave foranea y el
+    // pedido del smoke quedaria para la corrida siguiente.
+    await pool.query(
+      "DELETE FROM service_tips WHERE job_id=(SELECT id FROM jobs WHERE public_id=$1)",
+      [settlementOrderId],
+    );
     for (const transactionKey of [
       `settlement-${settlementOrderId}`,
       `payment-${settlementOrderKey}`,
@@ -3763,6 +4188,25 @@ try {
       ]);
     }
     await pool.query("DELETE FROM jobs WHERE public_id=$1", [settlementOrderId]);
+    // El plan del smoke y la suscripcion que abrio. En este orden: `plan_id` es
+    // ON DELETE RESTRICT, asi que borrar el plan primero fallaria y dejaria a
+    // `usr_customer` suscripto en la corrida siguiente.
+    await pool.query(
+      "DELETE FROM user_subscriptions WHERE plan_id IN(SELECT id FROM subscription_plans WHERE key='smoke_plan')",
+    );
+    await pool.query("DELETE FROM subscription_plans WHERE key='smoke_plan'");
+    // El grupo del smoke. Participantes e items caen por cascada; el grupo no,
+    // porque nada lo referencia y borrarlo explicitamente deja claro que la
+    // corrida no ensucia el padron.
+    //
+    // Los eventos de auditoria van primero y son la parte que importa:
+    // `audit_events.actor_id` referencia a `users` sin cascada, asi que un
+    // evento de grupo a nombre del usuario registrado bloquea su borrado mas
+    // abajo. Lo encontro CI con un error de clave foranea, no una asercion.
+    if (grupoPublicId) {
+      await pool.query("DELETE FROM audit_events WHERE entity_id=$1", [grupoPublicId]);
+      await pool.query("DELETE FROM group_orders WHERE public_id=$1", [grupoPublicId]);
+    }
     await pool.query("UPDATE catalog_items SET available=true WHERE public_id='item_burger_brava'");
     await pool.query(
       "UPDATE catalog_branch_inventory SET available=true,stock_quantity=NULL WHERE catalog_item_id=(SELECT id FROM catalog_items WHERE public_id='item_burger_brava')",
@@ -3891,6 +4335,15 @@ try {
     ]);
     await pool.query(
       "DELETE FROM transaction_risk_assessments WHERE customer_id=(SELECT id FROM users WHERE public_id=$1)",
+      [registeredUserId],
+    );
+    // Barrido por actor antes de borrar la persona. La limpieza puntual de cada
+    // entidad de arriba cubre lo que esta corrida creo, pero vive dentro de sus
+    // propios `if`: si el smoke corta antes, esos bloques no corren y el borrado
+    // del usuario falla por clave foranea con un mensaje que no dice cual evento
+    // sobro. Esto cierra esa clase entera en vez de la instancia de hoy.
+    await pool.query(
+      "DELETE FROM audit_events WHERE actor_id=(SELECT id FROM users WHERE public_id=$1)",
       [registeredUserId],
     );
     await pool.query("DELETE FROM users WHERE public_id=$1", [registeredUserId]);

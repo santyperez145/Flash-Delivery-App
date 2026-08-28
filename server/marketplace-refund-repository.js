@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { postgresPool } from "./postgres.js";
+import { markHeldTipRefunded } from "./tip-repository.js";
 import { decryptPaymentOAuthToken } from "./secret-envelope.js";
 import { refundMercadoPagoPayment } from "./payment-marketplace-provider.js";
 import { enqueueNotificationForInternalUser } from "./notification-repository.js";
@@ -133,6 +134,9 @@ export async function cancelMarketplaceOrderAndRefund({
       "UPDATE payment_intents SET status='refunded',captured_amount_cents=0,updated_at=now() WHERE id=$1",
       [context.payment_id],
     );
+    // Ver `cancelOrderAndRefundWallet`: la propina vuelve con el reintegro y la
+    // fila tiene que dejar de decir «retenida».
+    await markHeldTipRefunded(client, context.job_id);
     await client.query(
       "UPDATE refunds SET status='succeeded',provider_refund_id=$2,resolved_at=now() WHERE id=$1",
       [claimed.id, providerRefund.id],

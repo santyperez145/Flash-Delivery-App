@@ -121,6 +121,8 @@ export type Order = {
   pickupLocation?: GeoPoint | null;
   deliveryLocation?: GeoPoint | null;
   paymentMethod?: string;
+  /** Horario reservado. `null` es «lo antes posible». */
+  scheduledFor?: string | null;
   total: number;
   etaMin: number;
   createdAt?: string;
@@ -369,6 +371,10 @@ export type FoodCheckoutQuote = {
   serviceFee: number;
   subtotal: number;
   discount: number;
+  /** Envío cubierto por la suscripción. Va aparte de `discount` porque no lo
+   *  financia el comercio sino Flash, y el resumen tiene que poder nombrarlo. */
+  subscriptionDiscount: number;
+  subscriptionPlan: string | null;
   promotionCode: string | null;
   total: number;
   etaMin: number;
@@ -799,4 +805,65 @@ export type MobileCartLine = {
   quantity: number;
   extras: string[];
   note: string;
+};
+
+/** Plan de suscripción ofrecido. Los beneficios vienen del servidor: la pantalla
+ *  no puede inventar un umbral que la tarifa no vaya a aplicar. */
+export type SubscriptionPlan = {
+  id: string;
+  planKey: string;
+  planName: string;
+  description: string;
+  priceCents: number;
+  currency: string;
+  billingPeriodDays: number;
+  freeDeliveryMinSubtotalCents: number | null;
+  rideDiscountBps: number;
+  dispatchPriorityBoost: number;
+};
+
+export type Subscription = SubscriptionPlan & {
+  status: string;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  /** `false` después de cancelar: los beneficios siguen hasta el fin del período. */
+  renews: boolean;
+  /** `false` mientras el cobro recurrente (PAY-001) no tenga credenciales. */
+  billed: boolean;
+};
+
+/** Pedido grupal (GTM-001). Cada participante tiene su propia canasta; el
+ *  anfitrión cierra y confirma, y el grupo se vuelve un pedido normal. */
+export type GroupOrderParticipant = {
+  userId: string;
+  name: string;
+  isHost: boolean;
+  items: Array<{
+    menuItemId: string;
+    name: string;
+    quantity: number;
+    unitPrice: number;
+    extras: string[];
+    note: string;
+  }>;
+  subtotal: number;
+};
+
+export type GroupOrder = {
+  id: string;
+  /** Seis caracteres para compartir. Sólo lo ve quien ya está adentro. */
+  joinCode: string;
+  status: "open" | "locked" | "placed" | "cancelled";
+  restaurantId: string;
+  restaurantName: string;
+  branchId: string;
+  hostId: string;
+  hostName: string;
+  /** Tope de gasto por persona. `null` es sin tope. */
+  spendLimit: number | null;
+  closesAt: string | null;
+  orderId: string | null;
+  createdAt: string;
+  participants: GroupOrderParticipant[];
+  subtotal: number;
 };

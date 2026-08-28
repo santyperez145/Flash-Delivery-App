@@ -99,3 +99,59 @@ assert(
 );
 
 console.log("ok - Customer Comidas usa sistema visual y datos reales");
+
+// ---------------------------------------------------------------------------
+// Propina en el checkout (GTM-001): los topes del cliente son los del servidor.
+//
+// El cliente duplica el piso y el techo para no ofrecer un monto que el
+// confirmar va a rechazar. **Esa copia es el riesgo**: el dia que el servidor
+// cambie el techo y el cliente no, la pantalla ofrece un boton que devuelve 409,
+// y quien lo toca no entiende por que su propina «no anda».
+//
+// Los numeros se leen del servidor en vez de escribirse aca, para que este
+// contrato no pueda quedar viejo junto con el codigo que vigila.
+const propinaServidor = fs.readFileSync("server/tip-repository.js", "utf8");
+const pisoServidor = propinaServidor.match(/CHECKOUT_TIP_MIN_CENTS = (\d+)/)?.[1];
+const techoServidor = propinaServidor.match(/Math\.min\((\d+),/)?.[1];
+const proporcionServidor = propinaServidor.match(/orderTotalCents \* ([\d.]+)/)?.[1];
+if (!pisoServidor || !techoServidor || !proporcionServidor)
+  throw new Error("No se pudieron leer los topes de propina del servidor");
+
+const propinaMovil = fs.readFileSync("apps/mobile/src/TipSelector.tsx", "utf8");
+assert(
+  contains(propinaMovil, `const MIN_CENTS = ${pisoServidor}`) &&
+    contains(propinaMovil, `Math.min(${techoServidor}, Math.max(MIN_CENTS`) &&
+    contains(propinaMovil, `* ${proporcionServidor})`),
+  "los topes de propina del checkout movil son los mismos que aplica el servidor",
+);
+assert(
+  contains(propinaMovil, "Sin propina") && contains(propinaMovil, "subtotal * 100 *"),
+  "el movil ofrece no dejar propina y calcula los porcentajes sobre el subtotal",
+);
+assert(
+  contains(propinaMovil, "minHeight: 44") ||
+    contains(fs.readFileSync("apps/mobile/src/styles.ts", "utf8"), "minHeight: 44"),
+  "las opciones de propina son objetivos tactiles de 44px",
+);
+assert(contains(api, "tipCents?: number"), "la propina viaja a la API movil en centavos");
+
+// **Los topes de reserva del cliente son los del servidor.** Mismo riesgo que
+// con la propina: los dos clientes duplican la ventana para no ofrecer un
+// horario que el confirmar va a rechazar, y esa copia es lo que se desincroniza.
+// Los numeros se leen del servidor en vez de escribirse aca, para que este
+// contrato no pueda quedar viejo junto con el codigo que vigila.
+const reglaServidor = fs.readFileSync("server/scheduling.js", "utf8");
+const minimoServidor = reglaServidor.match(/MINUTOS_MINIMOS_DE_ANTICIPACION = (\d+)/)?.[1];
+const horizonteServidor = reglaServidor.match(/DIAS_MAXIMOS_DE_HORIZONTE = (\d+)/)?.[1];
+if (!minimoServidor || !horizonteServidor)
+  throw new Error("No se pudieron leer los topes de reserva del servidor");
+const programador = fs.readFileSync("apps/mobile/src/SchedulePicker.tsx", "utf8");
+assert(
+  contains(programador, `MINUTOS_MINIMOS = ${minimoServidor}`) &&
+    contains(programador, `DIAS_MAXIMOS = ${horizonteServidor}`),
+  "los topes de reserva del checkout movil son los mismos que aplica el servidor",
+);
+assert(
+  contains(app, "api.rescheduleJob") && contains(app, "SchedulePicker"),
+  "el checkout movil reserva horario y la lista de pedidos permite moverlo",
+);

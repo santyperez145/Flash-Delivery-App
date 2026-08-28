@@ -75,6 +75,7 @@ import { AdminKpi, AdminSectionHeader } from "../ui/panels";
 import { PromotionControlsPanel, ZoneDemandPanel } from "./DemandControlsBoard";
 import { abrirContenidoProtegido } from "./open-protected-content";
 import { ShipmentReturnsPanel } from "./ShipmentReturnsPanel";
+import { WorkQueueBoard } from "./WorkQueueBoard";
 import {
   FeatureFlagsPanel,
   ProductFunnelPanel,
@@ -210,6 +211,10 @@ export function SuperAdminConsole({
 
         {section === "overview" && (
           <>
+            {/* Primero de todo en la vista general: es la única pantalla que
+                responde «¿hay algo acumulándose?» sin entrar a ocho secciones, y
+                debajo de los KPI se leería después de lo que ya está bien. */}
+            <WorkQueueBoard />
             <div className="admin-kpis">
               <AdminKpi
                 label="Pedidos activos"

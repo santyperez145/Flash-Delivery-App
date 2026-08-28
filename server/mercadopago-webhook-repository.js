@@ -101,7 +101,12 @@ async function reconcilePaymentSnapshot(snapshot, connection) {
       });
     if (decision.fulfill && row.job_status === "requested") {
       await client.query(
-        "UPDATE jobs SET status='accepted',merchant_ready_due_at=CASE WHEN merchant_prep_minutes IS NULL THEN NULL ELSE now()+make_interval(mins=>merchant_prep_minutes::integer) END,updated_at=now() WHERE id=$1",
+        // El vencimiento de cocina cuenta desde el horario reservado, no desde el
+        // cobro: un pedido programado que se paga hoy no se cocina hoy.
+        `UPDATE jobs SET status='accepted',
+           merchant_ready_due_at=CASE WHEN merchant_prep_minutes IS NULL THEN NULL
+             ELSE COALESCE(scheduled_for, now())+make_interval(mins=>merchant_prep_minutes::integer) END,
+           updated_at=now() WHERE id=$1`,
         [row.job_id],
       );
       await client.query(

@@ -49,6 +49,7 @@ import {
   setPostgresOrderStatus,
 } from "../order-repository.js";
 import { usesPostgresCommerce } from "../postgres.js";
+import { validarHorarioProgramado } from "../scheduling.js";
 import { publishRealtimeEvent } from "./realtime.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";
 import { assessTransactionRisk, setRiskEntity } from "../risk-repository.js";
@@ -65,6 +66,16 @@ const orderSchema = z.object({
   paymentMethodId: z.string().uuid().optional(),
   promotionCode: z.string().trim().min(3).max(40).optional(),
   quoteToken: z.string().min(20).optional(),
+  // Propina tomada en el checkout (GTM-001). En centavos y entera: un `number`
+  // en pesos con decimales llega redondeado distinto según el cliente, y esto es
+  // dinero. Los topes reales los aplica el repositorio contra el total del
+  // pedido, que acá todavía no se conoce.
+  tipCents: z.coerce.number().int().min(0).max(10000000).default(0),
+  // Reserva de horario (GTM-001). La portada prometía «Programar - Food o taxi»
+  // desde antes de que existiera la mitad de comida de esa promesa: sólo los
+  // viajes sabían reservar. La ventana la valida `scheduling.js`, que es la
+  // misma que usa el alta de viajes.
+  scheduledFor: z.string().datetime().optional(),
   providerPayment: z
     .object({
       cardToken: z
@@ -305,7 +316,13 @@ router.post("/api/orders", requireAuth, requireAnyRole("customer", "admin"), asy
     providerPayment,
     promotionCode,
     quoteToken,
+    tipCents,
+    scheduledFor,
   } = parsed.data;
+  if (scheduledFor) {
+    const invalido = validarHorarioProgramado(scheduledFor);
+    if (invalido) return fail(res, 400, invalido);
+  }
   const idempotencyKey = req.get("idempotency-key");
   if (
     usesPostgresCommerce() &&
@@ -410,6 +427,8 @@ router.post("/api/orders", requireAuth, requireAnyRole("customer", "admin"), asy
         items,
         serviceFee: lockedQuote?.serviceFee ?? serviceFee,
         lockedQuote,
+        tipCents,
+        scheduledFor: scheduledFor || null,
         idempotencyKey,
       });
       if (providerPayment && !String(order.paymentMethod).toLowerCase().includes("wallet"))

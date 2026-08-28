@@ -16,6 +16,8 @@
 // eso viven juntas al principio del archivo.
 import crypto from "node:crypto";
 import { postgresPool } from "./postgres.js";
+import { getActiveSubscription, splitOrderDiscounts } from "./subscription-repository.js";
+import { CHECKOUT_TIP_MIN_CENTS, checkoutTipMaxCents, holdCheckoutTip } from "./tip-repository.js";
 import { getPostgresPricingPlan } from "./configuration-repository.js";
 import { enqueueNotificationForInternalUser } from "./notification-repository.js";
 import { acceptDispatchOffer, createDispatchOffers } from "./dispatch-repository.js";
@@ -104,7 +106,13 @@ function rowsToOrders(rows) {
         deliveryFee: Number(metadata.deliveryFee || 0),
         serviceFee: Number(metadata.serviceFee || 0),
         discount: Number(metadata.discount || 0),
+        subscriptionDiscount: Number(metadata.subscriptionDiscount || 0),
+        tip: Number(metadata.tip || 0),
         promotionCode: metadata.promotionCode || null,
+        // Se lee de la columna y no del metadata: reprogramar actualiza las dos,
+        // pero la columna es la que manda para el despacho, y una pantalla que
+        // mostrara el metadata podria prometer un horario que el despacho ignora.
+        scheduledFor: row.scheduled_for ? new Date(row.scheduled_for).toISOString() : null,
         total: pesos(row.final_amount_cents ?? row.quoted_amount_cents),
         etaMin: Number(metadata.etaMin ?? Math.round(row.estimated_duration_s / 60)),
         createdAt: new Date(row.created_at).toISOString(),
@@ -317,7 +325,8 @@ export async function getPostgresFoodCheckoutQuote({
     const deliveryFeeCents = Math.round(Number(delivery.deliveryFee) * 100),
       serviceFeeCents = Math.round(Number(delivery.serviceFee) * 100);
     let promotion = null,
-      discountCents = 0;
+      discountCents = 0,
+      subscriptionDiscountCents = 0;
     if (promotionCode) {
       promotion = (
         await client.query(
@@ -356,12 +365,35 @@ export async function getPostgresFoodCheckoutQuote({
         discountCents = Math.min(discountCents, Number(promotion.max_discount_cents));
       discountCents = Math.min(discountCents, subtotalCents + deliveryFeeCents);
     }
-    const totalCents = subtotalCents + deliveryFeeCents + serviceFeeCents - discountCents;
+    // El beneficio de la suscripcion se aplica ACA, antes de que la ruta firme
+    // el token: `/api/orders/quote` firma lo calculado y la creacion del pedido
+    // solo acepta ese precio. Un descuento aplicado despues no sobrevive.
+    //
+    // Va aparte de `discountCents` a proposito. La comision del comercio se
+    // calcula sobre `subtotalCents - discountCents`: meter aca un envio que
+    // regala Flash le bajaria la comision al comercio por un beneficio que no
+    // financio, y ademas quedaria registrado como canje de promocion.
+    const subscription = await getActiveSubscription(customerPublicId, client);
+    ({ discountCents, subscriptionDiscountCents } = splitOrderDiscounts({
+      subscription,
+      subtotalCents,
+      deliveryFeeCents,
+      promotionKind: promotion?.kind || null,
+      promotionDiscountCents: discountCents,
+    }));
+    const totalCents =
+      subtotalCents +
+      deliveryFeeCents +
+      serviceFeeCents -
+      discountCents -
+      subscriptionDiscountCents;
     return {
       ...delivery,
       items: snapshot,
       subtotal: pesos(subtotalCents),
       discount: pesos(discountCents),
+      subscriptionDiscount: pesos(subscriptionDiscountCents),
+      subscriptionPlan: subscriptionDiscountCents > 0 ? subscription.planKey : null,
       promotionCode: promotion?.code || null,
       total: pesos(totalCents),
       etaMin:
@@ -388,6 +420,8 @@ export async function createPostgresOrder({
   items,
   serviceFee,
   lockedQuote,
+  tipCents = 0,
+  scheduledFor = null,
   idempotencyKey,
 }) {
   const client = await postgresPool.connect();
@@ -523,7 +557,8 @@ export async function createPostgresOrder({
     const deliveryFeeCents = Math.round(Number(lockedQuote.deliveryFee) * 100);
     const serviceFeeCents = Math.round(serviceFee * 100);
     let promotion = null,
-      discountCents = 0;
+      discountCents = 0,
+      subscriptionDiscountCents = 0;
     if (promotionCode) {
       promotion = (
         await client.query(
@@ -563,11 +598,33 @@ export async function createPostgresOrder({
         discountCents = Math.min(discountCents, Number(promotion.max_discount_cents));
       discountCents = Math.min(discountCents, subtotalCents + deliveryFeeCents);
     }
-    const totalCents = subtotalCents + deliveryFeeCents + serviceFeeCents - discountCents;
+    // Se relee dentro de la transaccion, no se toma del token: el token dice lo
+    // que se prometio y esto dice lo que corresponde ahora. Si alguien firmara
+    // un token con un beneficio que no le toca, la comparacion de abajo lo
+    // rechaza en vez de aplicarlo.
+    const subscription = await getActiveSubscription(customerPublicId, client);
+    ({ discountCents, subscriptionDiscountCents } = splitOrderDiscounts({
+      subscription,
+      subtotalCents,
+      deliveryFeeCents,
+      promotionKind: promotion?.kind || null,
+      promotionDiscountCents: discountCents,
+    }));
+    const totalCents =
+      subtotalCents +
+      deliveryFeeCents +
+      serviceFeeCents -
+      discountCents -
+      subscriptionDiscountCents;
     if (
       lockedQuote.total !== undefined &&
       (Math.round(Number(lockedQuote.subtotal) * 100) !== subtotalCents ||
         Math.round(Number(lockedQuote.discount || 0) * 100) !== discountCents ||
+        // Se compara aparte y no solo por el total. Dos errores que se cancelan
+        // —una promocion que crece justo lo que el beneficio deja de aplicar—
+        // darian el mismo total y pasarian el control cobrando mal el desglose.
+        Math.round(Number(lockedQuote.subscriptionDiscount || 0) * 100) !==
+          subscriptionDiscountCents ||
         Math.round(Number(lockedQuote.total) * 100) !== totalCents ||
         String(lockedQuote.paymentMethod) !== String(paymentMethod) ||
         String(lockedQuote.promotionCode || "") !== String(promotion?.code || ""))
@@ -576,6 +633,28 @@ export async function createPostgresOrder({
         new Error("El precio final cambió; revisa y acepta una nueva cotización"),
         { status: 409 },
       );
+    // La propina no viaja en la cotizacion firmada a proposito: cambiarla no
+    // deberia obligar a recotizar el pedido entero, y no hay nada que proteger
+    // firmandola — es plata del cliente hacia el repartidor, no un precio que el
+    // cliente pueda bajar. Lo que si se valida es que este dentro de los topes,
+    // que es lo que atrapa un error de tipeo de tres ceros de mas.
+    if (tipCents) {
+      const topeDePropina = checkoutTipMaxCents(totalCents);
+      if (tipCents < CHECKOUT_TIP_MIN_CENTS)
+        throw Object.assign(
+          new Error(`La propina mínima es $${(CHECKOUT_TIP_MIN_CENTS / 100).toFixed(0)}`),
+          { status: 409 },
+        );
+      if (tipCents > topeDePropina)
+        throw Object.assign(
+          new Error(`La propina máxima para este pedido es $${(topeDePropina / 100).toFixed(0)}`),
+          { status: 409 },
+        );
+    }
+    // **Un solo cargo, no dos.** La propina se cobra junto con el pedido; lo que
+    // se reparte sigue siendo `totalCents`, porque la propina no es del comercio
+    // ni de la plataforma.
+    const chargedCents = totalCents + tipCents;
     const travelMinutes = Math.max(8, Math.ceil(Number(address.distance_m) / 350));
     const metadata = {
       subtype: "food_order",
@@ -583,6 +662,12 @@ export async function createPostgresOrder({
       deliveryFee: pesos(deliveryFeeCents),
       serviceFee,
       discount: pesos(discountCents),
+      subscriptionDiscount: pesos(subscriptionDiscountCents),
+      subscriptionPlan: subscriptionDiscountCents > 0 ? subscription.planKey : null,
+      // Lo cobrado al cliente es `total + tip`. Guardar la propina aca es lo que
+      // despues le permite a la liquidacion repartir sobre el total sin ella.
+      tip: pesos(tipCents),
+      scheduledFor: scheduledFor || null,
       promotionCode: promotion?.code || null,
       etaMin: merchant.rows[0].branch_eta_min + travelMinutes,
       locationEstimated: false,
@@ -595,11 +680,19 @@ export async function createPostgresOrder({
     };
     const initialStatus = walletPayment ? "accepted" : "requested";
     const job = await client.query(
+      // `merchant_ready_due_at` cuenta desde el horario reservado, no desde
+      // ahora: un pedido para mañana con vencimiento de cocina para dentro de 20
+      // minutos aparece atrasado apenas se crea, y ensucia la métrica de
+      // demoras del comercio con trabajo que todavía no le toca hacer.
       `INSERT INTO jobs(public_id, kind, customer_id, merchant_id, branch_id, status, pickup_address, pickup_location,
         dropoff_address, dropoff_location, service_level, quoted_amount_cents, final_amount_cents,
-        distance_m, estimated_duration_s, payment_method_label, metadata, merchant_prep_minutes, merchant_ready_due_at)
+        distance_m, estimated_duration_s, payment_method_label, metadata, merchant_prep_minutes,
+        scheduled_for, merchant_ready_due_at)
        VALUES ($1, 'delivery', $2, $3, $4, $14, $5, $6, $7, $8, 'food', $9, $9, $10, $11, $12, $13, $15::smallint,
-         CASE WHEN $14::job_status='accepted' THEN now()+make_interval(mins=>$15::integer) ELSE NULL END)
+         $16::timestamptz,
+         CASE WHEN $14::job_status='accepted'
+           THEN COALESCE($16::timestamptz, now()) + make_interval(mins=>$15::integer)
+           ELSE NULL END)
        RETURNING id,
          ST_Y(pickup_location::geometry) AS pickup_lat,
          ST_X(pickup_location::geometry) AS pickup_lng,
@@ -621,6 +714,7 @@ export async function createPostgresOrder({
         metadata,
         initialStatus,
         Number(merchant.rows[0].branch_eta_min),
+        scheduledFor,
       ],
     );
     for (const { entry, item, selection, unitPriceCents } of snapshots) {
@@ -660,7 +754,9 @@ export async function createPostgresOrder({
             [walletAccount.rows[0].id],
           )
         : { rows: [] };
-      if (!walletAccount.rows[0] || Number(walletBalance.rows[0]?.balance || 0) < totalCents) {
+      // Contra `chargedCents` y no contra el total: si el saldo alcanza para el
+      // pedido pero no para la propina, el cobro fallaria a mitad de camino.
+      if (!walletAccount.rows[0] || Number(walletBalance.rows[0]?.balance || 0) < chargedCents) {
         throw Object.assign(new Error("Saldo insuficiente en Flash Wallet"), { status: 402 });
       }
       const clearing =
@@ -684,7 +780,7 @@ export async function createPostgresOrder({
           paymentTransaction.rows[0].id,
           walletAccount.rows[0].id,
           job.rows[0].id,
-          totalCents,
+          chargedCents,
           { jobPublicId: publicId },
           clearing.rows[0].id,
         ],
@@ -695,7 +791,7 @@ export async function createPostgresOrder({
         [
           job.rows[0].id,
           customer.rows[0].id,
-          totalCents,
+          chargedCents,
           `payment-${idempotencyKey}`,
           { ledgerTransactionId: paymentTransaction.rows[0].id },
         ],
@@ -706,8 +802,20 @@ export async function createPostgresOrder({
           (Math.max(0, subtotalCents - discountCents) * Number(merchant.rows[0].commission_bps)) /
             10000,
         ),
-        applicationFeeCents = deliveryFeeCents + serviceFeeCents + merchantCommissionCents;
-      if (applicationFeeCents >= totalCents)
+        // El envio que regala la suscripcion sale del margen de Flash, no del
+        // comercio: se descuenta de la comision de aplicacion y no de lo que se
+        // le liquida. Sumarlo entero aca le cobraria al comercio un beneficio
+        // que no vendio ni financio.
+        // `+ tipCents`: con split de marketplace el comercio recibe lo cobrado
+        // menos la comision de aplicacion. Sin sumar la propina ahi, la propina
+        // del repartidor terminaria en la cuenta del comercio.
+        applicationFeeCents =
+          deliveryFeeCents -
+          subscriptionDiscountCents +
+          serviceFeeCents +
+          merchantCommissionCents +
+          tipCents;
+      if (applicationFeeCents >= chargedCents)
         throw Object.assign(new Error("La comisión configurada no permite procesar este pedido"), {
           status: 409,
         });
@@ -716,7 +824,7 @@ export async function createPostgresOrder({
         [
           job.rows[0].id,
           customer.rows[0].id,
-          totalCents,
+          chargedCents,
           marketplacePaymentKey(idempotencyKey),
           {
             applicationFeeCents,
@@ -727,6 +835,15 @@ export async function createPostgresOrder({
       );
       paymentStatus = "requires_confirmation";
     }
+    // Retenida, no pagada: en el checkout todavia no hay conductor asignado. Se
+    // libera al liquidar el pedido completado, y si el pedido nunca llega a
+    // completarse vuelve con el reintegro.
+    await holdCheckoutTip(client, {
+      jobId: job.rows[0].id,
+      customerId: customer.rows[0].id,
+      amountCents: tipCents,
+      idempotencyKey,
+    });
     await client.query("INSERT INTO job_events(job_id, actor_id, status) VALUES ($1, $2, $3)", [
       job.rows[0].id,
       customer.rows[0].id,
@@ -864,7 +981,12 @@ export async function processPostgresOrderMarketplacePayment({
       });
     if (decision.fulfill && context.status === "requested") {
       await client.query(
-        "UPDATE jobs SET status='accepted',merchant_ready_due_at=CASE WHEN merchant_prep_minutes IS NULL THEN NULL ELSE now()+make_interval(mins=>merchant_prep_minutes::integer) END,updated_at=now() WHERE id=$1",
+        // El vencimiento de cocina cuenta desde el horario reservado, no desde el
+        // cobro: un pedido programado que se paga hoy no se cocina hoy.
+        `UPDATE jobs SET status='accepted',
+           merchant_ready_due_at=CASE WHEN merchant_prep_minutes IS NULL THEN NULL
+             ELSE COALESCE(scheduled_for, now())+make_interval(mins=>merchant_prep_minutes::integer) END,
+           updated_at=now() WHERE id=$1`,
         [context.job_id],
       );
       await client.query(

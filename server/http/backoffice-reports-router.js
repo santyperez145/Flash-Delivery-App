@@ -30,6 +30,7 @@ import {
 } from "../operations-repository.js";
 import { sanitizeUser } from "../user-view.js";
 import { getWalletBalances } from "../wallet-repository.js";
+import { getWorkQueueDepths } from "../work-queue-repository.js";
 import { requireAuth } from "./authentication.js";
 import { requireAnyRole } from "./authorization.js";
 import { fail, failFrom, ok } from "./responses.js";
@@ -254,6 +255,31 @@ router.get(
       return ok(res, await getPostgresAuditEventPage({ limit, cursor, query }));
     } catch (error) {
       return failFrom(res, error, "No se pudo cargar la auditoría");
+    }
+  },
+);
+
+/**
+ * Profundidad y antigüedad de cada cola de trabajo (OPS-001).
+ *
+ * Vive en el router de reportes de backoffice y no en el de administración
+ * porque es exactamente eso: una lectura agregada para operaciones, sin ninguna
+ * acción detrás.
+ *
+ * **Lo lee `support` además de `admin`.** Quien atiende la cola tiene que poder
+ * ver si se está acumulando; que sólo lo vea administración convierte una
+ * pregunta operativa en una escalación.
+ */
+router.get(
+  "/api/operations/work-queues",
+  requireAuth,
+  requireAnyRole("admin", "support"),
+  async (_req, res) => {
+    if (!usesPostgresCommerce()) return fail(res, 503, "El tablero de colas requiere PostgreSQL");
+    try {
+      return ok(res, await getWorkQueueDepths());
+    } catch (error) {
+      return failFrom(res, error, "No se pudo leer el estado de las colas");
     }
   },
 );

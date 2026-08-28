@@ -789,6 +789,10 @@ Decisión competitiva: se adopta una bandeja transaccional persistente y prefere
 #### Fase 3 — beta cerrada
 
 - [x] Sustituciones, refunds, cancelaciones, ratings, suspensiones, promociones, soporte y métricas financieras de ledger.
+  - La propina también se toma en el checkout (migración 126, GTM-001): se cobra con el pedido en un solo cargo, queda retenida hasta que hay conductor, y se libera entera al liquidar. No entra en el reparto entre comercio, conductor y plataforma.
+  - Los pedidos de comida se programan y **cualquier reserva se puede mover** (migración 127, GTM-001). `PATCH /api/jobs/:id/schedule` vale para pedidos y viajes, sólo mientras nadie empezó. La ventana de reserva dejó de estar duplicada dentro del router de viajes, y una reserva futura ya no cuenta como trabajo activo del comercio.
+  - **Pedidos grupales** (migración 128, GTM-001), en web y móvil: canasta por participante, tope de gasto por persona verificado contra la base, y un código de seis caracteres que no da lectura por sí solo. Un grupo confirmado se convierte en un pedido normal, así que nada aguas abajo necesita un caso especial.
+  - **Con esto GTM-001 cierra sus cuatro criterios de producto.** Lo que queda del ticket es comercial —precio, oferta, medición—, no de ingeniería.
 - [~] Payout/conciliación interna; falta adaptador bancario/PSP.
 - [~] Feature flags, analytics first-party y go/no-go de zona basado en supply/comercios/volumen/cancelaciones/soporte listos; la instrumentación base web/mobile y el funnel agregado ya están operativos, pero faltan prep-time predictivo, cohortes, dashboards productivos y consentimiento legal.
 
@@ -799,7 +803,8 @@ Decisión competitiva: se adopta una bandeja transaccional persistente y prefere
 
 #### Fases 5/6 — B2B y multiciudad
 
-- [~] Referidos y jobs programados existen; faltan Flash Business, centros de costo, POS, logística híbrida, multi-stop y suscripción.
+- [~] Referidos, jobs programados, **suscripción** y **pedidos grupales** existen; faltan Flash Business, centros de costo, POS, logística híbrida y multi-stop.
+  - *Flash Más* (migración 125, GTM-001) entrega el envío sin cargo desde un monto, cableado en web y móvil y revalidado al crear el pedido. Los otros dos beneficios del plan —comisión reducida en viajes y prioridad de dispatch— están en la fila y todavía no se aplican: el estimador de viajes es público y el orden de candidatos lo decide DSP-001. No cobra: el cobro recurrente depende de PAY-001.
 - [ ] `city_id` transversal, aislamiento por ciudad, warehouse, experimentación y playbook de apertura.
 
 ### Próximos bloques, en orden

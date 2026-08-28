@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { postgresPool } from "./postgres.js";
+import { markHeldTipRefunded } from "./tip-repository.js";
 import { enqueueNotificationForInternalUser } from "./notification-repository.js";
 
 const clearingAccount = async (client) =>
@@ -550,6 +551,12 @@ export async function cancelOrderAndRefundWallet({
         "UPDATE payment_intents SET status='refunded',captured_amount_cents=0,updated_at=now() WHERE id=$1",
         [payment.id],
       );
+      // La propina del checkout viajó dentro del cobro, así que ya volvió con el
+      // reintegro. Falta que la fila deje de decir «retenida»: una propina
+      // retenida sobre un pedido reintegrado es plata que el sistema cree deber
+      // y ya devolvió, y es la clase de fila que aparece meses después en una
+      // conciliación.
+      await markHeldTipRefunded(client, job.id);
     }
     const refundAmount = Number(payment?.captured_amount_cents || 0);
     const cancellation = (
