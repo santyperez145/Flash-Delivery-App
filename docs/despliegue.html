@@ -1,0 +1,674 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Decisión de infraestructura de Flash: dónde se despliega, la latencia que lo determina, y las tres trampas de esa plataforma que salen de su propio código.">
+<meta name="color-scheme" content="light dark">
+<title>Dónde se despliega Flash</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;600&display=swap">
+
+<style>
+  /* Reset minimo: el artifact traia el suyo, una pagina servida sola no. */
+  *, *::before, *::after { box-sizing: border-box; }
+  body { margin: 0; }
+  img { max-width: 100%; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  :root {
+    --paper: #faf8f8;
+    --surface: #ffffff;
+    --ink: #1a1720;
+    --muted: #6c6870;
+    --hairline: #e6e2e6;
+    --accent: #d9540f;
+    --brand: #6b31e0;
+    --warn: #b45309;
+    --danger: #b91c1c;
+    --ok: #15803d;
+    --bar-track: #ece8ec;
+
+    --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+    --body: "Source Serif 4", Georgia, "Times New Roman", serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #141118;
+      --surface: #1c1822;
+      --ink: #ece8ef;
+      --muted: #a49fab;
+      --hairline: #2e2836;
+      --accent: #ff8a4c;
+      --brand: #a884ff;
+      --warn: #e0a33e;
+      --danger: #f2827c;
+      --ok: #6fcf97;
+      --bar-track: #2a2432;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #141118;
+    --surface: #1c1822;
+    --ink: #ece8ef;
+    --muted: #a49fab;
+    --hairline: #2e2836;
+    --accent: #ff8a4c;
+    --brand: #a884ff;
+    --warn: #e0a33e;
+    --danger: #f2827c;
+    --ok: #6fcf97;
+    --bar-track: #2a2432;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 1.0625rem;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 47rem;
+    margin: 0 auto;
+    padding: clamp(2rem, 6vw, 4.5rem) clamp(1.15rem, 5vw, 2rem) 5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3.25rem;
+  }
+
+  h1, h2, h3, .eyebrow, .label {
+    font-family: var(--display);
+    text-wrap: balance;
+  }
+
+  .eyebrow {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  h1 {
+    font-size: clamp(2.1rem, 6vw, 3.1rem);
+    font-weight: 700;
+    line-height: 1.04;
+    letter-spacing: -0.022em;
+    margin: 0.5rem 0 0;
+  }
+
+  h2 {
+    font-size: clamp(1.3rem, 3.2vw, 1.6rem);
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: -0.014em;
+    margin: 0;
+  }
+
+  h3 {
+    font-size: 1.02rem;
+    font-weight: 600;
+    letter-spacing: -0.006em;
+    margin: 0;
+  }
+
+  p { margin: 0; }
+  a { color: var(--accent); }
+
+  section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+  }
+
+  .lede {
+    font-size: 1.2rem;
+    line-height: 1.55;
+    color: var(--muted);
+  }
+
+  strong { font-weight: 600; }
+  em { font-style: italic; }
+
+  code, .mono { font-family: var(--mono); font-size: 0.9em; }
+
+  code {
+    background: var(--bar-track);
+    padding: 0.1em 0.36em;
+    border-radius: 3px;
+  }
+
+  /* --- La decisión, dicha una vez --- */
+  .verdict {
+    border-top: 3px solid var(--accent);
+    background: var(--surface);
+    padding: 1.6rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .verdict .place {
+    font-family: var(--display);
+    font-size: clamp(1.5rem, 4.2vw, 2rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+
+  .verdict .region { color: var(--accent); }
+
+  .verdict p { color: var(--muted); font-size: 0.98rem; }
+
+  /* --- Aviso de estado: lo más importante de la página --- */
+  .status {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.9rem;
+    align-items: start;
+    padding: 1.05rem 1.2rem;
+    border: 1px solid var(--hairline);
+    border-left: 3px solid var(--warn);
+    border-radius: 4px;
+    background: var(--surface);
+  }
+
+  .status .label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--warn);
+    padding-top: 0.28rem;
+    white-space: nowrap;
+  }
+
+  .status p { font-size: 0.97rem; }
+
+  /* --- La apuesta visual: la latencia es el argumento --- */
+  .latency {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    padding: 1.4rem 1.4rem 1.5rem;
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 4px;
+  }
+
+  .hop {
+    display: grid;
+    grid-template-columns: 8.5rem 1fr 4.2rem;
+    align-items: center;
+    gap: 0.9rem;
+  }
+
+  .hop-name {
+    font-family: var(--display);
+    font-size: 0.87rem;
+    font-weight: 600;
+  }
+
+  .hop-name span {
+    display: block;
+    font-weight: 500;
+    font-size: 0.72rem;
+    color: var(--muted);
+    letter-spacing: 0.02em;
+  }
+
+  .track {
+    height: 0.7rem;
+    background: var(--bar-track);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .fill {
+    height: 100%;
+    border-radius: 2px;
+    background: var(--muted);
+  }
+
+  .hop.chosen .fill { background: var(--accent); }
+  .hop.chosen .hop-ms { color: var(--accent); font-weight: 600; }
+
+  .hop-ms {
+    font-family: var(--mono);
+    font-size: 0.88rem;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    color: var(--muted);
+  }
+
+  .latency figcaption {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-top: 0.35rem;
+    line-height: 1.5;
+  }
+
+  /* --- Tablas --- */
+  .scroller { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.93rem;
+    min-width: 30rem;
+  }
+
+  th {
+    font-family: var(--display);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    padding: 0 0.9rem 0.55rem 0;
+    border-bottom: 1px solid var(--ink);
+  }
+
+  td {
+    padding: 0.7rem 0.9rem 0.7rem 0;
+    border-bottom: 1px solid var(--hairline);
+    vertical-align: top;
+    line-height: 1.5;
+  }
+
+  th:last-child, td:last-child { padding-right: 0; }
+  td.rules-out { color: var(--muted); }
+
+  /* --- Trampas: tres cosas del mismo tipo, no una secuencia --- */
+  .traps { display: flex; flex-direction: column; gap: 1.15rem; }
+
+  .trap {
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: 4px;
+    padding: 1.25rem 1.3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+
+  .trap-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.7rem;
+  }
+
+  .tag {
+    font-family: var(--display);
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--brand);
+    border: 1px solid var(--brand);
+    border-radius: 2px;
+    padding: 0.12rem 0.42rem;
+    white-space: nowrap;
+  }
+
+  .trap p { font-size: 0.97rem; }
+
+  .fix {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    background: var(--bar-track);
+    padding: 0.6rem 0.75rem;
+    border-radius: 3px;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  /* --- Descartes --- */
+  .rejects { display: flex; flex-direction: column; gap: 0.9rem; }
+
+  .reject {
+    display: grid;
+    grid-template-columns: 9.5rem 1fr;
+    gap: 1rem;
+    padding-bottom: 0.9rem;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  .reject:last-child { border-bottom: 0; padding-bottom: 0; }
+  .reject h3 { padding-top: 0.05rem; }
+  .reject p { font-size: 0.95rem; color: var(--muted); }
+  .reject p strong { color: var(--ink); }
+
+  /* --- Pasos: acá sí hay orden --- */
+  ol.steps {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: paso;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  ol.steps li {
+    counter-increment: paso;
+    display: grid;
+    grid-template-columns: 1.9rem 1fr;
+    gap: 0.5rem;
+    align-items: baseline;
+    font-size: 0.96rem;
+    padding-bottom: 0.55rem;
+    border-bottom: 1px solid var(--hairline);
+  }
+
+  ol.steps li:last-child { border-bottom: 0; }
+
+  ol.steps li::before {
+    content: counter(paso, decimal-leading-zero);
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+  }
+
+  .footer {
+    border-top: 1px solid var(--hairline);
+    padding-top: 1.4rem;
+    font-size: 0.87rem;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+
+  @media (max-width: 34rem) {
+    .hop { grid-template-columns: 6.5rem 1fr 3.4rem; gap: 0.6rem; }
+    .reject { grid-template-columns: 1fr; gap: 0.3rem; }
+    .status { grid-template-columns: 1fr; gap: 0.5rem; }
+    .status .label { padding-top: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">Flash · Decisión de infraestructura · 28 de agosto de 2026</p>
+    <h1>Dónde se despliega Flash</h1>
+  </header>
+
+  <div class="verdict">
+    <p class="eyebrow">La decisión</p>
+    <p class="place">Google Cloud, <span class="region">southamerica-east1</span></p>
+    <p>São Paulo. La región se decide antes que el proveedor.</p>
+  </div>
+
+  <div class="status">
+    <p class="label">Sin ejecutar</p>
+    <p>No hay cuenta de nube ni proyecto creado. Esta página es la decisión y su plan; ningún
+    paso está corrido. Un runbook que aparenta haber funcionado es peor que no tenerlo.</p>
+  </div>
+
+  <section>
+    <h2>Por qué la región manda</h2>
+    <p class="lede">En un producto donde asignar un conductor <em>es</em> el producto, la
+    distancia se paga en cada cotización, cada oferta y cada punto de tracking.</p>
+
+    <figure class="latency">
+      <div class="hop chosen">
+        <p class="hop-name">São Paulo <span>southamerica-east1</span></p>
+        <div class="track"><div class="fill" style="width: 15%"></div></div>
+        <p class="hop-ms">~30 ms</p>
+      </div>
+      <div class="hop">
+        <p class="hop-name">Virginia <span>us-east-1</span></p>
+        <div class="track"><div class="fill" style="width: 60%"></div></div>
+        <p class="hop-ms">~120 ms</p>
+      </div>
+      <div class="hop">
+        <p class="hop-name">Fráncfort <span>eu-central-1</span></p>
+        <div class="track"><div class="fill" style="width: 100%"></div></div>
+        <p class="hop-ms">~200 ms</p>
+      </div>
+      <figcaption>Ida y vuelta desde Buenos Aires, en órdenes de magnitud. Es la única
+      variable de infraestructura que no se corrige después con más plata: cambiar de región
+      es migrar la base.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Lo que el código exige</h2>
+    <p>No son preferencias. Cada línea sale de leer el repositorio, y cada una descarta
+    opciones antes de que nadie opine.</p>
+
+    <div class="scroller">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Exigencia</th>
+            <th scope="col">Dónde está</th>
+            <th scope="col">Qué descarta</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>PostGIS</strong>, no PostgreSQL a secas</td>
+            <td class="mono">postgis/postgis:17-3.5</td>
+            <td class="rules-out">Todo Postgres gestionado sin la extensión</td>
+          </tr>
+          <tr>
+            <td><strong>LISTEN/NOTIFY</strong> en conexión dedicada</td>
+            <td class="mono">realtime-repository.js</td>
+            <td class="rules-out">Cualquier pooler en modo transacción</td>
+          </tr>
+          <tr>
+            <td><strong>SSE</strong> de larga duración</td>
+            <td class="mono">http/realtime.js</td>
+            <td class="rules-out">Funciones serverless de duración corta</td>
+          </tr>
+          <tr>
+            <td><strong>Redis</strong> bloqueando readiness</td>
+            <td class="mono">REDIS_REQUIRED</td>
+            <td class="rules-out">Nada, pero hay que proveerlo</td>
+          </tr>
+          <tr>
+            <td><strong>~20 secretos</strong> de producción</td>
+            <td class="mono">config.js</td>
+            <td class="rules-out">Pegarlos a mano en un panel</td>
+          </tr>
+          <tr>
+            <td><strong>Contenedor endurecido</strong></td>
+            <td class="mono">job container-image</td>
+            <td class="rules-out">Plataformas que sólo aceptan buildpacks</td>
+          </tr>
+          <tr>
+            <td><strong>Planificador externo</strong></td>
+            <td class="mono">job:operational-queues</td>
+            <td class="rules-out">Plataformas sin cron de verdad</td>
+          </tr>
+          <tr>
+            <td><strong>Tres roles</strong> de base separados</td>
+            <td class="mono">flash_app · runtime · audit</td>
+            <td class="rules-out">Bases que no dejan crear roles</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>El mapeo</h2>
+    <div class="scroller">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Necesidad</th>
+            <th scope="col">Servicio</th>
+            <th scope="col">Nota</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>API</td>
+            <td><strong>Cloud Run</strong></td>
+            <td class="rules-out">La imagen que CI ya valida. Sin Kubernetes, que la auditoría descartó para esta etapa</td>
+          </tr>
+          <tr>
+            <td>Base</td>
+            <td><strong>Cloud SQL</strong> PostgreSQL 17 + PostGIS</td>
+            <td class="rules-out">Con PITR: es lo que cubre el RPO ≤ 15 min</td>
+          </tr>
+          <tr>
+            <td>Redis</td>
+            <td><strong>Memorystore</strong></td>
+            <td class="rules-out"></td>
+          </tr>
+          <tr>
+            <td>Trabajos programados</td>
+            <td><strong>Cloud Run Jobs</strong> + Scheduler</td>
+            <td class="rules-out">Calza con la política de «el planificador es del entorno»</td>
+          </tr>
+          <tr>
+            <td>Secretos</td>
+            <td><strong>Secret Manager</strong></td>
+            <td class="rules-out">Montados, nunca en variables del panel</td>
+          </tr>
+          <tr>
+            <td>PWA web</td>
+            <td><strong>Cloud Storage</strong> + CDN</td>
+            <td class="rules-out">Es un build estático de Vite</td>
+          </tr>
+          <tr>
+            <td>Observabilidad</td>
+            <td><strong>Cloud Trace</strong> / Monitoring</td>
+            <td class="rules-out">El exportador OTLP ya existe; no hay que tocar código</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Las tres trampas</h2>
+    <p>Salen de este código, no de un manual. Las tres tienen la misma forma:
+    <strong>algo que sigue respondiendo y ya no funciona</strong>, que es el modo de falla
+    que más caro salió en este repositorio.</p>
+
+    <div class="traps">
+      <article class="trap">
+        <div class="trap-head">
+          <span class="tag">Cómputo</span>
+          <h3>Instancia mínima y CPU siempre asignada</h3>
+        </div>
+        <p>El escucha de eventos mantiene un <code>LISTEN</code> sobre una conexión dedicada.
+        Si la instancia se duerme o le estrangulan la CPU entre peticiones, ese socket muere:
+        la instancia sigue viva, sigue aceptando clientes, y <strong>no entrega ni un
+        evento</strong>.</p>
+        <p class="fix">--min-instances=1 --cpu-throttling=false</p>
+      </article>
+
+      <article class="trap">
+        <div class="trap-head">
+          <span class="tag">Base</span>
+          <h3>Conexión directa, nunca un pooler en modo transacción</h3>
+        </div>
+        <p><code>LISTEN/NOTIFY</code> no sobrevive a PgBouncer ni a Supavisor en
+        <em>transaction mode</em>. Es el error más caro de la lista porque <strong>parece
+        funcionar</strong>: las consultas normales andan perfecto y lo único que falla es el
+        realtime, en silencio.</p>
+      </article>
+
+      <article class="trap">
+        <div class="trap-head">
+          <span class="tag">Red</span>
+          <h3>El timeout tiene que subir por el SSE</h3>
+        </div>
+        <p>Cloud Run corta a los cinco minutos por omisión y admite hasta sesenta. El
+        heartbeat y el replay hacen que la reconexión sea limpia, pero cortarle la conexión a
+        todos los clientes cada cinco minutos es ruido evitable.</p>
+        <p class="fix">--timeout=3600</p>
+      </article>
+    </div>
+
+    <p>Desde el 28 de agosto <code>/api/ready</code> observa el escucha y saca la instancia
+    del balanceador si no logra suscribirse durante medio minuto. Eso convierte las dos
+    primeras trampas en una falla ruidosa, pero <strong>no las evita</strong>: la
+    configuración correcta sigue siendo la de arriba.</p>
+  </section>
+
+  <section>
+    <h2>Lo que se descartó</h2>
+    <div class="rejects">
+      <div class="reject">
+        <h3>Vercel · Netlify</h3>
+        <p>Las funciones serverless no sostienen ni la conexión SSE ni el socket de
+        <code>LISTEN</code>. <strong>Habría que reescribir la capa de realtime entera.</strong></p>
+      </div>
+      <div class="reject">
+        <h3>Render · Railway</h3>
+        <p>No tienen región en Sudamérica. <strong>Son los 120 ms, permanentes.</strong></p>
+      </div>
+      <div class="reject">
+        <h3>Fly.io <span class="mono">gru</span></h3>
+        <p>La mejor latencia y nativo en contenedores. Su Postgres fue históricamente no
+        gestionado, y para una empresa cuyo checklist exige RTO ≤ 60 min con restore drill
+        cronometrado, <strong>operar el HA propio hoy es un pasivo</strong>. Vale revisarlo si
+        la latencia se vuelve la restricción que manda.</p>
+      </div>
+      <div class="reject">
+        <h3>AWS <span class="mono">sa-east-1</span></h3>
+        <p><strong>No es un error.</strong> App Runner o Fargate, RDS con PostGIS, ElastiCache
+        y EventBridge cubren lo mismo. Tiene sentido con créditos de AWS o con gente que ya
+        tenga ese oficio: técnicamente equivalente, más trabajo de operación y más caro en
+        esta etapa.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>El costo, sin maquillar</h2>
+    <p>Lo que empuja la factura no es el tráfico: es el estándar que el propio proyecto se
+    puso. La instancia mínima siempre encendida, la alta disponibilidad de la base y el PITR
+    son el grueso. Presupuestar el orden de <strong>unos pocos cientos de dólares al mes</strong>
+    para una beta cerrada.</p>
+    <p>Bajarlo significa renunciar al RTO y al RPO que el checklist de despliegue ya declaró
+    bloqueantes. Es una decisión de negocio, no técnica, y conviene tomarla explícita en vez
+    de descubrirla el día del primer incidente.</p>
+  </section>
+
+  <section>
+    <h2>Los pasos, en orden</h2>
+    <p>Ninguno ejecutado. Cada uno se marca al correrlo, con su fecha.</p>
+    <ol class="steps">
+      <li>Proyecto de GCP y facturación, región por omisión <code>southamerica-east1</code>.</li>
+      <li>Artifact Registry, y que CI publique ahí la imagen que ya construye.</li>
+      <li>Cloud SQL 17 con PostGIS, alta disponibilidad y PITR. Crear los tres roles.</li>
+      <li>Memorystore para Redis.</li>
+      <li>Los ~20 secretos en Secret Manager. Ninguno en el panel.</li>
+      <li>Cloud Run con instancia mínima, CPU sin estrangular y timeout largo.</li>
+      <li>Cloud Run Jobs con Scheduler. <strong>Verificar que un pedido pagado reciba oferta
+      sin que nadie toque nada</strong> — es la prueba de que el cron sirve, no de que
+      existe.</li>
+      <li>Restore drill cronometrado contra el RTO de 60 minutos.</li>
+      <li>Dominio, TLS y CDN para la PWA.</li>
+      <li><code>/api/ready</code> en verde, con el escucha suscripto.</li>
+    </ol>
+  </section>
+
+  <p class="footer">Esta decisión vive en el repositorio como <span class="mono">docs/despliegue.md</span>,
+  enlazada desde el checklist de despliegue. Las columnas <span class="mono">PROV</span>,
+  <span class="mono">STG</span> y <span class="mono">PROD</span> de la matriz de madurez
+  seguían en cero porque no había destino elegido; lo que cambió es que la ausencia de
+  decisión dejó de ser el bloqueador, y ahora el bloqueador es la cuenta.</p>
+
+</div>
+</body>
+</html>
