@@ -1,13 +1,6 @@
-// Pantalla del cliente (ticket ARC-001, paso 11).
-//
-// 5.586 líneas de `apps/mobile/App.tsx`, más las tres hojas de seguimiento que
-// **sólo ella usa**: pedido, viaje y envío. Se verificó contando usos por zona;
-// las que comparten audiencias quedaron en [`../ui.tsx`](../ui.tsx).
-//
-// Es la superficie más grande de la aplicación y la primera que se separa por
-// audiencia. El criterio de aceptación «el build de driver no incluye pantallas
-// de comercio» necesita exactamente esto: mientras las cuatro pantallas vivan en
-// un entrypoint, ningún empaquetador puede dejar una afuera.
+// Pantalla del cliente (ticket ARC-001). El shell, las primitivas compartidas y
+// Actividad ya viven en módulos separados; este archivo conserva la coordinación
+// de Comidas, Viajes, Envíos y Cuenta mientras continúa la extracción por dominio.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as DocumentPicker from "expo-document-picker";
@@ -35,12 +28,12 @@ import { api } from "../api";
 import { SubscriptionCard } from "../SubscriptionCard";
 import { TipSelector } from "../TipSelector";
 import { RescheduleControl, SchedulePicker } from "../SchedulePicker";
-import { GroupOrderPanel } from "../GroupOrderPanel";
 import { flashDesign } from "../design-system";
 import FlashNativeMap from "../FlashNativeMap";
 import { mobileOrderStatusLabel, money, navigationInstruction } from "../format";
 import { styles } from "../styles";
 import { ActionButton, NativeMapUnavailable, ServiceChatModal } from "../ui";
+import { CustomerActivityScreen } from "./CustomerActivityScreen";
 import type {
   AppNotification,
   AppState,
@@ -4438,459 +4431,65 @@ export function CustomerScreen({
           </>
         )}
         {sharedView === "activity" && (
-          <>
-            <View style={styles.activityHeading}>
-              <Text style={styles.foodRestaurantTitle}>Actividad</Text>
-              <Text style={styles.cardText}>Pedidos, viajes y envíos en un solo lugar.</Text>
-            </View>
-            {/* Los grupos viven en Actividad: son pedidos en curso, y es donde
-                alguien vuelve a mirar «cómo va lo que pedimos». */}
-            <GroupOrderPanel
-              restaurantId={cartRestaurant?.id ?? null}
-              cart={cart}
-              userId={user.id}
-              onCheckoutGroup={checkoutGroupOrder}
-              busy={busy}
-            />
-            {activeOrders.length + activeRides.length + activeShipments.length === 0 &&
-              pendingSubstitutions.length === 0 &&
-              completedForTips.length === 0 &&
-              recentCancellations.length === 0 && (
-                <View style={styles.foodEmpty}>
-                  <Ionicons name="time-outline" size={56} color="#7c3cff" />
-                  <Text style={styles.foodSectionTitle}>Todavía no hay actividad</Text>
-                </View>
-              )}
-            {pendingSubstitutions.length > 0 && (
-              <>
-                <View style={styles.substitutionSectionTitle}>
-                  <View>
-                    <Text style={styles.foodSectionTitle}>Necesitan tu decisión</Text>
-                    <Text style={styles.cardText}>
-                      El comercio no puede avanzar hasta que respondas.
-                    </Text>
-                  </View>
-                  <View style={styles.substitutionCount}>
-                    <Text style={styles.substitutionCountText}>{pendingSubstitutions.length}</Text>
-                  </View>
-                </View>
-                {pendingSubstitutions.map((substitution) => {
-                  const difference = Math.max(
-                    0,
-                    (substitution.original.unitPrice - substitution.replacement.unitPrice) *
-                      substitution.quantity,
-                  );
-                  return (
-                    <View key={substitution.id} style={styles.substitutionCard}>
-                      <View style={styles.substitutionAlert}>
-                        <Ionicons name="swap-horizontal" size={22} color="#fff" />
-                      </View>
-                      <View style={styles.substitutionContent}>
-                        <Text style={styles.substitutionEyebrow}>Sustitución propuesta</Text>
-                        <Text style={styles.substitutionTitle}>{substitution.original.name}</Text>
-                        <View style={styles.substitutionArrowRow}>
-                          <View style={styles.substitutionProduct}>
-                            <Text style={styles.cardText}>Original</Text>
-                            <Text style={styles.substitutionPrice}>
-                              {money.format(substitution.original.unitPrice)}
-                            </Text>
-                          </View>
-                          <Ionicons name="arrow-forward" size={20} color="#7c3cff" />
-                          <View style={styles.substitutionProduct}>
-                            <Text style={styles.cardText}>{substitution.replacement.name}</Text>
-                            <Text style={styles.substitutionPrice}>
-                              {money.format(substitution.replacement.unitPrice)}
-                            </Text>
-                          </View>
-                        </View>
-                        <Text style={styles.substitutionReason}>{substitution.reason}</Text>
-                        {difference > 0 && (
-                          <View style={styles.substitutionRefund}>
-                            <Ionicons name="wallet-outline" size={17} color="#087a50" />
-                            <Text style={styles.substitutionRefundText}>
-                              Recibís {money.format(difference)} en Flash Wallet
-                            </Text>
-                          </View>
-                        )}
-                        <View style={styles.substitutionActions}>
-                          <Pressable
-                            disabled={busy}
-                            style={[styles.substitutionReject, busy && styles.disabledButton]}
-                            onPress={() =>
-                              runAction(async () => {
-                                const result = await api.decideOrderSubstitution(
-                                  substitution.id,
-                                  "rejected",
-                                );
-                                setOrderSubstitutions((current) =>
-                                  current.map((entry) =>
-                                    entry.id === result.substitution.id
-                                      ? result.substitution
-                                      : entry,
-                                  ),
-                                );
-                              }, "Sustitución rechazada")
-                            }
-                          >
-                            <Text style={styles.substitutionRejectText}>Rechazar</Text>
-                          </Pressable>
-                          <Pressable
-                            disabled={busy}
-                            style={[styles.substitutionAccept, busy && styles.disabledButton]}
-                            onPress={() =>
-                              runAction(async () => {
-                                const result = await api.decideOrderSubstitution(
-                                  substitution.id,
-                                  "accepted",
-                                );
-                                setOrderSubstitutions((current) =>
-                                  current.map((entry) =>
-                                    entry.id === result.substitution.id
-                                      ? result.substitution
-                                      : entry,
-                                  ),
-                                );
-                              }, "Sustitución aceptada y diferencia reintegrada")
-                            }
-                          >
-                            <Ionicons name="checkmark-circle" size={18} color="#fff" />
-                            <Text style={styles.substitutionAcceptText}>Aceptar cambio</Text>
-                          </Pressable>
-                        </View>
-                      </View>
-                    </View>
-                  );
-                })}
-              </>
-            )}
-            {activeOrders.map((order) => (
-              <View key={order.id} style={styles.stack}>
-                <Pressable style={styles.activityCard} onPress={() => setTrackingOrderId(order.id)}>
-                  <View style={styles.activityIconFood}>
-                    <Ionicons name="fast-food" size={21} color="#fff" />
-                  </View>
-                  <View style={styles.itemCopy}>
-                    <Text style={styles.cardTitle}>Pedido · {order.status}</Text>
-                    <Text style={styles.cardText}>{order.deliveryAddress}</Text>
-                    <Text style={styles.totalText}>{money.format(order.total)}</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color="#aaa" />
-                </Pressable>
-                <Pressable style={styles.shareAction} onPress={() => setChatJobId(order.id)}>
-                  <Ionicons name="chatbubbles-outline" size={18} color="#7c3cff" />
-                  <Text style={styles.shareActionText}>Chat con comercio y repartidor</Text>
-                </Pressable>
-              </View>
-            ))}
-            {activeRides.map((ride) => (
-              <View key={ride.id} style={styles.stack}>
-                <Pressable style={styles.activityCard} onPress={() => setTrackingRideId(ride.id)}>
-                  <View style={styles.activityIconRide}>
-                    <Ionicons name="car-sport" size={21} color="#fff" />
-                  </View>
-                  <View style={styles.itemCopy}>
-                    <Text style={styles.cardTitle}>Viaje · {ride.status}</Text>
-                    <Text style={styles.cardText}>
-                      {ride.pickup} → {ride.destination}
-                    </Text>
-                    <Text style={styles.totalText}>{money.format(ride.fare)}</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color="#aaa" />
-                </Pressable>
-                <Pressable style={styles.shareAction} onPress={() => setChatJobId(ride.id)}>
-                  <Ionicons name="chatbubbles-outline" size={18} color="#7c3cff" />
-                  <Text style={styles.shareActionText}>Chat con el conductor</Text>
-                </Pressable>
-              </View>
-            ))}
-            {activeShipments.map((shipment) => (
-              <View key={shipment.id} style={styles.stack}>
-                <Pressable
-                  style={styles.activityCard}
-                  onPress={() => setTrackingShipmentId(shipment.id)}
-                >
-                  <View style={styles.activityIconRide}>
-                    <Ionicons name="cube" size={21} color="#fff" />
-                  </View>
-                  <View style={styles.itemCopy}>
-                    <Text style={styles.cardTitle}>Envío · {shipment.status}</Text>
-                    <Text style={styles.cardText}>
-                      {shipment.pickup} → {shipment.destination}
-                    </Text>
-                    <Text style={styles.totalText}>{money.format(shipment.fare)}</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color="#aaa" />
-                </Pressable>
-                <Pressable style={styles.shareAction} onPress={() => setChatJobId(shipment.id)}>
-                  <Ionicons name="chatbubbles-outline" size={18} color="#7c3cff" />
-                  <Text style={styles.shareActionText}>Chat con el conductor</Text>
-                </Pressable>
-              </View>
-            ))}
-            {recentCancellations.length > 0 && (
-              <>
-                <Text style={styles.foodSectionTitle}>Cancelaciones</Text>
-                {recentCancellations.map((cancellation) => (
-                  <View key={cancellation.id} style={styles.card}>
-                    <Text style={styles.cardTitle}>{cancellation.label}</Text>
-                    <Text style={styles.cardText}>
-                      Motivo: {cancellation.reason.replaceAll("_", " ")}
-                    </Text>
-                    <Text style={styles.totalText}>
-                      Reintegro · {money.format(cancellation.refundAmount)}
-                    </Text>
-                    <Text style={styles.cardText}>
-                      {new Date(cancellation.createdAt).toLocaleString("es-AR")}
-                    </Text>
-                  </View>
-                ))}
-              </>
-            )}
-            {completedForTips.length > 0 ? (
-              <>
-                <Text style={styles.foodSectionTitle}>Servicios completados</Text>
-                {completedForTips.map((service) => {
-                  const existingTip = (state.tips || []).find((tip) => tip.jobId === service.id),
-                    receipt = receipts[service.id],
-                    suggested = Math.max(
-                      100,
-                      Math.min(
-                        Math.floor(service.amount * 0.5),
-                        Math.max(500, Math.round((service.amount * 0.1) / 100) * 100),
-                      ),
-                    );
-                  return (
-                    <View key={service.id} style={styles.card}>
-                      <Text style={styles.cardTitle}>{service.label}</Text>
-                      {receipt ? (
-                        <View>
-                          <Text style={styles.totalText}>
-                            {receipt.number} · {money.format(receipt.total)}
-                          </Text>
-                          <Text style={styles.cardText}>
-                            {new Date(receipt.issuedAt).toLocaleString("es-AR")} · Comprobante de
-                            servicio no fiscal
-                          </Text>
-                          {receipt.lineItems.map((line, index) => (
-                            <Text key={`${receipt.id}-${index}`} style={styles.cardText}>
-                              {line.quantity}× {line.name} · {money.format(line.total)}
-                            </Text>
-                          ))}
-                        </View>
-                      ) : (
-                        <ActionButton
-                          label="Ver comprobante"
-                          disabled={busy}
-                          onPress={() =>
-                            runAction(async () => {
-                              const response = await api.getReceipt(service.id);
-                              setReceipts((current) => ({
-                                ...current,
-                                [service.id]: response.receipt,
-                              }));
-                            }, "Comprobante cargado")
-                          }
-                        />
-                      )}
-                      {service.kind === "order" && (
-                        <>
-                          <Pressable
-                            style={styles.reorderButton}
-                            disabled={busy}
-                            onPress={() =>
-                              runAction(async () => {
-                                const result = await api.reorder(service.id);
-                                setCart(
-                                  result.cart.map((line) => ({
-                                    lineId: `${line.item.id}:${line.extras.slice().sort().join(",")}:${line.note}`,
-                                    restaurantId: line.restaurantId,
-                                    menuItemId: line.item.id,
-                                    name: line.item.name,
-                                    unitPrice: line.item.price,
-                                    quantity: line.quantity,
-                                    extras: line.extras,
-                                    note: line.note,
-                                  })),
-                                );
-                                setCartHydrated(true);
-                                setCustomerWindow("food");
-                                setSharedView("service");
-                                setFoodScreen("cart");
-                              }, "Carrito reconstruido con precios y stock actuales")
-                            }
-                          >
-                            <Ionicons name="refresh-outline" size={18} color="#fff" />
-                            <Text style={styles.reorderButtonText}>Pedir de nuevo</Text>
-                          </Pressable>
-                          <Pressable
-                            style={styles.reportIssueButton}
-                            disabled={busy}
-                            onPress={() => {
-                              setIssueOrderId(service.id);
-                              setIssueCategory("missing_item");
-                              setIssueDescription("");
-                              setIssueRefund("");
-                            }}
-                          >
-                            <Ionicons name="alert-circle-outline" size={18} color="#d14b32" />
-                            <Text style={styles.reportIssueText}>
-                              Reportar un problema con el pedido
-                            </Text>
-                            <Ionicons name="chevron-forward" size={17} color="#a29aa5" />
-                          </Pressable>
-                        </>
-                      )}
-                      {service.kind === "shipment" &&
-                        (shipmentReturns.find((entry) => entry.shipmentId === service.id) ? (
-                          <View style={styles.returnStatusCard}>
-                            <Ionicons name="return-down-back" size={18} color="#7c3cff" />
-                            <Text style={styles.cardText}>
-                              Devolución ·{" "}
-                              {shipmentReturns
-                                .find((entry) => entry.shipmentId === service.id)
-                                ?.status.replaceAll("_", " ")}
-                            </Text>
-                          </View>
-                        ) : (
-                          <Pressable
-                            style={styles.reportIssueButton}
-                            disabled={busy}
-                            onPress={() => {
-                              setReturnShipmentId(service.id);
-                              setReturnReason("");
-                            }}
-                          >
-                            <Ionicons name="return-down-back" size={18} color="#7c3cff" />
-                            <Text style={styles.reportIssueText}>Solicitar devolución</Text>
-                            <Ionicons name="chevron-forward" size={17} color="#a29aa5" />
-                          </Pressable>
-                        ))}
-                      {service.kind === "shipment" &&
-                        state.shipments.find((entry) => entry.id === service.id)?.protection ===
-                          "standard" &&
-                        (() => {
-                          const claim = shipmentClaims.find(
-                            (entry) => entry.shipmentId === service.id,
-                          );
-                          return claim ? (
-                            <View style={styles.returnStatusCard}>
-                              <Ionicons name="shield-checkmark" size={18} color="#087a50" />
-                              <View style={{ flex: 1, gap: 6 }}>
-                                <Text style={styles.cardText}>
-                                  Siniestro · {claim.status.replaceAll("_", " ")} · elegible{" "}
-                                  {money.format(claim.eligibleAmount)}
-                                </Text>
-                                {claim.evidence?.map((item) => (
-                                  <Pressable
-                                    key={item.id}
-                                    onPress={() =>
-                                      runAction(
-                                        () => openClaimEvidence(item.id),
-                                        "Evidencia abierta",
-                                      )
-                                    }
-                                  >
-                                    <Text style={styles.reportIssueText}>
-                                      📎 {item.fileName} · {Math.ceil(item.sizeBytes / 1024)} KB
-                                    </Text>
-                                  </Pressable>
-                                ))}
-                                {["submitted", "under_review"].includes(claim.status) && (
-                                  <Pressable
-                                    disabled={busy}
-                                    onPress={() =>
-                                      runAction(
-                                        () => attachClaimEvidence(claim.id),
-                                        "Evidencia cifrada y adjuntada",
-                                      )
-                                    }
-                                  >
-                                    <Text style={styles.reportIssueText}>
-                                      + Adjuntar foto o PDF
-                                    </Text>
-                                  </Pressable>
-                                )}
-                              </View>
-                            </View>
-                          ) : (
-                            <Pressable
-                              style={styles.reportIssueButton}
-                              disabled={busy}
-                              onPress={() => {
-                                const shipment = state.shipments.find(
-                                  (entry) => entry.id === service.id,
-                                );
-                                setClaimShipmentId(service.id);
-                                setClaimType("damaged");
-                                setClaimDescription("");
-                                setClaimAmount(String(shipment?.declaredValue || 0));
-                              }}
-                            >
-                              <Ionicons name="shield-outline" size={18} color="#087a50" />
-                              <Text style={styles.reportIssueText}>
-                                Reportar siniestro protegido
-                              </Text>
-                              <Ionicons name="chevron-forward" size={17} color="#a29aa5" />
-                            </Pressable>
-                          );
-                        })()}
-                      <Text style={styles.foodSectionTitle}>Propina</Text>
-                      {existingTip ? (
-                        <Text style={styles.totalText}>
-                          Enviada · {money.format(existingTip.amount)}
-                        </Text>
-                      ) : (
-                        <>
-                          <Text style={styles.cardText}>
-                            Va completa a la Wallet del conductor.
-                          </Text>
-                          <View style={styles.actionRow}>
-                            <ActionButton
-                              label={money.format(suggested)}
-                              disabled={busy}
-                              onPress={() =>
-                                runAction(
-                                  () => api.createTip(service.id, suggested),
-                                  "Propina enviada",
-                                )
-                              }
-                            />
-                            <ActionButton
-                              label={money.format(
-                                Math.min(Math.floor(service.amount * 0.5), suggested * 2),
-                              )}
-                              disabled={busy}
-                              onPress={() =>
-                                runAction(
-                                  () =>
-                                    api.createTip(
-                                      service.id,
-                                      Math.min(Math.floor(service.amount * 0.5), suggested * 2),
-                                    ),
-                                  "Propina enviada",
-                                )
-                              }
-                            />
-                          </View>
-                        </>
-                      )}
-                    </View>
-                  );
-                })}
-              </>
-            ) : null}
-            {activityCursor ? (
-              <Pressable
-                disabled={activityLoading}
-                style={[styles.secondaryButton, activityLoading && styles.disabledButton]}
-                onPress={() => void loadActivity(true)}
-              >
-                <Text style={styles.secondaryButtonText}>
-                  {activityLoading ? "Cargando…" : "Ver actividad anterior"}
-                </Text>
-              </Pressable>
-            ) : null}
-          </>
+          <CustomerActivityScreen
+            restaurantId={cartRestaurant?.id ?? null}
+            cart={cart}
+            userId={user.id}
+            busy={busy}
+            activeOrders={activeOrders}
+            activeRides={activeRides}
+            activeShipments={activeShipments}
+            pendingSubstitutions={pendingSubstitutions}
+            completedServices={completedForTips}
+            recentCancellations={recentCancellations}
+            tips={state.tips || []}
+            receipts={receipts}
+            shipments={state.shipments}
+            shipmentReturns={shipmentReturns}
+            shipmentClaims={shipmentClaims}
+            activityCursor={activityCursor}
+            activityLoading={activityLoading}
+            onCheckoutGroup={checkoutGroupOrder}
+            runAction={runAction}
+            onSubstitutionResolved={(resolved) =>
+              setOrderSubstitutions((current) =>
+                current.map((entry) => (entry.id === resolved.id ? resolved : entry)),
+              )
+            }
+            onTrackOrder={setTrackingOrderId}
+            onTrackRide={setTrackingRideId}
+            onTrackShipment={setTrackingShipmentId}
+            onChat={setChatJobId}
+            onReceiptLoaded={(serviceId, receipt) =>
+              setReceipts((current) => ({ ...current, [serviceId]: receipt }))
+            }
+            onReorderLoaded={(nextCart) => {
+              setCart(nextCart);
+              setCartHydrated(true);
+              setCustomerWindow("food");
+              setSharedView("service");
+              setFoodScreen("cart");
+            }}
+            onReportOrderIssue={(orderId) => {
+              setIssueOrderId(orderId);
+              setIssueCategory("missing_item");
+              setIssueDescription("");
+              setIssueRefund("");
+            }}
+            onRequestReturn={(shipmentId) => {
+              setReturnShipmentId(shipmentId);
+              setReturnReason("");
+            }}
+            onOpenClaimEvidence={openClaimEvidence}
+            onAttachClaimEvidence={attachClaimEvidence}
+            onReportShipmentClaim={(shipmentId, declaredValue) => {
+              setClaimShipmentId(shipmentId);
+              setClaimType("damaged");
+              setClaimDescription("");
+              setClaimAmount(String(declaredValue));
+            }}
+            onLoadMore={() => void loadActivity(true)}
+          />
         )}
         {sharedView === "account" && (
           <>

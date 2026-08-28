@@ -442,10 +442,14 @@ pantalla según la variante y cada bundle lleva una sola, verificado empaquetand
 las tres con `expo export`. Y `commerce-repository.js` se partió por dueño del
 dato en catálogo, pedidos y plantel.
 
-Falta extraer features de los dos `App.tsx`, que es lo que queda del paso 8.
-Sí quedó activo un ratchet que impide que el problema crezca:
-`test:line-length` fija una línea base de **1.543 líneas de más de 200
-caracteres en 120 archivos** y sólo admite bajarla.
+Los dos `App.tsx` ya son shells por debajo de 1.500 líneas. La extracción interna
+continúa por dominio: Actividad mobile pasó a `CustomerActivityScreen.tsx` con
+grupos, sustituciones, servicios activos, comprobantes, repetición, reclamos y
+propinas; `CustomerScreen.tsx` bajó de 6.241 a 5.965 líneas. Quedan Comidas,
+Viajes, Envíos y Cuenta. También quedó activo un ratchet que impide que el
+problema crezca:
+`test:line-length` fija una línea base vigente de **258 líneas de más de 200
+caracteres en 56 archivos** y sólo admite bajarla.
 
 Valores admitidos para **Estado**: `Pendiente` · `En curso` · `Bloqueado por externo` · `Cerrado`.
 
