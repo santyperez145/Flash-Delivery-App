@@ -31,7 +31,10 @@ const pool = new pg.Pool({
   ssl: false,
 });
 
-const TRIGGER = "ledger_entries_balance";
+// El trigger que se verifica es el de la migracion 003, no el de la 118: la 118
+// agrego un duplicado por no haber buscado triggers antes de escribirlo, y la
+// 121 lo quita. El original hace lo mismo y ademas exige al menos dos asientos.
+const TRIGGER = "ledger_entries_must_balance";
 let fallos = 0;
 const ok = (etiqueta) => console.log(`ok - ${etiqueta}`);
 const fallo = (etiqueta, detalle) => {
@@ -73,6 +76,11 @@ if (desbalanceadas.rowCount) {
 }
 
 // 2. El trigger está, y está diferido.
+//
+// Vale la pena decir por qué esta comprobación existe: el trigger vivía en la
+// migración 003 desde el principio y **nadie verificaba que siguiera vivo**.
+// Tanto es así que al escribir la 118 se lo dio por inexistente y se agregó un
+// duplicado. Un trigger que nadie comprueba es una afirmación.
 const trigger = await pool.query(
   `SELECT tgdeferrable, tginitdeferred, tgtype
    FROM pg_trigger WHERE tgname = $1 AND tgrelid = 'ledger_entries'::regclass`,
