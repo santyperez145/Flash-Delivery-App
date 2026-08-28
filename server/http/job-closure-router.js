@@ -157,6 +157,7 @@ router.patch(
           tipId: adjustment.tipId,
           amount: adjustment.amount,
           status: adjustment.status,
+          reason: parsed.data.note,
         },
       });
       await publishRealtimeEvent({
