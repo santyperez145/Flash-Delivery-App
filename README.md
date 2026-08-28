@@ -16,15 +16,17 @@ La Fase 0 está en marcha: ver el [plan de acción](docs/plan-de-accion.md) y el
 
 | Hallazgo | Ticket | Resumen |
 | --- | --- | --- |
-| H-01 | CI-001 | **En curso.** Tres puertas en verde y 105 de 106 suites cubiertas; faltan `ci-nightly`, 1 suite en cuarentena y la protección de rama |
+| H-01 | CI-001 | **En curso.** Tres puertas en verde, 105 de 106 suites cubiertas y **cero en cuarentena**; falta la protección de rama y un segundo revisor |
 | H-02 | NOT-001 | **En curso.** Proveedor Expo implementado y con puerta CI; falta la entrega en un dispositivo físico |
 | H-03 | SEC-001 | **Corregido.** Default-deny activo y con puerta CI; queda la verificación de runtime contra PostgreSQL |
-| H-04 | DAT-001 | **En curso.** 106 tablas clasificadas y con puerta CI; quedan 5 `por-usuario` sin política y `FORCE` en cero |
+| H-04 | DAT-001 | **En curso.** 109 tablas clasificadas y **69 de 69 `por-usuario` con política**; quedan `FORCE ROW LEVEL SECURITY` en cero y la cola larga de privilegios excedentes |
 | H-05 | INF-001 | **Corregido.** Imagen multi-etapa, `uid=999(flash)` verificado en build real, mismo entrypoint que Compose |
 | H-06 | DSP-001 | **En curso.** Recorte espacial y KNN activos; falta medir el plan y el ETA vial |
 | H-07 | GEO-001 | **En curso.** Adapter con proveedor comercial y producción bloqueada para instancias públicas; falta una API key |
-| H-08 | ARC-001 | **En curso.** **Los dos `App.tsx` cumplen el techo de 1.500**: `src/App.tsx` 10.553 → **1.245** y `apps/mobile/App.tsx` 15.374 → **321**. Núcleo HTTP compartido completo y 19 de 57 grupos de rutas extraídos; faltan los entrypoints separados por audiencia y los 36 grupos restantes |
+| H-08 | ARC-001 | **En curso.** Los dos `App.tsx` cumplen el techo de 1.500, `server/index.js` bajó a 33 KB y hay 32 grupos de rutas extraídos sobre 118 módulos de servidor; faltan los entrypoints separados por audiencia |
 | H-09 | PAY-001 | Mercado Pago integrado pero nunca validado contra el proveedor |
+
+Fuera de los P0, al 28 de agosto **GTM-001 y OPS-001 están cerrados**: los cuatro huecos comerciales medidos contra la competencia, y la operación sin SQL manual. El destino de despliegue quedó decidido en [`docs/despliegue.md`](docs/despliegue.md) y espera una cuenta de nube.
 | H-11 | — | **Corregido.** Una base desde cero no equivalía a una migrada y las cuentas sembradas no podían iniciar sesión: `db:seed:derived` reaplica los backfills |
 
 **Congelamiento activo:** hasta el 20 de septiembre de 2026 no se agregan capacidades nuevas. Ver [`docs/plan-de-accion.md`](docs/plan-de-accion.md).
@@ -232,6 +234,12 @@ reutilizar estas contraseñas en un ambiente desplegado.
 - Postventa de comida: incidencias persistidas, resolución operacional y reintegros parciales con reversión contable del split.
 - Sustituciones: propuesta del comercio, consentimiento del cliente y devolución automática de diferencias antes de avanzar el pedido.
 - Sucursales: ubicación PostGIS, apertura, ETA e inventario independiente utilizados realmente por cotización y checkout.
+- Suscripción: *Flash Más* con beneficios en la fila del plan —cambiar la oferta es un `UPDATE`, no un despliegue—; el envío sin cargo se aplica antes de firmar la cotización y sale del margen de Flash, no del comercio ni del conductor. Todavía no cobra, y la app lo dice. Ver `docs/subscription.md`.
+- Propina en el checkout: se cobra con el pedido en un solo cargo y queda retenida hasta que hay conductor; no entra en el reparto. Ver `docs/service-tips.md`.
+- Servicios programados: pedidos de comida y viajes se reservan y **se reprograman** mientras nadie empezó; una reserva futura no cuenta como trabajo activo del comercio. Ver `docs/scheduled-rides.md`.
+- Pedidos grupales: canasta por participante, tope de gasto verificado contra la base y un código que da entrada pero no lectura. Un grupo confirmado se vuelve un pedido normal. Ver `docs/group-orders.md`.
+- Colas de trabajo: `/api/operations/work-queues` ordena las doce colas por antigüedad y separa las que vacía un worker de las que atiende una persona, porque el diagnóstico es distinto.
+- Intervención operativa: suspender el ingreso de pedidos de un comercio y soltar un servicio que el conductor no retiró, las dos con motivo obligatorio y auditadas. Ver `docs/operations.md`.
 
 El esquema real y sus migraciones se persisten en PostgreSQL/PostGIS. El runtime
 principal usa PostgreSQL para identidad, catálogo, carrito, pedidos, movilidad,
@@ -262,6 +270,7 @@ validación de propiedad por cliente, comercio y driver.
 - Realtime: `docs/realtime.md`
 - Roadmap: `docs/roadmap.md`
 - Progreso: `docs/progreso.md`
+- Dónde se despliega y por qué: `docs/despliegue.md`
 - Checklist de despliegue: `docs/deployment-checklist.md`
 - Base local PostgreSQL/PostGIS: `docs/local-database.md`
 - Operación, métricas y backups: `docs/operations.md`
@@ -270,6 +279,8 @@ validación de propiedad por cliente, comercio y driver.
 - Contactos de confianza cifrados: `docs/ride-trusted-contacts.md`
 - Seguimiento mobile de viajes: `docs/ride-live-tracking.md`
 - PIN seguro de retiro de pasajeros: `docs/ride-pickup-verification.md`
+- Suscripción Flash Más: `docs/subscription.md`
+- Pedidos grupales: `docs/group-orders.md`
 - Cotización versionada de comida: `docs/food-pricing.md`
 - Incidencias y reintegros parciales: `docs/order-issues.md`
 - Sustituciones de productos: `docs/order-substitutions.md`

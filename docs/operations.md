@@ -240,6 +240,66 @@ En infraestructura administrada debe reproducirse el mismo procedimiento en una
 cuenta/proyecto aislado usando un rol operacional temporal con `CREATEDB`, nunca
 otorgando ese privilegio a `flash_app` ni `flash_runtime`.
 
+## Tablero de colas de trabajo
+
+`GET /api/operations/work-queues` responde las doce colas del producto con su
+profundidad y la antigüedad del elemento más viejo. Lo leen `admin` y `support`:
+quien atiende la cola tiene que poder ver si se está acumulando, y que sólo lo
+vea administración convierte una pregunta operativa en una escalación.
+
+**Se ordena por antigüedad, no por cantidad.** Una cola con trescientos elementos
+de este minuto está sana; una con tres de hace cuatro días no. Y es la forma de
+la métrica que revela lo que ninguna cantidad revela: que nadie está procesando.
+
+**Separa cola de máquina de cola de persona**, porque el diagnóstico es distinto:
+si se llena una que vacía un worker, el worker se cayó; si se llena una que
+atiende una persona, falta gente o falta prioridad. Los umbrales van en minutos
+para las primeras y en horas para las segundas — a las tres de la mañana no hay
+nadie, y eso no es una falla.
+
+El predicado de la cola de despacho es **una copia del que usa el lote**. Un
+tablero que midiera «trabajos sin conductor» a secas contaría los programados
+para mañana y los que ya tienen oferta viva, y mostraría una cola sana mientras
+el despacho está parado.
+
+## Intervenciones
+
+Dos operaciones que antes exigían entrar a la base. Las dos **piden motivo de al
+menos cinco caracteres**: son decisiones sobre el registro de un tercero, y el
+día del reclamo lo que se lee es el log de auditoría. `test:audit-actor` lo
+vigila.
+
+### Suspender un comercio
+
+`PATCH /api/admin/merchants/:merchantId/status`. `merchants.status` existía y
+cuarenta y una consultas lo respetaban; ninguna ruta lo escribía. La columna era
+además `text` sin restricción, así que un valor mal tipeado suspendía el comercio
+en todas partes sin decirlo — la migración 130 le pone el `CHECK`.
+
+**Suspender frena lo nuevo y no cancela lo que está en curso.** Cancelar en masa
+castiga a clientes que no hicieron nada y deja comida hecha sin destino. La
+respuesta dice cuántos pedidos quedaron abiertos, porque es lo que decide qué
+hace el operador después.
+
+El comercio suspendido **sigue viendo su panel**: el tablero filtraba por
+comercio activo, así que suspenderlo lo dejaba sin ver los pedidos que ya tenía
+en el horno. `merchantStatus` le permite distinguir una sucursal que él cerró de
+una suspensión que decidió operaciones.
+
+### Soltar un servicio trabado
+
+`POST /api/admin/jobs/:jobId/release`. Un teléfono que se apaga, una moto que se
+rompe, alguien que aceptó y desapareció: el trabajo quedaba con `driver_id`
+puesto y sin camino de vuelta al despacho.
+
+**Sólo antes de retirar.** Después el conductor tiene la comida encima o el
+pasajero adentro, y ahí la salida es cancelar con su política o abrir una
+incidencia; aceptarlo en ese estado dejaría un pedido en la calle sin dueño.
+
+Vuelve al estado del que se asigna, que no es el mismo para todos: comida a
+`ready_for_pickup`, viajes y envíos a `requested`. Devolverlos todos al mismo los
+dejaría fuera del alcance del despacho.
+
 ## Requisitos productivos pendientes
 
 - PostgreSQL administrado con PITR, retención y réplica/HA.

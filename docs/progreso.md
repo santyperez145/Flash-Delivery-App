@@ -1,6 +1,6 @@
 # Progreso de desarrollo
 
-Fecha de la última revisión: **25 de agosto de 2026**.
+Fecha de la última revisión: **28 de agosto de 2026**.
 
 > Este documento es un **registro histórico acumulativo**. Las entradas de «Entregado» conservan la fecha en que se escribieron y varias describen un estado ya superado (por ejemplo, SQLite como base principal). Para el estado real y verificado de cada capacidad, la fuente es [`docs/matriz-madurez.md`](matriz-madurez.md).
 
@@ -11,6 +11,18 @@ Flash es una **plataforma de preproducción avanzada** con cuatro superficies: c
 La [auditoría del 25 de agosto de 2026](auditoria-2026-08-25.md) la evalúa en 6,2/10 y define nueve bloqueadores P0. De 91 capacidades inventariadas, el 81% de las existentes no está protegido por una puerta CI y ninguna fue probada contra un proveedor real.
 
 **Congelamiento de funcionalidades activo** hasta el 20 de septiembre de 2026. Ver [`docs/plan-de-accion.md`](plan-de-accion.md).
+
+### Al 28 de agosto de 2026
+
+**GTM-001 cerrado.** Los cuatro huecos comerciales medidos contra la competencia están construidos y cableados en sus dos extremos: [suscripción](subscription.md), [propina en el checkout](service-tips.md), [reserva de horario con reprogramación](scheduled-rides.md) y [pedidos grupales](group-orders.md). Lo que queda del ticket es comercial —precio, oferta, medición—, no de ingeniería.
+
+**OPS-001 cerrado.** Motivo obligatorio en toda decisión operativa, escalada de SLA por worker, [tablero de las doce colas de trabajo](operations.md) y las dos intervenciones que antes exigían entrar a la base: suspender un comercio y soltar un servicio trabado.
+
+**Destino de despliegue decidido:** GCP `southamerica-east1`. Nada ejecutado todavía; el bloqueador dejó de ser la ausencia de decisión y pasó a ser la cuenta. Ver [`docs/despliegue.md`](despliegue.md).
+
+Puertas nuevas del período, todas falsificadas: reparto de dinero con subsidio y con propina · ventana de reserva en sus cuatro bordes · topes del cliente atados a los del servidor · motivo en toda decisión operativa · punto de entrada desatendido por lote · tablas SQL que el servidor nombra y no existen · un escucha de eventos caído bloqueando readiness.
+
+> **Corrección registrada.** El 28 de agosto se dio por hallazgo que el despacho, las notificaciones y el SLA de soporte no tenían planificador. Era falso: `worker:dispatch`, `worker:notifications` y `worker:support` existían y están documentados en [`docs/operations.md`](operations.md). El trabajo duplicado que salió de ahí se borró. Queda anotado porque el error —buscar de forma estrecha, encontrar lo esperado y escribirlo como hecho— es el mismo que este repositorio viene persiguiendo.
 
 ## Entregado
 

@@ -338,26 +338,32 @@ que no corre no protege nada. Desde el 28 de agosto verifica también la otra mi
 lote operativo tenga un punto de entrada desatendido— porque **el lote silencioso no deja
 pasar el defecto: es el defecto.**
 
-Apareció mirando OPS-001. `processPostgresDispatchBatch`, `processPostgresNotificationBatch`
-y `processSupportQueue` estaban importados en `server/index.js` y **no llamados desde ahí**,
-sin ningún planificador en el proyecto. Sólo avanzaban desde `POST /api/admin/*/process`.
-Un pedido pagado se quedaba sin ninguna oferta de conductor hasta que alguien apretara el
-botón — y un comentario del router afirmaba que corrían solos.
+La puerta comprueba dos cosas opuestas: que el lote **tenga** su entrada en `npm run
+worker:*` o `job:*`, y que **no** tenga un `setInterval` dentro del servidor. La segunda
+parece la buena mientras hay una sola réplica, y deja de serlo en silencio en cuanto hay dos.
 
-La puerta comprueba dos cosas opuestas: que el lote **tenga** su entrada en `npm run job:*`,
-y que **no** tenga un `setInterval` dentro del servidor. La segunda parece la buena mientras
-hay una sola réplica, y deja de serlo en silencio en cuanto hay dos.
+> **Corrección del 28 de agosto, el mismo día.** La primera versión de esta sección afirmaba
+> haber descubierto que el despacho, las notificaciones y el SLA de soporte **no tenían**
+> punto de entrada, y que por eso un pedido pagado se quedaba sin oferta de conductor. Era
+> falso. `worker:dispatch`, `worker:notifications` y `worker:support` existían desde antes,
+> con bucle, backoff y apagado ordenado, y estaban documentados en
+> [`docs/operations.md`](operations.md). El error fue buscar sólo `job:*` y `setInterval`,
+> encontrar lo que se esperaba, y escribirlo como hallazgo.
+>
+> Queda anotado y no borrado porque es exactamente el mecanismo que este archivo describe en
+> otras cuatro ocasiones —**una causa anotada con cautela se lee después como un hecho**— y
+> esta vez lo cometió quien escribe las puertas. El trabajo duplicado que salió de ahí se
+> borró; la puerta se quedó, apuntando a lo que sí existe.
 
-Las dos primeras versiones de esta puerta pasaron al falsificarlas, y por motivos distintos
-que conviene registrar. La primera usaba `includes`: sacarle la llamada al lote no la ponía
-en rojo porque el nombre seguía apareciendo en el comentario de cabecera del propio trabajo
-—una puerta que se satisface con una mención en prosa no verifica nada—. La segunda buscaba
-`setInterval\([^)]*nombreDelLote`, y `setInterval(() => procesarLote(...))` tiene un `()` en
-el medio que un `[^)]*` no cruza. Ahora se ignoran los comentarios, se exige el nombre en
-posición de llamada, y el temporizador se busca por vecindad en vez de por un patrón que
-tenga que atravesar paréntesis.
+Las dos primeras versiones de la comprobación pasaron al falsificarlas, y por motivos
+distintos que conviene registrar. La primera usaba `includes`: sacarle la llamada al lote no
+la ponía en rojo porque el nombre seguía apareciendo en el comentario de cabecera del propio
+trabajo —una puerta que se satisface con una mención en prosa no verifica nada—. La segunda
+buscaba `setInterval\([^)]*nombreDelLote`, y `setInterval(() => procesarLote(...))` tiene un
+`()` en el medio que un `[^)]*` no cruza. Ahora se ignoran los comentarios, se exige el
+nombre en posición de llamada, y el temporizador se busca por vecindad.
 
-Lo que la puerta **no** puede verificar es que el entorno programe los trabajos. Eso vive en
+Lo que la puerta **no** puede verificar es que el entorno ejecute los procesos. Eso vive en
 [`docs/deployment-checklist.md`](deployment-checklist.md), con su casilla y su consecuencia
 escrita al lado.
 

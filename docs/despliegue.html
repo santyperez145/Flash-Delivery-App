@@ -491,7 +491,7 @@
           </tr>
           <tr>
             <td><strong>Planificador externo</strong></td>
-            <td class="mono">job:operational-queues</td>
+            <td class="mono">worker:dispatch · notifications · support</td>
             <td class="rules-out">Plataformas sin cron de verdad</td>
           </tr>
           <tr>
@@ -654,7 +654,7 @@
       <li>Memorystore para Redis.</li>
       <li>Los ~20 secretos en Secret Manager. Ninguno en el panel.</li>
       <li>Cloud Run con instancia mínima, CPU sin estrangular y timeout largo.</li>
-      <li>Cloud Run Jobs con Scheduler. <strong>Verificar que un pedido pagado reciba oferta
+      <li>Workers supervisados en Cloud Run y el nocturno con Scheduler. <strong>Verificar que un pedido pagado reciba oferta
       sin que nadie toque nada</strong> — es la prueba de que el cron sirve, no de que
       existe.</li>
       <li>Restore drill cronometrado contra el RTO de 60 minutos.</li>

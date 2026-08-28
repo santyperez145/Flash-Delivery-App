@@ -545,13 +545,8 @@ app.get("/api/ready", async (_req, res) => {
           : "sqlite-test-fallback",
         rides: usesPostgresCommerce() ? "postgres-postgis" : "sqlite-test-fallback",
         shipments: usesPostgresCommerce() ? "postgres-postgis" : "sqlite-test-fallback",
-        // `scheduled-batch` y no `wave-worker`: el lote existe y **no se
-        // planifica solo**. Lo invoca `npm run job:operational-queues` desde el
-        // cron del entorno, y decir «worker» sugeria un proceso corriendo que no
-        // existe. Un despliegue que no programe ese trabajo deja los pedidos
-        // pagados sin ninguna oferta de conductor.
         dispatch: usesPostgresCommerce()
-          ? "postgres-postgis-expiring-offers+scheduled-batch"
+          ? "postgres-postgis-expiring-offers+wave-worker"
           : "sqlite-test-fallback",
         wallet: usesPostgresAuth() ? "postgres-double-entry-ledger" : "sqlite-test-fallback",
         payments: usesPostgresAuth()
@@ -582,7 +577,7 @@ app.get("/api/ready", async (_req, res) => {
             "postgres-conversations+priority-sla+capacity-routing+scheduled-escalation"
           : "sqlite-test-fallback",
         notifications: usesPostgresAuth()
-          ? `postgres-outbox+preferences+in-app+invalid-token-revocation+dead-letter-replay+${config.notificationProvider}-scheduled-batch`
+          ? `postgres-outbox+preferences+in-app+invalid-token-revocation+dead-letter-replay+${config.notificationProvider}-worker`
           : "sqlite-test-fallback",
         realtime: usesPostgresAuth()
           ? "postgres-event-log+listen-notify+sse-replay"

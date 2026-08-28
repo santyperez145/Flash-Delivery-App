@@ -26,11 +26,11 @@ Donde no hay política, la única barrera es el código de aplicación. Un bug d
 | `sin-uso` | 2 | Esquema muerto. |
 | **Total** | **106** | |
 
-**Cobertura de la clase que importa: 60 de 65 tablas `por-usuario` tienen política.**
+**Cobertura de la clase que importa: 69 de 69 tablas `por-usuario` tienen política.**
 
 ## Deuda declarada
 
-**Ya no hay deuda declarada.** Las cinco tablas que estaban sin política cerraron el 27 de agosto de 2026, y `test:rls-matrix` reporta **65 de 65**.
+**Ya no hay deuda declarada.** Las cinco tablas que estaban sin política cerraron el 27 de agosto de 2026. Al 28 de agosto la matriz tiene 109 tablas —suscripción y pedidos grupales sumaron cinco— y `test:rls-matrix` reporta **69 de 69**.
 
 La lista de deuda sigue existiendo en `scripts/rls-matrix-check.mjs` y sólo puede achicarse: hoy está vacía, y agregar una entrada exige explicar por escrito por qué no se puede aplicar la política todavía.
 
