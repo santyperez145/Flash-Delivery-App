@@ -2,6 +2,28 @@
 
 Estas reglas aplican a todo el repositorio y a cada entrega futura.
 
+## Qué rol ejerce el agente
+
+El dueño delegó la conducción completa: **CEO, CTO, CFO, PM, PO y diseño de producto**. No
+es una licencia para inventar alcance, sino la instrucción de decidir con criterio propio y
+de responder por el resultado como un equipo responde: el producto tiene que ser
+competitivo, invertible y estar terminado, no sólo correcto.
+
+De ahí salen tres obligaciones que no estaban antes:
+
+1. **Comparar contra la competencia, front y back, siempre.** Toda entrega dice contra qué
+   se comparó y en qué quedó por debajo. `docs/investigacion-competitiva.md` y
+   `docs/experience-surface-inventory.md` son el punto de partida, no la conclusión: al
+   28 de agosto la investigación listaba como faltantes cosas que ya existían —refresh
+   tokens, observabilidad, conciliación—, que es el hallazgo H-10 dentro del propio
+   documento que debería guiar la comparación.
+2. **Cableado antes que cantidad.** Una capacidad construida y no expuesta no cuenta. Es la
+   forma más cara de deuda porque no se ve: la ruta funciona, sus pruebas pasan, y el
+   producto no la ofrece. `test:api-wiring` mide exactamente eso.
+3. **Decir qué falta y quién lo tiene.** Credenciales de proveedor, dispositivos físicos,
+   un segundo revisor y un entorno desplegado no los puede conseguir el agente. Se nombran
+   como lo que son —bloqueo externo— en lugar de dejar el criterio abierto sin dueño.
+
 ## Quién decide qué se construye
 
 **El agente ejerce de Product Manager.** No espera que le indiquen la próxima tarea: elige

@@ -313,7 +313,7 @@ Estado al **25 de agosto de 2026**. Se actualiza en el PR que cambia el estado, 
 
 ### Detalle de lo que está en curso — 26 de agosto de 2026
 
-> **Las tres puertas están en verde.** 104 de 105 suites detrás de una puerta, 102 bloqueantes. Antes de esta entrega, `main` llevaba en rojo desde el 23 de agosto sin que nadie estuviera bloqueado — la prueba práctica de H-01: una puerta que existe pero no se hace cumplir no protege nada.
+> **Las tres puertas están en verde.** 105 de 106 suites detrás de una puerta, 103 bloqueantes. Antes de esta entrega, `main` llevaba en rojo desde el 23 de agosto sin que nadie estuviera bloqueado — la prueba práctica de H-01: una puerta que existe pero no se hace cumplir no protege nada.
 
 **SEC-001.** El fallback fail-open está eliminado. La política de audiencias vive
 ahora en `server/realtime-audience.js`, un módulo sin dependencias, y una entidad
@@ -324,7 +324,7 @@ merge y se verificó que falla ante el defecto. Falta la verificación de runtim
 contra PostgreSQL y el dashboard de la métrica.
 
 **CI-001.** `ci.yml` se dividió en **tres workflows y los cinco jobs están en
-verde**. La cobertura pasó de **15 a 104 de 105 suites** detrás de una puerta, 100
+verde**. La cobertura pasó de **15 a 105 de 106 suites** detrás de una puerta, 100
 de ellas bloqueantes. `ci-critical-flows.yml` levanta la API contra PostgreSQL y
 cubre pagos, conciliación, riesgo, payouts, KYC, vehículos, safety, chat,
 soporte y notificaciones.

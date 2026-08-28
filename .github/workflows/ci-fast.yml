@@ -87,6 +87,12 @@ jobs:
       - name: Cifras de la documentacion
         run: npm run test:docs-drift
 
+      # Una capacidad construida y no expuesta no cuenta. Cruza las rutas del
+      # servidor contra los literales de ruta del frente web y movil, y
+      # trinquetea las que ningun cliente nombra.
+      - name: Cableado de la API
+        run: npm run test:api-wiring
+
       # `sanitizeUser` decide qué campos de un usuario salen por HTTP. Al
       # volverse módulo propio quedó sin puerta; esta encontró una copia de la
       # redacción escrita a mano en auth-repository.js.
