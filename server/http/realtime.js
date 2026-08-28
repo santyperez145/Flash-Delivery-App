@@ -22,6 +22,7 @@ import {
   getRealtimeAudienceHealth,
   getPostgresRealtimeReplay,
   persistPostgresRealtimeEvent,
+  realtimeListenerReadiness,
   startPostgresRealtimeListener,
 } from "../realtime-repository.js";
 import { createId, getTimestamp } from "../store.js";
@@ -115,6 +116,50 @@ export async function publishRealtimeEvent({
  */
 export function startRealtimeListener() {
   return postgresPool ? startPostgresRealtimeListener(fanoutRealtimeEvent) : null;
+}
+
+/**
+ * Estado del escucha, para readiness.
+ *
+ * Sobre el respaldo sin PostgreSQL no hay escucha que vigilar y tampoco hay
+ * `LISTEN/NOTIFY`: el fanout es en memoria, dentro del mismo proceso. Se declara
+ * `configured: false` en vez de `listening: false`, porque no es lo mismo «no
+ * escucha» que «no hay nada que escuchar».
+ */
+export function realtimeReadiness() {
+  if (!postgresPool) return { configured: false, listening: false, mode: "memory-fanout" };
+  return { configured: true, mode: "postgres-listen-notify", ...realtimeListenerReadiness() };
+}
+
+// Reintentos de un segundo, asi que treinta son medio minuto sin poder
+// escuchar. Alcanza para descartar un parpadeo, y es corto frente al tiempo que
+// tardaria alguien en notar que el tracking dejo de moverse.
+export const REINTENTOS_ANTES_DE_MARCAR_REALTIME_CAIDO = 30;
+
+/**
+ * ¿Un escucha caído tiene que sacar la instancia del balanceador?
+ *
+ * Vive aparte y pura porque son tres condiciones que se leen como una sola y no
+ * lo son, y la clase de cosa que alguien «simplifica» a `!listening` seis meses
+ * después:
+ *
+ * - **Sólo en producción.** En desarrollo y en el respaldo no hay balanceador
+ *   del que salir, y fallar readiness ahí sólo rompe el arranque local.
+ * - **Sólo si hay algo que escuchar.** Sobre el respaldo sin PostgreSQL el
+ *   fanout es en memoria: no escuchar es correcto, no una falla.
+ * - **Sólo tras el umbral.** El listener se reconecta cada segundo; sacar la
+ *   instancia al primer reintento la haría oscilar. Lo que el umbral distingue
+ *   es un parpadeo de una imposibilidad — el caso típico de imposibilidad es un
+ *   pooler en modo transacción, donde `LISTEN` no sobrevive nunca y ninguna
+ *   cantidad de reintentos lo arregla.
+ */
+export function realtimeBlocksReadiness({ isProduction, realtime }) {
+  return Boolean(
+    isProduction &&
+      realtime?.configured &&
+      !realtime.listening &&
+      Number(realtime.failedAttempts || 0) >= REINTENTOS_ANTES_DE_MARCAR_REALTIME_CAIDO,
+  );
 }
 
 export const realtimeRouter = Router();

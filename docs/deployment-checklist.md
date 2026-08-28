@@ -103,6 +103,15 @@ Un ambiente productivo no se habilita con proveedores en `sandbox` o `disabled`.
 - [ ] SMTP productivo con manejo de bounces.
 - [ ] Object storage S3 compatible con KMS.
 
+## Dónde se despliega
+
+Decidido el 28 de agosto de 2026: **Google Cloud, región `southamerica-east1` (São Paulo)**.
+El razonamiento, el mapeo servicio por servicio, las tres trampas que salen de este código y
+lo que se descartó están en [`docs/despliegue.md`](despliegue.md).
+
+Nada de eso está ejecutado. Lo que cambió es que la ausencia de decisión dejó de ser el
+bloqueador; ahora el bloqueador es la cuenta.
+
 ## Trabajos programados
 
 **Sin planificador, cuatro lotes no corren nunca.** El proyecto no trae uno en proceso a

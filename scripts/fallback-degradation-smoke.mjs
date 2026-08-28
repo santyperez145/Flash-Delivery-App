@@ -160,3 +160,63 @@ if (quinientos.length) {
 
 console.log(`ok - ${sondeos} sondeos sobre el respaldo SQLite sin ninguna respuesta 500`);
 console.log(`     ${RUTAS.length} rutas × ${CUENTAS.length} audiencias`);
+
+// ---------------------------------------------------------------------------
+// Cuando una degradacion de realtime pasa a ser una falla de readiness.
+//
+// Va en esta suite porque es la misma pregunta que el resto del archivo —que
+// degrada y que rompe— vista desde el otro lado: acá lo que se afirma es que la
+// degradacion **si** tiene un limite, y donde esta.
+//
+// El caso que motiva el limite: una conexion que no puede suscribirse nunca,
+// tipicamente por un pooler en modo transaccion. La instancia sigue viva, sigue
+// aceptando clientes SSE, y no entrega ni un evento. Sin este corte, readiness
+// la deja en verde para siempre.
+// ---------------------------------------------------------------------------
+const { realtimeBlocksReadiness, REINTENTOS_ANTES_DE_MARCAR_REALTIME_CAIDO } = await import(
+  "../server/http/realtime.js"
+);
+const escuchaCaida = (intentos) => ({
+  configured: true,
+  listening: false,
+  failedAttempts: intentos,
+});
+
+const afirmar = (condicion, etiqueta) => {
+  if (!condicion) throw new Error(`falla: ${etiqueta}`);
+};
+
+afirmar(
+  realtimeBlocksReadiness({
+    isProduction: true,
+    realtime: escuchaCaida(REINTENTOS_ANTES_DE_MARCAR_REALTIME_CAIDO),
+  }),
+  "en produccion, un escucha que no logra suscribirse saca la instancia del balanceador",
+);
+afirmar(
+  !realtimeBlocksReadiness({
+    isProduction: true,
+    realtime: escuchaCaida(REINTENTOS_ANTES_DE_MARCAR_REALTIME_CAIDO - 1),
+  }),
+  "un reintento por debajo del umbral es una reconexion, no una falla",
+);
+afirmar(
+  !realtimeBlocksReadiness({
+    isProduction: true,
+    realtime: { configured: true, listening: true, failedAttempts: 0 },
+  }),
+  "un escucha suscripto no bloquea readiness",
+);
+afirmar(
+  // Sobre el respaldo el fanout es en memoria: no escuchar es correcto.
+  !realtimeBlocksReadiness({
+    isProduction: true,
+    realtime: { configured: false, listening: false },
+  }),
+  "sin PostgreSQL no hay escucha que vigilar y readiness no se bloquea",
+);
+afirmar(
+  !realtimeBlocksReadiness({ isProduction: false, realtime: escuchaCaida(9999) }),
+  "fuera de produccion no hay balanceador del que salir",
+);
+console.log("ok - el escucha de eventos caido bloquea readiness solo cuando corresponde");
