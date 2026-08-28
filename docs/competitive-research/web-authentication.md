@@ -38,6 +38,10 @@ Fecha de contraste: 28 de agosto de 2026.
 5. Cada audiencia web se carga bajo demanda con `React.lazy` y `Suspense`. Acceso, Customer, Merchant,
    Operaciones y Superadmin dejan de viajar juntos en el entry inicial; el fallback nombra honestamente la
    superficie que se está preparando.
+6. Carga, indisponibilidad y derivación por rol usan una composición compartida, no tarjetas improvisadas.
+   Mantienen safe areas, ancho legible, estado accesible y una sola acción real. La vista de acceso móvil
+   ya no promete Comidas, Viajes y Envíos indiscriminadamente: remite a los servicios habilitados para la
+   cuenta, porque los flags y permisos son autoridad del servidor.
 
 ## Diferencia pendiente frente a la referencia
 
@@ -56,5 +60,7 @@ Fecha de contraste: 28 de agosto de 2026.
 - Contrato responsive estático conectado a `ci-fast.yml`.
 - Chromium real: Customer mobile, Merchant desktop y Operaciones en 320×568, 390×844, 768×1024,
   1024×768 y 1440×900, sin overflow horizontal y con navegación accesible.
+- Chromium real: derivación de una cuenta Customer desde web en 768×1024, 1024×768 y 1440×900,
+  sin overflow y con la acción `Cambiar de cuenta` dentro del viewport.
 - Inspección visual del acceso desktop en 1294×912: controles de 44/52 px, sin overflow y una sola acción
   primaria.

@@ -11,6 +11,7 @@ const rootPackage = JSON.parse(fs.readFileSync("package.json", "utf8"));
 const desktop = fs.readFileSync("src/styles.css", "utf8");
 const foundation = fs.readFileSync("src/styles/foundation.css", "utf8");
 const authStyles = fs.readFileSync("src/styles/auth.css", "utf8");
+const stateStyles = fs.readFileSync("src/styles/states.css", "utf8");
 const adaptive = fs.readFileSync("src/adaptive.css", "utf8");
 const entry = fs.readFileSync("src/main.tsx", "utf8");
 const guidelines = fs.readFileSync("docs/ui-layout-guidelines.md", "utf8");
@@ -80,6 +81,7 @@ assert(
 assert(
   contains(entry, 'import "./styles/foundation.css"') &&
     contains(entry, 'import "./styles/auth.css"') &&
+    contains(entry, 'import "./styles/states.css"') &&
     contains(entry, 'import "./adaptive.css"') &&
     webApp.match(/window\.matchMedia\("\(min-width: 620px\)"\)/g)?.length === 2 &&
     contains(adaptive, "@media (max-width: 900px)") &&
@@ -99,6 +101,16 @@ assert(
     contains(authStyles, "@media (max-width: 900px)") &&
     contains(authStyles, "min-height: 100dvh"),
   "web auth and shared surfaces consume the Flash visual system across breakpoints",
+);
+
+assert(
+  contains(webApp, "SystemStateScreen") &&
+    contains(webApp, "DesktopAccessGate") &&
+    contains(stateStyles, ".system-state-shell") &&
+    contains(stateStyles, ".role-gate-shell") &&
+    contains(stateStyles, "min-height: 100dvh") &&
+    contains(stateStyles, "var(--layout-safe-bottom)"),
+  "loading, error and role boundaries share an adaptive honest-state composition",
 );
 
 assert(

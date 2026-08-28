@@ -39,7 +39,6 @@ import {
   Truck,
   UserRound,
   WalletCards,
-  X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ComponentType, CSSProperties } from "react";
@@ -65,6 +64,7 @@ import {
   SectionTitle,
   TopBar,
 } from "./ui/panels";
+import { DesktopAccessGate, SystemStateScreen } from "./ui/SystemStateScreen";
 import type {
   AppState,
   AdminDashboard,
@@ -144,18 +144,6 @@ const OpsApp = lazy(() =>
 const OpsRail = lazy(() =>
   import("./operations/OperationsSurface").then((module) => ({ default: module.OpsRail })),
 );
-
-function FullPageFallback({ label }: { label: string }) {
-  return (
-    <main className="app loading-app">
-      <div className="loader-card">
-        <Flame size={28} />
-        <strong>{label}</strong>
-        <span>Cargando sólo las herramientas de esta audiencia</span>
-      </div>
-    </main>
-  );
-}
 
 function App() {
   const [state, setState] = useState<AppState | null>(null);
@@ -888,19 +876,27 @@ function App() {
 
   if (loading) {
     return (
-      <main className="app loading-app">
-        <div className="loader-card">
-          <Flame size={28} />
-          <strong>Iniciando Flash</strong>
-          <span>Conectando frontend y backend</span>
-        </div>
-      </main>
+      <SystemStateScreen
+        tone="loading"
+        eyebrow="Preparando plataforma"
+        title="Iniciando Flash"
+        message="Estamos conectando tu sesión con las herramientas habilitadas para esta cuenta."
+      />
     );
   }
 
   if (authRequired) {
     return (
-      <Suspense fallback={<FullPageFallback label="Preparando acceso" />}>
+      <Suspense
+        fallback={
+          <SystemStateScreen
+            tone="loading"
+            eyebrow="Acceso"
+            title="Preparando ingreso"
+            message="Estamos cargando sólo el módulo seguro de autenticación."
+          />
+        }
+      >
         <WebLogin
           busy={busy}
           error={error}
@@ -914,20 +910,18 @@ function App() {
 
   if (!state || error) {
     return (
-      <main className="app loading-app">
-        <div className="loader-card error-card">
-          <X size={28} />
-          <strong>Backend no disponible</strong>
-          <span>
-            {!isOnline
-              ? "Sin conexión. Las acciones nuevas esperan hasta recuperar internet."
-              : error || "No se pudo cargar el estado"}
-          </span>
-          <button type="button" onClick={() => window.location.reload()}>
-            <RefreshCw size={16} /> Reintentar
-          </button>
-        </div>
-      </main>
+      <SystemStateScreen
+        tone="error"
+        eyebrow={isOnline ? "Servicio no disponible" : "Sin conexión"}
+        title="No pudimos abrir Flash"
+        message={
+          !isOnline
+            ? "Las acciones nuevas esperan hasta recuperar internet."
+            : error || "No se pudo cargar el estado de la plataforma."
+        }
+        actionLabel="Reintentar"
+        onAction={() => window.location.reload()}
+      />
     );
   }
 
@@ -952,7 +946,16 @@ function App() {
       return (
         <>
           {networkBanner}
-          <Suspense fallback={<FullPageFallback label="Preparando Flash Negocios" />}>
+          <Suspense
+            fallback={
+              <SystemStateScreen
+                tone="loading"
+                eyebrow="Portal de comercio"
+                title="Preparando Flash Negocios"
+                message="Estamos cargando cocina, catálogo, ventas y finanzas de tu comercio."
+              />
+            }
+          >
             <MerchantDesktopConsole
               state={state}
               restaurant={merchantRestaurant!}
@@ -973,7 +976,16 @@ function App() {
     return (
       <>
         {networkBanner}
-        <Suspense fallback={<FullPageFallback label="Preparando Flash Command" />}>
+        <Suspense
+          fallback={
+            <SystemStateScreen
+              tone="loading"
+              eyebrow="Operaciones"
+              title="Preparando Flash Command"
+              message="Estamos cargando control, soporte y riesgo para esta sesión."
+            />
+          }
+        >
           <SuperAdminConsole
             state={state}
             currentUserId={activeUser!.id}
@@ -1110,30 +1122,6 @@ function App() {
             runAction={runAction}
           />
         </Suspense>
-      </section>
-    </main>
-  );
-}
-
-function DesktopAccessGate({ user, onLogout }: { user: User | null; onLogout: () => void }) {
-  return (
-    <main className="desktop-access-gate">
-      <section>
-        <span>
-          <ShieldCheck size={28} />
-        </span>
-        <small>Flash · acceso por rol</small>
-        <h1>Esta cuenta usa la app móvil</h1>
-        <p>
-          {user?.name || "Tu cuenta"}, el portal web está reservado para operaciones y negocios.
-          Abre Flash en mobile para pedir comida, viajes y envíos.
-        </p>
-        <div>
-          <b>{user?.roles.join(" · ") || "sin rol operativo"}</b>
-          <button type="button" onClick={onLogout}>
-            <LogIn size={17} /> Cambiar de cuenta
-          </button>
-        </div>
       </section>
     </main>
   );
