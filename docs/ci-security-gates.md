@@ -475,6 +475,14 @@ Ese lote incluyó el hallazgo más serio del inventario: **`flash_runtime` tení
 
 Es la contraparte del trigger de balance. El trigger impide *escribir* una transacción torcida; esto impide *enderezar* una que ya cuadra, o hacerla desaparecer. Sin lo segundo, lo primero se puede rodear en dos sentencias.
 
+El tercer lote (migración 131) quita **11 DELETE** sobre artefactos de identidad y
+autorización: sesiones, MFA, dispositivos, verificaciones, enlaces de safety,
+OAuth y step-up de payouts. Todos se consumen o revocan con `UPDATE`; borrarlos
+desde el proceso que atiende tráfico sólo podría eliminar evidencia. La puerta
+no se limita a bajar el total de 71 a 60: consulta PostgreSQL y exige por nombre
+que ninguna de esas once tablas conserve DELETE. Las purgas de retención quedan
+reservadas para un worker futuro con rol separado y auditoría propia.
+
 ### Las cifras de la documentación
 
 El hallazgo [H-10](auditoria-2026-08-25.md#h-10--documentación-desalineada-del-runtime) era el único de los once **sin ticket**, y su ejemplo principal ya derivó dos veces: `ROADMAP.MD` decía «migraciones hasta 105», se corrigió a 110, y hoy hay 122.

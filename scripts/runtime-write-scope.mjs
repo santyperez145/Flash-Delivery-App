@@ -45,6 +45,19 @@ const pool = new pg.Pool({
 const BASE = "scripts/runtime-write-scope-baseline.json";
 const ROL = "flash_runtime";
 const ESCRITURA = ["INSERT", "UPDATE", "DELETE"];
+const ARTEFACTOS_IDENTIDAD_SIN_BORRADO = [
+  "email_verification_challenges",
+  "merchant_payment_oauth_states",
+  "password_recovery_tokens",
+  "payout_step_up_authorizations",
+  "phone_verification_challenges",
+  "refresh_sessions",
+  "ride_pickup_verifications",
+  "ride_tracking_links",
+  "user_devices",
+  "user_mfa",
+  "user_notification_preferences",
+];
 
 async function fuentes(entrada) {
   const stat = await fs.stat(entrada).catch(() => null);
@@ -177,6 +190,14 @@ try {
     [ROL, ESCRITURA],
   );
   const conEscritura = new Map(permisos.rows.map((f) => [f.table_name, f.privilegios]));
+  const borrables = ARTEFACTOS_IDENTIDAD_SIN_BORRADO.filter((tabla) =>
+    conEscritura.get(tabla)?.includes("DELETE"),
+  );
+  if (borrables.length) {
+    throw new Error(
+      `flash_runtime todavía puede borrar artefactos de identidad: ${borrables.join(", ")}`,
+    );
+  }
 
   // --- 2. Lo que el código escribe ------------------------------------------
   const archivos = await fuentes("server");
