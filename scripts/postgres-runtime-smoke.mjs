@@ -230,7 +230,11 @@ try {
       !JSON.stringify(protectedToken).includes(rawPushToken),
     "push token is encrypted at rest and deduplicated by keyed hash",
   );
-  const restaurants = await request("/restaurants");
+  // Se pide por la ruta paginada, que es la que usa el producto. `/restaurants`
+  // se retiró el 28 de agosto: devolvía la tabla entera sin autenticación ni
+  // paginación. `getPostgresRestaurantPage` llama a la misma función con los ids
+  // de la página, así que el shape —menú y sucursales incluidos— es idéntico.
+  const restaurants = await request("/catalog/restaurants?limit=50");
   assert(
     restaurants.body.restaurants?.length >= 1 &&
       restaurants.body.restaurants[0].menu?.length >= 1 &&
@@ -351,7 +355,10 @@ try {
     body: JSON.stringify({ favorite: true }),
   });
   feedbackAuditRequestIds.push(favoriteAdded.body.requestId);
-  const favoriteRead = await request("/favorites");
+  // Se lee del snapshot de cuenta, que es de donde los lee el frente.
+  // `GET /favorites` se retiró el 28 de agosto: servía las mismas filas, desde el
+  // mismo repositorio, sin que ningún cliente la llamara.
+  const favoriteRead = await request("/me");
   const favoriteRemoved = await request("/favorites/rest_roja", {
     method: "PUT",
     body: JSON.stringify({ favorite: false }),
@@ -359,7 +366,7 @@ try {
   feedbackAuditRequestIds.push(favoriteRemoved.body.requestId);
   assert(
     favoriteAdded.body.restaurantIds?.includes("rest_roja") &&
-      favoriteRead.body.restaurantIds?.includes("rest_roja") &&
+      favoriteRead.body.account?.favoriteRestaurantIds?.includes("rest_roja") &&
       !favoriteRemoved.body.restaurantIds?.includes("rest_roja"),
     "customer favorites persist in PostgreSQL",
   );

@@ -174,7 +174,7 @@ Los marcadores son ASCII a propósito: el primero llevaba tilde y daba ausente e
 
 ### Degradación sobre el respaldo SQLite
 
-`test:fallback-degradation` levanta la API sin `DATABASE_URL` y sondea 55 rutas `GET` con las cuatro audiencias sembradas. **Ninguna puede responder 500.**
+`test:fallback-degradation` levanta la API sin `DATABASE_URL` y sondea 54 rutas `GET` con las cuatro audiencias sembradas. **Ninguna puede responder 500.**
 
 El respaldo es el runtime del job `local-fallback` y el de cualquier persona que clone el repositorio sin PostgreSQL. Una ruta que ahí revienta no es un detalle de desarrollo: es la diferencia entre poder trabajar en el proyecto y no poder.
 

@@ -18,7 +18,7 @@ const { token } = await login.json(),
   headers = { authorization: `Bearer ${token}`, "content-type": "application/json" };
 const scenarios = [
   { name: "ready", path: "/ready", method: "GET", auth: false },
-  { name: "catalog", path: "/restaurants", method: "GET", auth: false },
+  { name: "catalog", path: "/catalog/restaurants", method: "GET", auth: false },
   // Medía `/state`, que fue retirado y responde 410 desde entonces: la suite
   // llevaba tiempo midiendo un endpoint inexistente sin que nadie lo viera,
   // porque estaba fuera de toda puerta. Es el argumento a favor del nocturno.

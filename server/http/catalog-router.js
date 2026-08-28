@@ -266,12 +266,15 @@ router.get(
   },
 );
 
-router.get("/api/restaurants", async (_req, res) => {
-  const restaurants = usesPostgresCommerce()
-    ? await getPostgresRestaurants()
-    : readDb().restaurants;
-  ok(res, { restaurants });
-});
+// `GET /api/restaurants` se retiró el 28 de agosto. Devolvía la tabla entera de
+// comercios **sin autenticación y sin paginar**, duplicando a
+// `/api/catalog/restaurants`, que es la que el producto usa: acotada a 50 por
+// página, con cursor y con búsqueda. Ningún cliente la nombraba y no estaba en
+// el contrato OpenAPI, así que no hace falta lápida.
+//
+// No era sólo duplicación: era la salida de emergencia alrededor de la
+// paginación. `test:catalog-pagination` verifica el límite de página sobre la
+// ruta buena, y esta otra lo dejaba sin efecto para quien la conociera.
 
 router.patch(
   "/api/restaurants/:restaurantId",

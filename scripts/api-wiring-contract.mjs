@@ -15,6 +15,14 @@
 // falso «nadie la usa» manda a borrar algo que hace falta. El primero cuesta una
 // revisión, el segundo un incidente.
 //
+// **Las suites no cuentan como consumidor, y eso es deliberado.** Una ruta que
+// sólo llama una prueba sigue siendo superficie que el producto no ofrece. Pero
+// tiene un costo que conviene saber: al borrar `/api/restaurants` por huérfana,
+// tres suites que la usaban se pusieron rojas. Ninguna era el producto —las tres
+// se apuntaron a la ruta paginada, que devuelve lo mismo— pero la puerta no
+// avisa de eso. Antes de borrar una huérfana conviene buscarla también en
+// `scripts/`.
+//
 // La lista de excepciones no es una alfombra: cada entrada dice **quién** llama a
 // esa ruta si no es el frente. Una ruta que nadie llama y no tiene explicación
 // hace fallar la puerta, y ése es el momento barato de decidir si se conecta o
