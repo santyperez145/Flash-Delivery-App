@@ -55,7 +55,6 @@ const RUTAS = [
   "/promotions",
   "/shipment-options",
   "/features",
-  "/favorites",
   "/ratings",
   "/notifications",
   "/notification-preferences",
