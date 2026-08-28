@@ -347,3 +347,14 @@ Una pantalla sólo pasa a `[x]` cuando:
   card paginada podía no existir en el bootstrap inicial. Las tres hojas resuelven
   ahora el recurso paginado seleccionado; comida, viaje y envío dejan de ser
   cards enfocables sin rol y se anuncian como botones de seguimiento.
+
+### 28 de agosto de 2026 — Degradación independiente del tracking
+
+- `useTrackingRoute` concentra ruta, cancelación de efectos y error honesto para
+  comida, viaje y envío sin mezclar la máquina de estados de cada servicio.
+- La evidencia de entrega de Envíos deja de compartir `Promise.all` con el mapa:
+  una caída del proveedor de rutas no oculta foto/firma y un fallo de evidencia
+  no elimina una geometría vial válida.
+- Chromium abre comida y viaje activos y verifica acento, cierre y viewport. La
+  fixture local no contiene un envío activo; Envíos permanece cubierto por los
+  contratos de ruta/evidencia, paginación y bundle, sin crear datos ficticios.
