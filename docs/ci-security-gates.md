@@ -2,7 +2,7 @@
 
 ## Estado al 27 de agosto de 2026
 
-`ci.yml` se dividió en tres workflows y **los cinco jobs están en verde**. La cobertura pasó de **15 a 104 de 105 suites** detrás de una puerta: **102 bloquean el merge**, 2 corren de noche y 1 está en cuarentena declarada.
+`ci.yml` se dividió en tres workflows y **los cinco jobs están en verde**. La cobertura pasó de **15 a 105 de 106 suites** detrás de una puerta: **103 bloquean el merge**, 2 corren de noche y 1 está en cuarentena declarada.
 
 Desde el 27 de agosto la rama `main` **está protegida**: los siete checks son obligatorios, la rama debe estar al día, la historia es lineal y no hay excepción para administradores. Hasta ese día se habían mergeado once PR con CI en verde sin que nada lo exigiera.
 
@@ -444,6 +444,22 @@ Y trae su otra mitad: con `enable_indexscan` y `enable_bitmapscan` apagados se e
 El tiempo de ejecución **se informa y no se afirma**. El runner comparte CPU y una latencia medida acá sería una puerta intermitente; para eso está `test:performance`, que corre en el nocturno justamente por ese motivo.
 
 Todo ocurre dentro de una transacción que termina en `ROLLBACK`: los mil conductores y las sesiones que sus triggers abren desaparecen solas.
+
+### Cableado de la API
+
+El servidor expone **191 rutas**. El frente web y el móvil llaman a casi todas, pero nadie cruzaba las dos listas, así que una ruta podía quedar viva y sin consumidor —trabajo hecho que el producto no ofrece— sin que ninguna puerta lo dijera.
+
+Es la forma más cara de deuda porque no se ve: la ruta funciona, sus pruebas pasan, y la capacidad no existe para el usuario. `test:api-wiring` la mide y la trinquetea.
+
+La medida inicial: **16 rutas que ningún cliente nombra**, más 12 con consumidor externo declarado —sondas, webhooks, callbacks OAuth, trabajos de cola y una lápida deliberada, `/api/state`, que responde 410 para que un cliente viejo sepa que el recurso se retiró en vez de recibir un 404 indistinguible de un error—.
+
+El sentido contrario ya está limpio y la puerta también lo vigila: **ningún literal del frente apunta a una ruta que no exista.**
+
+**Sobredetectar del lado del cliente es el lado seguro.** Se toma como posible llamada cualquier literal que empiece con `/`, sin exigir que esté dentro de un `request(...)`. Un falso «esta ruta sí se usa» deja pasar una huérfana; un falso «nadie la usa» manda a borrar algo que hace falta.
+
+La detección costó cuatro iteraciones y cada una encontró un defecto real: prettier parte las declaraciones de ruta en varias líneas, el tipo genérico de `request<...>` cortaba el patrón en su primer `>`, una clase de caracteres se detenía en el paréntesis de una interpolación, y `logout`, `refresh` y el stream de eventos se llaman como `${API_BASE}/ruta`, sin empezar con `/`. Las cuatro versiones anteriores habrían publicado una lista con huérfanas falsas.
+
+La lista de excepciones **no es una alfombra**: cada entrada dice quién consume esa ruta. Una que ya no exista hace fallar la puerta, para que una explicación no sobreviva a lo que explicaba.
 
 ### Cobertura documental de las puertas
 
