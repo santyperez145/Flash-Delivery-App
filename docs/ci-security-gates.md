@@ -399,6 +399,10 @@ La detección se queda del lado seguro: un falso «esta tabla se escribe» conse
 
 La medida inicial: **114 permisos de más en 86 tablas**, sobre 98 con escritura. La lista se acota por lotes, con la suite entera corriendo detrás — y esa verificación es real, porque en CI la API se conecta como `flash_runtime`.
 
+El primer lote (migración 122) quitó **16**, todos de tablas que se escriben una vez y no se tocan más: el libro contable, los registros de eventos, los cobros y los reintegros. Pasan a ser **append-only para el runtime**.
+
+Es la contraparte del trigger de balance. El trigger impide *escribir* una transacción torcida; esto impide *enderezar* una que ya cuadra, o hacerla desaparecer. Sin lo segundo, lo primero se puede rodear en dos sentencias.
+
 ### Cobertura documental de las puertas
 
 `test:docs-coverage` exige que cada script `test:` esté nombrado en algún documento de `docs/`. Una puerta que nadie sabe que existe no se mantiene: cuando falla, quien la encuentra no sabe qué protegía ni si conviene arreglarla o borrarla.
