@@ -512,7 +512,14 @@ Case ownership · SLA · escalation · aprobación de refunds · suspensión de 
 
 ### Criterios de aceptación
 
-- [ ] Ningún incidente requiere ejecutar SQL manual.
+- [x] **Ningún incidente requiere ejecutar SQL manual.** Se inventarió qué puede hacer un operador contra lo que la operación necesita, y quedaban dos huecos. Los dos son la llamada de las dos de la mañana, y los dos se resolvían entrando a la base.
+  - **Suspender un comercio.** `merchants.status` existía, cuarenta y una consultas lo respetaban, y **ninguna ruta lo escribía**. La columna además era `text` sin restricción, así que un valor mal tipeado suspendía el comercio en todas partes a la vez y sin decirlo; la migración 130 le pone el `CHECK`.
+    - **Suspender frena lo nuevo y no cancela lo que está en curso.** Cancelar en masa castiga a clientes que no hicieron nada y deja comida hecha sin destino. Lo que la suspensión corta es que entre uno más.
+    - Y el comercio suspendido **sigue viendo su panel**. El tablero filtraba por comercio activo, así que suspenderlo lo dejaba sin ver los pedidos que ya tenía en el horno. Ahora publica `merchantStatus` para que distinga una sucursal que él cerró de una suspensión que decidió operaciones.
+  - **Soltar un servicio de un conductor.** Un teléfono que se apaga, una moto que se rompe, alguien que aceptó y desapareció: el trabajo quedaba con `driver_id` puesto y sin camino de vuelta al despacho. `POST /api/admin/jobs/:id/release` lo devuelve, retira las ofertas pendientes y avisa a las dos partes.
+    - **Sólo antes de retirar.** Después el conductor tiene la comida encima o el pasajero adentro, y ahí la salida es cancelar con su política o abrir una incidencia. Aceptarlo en ese estado dejaría un pedido en la calle sin dueño.
+    - Vuelve al estado del que se asigna, que no es el mismo para todos: comida a `ready_for_pickup`, viajes y envíos a `requested`. Devolverlos todos al mismo lo dejaría fuera del alcance del despacho.
+  - **Las dos exigen motivo de al menos cinco caracteres**, y las dos entraron a la lista de `test:audit-actor`: son decisiones sobre el registro de un tercero, y el día del reclamo lo que se lee es el log.
 - [x] **Toda acción operativa registra actor y motivo.** El actor ya estaba. El motivo lo registran las ocho decisiones que cambian el estado de un tercero, y desde el 28 de agosto hay puerta: vive **dentro de `test:audit-actor`**, no en una suite propia.
   - Ese detalle era el bloqueo, y resultó ser el bloqueo equivocado. Lo que el token de GitHub sin permiso `workflow` impide es **agregar una suite nueva** —habría que editar un workflow para cablearla, y una suite sin workflow no protege nada—. No impide agregar la comprobación a una suite que ya está cableada. El chequeo es estático y corre antes de que el archivo toque la base, así que se ejecuta sin credenciales aunque el resto de la suite no.
   - Falsificada en sus dos mitades: sacándole el motivo a una decisión, y declarando una acción que no existe en el código.
