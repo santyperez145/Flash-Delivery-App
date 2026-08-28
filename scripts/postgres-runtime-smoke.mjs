@@ -1203,6 +1203,21 @@ try {
     ) === 1,
     "reactivar no deja dos periodos superpuestos cobrandose a la vez",
   );
+  // **El bloque devuelve el padron como lo encontro.** Dejar a `usr_customer`
+  // suscripto con umbral cero le regala el envio a todas las cotizaciones que
+  // siguen en este archivo, y la primera que fallo fue una asercion de desglose
+  // a doscientas lineas de distancia. Un bloque de prueba que cambia el estado
+  // compartido y no lo restituye convierte cualquier agregado posterior en una
+  // caceria.
+  await pool.query(
+    `DELETE FROM user_subscriptions
+     WHERE plan_id IN(SELECT id FROM subscription_plans WHERE key=$1)`,
+    [planKeySmoke],
+  );
+  assert(
+    (await request("/subscription")).body.subscription === null,
+    "el bloque de suscripcion deja al cliente como lo encontro",
+  );
   payload = { ...payload, quoteToken: foodQuote.body.quote.quoteToken };
   const foreignAddressKey = `foreign-address-${crypto.randomUUID()}`;
   const foreignQuote = await request("/orders/quote", {
@@ -1261,7 +1276,11 @@ try {
         checkoutQuote.body.quote.subtotal +
           checkoutQuote.body.quote.deliveryFee +
           checkoutQuote.body.quote.serviceFee -
-          checkoutQuote.body.quote.discount,
+          checkoutQuote.body.quote.discount -
+          // El envio cubierto por la suscripcion es un termino propio del
+          // desglose desde GTM-001. Sin el, esta asercion se rompe apenas el
+          // cliente tiene una suscripcion activa — que es como aparecio.
+          checkoutQuote.body.quote.subscriptionDiscount,
     "checkout returns an exact signed server-side breakdown",
   );
   payload = {
