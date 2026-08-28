@@ -453,6 +453,8 @@ Es la forma más cara de deuda porque no se ve: la ruta funciona, sus pruebas pa
 
 La medida inicial: **16 rutas que ningún cliente nombra**, más 12 con consumidor externo declarado —sondas, webhooks, callbacks OAuth, trabajos de cola y una lápida deliberada, `/api/state`, que responde 410 para que un cliente viejo sepa que el recurso se retiró en vez de recibir un 404 indistinguible de un error—.
 
+Al 28 de agosto quedan **9**. Dos se cerraron borrando: `GET /api/restaurants` y `GET /api/favorites` duplicaban datos que el producto ya entrega por otra vía. Cinco se cerraron cableando: el embudo de producto, los flags por audiencia y el go/no-go de zona ahora tienen pantalla en la sección **Producto** de la consola.
+
 El sentido contrario ya está limpio y la puerta también lo vigila: **ningún literal del frente apunta a una ruta que no exista.**
 
 **Sobredetectar del lado del cliente es el lado seguro.** Se toma como posible llamada cualquier literal que empiece con `/`, sin exigir que esté dentro de un `request(...)`. Un falso «esta ruta sí se usa» deja pasar una huérfana; un falso «nadie la usa» manda a borrar algo que hace falta.

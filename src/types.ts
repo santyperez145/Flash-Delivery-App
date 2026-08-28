@@ -710,6 +710,47 @@ export type ShipmentClaim = {
   createdAt: string;
   updatedAt: string;
 };
+/** Embudo y eventos de producto sobre una ventana de días (ticket ARC-001). */
+export type ProductMetrics = {
+  windowDays: number;
+  events: Record<string, { events: number; users: number }>;
+  funnel: {
+    homeUsers: number;
+    checkoutUsers: number;
+    createdUsers: number;
+    homeToCheckoutPercent: number;
+    checkoutToCreatedPercent: number;
+  };
+};
+
+export type FeatureFlag = {
+  id: string;
+  key: string;
+  description: string;
+  enabled: boolean;
+  rolloutPercentage: number;
+  allowedRoles: string[];
+  city: string | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  variant: Record<string, string | number | boolean>;
+  updatedAt: string;
+};
+
+/**
+ * Go/no-go de una zona.
+ *
+ * `checks` y `criteria` viajan juntos a propósito: saber que una zona no está
+ * lista sirve poco sin el umbral que no alcanzó.
+ */
+export type ZoneReadiness = {
+  zone: { id: string; name: string; city: string };
+  decision: "go" | "no_go";
+  checks: Record<string, boolean>;
+  criteria: Record<string, number>;
+  facts: Record<string, number>;
+};
+
 export type PaymentReconciliationCase = {
   id: string;
   provider: string;
