@@ -39,17 +39,10 @@ const ratingSchema = z.object({
 
 export const feedbackRouter = Router();
 
-feedbackRouter.get("/api/favorites", requireAuth, async (req, res) => {
-  try {
-    return ok(res, {
-      restaurantIds: usesPostgresCommerce()
-        ? await getPostgresFavoriteMerchantIds(req.auth.userId)
-        : [],
-    });
-  } catch (_error) {
-    return fail(res, 500, "No se pudieron cargar favoritos");
-  }
-});
+// `GET /api/favorites` se retiró el 28 de agosto. Los favoritos ya viajan en el
+// snapshot de la cuenta como `favoriteRestaurantIds` —es de ahí que los lee el
+// frente— y esta ruta servía exactamente lo mismo desde el mismo repositorio,
+// sin que nadie la llamara. La escritura sigue en `PUT /api/favorites/:id`.
 feedbackRouter.put(
   "/api/favorites/:restaurantId",
   requireAuth,
