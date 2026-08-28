@@ -2007,6 +2007,14 @@ try {
   // en este archivo, y la ultima vez que un bloque no restituyo estado la falla
   // aparecio doscientas lineas mas abajo sin conexion visible.
   // -------------------------------------------------------------------------
+  const canceladosDeRojaAntes = Number(
+    (
+      await pool.query(
+        `SELECT count(*)::int total FROM jobs j JOIN merchants m ON m.id=j.merchant_id
+         WHERE m.public_id='rest_roja' AND j.status='cancelled'`,
+      )
+    ).rows[0].total,
+  );
   const opsLoginSuspension = await request("/auth/login", {
     method: "POST",
     body: JSON.stringify({
@@ -2053,16 +2061,20 @@ try {
   );
   // **Lo que ya estaba en curso sigue en curso.** Cancelar en masa castigaria a
   // clientes que no hicieron nada y dejaria comida hecha sin destino.
+  //
+  // Se compara contra el conteo previo y no contra una ventana de tiempo: el
+  // smoke cancela pedidos por su cuenta unas lineas antes, y una ventana de
+  // quince segundos los cuenta como si los hubiera cancelado la suspension. Lo
+  // que hay que medir es el delta que provoca esta operacion, no el ambiente.
   assert(
     Number(
       (
         await pool.query(
           `SELECT count(*)::int total FROM jobs j JOIN merchants m ON m.id=j.merchant_id
-           WHERE m.public_id='rest_roja' AND j.status='cancelled'
-             AND j.updated_at > now() - interval '15 seconds'`,
+           WHERE m.public_id='rest_roja' AND j.status='cancelled'`,
         )
       ).rows[0].total,
-    ) === 0,
+    ) === canceladosDeRojaAntes,
     "suspender no cancela los pedidos que ya estaban en curso",
   );
   // El tablero de colas, contra la base de verdad.
