@@ -32,7 +32,7 @@ import { flashDesign } from "../design-system";
 import FlashNativeMap from "../FlashNativeMap";
 import { mobileOrderStatusLabel, money, navigationInstruction } from "../format";
 import { styles } from "../styles";
-import { ActionButton, NativeMapUnavailable, ServiceChatModal } from "../ui";
+import { ActionButton, MobileTaskSheet, NativeMapUnavailable, ServiceChatModal } from "../ui";
 import { CustomerActivityScreen } from "./CustomerActivityScreen";
 import type {
   AppNotification,
@@ -120,88 +120,75 @@ function OrderTrackingSheet({
       "Entregado",
     ];
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.trackingBackdrop}>
-        <View style={styles.trackingSheet}>
-          <View style={styles.trackingHeader}>
-            <View>
-              <Text style={styles.orderConfirmationEyebrow}>SEGUIMIENTO EN VIVO</Text>
-              <Text style={styles.foodRestaurantTitle}>Pedido {order.id}</Text>
+    <MobileTaskSheet
+      eyebrow="Seguimiento en vivo"
+      title={`Pedido ${order.id}`}
+      accessibilityLabel="Seguimiento del pedido"
+      onClose={onClose}
+    >
+      {hasMap ? (
+        <FlashNativeMap
+          origin={order.pickupLocation!}
+          destination={order.deliveryLocation!}
+          route={route?.coordinates || []}
+          driver={driver?.location || null}
+          routeColor="#ff6a21"
+          driverIcon="bicycle"
+          caption={
+            route
+              ? `${route.distanceKm} km · ${route.durationMin} min de recorrido`
+              : routeError || "Calculando ruta…"
+          }
+          detail={driver ? `${driver.name} · ${driver.vehicle}` : "Buscando repartidor disponible"}
+          accessibilityLabel="Mapa interactivo del pedido"
+        />
+      ) : (
+        <NativeMapUnavailable
+          message={
+            routeError || "El comercio o la entrega todavía no tienen coordenadas verificadas."
+          }
+        />
+      )}
+      <View style={styles.trackingStatus}>
+        <Text style={styles.foodRestaurantTitle}>{labels[current]}</Text>
+        <Text style={styles.cardText}>
+          {order.status === "delivered"
+            ? "Tu pedido fue entregado."
+            : `ETA publicada: ${order.etaMin} min`}
+        </Text>
+        <View style={styles.trackingProgress}>
+          {labels.map((label, index) => (
+            <View style={styles.trackingStage} key={label}>
+              <View
+                style={[styles.trackingStageDot, index <= current && styles.trackingStageDotActive]}
+              >
+                {index < current ? <Ionicons name="checkmark" size={11} color="#fff" /> : null}
+              </View>
+              <Text
+                style={[
+                  styles.trackingStageText,
+                  index === current && styles.trackingStageTextActive,
+                ]}
+              >
+                {label}
+              </Text>
             </View>
-            <Pressable style={styles.foodBack} onPress={onClose}>
-              <Ionicons name="close" size={21} color="#222" />
-            </Pressable>
-          </View>
-          {hasMap ? (
-            <FlashNativeMap
-              origin={order.pickupLocation!}
-              destination={order.deliveryLocation!}
-              route={route?.coordinates || []}
-              driver={driver?.location || null}
-              routeColor="#ff6a21"
-              driverIcon="bicycle"
-              caption={
-                route
-                  ? `${route.distanceKm} km · ${route.durationMin} min de recorrido`
-                  : routeError || "Calculando ruta…"
-              }
-              detail={
-                driver ? `${driver.name} · ${driver.vehicle}` : "Buscando repartidor disponible"
-              }
-              accessibilityLabel="Mapa interactivo del pedido"
-            />
-          ) : (
-            <NativeMapUnavailable
-              message={
-                routeError || "El comercio o la entrega todavía no tienen coordenadas verificadas."
-              }
-            />
-          )}
-          <View style={styles.trackingStatus}>
-            <Text style={styles.foodRestaurantTitle}>{labels[current]}</Text>
-            <Text style={styles.cardText}>
-              {order.status === "delivered"
-                ? "Tu pedido fue entregado."
-                : `ETA publicada: ${order.etaMin} min`}
-            </Text>
-            <View style={styles.trackingProgress}>
-              {labels.map((label, index) => (
-                <View style={styles.trackingStage} key={label}>
-                  <View
-                    style={[
-                      styles.trackingStageDot,
-                      index <= current && styles.trackingStageDotActive,
-                    ]}
-                  >
-                    {index < current ? <Ionicons name="checkmark" size={11} color="#fff" /> : null}
-                  </View>
-                  <Text
-                    style={[
-                      styles.trackingStageText,
-                      index === current && styles.trackingStageTextActive,
-                    ]}
-                  >
-                    {label}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </View>
-          <Pressable
-            style={styles.orderConfirmationAction}
-            onPress={() =>
-              Share.share({
-                title: "Pedido Flash",
-                message: `Mi pedido ${order.id} está ${labels[current].toLowerCase()}.`,
-              })
-            }
-          >
-            <Ionicons name="share-social-outline" size={18} color="#fff" />
-            <Text style={styles.orderConfirmationActionText}>Compartir estado</Text>
-          </Pressable>
+          ))}
         </View>
       </View>
-    </Modal>
+      <Pressable
+        style={styles.orderConfirmationAction}
+        onPress={() =>
+          Share.share({
+            title: "Pedido Flash",
+            message: `Mi pedido ${order.id} está ${labels[current].toLowerCase()}.`,
+          })
+        }
+      >
+        <Ionicons name="share-social-outline" size={18} color="#fff" />
+        <Text style={styles.orderConfirmationActionText}>Compartir estado</Text>
+      </Pressable>
+    </MobileTaskSheet>
   );
 }
 
@@ -273,156 +260,141 @@ function RideTrackingSheet({
     current = Math.max(0, stages.indexOf(ride.status)),
     headline = labels[current] || ride.status.replaceAll("_", " ");
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.trackingBackdrop}>
-        <View style={styles.trackingSheet}>
-          <View style={styles.trackingHeader}>
-            <View>
-              <Text style={styles.orderConfirmationEyebrow}>VIAJE EN VIVO</Text>
-              <Text style={styles.foodRestaurantTitle}>{headline}</Text>
-            </View>
-            <Pressable style={styles.foodBack} onPress={onClose}>
-              <Ionicons name="close" size={21} color="#222" />
-            </Pressable>
-          </View>
-          {hasMap ? (
-            <FlashNativeMap
-              origin={ride.pickupLocation!}
-              destination={ride.destinationLocation!}
-              route={route?.coordinates || []}
-              driver={driver?.location || null}
-              routeColor="#7c3cff"
-              caption={
-                route
-                  ? `${route.distanceKm} km · ${route.durationMin} min`
-                  : routeError || "Calculando ruta real…"
-              }
-              detail={
-                driver ? `${driver.name} · ${driver.vehicle}` : "Buscando un conductor disponible"
-              }
-              accessibilityLabel="Mapa interactivo del viaje"
-            />
-          ) : (
-            <NativeMapUnavailable
-              message={
-                routeError || "El origen o el destino todavía no tienen coordenadas verificadas."
-              }
-            />
-          )}
-          <ScrollView showsVerticalScrollIndicator={false}>
-            <View style={styles.trackingStatus}>
-              <Text style={styles.foodRestaurantTitle}>{headline}</Text>
-              <Text style={styles.cardText}>
-                {ride.pickup} → {ride.destination}
-              </Text>
-              <View style={styles.trackingProgress}>
-                {labels.map((label, index) => (
-                  <View style={styles.trackingStage} key={label}>
-                    <View
-                      style={[
-                        styles.trackingStageDot,
-                        index <= current && styles.trackingStageDotActive,
-                      ]}
-                    >
-                      {index < current ? (
-                        <Ionicons name="checkmark" size={11} color="#fff" />
-                      ) : null}
-                    </View>
-                    <Text
-                      style={[
-                        styles.trackingStageText,
-                        index === current && styles.trackingStageTextActive,
-                      ]}
-                    >
-                      {label}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-            {driver ? (
-              <View style={styles.shipmentTrackingSummary}>
-                <View>
-                  <Text style={styles.orderConfirmationEyebrow}>TU CONDUCTOR</Text>
-                  <Text style={styles.sectionTitle}>{driver.name}</Text>
-                  <Text style={styles.cardText}>
-                    {driver.vehicle} · ★ {driver.rating.toFixed(1)}
-                  </Text>
+    <MobileTaskSheet
+      eyebrow="Viaje en vivo"
+      title={headline}
+      accessibilityLabel="Seguimiento del viaje"
+      onClose={onClose}
+    >
+      {hasMap ? (
+        <FlashNativeMap
+          origin={ride.pickupLocation!}
+          destination={ride.destinationLocation!}
+          route={route?.coordinates || []}
+          driver={driver?.location || null}
+          routeColor="#7c3cff"
+          caption={
+            route
+              ? `${route.distanceKm} km · ${route.durationMin} min`
+              : routeError || "Calculando ruta real…"
+          }
+          detail={
+            driver ? `${driver.name} · ${driver.vehicle}` : "Buscando un conductor disponible"
+          }
+          accessibilityLabel="Mapa interactivo del viaje"
+        />
+      ) : (
+        <NativeMapUnavailable
+          message={
+            routeError || "El origen o el destino todavía no tienen coordenadas verificadas."
+          }
+        />
+      )}
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View style={styles.trackingStatus}>
+          <Text style={styles.foodRestaurantTitle}>{headline}</Text>
+          <Text style={styles.cardText}>
+            {ride.pickup} → {ride.destination}
+          </Text>
+          <View style={styles.trackingProgress}>
+            {labels.map((label, index) => (
+              <View style={styles.trackingStage} key={label}>
+                <View
+                  style={[
+                    styles.trackingStageDot,
+                    index <= current && styles.trackingStageDotActive,
+                  ]}
+                >
+                  {index < current ? <Ionicons name="checkmark" size={11} color="#fff" /> : null}
                 </View>
-                <View style={styles.shipmentTrackingBadge}>
-                  <Ionicons name="car-sport" size={20} color="#fff" />
-                </View>
-              </View>
-            ) : null}
-            {["driver_assigned", "arriving"].includes(ride.status) ? (
-              <View style={styles.shipmentPinCard}>
-                <Text style={styles.orderConfirmationEyebrow}>PIN PARA INICIAR</Text>
-                {pickupCode ? (
-                  <>
-                    <Text style={styles.shipmentPin}>{pickupCode}</Text>
-                    <Text style={styles.helperText}>
-                      Decíselo al conductor sólo cuando estés junto al vehículo correcto.
-                    </Text>
-                  </>
-                ) : (
-                  <Pressable
-                    style={styles.orderConfirmationAction}
-                    onPress={() => void onRevealCode()}
-                  >
-                    <Ionicons name="key-outline" size={18} color="#fff" />
-                    <Text style={styles.orderConfirmationActionText}>Mostrar PIN seguro</Text>
-                  </Pressable>
-                )}
-              </View>
-            ) : null}
-            <View style={styles.safetyStrip}>
-              <View style={styles.safetyIcon}>
-                <Ionicons name="shield-checkmark" size={21} color="#087a4b" />
-              </View>
-              <View style={styles.itemCopy}>
-                <Text style={styles.safetyTitle}>Centro de seguridad</Text>
-                <Text style={styles.helperText}>
-                  Compartí tu ruta o enviá una alerta vinculada a este viaje.
+                <Text
+                  style={[
+                    styles.trackingStageText,
+                    index === current && styles.trackingStageTextActive,
+                  ]}
+                >
+                  {label}
                 </Text>
               </View>
-            </View>
-            <Pressable style={styles.orderConfirmationAction} onPress={() => onShare()}>
-              <Ionicons name="share-social-outline" size={18} color="#fff" />
-              <Text style={styles.orderConfirmationActionText}>Compartir seguimiento seguro</Text>
-            </Pressable>
-            {contacts.length > 0 ? (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.paymentBrandRail}
-              >
-                {contacts.map((contact) => (
-                  <Pressable
-                    key={contact.id}
-                    style={styles.issueCategoryPill}
-                    onPress={() => onShare(contact)}
-                  >
-                    <Ionicons name="person-outline" size={15} color="#7c3cff" />
-                    <Text style={styles.issueCategoryText}>{contact.name}</Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-            ) : null}
-            <Pressable style={[styles.shareAction, { backgroundColor: "#fff0f0" }]} onPress={onSos}>
-              <Ionicons name="warning" size={18} color="#c92626" />
-              <Text style={[styles.shareActionText, { color: "#c92626" }]}>
-                Seguridad Flash · SOS
-              </Text>
-            </Pressable>
-            <Pressable style={styles.reportIssueButton} onPress={onCancel}>
-              <Ionicons name="close-circle-outline" size={18} color="#8f3840" />
-              <Text style={styles.reportIssueText}>Cancelar viaje</Text>
-              <Ionicons name="chevron-forward" size={17} color="#a29aa5" />
-            </Pressable>
-          </ScrollView>
+            ))}
+          </View>
         </View>
-      </View>
-    </Modal>
+        {driver ? (
+          <View style={styles.shipmentTrackingSummary}>
+            <View>
+              <Text style={styles.orderConfirmationEyebrow}>TU CONDUCTOR</Text>
+              <Text style={styles.sectionTitle}>{driver.name}</Text>
+              <Text style={styles.cardText}>
+                {driver.vehicle} · ★ {driver.rating.toFixed(1)}
+              </Text>
+            </View>
+            <View style={styles.shipmentTrackingBadge}>
+              <Ionicons name="car-sport" size={20} color="#fff" />
+            </View>
+          </View>
+        ) : null}
+        {["driver_assigned", "arriving"].includes(ride.status) ? (
+          <View style={styles.shipmentPinCard}>
+            <Text style={styles.orderConfirmationEyebrow}>PIN PARA INICIAR</Text>
+            {pickupCode ? (
+              <>
+                <Text style={styles.shipmentPin}>{pickupCode}</Text>
+                <Text style={styles.helperText}>
+                  Decíselo al conductor sólo cuando estés junto al vehículo correcto.
+                </Text>
+              </>
+            ) : (
+              <Pressable style={styles.orderConfirmationAction} onPress={() => void onRevealCode()}>
+                <Ionicons name="key-outline" size={18} color="#fff" />
+                <Text style={styles.orderConfirmationActionText}>Mostrar PIN seguro</Text>
+              </Pressable>
+            )}
+          </View>
+        ) : null}
+        <View style={styles.safetyStrip}>
+          <View style={styles.safetyIcon}>
+            <Ionicons name="shield-checkmark" size={21} color="#087a4b" />
+          </View>
+          <View style={styles.itemCopy}>
+            <Text style={styles.safetyTitle}>Centro de seguridad</Text>
+            <Text style={styles.helperText}>
+              Compartí tu ruta o enviá una alerta vinculada a este viaje.
+            </Text>
+          </View>
+        </View>
+        <Pressable style={styles.orderConfirmationAction} onPress={() => onShare()}>
+          <Ionicons name="share-social-outline" size={18} color="#fff" />
+          <Text style={styles.orderConfirmationActionText}>Compartir seguimiento seguro</Text>
+        </Pressable>
+        {contacts.length > 0 ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.paymentBrandRail}
+          >
+            {contacts.map((contact) => (
+              <Pressable
+                key={contact.id}
+                style={styles.issueCategoryPill}
+                onPress={() => onShare(contact)}
+              >
+                <Ionicons name="person-outline" size={15} color="#7c3cff" />
+                <Text style={styles.issueCategoryText}>{contact.name}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        ) : null}
+        <Pressable style={[styles.shareAction, { backgroundColor: "#fff0f0" }]} onPress={onSos}>
+          <Ionicons name="warning" size={18} color="#c92626" />
+          <Text style={[styles.shareActionText, { color: "#c92626" }]}>Seguridad Flash · SOS</Text>
+        </Pressable>
+        <Pressable style={styles.reportIssueButton} onPress={onCancel}>
+          <Ionicons name="close-circle-outline" size={18} color="#8f3840" />
+          <Text style={styles.reportIssueText}>Cancelar viaje</Text>
+          <Ionicons name="chevron-forward" size={17} color="#a29aa5" />
+        </Pressable>
+      </ScrollView>
+    </MobileTaskSheet>
   );
 }
 
@@ -499,151 +471,139 @@ function ShipmentTrackingSheet({
     photo = evidence.find((entry) => entry.type === "photo"),
     signature = evidence.find((entry) => entry.type === "signature");
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.trackingBackdrop}>
-        <View style={styles.trackingSheet}>
-          <View style={styles.trackingHeader}>
-            <View>
-              <Text style={styles.orderConfirmationEyebrow}>ENVÍO EN VIVO</Text>
-              <Text style={styles.foodRestaurantTitle}>{shipment.id}</Text>
-            </View>
-            <Pressable style={styles.foodBack} onPress={onClose}>
-              <Ionicons name="close" size={21} color="#222" />
-            </Pressable>
-          </View>
-          {hasMap ? (
-            <FlashNativeMap
-              origin={shipment.pickupLocation!}
-              destination={shipment.destinationLocation!}
-              route={route?.coordinates || []}
-              driver={driver?.location || null}
-              routeColor="#087a50"
-              driverIcon="bicycle"
-              caption={
-                route
-                  ? `${route.distanceKm} km · ${route.durationMin} min de recorrido`
-                  : routeError || "Calculando ruta real…"
-              }
-              detail={
-                driver ? `${driver.name} · ${driver.vehicle}` : "Buscando conductor disponible"
-              }
-              accessibilityLabel="Mapa interactivo del envío"
-            />
-          ) : (
-            <NativeMapUnavailable
-              message={
-                routeError || "El retiro o la entrega todavía no tienen coordenadas verificadas."
-              }
-            />
-          )}
-          <ScrollView showsVerticalScrollIndicator={false}>
-            <View style={styles.trackingStatus}>
-              <Text style={styles.foodRestaurantTitle}>{labels[current]}</Text>
-              <Text style={styles.cardText}>
-                {shipment.pickup} → {shipment.destination}
-              </Text>
-              <View style={styles.trackingProgress}>
-                {labels.map((label, index) => (
-                  <View style={styles.trackingStage} key={label}>
-                    <View
-                      style={[
-                        styles.trackingStageDot,
-                        index <= current && styles.trackingStageDotActive,
-                      ]}
-                    >
-                      {index < current ? (
-                        <Ionicons name="checkmark" size={11} color="#fff" />
-                      ) : null}
-                    </View>
-                    <Text
-                      style={[
-                        styles.trackingStageText,
-                        index === current && styles.trackingStageTextActive,
-                      ]}
-                    >
-                      {label}
-                    </Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-            <View style={styles.shipmentTrackingSummary}>
-              <View>
-                <Text style={styles.orderConfirmationEyebrow}>
-                  {shipment.serviceLevel?.toUpperCase()} · {shipment.itemCategory?.toUpperCase()}
-                </Text>
-                <Text style={styles.sectionTitle}>
-                  {shipment.weightKg} kg · {money.format(shipment.fare)}
-                </Text>
-                <Text style={styles.cardText}>{shipment.handlingInstructions}</Text>
-              </View>
-              <View style={styles.shipmentTrackingBadge}>
-                <Ionicons
-                  name={shipment.protection === "standard" ? "shield-checkmark" : "cube"}
-                  size={20}
-                  color="#fff"
-                />
-              </View>
-            </View>
-            <View style={styles.deliveryProofCard}>
-              <View style={styles.deliveryProofIcon}>
-                <Ionicons name="finger-print" size={21} color="#fff" />
-              </View>
-              <View style={styles.itemCopy}>
-                <Text style={styles.sectionTitle}>Prueba de entrega</Text>
-                <Text style={styles.cardText}>
-                  {photo ? "Foto recibida" : "Foto pendiente"}
-                  {shipment.signatureRequired
-                    ? ` · ${signature ? `Firmó ${signature.signerName || "receptor"}` : "firma pendiente"}`
-                    : ""}
-                </Text>
-              </View>
-            </View>
-            {shipmentReturn ? (
-              <View style={styles.returnStatusCard}>
-                <Ionicons name="return-down-back" size={18} color="#7c3cff" />
-                <Text style={styles.cardText}>
-                  Devolución · {shipmentReturn.status.replaceAll("_", " ")}
-                </Text>
-              </View>
-            ) : null}
-            {!["delivered", "cancelled"].includes(shipment.status) &&
-              (pin ? (
-                <View style={styles.shipmentPinCard}>
-                  <Text style={styles.orderConfirmationEyebrow}>PIN DE ENTREGA</Text>
-                  <Text style={styles.shipmentPin}>{pin}</Text>
-                  <Text style={styles.helperText}>
-                    Compartilo únicamente cuando recibas el paquete.
-                  </Text>
-                </View>
-              ) : (
-                <Pressable
-                  style={styles.orderConfirmationAction}
-                  disabled={pinBusy}
-                  onPress={async () => {
-                    setPinBusy(true);
-                    try {
-                      await onRevealPin();
-                    } catch (error) {
-                      Alert.alert(
-                        "Flash",
-                        error instanceof Error ? error.message : "No se pudo consultar el PIN",
-                      );
-                    } finally {
-                      setPinBusy(false);
-                    }
-                  }}
+    <MobileTaskSheet
+      eyebrow="Envío en vivo"
+      title={shipment.id}
+      accessibilityLabel="Seguimiento del envío"
+      onClose={onClose}
+    >
+      {hasMap ? (
+        <FlashNativeMap
+          origin={shipment.pickupLocation!}
+          destination={shipment.destinationLocation!}
+          route={route?.coordinates || []}
+          driver={driver?.location || null}
+          routeColor="#087a50"
+          driverIcon="bicycle"
+          caption={
+            route
+              ? `${route.distanceKm} km · ${route.durationMin} min de recorrido`
+              : routeError || "Calculando ruta real…"
+          }
+          detail={driver ? `${driver.name} · ${driver.vehicle}` : "Buscando conductor disponible"}
+          accessibilityLabel="Mapa interactivo del envío"
+        />
+      ) : (
+        <NativeMapUnavailable
+          message={
+            routeError || "El retiro o la entrega todavía no tienen coordenadas verificadas."
+          }
+        />
+      )}
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View style={styles.trackingStatus}>
+          <Text style={styles.foodRestaurantTitle}>{labels[current]}</Text>
+          <Text style={styles.cardText}>
+            {shipment.pickup} → {shipment.destination}
+          </Text>
+          <View style={styles.trackingProgress}>
+            {labels.map((label, index) => (
+              <View style={styles.trackingStage} key={label}>
+                <View
+                  style={[
+                    styles.trackingStageDot,
+                    index <= current && styles.trackingStageDotActive,
+                  ]}
                 >
-                  <Ionicons name="key-outline" size={18} color="#fff" />
-                  <Text style={styles.orderConfirmationActionText}>
-                    {pinBusy ? "Consultando…" : "Ver PIN de entrega"}
-                  </Text>
-                </Pressable>
-              ))}
-          </ScrollView>
+                  {index < current ? <Ionicons name="checkmark" size={11} color="#fff" /> : null}
+                </View>
+                <Text
+                  style={[
+                    styles.trackingStageText,
+                    index === current && styles.trackingStageTextActive,
+                  ]}
+                >
+                  {label}
+                </Text>
+              </View>
+            ))}
+          </View>
         </View>
-      </View>
-    </Modal>
+        <View style={styles.shipmentTrackingSummary}>
+          <View>
+            <Text style={styles.orderConfirmationEyebrow}>
+              {shipment.serviceLevel?.toUpperCase()} · {shipment.itemCategory?.toUpperCase()}
+            </Text>
+            <Text style={styles.sectionTitle}>
+              {shipment.weightKg} kg · {money.format(shipment.fare)}
+            </Text>
+            <Text style={styles.cardText}>{shipment.handlingInstructions}</Text>
+          </View>
+          <View style={styles.shipmentTrackingBadge}>
+            <Ionicons
+              name={shipment.protection === "standard" ? "shield-checkmark" : "cube"}
+              size={20}
+              color="#fff"
+            />
+          </View>
+        </View>
+        <View style={styles.deliveryProofCard}>
+          <View style={styles.deliveryProofIcon}>
+            <Ionicons name="finger-print" size={21} color="#fff" />
+          </View>
+          <View style={styles.itemCopy}>
+            <Text style={styles.sectionTitle}>Prueba de entrega</Text>
+            <Text style={styles.cardText}>
+              {photo ? "Foto recibida" : "Foto pendiente"}
+              {shipment.signatureRequired
+                ? ` · ${signature ? `Firmó ${signature.signerName || "receptor"}` : "firma pendiente"}`
+                : ""}
+            </Text>
+          </View>
+        </View>
+        {shipmentReturn ? (
+          <View style={styles.returnStatusCard}>
+            <Ionicons name="return-down-back" size={18} color="#7c3cff" />
+            <Text style={styles.cardText}>
+              Devolución · {shipmentReturn.status.replaceAll("_", " ")}
+            </Text>
+          </View>
+        ) : null}
+        {!["delivered", "cancelled"].includes(shipment.status) &&
+          (pin ? (
+            <View style={styles.shipmentPinCard}>
+              <Text style={styles.orderConfirmationEyebrow}>PIN DE ENTREGA</Text>
+              <Text style={styles.shipmentPin}>{pin}</Text>
+              <Text style={styles.helperText}>
+                Compartilo únicamente cuando recibas el paquete.
+              </Text>
+            </View>
+          ) : (
+            <Pressable
+              style={styles.orderConfirmationAction}
+              disabled={pinBusy}
+              onPress={async () => {
+                setPinBusy(true);
+                try {
+                  await onRevealPin();
+                } catch (error) {
+                  Alert.alert(
+                    "Flash",
+                    error instanceof Error ? error.message : "No se pudo consultar el PIN",
+                  );
+                } finally {
+                  setPinBusy(false);
+                }
+              }}
+            >
+              <Ionicons name="key-outline" size={18} color="#fff" />
+              <Text style={styles.orderConfirmationActionText}>
+                {pinBusy ? "Consultando…" : "Ver PIN de entrega"}
+              </Text>
+            </Pressable>
+          ))}
+      </ScrollView>
+    </MobileTaskSheet>
   );
 }
 

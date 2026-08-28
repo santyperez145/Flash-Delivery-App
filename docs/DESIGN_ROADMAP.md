@@ -183,7 +183,9 @@ prueba física pendiente conserva `[~]`.
 - [~] Eliminar promociones, categorías, recents, fees, ETA y estados visuales
   hardcodeados cuando exista contrato backend.
 - [~] Consolidar cards, app bars, chips, sheets, estados y navegación: Home de
-  Comidas ya consume tokens y componentes locales; falta extraer familias comunes.
+  Comidas ya consume tokens y componentes locales; tracking de comida, viaje,
+  envío y chat ya comparten marco modal con safe area/teclado; faltan cards,
+  app bars y chips.
 - [ ] Completar la misma base en Actividad, Cuenta, Viajes y Envíos.
 
 ### P1 — apps operativas
@@ -321,3 +323,13 @@ Una pantalla sólo pasa a `[x]` cuando:
 - La derivación Customer desde web se verifica en Chromium en 768×1024,
   1024×768 y 1440×900. El texto habla de servicios habilitados por cuenta y no
   promete verticales que los flags o permisos del servidor podrían desactivar.
+
+### 28 de agosto de 2026 — Hojas operativas mobile
+
+- Tracking de comida, viaje, envío y chat dejan de mantener cuatro marcos
+  distintos: `MobileTaskSheet` concentra modal, encabezado, cierre y contención.
+- El padding inferior usa el inset nativo, el chat evita el teclado en iOS y los
+  títulos variables se limitan a dos líneas sin empujar la acción de cierre.
+- El contrato responsive trinqueta cuatro consumidores, safe area y
+  `KeyboardAvoidingView`. Continúa `[~]` hasta probar teclado, gestos y Dynamic
+  Type en builds Android/iOS físicos, como exige este roadmap.
