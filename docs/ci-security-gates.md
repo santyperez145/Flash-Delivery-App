@@ -453,7 +453,7 @@ Es la forma más cara de deuda porque no se ve: la ruta funciona, sus pruebas pa
 
 La medida inicial: **16 rutas que ningún cliente nombra**, más 12 con consumidor externo declarado —sondas, webhooks, callbacks OAuth, trabajos de cola y una lápida deliberada, `/api/state`, que responde 410 para que un cliente viejo sepa que el recurso se retiró en vez de recibir un 404 indistinguible de un error—.
 
-Al 28 de agosto quedan **7**. Dos se cerraron borrando: `GET /api/restaurants` y `GET /api/favorites` duplicaban datos que el producto ya entrega por otra vía. Siete se cerraron cableando: el embudo de producto, los flags por audiencia y el go/no-go de zona en la sección **Producto**; las promociones y los multiplicadores de zona en **Tarifas**.
+Al 28 de agosto quedan **4**. Dos se cerraron borrando: `GET /api/restaurants` y `GET /api/favorites` duplicaban datos que el producto ya entrega por otra vía. Diez se cerraron cableando: el embudo de producto, los flags por audiencia y el go/no-go de zona en la sección **Producto**; las promociones y los multiplicadores de zona en **Tarifas**; el registro y la baja de dispositivos en el móvil, que era el eslabón que cortaba la cadena entera de push; y `GET /api/features`, que era la mitad que faltaba del control de release —el panel podía encender un flag y **nadie lo leía**, así que encenderlo no hacía nada—.
 
 Cablear destapó una asimetría del contrato que no era una pantalla faltante: `PATCH /api/zones/:id` acepta `active`, pero `GET /api/zones` no lo devuelve —la consulta trae nombre, nivel de demanda y multiplicadores, nada más—. Un interruptor podría apagar una zona sin poder mostrar nunca que quedó apagada, así que ese campo no se cableó hasta que la lectura lo exponga.
 
