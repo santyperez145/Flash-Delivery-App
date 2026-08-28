@@ -10,7 +10,7 @@ Flash es una **plataforma de preproducción avanzada**, evaluada en 6,2/10. Es a
 
 **Lo que se puede afirmar en una conversación de ronda:**
 
-- Arquitectura considerablemente más seria que la mayoría de proyectos en etapa temprana: PostgreSQL/PostGIS con 123 migraciones, RLS, ledger de doble entrada, auditoría encadenada con SHA-256, idempotencia, dispatch geoespacial con aceptación atómica y realtime durable con replay.
+- Arquitectura considerablemente más seria que la mayoría de proyectos en etapa temprana: PostgreSQL/PostGIS con 124 migraciones, RLS, ledger de doble entrada, auditoría encadenada con SHA-256, idempotencia, dispatch geoespacial con aceptación atómica y realtime durable con replay.
 - Cobertura funcional comparable conceptualmente a la suma de marketplace, mobility platform, merchant OS, driver OS y operations command center.
 - Integración con Mercado Pago construida: OAuth PKCE, tokens cifrados, `application_fee`, idempotencia, refund, webhook y conciliación.
 
@@ -81,7 +81,7 @@ Flash es una plataforma multi-servicio para mercados urbanos donde la misma red 
 ## Lo que ya existe en el producto
 
 - Plataforma multiaudiencia: cliente, comercio, conductor, operaciones, soporte y auditoría.
-- PostgreSQL/PostGIS con 123 migraciones versionadas.
+- PostgreSQL/PostGIS con 124 migraciones versionadas.
 - RLS, RBAC, ownership, MFA administrativo y sesiones rotativas.
 - Ledger de doble entrada, conciliación y revisión de payouts.
 - Auditoría append-only encadenada con SHA-256.

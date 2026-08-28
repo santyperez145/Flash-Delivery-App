@@ -6,7 +6,7 @@ Fecha de la última revisión: **25 de agosto de 2026**.
 
 ## Resumen actual
 
-Flash es una **plataforma de preproducción avanzada** con cuatro superficies: cliente, comercio, conductor/repartidor y operaciones. El runtime principal es PostgreSQL/PostGIS con 123 migraciones versionadas; SQLite quedó reducido a fallback aislado de tests.
+Flash es una **plataforma de preproducción avanzada** con cuatro superficies: cliente, comercio, conductor/repartidor y operaciones. El runtime principal es PostgreSQL/PostGIS con 124 migraciones versionadas; SQLite quedó reducido a fallback aislado de tests.
 
 La [auditoría del 25 de agosto de 2026](auditoria-2026-08-25.md) la evalúa en 6,2/10 y define nueve bloqueadores P0. De 91 capacidades inventariadas, el 81% de las existentes no está protegido por una puerta CI y ninguna fue probada contra un proveedor real.
 
