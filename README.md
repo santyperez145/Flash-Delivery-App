@@ -16,7 +16,7 @@ La Fase 0 está en marcha: ver el [plan de acción](docs/plan-de-accion.md) y el
 
 | Hallazgo | Ticket | Resumen |
 | --- | --- | --- |
-| H-01 | CI-001 | **En curso.** Tres puertas en verde y 79 de 82 suites cubiertas; faltan `ci-nightly`, 1 suite en cuarentena y la protección de rama |
+| H-01 | CI-001 | **En curso.** Tres puertas en verde y 102 de 103 suites cubiertas; faltan `ci-nightly`, 1 suite en cuarentena y la protección de rama |
 | H-02 | NOT-001 | **En curso.** Proveedor Expo implementado y con puerta CI; falta la entrega en un dispositivo físico |
 | H-03 | SEC-001 | **Corregido.** Default-deny activo y con puerta CI; queda la verificación de runtime contra PostgreSQL |
 | H-04 | DAT-001 | **En curso.** 106 tablas clasificadas y con puerta CI; quedan 5 `por-usuario` sin política y `FORCE` en cero |

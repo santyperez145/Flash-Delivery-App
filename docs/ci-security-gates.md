@@ -2,7 +2,7 @@
 
 ## Estado al 27 de agosto de 2026
 
-`ci.yml` se dividió en tres workflows y **los cinco jobs están en verde**. La cobertura pasó de **15 a 91 de 92 suites** detrás de una puerta: **88 bloquean el merge**, 2 corren de noche y 1 está en cuarentena declarada.
+`ci.yml` se dividió en tres workflows y **los cinco jobs están en verde**. La cobertura pasó de **15 a 102 de 103 suites** detrás de una puerta: **100 bloquean el merge**, 2 corren de noche y 1 está en cuarentena declarada.
 
 Desde el 27 de agosto la rama `main` **está protegida**: los siete checks son obligatorios, la rama debe estar al día, la historia es lineal y no hay excepción para administradores. Hasta ese día se habían mergeado once PR con CI en verde sin que nada lo exigiera.
 
@@ -26,7 +26,7 @@ Levantar las puertas de verdad destapó cuatro defectos que llevaban días o mes
 
 1. **`test:redis-rate-limit` fallaba desde el 23 de agosto.** node-redis 5+ emite un lote de claves por iteración de `scanIterator`, no una clave suelta; un lote vacío se traducía en `DEL` sin argumentos.
 2. **Una base desde cero no era equivalente a una migrada.** Ocho migraciones hacen backfill de datos derivados de filas preexistentes. Ver [H-11](auditoria-2026-08-25.md#h-11--una-base-creada-desde-cero-no-es-equivalente-a-una-migrada).
-3. **Las cuentas sembradas no podían iniciar sesión.** La migración `052` verifica el email por `UPDATE` sobre los usuarios existentes; en una base nueva quedan sin verificar y la API rechaza todo login. 28 de 32 suites fallaban por esta única causa.
+3. **Las cuentas sembradas no podían iniciar sesión.** La migración `052` verifica el email por `UPDATE` sobre los usuarios existentes; en una base nueva quedan sin verificar y la API rechaza todo login. 28 de 32 suites fallaban, al 25-08, por esta única causa.
 4. **`test:operations-resources` dependía del orden de ejecución.** Exige que ya exista un evento de auditoría y se apoyaba en que `test:postgres` corriera antes.
 
 Que las suites corran en un bucle que registra cada resultado, en lugar de cortar en el primer fallo, es lo que permitió ver «28 fallos, una causa» en una sola corrida.
@@ -402,6 +402,24 @@ La medida inicial: **114 permisos de más en 86 tablas**, sobre 98 con escritura
 El primer lote (migración 122) quitó **16**, todos de tablas que se escriben una vez y no se tocan más: el libro contable, los registros de eventos, los cobros y los reintegros. Pasan a ser **append-only para el runtime**.
 
 Es la contraparte del trigger de balance. El trigger impide *escribir* una transacción torcida; esto impide *enderezar* una que ya cuadra, o hacerla desaparecer. Sin lo segundo, lo primero se puede rodear en dos sentencias.
+
+### Las cifras de la documentación
+
+El hallazgo [H-10](auditoria-2026-08-25.md#h-10--documentación-desalineada-del-runtime) era el único de los once **sin ticket**, y su ejemplo principal ya derivó dos veces: `ROADMAP.MD` decía «migraciones hasta 105», se corrigió a 110, y hoy hay 122.
+
+No es prolijidad: es la falla que explica a las demás. Una causa de cuarentena que resultó falsa, notas de deuda RLS más restrictivas que el esquema, un criterio cumplido y sin marcar, la matriz declarando una capacidad respaldada por otra prueba. **Una nota escrita con cautela se lee después como un hecho.**
+
+`test:docs-drift` automatiza la parte mecánica: una cifra que el repositorio puede calcular no debería poder mentir. Hoy verifica dos —el recuento de migraciones y el total de suites— y encontró **16 cifras obsoletas en 9 archivos** en su primera corrida.
+
+**La regla tiene dos mitades, y la segunda es la que la hace utilizable:**
+
+> Una cifra vale si coincide con la realidad **o** si su línea declara cuándo fue cierta.
+
+Sin la segunda, la puerta obligaría a reescribir el registro histórico para que diga lo de hoy — y eso lo volvería falso. La auditoría dice «110 migraciones» y lo era, el 25 de agosto. La regla obliga a **escribir la distinción** en lugar de dejarla implícita, que es exactamente la cura para H-10: un número sin fecha es una afirmación sobre hoy; con fecha, es historia.
+
+De las 16, seis eran afirmaciones vigentes —se corrigieron— y diez eran registros históricos, que recibieron la fecha que les faltaba. El documento de auditoría queda excluido entero: es un registro fechado por construcción, lo dice su propio encabezado.
+
+Los hechos se agregan de a uno y **sólo si el repositorio puede calcularlos sin adivinar**. Una puerta que produce fallos falsos enseña a ignorarla, que es el desenlace de H-01 otra vez.
 
 ### Cobertura documental de las puertas
 

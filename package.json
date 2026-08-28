@@ -41,6 +41,7 @@
     "test:domain-purity": "node scripts/domain-purity-contract.mjs",
     "test:module-references": "node scripts/module-references-contract.mjs",
     "test:dead-code": "node scripts/dead-code-contract.mjs",
+    "test:docs-drift": "node scripts/docs-drift-contract.mjs",
     "test:docs-coverage": "node scripts/docs-coverage-contract.mjs",
     "test:grant-scope": "node scripts/grant-scope-contract.mjs",
     "test:fallback-degradation": "node scripts/fallback-degradation-smoke.mjs",
