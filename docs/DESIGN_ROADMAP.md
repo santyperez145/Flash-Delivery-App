@@ -358,3 +358,11 @@ Una pantalla sólo pasa a `[x]` cuando:
 - Chromium abre comida y viaje activos y verifica acento, cierre y viewport. La
   fixture local no contiene un envío activo; Envíos permanece cubierto por los
   contratos de ruta/evidencia, paginación y bundle, sin crear datos ficticios.
+
+### 28 de agosto de 2026 — Límite visual de seguimiento
+
+- Las hojas completas de Comidas, Viajes y Envíos salen del coordinador del
+  cliente hacia `CustomerTrackingSheets.tsx`; comparten el límite visual sin
+  fusionar estados, acciones ni semántica entre verticales.
+- La extracción conserva el mismo contrato Chromium y el mismo árbol accesible;
+  es un corte ARC-001 sin pantalla, fixture ni capacidad nueva.

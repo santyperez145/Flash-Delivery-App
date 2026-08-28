@@ -453,8 +453,9 @@ Los dos `App.tsx` ya son shells por debajo de 1.500 líneas. El acceso web pasó
 Operaciones y Superadmin cargan por audiencia. La extracción interna
 continúa por dominio: Actividad mobile pasó a `CustomerActivityScreen.tsx` con
 grupos, sustituciones, servicios activos, comprobantes, repetición, reclamos y
-propinas; `CustomerScreen.tsx` bajó de 6.241 a 5.965 líneas. Quedan Comidas,
-Viajes, Envíos y Cuenta. También quedó activo un ratchet que impide que el
+propinas; las tres hojas de seguimiento pasaron a
+`CustomerTrackingSheets.tsx`; `CustomerScreen.tsx` bajó de 6.241 a 5.384 líneas.
+Quedan Comidas, Viajes, Envíos y Cuenta. También quedó activo un ratchet que impide que el
 problema crezca:
 `test:line-length` fija una línea base vigente de **258 líneas de más de 200
 caracteres en 56 archivos** y sólo admite bajarla.
