@@ -4168,8 +4168,15 @@ try {
     // El grupo del smoke. Participantes e items caen por cascada; el grupo no,
     // porque nada lo referencia y borrarlo explicitamente deja claro que la
     // corrida no ensucia el padron.
-    if (grupoPublicId)
+    //
+    // Los eventos de auditoria van primero y son la parte que importa:
+    // `audit_events.actor_id` referencia a `users` sin cascada, asi que un
+    // evento de grupo a nombre del usuario registrado bloquea su borrado mas
+    // abajo. Lo encontro CI con un error de clave foranea, no una asercion.
+    if (grupoPublicId) {
+      await pool.query("DELETE FROM audit_events WHERE entity_id=$1", [grupoPublicId]);
       await pool.query("DELETE FROM group_orders WHERE public_id=$1", [grupoPublicId]);
+    }
     await pool.query("UPDATE catalog_items SET available=true WHERE public_id='item_burger_brava'");
     await pool.query(
       "UPDATE catalog_branch_inventory SET available=true,stock_quantity=NULL WHERE catalog_item_id=(SELECT id FROM catalog_items WHERE public_id='item_burger_brava')",
@@ -4298,6 +4305,15 @@ try {
     ]);
     await pool.query(
       "DELETE FROM transaction_risk_assessments WHERE customer_id=(SELECT id FROM users WHERE public_id=$1)",
+      [registeredUserId],
+    );
+    // Barrido por actor antes de borrar la persona. La limpieza puntual de cada
+    // entidad de arriba cubre lo que esta corrida creo, pero vive dentro de sus
+    // propios `if`: si el smoke corta antes, esos bloques no corren y el borrado
+    // del usuario falla por clave foranea con un mensaje que no dice cual evento
+    // sobro. Esto cierra esa clase entera en vez de la instancia de hoy.
+    await pool.query(
+      "DELETE FROM audit_events WHERE actor_id=(SELECT id FROM users WHERE public_id=$1)",
       [registeredUserId],
     );
     await pool.query("DELETE FROM users WHERE public_id=$1", [registeredUserId]);
