@@ -331,6 +331,36 @@ Corre desatendido cada noche en `ci-nightly`, que no reemplaza al planificador p
 
 El rastro queda en `audit_events` con `origin: scheduled-reconciliation`. Escribir esto es lo que destapó que `recordPostgresAudit` perdía el evento en silencio cuando no había actor: la conciliación programada habría corrido sin dejar rastro, que es justamente lo que un trabajo automático no puede permitirse.
 
+### Un lote que nadie corre es peor que una suite que nadie corre
+
+`test:ci-coverage` verificaba que ninguna suite quedara fuera de los workflows: una suite
+que no corre no protege nada. Desde el 28 de agosto verifica también la otra mitad —que cada
+lote operativo tenga un punto de entrada desatendido— porque **el lote silencioso no deja
+pasar el defecto: es el defecto.**
+
+Apareció mirando OPS-001. `processPostgresDispatchBatch`, `processPostgresNotificationBatch`
+y `processSupportQueue` estaban importados en `server/index.js` y **no llamados desde ahí**,
+sin ningún planificador en el proyecto. Sólo avanzaban desde `POST /api/admin/*/process`.
+Un pedido pagado se quedaba sin ninguna oferta de conductor hasta que alguien apretara el
+botón — y un comentario del router afirmaba que corrían solos.
+
+La puerta comprueba dos cosas opuestas: que el lote **tenga** su entrada en `npm run job:*`,
+y que **no** tenga un `setInterval` dentro del servidor. La segunda parece la buena mientras
+hay una sola réplica, y deja de serlo en silencio en cuanto hay dos.
+
+Las dos primeras versiones de esta puerta pasaron al falsificarlas, y por motivos distintos
+que conviene registrar. La primera usaba `includes`: sacarle la llamada al lote no la ponía
+en rojo porque el nombre seguía apareciendo en el comentario de cabecera del propio trabajo
+—una puerta que se satisface con una mención en prosa no verifica nada—. La segunda buscaba
+`setInterval\([^)]*nombreDelLote`, y `setInterval(() => procesarLote(...))` tiene un `()` en
+el medio que un `[^)]*` no cruza. Ahora se ignoran los comentarios, se exige el nombre en
+posición de llamada, y el temporizador se busca por vecindad en vez de por un patrón que
+tenga que atravesar paréntesis.
+
+Lo que la puerta **no** puede verificar es que el entorno programe los trabajos. Eso vive en
+[`docs/deployment-checklist.md`](deployment-checklist.md), con su casilla y su consecuencia
+escrita al lado.
+
 ### La audiencia realtime, contra la base
 
 `test:realtime-audience` es estático: comprueba `classifyRealtimeAudience` —una función pura— y que ninguna publicación del servidor difunda a todos los roles por omisión. Es una buena puerta y corre en cada PR sin necesitar base de datos.

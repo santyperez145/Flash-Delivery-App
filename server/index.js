@@ -225,7 +225,6 @@ import {
   getPostgresSupportTickets,
   getPostgresOperationsSupportTicketPage,
   getSupportAgents,
-  processSupportQueue,
   recordPostgresAudit,
   updateSupportAgent,
 } from "./operations-repository.js";
@@ -244,14 +243,9 @@ import { getPostgresFavoriteMerchantIds, getPostgresRatings } from "./feedback-r
 import {
   enqueuePostgresNotification,
   getNotificationDeadLetters,
-  processPostgresNotificationBatch,
   replayNotificationDeadLetter,
 } from "./notification-repository.js";
-import {
-  getPostgresDispatchOffers,
-  processPostgresDispatchBatch,
-  rejectPostgresDispatchOffer,
-} from "./dispatch-repository.js";
+import { getPostgresDispatchOffers, rejectPostgresDispatchOffer } from "./dispatch-repository.js";
 import {
   getMerchantFinance,
   getPayoutReviewQueue,
@@ -532,8 +526,13 @@ app.get("/api/ready", async (_req, res) => {
           : "sqlite-test-fallback",
         rides: usesPostgresCommerce() ? "postgres-postgis" : "sqlite-test-fallback",
         shipments: usesPostgresCommerce() ? "postgres-postgis" : "sqlite-test-fallback",
+        // `scheduled-batch` y no `wave-worker`: el lote existe y **no se
+        // planifica solo**. Lo invoca `npm run job:operational-queues` desde el
+        // cron del entorno, y decir «worker» sugeria un proceso corriendo que no
+        // existe. Un despliegue que no programe ese trabajo deja los pedidos
+        // pagados sin ninguna oferta de conductor.
         dispatch: usesPostgresCommerce()
-          ? "postgres-postgis-expiring-offers+wave-worker"
+          ? "postgres-postgis-expiring-offers+scheduled-batch"
           : "sqlite-test-fallback",
         wallet: usesPostgresAuth() ? "postgres-double-entry-ledger" : "sqlite-test-fallback",
         payments: usesPostgresAuth()
@@ -558,10 +557,13 @@ app.get("/api/ready", async (_req, res) => {
           ? "postgres-ledger+payout-reservations+independent-review"
           : "sqlite-test-fallback",
         support: usesPostgresAuth()
-          ? "postgres-conversations+priority-sla+capacity-routing+automatic-escalation"
+          ? // La escalada es automatica en el sentido de que nadie decide a quien
+            // escalar; **no** en el sentido de que ocurra sola. La dispara el mismo
+            // trabajo programado que el despacho.
+            "postgres-conversations+priority-sla+capacity-routing+scheduled-escalation"
           : "sqlite-test-fallback",
         notifications: usesPostgresAuth()
-          ? `postgres-outbox+preferences+in-app+invalid-token-revocation+dead-letter-replay+${config.notificationProvider}-worker`
+          ? `postgres-outbox+preferences+in-app+invalid-token-revocation+dead-letter-replay+${config.notificationProvider}-scheduled-batch`
           : "sqlite-test-fallback",
         realtime: usesPostgresAuth()
           ? "postgres-event-log+listen-notify+sse-replay"
