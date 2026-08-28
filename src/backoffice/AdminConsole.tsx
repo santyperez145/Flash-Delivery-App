@@ -76,6 +76,7 @@ import { PromotionControlsPanel, ZoneDemandPanel } from "./DemandControlsBoard";
 import { abrirContenidoProtegido } from "./open-protected-content";
 import { ShipmentReturnsPanel } from "./ShipmentReturnsPanel";
 import { WorkQueueBoard } from "./WorkQueueBoard";
+import { DispatchReleasePanel, MerchantSuspensionPanel } from "./OperationsInterventionPanel";
 import {
   FeatureFlagsPanel,
   ProductFunnelPanel,
@@ -286,54 +287,76 @@ export function SuperAdminConsole({
         )}
 
         {section === "dispatch" && (
-          <section className="admin-card">
-            <AdminSectionHeader title="Dispatch y asignaciones" action="Food + Taxi" />
-            <AdminLiveGrid
-              state={state}
-              orders={activeOrders}
-              rides={activeRides}
-              busy={busy}
-              runAction={runAction}
-            />
-          </section>
+          <>
+            <section className="admin-card">
+              <AdminSectionHeader title="Dispatch y asignaciones" action="Food + Taxi" />
+              <AdminLiveGrid
+                state={state}
+                orders={activeOrders}
+                rides={activeRides}
+                busy={busy}
+                runAction={runAction}
+              />
+            </section>
+            {/* La intervención va junto al tablero de dispatch y no en una
+                sección propia: se usa mirando los pedidos que están trabados,
+                no buscándola. */}
+            <section className="admin-card">
+              <AdminSectionHeader title="Soltar un servicio trabado" action="Vuelve al despacho" />
+              <DispatchReleasePanel orders={activeOrders} busy={busy} runAction={runAction} />
+            </section>
+          </>
         )}
 
         {section === "merchants" && (
-          <section className="admin-card">
-            <AdminSectionHeader title="Comercios" action="Control operativo" />
-            <div className="admin-table">
-              {state.restaurants.map((restaurant) => (
-                <article className="admin-row" key={restaurant.id}>
-                  <img src={restaurant.image} alt={restaurant.name} />
-                  <div>
-                    <strong>{restaurant.name}</strong>
-                    <span>
-                      {restaurant.cuisine} · {restaurant.address}
-                    </span>
-                  </div>
-                  <b>{restaurant.open ? "Abierto" : "Pausado"}</b>
-                  <small>
-                    {restaurant.etaMin}m · {restaurant.menu.length} items
-                  </small>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() =>
-                      runAction(
-                        () =>
-                          api.updateRestaurant(restaurant.id, {
-                            open: !restaurant.open,
-                          }),
-                        restaurant.open ? "Comercio pausado" : "Comercio abierto",
-                      )
-                    }
-                  >
-                    {restaurant.open ? "Pausar" : "Abrir"}
-                  </button>
-                </article>
-              ))}
-            </div>
-          </section>
+          <>
+            <section className="admin-card">
+              <AdminSectionHeader
+                title="Suspender ingreso de pedidos"
+                action="No cancela lo que ya está en curso"
+              />
+              <MerchantSuspensionPanel
+                restaurants={state.restaurants}
+                busy={busy}
+                runAction={runAction}
+              />
+            </section>
+            <section className="admin-card">
+              <AdminSectionHeader title="Comercios" action="Control operativo" />
+              <div className="admin-table">
+                {state.restaurants.map((restaurant) => (
+                  <article className="admin-row" key={restaurant.id}>
+                    <img src={restaurant.image} alt={restaurant.name} />
+                    <div>
+                      <strong>{restaurant.name}</strong>
+                      <span>
+                        {restaurant.cuisine} · {restaurant.address}
+                      </span>
+                    </div>
+                    <b>{restaurant.open ? "Abierto" : "Pausado"}</b>
+                    <small>
+                      {restaurant.etaMin}m · {restaurant.menu.length} items
+                    </small>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() =>
+                        runAction(
+                          () =>
+                            api.updateRestaurant(restaurant.id, {
+                              open: !restaurant.open,
+                            }),
+                          restaurant.open ? "Comercio pausado" : "Comercio abierto",
+                        )
+                      }
+                    >
+                      {restaurant.open ? "Pausar" : "Abrir"}
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </section>
+          </>
         )}
 
         {section === "drivers" && (

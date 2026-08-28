@@ -76,6 +76,12 @@ const DECISIONES_OPERATIVAS = new Set([
   "shipment.return_updated",
   "order_issue.approved",
   "order_issue.rejected",
+  // Las dos intervenciones de OPS-001. Suspender el ingreso de un comercio y
+  // sacarle a un conductor un trabajo aceptado son decisiones sobre el registro
+  // de un tercero, y antes se hacian con un UPDATE a mano: sin actor, sin motivo
+  // y sin rastro.
+  "merchant.status_changed",
+  "dispatch.job_released",
 ]);
 
 // Nombres aceptables para el motivo dentro de `afterData`.

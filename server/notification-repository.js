@@ -19,19 +19,26 @@ import {
 } from "./secret-envelope.js";
 const publicId = (prefix) => `${prefix}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
 const preferenceCategories = ["service_updates", "promotions", "support", "wallet", "account"];
+// `job_released` va nombrada y no por patrón: caería en `account` por descarte
+// —no contiene «status» ni empieza con `ride_`— y es lo contrario de un asunto
+// de cuenta. A un conductor que pierde un trabajo aceptado hay que avisarle por
+// el mismo canal que el resto de las novedades de servicio, o se entera al
+// llegar al local.
 const categoryForTemplate = (template) =>
-  template.startsWith("support_")
-    ? "support"
-    : template.startsWith("tip_") || template.includes("refund")
-      ? "wallet"
-      : template.startsWith("promotion_")
-        ? "promotions"
-        : template.includes("status") ||
-            template.includes("substitution") ||
-            template.includes("issue") ||
-            template.startsWith("ride_")
-          ? "service_updates"
-          : "account";
+  template === "job_released"
+    ? "service_updates"
+    : template.startsWith("support_")
+      ? "support"
+      : template.startsWith("tip_") || template.includes("refund")
+        ? "wallet"
+        : template.startsWith("promotion_")
+          ? "promotions"
+          : template.includes("status") ||
+              template.includes("substitution") ||
+              template.includes("issue") ||
+              template.startsWith("ride_")
+            ? "service_updates"
+            : "account";
 const essentialTemplates = new Set(["dispatch_offer", "security_alert"]);
 let smtpTransport = null;
 

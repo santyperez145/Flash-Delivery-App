@@ -19,12 +19,27 @@ import { z } from "zod";
 import { setPostgresUserStatus, usesPostgresAuth } from "../auth-repository.js";
 import { requireAuth } from "./authentication.js";
 import { requireAnyRole } from "./authorization.js";
-import { getPostgresAdminFinancials } from "../operations-repository.js";
+import { getPostgresAdminFinancials, recordPostgresAudit } from "../operations-repository.js";
+import { releaseJobFromDriver, setMerchantStatus } from "../operations-intervention-repository.js";
 import { usesPostgresCommerce } from "../postgres.js";
 import { publishRealtimeEvent } from "./realtime.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";
 import { average, loadRuntimeState, metrics, ratio } from "../runtime-snapshot.js";
 import { getTimestamp } from "../store.js";
+
+// Las dos intervenciones que antes exigian entrar a la base (OPS-001).
+//
+// **El motivo es obligatorio en las dos, y de al menos cinco caracteres.** Son
+// decisiones sobre el registro de un tercero: suspender el ingreso de un
+// comercio, o sacarle a un conductor un trabajo que ya habia aceptado. El dia
+// del incidente lo que se lee es el log de auditoria, y un log que dice quien
+// suspendio a quien sin decir por que obliga a reconstruir el motivo desde otra
+// tabla. `test:audit-actor` lo vigila.
+const merchantStatusSchema = z.object({
+  status: z.enum(["active", "suspended"]),
+  reason: z.string().trim().min(5).max(500),
+});
+const jobReleaseSchema = z.object({ reason: z.string().trim().min(5).max(500) });
 
 const userStatusSchema = z.object({
   status: z.enum(["active", "suspended"]),
@@ -223,6 +238,94 @@ router.patch(
       return ok(res, { moderation });
     } catch (error) {
       return failFrom(res, error, "No se pudo cambiar el estado de la cuenta");
+    }
+  },
+);
+
+/**
+ * Suspender o reactivar un comercio (OPS-001).
+ *
+ * `merchants.status` existía y cuarenta y una consultas lo respetaban; ninguna
+ * ruta lo escribía. Suspender un local —intoxicación, fraude, un comercio que
+ * acepta y no cocina— se hacía con un `UPDATE` a mano.
+ *
+ * **Suspender frena lo nuevo y no cancela lo que está en curso.** La respuesta
+ * dice cuántos pedidos quedaron abiertos, porque es lo que decide qué hace el
+ * operador después: con doce hay que avisarle a soporte, con cero no hay nada
+ * más que hacer.
+ */
+router.patch(
+  "/api/admin/merchants/:merchantId/status",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "La suspensión de comercios requiere PostgreSQL");
+    const parsed = parseOrFail(merchantStatusSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const merchant = await setMerchantStatus({
+        merchantPublicId: req.params.merchantId,
+        status: parsed.data.status,
+        reason: parsed.data.reason,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "merchant.status_changed",
+        entityType: "merchant",
+        entityId: merchant.id,
+        requestId: req.requestId,
+        beforeData: { status: merchant.previousStatus },
+        afterData: {
+          status: merchant.status,
+          reason: parsed.data.reason,
+          openJobs: merchant.openJobs,
+        },
+      });
+      return ok(res, { merchant });
+    } catch (error) {
+      return failFrom(res, error, "No se pudo cambiar el estado del comercio");
+    }
+  },
+);
+
+/**
+ * Devolver un trabajo asignado al despacho (OPS-001).
+ *
+ * Un teléfono que se apaga, una moto que se rompe, alguien que aceptó y
+ * desapareció: el trabajo quedaba con conductor puesto y sin forma de volver a
+ * ofrecerlo. **Sólo antes de retirar** — después el conductor tiene la comida
+ * encima, y ahí la salida es cancelar con su política o abrir una incidencia,
+ * no reasignar.
+ */
+router.post(
+  "/api/admin/jobs/:jobId/release",
+  requireAuth,
+  requireAnyRole("admin", "support"),
+  async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "La intervención de despacho requiere PostgreSQL");
+    const parsed = parseOrFail(jobReleaseSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const job = await releaseJobFromDriver({
+        jobPublicId: req.params.jobId,
+        reason: parsed.data.reason,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "dispatch.job_released",
+        entityType: "job",
+        entityId: job.id,
+        requestId: req.requestId,
+        beforeData: { driverId: job.releasedFrom },
+        afterData: { status: job.status, reason: parsed.data.reason },
+      });
+      return ok(res, { job });
+    } catch (error) {
+      return failFrom(res, error, "No se pudo soltar el servicio");
     }
   },
 );
