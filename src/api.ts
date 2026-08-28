@@ -1418,6 +1418,36 @@ export const api = {
       `/admin/realtime-audience?hours=${hours}`,
     );
   },
+  async getProductMetrics(days = 7) {
+    return request<{ metrics: import("./types").ProductMetrics }>(
+      `/operations/product-metrics?days=${days}`,
+    );
+  },
+  async getFeatureFlags() {
+    return request<{ flags: import("./types").FeatureFlag[] }>("/operations/feature-flags");
+  },
+  async updateFeatureFlag(
+    flagId: string,
+    patch: Partial<Pick<import("./types").FeatureFlag, "enabled" | "rolloutPercentage">>,
+  ) {
+    return request<{ flag: import("./types").FeatureFlag }>(`/operations/feature-flags/${flagId}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    });
+  },
+  async getZoneReadiness(zoneId: string) {
+    return request<{ readiness: import("./types").ZoneReadiness }>(
+      `/operations/zones/${zoneId}/readiness`,
+    );
+  },
+  // La evaluación no lleva cuerpo: el servidor la calcula y la deja registrada
+  // con su actor. Sirve para dejar constancia de una decisión, no para dictarla.
+  async recordZoneAssessment(zoneId: string) {
+    return request<{ assessment: { id: string; decision: string; assessedAt: string } }>(
+      `/operations/zones/${zoneId}/readiness-assessments`,
+      { method: "POST" },
+    );
+  },
   async getPaymentReconciliation() {
     return request<import("./types").PaymentReconciliation>("/admin/payment-reconciliation");
   },
