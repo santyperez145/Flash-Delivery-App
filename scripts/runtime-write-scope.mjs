@@ -24,9 +24,15 @@
 // 3. **Los triggers**, que dicen qué tablas se escriben de rebote, sin que
 //    ninguna consulta del servidor las nombre.
 //
-// Lo que sale es la lista de tablas donde el runtime puede escribir y nadie
-// escribe. Son candidatas a acotar, no tablas condenadas: la lista se revisa a
-// mano y se acota por lotes, con la suite entera corriendo detrás.
+// Lo que sale es la lista de **permisos de más**: pares (tabla, operación) que
+// el rol tiene y nadie usa. Se cuenta por operación y no por tabla porque el
+// criterio es acotar por operación: la mayoría de las tablas que sobran
+// permisos escriben algo, sólo que menos de lo que pueden. Una tabla que sólo
+// recibe INSERT y UPDATE no necesita DELETE, y ese permiso de más es superficie
+// gratis.
+//
+// Son candidatos a acotar, no permisos condenados: la lista se revisa a mano y
+// se acota por lotes, con la suite entera corriendo detrás.
 import fs from "node:fs/promises";
 import path from "node:path";
 import pg from "pg";
@@ -57,17 +63,25 @@ async function fuentes(entrada) {
 // nombre pelado, que es como lo devuelve el catálogo.
 const normalizar = (nombre) => nombre.replace(/"/g, "").split(".").pop().toLowerCase();
 
+// Cada forma se asocia a la operación que otorga. El criterio de DAT-001 no es
+// «esta tabla se escribe» sino «se acota **por operación**»: una tabla que sólo
+// recibe INSERT y UPDATE no necesita DELETE, y ese permiso de más es superficie
+// gratis. Sin distinguir la operación, la herramienta no puede responder la
+// pregunta que se le hace.
 const ESCRITORAS = [
-  /INSERT\s+INTO\s+([a-zA-Z0-9_."]+)/gi,
-  /UPDATE\s+(?:ONLY\s+)?([a-zA-Z0-9_."]+)/gi,
-  /DELETE\s+FROM\s+(?:ONLY\s+)?([a-zA-Z0-9_."]+)/gi,
+  ["INSERT", /INSERT\s+INTO\s+([a-zA-Z0-9_."]+)/gi],
+  ["UPDATE", /UPDATE\s+(?:ONLY\s+)?([a-zA-Z0-9_."]+)/gi],
+  ["DELETE", /DELETE\s+FROM\s+(?:ONLY\s+)?([a-zA-Z0-9_."]+)/gi],
 ];
 
-function tablasEscritasEn(texto) {
-  const encontradas = new Set();
-  for (const patron of ESCRITORAS) {
+/** Devuelve Map<tabla, Set<operación>> con lo que el texto escribe. */
+function escriturasEn(texto) {
+  const encontradas = new Map();
+  for (const [operacion, patron] of ESCRITORAS) {
     for (const coincidencia of texto.matchAll(patron)) {
-      encontradas.add(normalizar(coincidencia[1]));
+      const tabla = normalizar(coincidencia[1]);
+      if (!encontradas.has(tabla)) encontradas.set(tabla, new Set());
+      encontradas.get(tabla).add(operacion);
     }
   }
   return encontradas;
@@ -75,8 +89,11 @@ function tablasEscritasEn(texto) {
 
 try {
   // --- 1. Lo que la base permite hoy ----------------------------------------
+  // `privilege_type` es un dominio de `information_schema`, y agregarlo sin
+  // castear devuelve algo que node-postgres entrega como cadena y no como
+  // arreglo. El `::text` lo vuelve un `text[]` de verdad.
   const permisos = await pool.query(
-    `SELECT table_name, array_agg(DISTINCT privilege_type ORDER BY privilege_type) privilegios
+    `SELECT table_name, array_agg(DISTINCT privilege_type::text ORDER BY privilege_type::text) privilegios
      FROM information_schema.role_table_grants
      WHERE table_schema = 'public' AND grantee = $1 AND privilege_type = ANY($2)
      GROUP BY table_name ORDER BY table_name`,
@@ -105,8 +122,8 @@ try {
       (f) => f.tablename,
     ),
   );
-  const escritasPorCodigo = new Set(
-    [...tablasEscritasEn(codigo)].filter((tabla) => reales.has(tabla)),
+  const escritasPorCodigo = new Map(
+    [...escriturasEn(codigo)].filter(([tabla]) => reales.has(tabla)),
   );
 
   // --- 3. Lo que los triggers escriben de rebote -----------------------------
@@ -125,24 +142,37 @@ try {
   const escritasPorTrigger = new Map();
   for (const fila of triggers.rows) {
     if (fila.prosecdef) continue;
-    for (const tabla of tablasEscritasEn(fila.prosrc || "")) {
+    for (const [tabla, operaciones] of escriturasEn(fila.prosrc || "")) {
       if (!reales.has(tabla)) continue;
-      if (!escritasPorTrigger.has(tabla)) escritasPorTrigger.set(tabla, new Set());
-      escritasPorTrigger.get(tabla).add(fila.proname);
+      if (!escritasPorTrigger.has(tabla)) {
+        escritasPorTrigger.set(tabla, { operaciones: new Set(), funciones: new Set() });
+      }
+      const entrada = escritasPorTrigger.get(tabla);
+      for (const operacion of operaciones) entrada.operaciones.add(operacion);
+      entrada.funciones.add(fila.proname);
     }
   }
 
   // --- Cruce -----------------------------------------------------------------
-  const candidatas = [];
+  //
+  // Un permiso sobra cuando la operación no aparece ni en el código ni en un
+  // trigger. Se cuenta por par (tabla, operación) y no por tabla: la mayoría de
+  // las tablas que sobran permisos escriben algo, sólo que menos de lo que
+  // pueden.
+  const sobrantes = [];
   for (const [tabla, privilegios] of conEscritura) {
-    if (escritasPorCodigo.has(tabla)) continue;
-    if (escritasPorTrigger.has(tabla)) continue;
-    candidatas.push({ tabla, privilegios });
+    const usadas = new Set([
+      ...(escritasPorCodigo.get(tabla) ?? []),
+      ...(escritasPorTrigger.get(tabla)?.operaciones ?? []),
+    ]);
+    const demas = privilegios.filter((operacion) => !usadas.has(operacion));
+    if (demas.length) sobrantes.push({ tabla, demas, usadas: [...usadas].sort() });
   }
-  candidatas.sort((a, b) => a.tabla.localeCompare(b.tabla));
+  sobrantes.sort((a, b) => a.tabla.localeCompare(b.tabla));
+  const paresSobrantes = sobrantes.reduce((suma, f) => suma + f.demas.length, 0);
 
   console.log(`${conEscritura.size} tablas con escritura para ${ROL}`);
-  console.log(`${escritasPorCodigo.size} tablas nombradas por un write en server/`);
+  console.log(`${escritasPorCodigo.size} tablas escritas desde server/`);
   console.log(
     `${escritasPorTrigger.size} tablas escritas de rebote por un trigger sin SECURITY DEFINER`,
   );
@@ -150,17 +180,19 @@ try {
 
   if (escritasPorTrigger.size) {
     console.log("Escrituras indirectas (las que un inventario mecánico se pierde):");
-    for (const [tabla, funciones] of [...escritasPorTrigger].sort()) {
-      console.log(`  ${tabla} <- ${[...funciones].join(", ")}`);
+    for (const [tabla, { operaciones, funciones }] of [...escritasPorTrigger].sort()) {
+      console.log(
+        `  ${tabla} ${[...operaciones].sort().join(",")} <- ${[...funciones].sort().join(", ")}`,
+      );
     }
     console.log("");
   }
 
-  console.log(`${candidatas.length} candidata(s) a acotar:`);
-  for (const { tabla, privilegios } of candidatas) {
-    console.log(`  ${tabla} (${privilegios.join(",")})`);
+  console.log(`${paresSobrantes} permiso(s) de mas en ${sobrantes.length} tabla(s):`);
+  for (const { tabla, demas, usadas } of sobrantes) {
+    const uso = usadas.length ? usadas.join(",") : "ninguna";
+    console.log(`  ${tabla}: sobra ${demas.join(",")} (usa ${uso})`);
   }
-
   // --- Trinquete -------------------------------------------------------------
   //
   // La línea base sólo puede bajar. Una tabla nueva con escritura que nadie usa
@@ -168,24 +200,24 @@ try {
   // tres meses después.
   const previa = JSON.parse(await fs.readFile(BASE, "utf8").catch(() => "null"));
   if (!previa) {
-    console.log(`\nSin línea base. Escribí ${BASE} con { "candidatas": ${candidatas.length} }.`);
+    console.log(`\nSin línea base. Escribí ${BASE} con { "sobrantes": ${paresSobrantes} }.`);
     process.exit(1);
   }
-  if (candidatas.length > previa.candidatas) {
-    console.error(`\nLa línea base es ${previa.candidatas} y ahora hay ${candidatas.length}.`);
-    console.error("Una tabla nueva nació con escritura que nadie usa, o un write dejó de existir.");
+  if (paresSobrantes > previa.sobrantes) {
+    console.error(`\nLa línea base es ${previa.sobrantes} y ahora hay ${paresSobrantes}.`);
+    console.error("Una tabla nueva nació con permisos que nadie usa, o un write dejó de existir.");
     console.error(
       "Decidir ahora cuesta una línea de migración; dentro de tres meses, una auditoría.",
     );
     process.exit(1);
   }
-  if (candidatas.length < previa.candidatas) {
+  if (paresSobrantes < previa.sobrantes) {
     console.log(
-      `\nok - bajó de ${previa.candidatas} a ${candidatas.length}: actualizá ${BASE} en este mismo PR`,
+      `\nok - bajó de ${previa.sobrantes} a ${paresSobrantes}: actualizá ${BASE} en este mismo PR`,
     );
     process.exit(1);
   }
-  console.log(`\nok - ${candidatas.length} candidatas, igual que la línea base`);
+  console.log(`\nok - ${paresSobrantes} permisos de mas, igual que la línea base`);
 } finally {
   await pool.end();
 }
