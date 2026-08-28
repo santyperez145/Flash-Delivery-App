@@ -443,6 +443,29 @@ Sellers de test vinculados · OAuth completo · refresh y expiración probados �
 
 ---
 
+## GTM-001 — Paridad comercial con la categoría
+
+**Prioridad:** P1 · **Origen:** [investigación competitiva](investigacion-competitiva.md#lo-que-falta-para-competir-y-no-es-técnico) · **Fase:** 2
+
+### Contexto
+
+Al 28 de agosto la paridad funcional con Uber Eats, DoorDash, Rappi y PedidosYa está medida contra el repositorio y es alta: descubrimiento, carrito, cotización, tracking, programación, sustituciones, reembolsos parciales, propinas, chat, calificaciones, promociones, referidos, wallet, alérgenos, sucursales, envíos con protección y riesgo transaccional existen y tienen puerta.
+
+Quedan **cuatro huecos**, y ninguno es de ingeniería: son decisiones de producto comercial. Vivían sólo en el documento de investigación, que es exactamente cómo H-10 se perdió un mes sin dueño.
+
+### Criterios de aceptación
+
+- [ ] **Existe un producto de suscripción.** Uber One, DashPass y PedidosYa Plus son el motor de retención y de margen de la categoría: cambian la frecuencia de compra y el costo de adquisición de todo lo demás. Flash no tiene tabla, ruta ni concepto. **Antes de construir hace falta decidir el beneficio** —envío sin cargo desde cierto monto, comisión reducida, prioridad de dispatch, o una combinación— y el precio. Es la decisión comercial más grande pendiente.
+- [ ] **La propina se puede dejar en el checkout.** Hoy `tip-repository.js` la rechaza si el servicio no está `completed`. Los competidores la piden antes de asignar, y eso sube la tasa de propina y por lo tanto la ganancia por viaje del conductor — la variable con la que se compite por oferta de repartidores. Exige capturar el monto con el pago y liberarlo al completar, no cobrarlo dos veces.
+- [ ] **Existen pedidos grupales.** Vía natural al ticket promedio alto y al pedido de oficina.
+- [ ] **Un pedido programado se puede reprogramar.** `jobs.scheduled_for` existe y no hay camino para moverlo: hoy la única salida es cancelar y volver a pedir, que además penaliza al cliente.
+
+### Nota de alcance
+
+Este ticket **no** incluye lo que depende de terceros —credenciales de proveedor, dispositivos, un entorno desplegado—, que está repartido en PAY-001, GEO-001, NOT-001, MOB-001 y CI-001 con su bloqueo nombrado.
+
+---
+
 ## MOB-001 — Release engineering
 
 **Prioridad:** P0 · **Fase:** 1

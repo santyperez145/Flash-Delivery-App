@@ -22,7 +22,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-const LINEA_BASE = 13;
+const LINEA_BASE = 11;
 const PAQUETE = "package.json";
 const FUENTES = ["docs", "AGENTS.md"];
 

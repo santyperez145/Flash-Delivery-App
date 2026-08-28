@@ -1,6 +1,14 @@
 # Investigacion competitiva
 
-Fecha de investigacion: 14 de agosto de 2026.
+Investigación de mercado: **14 de agosto de 2026**. Comparación contra el estado real del
+producto: **28 de agosto de 2026**.
+
+> **Por qué hay dos fechas.** La lectura del mercado envejece despacio; el estado del
+> producto envejece todos los días. Hasta el 28 de agosto este documento listaba como
+> faltantes cosas que ya existían —refresh tokens, observabilidad, conciliación— y eso es
+> el hallazgo [H-10](auditoria-2026-08-25.md#h-10--documentación-desalineada-del-runtime)
+> dentro del documento que debería guiar la comparación. La sección de paridad de abajo se
+> mide contra el repositorio, no contra el recuerdo.
 
 Objetivo: definir el alcance funcional minimo para que Flash Delivery Mobility no sea una maqueta, sino una plataforma operable tipo Uber, Uber Eats, PedidosYa y DoorDash, con cliente, comercio, conductor/repartidor y operaciones.
 
@@ -69,18 +77,85 @@ Operaciones:
 - El panel operativo no es decorativo: lee pedidos/viajes reales y puede intervenir.
 - El comercio puede actuar desde mobile, siguiendo el patron de live order management.
 
-## Lo que falta para competir en produccion
+## Paridad medida contra el repositorio, al 28 de agosto
 
-Este repo ya tiene MVP funcional fullstack, pero para competir comercialmente faltan integraciones reales:
-- Mapas y geocoding: Google Maps, Mapbox o HERE.
-- Calculo real de rutas, ETA y distancia.
-- Pagos: Mercado Pago, Stripe o proveedor local.
-- Push notifications: Firebase Cloud Messaging o similar.
-- WebSockets para tracking en vivo sin polling.
-- Autenticacion con refresh tokens, sesiones y permisos por rol.
-- Backoffice antifraude, soporte multiagente y conciliacion financiera.
-- Apps nativas o PWA instalable con permisos de ubicacion.
-- Observabilidad: logs estructurados, metricas y alertas.
+Lo que sigue se verificó contra el código y las migraciones, no contra la memoria. Cada
+«sí» tiene tabla, ruta y suite; cada «no» se buscó y no está.
+
+### Lo que ya está a la par
+
+| Capacidad | Estado | Dónde se verifica |
+| --- | --- | --- |
+| Descubrimiento, búsqueda y catálogo paginado | sí | `test:catalog-pagination` |
+| Carrito por comercio, extras y notas | sí | `catalog_modifiers`, `cart_items` |
+| Cotización por coordenadas y ETA | sí | `test:maps`, `test:dispatch-candidates` |
+| Tracking en vivo y reanudable | sí | `realtime_events`, `test:realtime-audience-runtime` |
+| Enlace público de seguimiento de viaje | sí | `ride_tracking_links` |
+| Programación de pedidos | sí | `jobs.scheduled_for` |
+| Sustituciones y aceptación por el cliente | sí | `test:order-substitutions` |
+| Reembolso total y **parcial** | sí | `payment_intents.partially_refunded` |
+| Propinas con revisión y ajuste | sí | `test:tip-adjustments` |
+| Chat de servicio con respuestas rápidas | sí | `service_messages`, `test:service-chat` |
+| Calificaciones y favoritos | sí | `ratings`, `favorites` |
+| Promociones, referidos y wallet | sí | `test:referrals`, `test:postgres` |
+| Alérgenos y preferencias dietarias | sí | `test:dietary-local` |
+| Sucursales por comercio y horarios | sí | `merchant_branches` |
+| Envíos con protección, siniestros y devoluciones | sí | `test:shipment-claims` |
+| Riesgo transaccional con revisión humana | sí | `test:transaction-risk` |
+| Multi-ciudad en el modelo de datos | sí | `cities`, selector en el panel de zonas |
+| Flags por rol, ciudad y rollout | sí | `test:feature-flags` |
+
+### Lo que falta para competir, y no es técnico
+
+Cuatro huecos con nombre. El primero es el que más pesa comercialmente.
+
+**1. No hay producto de suscripción.** Uber One, DashPass y PedidosYa Plus son el motor de
+retención y de margen de la categoría: cambian la frecuencia de compra y el costo de
+adquisición de todo lo demás. Flash no tiene tabla, ruta ni concepto. Es la decisión
+comercial más grande pendiente, y es de producto, no de ingeniería.
+
+**2. La propina sólo existe después de entregar.** `tip-repository.js` rechaza la propina
+si el servicio no está `completed`. Los competidores la piden en el checkout, antes de
+asignar, y eso sube la tasa de propina y por lo tanto la ganancia por viaje del conductor —
+que es la variable con la que se compite por oferta de repartidores.
+
+**3. No hay pedidos grupales.** Uber Eats, DoorDash y Rappi los tienen. Es la vía natural
+al ticket promedio alto y al pedido de oficina.
+
+**4. Un pedido programado no se puede reprogramar.** Existe `scheduled_for` y no existe el
+camino para moverlo, así que hoy la salida es cancelar y volver a pedir.
+
+### Lo que Flash tiene y no es habitual a esta altura
+
+Vale decirlo con la misma honestidad que los huecos, porque es lo que un due diligence
+técnico mira y rara vez encuentra en una etapa temprana:
+
+- **Partida doble obligada por la base**, no por convención de código: un `CONSTRAINT
+  TRIGGER` diferido rechaza al commit toda transacción contable que no cuadre.
+- **Los registros de dinero y de eventos son append-only para el runtime**: el rol que
+  atiende el tráfico no puede modificar ni borrar un asiento posteado, un mensaje enviado o
+  el registro de migraciones aplicadas.
+- **Row-Level Security sobre 91 tablas con 175 políticas**, con pruebas negativas por rol.
+- **Ensayo de restore en cada PR**: se vuelca y se restaura de verdad, y se verifica que el
+  esquema, las políticas y los permisos sobrevivan al viaje.
+- **Toda decisión operativa registra actor y motivo** en un log append-only.
+- **Ninguna ruta queda construida y sin cablear**: una puerta lo impide, con línea base en
+  cero.
+
+La lectura para un inversor no es «está terminado». Es: **el sustrato operativo y
+financiero está por encima de la etapa, y los huecos que quedan son de producto comercial y
+de habilitaciones externas**, que son los que se cierran con plata y con acuerdos, no con
+refactors.
+
+### Lo que depende de terceros y no de decidir
+
+| Bloqueo | Qué destraba |
+| --- | --- |
+| Credenciales de Mercado Pago con sellers de prueba | validar el marketplace de punta a punta (PAY-001) |
+| API key de mapas comercial | ETA vial real en el scoring y direcciones validadas (GEO-001) |
+| Un Android y un iPhone físicos, y credenciales de EAS | push real y background location (NOT-001, MOB-001) |
+| Un entorno desplegado | todo lo que hoy dice `PROV`, `STG` o `PROD` en cero |
+| Un segundo revisor en GitHub | las dos aprobaciones en pagos y seguridad (CI-001) |
 
 ## Matriz de paridad para los siguientes sprints
 
