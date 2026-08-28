@@ -230,7 +230,11 @@ try {
       !JSON.stringify(protectedToken).includes(rawPushToken),
     "push token is encrypted at rest and deduplicated by keyed hash",
   );
-  const restaurants = await request("/restaurants");
+  // Se pide por la ruta paginada, que es la que usa el producto. `/restaurants`
+  // se retiró el 28 de agosto: devolvía la tabla entera sin autenticación ni
+  // paginación. `getPostgresRestaurantPage` llama a la misma función con los ids
+  // de la página, así que el shape —menú y sucursales incluidos— es idéntico.
+  const restaurants = await request("/catalog/restaurants?limit=50");
   assert(
     restaurants.body.restaurants?.length >= 1 &&
       restaurants.body.restaurants[0].menu?.length >= 1 &&

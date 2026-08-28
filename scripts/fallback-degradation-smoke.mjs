@@ -48,7 +48,7 @@ const RUTAS = [
   "/me/assigned-drivers",
   "/referrals/me",
   "/catalog/restaurants?limit=10",
-  "/restaurants",
+  "/catalog/restaurants",
   "/cities",
   "/zones",
   "/pricing",
