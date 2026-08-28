@@ -2478,7 +2478,15 @@ try {
   assert(
     ridePayment.rows[0]?.status === "captured" &&
       (await request("/me")).body.account.user.wallet ===
-        rideWalletBefore - rideFirst.body.ride.fare - substitutionOrder.total,
+        rideWalletBefore -
+          rideFirst.body.ride.fare -
+          substitutionOrder.total -
+          // `substitutionOrder` **es** el pedido de liquidacion, y desde GTM-001
+          // lleva propina: la billetera se debita `total + propina` en un solo
+          // cargo. Restar solo el total dejaba la cuenta corta por exactamente
+          // la propina, y afirmarla aca prueba de paso que se cobro una vez y no
+          // dos.
+          propinaCents / 100,
     "ride captures wallet atomically",
   );
   await pool.query("UPDATE jobs SET status='completed' WHERE public_id=$1", [rideId]);
@@ -2534,7 +2542,10 @@ try {
     rideCancelled.status === 200 &&
       rideCancelled.body.ride.status === "cancelled" &&
       (await request("/me")).body.account.user.wallet ===
-        rideWalletBefore - substitutionOrder.total,
+        // Misma correccion que en la captura: lo cobrado por el pedido de
+        // liquidacion fue `total + propina`, y el reintegro del viaje devuelve
+        // solo la tarifa del viaje.
+        rideWalletBefore - substitutionOrder.total - propinaCents / 100,
     "ride cancellation refunds wallet atomically",
   );
   dispatchDriverOriginalOnline =
