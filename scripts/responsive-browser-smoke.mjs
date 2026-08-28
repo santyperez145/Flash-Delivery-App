@@ -108,30 +108,54 @@ async function login(page, url, email, submitLabel) {
   }
 }
 
-async function auditCustomerTrackingSheet(page) {
+async function auditCustomerTrackingSheets(page) {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByText("Actividad", { exact: true }).last().click();
-  const activeOrderAction = page.getByRole("button", {
-    name: /Abrir seguimiento del pedido/,
-  });
-  await activeOrderAction.first().waitFor({ timeout: 10_000 });
-  await activeOrderAction.first().press("Enter");
+  const cases = [
+    {
+      service: "food",
+      openName: /Abrir seguimiento del pedido/,
+      closeName: "Cerrar seguimiento del pedido",
+      accent: "rgb(255, 106, 33)",
+    },
+    {
+      service: "ride",
+      openName: /Abrir seguimiento del viaje/,
+      closeName: "Cerrar seguimiento del viaje",
+      accent: "rgb(124, 60, 255)",
+    },
+  ];
 
-  const close = page.getByRole("button", { name: "Cerrar seguimiento del pedido" });
-  await close.waitFor({ timeout: 10_000 });
-  await assertNoPageOverflow(page, "customer food tracking sheet");
-  await assertLocatorInsideViewport(page, close, "customer food tracking close action");
+  for (const trackingCase of cases) {
+    const open = page.getByRole("button", { name: trackingCase.openName }).first();
+    await open.waitFor({ timeout: 10_000 });
+    await open.press("Enter");
 
-  const currentStage = page.locator('[aria-label$=", actual"]').first();
-  await currentStage.waitFor();
-  const currentAccent = await currentStage.evaluate((element) => {
-    const marker = element.firstElementChild;
-    return marker ? getComputedStyle(marker).backgroundColor : "";
-  });
-  assert.equal(currentAccent, "rgb(255, 106, 33)", "food tracking must use the Food accent");
+    const close = page.getByRole("button", { name: trackingCase.closeName });
+    await close.waitFor({ timeout: 10_000 });
+    await assertNoPageOverflow(page, `customer ${trackingCase.service} tracking sheet`);
+    await assertLocatorInsideViewport(
+      page,
+      close,
+      `customer ${trackingCase.service} tracking close action`,
+    );
 
-  await close.click();
-  ok("customer food tracking sheet keeps its accent and controls inside the viewport");
+    const currentStage = page.locator('[aria-label$=", actual"]').first();
+    await currentStage.waitFor();
+    const currentAccent = await currentStage.evaluate((element) => {
+      const marker = element.firstElementChild;
+      return marker ? getComputedStyle(marker).backgroundColor : "";
+    });
+    assert.equal(
+      currentAccent,
+      trackingCase.accent,
+      `${trackingCase.service} tracking must use its vertical accent`,
+    );
+
+    await close.click();
+    await close.waitFor({ state: "hidden" });
+    ok(`customer ${trackingCase.service} tracking stays inside the viewport`);
+  }
 }
 
 async function auditMobile(browser) {
@@ -196,7 +220,7 @@ async function auditMobile(browser) {
     ok(`${mobileVariant} navigation fits ${viewport.width}x${viewport.height}`);
   }
 
-  if (mobileVariant === "customer") await auditCustomerTrackingSheet(page);
+  if (mobileVariant === "customer") await auditCustomerTrackingSheets(page);
 
   if (mobileVariant === "customer") {
     await page.getByText("Cuenta", { exact: true }).last().click();

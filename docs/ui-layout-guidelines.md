@@ -88,7 +88,8 @@ Una ventana redimensionable debe poder atravesarlos sin recargar ni perder estad
   timeline comparte estructura, pero usa el acento de su vertical y anuncia cada
   etapa como completada, actual o pendiente; el color nunca es la única señal.
   Las cards que lo abren son botones nombrados por servicio, no contenedores
-  enfocables sin rol.
+  enfocables sin rol. Ruta, timeline y evidencia degradan por separado: perder el
+  proveedor cartográfico no puede ocultar el estado ni la prueba de entrega.
 
 ### Driver
 
