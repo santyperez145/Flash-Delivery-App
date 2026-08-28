@@ -355,7 +355,10 @@ try {
     body: JSON.stringify({ favorite: true }),
   });
   feedbackAuditRequestIds.push(favoriteAdded.body.requestId);
-  const favoriteRead = await request("/favorites");
+  // Se lee del snapshot de cuenta, que es de donde los lee el frente.
+  // `GET /favorites` se retiró el 28 de agosto: servía las mismas filas, desde el
+  // mismo repositorio, sin que ningún cliente la llamara.
+  const favoriteRead = await request("/me");
   const favoriteRemoved = await request("/favorites/rest_roja", {
     method: "PUT",
     body: JSON.stringify({ favorite: false }),
@@ -363,7 +366,7 @@ try {
   feedbackAuditRequestIds.push(favoriteRemoved.body.requestId);
   assert(
     favoriteAdded.body.restaurantIds?.includes("rest_roja") &&
-      favoriteRead.body.restaurantIds?.includes("rest_roja") &&
+      favoriteRead.body.account?.favoriteRestaurantIds?.includes("rest_roja") &&
       !favoriteRemoved.body.restaurantIds?.includes("rest_roja"),
     "customer favorites persist in PostgreSQL",
   );
