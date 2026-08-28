@@ -66,6 +66,8 @@ import { feedbackRouter } from "./http/feedback-router.js";
 import { financialReviewRouter } from "./http/financial-review-router.js";
 import { notificationsRouter } from "./http/notifications-router.js";
 import {
+  realtimeBlocksReadiness,
+  realtimeReadiness,
   publishRealtimeEvent,
   realtimeClients,
   realtimeRouter,
@@ -503,6 +505,22 @@ app.get("/api/ready", async (_req, res) => {
       );
     if (config.redis.required && !redis.ready)
       return fail(res, 503, "Redis distribuido no disponible");
+    // El escucha de eventos, con tolerancia a parpadeos.
+    //
+    // **No basta con que la instancia responda.** Si `LISTEN flash_realtime` no
+    // logra suscribirse, la instancia sigue viva, sigue aceptando clientes SSE y
+    // no entrega ni un evento — tracking congelado, ofertas que no llegan, y
+    // ningun error en ningun lado.
+    //
+    // Falla despues del umbral y no al primer intento porque el listener se
+    // reconecta cada segundo: un reintento suelto es una reconexion normal y
+    // sacar la instancia del balanceador por eso la haria oscilar. Treinta
+    // seguidos son otra cosa — es una conexion que **no puede** escuchar, y el
+    // caso tipico es un pooler en modo transaccion, donde `LISTEN` nunca
+    // sobrevive y ninguna cantidad de reintentos lo arregla.
+    const realtime = realtimeReadiness();
+    if (realtimeBlocksReadiness({ isProduction: config.isProduction, realtime }))
+      return fail(res, 503, "El escucha de eventos en tiempo real no logra suscribirse");
     const runtimeCounts = usesPostgresCommerce()
       ? await Promise.all([getPostgresUsers(), getPostgresRestaurants(), getPostgresDrivers()])
       : [db.users, db.restaurants, db.drivers];
@@ -510,6 +528,7 @@ app.get("/api/ready", async (_req, res) => {
       service: "flash-fullstack-api",
       database: postgres,
       redis,
+      realtime,
       runtimeStore: config.databaseUrl ? "postgres-primary" : "sqlite-demo",
       fallbackDiagnostics: { sqliteReads: sqliteReadCount() },
       authStore: usesPostgresAuth() ? "postgres" : "sqlite-test-fallback",
