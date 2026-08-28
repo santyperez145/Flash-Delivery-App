@@ -35,6 +35,7 @@ import { styles } from "../styles";
 import { ActionButton, MobileTaskSheet, NativeMapUnavailable, ServiceChatModal } from "../ui";
 import { CustomerActivityScreen } from "./CustomerActivityScreen";
 import { CustomerTrackingProgress } from "./CustomerTrackingProgress";
+import { useTrackingRoute } from "./useTrackingRoute";
 import type {
   AppNotification,
   AppState,
@@ -71,35 +72,12 @@ function OrderTrackingSheet({
   driver: Driver | null;
   onClose: () => void;
 }) {
-  const [route, setRoute] = useState<RoadRoute | null>(null),
-    [routeError, setRouteError] = useState("");
-  useEffect(() => {
-    if (!order?.pickupLocation || !order.deliveryLocation) {
-      setRoute(null);
-      return;
-    }
-    let cancelled = false;
-    setRouteError("");
-    void api
-      .route(order.pickupLocation, order.deliveryLocation)
-      .then((result) => {
-        if (!cancelled) setRoute(result.route);
-      })
-      .catch(() => {
-        if (!cancelled)
-          setRouteError("No pudimos cargar la ruta; el estado del pedido sigue actualizado.");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    order?.id,
-    order?.pickupLocation?.lat,
-    order?.pickupLocation?.lng,
-    order?.deliveryLocation?.lat,
-    order?.deliveryLocation?.lng,
-  ]);
-  const hasMap = Boolean(order?.pickupLocation && order.deliveryLocation);
+  const { route, routeError, hasMap } = useTrackingRoute({
+    resourceId: order?.id,
+    origin: order?.pickupLocation,
+    destination: order?.deliveryLocation,
+    errorMessage: "No pudimos cargar la ruta; el estado del pedido sigue actualizado.",
+  });
   if (!order) return null;
   const stages = [
       "accepted",
@@ -196,35 +174,12 @@ function RideTrackingSheet({
   onCancel: () => void;
   onClose: () => void;
 }) {
-  const [route, setRoute] = useState<RoadRoute | null>(null),
-    [routeError, setRouteError] = useState("");
-  useEffect(() => {
-    if (!ride?.pickupLocation || !ride.destinationLocation) {
-      setRoute(null);
-      return;
-    }
-    let cancelled = false;
-    setRouteError("");
-    void api
-      .route(ride.pickupLocation, ride.destinationLocation)
-      .then((result) => {
-        if (!cancelled) setRoute(result.route);
-      })
-      .catch(() => {
-        if (!cancelled)
-          setRouteError("La ruta no está disponible; el estado del viaje sigue actualizado.");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    ride?.id,
-    ride?.pickupLocation?.lat,
-    ride?.pickupLocation?.lng,
-    ride?.destinationLocation?.lat,
-    ride?.destinationLocation?.lng,
-  ]);
-  const hasMap = Boolean(ride?.pickupLocation && ride.destinationLocation);
+  const { route, routeError, hasMap } = useTrackingRoute({
+    resourceId: ride?.id,
+    origin: ride?.pickupLocation,
+    destination: ride?.destinationLocation,
+    errorMessage: "La ruta no está disponible; el estado del viaje sigue actualizado.",
+  });
   if (!ride) return null;
   const stages: Ride["status"][] = [
       "requested",
@@ -375,43 +330,32 @@ function ShipmentTrackingSheet({
   onRevealPin: () => Promise<void>;
   onClose: () => void;
 }) {
-  const [route, setRoute] = useState<RoadRoute | null>(null),
-    [routeError, setRouteError] = useState(""),
-    [evidence, setEvidence] = useState<import("../types").DeliveryEvidence[]>([]),
+  const [evidence, setEvidence] = useState<import("../types").DeliveryEvidence[]>([]),
     [pinBusy, setPinBusy] = useState(false);
+  const { route, routeError, hasMap } = useTrackingRoute({
+    resourceId: shipment?.id,
+    origin: shipment?.pickupLocation,
+    destination: shipment?.destinationLocation,
+    errorMessage: "No pudimos cargar la ruta; el estado operativo sigue actualizado.",
+  });
   useEffect(() => {
-    if (!shipment?.pickupLocation || !shipment.destinationLocation) {
-      setRoute(null);
+    if (!shipment) {
+      setEvidence([]);
       return;
     }
     let cancelled = false;
-    setRouteError("");
-    void Promise.all([
-      api.route(shipment.pickupLocation, shipment.destinationLocation),
-      api.getShipmentDeliveryEvidence(shipment.id).catch(() => ({ evidence: [] })),
-    ])
-      .then(([routeResult, evidenceResult]) => {
-        if (!cancelled) {
-          setRoute(routeResult.route);
-          setEvidence(evidenceResult.evidence);
-        }
+    void api
+      .getShipmentDeliveryEvidence(shipment.id)
+      .then((result) => {
+        if (!cancelled) setEvidence(result.evidence);
       })
       .catch(() => {
-        if (!cancelled)
-          setRouteError("No pudimos cargar la ruta; el estado operativo sigue actualizado.");
+        if (!cancelled) setEvidence([]);
       });
     return () => {
       cancelled = true;
     };
-  }, [
-    shipment?.id,
-    shipment?.pickupLocation?.lat,
-    shipment?.pickupLocation?.lng,
-    shipment?.destinationLocation?.lat,
-    shipment?.destinationLocation?.lng,
-    shipment?.deliveryEvidenceCount,
-  ]);
-  const hasMap = Boolean(shipment?.pickupLocation && shipment.destinationLocation);
+  }, [shipment?.id, shipment?.deliveryEvidenceCount]);
   if (!shipment) return null;
   const stages = [
       "requested",

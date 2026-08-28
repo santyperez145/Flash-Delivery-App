@@ -31,6 +31,11 @@ const customerRideTracking = section(
   "function RideTrackingSheet",
   "function ShipmentTrackingSheet",
 );
+const customerShipmentTracking = section(
+  app,
+  "function ShipmentTrackingSheet",
+  "export function CustomerScreen",
+);
 const assert = (condition, label) => {
   if (!condition) throw new Error(`failed: ${label}`);
   console.log(`ok - ${label}`);
@@ -128,6 +133,13 @@ assert(
     contains(app, "activityRides.find((ride) => ride.id === trackingRideId") &&
     contains(app, "activityShipments.find((shipment) => shipment.id === trackingShipmentId"),
   "activity opens tracking from the paginated resource the customer selected",
+);
+assert(
+  contains(app, "export function useTrackingRoute") &&
+    (app.match(/=\s*useTrackingRoute\(\{/g) || []).length === 3 &&
+    contains(customerShipmentTracking, "api.getShipmentDeliveryEvidence(shipment.id)") &&
+    !contains(customerShipmentTracking, "Promise.all"),
+  "tracking shares route loading while shipment evidence degrades independently",
 );
 assert(
   contains(app, "defaultLocationSeededForUser") &&
