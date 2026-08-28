@@ -2760,6 +2760,51 @@ export const styles = StyleSheet.create({
   primaryButtonText: { color: "#fff", fontWeight: "900" },
   disabledButton: { opacity: 0.45 },
 
+  // Propina en el checkout (GTM-001). Los objetivos táctiles son de 44px: es la
+  // única decisión del checkout que se toma con el pulgar sobre una lista de
+  // montos parecidos, y ahí un objetivo chico hace dejar la propina equivocada.
+  propinaSelector: {
+    backgroundColor: "#ffffff",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#efe9f0",
+    padding: 16,
+    gap: 8,
+  },
+  propinaOpciones: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 },
+  propinaOpcion: {
+    minHeight: 44,
+    minWidth: 78,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#efe9f0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  // Se marca con borde y fondo, no sólo con color: un cambio de color solo no lo
+  // distingue quien no separa esos dos tonos.
+  propinaOpcionActiva: { borderColor: "#ff6a21", backgroundColor: "rgba(255,106,33,0.10)" },
+  propinaOpcionTexto: { color: "#27242a", fontWeight: "700" },
+  propinaOpcionMonto: { color: "#6c6870", fontSize: 12 },
+  propinaLibre: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  propinaInput: {
+    minHeight: 44,
+    width: 120,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#efe9f0",
+    textAlign: "right",
+    color: "#27242a",
+  },
+
   // Suscripción de Flash (GTM-001). Espeja `accountCard` para que la pantalla de
   // cuenta no cambie de idioma visual a mitad de scroll.
   suscripcionCard: {

@@ -789,6 +789,7 @@ Decisión competitiva: se adopta una bandeja transaccional persistente y prefere
 #### Fase 3 — beta cerrada
 
 - [x] Sustituciones, refunds, cancelaciones, ratings, suspensiones, promociones, soporte y métricas financieras de ledger.
+  - La propina también se toma en el checkout (migración 126, GTM-001): se cobra con el pedido en un solo cargo, queda retenida hasta que hay conductor, y se libera entera al liquidar. No entra en el reparto entre comercio, conductor y plataforma.
 - [~] Payout/conciliación interna; falta adaptador bancario/PSP.
 - [~] Feature flags, analytics first-party y go/no-go de zona basado en supply/comercios/volumen/cancelaciones/soporte listos; la instrumentación base web/mobile y el funnel agregado ya están operativos, pero faltan prep-time predictivo, cohortes, dashboards productivos y consentimiento legal.
 

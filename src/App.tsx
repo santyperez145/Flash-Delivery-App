@@ -623,6 +623,7 @@ function App() {
         providerPayment,
         promotionCode: promotionCode.trim() || undefined,
         quoteToken: checkout.quoteToken,
+        tipCents: checkout.tipCents,
         items: cart.map((line) => ({
           menuItemId: line.item.id,
           quantity: line.quantity,

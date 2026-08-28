@@ -33,6 +33,7 @@ import {
 import { track } from "../analytics";
 import { api } from "../api";
 import { SubscriptionCard } from "../SubscriptionCard";
+import { TipSelector } from "../TipSelector";
 import { flashDesign } from "../design-system";
 import FlashNativeMap from "../FlashNativeMap";
 import { mobileOrderStatusLabel, money, navigationInstruction } from "../format";
@@ -873,6 +874,8 @@ export function CustomerScreen({
   const [deliveryAddress, setDeliveryAddress] = useState(user.defaultAddress || "");
   const [foodPromotionCode, setFoodPromotionCode] = useState("");
   const [foodCheckoutQuote, setFoodCheckoutQuote] = useState<FoodCheckoutQuote | null>(null);
+  // Propina del checkout (GTM-001). En centavos, como viaja a la API.
+  const [foodTipCents, setFoodTipCents] = useState(0);
   const [selectedFoodPaymentId, setSelectedFoodPaymentId] = useState(
     () =>
       state.paymentMethods.find((method) => method.userId === user.id && method.isDefault)?.id ||
@@ -1605,12 +1608,16 @@ export function CustomerScreen({
         paymentMethodId: selectedFoodPayment.id,
         promotionCode: foodCheckoutQuote.promotionCode || undefined,
         quoteToken: foodCheckoutQuote.quoteToken,
+        tipCents: foodTipCents,
         items: foodCheckoutItems,
       });
       setLastCreatedOrder(result.order);
       setCart([]);
       setFoodCheckoutQuote(null);
       setFoodPromotionCode("");
+      // Sin esto la próxima compra arrancaría con la propina de la anterior ya
+      // elegida, que es cobrar sin preguntar.
+      setFoodTipCents(0);
       setFoodScreen("orders");
       track("job_created", "customer_app", { service: "food" });
     }, "Pedido enviado al comercio");
@@ -3328,14 +3335,35 @@ export function CustomerScreen({
                       </Text>
                     </View>
                   ) : null}
+                  {/* Suma, no resta. Es la única línea que sube el total por
+                      decisión de la persona, y por eso se nombra: verla dentro
+                      del total sin nombrarla se siente un cargo que nadie eligió. */}
+                  {foodTipCents > 0 ? (
+                    <View style={styles.foodTotalRow}>
+                      <Text style={styles.foodCheckoutTotalLabel}>Propina</Text>
+                      <Text style={styles.foodCheckoutTotalAmount}>
+                        {money.format(foodTipCents / 100)}
+                      </Text>
+                    </View>
+                  ) : null}
                   <View style={styles.foodCheckoutTotalDivider} />
                   <View style={styles.foodTotalRow}>
                     <Text style={styles.foodCheckoutGrandLabel}>Total</Text>
                     <Text style={styles.foodCheckoutGrandAmount}>
-                      {money.format(foodCheckoutQuote.total)}
+                      {money.format(foodCheckoutQuote.total + foodTipCents / 100)}
                     </Text>
                   </View>
                 </View>
+                {/* Antes del bloque de seguridad y del botón de confirmar: la
+                    propina se elige mirando el total, no después de darlo por
+                    bueno. */}
+                <TipSelector
+                  subtotal={foodCheckoutQuote.subtotal}
+                  tipCents={foodTipCents}
+                  onChange={setFoodTipCents}
+                  orderTotal={foodCheckoutQuote.total}
+                  disabled={busy}
+                />
                 <View style={styles.foodCheckoutSecurity}>
                   <View style={styles.foodCheckoutSecurityIcon}>
                     <Ionicons name="lock-closed" size={18} color={flashDesign.color.shipment} />

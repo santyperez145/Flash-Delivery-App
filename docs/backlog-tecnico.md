@@ -453,7 +453,7 @@ Al 28 de agosto la paridad funcional con Uber Eats, DoorDash, Rappi y PedidosYa 
 
 Quedan **cuatro huecos**, y ninguno es de ingeniería: son decisiones de producto comercial. Vivían sólo en el documento de investigación, que es exactamente cómo H-10 se perdió un mes sin dueño.
 
-> **Al 28 de agosto:** el primero —la suscripción— está construido y cableado en sus dos extremos. Quedan tres.
+> **Al 28 de agosto:** los dos primeros —la suscripción y la propina en el checkout— están construidos y cableados en sus dos extremos. Quedan dos: pedidos grupales y reprogramar un pedido programado.
 
 ### Criterios de aceptación
 
@@ -462,7 +462,11 @@ Quedan **cuatro huecos**, y ninguno es de ingeniería: son decisiones de product
   - **Quién lo paga quedó explícito.** El comercio cobra igual y el conductor cobra el envío completo aunque el cliente no lo haya pagado; la diferencia sale del margen de Flash. Eso obligó a admitir un `platformNet` negativo en la liquidación, acotado exactamente al subsidio otorgado: antes el reparto no cerraba y el pedido moría después de cobrado.
   - **Comisión reducida en viajes y prioridad de dispatch: en la fila del plan, todavía sin aplicar.** `ride_discount_bps` no se aplica porque `/api/rides/quote` no exige sesión —es un estimador público de precio— y personalizarlo ahí cambia el contrato de la ruta; `dispatch_priority_boost` no se aplica porque el orden de candidatos se decide en [DSP-001](#dsp-001--dispatch-v2). Se dice acá en vez de dejar el criterio marcado como completo.
   - **No cobra.** El cobro recurrente depende de PAY-001, que espera credenciales. `user_subscriptions.billed` distingue un período cobrado de uno otorgado mientras eso no exista, y la respuesta de la API y las dos pantallas lo dicen: «Período bonificado». Un período que se otorga y se llama cobrado es la forma más rápida de tener un problema contable.
-- [ ] **La propina se puede dejar en el checkout.** Hoy `tip-repository.js` la rechaza si el servicio no está `completed`. Los competidores la piden antes de asignar, y eso sube la tasa de propina y por lo tanto la ganancia por viaje del conductor — la variable con la que se compite por oferta de repartidores. Exige capturar el monto con el pago y liberarlo al completar, no cobrarlo dos veces.
+- [x] **La propina se puede dejar en el checkout.** Migración 126. Se cobra junto con el pedido —**un solo cargo**— y queda retenida hasta que hay conductor y el servicio se completa; ahí se libera entera a quien repartió. Si el pedido se reintegra, vuelve con el resto.
+  - **El problema no era la pantalla: en el checkout todavía no hay a quién pagarle.** Eso obligó a que una propina pueda existir sin destinatario, que es lo que la migración habilita (`driver_id` y `ledger_transaction_id` pasan a ser opcionales, y `status` distingue `held` de `released` y `refunded`).
+  - **No se reparte.** La liquidación la saca del total antes de dividir entre comercio, conductor y plataforma, y la acredita aparte. Sin eso el comercio se llevaba parte de la propina; con split de Mercado Pago hacía falta además sumarla a la comisión de aplicación, o el proveedor se la depositaba directamente a él.
+  - **Los porcentajes se calculan sobre el subtotal, no sobre el total.** Sobre el total, la propina subiría cuando sube el envío o la tarifa de servicio, que no tienen nada que ver con quien reparte.
+  - **Los topes del cliente son los del servidor, y hay una puerta que lo vigila.** `test:web-checkout` y `test:mobile-food-design` leen el piso, el techo y la proporción del propio `tip-repository.js`: si el servidor cambia y el cliente no, la pantalla ofrecería un botón que devuelve 409.
 - [ ] **Existen pedidos grupales.** Vía natural al ticket promedio alto y al pedido de oficina.
 - [ ] **Un pedido programado se puede reprogramar.** `jobs.scheduled_for` existe y no hay camino para moverlo: hoy la única salida es cancelar y volver a pedir, que además penaliza al cliente.
 

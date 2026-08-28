@@ -99,3 +99,38 @@ assert(
 );
 
 console.log("ok - Customer Comidas usa sistema visual y datos reales");
+
+// ---------------------------------------------------------------------------
+// Propina en el checkout (GTM-001): los topes del cliente son los del servidor.
+//
+// El cliente duplica el piso y el techo para no ofrecer un monto que el
+// confirmar va a rechazar. **Esa copia es el riesgo**: el dia que el servidor
+// cambie el techo y el cliente no, la pantalla ofrece un boton que devuelve 409,
+// y quien lo toca no entiende por que su propina «no anda».
+//
+// Los numeros se leen del servidor en vez de escribirse aca, para que este
+// contrato no pueda quedar viejo junto con el codigo que vigila.
+const propinaServidor = fs.readFileSync("server/tip-repository.js", "utf8");
+const pisoServidor = propinaServidor.match(/CHECKOUT_TIP_MIN_CENTS = (\d+)/)?.[1];
+const techoServidor = propinaServidor.match(/Math\.min\((\d+),/)?.[1];
+const proporcionServidor = propinaServidor.match(/orderTotalCents \* ([\d.]+)/)?.[1];
+if (!pisoServidor || !techoServidor || !proporcionServidor)
+  throw new Error("No se pudieron leer los topes de propina del servidor");
+
+const propinaMovil = fs.readFileSync("apps/mobile/src/TipSelector.tsx", "utf8");
+assert(
+  contains(propinaMovil, `const MIN_CENTS = ${pisoServidor}`) &&
+    contains(propinaMovil, `Math.min(${techoServidor}, Math.max(MIN_CENTS`) &&
+    contains(propinaMovil, `* ${proporcionServidor})`),
+  "los topes de propina del checkout movil son los mismos que aplica el servidor",
+);
+assert(
+  contains(propinaMovil, "Sin propina") && contains(propinaMovil, "subtotal * 100 *"),
+  "el movil ofrece no dejar propina y calcula los porcentajes sobre el subtotal",
+);
+assert(
+  contains(propinaMovil, "minHeight: 44") ||
+    contains(fs.readFileSync("apps/mobile/src/styles.ts", "utf8"), "minHeight: 44"),
+  "las opciones de propina son objetivos tactiles de 44px",
+);
+assert(contains(api, "tipCents?: number"), "la propina viaja a la API movil en centavos");

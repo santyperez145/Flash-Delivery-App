@@ -7346,3 +7346,72 @@ textarea {
 .summary-suscripcion strong {
   color: #15803d;
 }
+
+/* Propina en el checkout (GTM-001).
+   Los botones son objetivos táctiles de 44px: es la única decisión del checkout
+   que se toma con el pulgar sobre una lista de montos parecidos, y un objetivo
+   chico ahí hace que se deje la propina equivocada. */
+.propina-selector {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+}
+.propina-encabezado {
+  display: grid;
+  gap: 2px;
+}
+.propina-encabezado small {
+  opacity: 0.7;
+}
+.propina-opciones {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+  gap: 8px;
+}
+.propina-opcion {
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  min-height: 44px;
+  padding: 8px 6px;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.14));
+  border-radius: 12px;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+.propina-opcion small {
+  opacity: 0.65;
+  font-size: 0.72rem;
+}
+/* El seleccionado se marca con borde y fondo, no sólo con color: un cambio de
+   color solo no lo distingue quien no separa esos dos tonos. */
+.propina-opcion.activa {
+  border-color: #ff6a21;
+  background: rgba(255, 106, 33, 0.1);
+  font-weight: 700;
+}
+.propina-opcion:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.propina-libre {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
+.propina-libre input {
+  min-height: 44px;
+  width: 120px;
+  padding: 0 10px;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.14));
+  border-radius: 12px;
+  font: inherit;
+  text-align: right;
+}
+.propina-retenida {
+  margin: 0;
+  font-size: 0.8rem;
+  opacity: 0.7;
+}

@@ -17,6 +17,7 @@
 import crypto from "node:crypto";
 import { postgresPool } from "./postgres.js";
 import { getActiveSubscription, splitOrderDiscounts } from "./subscription-repository.js";
+import { CHECKOUT_TIP_MIN_CENTS, checkoutTipMaxCents, holdCheckoutTip } from "./tip-repository.js";
 import { getPostgresPricingPlan } from "./configuration-repository.js";
 import { enqueueNotificationForInternalUser } from "./notification-repository.js";
 import { acceptDispatchOffer, createDispatchOffers } from "./dispatch-repository.js";
@@ -413,6 +414,7 @@ export async function createPostgresOrder({
   items,
   serviceFee,
   lockedQuote,
+  tipCents = 0,
   idempotencyKey,
 }) {
   const client = await postgresPool.connect();
@@ -624,6 +626,28 @@ export async function createPostgresOrder({
         new Error("El precio final cambió; revisa y acepta una nueva cotización"),
         { status: 409 },
       );
+    // La propina no viaja en la cotizacion firmada a proposito: cambiarla no
+    // deberia obligar a recotizar el pedido entero, y no hay nada que proteger
+    // firmandola — es plata del cliente hacia el repartidor, no un precio que el
+    // cliente pueda bajar. Lo que si se valida es que este dentro de los topes,
+    // que es lo que atrapa un error de tipeo de tres ceros de mas.
+    if (tipCents) {
+      const topeDePropina = checkoutTipMaxCents(totalCents);
+      if (tipCents < CHECKOUT_TIP_MIN_CENTS)
+        throw Object.assign(
+          new Error(`La propina mínima es $${(CHECKOUT_TIP_MIN_CENTS / 100).toFixed(0)}`),
+          { status: 409 },
+        );
+      if (tipCents > topeDePropina)
+        throw Object.assign(
+          new Error(`La propina máxima para este pedido es $${(topeDePropina / 100).toFixed(0)}`),
+          { status: 409 },
+        );
+    }
+    // **Un solo cargo, no dos.** La propina se cobra junto con el pedido; lo que
+    // se reparte sigue siendo `totalCents`, porque la propina no es del comercio
+    // ni de la plataforma.
+    const chargedCents = totalCents + tipCents;
     const travelMinutes = Math.max(8, Math.ceil(Number(address.distance_m) / 350));
     const metadata = {
       subtype: "food_order",
@@ -633,6 +657,9 @@ export async function createPostgresOrder({
       discount: pesos(discountCents),
       subscriptionDiscount: pesos(subscriptionDiscountCents),
       subscriptionPlan: subscriptionDiscountCents > 0 ? subscription.planKey : null,
+      // Lo cobrado al cliente es `total + tip`. Guardar la propina aca es lo que
+      // despues le permite a la liquidacion repartir sobre el total sin ella.
+      tip: pesos(tipCents),
       promotionCode: promotion?.code || null,
       etaMin: merchant.rows[0].branch_eta_min + travelMinutes,
       locationEstimated: false,
@@ -710,7 +737,9 @@ export async function createPostgresOrder({
             [walletAccount.rows[0].id],
           )
         : { rows: [] };
-      if (!walletAccount.rows[0] || Number(walletBalance.rows[0]?.balance || 0) < totalCents) {
+      // Contra `chargedCents` y no contra el total: si el saldo alcanza para el
+      // pedido pero no para la propina, el cobro fallaria a mitad de camino.
+      if (!walletAccount.rows[0] || Number(walletBalance.rows[0]?.balance || 0) < chargedCents) {
         throw Object.assign(new Error("Saldo insuficiente en Flash Wallet"), { status: 402 });
       }
       const clearing =
@@ -734,7 +763,7 @@ export async function createPostgresOrder({
           paymentTransaction.rows[0].id,
           walletAccount.rows[0].id,
           job.rows[0].id,
-          totalCents,
+          chargedCents,
           { jobPublicId: publicId },
           clearing.rows[0].id,
         ],
@@ -745,7 +774,7 @@ export async function createPostgresOrder({
         [
           job.rows[0].id,
           customer.rows[0].id,
-          totalCents,
+          chargedCents,
           `payment-${idempotencyKey}`,
           { ledgerTransactionId: paymentTransaction.rows[0].id },
         ],
@@ -760,9 +789,16 @@ export async function createPostgresOrder({
         // comercio: se descuenta de la comision de aplicacion y no de lo que se
         // le liquida. Sumarlo entero aca le cobraria al comercio un beneficio
         // que no vendio ni financio.
+        // `+ tipCents`: con split de marketplace el comercio recibe lo cobrado
+        // menos la comision de aplicacion. Sin sumar la propina ahi, la propina
+        // del repartidor terminaria en la cuenta del comercio.
         applicationFeeCents =
-          deliveryFeeCents - subscriptionDiscountCents + serviceFeeCents + merchantCommissionCents;
-      if (applicationFeeCents >= totalCents)
+          deliveryFeeCents -
+          subscriptionDiscountCents +
+          serviceFeeCents +
+          merchantCommissionCents +
+          tipCents;
+      if (applicationFeeCents >= chargedCents)
         throw Object.assign(new Error("La comisión configurada no permite procesar este pedido"), {
           status: 409,
         });
@@ -771,7 +807,7 @@ export async function createPostgresOrder({
         [
           job.rows[0].id,
           customer.rows[0].id,
-          totalCents,
+          chargedCents,
           marketplacePaymentKey(idempotencyKey),
           {
             applicationFeeCents,
@@ -782,6 +818,15 @@ export async function createPostgresOrder({
       );
       paymentStatus = "requires_confirmation";
     }
+    // Retenida, no pagada: en el checkout todavia no hay conductor asignado. Se
+    // libera al liquidar el pedido completado, y si el pedido nunca llega a
+    // completarse vuelve con el reintegro.
+    await holdCheckoutTip(client, {
+      jobId: job.rows[0].id,
+      customerId: customer.rows[0].id,
+      amountCents: tipCents,
+      idempotencyKey,
+    });
     await client.query("INSERT INTO job_events(job_id, actor_id, status) VALUES ($1, $2, $3)", [
       job.rows[0].id,
       customer.rows[0].id,

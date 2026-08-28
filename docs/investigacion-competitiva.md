@@ -107,7 +107,7 @@ Lo que sigue se verificó contra el código y las migraciones, no contra la memo
 
 ### Lo que falta para competir, y no es técnico
 
-Cuatro huecos con nombre. El primero **está cerrado desde el 28 de agosto**; quedan tres.
+Cuatro huecos con nombre. Los dos primeros **están cerrados desde el 28 de agosto**; quedan dos.
 
 **1. ~~No hay producto de suscripción.~~ Hay uno: *Flash Más*.** Uber One, DashPass y
 PedidosYa Plus son el motor de retención y de margen de la categoría, y era el hueco que
@@ -132,10 +132,20 @@ en viajes no, porque el estimador de tarifa es público y no sabe quién pregunt
 prioridad de dispatch tampoco, porque el orden de candidatos lo decide DSP-001. Están en la
 fila del plan y nombrados como pendientes, no marcados como hechos.
 
-**2. La propina sólo existe después de entregar.** `tip-repository.js` rechaza la propina
-si el servicio no está `completed`. Los competidores la piden en el checkout, antes de
-asignar, y eso sube la tasa de propina y por lo tanto la ganancia por viaje del conductor —
-que es la variable con la que se compite por oferta de repartidores.
+**2. ~~La propina sólo existe después de entregar.~~ Ahora también se deja en el checkout.**
+Los competidores la piden antes de asignar porque así se deja más seguido, y la propina es
+la ganancia por viaje de quien reparte — la variable con la que se compite por oferta de
+reparto.
+
+El detalle que hace difícil copiarlo es que **en el checkout todavía no hay a quién
+pagarle**. Flash lo resuelve reteniéndola: se cobra junto con el pedido, en un solo cargo,
+y se libera entera cuando hay conductor y el servicio se completa. Si el pedido se
+reintegra, vuelve con el resto.
+
+Dos decisiones que la categoría no siempre toma: **la propina no se reparte** —sale del
+total antes de dividir entre comercio, conductor y plataforma, así que nadie se queda con
+una parte— y **los porcentajes se calculan sobre el subtotal, no sobre el total**, para que
+no suba cuando sube el envío o la tarifa de servicio.
 
 **3. No hay pedidos grupales.** Uber Eats, DoorDash y Rappi los tienen. Es la vía natural
 al ticket promedio alto y al pedido de oficina.

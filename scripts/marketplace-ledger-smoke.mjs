@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { calculateFoodSettlement } from "../server/merchant-finance-repository.js";
 import { splitOrderDiscounts } from "../server/subscription-repository.js";
+import { checkoutTipMaxCents, CHECKOUT_TIP_MIN_CENTS } from "../server/tip-repository.js";
 
 const marketplace = calculateFoodSettlement({
   provider: "mercadopago",
@@ -221,5 +222,86 @@ assert.throws(
   /no balancea/,
   "sin subsidio declarado un margen negativo sigue siendo un error",
 );
+
+// ---------------------------------------------------------------------------
+// Propina tomada en el checkout (GTM-001): no se reparte, se paga aparte.
+//
+// La liquidacion divide `capturado - propina` y acredita la propina al
+// repartidor en el mismo asiento. Se afirma la aritmetica que sostiene eso,
+// porque el error que importa —que el comercio o la plataforma se queden con
+// parte de la propina— es silencioso: nadie reclama una propina que llego a la
+// cuenta equivocada porque nadie la ve.
+// ---------------------------------------------------------------------------
+const PROPINA = 150000;
+const CAPTURADO = 1600000 + PROPINA;
+const conPropina = calculateFoodSettlement({
+  provider: "flash_wallet",
+  total: CAPTURADO - PROPINA,
+  subtotal: 1500000,
+  discount: 0,
+  commissionBps: 1800,
+  deliveryFee: 90000,
+  hasDriver: true,
+});
+const sinPropina = calculateFoodSettlement({
+  provider: "flash_wallet",
+  total: 1600000,
+  subtotal: 1500000,
+  discount: 0,
+  commissionBps: 1800,
+  deliveryFee: 90000,
+  hasDriver: true,
+});
+assert.deepEqual(
+  conPropina,
+  sinPropina,
+  "la propina no cambia el reparto: se saca del total antes de dividir",
+);
+// El asiento cierra contra lo cobrado una vez acreditada la propina.
+assert.equal(
+  conPropina.merchantNet + conPropina.driverNet + conPropina.platformNet + PROPINA,
+  CAPTURADO,
+  "lo repartido mas la propina es exactamente lo cobrado",
+);
+
+// Con split de marketplace la comision de aplicacion tambien lleva la propina,
+// para que el proveedor no se la deposite al comercio, y por eso se descuenta de
+// las dos puntas. Si solo se descontara de una, el comercio cobraria de mas o de
+// menos exactamente la propina.
+const APP_FEE = 400000;
+// Lo que la creacion del pedido guarda en `provider_payload`, y lo que la
+// liquidacion le vuelve a restar. Escrito en dos pasos porque son dos lugares
+// distintos del codigo: si alguno dejara de restar, el comercio cobraria de mas
+// o de menos exactamente la propina.
+const feeGuardadaEnElIntento = APP_FEE + PROPINA;
+const marketplaceConPropina = calculateFoodSettlement({
+  provider: "mercadopago",
+  total: CAPTURADO - PROPINA,
+  subtotal: 1500000,
+  discount: 0,
+  commissionBps: 1800,
+  deliveryFee: 90000,
+  hasDriver: true,
+  applicationFee: feeGuardadaEnElIntento - PROPINA,
+});
+assert.equal(
+  marketplaceConPropina.merchantNet,
+  CAPTURADO - PROPINA - APP_FEE,
+  "el comercio recibe lo cobrado sin la propina menos su comision, ni un centavo distinto",
+);
+
+// Topes de la propina de checkout. El piso lo impone la tabla desde la migracion
+// 025; el techo atrapa un error de tipeo de tres ceros de mas.
+assert.equal(
+  checkoutTipMaxCents(1000000),
+  500000,
+  "el techo es la mitad del pedido cuando el pedido es grande",
+);
+assert.equal(
+  checkoutTipMaxCents(1000),
+  CHECKOUT_TIP_MIN_CENTS,
+  "en un pedido chico el techo no baja del piso, o no se podria dejar propina",
+);
+assert.equal(checkoutTipMaxCents(100000000), 10000000, "el techo absoluto sigue vigente");
 
 console.log("marketplace ledger smoke passed");

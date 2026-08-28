@@ -700,6 +700,9 @@ export const api = {
     providerPayment?: { cardToken: string; paymentMethodId: string; installments: number };
     promotionCode?: string;
     quoteToken: string;
+    // Propina del checkout (GTM-001), en centavos y entera: en pesos con
+    // decimales cada cliente redondea distinto, y esto es dinero.
+    tipCents?: number;
     items: Array<{ menuItemId: string; quantity: number; extras: string[]; note: string }>;
   }) {
     if (!payload.deliveryAddressId)

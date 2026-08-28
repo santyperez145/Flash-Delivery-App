@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { postgresPool } from "./postgres.js";
+import { heldTipForJob, markHeldTipRefunded, markTipReleased } from "./tip-repository.js";
 const payoutId = () => `PAY-${crypto.randomBytes(5).toString("hex").toUpperCase()}`;
 const account = async (client, { ownerType, ownerId = null, accountType }) =>
   (
@@ -135,10 +136,20 @@ export async function settleCapturedFoodOrder(client, { jobId, actorId = null })
     )
   ).rows[0];
   if (!transaction) return { settled: true, idempotent: true };
-  const total = Number(payment.captured_amount_cents),
+  // La propina tomada en el checkout viaja dentro de lo cobrado, pero **no se
+  // reparte**: no es del comercio ni de la plataforma. Se saca del total antes
+  // de dividir y se paga aparte, o el comercio se llevaria la propina del
+  // repartidor.
+  const tip = await heldTipForJob(client, job.id);
+  const capturado = Number(payment.captured_amount_cents),
+    total = capturado - tip.amountCents,
     subtotal = Number(job.subtotal_cents),
     discount = Math.round(Number(job.metadata?.discount || 0) * 100),
-    providerApplicationFee = Number(payment.provider_payload?.applicationFeeCents || 0),
+    // La comision de aplicacion incluye la propina desde la creacion del pedido,
+    // para que el proveedor no se la deposite al comercio. Se descuenta acá por
+    // el mismo motivo por el que se descuenta del total.
+    providerApplicationFee =
+      Number(payment.provider_payload?.applicationFeeCents || 0) - tip.amountCents,
     deliveryFee = Math.round(Number(job.metadata?.deliveryFee || 0) * 100),
     subscriptionDiscount = Math.round(Number(job.metadata?.subscriptionDiscount || 0) * 100),
     { merchantNet, driverNet, platformNet, commission } = calculateFoodSettlement({
@@ -164,7 +175,7 @@ export async function settleCapturedFoodOrder(client, { jobId, actorId = null })
   // origen de fondos: es plata que Flash puso, y ponerla como un crédito
   // negativo dejaría el libro sin cuadrar.
   const entries = [
-    [clearing, "debit", total],
+    [clearing, "debit", capturado],
     [merchantDestination, "credit", merchantNet],
     platformNet >= 0
       ? [platformRevenue, "credit", platformNet]
@@ -177,6 +188,31 @@ export async function settleCapturedFoodOrder(client, { jobId, actorId = null })
       accountType: "wallet",
     });
     entries.push([driverWallet, "credit", driverNet]);
+  }
+  // La propina, a quien corresponda. **Nunca se queda en la plataforma**: si el
+  // pedido se completo sin conductor asignado —reparto propio del comercio— no
+  // hay a quien pagarsela y vuelve al cliente. Quedarsela seria cobrar por un
+  // servicio que nadie prestó, y es el error que nadie reclama porque nadie lo ve.
+  if (tip.amountCents > 0) {
+    const destinoPropina = job.driver_user_id
+      ? await account(client, {
+          ownerType: "user",
+          ownerId: job.driver_user_id,
+          accountType: "wallet",
+        })
+      : await account(client, {
+          ownerType: "user",
+          ownerId: job.customer_id,
+          accountType: "wallet",
+        });
+    entries.push([destinoPropina, "credit", tip.amountCents]);
+    if (job.driver_user_id)
+      await markTipReleased(client, {
+        tipId: tip.id,
+        driverId: job.driver_id,
+        ledgerTransactionId: transaction.id,
+      });
+    else await markHeldTipRefunded(client, job.id);
   }
   for (const [accountId, direction, amount] of entries)
     if (amount > 0)

@@ -57,6 +57,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { api } from "../api";
 import { Beneficios, SubscriptionPanel, useSubscription } from "./SubscriptionPanel";
+import { TipSelector } from "./TipSelector";
 import { allergenOptions, dietOptions, itemMatchesDietary } from "../dietary";
 import { initials, money } from "../format";
 import {
@@ -2736,6 +2737,8 @@ function CartScreen({
   const [selectedAddressId, setSelectedAddressId] = useState(
     () => geocodedAddresses.find((entry) => entry.isDefault)?.id || geocodedAddresses[0]?.id || "",
   );
+  // Propina del checkout (GTM-001). En centavos, como viaja a la API.
+  const [tipCents, setTipCents] = useState(0);
   const [checkoutQuote, setCheckoutQuote] = useState<FoodCheckoutQuote | null>(null),
     [quoteBusy, setQuoteBusy] = useState(false),
     [quoteError, setQuoteError] = useState(""),
@@ -2864,9 +2867,19 @@ function CartScreen({
           paymentMethod: checkoutQuote.paymentMethod,
           paymentMethodId: checkoutQuote.paymentMethodId || undefined,
           quoteToken: checkoutQuote.quoteToken,
+          tipCents,
         }
       : null;
-  const displayedTotals = checkoutOpen && checkoutQuote ? checkoutQuote : totals;
+  // Los mismos topes que aplica el servidor. Duplicarlos acá evita ofrecer un
+  // monto que el confirmar va a rechazar; el que manda sigue siendo el servidor.
+  const propinaMin = 10000;
+  const propinaMax = checkoutQuote
+    ? Math.min(10000000, Math.max(propinaMin, Math.floor(checkoutQuote.total * 100 * 0.5)))
+    : 0;
+  const displayedTotals =
+    checkoutOpen && checkoutQuote
+      ? { ...checkoutQuote, tip: tipCents / 100, total: checkoutQuote.total + tipCents / 100 }
+      : totals;
   return (
     <div className="screen">
       <TopBar
@@ -3097,6 +3110,19 @@ function CartScreen({
                 </div>
               </label>
             </section>
+          )}
+          {/* Antes del resumen, para que el total que se lee ya incluya lo que
+              se acaba de elegir. Después del total sería pedir una decisión que
+              cambia una cifra que la persona ya dio por buena. */}
+          {checkoutOpen && checkoutQuote && (
+            <TipSelector
+              subtotal={checkoutQuote.subtotal}
+              tipCents={tipCents}
+              onChange={setTipCents}
+              minCents={propinaMin}
+              maxCents={propinaMax}
+              disabled={busy || quoteBusy}
+            />
           )}
           <SummaryBlock totals={displayedTotals} />
           {paymentMode === "wallet" && (
@@ -3496,6 +3522,7 @@ function SummaryBlock({
     serviceFee: number;
     discount?: number;
     subscriptionDiscount?: number;
+    tip?: number;
     total: number;
   };
 }) {
@@ -3526,6 +3553,16 @@ function SummaryBlock({
         <div className="summary-suscripcion">
           <span>Envío con Flash Más</span>
           <strong>-{money.format(totals.subscriptionDiscount)}</strong>
+        </div>
+      )}
+      {/* Suma, no resta. Es la única línea del resumen que sube el total por
+          decisión de la persona, y por eso se muestra por separado: verla dentro
+          del total sin nombrarla es la forma más rápida de que se sienta un
+          cargo que nadie eligió. */}
+      {!!totals.tip && (
+        <div>
+          <span>Propina</span>
+          <strong>{money.format(totals.tip)}</strong>
         </div>
       )}
       <div className="total-line">

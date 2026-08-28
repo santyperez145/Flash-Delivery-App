@@ -896,6 +896,9 @@ export const api = {
     providerPayment?: { cardToken: string; paymentMethodId: string; installments: number };
     promotionCode?: string;
     quoteToken?: string;
+    // En centavos y entera: en pesos con decimales cada cliente redondea
+    // distinto, y esto es dinero.
+    tipCents?: number;
     items: Array<Pick<CartLine, "quantity" | "extras" | "note"> & { menuItemId: string }>;
   }) {
     if (!payload.deliveryAddressId)

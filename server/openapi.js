@@ -1577,6 +1577,16 @@ Object.assign(openApiDocument.components.schemas, {
         properties: {
           deliveryAddress: { type: "string", minLength: 3 },
           quoteToken: { type: "string", minLength: 20, writeOnly: true },
+          // Propina del checkout (GTM-001). **No viaja en la cotizacion
+          // firmada**: cambiarla no deberia obligar a recotizar el pedido
+          // entero, y no hay nada que proteger firmandola —es plata del cliente
+          // hacia quien reparte, no un precio que el cliente pueda bajar—. Los
+          // topes se aplican contra el total del pedido, del lado del servidor.
+          //
+          // Se cobra junto con el pedido, en un solo cargo, y queda retenida
+          // hasta que hay conductor y el servicio se completa. Si el pedido se
+          // reintegra, vuelve entera.
+          tipCents: { type: "integer", minimum: 0, maximum: 10000000, default: 0 },
           providerPayment: { $ref: "#/components/schemas/ProviderPaymentInput" },
         },
       },

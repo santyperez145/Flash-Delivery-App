@@ -65,6 +65,11 @@ const orderSchema = z.object({
   paymentMethodId: z.string().uuid().optional(),
   promotionCode: z.string().trim().min(3).max(40).optional(),
   quoteToken: z.string().min(20).optional(),
+  // Propina tomada en el checkout (GTM-001). En centavos y entera: un `number`
+  // en pesos con decimales llega redondeado distinto según el cliente, y esto es
+  // dinero. Los topes reales los aplica el repositorio contra el total del
+  // pedido, que acá todavía no se conoce.
+  tipCents: z.coerce.number().int().min(0).max(10000000).default(0),
   providerPayment: z
     .object({
       cardToken: z
@@ -305,6 +310,7 @@ router.post("/api/orders", requireAuth, requireAnyRole("customer", "admin"), asy
     providerPayment,
     promotionCode,
     quoteToken,
+    tipCents,
   } = parsed.data;
   const idempotencyKey = req.get("idempotency-key");
   if (
@@ -410,6 +416,7 @@ router.post("/api/orders", requireAuth, requireAnyRole("customer", "admin"), asy
         items,
         serviceFee: lockedQuote?.serviceFee ?? serviceFee,
         lockedQuote,
+        tipCents,
         idempotencyKey,
       });
       if (providerPayment && !String(order.paymentMethod).toLowerCase().includes("wallet"))

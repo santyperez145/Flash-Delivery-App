@@ -1514,12 +1514,18 @@ try {
     method: "POST",
     body: JSON.stringify(settlementPayload),
   });
+  // Propina tomada en el checkout (GTM-001). Va sobre el pedido que se liquida
+  // porque el riesgo esta justo ahi: que el comercio o la plataforma se queden
+  // con parte de ella. Es un error silencioso — nadie reclama una propina que
+  // llego a la cuenta equivocada, porque nadie la ve.
+  const propinaCents = 120000;
   const settlementOrder = await request("/orders", {
     method: "POST",
     headers: { "Idempotency-Key": settlementOrderKey },
     body: JSON.stringify({
       ...settlementPayload,
       quoteToken: settlementQuote.body.quote?.quoteToken,
+      tipCents: propinaCents,
     }),
   });
   settlementOrderId = settlementOrder.body.order?.id;
@@ -1540,6 +1546,28 @@ try {
   assert(
     preReadyDispatchOffers === 0,
     "paid food remains out of dispatch until merchant readiness",
+  );
+  const propinaRetenida = (
+    await pool.query(
+      `SELECT t.status, t.amount_cents, t.driver_id, p.amount_cents charged_cents
+       FROM service_tips t JOIN jobs j ON j.id=t.job_id
+       JOIN payment_intents p ON p.job_id=j.id
+       WHERE j.public_id=$1`,
+      [settlementOrderId],
+    )
+  ).rows[0];
+  assert(
+    propinaRetenida?.status === "held" &&
+      Number(propinaRetenida.amount_cents) === propinaCents &&
+      // Sin conductor asignado todavia: en el checkout no hay a quien pagarle, y
+      // por eso la propina se retiene en vez de transferirse.
+      propinaRetenida.driver_id === null,
+    "la propina del checkout queda retenida y sin destinatario hasta que haya conductor",
+  );
+  assert(
+    Number(propinaRetenida.charged_cents) ===
+      Math.round(settlementQuote.body.quote.total * 100) + propinaCents,
+    "se cobra el pedido y la propina en un solo cargo, no en dos",
   );
   const substitutionWalletBefore = (await request("/me")).body.account.user.wallet;
   const merchantSubLogin = await request("/auth/login", {
@@ -1964,6 +1992,39 @@ try {
       merchantBalanceAfter,
     });
   assert(settlementOk, "completed order creates an exact balanced merchant/driver/platform split");
+  // La propina, ya liberada. El asiento cuadrado que se afirma arriba es lo que
+  // atrapa el error grande: si la liquidacion repartiera la propina en vez de
+  // sacarla del total, el trigger `ledger_entries_must_balance` de la migracion
+  // 003 rechazaria la transaccion entera al hacer commit.
+  const propinaLiberada = (
+    await pool.query(
+      `SELECT t.status, t.driver_id, t.ledger_transaction_id, t.settled_at,
+              (SELECT COALESCE(sum(e.amount_cents),0)::bigint
+                 FROM ledger_entries e
+                 JOIN ledger_accounts a ON a.id=e.account_id
+                 JOIN drivers dr ON dr.user_id=a.owner_id
+                WHERE e.transaction_id=t.ledger_transaction_id
+                  AND e.direction='credit' AND a.account_type='wallet'
+                  AND dr.id=t.driver_id) credito_al_conductor
+       FROM service_tips t JOIN jobs j ON j.id=t.job_id WHERE j.public_id=$1`,
+      [settlementOrderId],
+    )
+  ).rows[0];
+  assert(
+    propinaLiberada?.status === "released" &&
+      propinaLiberada.driver_id !== null &&
+      propinaLiberada.ledger_transaction_id !== null &&
+      propinaLiberada.settled_at !== null,
+    "al liquidar, la propina retenida queda pagada con destinatario y asiento",
+  );
+  assert(
+    // El conductor cobra su parte del envio **mas** la propina completa. Si el
+    // comercio o la plataforma se hubieran quedado con una parte, este credito
+    // seria mas chico.
+    Number(propinaLiberada.credito_al_conductor) ===
+      Math.round(settlementQuote.body.quote.deliveryFee * 100) + propinaCents,
+    "el conductor cobra el envio mas la propina entera, sin que nadie retenga una parte",
+  );
   token = registeredToken;
   const foreignReorder = await request(`/orders/${settlementOrderId}/reorder`, {
     method: "POST",
@@ -3892,6 +3953,13 @@ try {
     );
     await pool.query(
       "DELETE FROM payment_intents WHERE job_id=(SELECT id FROM jobs WHERE public_id=$1)",
+      [settlementOrderId],
+    );
+    // Antes que los asientos y que el pedido: `service_tips` referencia a los dos
+    // sin cascada, asi que borrarlos primero fallaria por clave foranea y el
+    // pedido del smoke quedaria para la corrida siguiente.
+    await pool.query(
+      "DELETE FROM service_tips WHERE job_id=(SELECT id FROM jobs WHERE public_id=$1)",
       [settlementOrderId],
     );
     for (const transactionKey of [

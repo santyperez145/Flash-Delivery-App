@@ -1056,6 +1056,9 @@ export type FoodCheckoutSelection = {
   paymentMethod: string;
   paymentMethodId?: string;
   quoteToken: string;
+  /** Propina en centavos, elegida en el checkout. Se cobra con el pedido y se
+   *  libera al repartidor cuando el servicio se completa. */
+  tipCents?: number;
 };
 
 /** Lo que la pantalla de envíos manda para crear uno. */
