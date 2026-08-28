@@ -37,7 +37,7 @@ No son preferencias. Cada punto sale de leer el repositorio, y cada uno descarta
 | **Redis** con readiness bloqueante | `REDIS_REQUIRED` en `server/config.js` | Nada, pero hay que proveerlo |
 | **~20 secretos de producción** | `server/config.js` los exige uno por uno al arrancar | Pegarlos a mano en un panel |
 | **Contenedor endurecido** | El job `container-image` lo construye y verifica en cada PR | Plataformas que sólo aceptan buildpacks |
-| **Planificador externo** | `job:operational-queues` y `job:payment-reconciliation` no traen el suyo | Plataformas sin cron de verdad |
+| **Planificador externo** | `worker:dispatch` y `job:payment-reconciliation` no traen el suyo | Plataformas sin cron de verdad |
 | **Tres roles de base separados** | `flash_app`, `flash_runtime`, `flash_rls_audit` | Bases gestionadas que no dejan crear roles |
 
 ## El mapeo
@@ -123,7 +123,7 @@ Ninguno ejecutado. Cada uno se marca al correrlo, con la fecha.
 - [ ] Memorystore para Redis.
 - [ ] Los ~20 secretos en Secret Manager. Ninguno en el panel de Cloud Run.
 - [ ] Cloud Run con `--min-instances=1 --cpu-throttling=false --timeout=3600`.
-- [ ] Cloud Run Job para `job:operational-queues` y `job:payment-reconciliation`, con Cloud
+- [ ] Los workers como servicios de Cloud Run con instancia mínima, y `job:payment-reconciliation` como Cloud Run Job con Cloud
       Scheduler disparándolos. **Verificar que un pedido pagado reciba oferta sin que nadie
       toque nada** — es la prueba de que el cron sirve, no de que existe.
 - [ ] Restore drill cronometrado contra el RTO de 60 minutos.

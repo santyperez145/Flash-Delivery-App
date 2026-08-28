@@ -1,4 +1,35 @@
-# Propinas post-servicio
+# Propinas
+
+Se dejan en dos momentos, y son mecanismos distintos.
+
+## En el checkout, antes de que haya conductor
+
+La competencia la pide antes de asignar repartidor porque así se deja más
+seguido, y la propina es la ganancia por viaje de quien reparte — la variable con
+la que se compite por oferta de reparto.
+
+**El problema no es la pantalla: en el checkout todavía no hay a quién pagarle.**
+Así que no se transfiere. `tipCents` viaja en `POST /api/orders`, se cobra junto
+con el pedido —**un solo cargo**— y queda retenida hasta que hay conductor y el
+servicio se completa. Eso obliga a que una propina pueda existir sin
+destinatario, que es lo que habilita la migración 126: `driver_id` y
+`ledger_transaction_id` pasan a ser opcionales y `status` distingue `held` de
+`released` y `refunded`.
+
+**La propina retenida no se reparte.** La liquidación la saca de lo cobrado antes
+de dividir entre comercio, conductor y plataforma, y la acredita aparte; con
+split de Mercado Pago hace falta además sumarla a la comisión de aplicación, o el
+proveedor se la deposita al comercio. El trigger de balance de la migración 003
+lo vuelve auto-verificable: hacerlo mal rechaza la transacción al commit.
+
+Si el pedido se reintegra, la propina vuelve con él y la fila deja de decir
+«retenida». Un reintegro parcial no la anula: el pedido puede completarse igual y
+el repartidor la ganó.
+
+**Los porcentajes se calculan sobre el subtotal, no sobre el total**, para que no
+suba cuando sube el envío o la tarifa de servicio.
+
+## Después de entregar
 
 `POST /api/jobs/:jobId/tips` permite al cliente propietario enviar entre $100 y
 $100.000 después de completar un pedido, viaje o envío con conductor asignado.
