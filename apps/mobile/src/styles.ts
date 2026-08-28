@@ -2347,7 +2347,6 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  trackingStageDotActive: { backgroundColor: "#ff6a21" },
   trackingStageText: { fontSize: 12, color: "#918b95" },
   trackingStageTextActive: { fontWeight: "900", color: "#252128" },
   shipmentProtectionCard: {

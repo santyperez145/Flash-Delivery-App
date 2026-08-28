@@ -108,6 +108,32 @@ async function login(page, url, email, submitLabel) {
   }
 }
 
+async function auditCustomerTrackingSheet(page) {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByText("Actividad", { exact: true }).last().click();
+  const activeOrderAction = page.getByRole("button", {
+    name: /Abrir seguimiento del pedido/,
+  });
+  await activeOrderAction.first().waitFor({ timeout: 10_000 });
+  await activeOrderAction.first().press("Enter");
+
+  const close = page.getByRole("button", { name: "Cerrar seguimiento del pedido" });
+  await close.waitFor({ timeout: 10_000 });
+  await assertNoPageOverflow(page, "customer food tracking sheet");
+  await assertLocatorInsideViewport(page, close, "customer food tracking close action");
+
+  const currentStage = page.locator('[aria-label$=", actual"]').first();
+  await currentStage.waitFor();
+  const currentAccent = await currentStage.evaluate((element) => {
+    const marker = element.firstElementChild;
+    return marker ? getComputedStyle(marker).backgroundColor : "";
+  });
+  assert.equal(currentAccent, "rgb(255, 106, 33)", "food tracking must use the Food accent");
+
+  await close.click();
+  ok("customer food tracking sheet keeps its accent and controls inside the viewport");
+}
+
 async function auditMobile(browser) {
   const audience = mobileAudiences[mobileVariant];
   assert.ok(audience, `unknown FLASH_MOBILE_VARIANT=${mobileVariant}`);
@@ -169,6 +195,8 @@ async function auditMobile(browser) {
     });
     ok(`${mobileVariant} navigation fits ${viewport.width}x${viewport.height}`);
   }
+
+  if (mobileVariant === "customer") await auditCustomerTrackingSheet(page);
 
   if (mobileVariant === "customer") {
     await page.getByText("Cuenta", { exact: true }).last().click();
