@@ -469,6 +469,20 @@ La detección costó cuatro iteraciones y cada una encontró un defecto real: pr
 
 La lista de excepciones **no es una alfombra**: cada entrada dice quién consume esa ruta. Una que ya no exista hace fallar la puerta, para que una explicación no sobreviva a lo que explicaba.
 
+### Motivo en las decisiones operativas
+
+El criterio de [OPS-001](backlog-tecnico.md#ops-001--operación-real) pide que «toda acción operativa registre actor y motivo». El actor estaba. El motivo no.
+
+En ocho decisiones que cambian el estado de un tercero —cerrar un caso de conciliación, revisar una transacción marcada por riesgo, aprobar o rechazar un ajuste de propina, un pago a comercio, un documento de conductor, una incidencia de pedido, un siniestro o una devolución— el esquema **exigía** una nota de al menos cinco caracteres, la nota se guardaba en la tabla del dominio, y el evento de auditoría registraba nada más que el resultado.
+
+La diferencia aparece el día del incidente. Lo que se lee entonces es el log: si dice quién cerró qué y con qué estado pero no por qué, hay que reconstruir el motivo desde otra tabla — que **pudo cambiar después**, porque el log es append-only y la tabla del caso no.
+
+La puerta que lo sostiene —`test:audit-reason`— está escrita y **todavía no subida**: el token no tiene permiso para modificar workflows, y una suite que no corre en ninguno no protege nada. Cuando entre, listará las acciones **por nombre y no por patrón**. Un patrón sobre «revoke» arrastra las autogestionadas —revocar la propia sesión, dar de baja el propio dispositivo, rechazar una oferta— y una puerta que pide motivos donde no corresponden llena la interfaz de campos vacíos y enseña a escribir «-» para pasar. La primera versión usaba el prefijo `merchant.payout_` y reportó las dos acciones que el comercio ejecuta sobre lo suyo.
+
+También tuvo su falso positivo: `driver_document` ya registraba `rejectionReason` y el patrón de nombres aceptables no lo contemplaba, así que la puerta reclamó por una decisión que sí lo hacía. Un falso positivo en una puerta de auditoría cuesta el rato de arreglar algo que ya estaba bien.
+
+Y una entrada declarada que ya no aparece en el código hace fallar la puerta, para que la lista no proteja una acción que se renombró o se borró.
+
 ### Cobertura documental de las puertas
 
 `test:docs-coverage` exige que cada script `test:` esté nombrado en algún documento de `docs/`. Una puerta que nadie sabe que existe no se mantiene: cuando falla, quien la encuentra no sabe qué protegía ni si conviene arreglarla o borrarla.

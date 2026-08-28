@@ -133,6 +133,7 @@ router.patch(
         afterData: {
           orderId: issue.orderId,
           approvedRefund: issue.approvedRefund,
+          reason: parsed.data.resolutionNote,
         },
       });
       await publishRealtimeEvent({

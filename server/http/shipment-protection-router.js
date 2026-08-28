@@ -134,7 +134,10 @@ router.patch(
         entityType: "shipment_return",
         entityId: shipmentReturn.id,
         requestId: req.requestId,
-        afterData: { status: shipmentReturn.status },
+        afterData: {
+          status: shipmentReturn.status,
+          reason: parsed.data.resolutionNote,
+        },
       });
       return ok(res, { return: shipmentReturn });
     } catch (error) {
@@ -280,6 +283,7 @@ router.patch(
         afterData: {
           status: claim.status,
           approvedAmount: claim.approvedAmount,
+          reason: parsed.data.resolutionNote,
         },
       });
       return ok(res, { claim });
