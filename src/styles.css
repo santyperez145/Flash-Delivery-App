@@ -1303,6 +1303,125 @@ textarea::placeholder {
 .promise-grid,
 .driver-ops-grid,
 .merchant-command,
+/* Palancas de demanda: promociones y multiplicadores de zona (ARC-001).
+
+   Las dos mueven dinero. El botón de aplicar queda deshabilitado hasta que hay
+   un cambio real, y el valor vigente se muestra al lado del campo: sin eso, un
+   número solo no dice si se está subiendo o bajando. */
+.demanda-promos,
+.demanda-zonas {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.demanda-promos li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.demanda-promos li:last-child,
+.demanda-zonas li:last-child {
+  border-bottom: none;
+}
+
+.demanda-promos p {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.demanda-promos button {
+  flex: none;
+  min-height: var(--layout-touch);
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  cursor: pointer;
+}
+
+.promo-activa {
+  border-color: var(--mint);
+  color: #0b6b45;
+  background: #eaf8f1;
+}
+
+.promo-pausada {
+  color: var(--ink-soft);
+  background: var(--paper-soft);
+}
+
+.demanda-zonas li {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.zona-encabezado {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.zona-encabezado small {
+  color: var(--muted);
+}
+
+.zona-campos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.zona-campos label span {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.zona-campos label small {
+  color: var(--muted);
+}
+
+.zona-campos select,
+.zona-campos input {
+  width: 100%;
+  min-height: var(--layout-touch);
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.demanda-zonas button {
+  min-height: var(--layout-touch);
+  padding: 0 18px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  color: var(--accent-deep);
+  background: var(--paper);
+  cursor: pointer;
+}
+
+.demanda-zonas button:disabled {
+  border-color: var(--line);
+  color: var(--muted);
+  cursor: default;
+}
+
+@media (max-width: 720px) {
+  .zona-campos {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* Tableros de producto y operación (ARC-001, cableado de la API).
 
    El embudo, los flags y el go/no-go de zona comparten la caja `admin-card`,

@@ -72,6 +72,7 @@ import { api } from "../api";
 import { initials, money } from "../format";
 import { orderStatusLabel, rideStatusLabel } from "../labels";
 import { AdminKpi, AdminSectionHeader } from "../ui/panels";
+import { PromotionControlsPanel, ZoneDemandPanel } from "./DemandControlsBoard";
 import {
   FeatureFlagsPanel,
   ProductFunnelPanel,
@@ -493,7 +494,32 @@ export function SuperAdminConsole({
         {section === "payments" && <PaymentReconciliationPanel />}
 
         {section === "pricing" && (
-          <PricingGovernancePanel currentUserId={currentUserId} busy={busy} runAction={runAction} />
+          <div className="admin-grid">
+            <PricingGovernancePanel
+              currentUserId={currentUserId}
+              busy={busy}
+              runAction={runAction}
+            />
+            {/* Promociones y multiplicadores: las dos palancas con las que se
+                corrige una operación en curso. Estaban construidas y sin pantalla. */}
+            <div className="admin-grid two">
+              <section className="admin-card">
+                <AdminSectionHeader
+                  title="Promociones"
+                  action={`${state.promotions.filter((promo) => promo.active).length} activas`}
+                />
+                <PromotionControlsPanel
+                  promotions={state.promotions}
+                  runAction={runAction}
+                  busy={busy}
+                />
+              </section>
+              <section className="admin-card">
+                <AdminSectionHeader title="Multiplicadores por zona" action="Surge" />
+                <ZoneDemandPanel zones={state.zones} runAction={runAction} busy={busy} />
+              </section>
+            </div>
+          </div>
         )}
 
         {section === "messages" && <ServiceQuickReplyPanel busy={busy} />}
