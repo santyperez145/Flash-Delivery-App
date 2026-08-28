@@ -453,7 +453,11 @@ Es la forma más cara de deuda porque no se ve: la ruta funciona, sus pruebas pa
 
 La medida inicial: **16 rutas que ningún cliente nombra**, más 12 con consumidor externo declarado —sondas, webhooks, callbacks OAuth, trabajos de cola y una lápida deliberada, `/api/state`, que responde 410 para que un cliente viejo sepa que el recurso se retiró en vez de recibir un 404 indistinguible de un error—.
 
-Al 28 de agosto quedan **2**: `GET /api/cities` y `GET /api/payment-provider/client-configuration`. Dos se cerraron borrando duplicados y doce cableando. Las dos últimas eran de la misma forma y valen por lo que revelan: **una cola que se puede mirar y no tocar**. Las devoluciones de envío se listaban desde el móvil y ninguna pantalla podía resolverlas, así que una devolución pedida quedaba abierta esperando a alguien sin botón. Y los documentos de conductor se aprobaban o rechazaban **sin poder abrirlos**: la ruta de contenido existía y nadie la llamaba, así que se firmaba la identidad de un conductor a ciegas.
+Al 28 de agosto **quedan cero**, y la línea base está en cero: a partir de acá, una ruta nueva sin consumidor hace fallar el merge. Dos se cerraron borrando duplicados y catorce cableando.
+
+El cierre encontró un **falso positivo de la propia puerta**. `/api/payment-provider/client-configuration` figuraba huérfana y el checkout ya la llamaba: su literal lleva una plantilla dentro de la interpolación —`` `/ruta${x ? `?y=${z}` : ""}` ``— y el patrón se cortaba en el backtick interno. Casi termino cableando algo que ya estaba cableado, que es exactamente el defecto que esta puerta busca en otros. Ahora las interpolaciones se reemplazan por `*` **antes** de buscar literales, que es más simple que recorrer plantillas y no depende de adivinar dónde empieza una.
+
+Ensancharle el alcance a una puerta es el cambio que más fácil la deja inerte, así que se falseó después: con una ruta inventada sin consumidor, la puerta la nombra y corta.
 
 Cablear destapó una asimetría del contrato que no era una pantalla faltante: `PATCH /api/zones/:id` acepta `active`, pero `GET /api/zones` no lo devuelve —la consulta trae nombre, nivel de demanda y multiplicadores, nada más—. Un interruptor podría apagar una zona sin poder mostrar nunca que quedó apagada, así que ese campo no se cableó hasta que la lectura lo exponga.
 
