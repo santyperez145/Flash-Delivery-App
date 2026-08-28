@@ -10,12 +10,12 @@
 // cuatro días no. Y es la forma de la métrica que revela lo que ninguna cantidad
 // revela: que nadie está procesando.
 //
-// Eso no es hipotético. Hasta el 28 de agosto el despacho, las notificaciones y
-// el SLA de soporte **no tenían planificador**: sus lotes existían y nada los
-// invocaba, así que un pedido pagado se quedaba sin ninguna oferta de conductor.
-// Un tablero que muestre «despacho: 12 pendientes, el más viejo hace 9 horas»
-// hace visible en un vistazo lo que costó leer el arranque del servidor línea
-// por línea.
+// El caso que importa: los lotes que vacían estas colas —`worker:dispatch`,
+// `worker:notifications`, `worker:support`— corren fuera del servidor, en
+// procesos que el entorno supervisa. Si uno se cae, **nada dentro de la API se
+// entera**: las peticiones siguen respondiendo y la cola crece sola. Un tablero
+// que muestre «despacho: 12 pendientes, el más viejo hace 9 horas» hace visible
+// en un vistazo lo que de otro modo se descubre por un reclamo.
 import { postgresPool } from "./postgres.js";
 
 /**

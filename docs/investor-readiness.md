@@ -1,6 +1,6 @@
 # Investor readiness
 
-Fecha base: 14 de agosto de 2026. **Revisado el 25 de agosto de 2026** contra [`docs/auditoria-2026-08-25.md`](auditoria-2026-08-25.md).
+Fecha base: 14 de agosto de 2026. Revisado el 25 de agosto de 2026 contra [`docs/auditoria-2026-08-25.md`](auditoria-2026-08-25.md). **Actualizado el 28 de agosto de 2026**: la lista de gaps técnicos de abajo describía bloqueadores ya cerrados, que es exactamente la deriva que persigue [DOC-001](backlog-tecnico.md).
 
 Objetivo: preparar Flash Delivery App para conversaciones de pre-seed/seed con una historia clara, KPIs correctos y un plan tecnico creible.
 
@@ -12,6 +12,7 @@ Flash es una **plataforma de preproducción avanzada**, evaluada en 6,2/10. Es a
 
 - Arquitectura considerablemente más seria que la mayoría de proyectos en etapa temprana: PostgreSQL/PostGIS con 130 migraciones, RLS, ledger de doble entrada, auditoría encadenada con SHA-256, idempotencia, dispatch geoespacial con aceptación atómica y realtime durable con replay.
 - Cobertura funcional comparable conceptualmente a la suma de marketplace, mobility platform, merchant OS, driver OS y operations command center.
+- **Paridad comercial con la categoría cerrada**: suscripción, propina en el checkout, reserva de horario con reprogramación y pedidos grupales, los cuatro cableados en web y móvil. Ver [`docs/investigacion-competitiva.md`](investigacion-competitiva.md).
 - Integración con Mercado Pago construida: OAuth PKCE, tokens cifrados, `application_fee`, idempotencia, refund, webhook y conciliación.
 
 **Lo que no debe afirmarse:**
@@ -98,7 +99,13 @@ Flash es una plataforma multi-servicio para mercados urbanos donde la misma red 
 
 Los gaps de Postgres/PostGIS, ledger y realtime de la versión anterior están cerrados. Los vigentes son:
 
-**Técnicos (P0, Fase 0):** CI sin PostgreSQL ni flujos críticos · push productivo imposible por configuración · realtime fail-open · 20 tablas sin RLS · imagen Docker root con entrypoint divergente · dispatch sin recorte espacial · mapas públicos por defecto · concentración monolítica de 1,3 MB en cinco archivos.
+**Técnicos (P0, Fase 0).** Al 28 de agosto quedan tres, y los tres esperan algo externo:
+
+- **Push productivo imposible por configuración.** Espera credenciales FCM/APNs y un dispositivo físico.
+- **Mapas públicos por defecto.** Espera una clave de proveedor comercial.
+- **Sin entorno desplegado.** El destino está decidido —[GCP `southamerica-east1`](despliegue.md)— y espera una cuenta.
+
+Cerrados y verificables por puerta: CI corre PostgreSQL y los flujos críticos y bloquea el merge · realtime default-deny sobre 44 publicaciones (`test:realtime-audience`) · las 69 tablas por-usuario tienen política RLS (`test:rls-matrix`) · imagen Docker sin root y con el entrypoint real, construida en cada PR · dispatch con recorte espacial y orden KNN (`test:dispatch-candidates`) · el monolito pasó a 118 módulos de servidor, con `index.js` en 33 KB.
 
 **De validación (Fase 1):** ninguna capacidad probada contra un proveedor real · Mercado Pago sin sellers de prueba ni conciliación operada · sin builds EAS firmados · sin crash reporting ni error tracking · restore drill sin cronometrar contra el RTO.
 

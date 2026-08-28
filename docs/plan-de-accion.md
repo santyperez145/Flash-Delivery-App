@@ -89,9 +89,9 @@ La matriz vive en `docs/matriz-madurez.md` y se actualiza en el mismo PR que cam
 
 | Entregable | Ticket | Criterio de cierre |
 | --- | --- | --- |
-| ~~`ci-critical-flows.yml`~~ **hecho** | CI-001 | Pagos, ledger, webhooks, conciliación, KYC, soporte y safety bloquean el merge · 4 suites en cuarentena |
-| ~~Matriz formal de cobertura RLS~~ **hecho** | DAT-001 | Las 106 tablas clasificadas y con puerta CI; `FORCE ROW LEVEL SECURITY` sigue pendiente |
-| ~~Pruebas negativas por rol~~ **hecho** | DAT-001 | Las cinco tablas de la deuda cerraron el 27-08: `test:rls-matrix` reporta 65 de 65 y `test:rls` afirma las dos mitades de cada una —el rol auditor no ve nada, y el dueño sí ve lo suyo—. Falta acotar los grants por operación |
+| ~~`ci-critical-flows.yml`~~ **hecho** | CI-001 | Pagos, ledger, webhooks, conciliación, KYC, soporte y safety bloquean el merge · **cuarentena vacía desde el 27-08** |
+| ~~Matriz formal de cobertura RLS~~ **hecho** | DAT-001 | 109 tablas clasificadas y con puerta CI; `FORCE ROW LEVEL SECURITY` sigue pendiente |
+| ~~Pruebas negativas por rol~~ **hecho** | DAT-001 | Las cinco tablas de la deuda cerraron el 27-08: `test:rls-matrix` reporta 69 de 69 y `test:rls` afirma las dos mitades de cada una —el rol auditor no ve nada, y el dueño sí ve lo suyo—. Falta acotar los grants por operación |
 | Vitest + Testcontainers | CI-001 | Framework estándar adoptado; primeras suites migradas |
 
 #### Semana 3 (8–14 de septiembre) — Proveedores reales
@@ -125,7 +125,7 @@ La fase no se declara cerrada hasta que **todos** estos puntos sean verificables
 - [x] La imagen de producción corre como usuario no privilegiado y usa `server/start.js`.
 - [ ] El build de cada variante mobile (customer, driver, merchant) funciona por separado.
 - [ ] Cero credenciales demo en cualquier ambiente desplegado.
-- [~] La suite crítica está verde y es bloqueante, con **4 suites declaradas en cuarentena** que corren sin bloquear.
+- [x] La suite crítica está verde y es bloqueante, y **la cuarentena está vacía desde el 27 de agosto**.
 - [x] La matriz de madurez está publicada y ningún ítem del README la contradice.
 - [ ] Ningún archivo fuente supera 1.500 líneas ni contiene líneas de más de 200 caracteres.
 

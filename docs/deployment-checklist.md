@@ -9,7 +9,7 @@ Ninguno de estos puntos puede quedar abierto en un ambiente que reciba tráfico 
 | Bloqueador | Hallazgo | Estado |
 | --- | --- | --- |
 | ~~La imagen corre como root y arranca un entrypoint distinto al de Compose~~ | [H-05](auditoria-2026-08-25.md#h-05--la-imagen-docker-no-corresponde-al-arranque-real-y-corre-como-root) | **Cerrado** |
-| CI no ejecuta migraciones, RLS, pagos ni dispatch | [H-01](auditoria-2026-08-25.md#h-01--ci-no-ejecuta-el-86-de-su-propia-matriz-de-pruebas) | **Cerrado**, con 4 suites en cuarentena |
+| CI no ejecuta migraciones, RLS, pagos ni dispatch | [H-01](auditoria-2026-08-25.md#h-01--ci-no-ejecuta-el-86-de-su-propia-matriz-de-pruebas) | **Cerrado**; la cuarentena quedó vacía el 27-08 |
 | 20 tablas sin política RLS y grants `ON ALL TABLES` | [H-04](auditoria-2026-08-25.md#h-04--20-tablas-sin-política-rls-y-cero-force-row-level-security) | Abierto |
 | Push imposible en producción por configuración | [H-02](auditoria-2026-08-25.md#h-02--push-productivo-es-imposible-por-configuración) | Abierto |
 | Geocoding y routing apuntan a servicios públicos | [H-07](auditoria-2026-08-25.md#h-07--proveedores-de-mapas-públicos-por-defecto) | Abierto |
@@ -114,28 +114,30 @@ bloqueador; ahora el bloqueador es la cuenta.
 
 ## Trabajos programados
 
-**Sin planificador, cuatro lotes no corren nunca.** El proyecto no trae uno en proceso a
+**Sin planificador, cinco procesos no corren.** El proyecto no trae uno en proceso a
 propósito: un `setInterval` dentro del servidor corre una vez por réplica y no sobrevive a
-un reinicio en el momento equivocado. El planificador es del entorno que despliega — `cron`,
-un `CronJob` de Kubernetes, lo que haya.
+un reinicio en el momento equivocado. El planificador es del entorno que despliega — un
+supervisor de procesos para los que hacen bucle, `cron` o un `CronJob` de Kubernetes para
+los de una sola pasada.
 
-`npm run test:ci-coverage` verifica que cada lote tenga su punto de entrada desatendido, y
-que nadie meta un temporizador dentro del servidor. **Lo que ninguna puerta de este
-repositorio puede verificar es que el entorno los programe**, y por eso están acá.
+`npm run test:ci-coverage` verifica que cada lote tenga su punto de entrada, y que nadie
+meta un temporizador dentro del servidor. **Lo que ninguna puerta de este repositorio puede
+verificar es que el entorno los ejecute**, y por eso están acá.
 
-| Comando | Frecuencia sugerida | Qué pasa si no corre |
+| Comando | Forma | Qué pasa si no corre |
 | --- | --- | --- |
-| `npm run job:operational-queues` | cada 30 segundos | **Un pedido pagado no recibe ninguna oferta de conductor.** Además: nada de lo encolado se notifica, y ningún ticket escala al vencer su SLA. |
-| `npm run job:payment-reconciliation` | cada noche | Las diferencias de pago aparecen igual; lo que cambia es cuánto tardan en verse. |
+| `worker:dispatch` | bucle propio, backoff de 0,5 a 3 s | **Un pedido pagado no recibe ninguna oferta de conductor.** |
+| `worker:notifications` | bucle propio | Nada de lo encolado se entrega. |
+| `worker:support` | bucle propio | Ningún ticket escala al vencer su SLA. |
+| `worker:push-receipts` | bucle propio | Cada notificación queda en `sent` para siempre. |
+| `job:payment-reconciliation` | una pasada, cada noche | Las diferencias de pago aparecen igual; cambia cuánto tardan en verse. |
 
-- [ ] `job:operational-queues` programado, con alerta si no reporta en dos períodos.
+- [ ] Los cuatro workers supervisados, con reinicio automático y alerta si mueren.
 - [ ] `job:payment-reconciliation` programado.
 - [ ] Verificado que un pedido pagado en el entorno real recibe oferta sin intervención.
 
-> El tercer punto es el que importa. Los dos primeros comprueban que el cron exista; el
-> tercero comprueba que **sirva**, que es distinto. Hasta el 28 de agosto de 2026 el
-> despacho sólo avanzaba desde `POST /api/admin/dispatch/process`, y un comentario del
-> código afirmaba que corría solo.
+> El tercer punto es el que importa. Los dos primeros comprueban que los procesos existan;
+> el tercero comprueba que **sirvan**, que es distinto.
 
 ## Operación
 

@@ -89,8 +89,9 @@ export function WorkQueueBoard() {
             nombre en vez de dejar que alguien lo deduzca de doce filas. */}
         {datos.stalledJobs > 0 && (
           <p className="colas-cron">
-            {datos.stalledJobs} cola(s) automáticas atrasadas. Revisá que el planificador esté
-            ejecutando <code>job:operational-queues</code>.
+            {datos.stalledJobs} cola(s) automáticas atrasadas. Revisá que los workers estén
+            corriendo: <code>worker:dispatch</code>, <code>worker:notifications</code>,{" "}
+            <code>worker:support</code>.
           </p>
         )}
       </header>

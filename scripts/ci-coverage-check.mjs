@@ -124,41 +124,40 @@ for (const [suite, reason] of NIGHTLY) console.log(`     nocturna:   ${suite} �
 for (const [suite, reason] of QUARANTINED) console.log(`     cuarentena: ${suite} — ${reason}`);
 
 // ---------------------------------------------------------------------------
-// La otra mitad de «existe y algo lo corre»: los lotes operativos (OPS-001).
+// La otra mitad de «existe y algo lo corre»: los lotes operativos.
 //
 // Una suite que no esta en ningun workflow no protege nada — eso es lo que
-// verifica el resto de este archivo. Un lote que no tiene punto de entrada
-// desatendido tampoco corre nunca, y es peor: la suite silenciosa deja pasar un
-// defecto, el lote silencioso **es** el defecto.
+// verifica el resto de este archivo. Un lote sin punto de entrada desatendido
+// tampoco corre nunca, y es peor: la suite silenciosa deja pasar un defecto, el
+// lote silencioso **es** el defecto.
 //
-// Como aparecio: `processPostgresDispatchBatch`, `processPostgresNotificationBatch`
-// y `processSupportQueue` estaban importados en `server/index.js` y no llamados
-// desde ahi. Solo se disparaban desde `POST /api/admin/*/process`, o sea cuando
-// alguien se acordaba. Sin nadie que se acordara, un pedido pagado no recibia
-// ninguna oferta de conductor.
-//
-// La politica del proyecto es explicita y esta bien: **ningun planificador dentro
-// del servidor**, porque corre una vez por replica y no sobrevive a un reinicio.
-// Lo que si tiene que existir es el punto de entrada que el planificador del
-// entorno invoca. Esta puerta verifica que exista, no que este programado — eso
-// ultimo vive en `docs/deployment-checklist.md`, con dueno.
+// > **Correccion del 28-08.** La primera version de esta puerta afirmaba que el
+// > despacho, las notificaciones y el SLA de soporte **no tenian** punto de
+// > entrada, y creaba uno nuevo. Era falso: `worker:dispatch`,
+// > `worker:notifications` y `worker:support` existian desde antes, con bucle
+// > propio, backoff y apagado ordenado, y estaban documentados en
+// > `docs/operations.md`. El error fue buscar solo `job:*` y `setInterval`,
+// > encontrar lo que se esperaba, y escribirlo como hecho. El trabajo duplicado
+// > se borro; la puerta se quedo, apuntando a lo que si existe.
 const LOTES_DESATENDIDOS = new Map([
-  ["processPostgresDispatchBatch", "job:operational-queues"],
-  ["processPostgresNotificationBatch", "job:operational-queues"],
-  ["processSupportQueue", "job:operational-queues"],
+  ["processPostgresDispatchBatch", "worker:dispatch"],
+  ["processPostgresNotificationBatch", "worker:notifications"],
+  ["processSupportQueue", "worker:support"],
   ["scanPaymentReconciliation", "job:payment-reconciliation"],
 ]);
 
-// **Los comentarios no cuentan.** La primera version de esta puerta usaba
-// `includes`, y al falsificarla —sacando la llamada del lote— siguio pasando:
-// el nombre seguia estando en el comentario de cabecera del propio trabajo. Una
+// **Los comentarios no cuentan.** La primera version de esta comprobacion usaba
+// `includes`, y al falsificarla —sacando la llamada del lote— siguio pasando: el
+// nombre seguia estando en el comentario de cabecera del propio trabajo. Una
 // puerta que se satisface con una mencion en prosa no verifica nada.
 const sinComentarios = (fuente) =>
   fuente.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/[^\n]*/g, "$1 ");
 
-const jobs = Object.keys(pkg.scripts).filter((name) => name.startsWith("job:"));
-const jobSources = await Promise.all(
-  jobs.map(async (name) => ({
+const puntosDeEntrada = Object.keys(pkg.scripts).filter(
+  (name) => name.startsWith("job:") || name.startsWith("worker:"),
+);
+const fuentesDeEntrada = await Promise.all(
+  puntosDeEntrada.map(async (name) => ({
     name,
     // El script apunta a un `.mjs` de `scripts/`; se lee ese archivo para
     // comprobar que efectivamente invoque el lote, y no solo que exista un
@@ -172,16 +171,17 @@ const jobSources = await Promise.all(
 );
 
 const lotesSinEntrada = [];
-for (const [lote, jobEsperado] of LOTES_DESATENDIDOS) {
-  const job = jobSources.find((entrada) => entrada.name === jobEsperado);
+for (const [lote, entradaEsperada] of LOTES_DESATENDIDOS) {
+  const entrada = fuentesDeEntrada.find((candidata) => candidata.name === entradaEsperada);
   // En posicion de llamada, no en cualquier lado: importar el lote y no
   // invocarlo es exactamente el estado que esta puerta viene a cerrar.
-  if (!job || !new RegExp(`${lote}\\s*\\(`).test(job.source))
-    lotesSinEntrada.push(`${lote} → ${jobEsperado}`);
+  if (!entrada || !new RegExp(`${lote}\\s*\\(`).test(entrada.source))
+    lotesSinEntrada.push(`${lote} → ${entradaEsperada}`);
 }
 
 // Un planificador dentro del servidor es la otra forma de equivocarse aca, y es
-// la que parece bien mientras hay una sola replica.
+// la que parece bien mientras hay una sola replica: corre una vez por replica y
+// no sobrevive a un reinicio en el momento equivocado.
 const servidor = await fs.readdir("server", { recursive: true });
 const modulosServidor = servidor.filter((nombre) => String(nombre).endsWith(".js"));
 const conTemporizador = [];
