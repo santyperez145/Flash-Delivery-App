@@ -175,8 +175,9 @@ prueba física pendiente conserva `[~]`.
 - [x] Acceso mobile progresivo con identidad Flash, email primero, contraseña,
   registro, OTP y recuperación como estados separados; sin proveedores sociales
   simulados ni códigos de desarrollo autocompletados.
-- [~] Materializar tokens compartidos: React Native ya usa el contrato versionado;
-  web continúa pendiente de migrar al mismo vocabulario.
+- [x] Materializar tokens compartidos: React Native y web consumen Brand, Food,
+  Ride, Shipment, Ink, Canvas, Surface, Line, Danger, radios, elevación y target
+  táctil desde contratos explícitos; la migración de componentes web continúa.
 - [~] Rediseñar Home/Buscar/Restaurante/Producto/Carrito/Checkout de Comidas:
   Home ya adoptó la nueva jerarquía; el resto continúa abierto.
 - [~] Eliminar promociones, categorías, recents, fees, ETA y estados visuales
@@ -291,3 +292,21 @@ Una pantalla sólo pasa a `[x]` cuando:
   compartir, tracking y cancelación real; se retiró el status técnico crudo.
 - Quedan `[~]` hasta prueba física de teclado, scroll de sheet, Dynamic Type y
   creación controlada de un pedido completo en build firmado.
+
+### 28 de agosto de 2026 — Base visual web y acceso multi-audiencia
+
+- La decisión competitiva y los límites de proveedor quedan registrados en
+  [`competitive-research/web-authentication.md`](competitive-research/web-authentication.md).
+- `foundation.css` lleva a web el vocabulario Flash de color, radios, elevación,
+  targets, foco y superficies sin reescribir el monolito CSS en un solo cambio.
+- El acceso desktop deja de reutilizar el estado de loading: tiene módulo propio,
+  tarea única, labels reales, mostrar/ocultar contraseña, error accesible y MFA
+  sobre los contratos existentes.
+- Expanded explica las cuatro audiencias y compact conserva sólo la tarea. No se
+  agregan proveedores sociales, passkeys ni biometría sin integración real.
+- Subir los targets a 44 px reveló overflow vertical en Operaciones; las barras
+  laterales ahora desplazan su navegación sin esconder `Cerrar sesión`.
+- Acceso, Customer, Merchant, Operaciones y Superadmin cargan por audiencia; el
+  entry bajó de 575,7 a 65,7 KiB sin esconder lógica ni debilitar el presupuesto.
+- Chromium verificó Customer, Merchant y Operaciones en cinco viewports; el acceso
+  se inspeccionó visualmente sin overflow y con controles de 44/52 px.

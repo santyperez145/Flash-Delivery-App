@@ -1,0 +1,116 @@
+:root {
+  --brand: #7c3cff;
+  --brand-deep: #5a22cc;
+  --food: #ff6a21;
+  --ride: #6d35e0;
+  --shipment: #087a50;
+  --ink: #17131c;
+  --ink-soft: #746e78;
+  --muted: #9a939f;
+  --paper: #ffffff;
+  --paper-soft: #f7f5f8;
+  --line: #e9e5ec;
+  --accent: var(--brand);
+  --accent-deep: var(--brand-deep);
+  --danger: #b42318;
+  --radius-control: 12px;
+  --radius-card: 16px;
+  --radius-surface: 24px;
+  --radius-sheet: 30px;
+  --shadow: 0 24px 70px rgba(23, 19, 28, 0.18);
+  --shadow-card: 0 12px 34px rgba(23, 19, 28, 0.08);
+  color-scheme: light;
+  accent-color: var(--brand);
+}
+
+body {
+  color: var(--ink);
+  background: var(--paper-soft);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  color: #fff;
+  background: var(--brand);
+}
+
+:where(button, input, select, textarea) {
+  min-height: var(--layout-touch);
+  border-radius: var(--radius-control);
+}
+
+:where(input, select, textarea) {
+  max-width: 100%;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+}
+
+:where(input, select, textarea)::placeholder {
+  color: #9a939f;
+}
+
+:where(input, select, textarea):disabled {
+  color: var(--ink-soft);
+  background: #f0edf2;
+}
+
+:where(.primary-button, .loader-card button) {
+  min-height: 50px;
+  border-radius: var(--radius-control);
+  box-shadow: 0 12px 24px rgba(124, 60, 255, 0.2);
+}
+
+:where(.screen, .ops-card, .admin-card, .merchant-card, .status-card, .wallet-card) {
+  min-width: 0;
+}
+
+:where(.ops-card, .admin-card, .merchant-card, .status-card) {
+  border-color: var(--line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.admin-sidebar,
+.merchant-desktop-sidebar {
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  align-content: stretch;
+  overflow: hidden;
+}
+
+.admin-sidebar .admin-nav,
+.merchant-desktop-sidebar .admin-nav {
+  min-height: 0;
+  padding-right: 4px;
+  overflow-y: auto;
+  overscroll-behavior-block: contain;
+  scrollbar-color: rgba(255, 255, 255, 0.24) transparent;
+  scrollbar-width: thin;
+}
+
+.surface-loading {
+  display: grid;
+  min-height: 320px;
+  place-items: center;
+  padding: 24px;
+  color: var(--ink-soft);
+  text-align: center;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :where(button, a, input, select, textarea) {
+    transition:
+      border-color 160ms ease,
+      box-shadow 160ms ease,
+      background-color 160ms ease,
+      color 160ms ease,
+      transform 160ms ease;
+  }
+
+  :where(button, a):active {
+    transform: translateY(1px);
+  }
+}

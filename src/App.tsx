@@ -46,10 +46,6 @@ import type { ComponentType, CSSProperties } from "react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, subscribeToEvents } from "./api";
 import { configureAnalytics, track } from "./analytics-client";
-import { SuperAdminConsole } from "./backoffice/AdminConsole";
-import { CustomerApp, ItemSheet } from "./customer/CustomerSurface";
-import { MerchantDesktopConsole } from "./merchant/MerchantConsole";
-import { DriverApp, MerchantApp, OpsApp, OpsRail } from "./operations/OperationsSurface";
 import { compactMinutes, initials, money } from "./format";
 import { allergenOptions, dietOptions, itemMatchesDietary } from "./dietary";
 import {
@@ -119,9 +115,47 @@ import type {
   User,
 } from "./types";
 
-const NotificationCenter = lazy(() => import("./NotificationCenter"));
-const RideHome = lazy(() => import("./RideHome"));
-const FlashMap = lazy(() => import("./maps/FlashMap"));
+const WebLogin = lazy(() =>
+  import("./auth/WebLogin").then((module) => ({ default: module.WebLogin })),
+);
+const SuperAdminConsole = lazy(() =>
+  import("./backoffice/AdminConsole").then((module) => ({ default: module.SuperAdminConsole })),
+);
+const CustomerApp = lazy(() =>
+  import("./customer/CustomerSurface").then((module) => ({ default: module.CustomerApp })),
+);
+const ItemSheet = lazy(() =>
+  import("./customer/CustomerSurface").then((module) => ({ default: module.ItemSheet })),
+);
+const MerchantDesktopConsole = lazy(() =>
+  import("./merchant/MerchantConsole").then((module) => ({
+    default: module.MerchantDesktopConsole,
+  })),
+);
+const DriverApp = lazy(() =>
+  import("./operations/OperationsSurface").then((module) => ({ default: module.DriverApp })),
+);
+const MerchantApp = lazy(() =>
+  import("./operations/OperationsSurface").then((module) => ({ default: module.MerchantApp })),
+);
+const OpsApp = lazy(() =>
+  import("./operations/OperationsSurface").then((module) => ({ default: module.OpsApp })),
+);
+const OpsRail = lazy(() =>
+  import("./operations/OperationsSurface").then((module) => ({ default: module.OpsRail })),
+);
+
+function FullPageFallback({ label }: { label: string }) {
+  return (
+    <main className="app loading-app">
+      <div className="loader-card">
+        <Flame size={28} />
+        <strong>{label}</strong>
+        <span>Cargando sólo las herramientas de esta audiencia</span>
+      </div>
+    </main>
+  );
+}
 
 function App() {
   const [state, setState] = useState<AppState | null>(null);
@@ -866,13 +900,15 @@ function App() {
 
   if (authRequired) {
     return (
-      <WebLogin
-        busy={busy}
-        error={error}
-        mfaChallenge={mfaChallenge}
-        onLogin={loginWeb}
-        onMfa={completeMfaWeb}
-      />
+      <Suspense fallback={<FullPageFallback label="Preparando acceso" />}>
+        <WebLogin
+          busy={busy}
+          error={error}
+          mfaChallenge={mfaChallenge}
+          onLogin={loginWeb}
+          onMfa={completeMfaWeb}
+        />
+      </Suspense>
     );
   }
 
@@ -916,35 +952,39 @@ function App() {
       return (
         <>
           {networkBanner}
-          <MerchantDesktopConsole
-            state={state}
-            restaurant={merchantRestaurant!}
-            newDish={newDish}
-            setNewDish={setNewDish}
-            busy={busy}
-            realtimeStatus={realtimeStatus}
-            runAction={runAction}
-            onRefresh={refresh}
-            onSwitchPortal={() => setDesktopPortal("admin")}
-            canSwitchPortal={canAdmin}
-            onLogout={logoutWeb}
-          />
+          <Suspense fallback={<FullPageFallback label="Preparando Flash Negocios" />}>
+            <MerchantDesktopConsole
+              state={state}
+              restaurant={merchantRestaurant!}
+              newDish={newDish}
+              setNewDish={setNewDish}
+              busy={busy}
+              realtimeStatus={realtimeStatus}
+              runAction={runAction}
+              onRefresh={refresh}
+              onSwitchPortal={() => setDesktopPortal("admin")}
+              canSwitchPortal={canAdmin}
+              onLogout={logoutWeb}
+            />
+          </Suspense>
         </>
       );
     }
     return (
       <>
         {networkBanner}
-        <SuperAdminConsole
-          state={state}
-          currentUserId={activeUser!.id}
-          dashboard={adminDashboard}
-          busy={busy}
-          realtimeStatus={realtimeStatus}
-          runAction={runAction}
-          onSwitchPortal={() => setDesktopPortal("merchant")}
-          onLogout={logoutWeb}
-        />
+        <Suspense fallback={<FullPageFallback label="Preparando Flash Command" />}>
+          <SuperAdminConsole
+            state={state}
+            currentUserId={activeUser!.id}
+            dashboard={adminDashboard}
+            busy={busy}
+            realtimeStatus={realtimeStatus}
+            runAction={runAction}
+            onSwitchPortal={() => setDesktopPortal("merchant")}
+            onLogout={logoutWeb}
+          />
+        </Suspense>
       </>
     );
   }
@@ -957,113 +997,119 @@ function App() {
           <div className="phone">
             <PhoneStatus online={isOnline} />
             <AppModeBar mode={mode} onModeChange={switchMode} />
-            <div className="phone-content">
-              <NetworkStatusBanner
-                online={isOnline}
-                realtimeStatus={realtimeStatus}
-                onRetry={() => refresh().catch(() => undefined)}
-              />
-              {mode === "customer" && (
-                <CustomerApp
-                  state={state}
-                  user={activeUser}
-                  service={service}
-                  setService={setService}
-                  features={features}
-                  tab={tab}
-                  setTab={setTab}
-                  query={query}
-                  setQuery={setQuery}
-                  category={category}
-                  setCategory={setCategory}
-                  categories={categories}
-                  restaurants={filteredRestaurants}
-                  allItems={allItems}
-                  selectedRestaurant={selectedRestaurant}
-                  setSelectedRestaurantId={setSelectedRestaurantId}
-                  cart={cart}
-                  setCart={setCart}
-                  setError={setError}
-                  cartOpen={cartOpen}
-                  setCartOpen={setCartOpen}
-                  checkoutOpen={checkoutOpen}
-                  setCheckoutOpen={setCheckoutOpen}
-                  cartTotals={cartTotals}
-                  promotionCode={promotionCode}
-                  setPromotionCode={setPromotionCode}
-                  cartRestaurant={cartRestaurant}
-                  openItem={openItem}
-                  createOrder={createOrder}
-                  onCheckoutGroup={checkoutGroupOrder}
-                  rideForm={rideForm}
-                  setRideForm={setRideForm}
-                  quote={quote}
-                  quoteRide={quoteRide}
-                  requestRide={requestRide}
-                  createShipment={createShipment}
-                  locatePickup={locatePickup}
-                  locationStatus={locationStatus}
-                  locationMessage={locationMessage}
-                  onTopUpWallet={topUpWallet}
-                  onUpdateProfile={updateProfile}
-                  addresses={state.addresses.filter((entry) => entry.userId === activeUser?.id)}
-                  onCreateAddress={createAddress}
-                  onUpdateAddress={updateAddress}
-                  onSetDefaultAddress={setDefaultAddress}
-                  onDeleteAddress={deleteAddress}
-                  busy={busy}
-                  runAction={runAction}
-                  dietaryPreferences={dietaryPreferences}
-                  onDietaryPreferencesChange={setDietaryPreferences}
+            <Suspense
+              fallback={<div className="surface-loading">Preparando tu espacio Flash…</div>}
+            >
+              <div className="phone-content">
+                <NetworkStatusBanner
+                  online={isOnline}
+                  realtimeStatus={realtimeStatus}
+                  onRetry={() => refresh().catch(() => undefined)}
+                />
+                {mode === "customer" && (
+                  <CustomerApp
+                    state={state}
+                    user={activeUser}
+                    service={service}
+                    setService={setService}
+                    features={features}
+                    tab={tab}
+                    setTab={setTab}
+                    query={query}
+                    setQuery={setQuery}
+                    category={category}
+                    setCategory={setCategory}
+                    categories={categories}
+                    restaurants={filteredRestaurants}
+                    allItems={allItems}
+                    selectedRestaurant={selectedRestaurant}
+                    setSelectedRestaurantId={setSelectedRestaurantId}
+                    cart={cart}
+                    setCart={setCart}
+                    setError={setError}
+                    cartOpen={cartOpen}
+                    setCartOpen={setCartOpen}
+                    checkoutOpen={checkoutOpen}
+                    setCheckoutOpen={setCheckoutOpen}
+                    cartTotals={cartTotals}
+                    promotionCode={promotionCode}
+                    setPromotionCode={setPromotionCode}
+                    cartRestaurant={cartRestaurant}
+                    openItem={openItem}
+                    createOrder={createOrder}
+                    onCheckoutGroup={checkoutGroupOrder}
+                    rideForm={rideForm}
+                    setRideForm={setRideForm}
+                    quote={quote}
+                    quoteRide={quoteRide}
+                    requestRide={requestRide}
+                    createShipment={createShipment}
+                    locatePickup={locatePickup}
+                    locationStatus={locationStatus}
+                    locationMessage={locationMessage}
+                    onTopUpWallet={topUpWallet}
+                    onUpdateProfile={updateProfile}
+                    addresses={state.addresses.filter((entry) => entry.userId === activeUser?.id)}
+                    onCreateAddress={createAddress}
+                    onUpdateAddress={updateAddress}
+                    onSetDefaultAddress={setDefaultAddress}
+                    onDeleteAddress={deleteAddress}
+                    busy={busy}
+                    runAction={runAction}
+                    dietaryPreferences={dietaryPreferences}
+                    onDietaryPreferencesChange={setDietaryPreferences}
+                  />
+                )}
+                {mode === "merchant" && merchantRestaurant && (
+                  <MerchantApp
+                    state={state}
+                    restaurant={merchantRestaurant}
+                    newDish={newDish}
+                    setNewDish={setNewDish}
+                    busy={busy}
+                    runAction={runAction}
+                  />
+                )}
+                {mode === "driver" && driver && (
+                  <DriverApp
+                    state={state}
+                    driver={driver}
+                    user={activeUser}
+                    busy={busy}
+                    runAction={runAction}
+                  />
+                )}
+                {mode === "ops" && <OpsApp state={state} busy={busy} runAction={runAction} />}
+              </div>
+              {itemDraft && (
+                <ItemSheet
+                  restaurant={itemDraft.restaurant}
+                  item={itemDraft.item}
+                  quantity={itemQuantity}
+                  setQuantity={setItemQuantity}
+                  extras={draftExtras}
+                  setExtras={setDraftExtras}
+                  note={draftNote}
+                  setNote={setDraftNote}
+                  onAdd={addDraftToCart}
+                  onClose={() => setItemDraft(null)}
                 />
               )}
-              {mode === "merchant" && merchantRestaurant && (
-                <MerchantApp
-                  state={state}
-                  restaurant={merchantRestaurant}
-                  newDish={newDish}
-                  setNewDish={setNewDish}
-                  busy={busy}
-                  runAction={runAction}
-                />
-              )}
-              {mode === "driver" && driver && (
-                <DriverApp
-                  state={state}
-                  driver={driver}
-                  user={activeUser}
-                  busy={busy}
-                  runAction={runAction}
-                />
-              )}
-              {mode === "ops" && <OpsApp state={state} busy={busy} runAction={runAction} />}
-            </div>
-            {itemDraft && (
-              <ItemSheet
-                restaurant={itemDraft.restaurant}
-                item={itemDraft.item}
-                quantity={itemQuantity}
-                setQuantity={setItemQuantity}
-                extras={draftExtras}
-                setExtras={setDraftExtras}
-                note={draftNote}
-                setNote={setDraftNote}
-                onAdd={addDraftToCart}
-                onClose={() => setItemDraft(null)}
-              />
-            )}
+            </Suspense>
             {toast && <div className="toast">{toast}</div>}
           </div>
         </section>
-        <OpsRail
-          mode={mode}
-          state={state}
-          user={activeUser}
-          cartCount={cart.reduce((sum, line) => sum + line.quantity, 0)}
-          cartTotal={cartTotals.total}
-          busy={busy}
-          runAction={runAction}
-        />
+        <Suspense fallback={<aside className="ops-panel" aria-label="Preparando contexto" />}>
+          <OpsRail
+            mode={mode}
+            state={state}
+            user={activeUser}
+            cartCount={cart.reduce((sum, line) => sum + line.quantity, 0)}
+            cartTotal={cartTotals.total}
+            busy={busy}
+            runAction={runAction}
+          />
+        </Suspense>
       </section>
     </main>
   );
@@ -1234,80 +1280,6 @@ function BrandPanel({
         <span className="pin pin-c" />
       </div>
     </aside>
-  );
-}
-
-function WebLogin({
-  busy,
-  error,
-  mfaChallenge,
-  onLogin,
-  onMfa,
-}: {
-  busy: boolean;
-  error: string | null;
-  mfaChallenge: string;
-  onLogin: (email: string, password: string) => Promise<void>;
-  onMfa: (code: string) => Promise<void>;
-}) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [mfaCode, setMfaCode] = useState("");
-  return (
-    <main className="app loading-app">
-      <form
-        className="loader-card"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void (mfaChallenge ? onMfa(mfaCode) : onLogin(email, password));
-        }}
-      >
-        <Flame size={34} />
-        <strong>{mfaChallenge ? "Verificación administrativa" : "Ingresar a Flash"}</strong>
-        <span>
-          {mfaChallenge
-            ? "Ingresá el código de tu autenticador o un código de recuperación."
-            : "Usá tu cuenta real de cliente, comercio, conductor u operaciones."}
-        </span>
-        {!mfaChallenge && (
-          <>
-            <input
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="Email"
-              required
-            />
-            <input
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="Contraseña"
-              minLength={6}
-              required
-            />
-          </>
-        )}
-        {mfaChallenge && (
-          <input
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            value={mfaCode}
-            onChange={(event) => setMfaCode(event.target.value)}
-            placeholder="Código MFA"
-            minLength={6}
-            required
-            autoFocus
-          />
-        )}
-        {error && <small className="login-error">{error}</small>}
-        <button className="primary-button" type="submit" disabled={busy}>
-          {busy ? "Verificando…" : mfaChallenge ? "Verificar" : "Ingresar"}
-        </button>
-      </form>
-    </main>
   );
 }
 

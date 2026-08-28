@@ -26,6 +26,8 @@
     padding: calc(10px + var(--layout-safe-top)) calc(12px + var(--layout-safe-right)) 10px
       calc(12px + var(--layout-safe-left));
     box-shadow: 0 10px 26px rgba(10, 14, 20, 0.18);
+    grid-template-rows: auto;
+    overflow: visible;
   }
 
   .admin-brand {
@@ -48,6 +50,7 @@
     gap: 7px;
     min-width: 0;
     overflow-x: auto;
+    overflow-y: hidden;
     overscroll-behavior-inline: contain;
     scrollbar-width: none;
   }
