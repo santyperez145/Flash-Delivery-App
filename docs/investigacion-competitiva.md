@@ -194,6 +194,19 @@ técnico mira y rara vez encuentra en una etapa temprana:
 - **Ninguna ruta queda construida y sin cablear**: una puerta lo impide, con línea base en
   cero.
 
+**Decisión de seguridad comparada, 28 de agosto.** La documentación vigente de
+[PostgreSQL](https://www.postgresql.org/docs/current/ddl-priv.html) separa
+`INSERT`, `UPDATE` y `DELETE` como privilegios distintos y permite revocarlos por
+objeto; por eso Flash mide pares tabla/operación en lugar de declarar una tabla
+genéricamente “escribible”. Uber publica un modelo todavía más maduro: políticas
+por actor, acción y recurso, más un
+[simulador que compara accesos antes y después de un cambio](https://www.uber.com/en-BR/blog/adding-determinism-and-safety-to-uber-iam-policy-changes/).
+Flash queda por debajo: no tiene un PAP central ni replay de tráfico productivo.
+La decisión viable para esta fase es incremental y verificable: la migración 131
+retira 11 `DELETE` de sesiones, MFA, dispositivos, verificaciones y tokens, y CI
+reproduce los flujos como `flash_runtime` además de comprobar esas once negativas
+por nombre. Una revocación masiva sin esa simulación sería menos segura, no más.
+
 La lectura para un inversor no es «está terminado». Es: **el sustrato operativo y
 financiero está por encima de la etapa, y los huecos que quedan son de producto comercial y
 de habilitaciones externas**, que son los que se cierran con plata y con acuerdos, no con

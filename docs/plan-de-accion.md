@@ -370,12 +370,13 @@ job `container-image` la construye en cada PR y verifica el resultado, no sólo 
 texto del Dockerfile. Quedan el filesystem raíz de sólo lectura y los 380 MiB de
 imagen, ambos con su razón anotada.
 
-**DAT-001.** Las 106 tablas están clasificadas y `test:rls-matrix` lo hace
-vinculante: una tabla nueva no entra sin declarar su clase. La clasificación
-destapó que `user_roles` se lee antes de autenticar —una política ingenua ahí
-rompe todo login— y que hay dos tablas de esquema muerto, una de ellas con
-forma de almacén de credenciales. Quedan cinco tablas sin política, `FORCE` en
-cero y los grants todavía `ON ALL TABLES`.
+**DAT-001.** Las tablas vigentes están clasificadas y `test:rls-matrix` lo hace
+vinculante: una tabla nueva no entra sin declarar su clase. Las 69 tablas
+`por-usuario` ya tienen política y el rol runtime no puede asumir el migrador ni
+saltear RLS. El acotamiento DML pasó de estimación a inventario ejecutable:
+`test:runtime-write-scope` cruza código, triggers y permisos PostgreSQL. Las
+migraciones 116, 122, 123 y 131 reducen de 114 a 60 los pares tabla/operación
+que nadie usa; quedan 60 por revisar en lotes, no un `ON ALL TABLES` vigente.
 
 **NOT-001 y GEO-001.** Ambos pasaron de imposibles a implementados y con puerta
 CI. `NOTIFICATION_PROVIDER` acepta `expo` y producción exige `EXPO_ACCESS_TOKEN`;
