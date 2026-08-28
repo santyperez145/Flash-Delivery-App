@@ -113,7 +113,7 @@ Adoptar además un framework estándar de pruebas: **Vitest**, **Testcontainers*
 
 ### Criterios de aceptación
 
-- [x] Un PR queda bloqueado si falla cualquier suite crítica — **103 de 104 suites con puerta, 101 bloqueantes**, 2 nocturnas y 1 en cuarentena.
+- [x] Un PR queda bloqueado si falla cualquier suite crítica — **104 de 105 suites con puerta, 102 bloqueantes**, 2 nocturnas y 1 en cuarentena.
 - [x] Ningún script de riesgo queda fuera de una puerta sin justificación escrita — lo verifica `npm run test:ci-coverage`.
 - [x] **Cerrar las suites en cuarentena.** Las cuatro salieron. `test:postgres`, `test:dietary-local` y `test:notification-local` se cerraron el 26-08 —las dos últimas estaban apuntadas al runtime equivocado, no eran frágiles—. `test:support-routing` salió el 27-08 y su causa anotada resultó falsa: figuraba como «ruteo atómico de un caso de safety a un agente con skill», pero `POST /api/support/tickets` exige una cabecera `Idempotency-Key` y responde 400 sin ella, y la suite no la mandaba en ninguno de sus seis POST. **Nunca llegó a ejercitar el ruteo.** Con la cabecera puesta pasan sus diez afirmaciones sin tocar una línea de producto. Ya es bloqueante y el paso de cuarentena se quitó del workflow.
 - [ ] `ci-nightly.yml`. **Existe desde el 27-08** con la auditoría responsive en Chromium —una corrida por variante—, la latencia de endpoints y la conciliación de pagos programada. Faltan carga k6, sandbox de proveedores y builds EAS, que necesitan credenciales. El restore drill dejó de faltar por otra vía: `scripts/restore-drill.ps1` sigue siendo PowerShell y sigue siendo el ensayo que importa sobre los backups reales, pero `test:restore-drill` corre en cada PR un ensayo distinto —volcar, restaurar y verificar invariantes sobre la copia— que cubre lo que el local no puede cubrir por PR: que el esquema, las políticas y los permisos sobrevivan al viaje por `pg_dump`.
@@ -408,9 +408,9 @@ Añadir además: oleadas de oferta · radio dinámico · protección contra inan
 - [x] La reasignación automática funciona al expirar una oferta.
 - [x] El desglose que explica cada score sigue disponible, ahora con el radio usado.
 - [x] Cero dobles asignaciones bajo concurrencia forzada (`test:postgres`).
-- [ ] El plan de consulta usa índice GiST, verificado con `EXPLAIN ANALYZE`.
+- [x] **El plan de consulta usa índice GiST, verificado con `EXPLAIN ANALYZE`.** `test:dispatch-plan` explica la consulta **real** —importa `SHORTLIST_SQL` del módulo que la ejecuta, porque explicar una copia probaría que la copia usa el índice— y exige `drivers_available_location_gix` en el plan. Corre sobre mil conductores sintéticos por una razón concreta: con los tres del sembrado el planificador elige `Seq Scan` y hace bien, así que explicarla ahí mediría el caso que no importa. Incluye su otra mitad: con `enable_indexscan` apagado se exige que el plan **deje** de usarlo, porque un detector que encuentre cualquier índice en cualquier parte del plan aprobaría siempre.
 - [ ] La primera oferta se emite dentro del SLO de 5 s p95.
-- [ ] Existe una prueba de carga con un padrón sintético de al menos 1.000 conductores.
+- [ ] Existe una prueba de carga con un padrón sintético de al menos 1.000 conductores. **Avanzado**: el padrón existe y se usa —`test:dispatch-plan` carga mil conductores en línea con posiciones repartidas en unos 40 km y mide el recorte espacial contra ellos—, pero eso es carga de **datos**, no de **tráfico**. Falta ejercitar ofertas concurrentes para sostener el criterio del SLO p95, que sigue abierto por lo mismo.
 - [ ] ETA vial por Route Matrix conectado al scoring — depende de una API key.
 
 ---

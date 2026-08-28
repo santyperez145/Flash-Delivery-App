@@ -2,7 +2,7 @@
 
 ## Estado al 27 de agosto de 2026
 
-`ci.yml` se dividió en tres workflows y **los cinco jobs están en verde**. La cobertura pasó de **15 a 103 de 104 suites** detrás de una puerta: **101 bloquean el merge**, 2 corren de noche y 1 está en cuarentena declarada.
+`ci.yml` se dividió en tres workflows y **los cinco jobs están en verde**. La cobertura pasó de **15 a 104 de 105 suites** detrás de una puerta: **102 bloquean el merge**, 2 corren de noche y 1 está en cuarentena declarada.
 
 Desde el 27 de agosto la rama `main` **está protegida**: los siete checks son obligatorios, la rama debe estar al día, la historia es lineal y no hay excepción para administradores. Hasta ese día se habían mergeado once PR con CI en verde sin que nada lo exigiera.
 
@@ -428,6 +428,22 @@ Sin la segunda, la puerta obligaría a reescribir el registro histórico para qu
 De las 16, seis eran afirmaciones vigentes —se corrigieron— y diez eran registros históricos, que recibieron la fecha que les faltaba. El documento de auditoría queda excluido entero: es un registro fechado por construcción, lo dice su propio encabezado.
 
 Los hechos se agregan de a uno y **sólo si el repositorio puede calcularlos sin adivinar**. Una puerta que produce fallos falsos enseña a ignorarla, que es el desenlace de H-01 otra vez.
+
+### El plan del recorte espacial
+
+El hallazgo [H-06](auditoria-2026-08-25.md#h-06--dispatch-sin-recorte-espacial-previo) era que el dispatch evaluaba a todos los conductores para cada oferta. La solución fue el recorte con `ST_DWithin` y orden KNN sobre el índice GiST, y `test:dispatch-candidates` cubre que la consulta exista y devuelva lo correcto.
+
+Lo que no cubría nadie es lo único que hace que valga la pena: **que el planificador use el índice**. Una consulta con `ST_DWithin` que termina en un `Seq Scan` devuelve exactamente las mismas filas y no arregla nada. La diferencia sólo se ve en el plan.
+
+`test:dispatch-plan` explica la consulta **real** —importa `SHORTLIST_SQL` del módulo que la ejecuta en producción, porque explicar una copia probaría que la copia usa el índice— y exige `drivers_available_location_gix` en el árbol del plan.
+
+**Corre sobre mil conductores sintéticos por una razón concreta.** Con los tres del sembrado, PostgreSQL elige un `Seq Scan` y hace bien: recorrer tres filas es más barato que abrir un índice. Una puerta que explicara la consulta sobre esos datos mediría el caso que no importa, y pasaría o fallaría por el motivo equivocado.
+
+Y trae su otra mitad: con `enable_indexscan` y `enable_bitmapscan` apagados se exige que el mismo plan **deje** de usar el índice. Sin eso, un detector que encuentre cualquier índice en cualquier parte del plan aprobaría siempre.
+
+El tiempo de ejecución **se informa y no se afirma**. El runner comparte CPU y una latencia medida acá sería una puerta intermitente; para eso está `test:performance`, que corre en el nocturno justamente por ese motivo.
+
+Todo ocurre dentro de una transacción que termina en `ROLLBACK`: los mil conductores y las sesiones que sus triggers abren desaparecen solas.
 
 ### Cobertura documental de las puertas
 
