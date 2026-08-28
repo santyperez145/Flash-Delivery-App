@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { postgresPool } from "./postgres.js";
+import { markHeldTipRefunded } from "./tip-repository.js";
 import { enqueueNotificationForInternalUser } from "./notification-repository.js";
 import { upsertCase } from "./payment-repository.js";
 
@@ -220,6 +221,10 @@ export async function resolveOrderIssue({
         "UPDATE payment_intents SET captured_amount_cents=$2,status=$3,updated_at=now() WHERE id=$1",
         [payment.id, remaining, remaining === 0 ? "refunded" : "partially_refunded"],
       );
+      // Sólo con reintegro total. Un reintegro parcial no anula la propina: el
+      // pedido puede completarse igual y el repartidor cobrarla. Marcarla acá le
+      // sacaría la propina por un problema que no fue suyo.
+      if (remaining === 0) await markHeldTipRefunded(client, issue.job_id);
     }
     const updated = (
       await client.query(

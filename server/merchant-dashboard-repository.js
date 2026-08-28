@@ -39,16 +39,32 @@ export async function getPostgresMerchantDashboard({
        LEFT JOIN terminal_events completed ON completed.job_id=job.id AND completed.status='completed'
        LEFT JOIN terminal_events cancelled ON cancelled.job_id=job.id AND cancelled.status='cancelled'
        WHERE job.kind='delivery' AND job.metadata->>'subtype'='food_order'
+     ), food_con_ventana AS (
+       SELECT food.*,
+         -- "En ventana" es lo que el comercio tiene que mirar ahora. Un pedido
+         -- sin reserva siempre lo está; uno reservado, cuando se acerca.
+         (food.scheduled_for IS NULL OR food.scheduled_for <= now() + interval '2 hours') AS en_ventana
+       FROM food_jobs food
      )
      SELECT selection.*,
-       count(food.id) FILTER (WHERE food.status IN ('accepted','preparing','ready_for_pickup','driver_assigned','picked_up','delivering'))::int AS active_orders,
-       count(food.id) FILTER (WHERE food.status='accepted')::int AS needs_action,
+       -- Un pedido reservado para dentro de tres días **no es trabajo activo**.
+       -- Contarlo como tal deja al comercio con una cola que no puede vaciar, y
+       -- peor: oldest_active_minutes mediria desde que se creo, asi que una
+       -- reserva de la semana que viene se vería como un pedido de tres días de
+       -- antigüedad y dispararía la alarma de demora. Entra a la cola cuando
+       -- falta menos de dos horas, que es cuando el comercio empieza a poder
+       -- hacer algo con él.
+       count(food.id) FILTER (WHERE food.status IN ('accepted','preparing','ready_for_pickup','driver_assigned','picked_up','delivering') AND food.en_ventana)::int AS active_orders,
+       count(food.id) FILTER (WHERE food.status='accepted' AND food.en_ventana)::int AS needs_action,
        count(food.id) FILTER (WHERE food.status='preparing')::int AS preparing,
        count(food.id) FILTER (WHERE food.status='ready_for_pickup')::int AS ready_for_pickup,
        count(food.id) FILTER (WHERE food.status IN ('driver_assigned','picked_up','delivering'))::int AS courier_flow,
-       count(food.id) FILTER (WHERE food.status IN ('accepted','preparing') AND food.merchant_ready_due_at < now())::int AS late_orders,
+       -- Las reservas futuras se cuentan aparte para que el comercio pueda
+       -- planificar: esconderlas del todo sería la otra forma de mentirle.
+       count(food.id) FILTER (WHERE food.status IN ('accepted','preparing') AND NOT food.en_ventana)::int AS scheduled_ahead,
+       count(food.id) FILTER (WHERE food.status IN ('accepted','preparing') AND food.en_ventana AND food.merchant_ready_due_at < now())::int AS late_orders,
        count(food.id) FILTER (WHERE food.status IN ('accepted','preparing') AND food.merchant_ready_due_at IS NULL)::int AS untracked_prep_orders,
-       COALESCE(floor(max(extract(epoch FROM (now()-food.created_at))) FILTER (WHERE food.status IN ('accepted','preparing','ready_for_pickup','driver_assigned','picked_up','delivering')) / 60),0)::int AS oldest_active_minutes,
+       COALESCE(floor(max(extract(epoch FROM (now()-food.created_at))) FILTER (WHERE food.status IN ('accepted','preparing','ready_for_pickup','driver_assigned','picked_up','delivering') AND food.en_ventana) / 60),0)::int AS oldest_active_minutes,
        count(food.id) FILTER (WHERE food.status='completed' AND food.completed_at >= ((now() AT TIME ZONE selection.timezone)::date AT TIME ZONE selection.timezone))::int AS completed_today,
        count(food.id) FILTER (WHERE food.status='cancelled' AND food.cancelled_at >= ((now() AT TIME ZONE selection.timezone)::date AT TIME ZONE selection.timezone))::int AS cancelled_today,
        COALESCE(sum(COALESCE(food.final_amount_cents,food.quoted_amount_cents)) FILTER (WHERE food.status='completed' AND food.completed_at >= ((now() AT TIME ZONE selection.timezone)::date AT TIME ZONE selection.timezone)),0)::bigint AS gross_sales_today_cents,
@@ -60,7 +76,7 @@ export async function getPostgresMerchantDashboard({
           AND (NOT item.available OR inventory.catalog_item_id IS NULL OR NOT inventory.available OR COALESCE(inventory.stock_quantity,1)=0)
        ) AS unavailable_items
      FROM selected selection
-     LEFT JOIN food_jobs food ON true
+     LEFT JOIN food_con_ventana food ON true
      GROUP BY selection.merchant_id, selection.merchant_public_id, selection.branch_id,
        selection.branch_public_id, selection.branch_name, selection.timezone,
        selection.manual_open, selection.branch_status, selection.eta_min, selection.effective_open`,
@@ -91,6 +107,10 @@ export async function getPostgresMerchantDashboard({
       preparing: Number(row.preparing),
       readyForPickup: Number(row.ready_for_pickup),
       courierFlow: Number(row.courier_flow),
+      // Reservas que todavía no entraron a la cola. Se publican para que el
+      // comercio pueda planificar el turno: esconderlas del todo sería la otra
+      // forma de mentirle sobre su carga.
+      scheduledAhead: Number(row.scheduled_ahead),
       lateOrders: Number(row.late_orders),
       untrackedPrepOrders: Number(row.untracked_prep_orders),
       oldestActiveMinutes: Number(row.oldest_active_minutes),

@@ -7,11 +7,19 @@ const mapTip = (row) => ({
   id: row.public_id,
   jobId: row.job_public_id,
   customerId: row.customer_public_id,
-  driverId: row.driver_public_id,
+  driverId: row.driver_public_id || null,
   amount: Number(row.amount_cents) / 100,
+  // `held` mientras el pedido no se completa. La pantalla necesita poder decir
+  // «retenida hasta la entrega» en lugar de mostrarla como pagada a nadie.
+  status: row.status,
   createdAt: new Date(row.created_at).toISOString(),
+  settledAt: row.settled_at ? new Date(row.settled_at).toISOString() : null,
 });
-const tipSelect = `SELECT t.*,j.public_id job_public_id,c.public_id customer_public_id,d.public_id driver_public_id FROM service_tips t JOIN jobs j ON j.id=t.job_id JOIN users c ON c.id=t.customer_id JOIN drivers d ON d.id=t.driver_id`;
+// `LEFT JOIN` sobre conductores desde la migracion 126: una propina retenida
+// todavia no tiene destinatario. Con el JOIN interno que habia antes, quien
+// dejaba propina en el checkout no la veia en su cuenta hasta que se liberara —
+// plata cobrada que no aparece en ningun lado es la peor version de este bug.
+const tipSelect = `SELECT t.*,j.public_id job_public_id,c.public_id customer_public_id,d.public_id driver_public_id FROM service_tips t JOIN jobs j ON j.id=t.job_id JOIN users c ON c.id=t.customer_id LEFT JOIN drivers d ON d.id=t.driver_id`;
 const adjustmentId = () => `TADJ-${crypto.randomBytes(5).toString("hex").toUpperCase()}`;
 const adjustmentSelect = `SELECT a.*,t.public_id tip_public_id,t.amount_cents tip_amount_cents,j.public_id job_public_id,c.public_id customer_public_id,d.public_id driver_public_id,requester.public_id requested_by_public_id,reviewer.public_id reviewed_by_public_id
   FROM service_tip_adjustments a JOIN service_tips t ON t.id=a.tip_id JOIN jobs j ON j.id=t.job_id JOIN users c ON c.id=t.customer_id JOIN drivers d ON d.id=t.driver_id JOIN users requester ON requester.id=a.requested_by LEFT JOIN users reviewer ON reviewer.id=a.reviewed_by`;
@@ -34,7 +42,7 @@ const mapAdjustment = (row) => ({
 
 export async function getPostgresTips({ userPublicId, roles = [] }) {
   const result = await postgresPool.query(
-    `${tipSelect} JOIN users du ON du.id=d.user_id WHERE $2::boolean OR c.public_id=$1 OR du.public_id=$1 ORDER BY t.created_at DESC LIMIT 200`,
+    `${tipSelect} LEFT JOIN users du ON du.id=d.user_id WHERE $2::boolean OR c.public_id=$1 OR du.public_id=$1 ORDER BY t.created_at DESC LIMIT 200`,
     [userPublicId, roles.includes("admin")],
   );
   return result.rows.map(mapTip);
@@ -164,6 +172,95 @@ export async function createPostgresTip({ jobPublicId, customerPublicId, amount,
   } finally {
     client.release();
   }
+}
+
+// ---------------------------------------------------------------------------
+// Propina tomada en el checkout (GTM-001).
+//
+// La competencia la pide antes de asignar conductor porque sube la tasa de
+// propina, y la propina es la ganancia por viaje del repartidor. **Pero en el
+// checkout todavia no hay a quien pagarle**, asi que no se transfiere: se cobra
+// junto con el pedido —un solo cargo— y queda retenida hasta que hay conductor y
+// el servicio se completa.
+//
+// Las tres funciones de abajo reciben el `client` de una transaccion en curso a
+// proposito. Retener, liberar y devolver son partes de operaciones mas grandes
+// —crear el pedido, liquidarlo, reintegrarlo—: hacerlas en su propia
+// transaccion dejaria una ventana en la que el pedido existe y la propina no, o
+// peor, al reves.
+// ---------------------------------------------------------------------------
+
+/** Piso y techo de una propina de checkout. El piso lo impone la tabla desde la
+ *  migracion 025; el techo evita que un error de tipeo cobre una fortuna. */
+export const CHECKOUT_TIP_MIN_CENTS = 10000;
+export const checkoutTipMaxCents = (orderTotalCents) =>
+  Math.min(10000000, Math.max(CHECKOUT_TIP_MIN_CENTS, Math.floor(orderTotalCents * 0.5)));
+
+/**
+ * Deja la propina retenida contra el pedido recien creado.
+ *
+ * No mueve plata por su cuenta: el monto ya viaja dentro del cobro del pedido.
+ * Esta fila es lo que despues permite saber cuanto de lo cobrado no era del
+ * comercio ni de la plataforma.
+ */
+export async function holdCheckoutTip(client, { jobId, customerId, amountCents, idempotencyKey }) {
+  if (!amountCents) return null;
+  const tip = (
+    await client.query(
+      `INSERT INTO service_tips(public_id, job_id, customer_id, amount_cents, idempotency_key, status)
+       VALUES($1, $2, $3, $4, $5, 'held')
+       ON CONFLICT(job_id) DO NOTHING
+       RETURNING public_id, amount_cents`,
+      [publicId(), jobId, customerId, amountCents, `checkout-tip-${idempotencyKey}`],
+    )
+  ).rows[0];
+  return tip ? { id: tip.public_id, amountCents: Number(tip.amount_cents) } : null;
+}
+
+/** Lo retenido de un pedido, para que la liquidacion sepa cuanto de lo cobrado
+ *  no le toca repartir. Devuelve 0 cuando no hay propina, que es el caso comun. */
+export async function heldTipForJob(client, jobId) {
+  const fila = (
+    await client.query(
+      "SELECT id, amount_cents FROM service_tips WHERE job_id=$1 AND status='held' FOR UPDATE",
+      [jobId],
+    )
+  ).rows[0];
+  return fila
+    ? { id: fila.id, amountCents: Number(fila.amount_cents) }
+    : { id: null, amountCents: 0 };
+}
+
+/**
+ * Marca la propina como pagada al conductor.
+ *
+ * El asiento contable lo emite la liquidacion, que es la que tiene las cuentas y
+ * el resto del reparto en la misma transaccion. Aca solo se registra a quien fue
+ * y con que asiento, que es lo que la restriccion de la migracion 126 exige para
+ * que una fila pueda decir «pagada».
+ */
+export async function markTipReleased(client, { tipId, driverId, ledgerTransactionId }) {
+  await client.query(
+    `UPDATE service_tips SET status='released', driver_id=$2, ledger_transaction_id=$3,
+       settled_at=now() WHERE id=$1 AND status='held'`,
+    [tipId, driverId, ledgerTransactionId],
+  );
+}
+
+/**
+ * Marca la propina como devuelta.
+ *
+ * El dinero vuelve con el reintegro del pedido, porque viajo dentro del mismo
+ * cobro. Lo que hace falta es que la fila deje de decir «retenida»: una propina
+ * retenida sobre un pedido reintegrado es dinero que el sistema cree deber y ya
+ * devolvio, y esa es la clase de fila que aparece meses despues en una
+ * conciliacion.
+ */
+export async function markHeldTipRefunded(client, jobId) {
+  await client.query(
+    "UPDATE service_tips SET status='refunded', settled_at=now() WHERE job_id=$1 AND status='held'",
+    [jobId],
+  );
 }
 
 export async function getTipAdjustments() {

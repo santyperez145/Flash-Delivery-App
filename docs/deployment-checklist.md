@@ -103,6 +103,31 @@ Un ambiente productivo no se habilita con proveedores en `sandbox` o `disabled`.
 - [ ] SMTP productivo con manejo de bounces.
 - [ ] Object storage S3 compatible con KMS.
 
+## Trabajos programados
+
+**Sin planificador, cuatro lotes no corren nunca.** El proyecto no trae uno en proceso a
+propósito: un `setInterval` dentro del servidor corre una vez por réplica y no sobrevive a
+un reinicio en el momento equivocado. El planificador es del entorno que despliega — `cron`,
+un `CronJob` de Kubernetes, lo que haya.
+
+`npm run test:ci-coverage` verifica que cada lote tenga su punto de entrada desatendido, y
+que nadie meta un temporizador dentro del servidor. **Lo que ninguna puerta de este
+repositorio puede verificar es que el entorno los programe**, y por eso están acá.
+
+| Comando | Frecuencia sugerida | Qué pasa si no corre |
+| --- | --- | --- |
+| `npm run job:operational-queues` | cada 30 segundos | **Un pedido pagado no recibe ninguna oferta de conductor.** Además: nada de lo encolado se notifica, y ningún ticket escala al vencer su SLA. |
+| `npm run job:payment-reconciliation` | cada noche | Las diferencias de pago aparecen igual; lo que cambia es cuánto tardan en verse. |
+
+- [ ] `job:operational-queues` programado, con alerta si no reporta en dos períodos.
+- [ ] `job:payment-reconciliation` programado.
+- [ ] Verificado que un pedido pagado en el entorno real recibe oferta sin intervención.
+
+> El tercer punto es el que importa. Los dos primeros comprueban que el cron exista; el
+> tercero comprueba que **sirva**, que es distinto. Hasta el 28 de agosto de 2026 el
+> despacho sólo avanzaba desde `POST /api/admin/dispatch/process`, y un comentario del
+> código afirmaba que corría solo.
+
 ## Operación
 
 - [ ] Runbook para caída de pagos.

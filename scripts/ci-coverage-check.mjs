@@ -122,3 +122,98 @@ console.log(
 for (const [suite, reason] of EXCLUDED) console.log(`     excepción:  ${suite} — ${reason}`);
 for (const [suite, reason] of NIGHTLY) console.log(`     nocturna:   ${suite} — ${reason}`);
 for (const [suite, reason] of QUARANTINED) console.log(`     cuarentena: ${suite} — ${reason}`);
+
+// ---------------------------------------------------------------------------
+// La otra mitad de «existe y algo lo corre»: los lotes operativos (OPS-001).
+//
+// Una suite que no esta en ningun workflow no protege nada — eso es lo que
+// verifica el resto de este archivo. Un lote que no tiene punto de entrada
+// desatendido tampoco corre nunca, y es peor: la suite silenciosa deja pasar un
+// defecto, el lote silencioso **es** el defecto.
+//
+// Como aparecio: `processPostgresDispatchBatch`, `processPostgresNotificationBatch`
+// y `processSupportQueue` estaban importados en `server/index.js` y no llamados
+// desde ahi. Solo se disparaban desde `POST /api/admin/*/process`, o sea cuando
+// alguien se acordaba. Sin nadie que se acordara, un pedido pagado no recibia
+// ninguna oferta de conductor.
+//
+// La politica del proyecto es explicita y esta bien: **ningun planificador dentro
+// del servidor**, porque corre una vez por replica y no sobrevive a un reinicio.
+// Lo que si tiene que existir es el punto de entrada que el planificador del
+// entorno invoca. Esta puerta verifica que exista, no que este programado — eso
+// ultimo vive en `docs/deployment-checklist.md`, con dueno.
+const LOTES_DESATENDIDOS = new Map([
+  ["processPostgresDispatchBatch", "job:operational-queues"],
+  ["processPostgresNotificationBatch", "job:operational-queues"],
+  ["processSupportQueue", "job:operational-queues"],
+  ["scanPaymentReconciliation", "job:payment-reconciliation"],
+]);
+
+// **Los comentarios no cuentan.** La primera version de esta puerta usaba
+// `includes`, y al falsificarla —sacando la llamada del lote— siguio pasando:
+// el nombre seguia estando en el comentario de cabecera del propio trabajo. Una
+// puerta que se satisface con una mencion en prosa no verifica nada.
+const sinComentarios = (fuente) =>
+  fuente.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/[^\n]*/g, "$1 ");
+
+const jobs = Object.keys(pkg.scripts).filter((name) => name.startsWith("job:"));
+const jobSources = await Promise.all(
+  jobs.map(async (name) => ({
+    name,
+    // El script apunta a un `.mjs` de `scripts/`; se lee ese archivo para
+    // comprobar que efectivamente invoque el lote, y no solo que exista un
+    // script con nombre parecido.
+    source: sinComentarios(
+      await fs
+        .readFile(pkg.scripts[name].match(/scripts\/[\w-]+\.mjs/)?.[0] ?? "package.json", "utf8")
+        .catch(() => ""),
+    ),
+  })),
+);
+
+const lotesSinEntrada = [];
+for (const [lote, jobEsperado] of LOTES_DESATENDIDOS) {
+  const job = jobSources.find((entrada) => entrada.name === jobEsperado);
+  // En posicion de llamada, no en cualquier lado: importar el lote y no
+  // invocarlo es exactamente el estado que esta puerta viene a cerrar.
+  if (!job || !new RegExp(`${lote}\\s*\\(`).test(job.source))
+    lotesSinEntrada.push(`${lote} → ${jobEsperado}`);
+}
+
+// Un planificador dentro del servidor es la otra forma de equivocarse aca, y es
+// la que parece bien mientras hay una sola replica.
+const servidor = await fs.readdir("server", { recursive: true });
+const modulosServidor = servidor.filter((nombre) => String(nombre).endsWith(".js"));
+const conTemporizador = [];
+for (const modulo of modulosServidor) {
+  const fuente = sinComentarios(await fs.readFile(`server/${modulo}`, "utf8"));
+  // Se mira la vecindad del `setInterval`, no un patron que tenga que cruzar
+  // parentesis: `setInterval(() => procesarLote(...))` tiene un `()` en el
+  // medio, y un `[^)]*` no lo pasa. La primera version fallo justo ahi.
+  for (const temporizador of fuente.matchAll(/set(?:Interval|Timeout)\(/g)) {
+    const vecindad = fuente.slice(temporizador.index, temporizador.index + 240);
+    for (const [lote] of LOTES_DESATENDIDOS)
+      if (vecindad.includes(lote) && !conTemporizador.includes(modulo))
+        conTemporizador.push(modulo);
+  }
+}
+
+if (lotesSinEntrada.length || conTemporizador.length) {
+  if (lotesSinEntrada.length) {
+    console.error("\nLote(s) operativo(s) sin punto de entrada desatendido:\n");
+    for (const linea of lotesSinEntrada) console.error(`  ${linea}`);
+    console.error("\nUn lote que solo se dispara desde una ruta de admin corre cuando alguien");
+    console.error("se acuerda. Sin planificador, el pedido se cobra y se queda quieto.");
+  }
+  if (conTemporizador.length) {
+    console.error("\nLote(s) programado(s) dentro del servidor:\n");
+    for (const modulo of conTemporizador) console.error(`  ${modulo}`);
+    console.error("\nUn `setInterval` en proceso corre una vez por replica y no sobrevive a");
+    console.error("un reinicio. El planificador es del entorno que despliega.");
+  }
+  process.exit(1);
+}
+console.log(
+  `\nok - ${LOTES_DESATENDIDOS.size} lote(s) operativo(s) tienen punto de entrada desatendido`,
+);
+console.log(`     invocables como: ${[...new Set(LOTES_DESATENDIDOS.values())].join(", ")}`);

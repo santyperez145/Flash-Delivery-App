@@ -14,6 +14,7 @@
 // [`../ui/panels.tsx`](../ui/panels.tsx). El criterio fue contar usos por zona,
 // no leer nombres.
 import { lazy, Suspense, useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import type { ComponentType } from "react";
 import {
   ArrowLeft,
@@ -56,6 +57,10 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 import { api } from "../api";
+import { Beneficios, SubscriptionPanel, useSubscription } from "./SubscriptionPanel";
+import { TipSelector } from "./TipSelector";
+import { RescheduleControl, SchedulePicker } from "./SchedulePicker";
+import { GroupOrderPanel } from "./GroupOrderPanel";
 import { allergenOptions, dietOptions, itemMatchesDietary } from "../dietary";
 import { initials, money } from "../format";
 import {
@@ -77,6 +82,7 @@ import type {
   FoodCheckoutQuote,
   FoodCheckoutSelection,
   GeoPoint,
+  GroupOrder,
   MenuItem,
   Order,
   Restaurant,
@@ -134,6 +140,7 @@ export function CustomerApp(props: {
   promotionCode: string;
   setPromotionCode: (code: string) => void;
   cartRestaurant: Restaurant | null;
+  onCheckoutGroup: (group: GroupOrder) => void;
   openItem: (restaurant: Restaurant, item: MenuItem) => void;
   createOrder: (
     checkout: FoodCheckoutSelection,
@@ -202,6 +209,7 @@ export function CustomerApp(props: {
     promotionCode,
     setPromotionCode,
     cartRestaurant,
+    onCheckoutGroup,
     openItem,
     createOrder,
     rideForm,
@@ -314,6 +322,7 @@ export function CustomerApp(props: {
           }
           onOpenRestaurant={(restaurant) => setSelectedRestaurantId(restaurant.id)}
           onOpenItem={openItem}
+          onOpenSubscription={() => setTab("profile")}
         />
       )}
       {tab === "home" && service === "ride" && (
@@ -384,6 +393,21 @@ export function CustomerApp(props: {
           onDeleteAddress={onDeleteAddress}
           dietaryPreferences={dietaryPreferences}
           onDietaryPreferencesChange={onDietaryPreferencesChange}
+        />
+      )}
+      {/* La suscripción vive en Perfil, que es donde la persona ya va a mirar lo
+          que paga. Se monta al lado del perfil y no dentro para que su carga
+          fallida no se lleve puesta la pantalla de la cuenta. */}
+      {tab === "profile" && <SubscriptionPanel />}
+      {/* Los grupos viven en Actividad y no en Perfil: son pedidos en curso, y
+          es donde alguien vuelve a mirar «cómo va lo que pedimos». */}
+      {tab === "activity" && (
+        <GroupOrderPanel
+          restaurantId={cartRestaurant?.id ?? null}
+          cart={cart}
+          userId={user?.id ?? null}
+          onCheckoutGroup={onCheckoutGroup}
+          busy={busy}
         />
       )}
       <BottomNav tab={tab} onTabChange={setTab} />
@@ -457,6 +481,7 @@ function FoodHome({
   onToggleFavorite,
   onOpenRestaurant,
   onOpenItem,
+  onOpenSubscription,
 }: {
   restaurants: Restaurant[];
   allItems: Array<{ restaurant: Restaurant; item: MenuItem }>;
@@ -469,6 +494,7 @@ function FoodHome({
   onToggleFavorite: (restaurantId: string, favorite: boolean) => void;
   onOpenRestaurant: (restaurant: Restaurant) => void;
   onOpenItem: (restaurant: Restaurant, item: MenuItem) => void;
+  onOpenSubscription: () => void;
 }) {
   return (
     <>
@@ -483,7 +509,7 @@ function FoodHome({
           <p>Pedidos, tracking y reparto con backend activo.</p>
         </div>
       </section>
-      <FlashPassTeaser />
+      <FlashPassTeaser onOpen={onOpenSubscription} />
       <FlashPromiseGrid />
       <SearchBar query={query} setQuery={setQuery} />
       <CategoryRail categories={categories} category={category} setCategory={setCategory} />
@@ -516,25 +542,50 @@ function FoodHome({
   );
 }
 
-function FlashPassTeaser() {
+/**
+ * Anuncio de la suscripción en la portada.
+ *
+ * **Esto era una tarjeta decorativa.** Prometía «Flash Pass — envíos gratis,
+ * soporte prioritario y promos cross-food/taxi», decía «Disponible en checkout»,
+ * y detrás no había tabla, ruta ni concepto: ni el nombre ni dos de los tres
+ * beneficios existían en ninguna parte del producto. Vender algo que no existe
+ * en la primera pantalla es peor que no venderlo, porque la persona lo busca en
+ * el checkout y no lo encuentra.
+ *
+ * Ahora anuncia el plan real con sus beneficios reales, leídos del servidor, y
+ * lleva a donde se contrata. **Se esconde para quien ya está suscripto**: seguir
+ * ofreciéndole lo que ya paga es el error más barato de cometer y el que más
+ * rápido enseña que la app no sabe quién es.
+ */
+function FlashPassTeaser({ onOpen }: { onOpen: () => void }) {
+  const { planes, suscripcion, cargando } = useSubscription();
+  const plan = planes[0];
+  if (cargando || suscripcion || !plan) return null;
   return (
-    <section className="flash-pass">
+    <button type="button" className="flash-pass" onClick={onOpen}>
       <div>
-        <span>Flash Pass</span>
-        <strong>Envios gratis, soporte prioritario y promos cross-food/taxi</strong>
+        <span>{plan.planName}</span>
+        {/* La descripción del plan repite exactamente estos tres beneficios. Se
+            muestra la lista y no la prosa: sale de los valores del plan, así que
+            no puede prometer un umbral distinto del que aplica la tarifa. */}
+        <Beneficios plan={plan} />
       </div>
       <span className="flash-pass-status">
-        <Sparkles size={15} /> Disponible en checkout
+        <Sparkles size={15} /> {money.format(plan.priceCents / 100)} / {plan.billingPeriodDays} días
       </span>
-    </section>
+    </button>
   );
 }
 
 function FlashPromiseGrid() {
+  // Las cuatro promesas de la portada, y las cuatro tienen que existir. «Grupal
+  // — Pedido compartido» estaba acá y **no existe**: el backlog lo lista como
+  // hueco abierto (GTM-001). Se reemplaza por las sustituciones, que sí existen,
+  // están probadas y son el momento en que un pedido se salva o se pierde.
   const promises = [
     ["Tracking vivo", "Mapa + ETA", LocateFixed],
     ["Garantia", "Credito si falla", ShieldCheck],
-    ["Grupal", "Pedido compartido", UserRound],
+    ["Sustituciones", "Vos elegis el reemplazo", UserRound],
     ["Programar", "Food o taxi", Clock3],
   ] as const;
   return (
@@ -1158,7 +1209,20 @@ function CustomerActivity({
                 : undefined
             }
             disabled={busy}
-          />
+          >
+            {/* Sólo mientras nadie empezó. Después el comercio ya está cocinando
+                o hay un conductor en camino, y el servidor lo rechaza: ofrecer
+                el botón igual sería prometer algo que devuelve 409. */}
+            {order.scheduledFor && ["requested", "accepted"].includes(order.status) && (
+              <RescheduleControl
+                scheduledFor={order.scheduledFor}
+                disabled={busy}
+                onReschedule={(iso) =>
+                  runAction(() => api.rescheduleJob(order.id, iso), "Pedido reprogramado")
+                }
+              />
+            )}
+          </StatusCard>
         );
       })}
       <SectionTitle title="Viajes" />
@@ -2703,6 +2767,11 @@ function CartScreen({
   const [selectedAddressId, setSelectedAddressId] = useState(
     () => geocodedAddresses.find((entry) => entry.isDefault)?.id || geocodedAddresses[0]?.id || "",
   );
+  // Propina del checkout (GTM-001). En centavos, como viaja a la API.
+  const [tipCents, setTipCents] = useState(0);
+  // Reserva de horario (GTM-001). `null` es «lo antes posible», que es el camino
+  // normal y por eso es el valor inicial.
+  const [scheduledFor, setScheduledFor] = useState<string | null>(null);
   const [checkoutQuote, setCheckoutQuote] = useState<FoodCheckoutQuote | null>(null),
     [quoteBusy, setQuoteBusy] = useState(false),
     [quoteError, setQuoteError] = useState(""),
@@ -2831,9 +2900,20 @@ function CartScreen({
           paymentMethod: checkoutQuote.paymentMethod,
           paymentMethodId: checkoutQuote.paymentMethodId || undefined,
           quoteToken: checkoutQuote.quoteToken,
+          tipCents,
+          scheduledFor,
         }
       : null;
-  const displayedTotals = checkoutOpen && checkoutQuote ? checkoutQuote : totals;
+  // Los mismos topes que aplica el servidor. Duplicarlos acá evita ofrecer un
+  // monto que el confirmar va a rechazar; el que manda sigue siendo el servidor.
+  const propinaMin = 10000;
+  const propinaMax = checkoutQuote
+    ? Math.min(10000000, Math.max(propinaMin, Math.floor(checkoutQuote.total * 100 * 0.5)))
+    : 0;
+  const displayedTotals =
+    checkoutOpen && checkoutQuote
+      ? { ...checkoutQuote, tip: tipCents / 100, total: checkoutQuote.total + tipCents / 100 }
+      : totals;
   return (
     <div className="screen">
       <TopBar
@@ -3064,6 +3144,29 @@ function CartScreen({
                 </div>
               </label>
             </section>
+          )}
+          {/* Antes del resumen, para que el total que se lee ya incluya lo que
+              se acaba de elegir. Después del total sería pedir una decisión que
+              cambia una cifra que la persona ya dio por buena. */}
+          {/* El horario antes que la propina: primero cuándo llega, después
+              cuánto se deja. Al revés obligaría a repensar la propina después de
+              descubrir que el pedido es para mañana. */}
+          {checkoutOpen && checkoutQuote && (
+            <SchedulePicker
+              scheduledFor={scheduledFor}
+              onChange={setScheduledFor}
+              disabled={busy || quoteBusy}
+            />
+          )}
+          {checkoutOpen && checkoutQuote && (
+            <TipSelector
+              subtotal={checkoutQuote.subtotal}
+              tipCents={tipCents}
+              onChange={setTipCents}
+              minCents={propinaMin}
+              maxCents={propinaMax}
+              disabled={busy || quoteBusy}
+            />
           )}
           <SummaryBlock totals={displayedTotals} />
           {paymentMode === "wallet" && (
@@ -3462,6 +3565,8 @@ function SummaryBlock({
     deliveryFee: number;
     serviceFee: number;
     discount?: number;
+    subscriptionDiscount?: number;
+    tip?: number;
     total: number;
   };
 }) {
@@ -3485,6 +3590,25 @@ function SummaryBlock({
           <strong>-{money.format(totals.discount)}</strong>
         </div>
       )}
+      {/* Se nombra el beneficio en lugar de sumarlo al descuento. Quien paga una
+          suscripción tiene que ver qué le devolvió en cada pedido: es lo único
+          que sostiene la renovación, y esconderlo en «Promoción» lo borra. */}
+      {!!totals.subscriptionDiscount && (
+        <div className="summary-suscripcion">
+          <span>Envío con Flash Más</span>
+          <strong>-{money.format(totals.subscriptionDiscount)}</strong>
+        </div>
+      )}
+      {/* Suma, no resta. Es la única línea del resumen que sube el total por
+          decisión de la persona, y por eso se muestra por separado: verla dentro
+          del total sin nombrarla es la forma más rápida de que se sienta un
+          cargo que nadie eligió. */}
+      {!!totals.tip && (
+        <div>
+          <span>Propina</span>
+          <strong>{money.format(totals.tip)}</strong>
+        </div>
+      )}
       <div className="total-line">
         <span>Total</span>
         <strong>{money.format(totals.total)}</strong>
@@ -3504,6 +3628,7 @@ function StatusCard({
   secondaryActionLabel,
   onSecondaryAction,
   disabled,
+  children,
 }: {
   icon: LucideIcon;
   title: string;
@@ -3515,6 +3640,9 @@ function StatusCard({
   secondaryActionLabel?: string;
   onSecondaryAction?: () => void;
   disabled: boolean;
+  /** Controles propios del servicio, debajo del cuerpo y encima de las acciones.
+   *  Hoy: reprogramar una reserva. */
+  children?: ReactNode;
 }) {
   return (
     <article className="status-card">
@@ -3527,6 +3655,7 @@ function StatusCard({
         <small>
           {status} · {money.format(amount)}
         </small>
+        {children}
       </div>
       {(actionLabel || secondaryActionLabel) && (
         <div className="status-card-actions">

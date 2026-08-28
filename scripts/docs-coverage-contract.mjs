@@ -22,7 +22,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-const LINEA_BASE = 11;
+// 11 → 9 el 28-08: GTM-001 documentó `test:web-checkout` y
+// `test:mobile-food-design` al describir los topes de propina.
+const LINEA_BASE = 9;
 const PAQUETE = "package.json";
 const FUENTES = ["docs", "AGENTS.md"];
 

@@ -32,6 +32,10 @@ import {
 
 import { track } from "../analytics";
 import { api } from "../api";
+import { SubscriptionCard } from "../SubscriptionCard";
+import { TipSelector } from "../TipSelector";
+import { RescheduleControl, SchedulePicker } from "../SchedulePicker";
+import { GroupOrderPanel } from "../GroupOrderPanel";
 import { flashDesign } from "../design-system";
 import FlashNativeMap from "../FlashNativeMap";
 import { mobileOrderStatusLabel, money, navigationInstruction } from "../format";
@@ -45,6 +49,7 @@ import type {
   FoodCheckoutQuote,
   GeoPoint,
   MobileCartLine,
+  GroupOrder as GroupOrderType,
   NotificationPreference,
   Order,
   OrderSubstitution,
@@ -872,6 +877,12 @@ export function CustomerScreen({
   const [deliveryAddress, setDeliveryAddress] = useState(user.defaultAddress || "");
   const [foodPromotionCode, setFoodPromotionCode] = useState("");
   const [foodCheckoutQuote, setFoodCheckoutQuote] = useState<FoodCheckoutQuote | null>(null);
+  // Propina del checkout (GTM-001). En centavos, como viaja a la API.
+  const [foodTipCents, setFoodTipCents] = useState(0);
+  // Reserva de horario (GTM-001). `null` es «lo antes posible».
+  const [foodScheduledFor, setFoodScheduledFor] = useState<string | null>(null);
+  // Grupo que se está por confirmar (GTM-001).
+  const [pendingGroupId, setPendingGroupId] = useState<string | null>(null);
   const [selectedFoodPaymentId, setSelectedFoodPaymentId] = useState(
     () =>
       state.paymentMethods.find((method) => method.userId === user.id && method.isDefault)?.id ||
@@ -1571,6 +1582,41 @@ export function CustomerScreen({
     }, "Precio final actualizado");
   };
 
+  /**
+   * Lleva un grupo cerrado al checkout de siempre.
+   *
+   * Se vuelcan sus ítems en el carrito y se abre el checkout normal, en vez de
+   * tener un camino propio: un segundo checkout serían dos versiones de la
+   * cotización firmada, la propina, el horario y el riesgo.
+   */
+  const checkoutGroupOrder = (group: GroupOrderType) =>
+    runAction(async () => {
+      const checkout = await api.getGroupOrderCheckout(group.id);
+      const restaurante = state.restaurants.find((entry) => entry.id === checkout.merchantPublicId);
+      if (!restaurante) throw new Error("El restaurante del grupo ya no está disponible");
+      const lineas: MobileCartLine[] = checkout.items.map((entrada, indice) => {
+        const item = restaurante.menu.find((plato) => plato.id === entrada.menuItemId);
+        if (!item) throw new Error("Un producto del grupo ya no está disponible");
+        return {
+          lineId: `${group.id}-${indice}`,
+          restaurantId: restaurante.id,
+          menuItemId: item.id,
+          name: item.name,
+          unitPrice: item.price,
+          quantity: entrada.quantity,
+          extras: entrada.extras,
+          note: entrada.note,
+        };
+      });
+      setCart(lineas);
+      // Se recuerda para atarlo al pedido **después** de que el pedido exista:
+      // marcarlo antes dejaría grupos «confirmados» apuntando a pedidos que
+      // nunca se crearon.
+      setPendingGroupId(group.id);
+      setSharedView("service");
+      setFoodScreen("checkout");
+    }, "Revisá el pedido del grupo y confirmá");
+
   const createOrder = () => {
     const selectedDeliveryAddress = state.addresses.find(
       (item) =>
@@ -1604,12 +1650,26 @@ export function CustomerScreen({
         paymentMethodId: selectedFoodPayment.id,
         promotionCode: foodCheckoutQuote.promotionCode || undefined,
         quoteToken: foodCheckoutQuote.quoteToken,
+        tipCents: foodTipCents,
+        scheduledFor: foodScheduledFor ?? undefined,
         items: foodCheckoutItems,
       });
+      // El grupo se marca con el pedido ya creado. Si esto fallara, el pedido
+      // igual existe y el grupo queda cerrado sin atar — el lado seguro de
+      // fallar: se cobró una vez y hay un pedido real detrás.
+      if (pendingGroupId) {
+        await api.markGroupOrderPlaced(pendingGroupId, result.order.id);
+        setPendingGroupId(null);
+      }
       setLastCreatedOrder(result.order);
       setCart([]);
       setFoodCheckoutQuote(null);
       setFoodPromotionCode("");
+      // Sin esto la próxima compra arrancaría con la propina de la anterior ya
+      // elegida, que es cobrar sin preguntar; y con el horario de la anterior,
+      // que es reservar sin preguntar.
+      setFoodTipCents(0);
+      setFoodScheduledFor(null);
       setFoodScreen("orders");
       track("job_created", "customer_app", { service: "food" });
     }, "Pedido enviado al comercio");
@@ -3316,14 +3376,54 @@ export function CustomerScreen({
                       </Text>
                     </View>
                   ) : null}
+                  {/* El beneficio se nombra en vez de sumarse al descuento: quien
+                      paga una suscripción tiene que ver qué le devolvió en cada
+                      pedido, y esconderlo en «Descuento» lo borra. */}
+                  {foodCheckoutQuote.subscriptionDiscount > 0 ? (
+                    <View style={styles.foodTotalRow}>
+                      <Text style={styles.foodCheckoutDiscountLabel}>Envío con Flash Más</Text>
+                      <Text style={styles.foodCheckoutDiscountAmount}>
+                        − {money.format(foodCheckoutQuote.subscriptionDiscount)}
+                      </Text>
+                    </View>
+                  ) : null}
+                  {/* Suma, no resta. Es la única línea que sube el total por
+                      decisión de la persona, y por eso se nombra: verla dentro
+                      del total sin nombrarla se siente un cargo que nadie eligió. */}
+                  {foodTipCents > 0 ? (
+                    <View style={styles.foodTotalRow}>
+                      <Text style={styles.foodCheckoutTotalLabel}>Propina</Text>
+                      <Text style={styles.foodCheckoutTotalAmount}>
+                        {money.format(foodTipCents / 100)}
+                      </Text>
+                    </View>
+                  ) : null}
                   <View style={styles.foodCheckoutTotalDivider} />
                   <View style={styles.foodTotalRow}>
                     <Text style={styles.foodCheckoutGrandLabel}>Total</Text>
                     <Text style={styles.foodCheckoutGrandAmount}>
-                      {money.format(foodCheckoutQuote.total)}
+                      {money.format(foodCheckoutQuote.total + foodTipCents / 100)}
                     </Text>
                   </View>
                 </View>
+                {/* El horario antes que la propina: primero cuándo llega,
+                    después cuánto se deja. Al revés obligaría a repensar la
+                    propina tras descubrir que el pedido es para mañana. */}
+                <SchedulePicker
+                  scheduledFor={foodScheduledFor}
+                  onChange={setFoodScheduledFor}
+                  disabled={busy}
+                />
+                {/* Antes del bloque de seguridad y del botón de confirmar: la
+                    propina se elige mirando el total, no después de darlo por
+                    bueno. */}
+                <TipSelector
+                  subtotal={foodCheckoutQuote.subtotal}
+                  tipCents={foodTipCents}
+                  onChange={setFoodTipCents}
+                  orderTotal={foodCheckoutQuote.total}
+                  disabled={busy}
+                />
                 <View style={styles.foodCheckoutSecurity}>
                   <View style={styles.foodCheckoutSecurityIcon}>
                     <Ionicons name="lock-closed" size={18} color={flashDesign.color.shipment} />
@@ -3469,6 +3569,18 @@ export function CustomerScreen({
                         <Text style={styles.foodActiveOrderPrimaryText}>Ver seguimiento</Text>
                       </Pressable>
                     </View>
+                    {/* Sólo mientras nadie empezó. Después el comercio ya está
+                        cocinando o hay conductor en camino, y el servidor lo
+                        rechaza: ofrecerlo igual sería prometer un 409. */}
+                    {order.scheduledFor && ["requested", "accepted"].includes(order.status) ? (
+                      <RescheduleControl
+                        scheduledFor={order.scheduledFor}
+                        disabled={busy}
+                        onReschedule={(iso) =>
+                          runAction(() => api.rescheduleJob(order.id, iso), "Pedido reprogramado")
+                        }
+                      />
+                    ) : null}
                     {!["delivered", "cancelled"].includes(order.status) ? (
                       <Pressable
                         disabled={busy}
@@ -4331,6 +4443,15 @@ export function CustomerScreen({
               <Text style={styles.foodRestaurantTitle}>Actividad</Text>
               <Text style={styles.cardText}>Pedidos, viajes y envíos en un solo lugar.</Text>
             </View>
+            {/* Los grupos viven en Actividad: son pedidos en curso, y es donde
+                alguien vuelve a mirar «cómo va lo que pedimos». */}
+            <GroupOrderPanel
+              restaurantId={cartRestaurant?.id ?? null}
+              cart={cart}
+              userId={user.id}
+              onCheckoutGroup={checkoutGroupOrder}
+              busy={busy}
+            />
             {activeOrders.length + activeRides.length + activeShipments.length === 0 &&
               pendingSubstitutions.length === 0 &&
               completedForTips.length === 0 &&
@@ -4792,6 +4913,10 @@ export function CustomerScreen({
                 <Text style={styles.customerLogoutText}>Salir</Text>
               </Pressable>
             </View>
+            {/* La suscripción va en Cuenta, que es donde la persona ya mira lo
+                que paga, y arriba del perfil porque es lo que cambia el precio
+                de todo lo demás. */}
+            <SubscriptionCard busy={busy} />
             <View style={styles.accountCard}>
               <View style={styles.accountAvatar}>
                 <Text style={styles.accountInitial}>{user.name.slice(0, 1).toUpperCase()}</Text>

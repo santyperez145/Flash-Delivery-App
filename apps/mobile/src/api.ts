@@ -689,6 +689,77 @@ export const api = {
       method: "DELETE",
     });
   },
+  // Mover el horario de un servicio reservado (GTM-001). Vale para pedidos y
+  // viajes: los dos son trabajos con horario, y la ruta es la misma.
+  async rescheduleJob(jobId: string, scheduledFor: string) {
+    return request<{
+      job: {
+        id: string;
+        kind: string;
+        status: string;
+        previousScheduledFor: string;
+        scheduledFor: string;
+      };
+    }>(`/jobs/${jobId}/schedule`, {
+      method: "PATCH",
+      body: JSON.stringify({ scheduledFor }),
+    });
+  },
+  // Pedidos grupales (GTM-001). Confirmar no vive acá: se piden los ítems
+  // juntos, se crean por `/orders` como cualquier pedido, y se avisa con
+  // `markGroupOrderPlaced`. Un camino de creación paralelo habría duplicado
+  // idempotencia, riesgo y cotización firmada sólo para el caso grupal.
+  async getGroupOrders() {
+    return request<{ groups: import("./types").GroupOrder[] }>("/group-orders");
+  },
+  async getGroupOrder(groupId: string) {
+    return request<{ group: import("./types").GroupOrder }>(`/group-orders/${groupId}`);
+  },
+  async createGroupOrder(payload: {
+    restaurantId: string;
+    branchId?: string;
+    spendLimitCents?: number;
+    closesAt?: string;
+  }) {
+    return request<{ group: import("./types").GroupOrder }>("/group-orders", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  },
+  async joinGroupOrder(joinCode: string) {
+    return request<{ group: import("./types").GroupOrder }>("/group-orders/join", {
+      method: "POST",
+      body: JSON.stringify({ joinCode }),
+    });
+  },
+  async setGroupOrderItems(
+    groupId: string,
+    items: Array<{ menuItemId: string; quantity: number; extras: string[]; note: string }>,
+  ) {
+    return request<{ group: import("./types").GroupOrder }>(`/group-orders/${groupId}/items`, {
+      method: "PUT",
+      body: JSON.stringify({ items }),
+    });
+  },
+  async setGroupOrderStatus(groupId: string, status: "open" | "locked" | "cancelled") {
+    return request<{ group: import("./types").GroupOrder }>(`/group-orders/${groupId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+  },
+  async getGroupOrderCheckout(groupId: string) {
+    return request<{
+      merchantPublicId: string;
+      branchPublicId: string;
+      items: Array<{ menuItemId: string; quantity: number; extras: string[]; note: string }>;
+    }>(`/group-orders/${groupId}/checkout`);
+  },
+  async markGroupOrderPlaced(groupId: string, orderId: string) {
+    return request<{ group: import("./types").GroupOrder }>(`/group-orders/${groupId}/placed`, {
+      method: "POST",
+      body: JSON.stringify({ orderId }),
+    });
+  },
   async createOrder(payload: {
     customerId: string;
     restaurantId: string;
@@ -700,6 +771,11 @@ export const api = {
     providerPayment?: { cardToken: string; paymentMethodId: string; installments: number };
     promotionCode?: string;
     quoteToken: string;
+    // Propina del checkout (GTM-001), en centavos y entera: en pesos con
+    // decimales cada cliente redondea distinto, y esto es dinero.
+    tipCents?: number;
+    /** Reserva de horario en ISO. Ausente es «lo antes posible». */
+    scheduledFor?: string;
     items: Array<{ menuItemId: string; quantity: number; extras: string[]; note: string }>;
   }) {
     if (!payload.deliveryAddressId)
@@ -1212,5 +1288,26 @@ export const api = {
   },
   async getReceipt(jobId: string) {
     return request<{ receipt: import("./types").ServiceReceipt }>(`/jobs/${jobId}/receipt`);
+  },
+
+  // Suscripción de Flash (GTM-001). El catálogo es público porque el precio
+  // tiene que poder verse antes de crear la cuenta; el resto pide sesión y
+  // siempre opera sobre la propia.
+  async getSubscriptionPlans() {
+    return request<{ plans: import("./types").SubscriptionPlan[] }>("/subscription/plans");
+  },
+  async getSubscription() {
+    return request<{ subscription: import("./types").Subscription | null }>("/subscription");
+  },
+  async subscribe(planKey: string) {
+    return request<{ subscription: import("./types").Subscription }>("/subscription", {
+      method: "POST",
+      body: JSON.stringify({ planKey }),
+    });
+  },
+  async cancelSubscription() {
+    return request<{ id: string; cancelled: true; benefitsUntil: string }>("/subscription", {
+      method: "DELETE",
+    });
   },
 };

@@ -5,10 +5,20 @@
 // distintos del archivo, separadas por búsqueda de catálogo y ofertas a
 // conductores, y lo único que las separaba era en qué orden se habían escrito.
 //
-// Lo que las agrupa es que **ninguna hace el trabajo: lo empuja**. El despacho,
-// las notificaciones y el SLA de soporte corren solos por su cuenta; estas rutas
-// existen para que un cron externo o una persona de operaciones haga avanzar el
-// lote sin esperar al tick, que es lo que hace falta cuando algo se atascó.
+// Lo que las agrupa es que **ninguna hace el trabajo: lo empuja**.
+//
+// > **Corrección (28-08).** Este comentario decía que el despacho, las
+// > notificaciones y el SLA de soporte «corren solos por su cuenta». **No
+// > corrían.** Las tres funciones estaban importadas en `server/index.js` y no
+// > llamadas desde ahí, y no había ningún planificador en el proyecto: la única
+// > forma de hacerlas avanzar era esta ruta. Un pedido pagado se quedaba sin
+// > ninguna oferta de conductor hasta que alguien apretara el botón.
+//
+// Ahora el punto de entrada desatendido es `npm run job:operational-queues`, que
+// el cron del entorno invoca —el proyecto no trae planificador en proceso a
+// propósito: corre una vez por réplica y no sobrevive a un reinicio—. Estas
+// rutas siguen existiendo para que operaciones empuje un lote sin esperar al
+// próximo tick, que es lo que hace falta cuando algo se atascó.
 //
 // Por eso todas aceptan `limit` y todas lo acotan del lado del servidor. Un
 // `limit` sin techo convierte un pedido de operaciones en un lote que toma la

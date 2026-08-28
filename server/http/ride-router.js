@@ -50,6 +50,7 @@ import {
 } from "../mobility-repository.js";
 import { recordPostgresAudit } from "../operations-repository.js";
 import { usesPostgresCommerce } from "../postgres.js";
+import { validarHorarioProgramado } from "../scheduling.js";
 import { deliveryProofLimiter } from "./rate-limits.js";
 import { publishRealtimeEvent } from "./realtime.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";
@@ -515,11 +516,12 @@ router.post("/api/rides", requireAuth, requireAnyRole("customer", "admin"), asyn
     scheduledFor,
   } = parsed.data;
   if (scheduledFor) {
-    const scheduledMs = new Date(scheduledFor).getTime();
-    if (scheduledMs < Date.now() + 30 * 60 * 1000)
-      return fail(res, 400, "La reserva debe hacerse con al menos 30 minutos");
-    if (scheduledMs > Date.now() + 30 * 24 * 60 * 60 * 1000)
-      return fail(res, 400, "Sólo puedes reservar hasta 30 días antes");
+    // La ventana vivía escrita a mano acá, y era la única parte del producto que
+    // sabía reservar. Al programar pedidos de comida hacía falta la misma regla,
+    // y una segunda copia diverge en silencio: el día que se acepte reservar con
+    // 15 minutos, la mitad del producto seguiría exigiendo 30.
+    const invalido = validarHorarioProgramado(scheduledFor);
+    if (invalido) return fail(res, 400, invalido);
   }
   const db = usesPostgresCommerce() ? {} : readDb();
   const customer = usesPostgresAuth()

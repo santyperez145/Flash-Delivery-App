@@ -2759,6 +2759,154 @@ export const styles = StyleSheet.create({
   },
   primaryButtonText: { color: "#fff", fontWeight: "900" },
   disabledButton: { opacity: 0.45 },
+
+  // Propina en el checkout (GTM-001). Los objetivos táctiles son de 44px: es la
+  // única decisión del checkout que se toma con el pulgar sobre una lista de
+  // montos parecidos, y ahí un objetivo chico hace dejar la propina equivocada.
+  propinaSelector: {
+    backgroundColor: "#ffffff",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#efe9f0",
+    padding: 16,
+    gap: 8,
+  },
+  propinaOpciones: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 },
+  propinaOpcion: {
+    minHeight: 44,
+    minWidth: 78,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#efe9f0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  // Se marca con borde y fondo, no sólo con color: un cambio de color solo no lo
+  // distingue quien no separa esos dos tonos.
+  propinaOpcionActiva: { borderColor: "#ff6a21", backgroundColor: "rgba(255,106,33,0.10)" },
+  propinaOpcionTexto: { color: "#27242a", fontWeight: "700" },
+  propinaOpcionMonto: { color: "#6c6870", fontSize: 12 },
+  propinaLibre: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  propinaInput: {
+    minHeight: 44,
+    width: 120,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#efe9f0",
+    textAlign: "right",
+    color: "#27242a",
+  },
+
+  // Suscripción de Flash (GTM-001). Espeja `accountCard` para que la pantalla de
+  // cuenta no cambie de idioma visual a mitad de scroll.
+  suscripcionCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#efe9f0",
+    padding: 18,
+    gap: 10,
+  },
+  suscripcionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  suscripcionPrecio: { fontSize: 20, fontWeight: "700", color: "#27242a" },
+  suscripcionChip: {
+    backgroundColor: "rgba(22,163,74,0.12)",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  // Cancelada pero vigente: ámbar y no rojo, porque los beneficios siguen y un
+  // rojo diría que ya se perdieron.
+  suscripcionChipVence: {
+    backgroundColor: "rgba(217,119,6,0.12)",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  suscripcionChipText: { fontSize: 12, color: "#27242a" },
+  suscripcionAviso: { fontSize: 13, color: "#b45309" },
+  suscripcionAlta: {
+    backgroundColor: "#ff6a21",
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  suscripcionAltaText: { color: "#ffffff", fontWeight: "700" },
+  // La baja es secundaria, no destructiva: no se esconde ni se pinta de peligro.
+  suscripcionBaja: {
+    borderWidth: 1,
+    borderColor: "#efe9f0",
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  suscripcionBajaText: { color: "#27242a", fontWeight: "600" },
+  suscripcionOk: { fontSize: 13, color: "#087a50" },
+  suscripcionError: { fontSize: 13, color: "#b91c1c" },
+
+  // Pedidos grupales (GTM-001). Reutiliza la tarjeta de suscripción para que la
+  // pantalla no cambie de idioma visual a mitad de scroll.
+  grupoSumarse: { flexDirection: "row", alignItems: "center", gap: 10 },
+  grupoCodigoInput: {
+    flex: 1,
+    minHeight: 44,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#efe9f0",
+    color: "#27242a",
+    // El código se lee desde la pantalla de otra persona: monoespaciado y
+    // espaciado para que no se confundan caracteres.
+    fontFamily: "monospace",
+    letterSpacing: 3,
+  },
+  grupoTarjeta: {
+    borderWidth: 1,
+    borderColor: "#efe9f0",
+    borderRadius: 14,
+    padding: 14,
+    gap: 10,
+  },
+  grupoCodigo: {
+    alignItems: "center",
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: "rgba(255,106,33,0.12)",
+    gap: 2,
+  },
+  grupoCodigoTexto: {
+    fontFamily: "monospace",
+    letterSpacing: 4,
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#b4460f",
+  },
+  grupoParticipante: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  grupoTotal: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    borderTopWidth: 1,
+    borderTopColor: "#efe9f0",
+    paddingTop: 8,
+  },
   foodSearch: {
     minHeight: 48,
     borderRadius: 16,

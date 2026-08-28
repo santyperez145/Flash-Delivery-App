@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { postgresPool } from "./postgres.js";
+import { heldTipForJob, markHeldTipRefunded, markTipReleased } from "./tip-repository.js";
 const payoutId = () => `PAY-${crypto.randomBytes(5).toString("hex").toUpperCase()}`;
 const account = async (client, { ownerType, ownerId = null, accountType }) =>
   (
@@ -63,6 +64,20 @@ export async function recordMarketplaceCapture(
   return { recorded: true, idempotent: false };
 }
 
+/**
+ * Reparte lo cobrado entre comercio, conductor y plataforma.
+ *
+ * **`platformNet` puede ser negativo, y sólo por lo que la plataforma regaló.**
+ * Cuando la suscripción cubre el envío, el cliente paga menos pero el conductor
+ * cobra igual y el comercio cobra igual: la diferencia sale del margen de Flash,
+ * que es de quien tiene que salir un beneficio que Flash vendió. Antes esto
+ * hacía dos cosas mal a la vez —el conductor cobraba de menos y el reparto no
+ * cerraba— y el pedido moría en la liquidación.
+ *
+ * El límite sigue siendo estricto: se admite perder exactamente el subsidio
+ * otorgado y ni un centavo más. Levantar la cota del todo convertiría cualquier
+ * error de tarifa en una pérdida silenciosa.
+ */
 export function calculateFoodSettlement({
   provider,
   total,
@@ -72,16 +87,20 @@ export function calculateFoodSettlement({
   deliveryFee,
   hasDriver,
   applicationFee = 0,
+  subscriptionDiscount = 0,
 }) {
   const merchantSales = Math.max(0, subtotal - discount),
     commission = Math.round((merchantSales * commissionBps) / 10000),
     merchantNet = provider === "mercadopago" ? total - applicationFee : merchantSales - commission,
-    driverNet = hasDriver ? Math.min(deliveryFee, total - merchantNet) : 0,
+    // El conductor cobra el envío completo aunque el cliente no lo haya pagado.
+    // Sin `+ subscriptionDiscount` el tope lo dejaría en lo que sobró después de
+    // regalar el envío, que es cobrarle a él la promoción.
+    driverNet = hasDriver ? Math.min(deliveryFee, total + subscriptionDiscount - merchantNet) : 0,
     platformNet = total - merchantNet - driverNet;
   if (
     merchantNet < 0 ||
     driverNet < 0 ||
-    platformNet < 0 ||
+    platformNet < -subscriptionDiscount ||
     merchantNet + driverNet + platformNet !== total
   )
     throw new Error("El split financiero no balancea");
@@ -117,11 +136,22 @@ export async function settleCapturedFoodOrder(client, { jobId, actorId = null })
     )
   ).rows[0];
   if (!transaction) return { settled: true, idempotent: true };
-  const total = Number(payment.captured_amount_cents),
+  // La propina tomada en el checkout viaja dentro de lo cobrado, pero **no se
+  // reparte**: no es del comercio ni de la plataforma. Se saca del total antes
+  // de dividir y se paga aparte, o el comercio se llevaria la propina del
+  // repartidor.
+  const tip = await heldTipForJob(client, job.id);
+  const capturado = Number(payment.captured_amount_cents),
+    total = capturado - tip.amountCents,
     subtotal = Number(job.subtotal_cents),
     discount = Math.round(Number(job.metadata?.discount || 0) * 100),
-    providerApplicationFee = Number(payment.provider_payload?.applicationFeeCents || 0),
+    // La comision de aplicacion incluye la propina desde la creacion del pedido,
+    // para que el proveedor no se la deposite al comercio. Se descuenta acá por
+    // el mismo motivo por el que se descuenta del total.
+    providerApplicationFee =
+      Number(payment.provider_payload?.applicationFeeCents || 0) - tip.amountCents,
     deliveryFee = Math.round(Number(job.metadata?.deliveryFee || 0) * 100),
+    subscriptionDiscount = Math.round(Number(job.metadata?.subscriptionDiscount || 0) * 100),
     { merchantNet, driverNet, platformNet, commission } = calculateFoodSettlement({
       provider: payment.provider,
       total,
@@ -131,6 +161,7 @@ export async function settleCapturedFoodOrder(client, { jobId, actorId = null })
       deliveryFee,
       hasDriver: Boolean(job.driver_user_id),
       applicationFee: providerApplicationFee,
+      subscriptionDiscount,
     });
   const clearing = await systemAccount(client, "cash_clearing"),
     merchantDestination = await account(client, {
@@ -139,10 +170,16 @@ export async function settleCapturedFoodOrder(client, { jobId, actorId = null })
       accountType: payment.provider === "mercadopago" ? "seller_split_control" : "payable",
     }),
     platformRevenue = await systemAccount(client, "revenue");
+  // Cuando la plataforma subsidia, su cuenta de resultados **se debita** en vez
+  // de acreditarse. El asiento sigue balanceando porque el subsidio entra como
+  // origen de fondos: es plata que Flash puso, y ponerla como un crédito
+  // negativo dejaría el libro sin cuadrar.
   const entries = [
-    [clearing, "debit", total],
+    [clearing, "debit", capturado],
     [merchantDestination, "credit", merchantNet],
-    [platformRevenue, "credit", platformNet],
+    platformNet >= 0
+      ? [platformRevenue, "credit", platformNet]
+      : [platformRevenue, "debit", -platformNet],
   ];
   if (driverNet) {
     const driverWallet = await account(client, {
@@ -151,6 +188,31 @@ export async function settleCapturedFoodOrder(client, { jobId, actorId = null })
       accountType: "wallet",
     });
     entries.push([driverWallet, "credit", driverNet]);
+  }
+  // La propina, a quien corresponda. **Nunca se queda en la plataforma**: si el
+  // pedido se completo sin conductor asignado —reparto propio del comercio— no
+  // hay a quien pagarsela y vuelve al cliente. Quedarsela seria cobrar por un
+  // servicio que nadie prestó, y es el error que nadie reclama porque nadie lo ve.
+  if (tip.amountCents > 0) {
+    const destinoPropina = job.driver_user_id
+      ? await account(client, {
+          ownerType: "user",
+          ownerId: job.driver_user_id,
+          accountType: "wallet",
+        })
+      : await account(client, {
+          ownerType: "user",
+          ownerId: job.customer_id,
+          accountType: "wallet",
+        });
+    entries.push([destinoPropina, "credit", tip.amountCents]);
+    if (job.driver_user_id)
+      await markTipReleased(client, {
+        tipId: tip.id,
+        driverId: job.driver_id,
+        ledgerTransactionId: transaction.id,
+      });
+    else await markHeldTipRefunded(client, job.id);
   }
   for (const [accountId, direction, amount] of entries)
     if (amount > 0)
