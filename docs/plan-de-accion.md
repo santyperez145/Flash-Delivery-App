@@ -442,7 +442,9 @@ pantalla según la variante y cada bundle lleva una sola, verificado empaquetand
 las tres con `expo export`. Y `commerce-repository.js` se partió por dueño del
 dato en catálogo, pedidos y plantel.
 
-Los dos `App.tsx` ya son shells por debajo de 1.500 líneas. La extracción interna
+Los dos `App.tsx` ya son shells por debajo de 1.500 líneas. El acceso web pasó a
+`auth/WebLogin.tsx`; `src/App.tsx` quedó en 1.286 líneas y Customer, Merchant,
+Operaciones y Superadmin cargan por audiencia. La extracción interna
 continúa por dominio: Actividad mobile pasó a `CustomerActivityScreen.tsx` con
 grupos, sustituciones, servicios activos, comprobantes, repetición, reclamos y
 propinas; `CustomerScreen.tsx` bajó de 6.241 a 5.965 líneas. Quedan Comidas,

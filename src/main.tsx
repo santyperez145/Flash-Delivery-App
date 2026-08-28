@@ -2,6 +2,8 @@ import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./styles.css";
+import "./styles/foundation.css";
+import "./styles/auth.css";
 import "./adaptive.css";
 
 const publicTrackingToken = window.location.pathname.match(

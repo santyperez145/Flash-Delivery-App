@@ -9,6 +9,8 @@ const { source: webApp } = await readWebSource();
 const mobilePackage = JSON.parse(fs.readFileSync("apps/mobile/package.json", "utf8"));
 const rootPackage = JSON.parse(fs.readFileSync("package.json", "utf8"));
 const desktop = fs.readFileSync("src/styles.css", "utf8");
+const foundation = fs.readFileSync("src/styles/foundation.css", "utf8");
+const authStyles = fs.readFileSync("src/styles/auth.css", "utf8");
 const adaptive = fs.readFileSync("src/adaptive.css", "utf8");
 const entry = fs.readFileSync("src/main.tsx", "utf8");
 const guidelines = fs.readFileSync("docs/ui-layout-guidelines.md", "utf8");
@@ -76,13 +78,27 @@ assert(
 );
 
 assert(
-  contains(entry, 'import "./adaptive.css"') &&
+  contains(entry, 'import "./styles/foundation.css"') &&
+    contains(entry, 'import "./styles/auth.css"') &&
+    contains(entry, 'import "./adaptive.css"') &&
     webApp.match(/window\.matchMedia\("\(min-width: 620px\)"\)/g)?.length === 2 &&
     contains(adaptive, "@media (max-width: 900px)") &&
     contains(adaptive, "@media (max-width: 620px)") &&
     contains(adaptive, ".admin-nav::-webkit-scrollbar") &&
     contains(adaptive, "prefers-reduced-motion"),
   "desktop operations provide compact navigation, single-column collapse and reduced motion",
+);
+
+assert(
+  contains(foundation, "--brand: #7c3cff") &&
+    contains(foundation, "--food: #ff6a21") &&
+    contains(foundation, "--ride: #6d35e0") &&
+    contains(foundation, "--shipment: #087a50") &&
+    contains(foundation, "min-height: var(--layout-touch)") &&
+    contains(authStyles, "grid-template-columns: minmax(420px, 1.08fr)") &&
+    contains(authStyles, "@media (max-width: 900px)") &&
+    contains(authStyles, "min-height: 100dvh"),
+  "web auth and shared surfaces consume the Flash visual system across breakpoints",
 );
 
 assert(

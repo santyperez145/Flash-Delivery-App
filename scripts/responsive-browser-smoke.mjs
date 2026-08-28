@@ -102,8 +102,8 @@ async function login(page, url, email, submitLabel) {
     await page.getByPlaceholder("Tu contraseña").fill("demo123");
     await page.getByText("Ingresar", { exact: true }).click();
   } else {
-    await page.getByPlaceholder("Email").fill(email);
-    await page.getByPlaceholder("Contraseña").fill("demo123");
+    await page.getByLabel("Email", { exact: true }).fill(email);
+    await page.getByLabel("Contraseña", { exact: true }).fill("demo123");
     await page.getByText(submitLabel, { exact: true }).click();
   }
 }
