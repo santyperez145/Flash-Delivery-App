@@ -253,16 +253,20 @@ Esa distinción es la diferencia entre una puerta que se respeta y una que se sa
 
 ### Partida doble garantizada por la base
 
-`ledger_entries` es un libro de partida doble: cada transacción agrupa débitos y créditos que tienen que sumar lo mismo. Hasta la migración 118 **nada lo obligaba**. El esquema aceptaba de buena gana un débito sin su crédito, y la propiedad que hace que un ledger sea un ledger descansaba sobre dieciocho puntos de escritura repartidos en nueve módulos de repositorio, cada uno acertando por su cuenta.
+`ledger_entries` es un libro de partida doble: cada transacción agrupa débitos y créditos que tienen que sumar lo mismo, y un `CONSTRAINT TRIGGER` diferido lo obliga al commit.
+
+> **Corrección.** La primera versión de esta sección decía que hasta la migración 118 nada lo obligaba. Era falso: la migración **003** ya creaba `ledger_entries_must_balance`, con la misma forma y el mismo momento de disparo. La 118 agregó un duplicado por haber buscado tablas y políticas sobre `ledger_entries` pero no triggers, y la 121 lo quitó. Se conserva el original, que además exige al menos dos asientos.
+
+Lo que sí era nuevo, y es lo que esta sección describe, es la **puerta**.
 
 La matriz de madurez ya declaraba esta capacidad en `CI`. La puerta que la respaldaba era `test:marketplace-ledger`, que prueba `calculateFoodSettlement` —la aritmética del split— y no toca la base. Es una prueba correcta de otra cosa.
 
-Ahora el trigger `ledger_entries_balance` rechaza al commit toda transacción que no cuadre. Es **diferido y no inmediato** por una razón concreta: la reversión proporcional de incidencias inserta N débitos en un bucle y después un solo crédito por el total, así que un chequeo por sentencia fallaría en el primer débito, que es correcto individualmente. `DEFERRABLE INITIALLY DEFERRED` mira el estado al commit, que es cuando la pregunta tiene sentido. Es seguro porque ninguna transacción se arma entre commits: nada escribe `ledger_transactions` en estado `pending` ni actualiza el estado después.
+El trigger `ledger_entries_must_balance` rechaza al commit toda transacción que no cuadre. Es **diferido y no inmediato** por una razón concreta: la reversión proporcional de incidencias inserta N débitos en un bucle y después un solo crédito por el total, así que un chequeo por sentencia fallaría en el primer débito, que es correcto individualmente. `DEFERRABLE INITIALLY DEFERRED` mira el estado al commit, que es cuando la pregunta tiene sentido. Es seguro porque ninguna transacción se arma entre commits: nada escribe `ledger_transactions` en estado `pending` ni actualiza el estado después.
 
 `test:ledger-balance`, en `ci-postgres`, hace cinco cosas y las cinco hacen falta:
 
-1. **Barre lo ya escrito.** El trigger sólo mira de ahora en más; un desbalance anterior seguiría ahí, callado.
-2. **Exige que el trigger exista y siga siendo diferido.** Volverlo inmediato no es «más estricto», es romper la reversión proporcional.
+1. **Barre lo ya escrito.** El trigger sólo mira lo que se escribe con él activo; un desbalance anterior seguiría ahí, callado.
+2. **Exige que el trigger exista y siga siendo diferido.** Volverlo inmediato no es «más estricto», es romper la reversión proporcional. Esta comprobación se ganó su lugar sola: el trigger llevaba desde la migración 003 sin que nadie verificara que seguía vivo, y precisamente por eso se lo dio por inexistente al escribir la 118.
 3. **Le prueba las dos mitades en cada corrida.** Intenta escribir una transacción torcida y exige que la base la rechace; después escribe una que cuadra y exige que la acepte. Un constraint que rechaza todo aprobaría la mitad negativa y rompería el producto. Un constraint que no se ejerce es una afirmación, no una garantía.
 4. **Exige que `ledger_transactions.idempotency_key` siga siendo única.** De ahí sale que un pago repetido no genere un segundo asiento. Si alguien quitara el UNIQUE nada fallaría a la vista y la idempotencia moriría en silencio.
 5. **Prueba que el barrido sabe encontrar.** En CI la base viene recién migrada, así que el punto 1 recorre cero transacciones: pasaría igual con un `HAVING` mal escrito, y seguiría pasando para siempre. Se escriben asientos torcidos sin llegar al commit —el trigger es diferido, todavía no mira— y se le exige al barrido que los vea, con las sumas correctas. Las dos consultas son **la misma constante**: tener una copia probaría que la copia funciona.

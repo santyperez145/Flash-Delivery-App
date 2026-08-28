@@ -103,16 +103,26 @@ try {
 
   // Adelanta el chequeo diferido: de paso queda probado que la captura escribe
   // asientos que cuadran, no solo que no los duplica.
+  // El trigger es el de la migracion 003. La 118 agrego un duplicado por no
+  // haber buscado triggers antes de escribirlo y la 121 lo quito.
   let desbalance = null;
   await client
-    .query("SET CONSTRAINTS ledger_entries_balance IMMEDIATE")
+    .query("SET CONSTRAINTS ledger_entries_must_balance IMMEDIATE")
     .catch((error) => (desbalance = error));
-  if (desbalance) {
+  if (!desbalance) {
+    ok("los asientos de la captura cuadran");
+  } else if (desbalance.code === "42704") {
+    // Un constraint que no existe y uno que rechaza son cosas distintas, y la
+    // primera version las reportaba igual: al quitar el trigger duplicado esto
+    // dijo «la captura escribio asientos que no cuadran», que mandaba a buscar
+    // un defecto contable donde habia un nombre desactualizado.
+    fallos++;
+    console.error("FALLA - no existe el constraint ledger_entries_must_balance");
+    console.error("        el trigger de balance no esta, no es que los asientos no cuadren");
+  } else {
     fallos++;
     console.error("FALLA - la captura escribio asientos que no cuadran");
     console.error(`        ${desbalance.message}`);
-  } else {
-    ok("los asientos de la captura cuadran");
   }
 } finally {
   await client.query("ROLLBACK").catch(() => {});

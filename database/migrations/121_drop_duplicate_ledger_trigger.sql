@@ -1,0 +1,23 @@
+-- Se quita el trigger de balance duplicado (ticket PAY-001).
+--
+-- La migracion 118 agrego `ledger_entries_balance` afirmando que nada obligaba a
+-- que una transaccion contable cuadrara. **Eso era falso.** La migracion 003 ya
+-- creaba `ledger_entries_must_balance`, un CONSTRAINT TRIGGER diferido sobre la
+-- misma tabla, con la misma forma y el mismo momento de disparo.
+--
+-- El error fue de busqueda: se busco `CREATE TABLE` y politicas RLS sobre
+-- `ledger_entries`, no triggers. La afirmacion «nada lo obligaba» se escribio
+-- con confianza y sin haberla comprobado.
+--
+-- Se conserva el original y se quita el agregado, que es la direccion correcta:
+-- el que estaba primero funciona, y dos triggers diferidos comprobando lo mismo
+-- en cada asiento son costo y confusion. El original ademas exige `entry_count
+-- >= 2`, que el agregado no comprobaba.
+--
+-- Lo que si era nuevo y se conserva es la **puerta**: `test:ledger-balance` barre
+-- el libro entero buscando desbalances anteriores, exige que el trigger exista y
+-- siga siendo diferido, y le prueba las dos mitades en cada corrida. Nada de eso
+-- existia. Un trigger que nadie verifica es una afirmacion, y este llevaba desde
+-- la migracion 003 sin que nadie comprobara que seguia vivo.
+DROP TRIGGER IF EXISTS ledger_entries_balance ON ledger_entries;
+DROP FUNCTION IF EXISTS app.enforce_ledger_balance();
