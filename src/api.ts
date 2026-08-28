@@ -1696,6 +1696,24 @@ export const api = {
   // Suscripción de Flash (GTM-001). El catálogo es público porque el precio
   // tiene que poder verse antes de crear la cuenta; el resto pide sesión y
   // siempre opera sobre la propia, nunca sobre la de otro.
+  // Tablero de colas de trabajo (OPS-001). Lo lee `admin` y `support`: quien
+  // atiende la cola tiene que poder ver si se está acumulando.
+  async getWorkQueues() {
+    return request<{
+      generatedAt: string;
+      alerting: number;
+      stalledJobs: number;
+      queues: Array<{
+        key: string;
+        label: string;
+        owner: "job" | "human";
+        pending: number;
+        oldestMinutes: number;
+        oldestAt: string | null;
+        severity: "ok" | "atencion" | "alarma";
+      }>;
+    }>("/operations/work-queues");
+  },
   async getSubscriptionPlans() {
     return request<{ plans: import("./types").SubscriptionPlan[] }>("/subscription/plans");
   },

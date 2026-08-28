@@ -361,6 +361,34 @@ Lo que la puerta **no** puede verificar es que el entorno programe los trabajos.
 [`docs/deployment-checklist.md`](deployment-checklist.md), con su casilla y su consecuencia
 escrita al lado.
 
+### Una tabla que no existe es una referencia sin resolver
+
+`test:module-references` existía porque al extraer grupos de rutas el bloque movido usaba
+algo que vivía en `server/index.js` y el import no se agregaba: Node no lo detecta al
+importar el módulo, la referencia está dentro del handler, y sólo falla cuando llega un
+request.
+
+Un `FROM tabla_que_no_existe` falla de la misma forma y por el mismo motivo, así que desde
+el 28 de agosto la misma puerta compara los nombres de tabla que usa el servidor contra las
+que crean las migraciones. Apareció escribiendo el tablero de colas de trabajo, que nombra
+doce tablas y sus estados: una sola mal tipeada rompe la consulta entera, y sin base local
+no había forma de saberlo antes de CI.
+
+**La primera versión reportó 150 referencias y ninguna era real.** Vale registrar por qué,
+porque son cuatro formas distintas de que un análisis estático de SQL se equivoque:
+
+- **Comentarios.** Media docena explican una consulta en prosa y contienen `FROM` y `JOIN`.
+- **`FOR UPDATE OF c,i`, `DO UPDATE SET x=1`, `FOR UPDATE SKIP LOCKED`.** Palabras clave que
+  siguen a `UPDATE` sin ser tablas.
+- **Funciones que devuelven filas.** `FROM generate_series(...)` no nombra una tabla; se
+  distinguen porque llevan paréntesis pegado.
+- **`server/store.js`.** Es el respaldo SQLite con su propio esquema, creado en el mismo
+  archivo. Compararlo contra las migraciones de PostgreSQL reportaba todas sus tablas como
+  inexistentes, que es exactamente al revés.
+
+Quedó en cero falsos positivos sobre 117 módulos y 113 tablas. Falsificada con dos typos
+reales: una tabla del tablero de colas y una referencia a un nombre en singular.
+
 ### La audiencia realtime, contra la base
 
 `test:realtime-audience` es estático: comprueba `classifyRealtimeAudience` —una función pura— y que ninguna publicación del servidor difunda a todos los roles por omisión. Es una buena puerta y corre en cada PR sin necesitar base de datos.

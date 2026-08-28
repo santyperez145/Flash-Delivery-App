@@ -7639,3 +7639,73 @@ textarea {
   font-size: 0.85rem;
   color: #b91c1c;
 }
+
+/* Tablero de colas de trabajo (OPS-001).
+   El color no es la única señal: cada fila lleva su cantidad y su antigüedad en
+   texto, y el borde izquierdo cambia de grosor además de tono. Un tablero que
+   sólo distingue por color deja afuera a quien no separa rojo de ámbar. */
+.colas-tablero {
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+  border-radius: 16px;
+  background: var(--surface, #fff);
+}
+.colas-tablero h3 {
+  margin: 0 0 2px;
+  font-size: 1rem;
+}
+.colas-tablero header small {
+  opacity: 0.7;
+}
+.colas-cron {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(185, 28, 28, 0.1);
+  color: #b91c1c;
+  font-size: 0.85rem;
+}
+.colas-lista {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+.cola-fila {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--border, rgba(0, 0, 0, 0.12));
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.02);
+}
+.cola-fila small {
+  display: block;
+  opacity: 0.6;
+  font-size: 0.75rem;
+}
+.cola-atencion {
+  border-left-width: 5px;
+  border-left-color: #d97706;
+}
+.cola-alarma {
+  border-left-width: 5px;
+  border-left-color: #b91c1c;
+  background: rgba(185, 28, 28, 0.06);
+}
+.cola-cantidad {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  min-width: 3ch;
+  text-align: right;
+}
+.cola-antiguedad {
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+  min-width: 6ch;
+  text-align: right;
+}

@@ -519,7 +519,11 @@ Case ownership · SLA · escalation · aprobación de refunds · suspensión de 
 - [x] **Los tickets críticos escalan al vencer su SLA.** La lógica existía y **nada la ejecutaba**: `processSupportQueue` estaba importada en `server/index.js`, no llamada desde ahí, y sólo avanzaba desde `POST /api/admin/support/process`. Ahora la invoca `npm run job:operational-queues`.
   - **El hallazgo grande no fue el SLA.** El mismo trabajo cubre el despacho y las notificaciones, que estaban igual. Sin planificador, **un pedido pagado no recibía ninguna oferta de conductor** — se cobraba y se quedaba quieto. Un comentario del router afirmaba que los tres «corren solos por su cuenta»; no corrían. Tres cadenas de capacidad en `/api/health` prometían un `worker` que no existía, y ahora dicen `scheduled-batch`.
   - **El planificador sigue siendo del entorno**, como para la conciliación de pagos: en proceso corre una vez por réplica y no sobrevive a un reinicio. Lo que faltaba era el punto de entrada que el cron invoca. `test:ci-coverage` verifica que exista y que nadie meta un temporizador en el servidor; [`docs/deployment-checklist.md`](deployment-checklist.md) tiene la casilla de programarlo, que ninguna puerta de este repositorio puede comprobar.
-- [ ] Existen dashboards por cola de trabajo.
+- [x] **Existen dashboards por cola de trabajo.** `GET /api/operations/work-queues` y el tablero al tope de la vista general del backoffice, con las doce colas del producto.
+  - **Se ordena por antigüedad del más viejo, no por cantidad.** Una cola con trescientos elementos de este minuto está sana; una con tres de hace cuatro días no. Y es la forma de la métrica que revela lo que ninguna cantidad revela: que nadie está procesando.
+  - **Separa cola de máquina de cola de persona**, porque el diagnóstico es distinto: si se llena una que vacía un trabajo programado, falta cron; si se llena una que atiende una persona, falta gente o falta prioridad. Los umbrales van en minutos para las primeras y en horas para las segundas — a las tres de la mañana no hay nadie, y eso no es una falla.
+  - **El predicado de la cola de despacho es una copia del que usa el lote.** Un tablero que midiera «trabajos sin conductor» a secas habría contado los programados para mañana y los que ya tienen oferta viva, y habría mostrado una cola sana durante todo el tiempo en que el lote no corría.
+  - Lo lee `support` además de `admin`: que sólo lo vea administración convierte una pregunta operativa en una escalación.
 
 ---
 

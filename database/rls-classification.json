@@ -109,6 +109,18 @@
       "clase": "global-lectura",
       "rls": true
     },
+    "group_order_items": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "group_order_participants": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "group_orders": {
+      "clase": "por-usuario",
+      "rls": true
+    },
     "idempotency_keys": {
       "clase": "servicio",
       "rls": false,
@@ -357,6 +369,10 @@
       "clase": "global-lectura",
       "rls": true
     },
+    "subscription_plans": {
+      "clase": "global-lectura",
+      "rls": false
+    },
     "support_agent_profiles": {
       "clase": "por-usuario",
       "rls": true
@@ -413,6 +429,10 @@
       "clase": "por-usuario",
       "rls": true,
       "nota": "Mapa de personas a privilegios. Política `user_roles_owner`. El runtime queda exento: el login resuelve identidad con un JOIN a esta tabla antes de que exista contexto de usuario. Sin recursión: `app.has_role()` lee una variable de sesión, no esta tabla."
+    },
+    "user_subscriptions": {
+      "clase": "por-usuario",
+      "rls": true
     },
     "users": {
       "clase": "por-usuario",
