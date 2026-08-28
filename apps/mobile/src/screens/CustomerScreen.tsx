@@ -32,6 +32,7 @@ import {
 
 import { track } from "../analytics";
 import { api } from "../api";
+import { SubscriptionCard } from "../SubscriptionCard";
 import { flashDesign } from "../design-system";
 import FlashNativeMap from "../FlashNativeMap";
 import { mobileOrderStatusLabel, money, navigationInstruction } from "../format";
@@ -3316,6 +3317,17 @@ export function CustomerScreen({
                       </Text>
                     </View>
                   ) : null}
+                  {/* El beneficio se nombra en vez de sumarse al descuento: quien
+                      paga una suscripción tiene que ver qué le devolvió en cada
+                      pedido, y esconderlo en «Descuento» lo borra. */}
+                  {foodCheckoutQuote.subscriptionDiscount > 0 ? (
+                    <View style={styles.foodTotalRow}>
+                      <Text style={styles.foodCheckoutDiscountLabel}>Envío con Flash Más</Text>
+                      <Text style={styles.foodCheckoutDiscountAmount}>
+                        − {money.format(foodCheckoutQuote.subscriptionDiscount)}
+                      </Text>
+                    </View>
+                  ) : null}
                   <View style={styles.foodCheckoutTotalDivider} />
                   <View style={styles.foodTotalRow}>
                     <Text style={styles.foodCheckoutGrandLabel}>Total</Text>
@@ -4792,6 +4804,10 @@ export function CustomerScreen({
                 <Text style={styles.customerLogoutText}>Salir</Text>
               </Pressable>
             </View>
+            {/* La suscripción va en Cuenta, que es donde la persona ya mira lo
+                que paga, y arriba del perfil porque es lo que cambia el precio
+                de todo lo demás. */}
+            <SubscriptionCard busy={busy} />
             <View style={styles.accountCard}>
               <View style={styles.accountAvatar}>
                 <Text style={styles.accountInitial}>{user.name.slice(0, 1).toUpperCase()}</Text>

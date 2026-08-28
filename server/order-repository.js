@@ -16,6 +16,7 @@
 // eso viven juntas al principio del archivo.
 import crypto from "node:crypto";
 import { postgresPool } from "./postgres.js";
+import { getActiveSubscription, splitOrderDiscounts } from "./subscription-repository.js";
 import { getPostgresPricingPlan } from "./configuration-repository.js";
 import { enqueueNotificationForInternalUser } from "./notification-repository.js";
 import { acceptDispatchOffer, createDispatchOffers } from "./dispatch-repository.js";
@@ -317,7 +318,8 @@ export async function getPostgresFoodCheckoutQuote({
     const deliveryFeeCents = Math.round(Number(delivery.deliveryFee) * 100),
       serviceFeeCents = Math.round(Number(delivery.serviceFee) * 100);
     let promotion = null,
-      discountCents = 0;
+      discountCents = 0,
+      subscriptionDiscountCents = 0;
     if (promotionCode) {
       promotion = (
         await client.query(
@@ -356,12 +358,35 @@ export async function getPostgresFoodCheckoutQuote({
         discountCents = Math.min(discountCents, Number(promotion.max_discount_cents));
       discountCents = Math.min(discountCents, subtotalCents + deliveryFeeCents);
     }
-    const totalCents = subtotalCents + deliveryFeeCents + serviceFeeCents - discountCents;
+    // El beneficio de la suscripcion se aplica ACA, antes de que la ruta firme
+    // el token: `/api/orders/quote` firma lo calculado y la creacion del pedido
+    // solo acepta ese precio. Un descuento aplicado despues no sobrevive.
+    //
+    // Va aparte de `discountCents` a proposito. La comision del comercio se
+    // calcula sobre `subtotalCents - discountCents`: meter aca un envio que
+    // regala Flash le bajaria la comision al comercio por un beneficio que no
+    // financio, y ademas quedaria registrado como canje de promocion.
+    const subscription = await getActiveSubscription(customerPublicId, client);
+    ({ discountCents, subscriptionDiscountCents } = splitOrderDiscounts({
+      subscription,
+      subtotalCents,
+      deliveryFeeCents,
+      promotionKind: promotion?.kind || null,
+      promotionDiscountCents: discountCents,
+    }));
+    const totalCents =
+      subtotalCents +
+      deliveryFeeCents +
+      serviceFeeCents -
+      discountCents -
+      subscriptionDiscountCents;
     return {
       ...delivery,
       items: snapshot,
       subtotal: pesos(subtotalCents),
       discount: pesos(discountCents),
+      subscriptionDiscount: pesos(subscriptionDiscountCents),
+      subscriptionPlan: subscriptionDiscountCents > 0 ? subscription.planKey : null,
       promotionCode: promotion?.code || null,
       total: pesos(totalCents),
       etaMin:
@@ -523,7 +548,8 @@ export async function createPostgresOrder({
     const deliveryFeeCents = Math.round(Number(lockedQuote.deliveryFee) * 100);
     const serviceFeeCents = Math.round(serviceFee * 100);
     let promotion = null,
-      discountCents = 0;
+      discountCents = 0,
+      subscriptionDiscountCents = 0;
     if (promotionCode) {
       promotion = (
         await client.query(
@@ -563,11 +589,33 @@ export async function createPostgresOrder({
         discountCents = Math.min(discountCents, Number(promotion.max_discount_cents));
       discountCents = Math.min(discountCents, subtotalCents + deliveryFeeCents);
     }
-    const totalCents = subtotalCents + deliveryFeeCents + serviceFeeCents - discountCents;
+    // Se relee dentro de la transaccion, no se toma del token: el token dice lo
+    // que se prometio y esto dice lo que corresponde ahora. Si alguien firmara
+    // un token con un beneficio que no le toca, la comparacion de abajo lo
+    // rechaza en vez de aplicarlo.
+    const subscription = await getActiveSubscription(customerPublicId, client);
+    ({ discountCents, subscriptionDiscountCents } = splitOrderDiscounts({
+      subscription,
+      subtotalCents,
+      deliveryFeeCents,
+      promotionKind: promotion?.kind || null,
+      promotionDiscountCents: discountCents,
+    }));
+    const totalCents =
+      subtotalCents +
+      deliveryFeeCents +
+      serviceFeeCents -
+      discountCents -
+      subscriptionDiscountCents;
     if (
       lockedQuote.total !== undefined &&
       (Math.round(Number(lockedQuote.subtotal) * 100) !== subtotalCents ||
         Math.round(Number(lockedQuote.discount || 0) * 100) !== discountCents ||
+        // Se compara aparte y no solo por el total. Dos errores que se cancelan
+        // —una promocion que crece justo lo que el beneficio deja de aplicar—
+        // darian el mismo total y pasarian el control cobrando mal el desglose.
+        Math.round(Number(lockedQuote.subscriptionDiscount || 0) * 100) !==
+          subscriptionDiscountCents ||
         Math.round(Number(lockedQuote.total) * 100) !== totalCents ||
         String(lockedQuote.paymentMethod) !== String(paymentMethod) ||
         String(lockedQuote.promotionCode || "") !== String(promotion?.code || ""))
@@ -583,6 +631,8 @@ export async function createPostgresOrder({
       deliveryFee: pesos(deliveryFeeCents),
       serviceFee,
       discount: pesos(discountCents),
+      subscriptionDiscount: pesos(subscriptionDiscountCents),
+      subscriptionPlan: subscriptionDiscountCents > 0 ? subscription.planKey : null,
       promotionCode: promotion?.code || null,
       etaMin: merchant.rows[0].branch_eta_min + travelMinutes,
       locationEstimated: false,
@@ -706,7 +756,12 @@ export async function createPostgresOrder({
           (Math.max(0, subtotalCents - discountCents) * Number(merchant.rows[0].commission_bps)) /
             10000,
         ),
-        applicationFeeCents = deliveryFeeCents + serviceFeeCents + merchantCommissionCents;
+        // El envio que regala la suscripcion sale del margen de Flash, no del
+        // comercio: se descuenta de la comision de aplicacion y no de lo que se
+        // le liquida. Sumarlo entero aca le cobraria al comercio un beneficio
+        // que no vendio ni financio.
+        applicationFeeCents =
+          deliveryFeeCents - subscriptionDiscountCents + serviceFeeCents + merchantCommissionCents;
       if (applicationFeeCents >= totalCents)
         throw Object.assign(new Error("La comisión configurada no permite procesar este pedido"), {
           status: 409,

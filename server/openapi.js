@@ -523,6 +523,88 @@ Object.assign(openApiDocument.paths, {
       responses: { 200: success({ type: "object" }), ...bearerErrors },
     },
   },
+  // Suscripcion de Flash (GTM-001). Va en el contrato publico porque es una
+  // relacion recurrente con la persona: quien integre o audite la API tiene que
+  // poder ver que se cobra, que devuelve y como se da de baja.
+  "/api/subscription/plans": {
+    get: {
+      tags: ["Commerce"],
+      operationId: "listSubscriptionPlans",
+      summary: "Listar planes de suscripcion y sus beneficios",
+      // Sin `security`: el precio tiene que poder verse antes de crear la
+      // cuenta, o la suscripcion solo se descubre despues de decidir usar la app.
+      responses: {
+        200: success({
+          type: "object",
+          required: ["plans"],
+          properties: {
+            plans: { type: "array", items: { $ref: "#/components/schemas/SubscriptionPlan" } },
+          },
+        }),
+        503: { description: "La suscripcion requiere PostgreSQL", content: json },
+      },
+    },
+  },
+  "/api/subscription": {
+    get: {
+      tags: ["Commerce"],
+      operationId: "getSubscription",
+      summary: "Ver la suscripcion propia",
+      security: [{ bearerAuth: [] }],
+      responses: {
+        // `subscription: null` y no 404: no estar suscripto es una respuesta
+        // valida a la pregunta, y un 404 obligaria a cada cliente a tratar la
+        // ausencia como un error.
+        200: success({
+          type: "object",
+          required: ["subscription"],
+          properties: {
+            subscription: {
+              oneOf: [{ $ref: "#/components/schemas/Subscription" }, { type: "null" }],
+            },
+          },
+        }),
+        ...bearerErrors,
+      },
+    },
+    post: {
+      tags: ["Commerce"],
+      operationId: "subscribe",
+      summary: "Activar o reactivar la suscripcion propia",
+      security: [{ bearerAuth: [] }],
+      requestBody: body("SubscribeRequest"),
+      responses: {
+        200: success({
+          type: "object",
+          required: ["subscription"],
+          properties: { subscription: { $ref: "#/components/schemas/Subscription" } },
+        }),
+        ...bearerErrors,
+        409: { description: "Ya existe una suscripcion vigente", content: json },
+      },
+    },
+    delete: {
+      tags: ["Commerce"],
+      operationId: "cancelSubscription",
+      summary: "Cancelar la renovacion, conservando el periodo pago",
+      security: [{ bearerAuth: [] }],
+      responses: {
+        200: success({
+          type: "object",
+          required: ["cancelled", "benefitsUntil"],
+          properties: {
+            id: { type: "string" },
+            cancelled: { type: "boolean" },
+            // El periodo ya pagado se respeta: cortar los beneficios el dia de
+            // la baja seria cobrar un mes y entregar menos.
+            benefitsUntil: { type: "string", format: "date-time" },
+          },
+        }),
+        ...bearerErrors,
+        409: { description: "No hay suscripcion vigente para cancelar", content: json },
+      },
+    },
+  },
   "/api/payment-provider/client-configuration": {
     get: {
       tags: ["Payments"],
@@ -1405,6 +1487,53 @@ openApiDocument.tags.push(
 );
 
 Object.assign(openApiDocument.components.schemas, {
+  // Los beneficios se publican como valores y no como texto: quien integre tiene
+  // que poder calcular el mismo precio que calcula Flash. Un plan descrito en
+  // prosa obliga a adivinar el umbral, y la primera diferencia es un cobro mal
+  // mostrado.
+  SubscriptionPlan: {
+    type: "object",
+    required: ["id", "planKey", "planName", "priceCents", "billingPeriodDays"],
+    properties: {
+      id: { type: "string" },
+      planKey: { type: "string" },
+      planName: { type: "string" },
+      description: { type: "string" },
+      priceCents: { type: "integer", minimum: 1 },
+      currency: { type: "string", minLength: 3, maxLength: 3 },
+      billingPeriodDays: { type: "integer", minimum: 7, maximum: 366 },
+      // `null` significa que el plan no da envio sin cargo, que no es lo mismo
+      // que darlo desde cero.
+      freeDeliveryMinSubtotalCents: { type: "integer", minimum: 0, nullable: true },
+      rideDiscountBps: { type: "integer", minimum: 0, maximum: 5000 },
+      dispatchPriorityBoost: { type: "integer", minimum: 0, maximum: 100 },
+    },
+  },
+  Subscription: {
+    allOf: [
+      { $ref: "#/components/schemas/SubscriptionPlan" },
+      {
+        type: "object",
+        required: ["status", "currentPeriodEnd", "renews", "billed"],
+        properties: {
+          status: { type: "string", enum: ["active", "expired"] },
+          currentPeriodStart: { type: "string", format: "date-time" },
+          currentPeriodEnd: { type: "string", format: "date-time" },
+          // `false` despues de cancelar. Los beneficios siguen hasta que el
+          // periodo termine: cancelar no es perder lo que ya se pago.
+          renews: { type: "boolean" },
+          // `false` mientras el cobro recurrente (PAY-001) no tenga
+          // credenciales del proveedor. Se publica en vez de disimularse.
+          billed: { type: "boolean" },
+        },
+      },
+    ],
+  },
+  SubscribeRequest: {
+    type: "object",
+    required: ["planKey"],
+    properties: { planKey: { type: "string", pattern: "^[a-z][a-z0-9_]{2,40}$" } },
+  },
   CartItemInput: {
     type: "object",
     required: ["menuItemId", "quantity"],

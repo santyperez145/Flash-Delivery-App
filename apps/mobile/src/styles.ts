@@ -2759,6 +2759,58 @@ export const styles = StyleSheet.create({
   },
   primaryButtonText: { color: "#fff", fontWeight: "900" },
   disabledButton: { opacity: 0.45 },
+
+  // Suscripción de Flash (GTM-001). Espeja `accountCard` para que la pantalla de
+  // cuenta no cambie de idioma visual a mitad de scroll.
+  suscripcionCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#efe9f0",
+    padding: 18,
+    gap: 10,
+  },
+  suscripcionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  suscripcionPrecio: { fontSize: 20, fontWeight: "700", color: "#27242a" },
+  suscripcionChip: {
+    backgroundColor: "rgba(22,163,74,0.12)",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  // Cancelada pero vigente: ámbar y no rojo, porque los beneficios siguen y un
+  // rojo diría que ya se perdieron.
+  suscripcionChipVence: {
+    backgroundColor: "rgba(217,119,6,0.12)",
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  suscripcionChipText: { fontSize: 12, color: "#27242a" },
+  suscripcionAviso: { fontSize: 13, color: "#b45309" },
+  suscripcionAlta: {
+    backgroundColor: "#ff6a21",
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  suscripcionAltaText: { color: "#ffffff", fontWeight: "700" },
+  // La baja es secundaria, no destructiva: no se esconde ni se pinta de peligro.
+  suscripcionBaja: {
+    borderWidth: 1,
+    borderColor: "#efe9f0",
+    borderRadius: 14,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  suscripcionBajaText: { color: "#27242a", fontWeight: "600" },
+  suscripcionOk: { fontSize: 13, color: "#087a50" },
+  suscripcionError: { fontSize: 13, color: "#b91c1c" },
   foodSearch: {
     minHeight: 48,
     borderRadius: 16,

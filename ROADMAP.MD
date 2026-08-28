@@ -799,7 +799,8 @@ Decisión competitiva: se adopta una bandeja transaccional persistente y prefere
 
 #### Fases 5/6 — B2B y multiciudad
 
-- [~] Referidos y jobs programados existen; faltan Flash Business, centros de costo, POS, logística híbrida, multi-stop y suscripción.
+- [~] Referidos, jobs programados y **suscripción** existen; faltan Flash Business, centros de costo, POS, logística híbrida y multi-stop.
+  - *Flash Más* (migración 125, GTM-001) entrega el envío sin cargo desde un monto, cableado en web y móvil y revalidado al crear el pedido. Los otros dos beneficios del plan —comisión reducida en viajes y prioridad de dispatch— están en la fila y todavía no se aplican: el estimador de viajes es público y el orden de candidatos lo decide DSP-001. No cobra: el cobro recurrente depende de PAY-001.
 - [ ] `city_id` transversal, aislamiento por ciudad, warehouse, experimentación y playbook de apertura.
 
 ### Próximos bloques, en orden

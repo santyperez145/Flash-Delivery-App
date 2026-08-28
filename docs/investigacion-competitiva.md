@@ -107,12 +107,30 @@ Lo que sigue se verificó contra el código y las migraciones, no contra la memo
 
 ### Lo que falta para competir, y no es técnico
 
-Cuatro huecos con nombre. El primero es el que más pesa comercialmente.
+Cuatro huecos con nombre. El primero **está cerrado desde el 28 de agosto**; quedan tres.
 
-**1. No hay producto de suscripción.** Uber One, DashPass y PedidosYa Plus son el motor de
-retención y de margen de la categoría: cambian la frecuencia de compra y el costo de
-adquisición de todo lo demás. Flash no tiene tabla, ruta ni concepto. Es la decisión
-comercial más grande pendiente, y es de producto, no de ingeniería.
+**1. ~~No hay producto de suscripción.~~ Hay uno: *Flash Más*.** Uber One, DashPass y
+PedidosYa Plus son el motor de retención y de margen de la categoría, y era el hueco que
+más pesaba. La migración 125 lo modela y las rutas `/api/subscription*` lo exponen; web y
+móvil lo venden, lo muestran y lo dan de baja.
+
+Tres diferencias con lo que hace la categoría, y las tres son deliberadas:
+
+- **El beneficio vive en la fila del plan, no en el código.** Mover el umbral de envío sin
+  cargo o el precio es un `UPDATE`, no un despliegue. El smoke lo demuestra corriendo el
+  umbral por encima y por debajo del subtotal del mismo pedido.
+- **Está dicho quién paga el beneficio.** El comercio cobra igual y el conductor cobra el
+  envío completo aunque el cliente no lo pague: la diferencia sale del margen de Flash. La
+  alternativa —descontarlo del reparto— financia la retención con la plata del comercio y
+  del repartidor, que es exactamente lo que la categoría hace y por lo que la demandan.
+- **Todavía no cobra, y la app lo dice.** El cobro recurrente depende de credenciales del
+  proveedor (PAY-001). Cada período otorgado queda marcado como no cobrado y la pantalla
+  muestra «Período bonificado» en lugar de simular una suscripción paga.
+
+De los tres beneficios del plan sólo el envío sin cargo se aplica hoy. La comisión reducida
+en viajes no, porque el estimador de tarifa es público y no sabe quién pregunta; la
+prioridad de dispatch tampoco, porque el orden de candidatos lo decide DSP-001. Están en la
+fila del plan y nombrados como pendientes, no marcados como hechos.
 
 **2. La propina sólo existe después de entregar.** `tip-repository.js` rechaza la propina
 si el servicio no está `completed`. Los competidores la piden en el checkout, antes de

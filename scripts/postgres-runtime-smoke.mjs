@@ -936,6 +936,150 @@ try {
       duplicateModifierQuote.status === 409,
     "checkout prices configured modifiers and rejects unknown or duplicate selections",
   );
+
+  // -------------------------------------------------------------------------
+  // Suscripcion de Flash (GTM-001).
+  //
+  // Se prueba contra un plan propio del smoke y no contra el sembrado: mover el
+  // umbral por encima y por debajo del subtotal real del pedido demuestra las
+  // dos mitades sobre la misma orden, y demuestra ademas lo que el diseño
+  // afirma —que el beneficio sale de la fila del plan y no del codigo—. Con el
+  // plan sembrado habria que adivinar precios de semilla para cruzar el umbral.
+  // -------------------------------------------------------------------------
+  const planKeySmoke = "smoke_plan";
+  const quoteSinPlan = await request("/orders/quote", {
+    method: "POST",
+    body: JSON.stringify({ ...payload, promotionCode: undefined }),
+  });
+  assert(
+    quoteSinPlan.status === 200 && quoteSinPlan.body.quote.subscriptionDiscount === 0,
+    "sin suscripcion la cotizacion no descuenta el envio",
+  );
+  const subtotalPedido = Math.round(quoteSinPlan.body.quote.subtotal * 100);
+  const envioPedido = quoteSinPlan.body.quote.deliveryFee;
+  assert(envioPedido > 0, "el pedido del smoke tiene un envio con cargo que descontar");
+
+  await pool.query("DELETE FROM subscription_plans WHERE key=$1", [planKeySmoke]);
+  await pool.query(
+    `INSERT INTO subscription_plans(public_id, key, name, description, price_cents,
+       billing_period_days, free_delivery_min_subtotal_cents, ride_discount_bps, dispatch_priority_boost)
+     VALUES('PLAN-SMOKE','smoke_plan','Plan smoke','Plan de prueba del smoke',100000,30,$1,500,5)`,
+    [subtotalPedido],
+  );
+
+  const planesPublicos = await fetch(`${base}/subscription/plans`).then((r) => r.json());
+  assert(
+    planesPublicos.plans?.some((plan) => plan.planKey === planKeySmoke),
+    "el catalogo de planes se lee sin sesion",
+  );
+
+  const alta = await request("/subscription", {
+    method: "POST",
+    body: JSON.stringify({ planKey: planKeySmoke }),
+  });
+  assert(
+    alta.status === 200 &&
+      alta.body.subscription.planKey === planKeySmoke &&
+      alta.body.subscription.renews === true &&
+      // Se otorga sin cobrar mientras PAY-001 no tenga credenciales, y la
+      // respuesta lo dice en vez de disimularlo.
+      alta.body.subscription.billed === false,
+    "el alta devuelve la suscripcion y declara que el periodo no se cobro",
+  );
+  const altaDuplicada = await request("/subscription", {
+    method: "POST",
+    body: JSON.stringify({ planKey: planKeySmoke }),
+  });
+  assert(altaDuplicada.status === 409, "una segunda alta sobre una suscripcion vigente se rechaza");
+
+  // Umbral exactamente en el subtotal: aplica.
+  const quoteConPlan = await request("/orders/quote", {
+    method: "POST",
+    body: JSON.stringify({ ...payload, promotionCode: undefined }),
+  });
+  assert(
+    quoteConPlan.status === 200 &&
+      quoteConPlan.body.quote.subscriptionDiscount === envioPedido &&
+      quoteConPlan.body.quote.subscriptionPlan === planKeySmoke &&
+      // El total baja exactamente el envio, ni mas ni menos.
+      Math.round((quoteSinPlan.body.quote.total - quoteConPlan.body.quote.total) * 100) ===
+        Math.round(envioPedido * 100),
+    "desde el umbral la suscripcion cubre el envio y el total baja exactamente eso",
+  );
+
+  // Mismo pedido, umbral un centavo mas arriba: no aplica. La otra mitad, y sin
+  // tocar codigo — solo la fila del plan.
+  await pool.query(
+    "UPDATE subscription_plans SET free_delivery_min_subtotal_cents=$1 WHERE key=$2",
+    [subtotalPedido + 1, planKeySmoke],
+  );
+  const quoteBajoUmbral = await request("/orders/quote", {
+    method: "POST",
+    body: JSON.stringify({ ...payload, promotionCode: undefined }),
+  });
+  assert(
+    quoteBajoUmbral.status === 200 && quoteBajoUmbral.body.quote.subscriptionDiscount === 0,
+    "un centavo por debajo del umbral el beneficio no se aplica",
+  );
+
+  // Un cupon de envio sin cargo no se acumula con el beneficio: el envio se
+  // descontaria dos veces y el pedido devolveria plata que nadie cobro.
+  await pool.query(
+    "UPDATE subscription_plans SET free_delivery_min_subtotal_cents=0 WHERE key=$1",
+    [planKeySmoke],
+  );
+  const quoteConCupon = await request("/orders/quote", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  assert(
+    quoteConCupon.status === 200 &&
+      Math.round(quoteConCupon.body.quote.total * 100) >= 0 &&
+      quoteConCupon.body.quote.subscriptionDiscount + quoteConCupon.body.quote.discount <=
+        quoteConCupon.body.quote.subtotal + quoteConCupon.body.quote.deliveryFee,
+    "el alivio combinado de cupon y suscripcion nunca supera lo que se cobra",
+  );
+
+  const baja = await request("/subscription", { method: "DELETE" });
+  const trasBaja = await request("/subscription");
+  assert(
+    baja.status === 200 &&
+      baja.body.cancelled === true &&
+      trasBaja.body.subscription?.renews === false &&
+      // **Cancelar no es perder lo pago.** El periodo sigue y el beneficio
+      // tambien: cortarlo el dia de la baja seria cobrar un mes y entregar
+      // menos.
+      new Date(trasBaja.body.subscription.currentPeriodEnd) > new Date(),
+    "cancelar deja de renovar y conserva el periodo ya pago",
+  );
+  const quoteTrasBaja = await request("/orders/quote", {
+    method: "POST",
+    body: JSON.stringify({ ...payload, promotionCode: undefined }),
+  });
+  assert(
+    quoteTrasBaja.body.quote.subscriptionDiscount === envioPedido,
+    "el beneficio sigue aplicando despues de cancelar, hasta que termine el periodo",
+  );
+  const reactivacion = await request("/subscription", {
+    method: "POST",
+    body: JSON.stringify({ planKey: planKeySmoke }),
+  });
+  assert(
+    reactivacion.status === 200 && reactivacion.body.subscription.renews === true,
+    "reactivar dentro del periodo vuelve a renovar sin abrir un periodo nuevo",
+  );
+  assert(
+    Number(
+      (
+        await pool.query(
+          `SELECT count(*)::int count FROM user_subscriptions s JOIN users u ON u.id=s.user_id
+           WHERE u.public_id=$1 AND s.status='active'`,
+          ["usr_customer"],
+        )
+      ).rows[0].count,
+    ) === 1,
+    "reactivar no deja dos periodos superpuestos cobrandose a la vez",
+  );
   payload = { ...payload, quoteToken: foodQuote.body.quote.quoteToken };
   const foreignAddressKey = `foreign-address-${crypto.randomUUID()}`;
   const foreignQuote = await request("/orders/quote", {
@@ -3763,6 +3907,13 @@ try {
       ]);
     }
     await pool.query("DELETE FROM jobs WHERE public_id=$1", [settlementOrderId]);
+    // El plan del smoke y la suscripcion que abrio. En este orden: `plan_id` es
+    // ON DELETE RESTRICT, asi que borrar el plan primero fallaria y dejaria a
+    // `usr_customer` suscripto en la corrida siguiente.
+    await pool.query(
+      "DELETE FROM user_subscriptions WHERE plan_id IN(SELECT id FROM subscription_plans WHERE key='smoke_plan')",
+    );
+    await pool.query("DELETE FROM subscription_plans WHERE key='smoke_plan'");
     await pool.query("UPDATE catalog_items SET available=true WHERE public_id='item_burger_brava'");
     await pool.query(
       "UPDATE catalog_branch_inventory SET available=true,stock_quantity=NULL WHERE catalog_item_id=(SELECT id FROM catalog_items WHERE public_id='item_burger_brava')",

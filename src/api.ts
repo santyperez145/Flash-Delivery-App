@@ -1617,6 +1617,27 @@ export const api = {
     });
   },
 
+  // Suscripción de Flash (GTM-001). El catálogo es público porque el precio
+  // tiene que poder verse antes de crear la cuenta; el resto pide sesión y
+  // siempre opera sobre la propia, nunca sobre la de otro.
+  async getSubscriptionPlans() {
+    return request<{ plans: import("./types").SubscriptionPlan[] }>("/subscription/plans");
+  },
+  async getSubscription() {
+    return request<{ subscription: import("./types").Subscription | null }>("/subscription");
+  },
+  async subscribe(planKey: string) {
+    return request<{ subscription: import("./types").Subscription }>("/subscription", {
+      method: "POST",
+      body: JSON.stringify({ planKey }),
+    });
+  },
+  async cancelSubscription() {
+    return request<{ id: string; cancelled: true; benefitsUntil: string }>("/subscription", {
+      method: "DELETE",
+    });
+  },
+
   async reset() {
     return request<{ state: AppState }>("/reset", {
       method: "POST",

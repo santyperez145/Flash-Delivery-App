@@ -63,6 +63,20 @@ export async function recordMarketplaceCapture(
   return { recorded: true, idempotent: false };
 }
 
+/**
+ * Reparte lo cobrado entre comercio, conductor y plataforma.
+ *
+ * **`platformNet` puede ser negativo, y sólo por lo que la plataforma regaló.**
+ * Cuando la suscripción cubre el envío, el cliente paga menos pero el conductor
+ * cobra igual y el comercio cobra igual: la diferencia sale del margen de Flash,
+ * que es de quien tiene que salir un beneficio que Flash vendió. Antes esto
+ * hacía dos cosas mal a la vez —el conductor cobraba de menos y el reparto no
+ * cerraba— y el pedido moría en la liquidación.
+ *
+ * El límite sigue siendo estricto: se admite perder exactamente el subsidio
+ * otorgado y ni un centavo más. Levantar la cota del todo convertiría cualquier
+ * error de tarifa en una pérdida silenciosa.
+ */
 export function calculateFoodSettlement({
   provider,
   total,
@@ -72,16 +86,20 @@ export function calculateFoodSettlement({
   deliveryFee,
   hasDriver,
   applicationFee = 0,
+  subscriptionDiscount = 0,
 }) {
   const merchantSales = Math.max(0, subtotal - discount),
     commission = Math.round((merchantSales * commissionBps) / 10000),
     merchantNet = provider === "mercadopago" ? total - applicationFee : merchantSales - commission,
-    driverNet = hasDriver ? Math.min(deliveryFee, total - merchantNet) : 0,
+    // El conductor cobra el envío completo aunque el cliente no lo haya pagado.
+    // Sin `+ subscriptionDiscount` el tope lo dejaría en lo que sobró después de
+    // regalar el envío, que es cobrarle a él la promoción.
+    driverNet = hasDriver ? Math.min(deliveryFee, total + subscriptionDiscount - merchantNet) : 0,
     platformNet = total - merchantNet - driverNet;
   if (
     merchantNet < 0 ||
     driverNet < 0 ||
-    platformNet < 0 ||
+    platformNet < -subscriptionDiscount ||
     merchantNet + driverNet + platformNet !== total
   )
     throw new Error("El split financiero no balancea");
@@ -122,6 +140,7 @@ export async function settleCapturedFoodOrder(client, { jobId, actorId = null })
     discount = Math.round(Number(job.metadata?.discount || 0) * 100),
     providerApplicationFee = Number(payment.provider_payload?.applicationFeeCents || 0),
     deliveryFee = Math.round(Number(job.metadata?.deliveryFee || 0) * 100),
+    subscriptionDiscount = Math.round(Number(job.metadata?.subscriptionDiscount || 0) * 100),
     { merchantNet, driverNet, platformNet, commission } = calculateFoodSettlement({
       provider: payment.provider,
       total,
@@ -131,6 +150,7 @@ export async function settleCapturedFoodOrder(client, { jobId, actorId = null })
       deliveryFee,
       hasDriver: Boolean(job.driver_user_id),
       applicationFee: providerApplicationFee,
+      subscriptionDiscount,
     });
   const clearing = await systemAccount(client, "cash_clearing"),
     merchantDestination = await account(client, {
@@ -139,10 +159,16 @@ export async function settleCapturedFoodOrder(client, { jobId, actorId = null })
       accountType: payment.provider === "mercadopago" ? "seller_split_control" : "payable",
     }),
     platformRevenue = await systemAccount(client, "revenue");
+  // Cuando la plataforma subsidia, su cuenta de resultados **se debita** en vez
+  // de acreditarse. El asiento sigue balanceando porque el subsidio entra como
+  // origen de fondos: es plata que Flash puso, y ponerla como un crédito
+  // negativo dejaría el libro sin cuadrar.
   const entries = [
     [clearing, "debit", total],
     [merchantDestination, "credit", merchantNet],
-    [platformRevenue, "credit", platformNet],
+    platformNet >= 0
+      ? [platformRevenue, "credit", platformNet]
+      : [platformRevenue, "debit", -platformNet],
   ];
   if (driverNet) {
     const driverWallet = await account(client, {

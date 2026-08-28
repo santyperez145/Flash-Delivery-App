@@ -318,7 +318,6 @@ img {
 .status-card button,
 .ghost-action,
 .primary-button,
-.flash-pass button,
 .prep-actions button,
 .wallet-card button,
 .section-title button {
@@ -1252,14 +1251,29 @@ textarea::placeholder {
   scrollbar-width: none;
 }
 
+/* Pasó de tarjeta decorativa a botón real que abre la suscripción, así que
+   necesita los reseteos de un botón: sin `text-align` heredado ni `font` del
+   agente de usuario, y ancho completo como tenía la sección. */
 .flash-pass {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
   padding: 14px;
+  width: 100%;
+  border: 0;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
   color: #fff;
   background: linear-gradient(135deg, #161b22, #2f3743);
+}
+/* Los beneficios reutilizan la lista del panel, que está pensada sobre fondo
+   claro. Acá el fondo es oscuro y hereda el color del botón. */
+.flash-pass .suscripcion-beneficios {
+  margin-top: 8px;
+  font-size: 0.82rem;
+  opacity: 0.85;
 }
 
 .flash-pass span,
@@ -7232,4 +7246,103 @@ textarea {
   .pricing-history button {
     grid-column: 1/-1;
   }
+}
+
+/* Suscripción de Flash (GTM-001).
+   Espeja la tarjeta de wallet para que la pantalla de Perfil no cambie de
+   idioma visual a mitad de scroll: mismo radio, mismo borde, mismo padding. */
+.suscripcion-card {
+  margin: 16px;
+  padding: 18px;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+  border-radius: 18px;
+  background: var(--surface, #fff);
+  display: grid;
+  gap: 12px;
+}
+.suscripcion-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.suscripcion-card h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.suscripcion-activa,
+.suscripcion-vence {
+  font-size: 0.78rem;
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.suscripcion-activa {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+}
+/* Cancelada pero vigente. Ámbar y no rojo: los beneficios siguen, y un rojo
+   diría que ya se perdieron. */
+.suscripcion-vence {
+  background: rgba(217, 119, 6, 0.12);
+  color: #b45309;
+}
+.suscripcion-beneficios {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  font-size: 0.9rem;
+}
+.suscripcion-precio {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+.suscripcion-precio small {
+  font-size: 0.82rem;
+  font-weight: 400;
+  opacity: 0.7;
+}
+.suscripcion-periodo,
+.suscripcion-aviso {
+  margin: 0;
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+.suscripcion-aviso {
+  color: #b45309;
+}
+.suscripcion-plan {
+  display: grid;
+  gap: 12px;
+}
+/* La baja no se esconde ni se disfraza de acción peligrosa: es secundaria, no
+   destructiva. Una baja difícil no retiene a nadie, sólo mueve la cancelación
+   al banco. */
+.suscripcion-baja {
+  background: none;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.14));
+  border-radius: 12px;
+  padding: 10px;
+  font: inherit;
+  cursor: pointer;
+}
+.suscripcion-baja:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.suscripcion-ok {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #15803d;
+}
+.suscripcion-error {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #b91c1c;
+}
+/* La línea del beneficio en el resumen del checkout. */
+.summary-suscripcion strong {
+  color: #15803d;
 }

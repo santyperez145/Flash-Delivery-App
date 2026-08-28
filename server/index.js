@@ -79,6 +79,7 @@ import { productAnalyticsRouter } from "./http/product-analytics-router.js";
 import { queueTriggersRouter } from "./http/queue-triggers-router.js";
 import { paymentMethodsRouter } from "./http/payment-methods-router.js";
 import { pricingRouter } from "./http/pricing-router.js";
+import { subscriptionRouter } from "./http/subscription-router.js";
 import { supportRouter } from "./http/support-router.js";
 import { configurationRouter } from "./http/configuration-router.js";
 import {
@@ -697,6 +698,7 @@ app.use(notificationsRouter);
 app.use(dietaryRouter);
 app.use(configurationRouter);
 app.use(pricingRouter);
+app.use(subscriptionRouter);
 app.use(feedbackRouter);
 
 app.use(realtimeRouter);

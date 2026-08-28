@@ -56,6 +56,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 import { api } from "../api";
+import { Beneficios, SubscriptionPanel, useSubscription } from "./SubscriptionPanel";
 import { allergenOptions, dietOptions, itemMatchesDietary } from "../dietary";
 import { initials, money } from "../format";
 import {
@@ -314,6 +315,7 @@ export function CustomerApp(props: {
           }
           onOpenRestaurant={(restaurant) => setSelectedRestaurantId(restaurant.id)}
           onOpenItem={openItem}
+          onOpenSubscription={() => setTab("profile")}
         />
       )}
       {tab === "home" && service === "ride" && (
@@ -386,6 +388,10 @@ export function CustomerApp(props: {
           onDietaryPreferencesChange={onDietaryPreferencesChange}
         />
       )}
+      {/* La suscripción vive en Perfil, que es donde la persona ya va a mirar lo
+          que paga. Se monta al lado del perfil y no dentro para que su carga
+          fallida no se lleve puesta la pantalla de la cuenta. */}
+      {tab === "profile" && <SubscriptionPanel />}
       <BottomNav tab={tab} onTabChange={setTab} />
     </div>
   );
@@ -457,6 +463,7 @@ function FoodHome({
   onToggleFavorite,
   onOpenRestaurant,
   onOpenItem,
+  onOpenSubscription,
 }: {
   restaurants: Restaurant[];
   allItems: Array<{ restaurant: Restaurant; item: MenuItem }>;
@@ -469,6 +476,7 @@ function FoodHome({
   onToggleFavorite: (restaurantId: string, favorite: boolean) => void;
   onOpenRestaurant: (restaurant: Restaurant) => void;
   onOpenItem: (restaurant: Restaurant, item: MenuItem) => void;
+  onOpenSubscription: () => void;
 }) {
   return (
     <>
@@ -483,7 +491,7 @@ function FoodHome({
           <p>Pedidos, tracking y reparto con backend activo.</p>
         </div>
       </section>
-      <FlashPassTeaser />
+      <FlashPassTeaser onOpen={onOpenSubscription} />
       <FlashPromiseGrid />
       <SearchBar query={query} setQuery={setQuery} />
       <CategoryRail categories={categories} category={category} setCategory={setCategory} />
@@ -516,25 +524,50 @@ function FoodHome({
   );
 }
 
-function FlashPassTeaser() {
+/**
+ * Anuncio de la suscripción en la portada.
+ *
+ * **Esto era una tarjeta decorativa.** Prometía «Flash Pass — envíos gratis,
+ * soporte prioritario y promos cross-food/taxi», decía «Disponible en checkout»,
+ * y detrás no había tabla, ruta ni concepto: ni el nombre ni dos de los tres
+ * beneficios existían en ninguna parte del producto. Vender algo que no existe
+ * en la primera pantalla es peor que no venderlo, porque la persona lo busca en
+ * el checkout y no lo encuentra.
+ *
+ * Ahora anuncia el plan real con sus beneficios reales, leídos del servidor, y
+ * lleva a donde se contrata. **Se esconde para quien ya está suscripto**: seguir
+ * ofreciéndole lo que ya paga es el error más barato de cometer y el que más
+ * rápido enseña que la app no sabe quién es.
+ */
+function FlashPassTeaser({ onOpen }: { onOpen: () => void }) {
+  const { planes, suscripcion, cargando } = useSubscription();
+  const plan = planes[0];
+  if (cargando || suscripcion || !plan) return null;
   return (
-    <section className="flash-pass">
+    <button type="button" className="flash-pass" onClick={onOpen}>
       <div>
-        <span>Flash Pass</span>
-        <strong>Envios gratis, soporte prioritario y promos cross-food/taxi</strong>
+        <span>{plan.planName}</span>
+        {/* La descripción del plan repite exactamente estos tres beneficios. Se
+            muestra la lista y no la prosa: sale de los valores del plan, así que
+            no puede prometer un umbral distinto del que aplica la tarifa. */}
+        <Beneficios plan={plan} />
       </div>
       <span className="flash-pass-status">
-        <Sparkles size={15} /> Disponible en checkout
+        <Sparkles size={15} /> {money.format(plan.priceCents / 100)} / {plan.billingPeriodDays} días
       </span>
-    </section>
+    </button>
   );
 }
 
 function FlashPromiseGrid() {
+  // Las cuatro promesas de la portada, y las cuatro tienen que existir. «Grupal
+  // — Pedido compartido» estaba acá y **no existe**: el backlog lo lista como
+  // hueco abierto (GTM-001). Se reemplaza por las sustituciones, que sí existen,
+  // están probadas y son el momento en que un pedido se salva o se pierde.
   const promises = [
     ["Tracking vivo", "Mapa + ETA", LocateFixed],
     ["Garantia", "Credito si falla", ShieldCheck],
-    ["Grupal", "Pedido compartido", UserRound],
+    ["Sustituciones", "Vos elegis el reemplazo", UserRound],
     ["Programar", "Food o taxi", Clock3],
   ] as const;
   return (
@@ -3462,6 +3495,7 @@ function SummaryBlock({
     deliveryFee: number;
     serviceFee: number;
     discount?: number;
+    subscriptionDiscount?: number;
     total: number;
   };
 }) {
@@ -3483,6 +3517,15 @@ function SummaryBlock({
         <div>
           <span>Promoción</span>
           <strong>-{money.format(totals.discount)}</strong>
+        </div>
+      )}
+      {/* Se nombra el beneficio en lugar de sumarlo al descuento. Quien paga una
+          suscripción tiene que ver qué le devolvió en cada pedido: es lo único
+          que sostiene la renovación, y esconderlo en «Promoción» lo borra. */}
+      {!!totals.subscriptionDiscount && (
+        <div className="summary-suscripcion">
+          <span>Envío con Flash Más</span>
+          <strong>-{money.format(totals.subscriptionDiscount)}</strong>
         </div>
       )}
       <div className="total-line">

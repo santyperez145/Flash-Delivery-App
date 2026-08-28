@@ -456,6 +456,10 @@ export type FoodCheckoutQuote = {
   serviceFee: number;
   subtotal: number;
   discount: number;
+  /** Envío cubierto por la suscripción. Va aparte de `discount` porque no lo
+   *  financia el comercio sino Flash, y el resumen tiene que poder nombrarlo. */
+  subscriptionDiscount: number;
+  subscriptionPlan: string | null;
   promotionCode: string | null;
   total: number;
   etaMin: number;
@@ -1074,4 +1078,29 @@ export type ShipmentCreatePayload = {
   pickupCoords: GeoPoint;
   destinationCoords: GeoPoint;
   quoteToken: string;
+};
+
+/** Plan de suscripción ofrecido. Los beneficios vienen del servidor: la pantalla
+ *  no puede inventar un umbral ni un porcentaje que la tarifa no vaya a aplicar. */
+export type SubscriptionPlan = {
+  id: string;
+  planKey: string;
+  planName: string;
+  description: string;
+  priceCents: number;
+  currency: string;
+  billingPeriodDays: number;
+  freeDeliveryMinSubtotalCents: number | null;
+  rideDiscountBps: number;
+  dispatchPriorityBoost: number;
+};
+
+export type Subscription = SubscriptionPlan & {
+  status: string;
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  /** `false` después de cancelar: los beneficios siguen hasta el fin del período. */
+  renews: boolean;
+  /** `false` mientras el cobro recurrente (PAY-001) no tenga credenciales. */
+  billed: boolean;
 };
