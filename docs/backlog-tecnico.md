@@ -113,7 +113,7 @@ Adoptar además un framework estándar de pruebas: **Vitest**, **Testcontainers*
 
 ### Criterios de aceptación
 
-- [x] Un PR queda bloqueado si falla cualquier suite crítica — **91 de 92 suites con puerta, 88 bloqueantes**, 2 nocturnas y 1 en cuarentena.
+- [x] Un PR queda bloqueado si falla cualquier suite crítica — **102 de 103 suites con puerta, 100 bloqueantes**, 2 nocturnas y 1 en cuarentena.
 - [x] Ningún script de riesgo queda fuera de una puerta sin justificación escrita — lo verifica `npm run test:ci-coverage`.
 - [x] **Cerrar las suites en cuarentena.** Las cuatro salieron. `test:postgres`, `test:dietary-local` y `test:notification-local` se cerraron el 26-08 —las dos últimas estaban apuntadas al runtime equivocado, no eran frágiles—. `test:support-routing` salió el 27-08 y su causa anotada resultó falsa: figuraba como «ruteo atómico de un caso de safety a un agente con skill», pero `POST /api/support/tickets` exige una cabecera `Idempotency-Key` y responde 400 sin ella, y la suite no la mandaba en ninguno de sus seis POST. **Nunca llegó a ejercitar el ruteo.** Con la cabecera puesta pasan sus diez afirmaciones sin tocar una línea de producto. Ya es bloqueante y el paso de cuarentena se quitó del workflow.
 - [ ] `ci-nightly.yml`. **Existe desde el 27-08** con la auditoría responsive en Chromium —una corrida por variante—, la latencia de endpoints y la conciliación de pagos programada. Faltan carga k6, sandbox de proveedores y builds EAS, que necesitan credenciales. El restore drill dejó de faltar por otra vía: `scripts/restore-drill.ps1` sigue siendo PowerShell y sigue siendo el ensayo que importa sobre los backups reales, pero `test:restore-drill` corre en cada PR un ensayo distinto —volcar, restaurar y verificar invariantes sobre la copia— que cubre lo que el local no puede cubrir por PR: que el esquema, las políticas y los permisos sobrevivan al viaje por `pg_dump`.
@@ -256,6 +256,35 @@ docker build -t flash:audit . && docker run --rm flash:audit id
 ```
 
 No debe reportar `uid=0(root)`.
+
+---
+
+## DOC-001 — La documentación no puede mentir sobre el runtime
+
+**Prioridad:** P1 · **Hallazgo:** [H-10](auditoria-2026-08-25.md#h-10--documentación-desalineada-del-runtime) · **Fase:** 0
+
+### Contexto
+
+H-10 era el **único de los once hallazgos sin ticket**: aparecía sólo en el documento de auditoría y nadie lo había tomado. Su ejemplo principal —un recuento de migraciones en prosa— derivó dos veces: decía 105, se corrigió a 110, y el 27 de agosto había 122.
+
+No es prolijidad. Es la falla que explica a las demás. Durante la semana del 25 al 27 de agosto aparecieron, todas de la misma forma: la causa anotada de una suite en cuarentena que resultó falsa y mandó a buscar un defecto de concurrencia que no existía; notas de deuda RLS más restrictivas que el esquema real; un criterio de aceptación cumplido y sin marcar; la matriz de madurez declarando «ledger de doble entrada» respaldada por una prueba que verifica la aritmética del split; y una afirmación de que nada obligaba a cuadrar el ledger cuando un trigger lo hacía desde la migración 003.
+
+**Una nota escrita con cautela se lee después como un hecho**, y las decisiones se toman sobre ella.
+
+### Trabajo
+
+1. Automatizar la parte mecánica: una cifra que el repositorio puede calcular no debería poder mentir.
+2. Distinguir afirmación vigente de registro histórico. Una cifra vale si coincide con la realidad **o** si su línea declara cuándo fue cierta.
+3. Corregir la deriva existente.
+4. Ampliar los hechos verificados sólo cuando el repositorio pueda calcularlos sin adivinar.
+
+### Criterios de aceptación
+
+- [x] **Existe una puerta que verifica las cifras calculables.** `test:docs-drift` recorre `docs/`, `ROADMAP.MD`, `README.md` y `AGENTS.md`, y compara contra el repositorio el recuento de migraciones y el total de suites. Encontró **16 cifras obsoletas en 9 archivos** en su primera corrida.
+- [x] **La puerta distingue historia de afirmación.** Una cifra fechada —«al 25-08», «el 25 de agosto»— se acepta aunque no coincida. Sin esta mitad, la puerta obligaría a reescribir el registro para que diga lo de hoy, que lo volvería falso. Se verificó con las dos: una cifra errónea sin fecha corta y nombra archivo y línea; la misma con fecha pasa.
+- [x] **La deriva existente está corregida.** Seis afirmaciones vigentes se actualizaron; diez registros históricos recibieron la fecha que les faltaba. El documento de auditoría queda excluido entero: es un registro fechado por construcción.
+- [ ] Las afirmaciones **no numéricas** también se verifican. Hoy nada impide que un documento describa una capacidad que no existe, y ése es el resto de H-10.
+- [ ] `docs/investor-readiness.md` y `docs/deployment-checklist.md` se revisan contra el runtime. La auditoría los señaló por describir SQLite como preocupación de despliegue y PostGIS como pendiente; la deriva numérica ya se corrigió, la prosa no se revisó entera.
 
 ---
 
