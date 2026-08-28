@@ -141,9 +141,15 @@ try {
   // quitar uno que hace falta. El primero cuesta una revisión, el segundo un
   // incidente.
   const reales = new Set(
-    (await pool.query(`SELECT tablename FROM pg_tables WHERE schemaname = 'public'`)).rows.map(
-      (f) => f.tablename,
-    ),
+    (
+      await pool.query(
+        // Vistas incluidas: `role_table_grants` las lista igual que a las tablas,
+        // asi que filtrar solo por `pg_tables` hacia que una vista escrita se
+        // reportara como «no la escribe nadie».
+        `SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+         WHERE n.nspname = 'public' AND c.relkind IN ('r', 'v', 'm', 'p')`,
+      )
+    ).rows.map((f) => f.relname),
   );
   const escritasPorCodigo = new Map(
     [...escriturasEn(codigo)].filter(([tabla]) => reales.has(tabla)),
