@@ -88,6 +88,59 @@ const ESCRITORAS = [
  * busca. Por eso la herramienta se verifica contra casos conocidos antes de
  * creerle, y no al reves.
  */
+/**
+ * Tablas que un `SELECT ... FOR UPDATE` bloquea, y que por eso exigen UPDATE.
+ *
+ * PostgreSQL pide el permiso UPDATE para tomar el candado de fila, aunque la
+ * sentencia sea un SELECT. Es la tercera forma de permiso implicito que aparece
+ * —despues de los triggers y de `ON CONFLICT DO UPDATE`— y la encontro la suite:
+ * revocar UPDATE sobre `service_tips` rompio `test:tip-adjustments`, que lo
+ * bloquea antes de ajustar una propina.
+ *
+ * **Solo cuentan las tablas del nivel exterior.** `FOR UPDATE` no bloquea lo que
+ * este dentro de una subconsulta, y tratarlo como si lo hiciera cuesta caro:
+ * `mobility-repository.js` lee `schema_migrations` en un subselect de una
+ * sentencia con `FOR UPDATE`, y darla por bloqueada habria conservado el permiso
+ * de escritura sobre el registro de migraciones, que era el hallazgo mas serio
+ * del inventario. El anidamiento se aproxima contando parentesis hacia atras.
+ */
+function bloqueadasPorCandado(texto) {
+  // Encuentra el SELECT de la sentencia, no el de una subconsulta. Buscar el
+  // «SELECT» mas cercano hacia atras devuelve el interior: en
+  // `mobility-repository.js` eso hacia empezar la ventana dentro del subselect
+  // de `schema_migrations` y daba esa tabla por bloqueada. Se recorre hacia
+  // atras llevando la profundidad y se toma el primer SELECT a nivel cero.
+  const inicioDeSentencia = (fin) => {
+    let profundidad = 0;
+    for (let i = fin - 1; i >= 0; i--) {
+      const caracter = texto[i];
+      if (caracter === ")") profundidad += 1;
+      else if (caracter === "(") {
+        profundidad -= 1;
+        if (profundidad < 0) return -1;
+      } else if (profundidad === 0 && texto.slice(i, i + 6).toUpperCase() === "SELECT") {
+        return i;
+      }
+    }
+    return -1;
+  };
+
+  const bloqueadas = new Set();
+  for (const candado of texto.matchAll(/FOR\s+(?:NO\s+KEY\s+)?UPDATE/gi)) {
+    const inicio = inicioDeSentencia(candado.index);
+    if (inicio === -1) continue;
+    const ventana = texto.slice(inicio, candado.index);
+    let profundidad = 0;
+    const origenes = /[()]|(?:FROM|JOIN)\s+([a-zA-Z0-9_."]+)/gi;
+    for (const coincidencia of ventana.matchAll(origenes)) {
+      if (coincidencia[0] === "(") profundidad += 1;
+      else if (coincidencia[0] === ")") profundidad -= 1;
+      else if (profundidad === 0 && coincidencia[1]) bloqueadas.add(normalizar(coincidencia[1]));
+    }
+  }
+  return bloqueadas;
+}
+
 function escriturasEn(texto) {
   const encontradas = new Map();
   const anotar = (tabla, operacion) => {
@@ -108,6 +161,7 @@ function escriturasEn(texto) {
       if (/ON\s+CONFLICT[\s\S]*?DO\s+UPDATE/i.test(ventana)) anotar(tabla, "UPDATE");
     }
   }
+  for (const tabla of bloqueadasPorCandado(texto)) anotar(tabla, "UPDATE");
   return encontradas;
 }
 try {

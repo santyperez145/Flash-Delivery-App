@@ -30,7 +30,12 @@ REVOKE UPDATE, DELETE ON support_messages FROM flash_runtime;
 REVOKE UPDATE, DELETE ON support_ticket_assignments FROM flash_runtime;
 
 -- Dinero y comprobantes que ya se emitieron.
-REVOKE UPDATE, DELETE ON service_tips FROM flash_runtime;
+-- `service_tips` conserva UPDATE: `tip-repository.js` la bloquea con
+-- `SELECT ... FOR UPDATE` antes de ajustar una propina, y PostgreSQL pide el
+-- permiso de escritura para tomar el candado de fila aunque la sentencia sea un
+-- SELECT. Lo encontro `test:tip-adjustments` al ponerse roja con la primera
+-- version de este lote, que es exactamente para lo que se acota de a lotes.
+REVOKE DELETE ON service_tips FROM flash_runtime;
 REVOKE UPDATE, DELETE ON service_receipts FROM flash_runtime;
 REVOKE UPDATE, DELETE ON promotion_redemptions FROM flash_runtime;
 
