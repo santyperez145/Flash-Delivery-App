@@ -107,7 +107,7 @@ La matriz vive en `docs/matriz-madurez.md` y se actualiza en el mismo PR que cam
 
 | Entregable | Ticket | Criterio de cierre |
 | --- | --- | --- |
-| Separación de `src/App.tsx` | ARC-001 | Ningún `App.tsx` supera 1.500 líneas |
+| Separación de `src/App.tsx` | ARC-001 | Shell web en 1.274 líneas; acceso y estados transversales extraídos |
 | Separación de `apps/mobile/App.tsx` | ARC-001 | Entrypoints customer/driver/merchant independientes |
 | Descomposición de `server/index.js` | ARC-001 | Controllers separados de use cases y repositories. **9 de 57 grupos extraídos**; el núcleo compartido está completo, así que lo que queda es repetitivo y no de diseño |
 | ~~Reformateo de archivos comprimidos~~ **hecho** | ARC-001 | Línea máxima 4.061 → 206; quedan 262 líneas largas, casi todas SQL |
@@ -406,6 +406,12 @@ routers dejaron de ser factories porque ya no queda nada que recibir.
 Con el núcleo cerrado, cada grupo nuevo fue una extracción y nada más. **Los 57
 grupos están extraídos**, repartidos en 31 routers, y `server/index.js` bajó de
 9.696 a **873 líneas**: el 91 por ciento.
+
+En web, `src/App.tsx` bajó a **1.274 líneas** después de extraer el acceso y los
+estados de carga, error y derivación por rol. Las cinco audiencias se cargan por
+separado y el entry inicial se mantiene en 67,7 KiB; el siguiente corte sigue
+siendo por dominio dentro de `CustomerScreen.tsx`, no más condicionales en el
+shell.
 
 Las 8 rutas que quedan no son dominio: salud, readiness, el documento OpenAPI,
 el bootstrap por audiencia, las dos de métricas, el 410 que retiró `/api/state`
