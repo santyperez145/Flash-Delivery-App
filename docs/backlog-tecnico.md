@@ -19,7 +19,7 @@ Cinco archivos concentran más de 1,3 MB de código: `apps/mobile/App.tsx` (433 
 ### Trabajo
 
 1. **Reformatear primero.** Antes de mover nada, aplicar un formateador con ancho máximo de línea a todo el código fuente. Es un commit mecánico, separado y sin cambios de comportamiento, que hace revisables todos los commits siguientes.
-2. Extraer features de los dos `App.tsx` hacia módulos por dominio. **Parcial**: mobile quedó en 321 líneas y web en 1.274 al mover el acceso real a `auth/WebLogin.tsx` (170 líneas), los estados transversales a `ui/SystemStateScreen.tsx` y convertir Customer, Merchant, Operaciones y Superadmin en límites de carga por audiencia. El entry web bajó de 575,7 a 67,7 KiB. La primera extracción interna del cliente movió Actividad —grupos, sustituciones, servicios activos, recibos, repetición, reclamos y propinas— a `CustomerActivityScreen.tsx` (586 líneas) sin alterar sus operaciones reales. El marco duplicado de tracking/chat pasó a `MobileTaskSheet` dentro de `ui.tsx`, los tres timelines a `CustomerTrackingProgress.tsx` y la carga vial a `useTrackingRoute.ts`: `CustomerScreen.tsx` bajó de 6.241 a 5.810 líneas. La prueba Chromium encontró y cerró un desacople real: Actividad listaba recursos paginados, pero tracking los buscaba sólo en el bootstrap. Comidas, Viajes y Envíos resuelven ahora el elemento seleccionado desde la misma colección paginada y las cards tienen semántica de botón. La ruta de Envíos ya no depende de que cargue la evidencia de entrega. `CustomerScreen.tsx` sigue siendo el archivo más grande del repositorio; Comidas, Viajes, Envíos y Cuenta son los próximos cortes.
+2. Extraer features de los dos `App.tsx` hacia módulos por dominio. **Parcial**: mobile quedó en 321 líneas y web en 1.274 al mover el acceso real a `auth/WebLogin.tsx` (170 líneas), los estados transversales a `ui/SystemStateScreen.tsx` y convertir Customer, Merchant, Operaciones y Superadmin en límites de carga por audiencia. El entry web bajó de 575,7 a 67,7 KiB. La primera extracción interna del cliente movió Actividad —grupos, sustituciones, servicios activos, recibos, repetición, reclamos y propinas— a `CustomerActivityScreen.tsx` (586 líneas) sin alterar sus operaciones reales. El marco duplicado de tracking/chat pasó a `MobileTaskSheet` dentro de `ui.tsx`, los tres timelines a `CustomerTrackingProgress.tsx` y la carga vial a `useTrackingRoute.tsx`: `CustomerScreen.tsx` bajó de 6.241 a 5.810 líneas. La prueba Chromium encontró y cerró un desacople real: Actividad listaba recursos paginados, pero tracking los buscaba sólo en el bootstrap. Comidas, Viajes y Envíos resuelven ahora el elemento seleccionado desde la misma colección paginada y las cards tienen semántica de botón. La ruta de Envíos ya no depende de que cargue la evidencia de entrega. `CustomerScreen.tsx` sigue siendo el archivo más grande del repositorio; Comidas, Viajes, Envíos y Cuenta son los próximos cortes.
 3. ~~Crear entrypoints separados customer, driver y merchant en mobile~~ **Hecho**: `metro.config.js` resuelve `./variant-screen` según `EXPO_PUBLIC_APP_VARIANT`, y `test:mobile-variant-bundles` lo verifica empaquetando las tres con `expo export`.
 4. ~~Descomponer `server/index.js`~~ **Hecho**: 57 grupos de rutas en 31 routers bajo `server/http/`. El archivo quedó en 872 líneas con 8 rutas de infraestructura.
 5. ~~Dividir `commerce-repository.js` por subdominio~~ **Hecho**: `catalog-repository.js` (539 líneas, lo que escribe el comercio), `order-repository.js` (1.103, el ciclo del pedido) y `driver-roster-repository.js` (134, el plantel). `usesPostgresCommerce` se mudó a `postgres.js`, que es de quien habla el predicado. La única dependencia entre partes es `mapCatalogItem`: pedidos importa de catálogo —un pedido está hecho de ítems— y nunca al revés.
@@ -56,16 +56,16 @@ Debe devolver vacío. Añadir este control como puerta en `ci-fast.yml`.
 
 El criterio no fue el tamaño del grupo, sino **cuánto núcleo compartido necesita**. Un grupo de rutas dependía de siete cosas que vivían en `server/index.js`; las siete son módulos y **un grupo nuevo ya no necesita nada de ahí**.
 
-| Dependencia | Estado | Quién la necesita |
-| --- | --- | --- |
-| `ok` / `fail` / `parseOrFail` | `http/responses.js` | casi todo handler |
-| autorización (9 predicados + `requireAnyRole`) | `http/authorization.js` | 81 usos |
-| `requireAuth` | `http/authentication.js` | todo grupo autenticado |
-| `publishRealtimeEvent` + registro SSE | `http/realtime.js` | 43 publicaciones |
-| `audit` del fallback SQLite | `fallback-runtime.js` | toda mutación |
-| `readDb` (contabiliza lecturas SQLite) | `fallback-runtime.js` | todo el doble runtime |
-| esquemas Zod (≈20) | en `index.js` | por dominio, viajan con su grupo |
-| `auditRuntime` (auditoría sobre los dos runtimes) | `audit-trail.js` | toda mutación auditada |
+| Dependencia                                       | Estado                   | Quién la necesita                |
+| ------------------------------------------------- | ------------------------ | -------------------------------- |
+| `ok` / `fail` / `parseOrFail`                     | `http/responses.js`      | casi todo handler                |
+| autorización (9 predicados + `requireAnyRole`)    | `http/authorization.js`  | 81 usos                          |
+| `requireAuth`                                     | `http/authentication.js` | todo grupo autenticado           |
+| `publishRealtimeEvent` + registro SSE             | `http/realtime.js`       | 43 publicaciones                 |
+| `audit` del fallback SQLite                       | `fallback-runtime.js`    | toda mutación                    |
+| `readDb` (contabiliza lecturas SQLite)            | `fallback-runtime.js`    | todo el doble runtime            |
+| esquemas Zod (≈20)                                | en `index.js`            | por dominio, viajan con su grupo |
+| `auditRuntime` (auditoría sobre los dos runtimes) | `audit-trail.js`         | toda mutación auditada           |
 
 Extraer un grupo antes que su núcleo funciona —lo demuestra `addresses-router.js`— pero deja una lista de dependencias larga en la factory. **La factory era andamio**: existe para recibir lo que todavía no es un módulo, y se cae sola cuando ya no queda nada que recibir. Esa misma factory pasó de cuatro dependencias a cero en dos pasos, sin que se tocara una sola de sus cinco rutas. Los tres routers se importan y se montan.
 
@@ -136,7 +136,7 @@ node -e "const p=require('./package.json'),fs=require('fs');const ci=fs.readdirS
 
 ### Contexto
 
-`server/realtime-repository.js:8` y `:16` devuelven `allRoles` (admin + customer + merchant + driver) cuando el evento no tiene entidad o cuando el `entityType` no está contemplado. Es un patrón *fail-open*: cada tipo de entidad nuevo entra por defecto en el camino inseguro.
+`server/realtime-repository.js:8` y `:16` devuelven `allRoles` (admin + customer + merchant + driver) cuando el evento no tiene entidad o cuando el `entityType` no está contemplado. Es un patrón _fail-open_: cada tipo de entidad nuevo entra por defecto en el camino inseguro.
 
 ### Trabajo
 
@@ -457,7 +457,7 @@ Quedan **cuatro huecos**, y ninguno es de ingeniería: son decisiones de product
 
 ### Criterios de aceptación
 
-- [x] **Existe un producto de suscripción.** *Flash Más*, migración 125. El dueño eligió los tres beneficios: envío sin cargo desde un monto, comisión reducida en viajes y prioridad de dispatch. **Los tres viven en la fila del plan, no en el código**, así que mover el umbral o el precio es un `UPDATE` y no un despliegue; el smoke lo prueba moviendo el umbral por encima y por debajo del subtotal del mismo pedido.
+- [x] **Existe un producto de suscripción.** _Flash Más_, migración 125. El dueño eligió los tres beneficios: envío sin cargo desde un monto, comisión reducida en viajes y prioridad de dispatch. **Los tres viven en la fila del plan, no en el código**, así que mover el umbral o el precio es un `UPDATE` y no un despliegue; el smoke lo prueba moviendo el umbral por encima y por debajo del subtotal del mismo pedido.
   - **Envío sin cargo: entregado y cableado.** Se aplica dentro del cálculo de la cotización, antes de que la ruta firme el token —después de firmar no sobreviviría a la creación del pedido—, se revalida en la creación contra la suscripción releída en la transacción, y se muestra por su nombre en el resumen de web y móvil.
   - **Quién lo paga quedó explícito.** El comercio cobra igual y el conductor cobra el envío completo aunque el cliente no lo haya pagado; la diferencia sale del margen de Flash. Eso obligó a admitir un `platformNet` negativo en la liquidación, acotado exactamente al subsidio otorgado: antes el reparto no cerraba y el pedido moría después de cobrado.
   - **Comisión reducida en viajes y prioridad de dispatch: en la fila del plan, todavía sin aplicar.** `ride_discount_bps` no se aplica porque `/api/rides/quote` no exige sesión —es un estimador público de precio— y personalizarlo ahí cambia el contrato de la ruta; `dispatch_priority_boost` no se aplica porque el orden de candidatos se decide en [DSP-001](#dsp-001--dispatch-v2). Se dice acá en vez de dejar el criterio marcado como completo.
@@ -561,12 +561,12 @@ OpenAPI completo · SDK generado · API keys · OAuth para partners · webhooks 
 
 No se ejecutan durante el congelamiento. Se registran para no perderlos.
 
-| Ticket | Descripción |
-| --- | --- |
-| **OBS-002** | Colector, dashboards y Alertmanager administrados; paging productivo |
-| **RT-002** | Insertar el evento realtime en la misma transacción de dominio mediante outbox |
-| **RT-003** | WebSocket para presencia bidireccional, chat y tracking de alta frecuencia |
+| Ticket      | Descripción                                                                              |
+| ----------- | ---------------------------------------------------------------------------------------- |
+| **OBS-002** | Colector, dashboards y Alertmanager administrados; paging productivo                     |
+| **RT-002**  | Insertar el evento realtime en la misma transacción de dominio mediante outbox           |
+| **RT-003**  | WebSocket para presencia bidireccional, chat y tracking de alta frecuencia               |
 | **SAF-002** | Safety Operating System: detección de anomalías, incident command, llamadas enmascaradas |
-| **DAT-002** | Rotación de claves y migración a KMS/HSM o Secret Manager administrado |
-| **SEC-002** | Pentest externo y revisión de seguridad independiente |
-| **QC-001** | Quick commerce, picking e inventario masivo — **no antes de la Fase 4** |
+| **DAT-002** | Rotación de claves y migración a KMS/HSM o Secret Manager administrado                   |
+| **SEC-002** | Pentest externo y revisión de seguridad independiente                                    |
+| **QC-001**  | Quick commerce, picking e inventario masivo — **no antes de la Fase 4**                  |
