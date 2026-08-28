@@ -23,6 +23,7 @@ import {
   Copy,
   CreditCard,
   Download,
+  Flag,
   Flame,
   KeyRound,
   LineChart,
@@ -71,6 +72,11 @@ import { api } from "../api";
 import { initials, money } from "../format";
 import { orderStatusLabel, rideStatusLabel } from "../labels";
 import { AdminKpi, AdminSectionHeader } from "../ui/panels";
+import {
+  FeatureFlagsPanel,
+  ProductFunnelPanel,
+  ZoneReadinessPanel,
+} from "./ProductOperationsBoard";
 
 export function SuperAdminConsole({
   state,
@@ -104,6 +110,7 @@ export function SuperAdminConsole({
     | "users"
     | "finance"
     | "investors"
+    | "product"
     | "support"
     | "security"
     | "infra"
@@ -138,6 +145,7 @@ export function SuperAdminConsole({
     ["users", "Usuarios", UserRound],
     ["finance", "Finanzas", WalletCards],
     ["investors", "Inversion", BadgeDollarSign],
+    ["product", "Producto", Flag],
     ["support", "Soporte", MessageCircle],
     ["security", "Seguridad", KeyRound],
     ["infra", "Infra", ShieldCheck],
@@ -439,6 +447,30 @@ export function SuperAdminConsole({
                   action={`${dashboard?.riskSignals.length ?? 0} senales`}
                 />
                 <RiskSignalBoard dashboard={dashboard} />
+              </section>
+            </div>
+          </div>
+        )}
+
+        {/* Producto: embudo, flags y go/no-go de zona. Las cinco rutas que los
+            alimentan estaban construidas y sin pantalla hasta el 28 de agosto. */}
+        {section === "product" && (
+          <div className="admin-grid">
+            <section className="admin-card">
+              <AdminSectionHeader title="Embudo de producto" action="Eventos propios" />
+              <ProductFunnelPanel />
+            </section>
+            <div className="admin-grid two">
+              <section className="admin-card">
+                <AdminSectionHeader title="Flags por audiencia" action="Rollout" />
+                <FeatureFlagsPanel runAction={runAction} />
+              </section>
+              <section className="admin-card">
+                <AdminSectionHeader title="Go/no-go de zona" action="Criterios" />
+                <ZoneReadinessPanel
+                  zones={state.zones.map((zona) => ({ id: zona.id, name: zona.name }))}
+                  runAction={runAction}
+                />
               </section>
             </div>
           </div>
