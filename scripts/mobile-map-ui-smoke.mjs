@@ -7,6 +7,11 @@ import { buildExternalNavigationUrl } from "../apps/mobile/src/navigation-links.
 // trabajo que queda del ticket es partir `App.tsx`, y un contrato con la ruta
 // fija se rompe —o se vacía— en cuanto un componente cambia de archivo.
 const { source: app } = await readMobileSource();
+const customerCoordinator = fs.readFileSync("apps/mobile/src/screens/CustomerScreen.tsx", "utf8");
+const customerTrackingSheets = fs.readFileSync(
+  "apps/mobile/src/screens/CustomerTrackingSheets.tsx",
+  "utf8",
+);
 const map = fs.readFileSync("apps/mobile/src/FlashNativeMap.native.tsx", "utf8");
 const webMap = fs.readFileSync("apps/mobile/src/FlashNativeMap.web.tsx", "utf8");
 const demandMap = fs.readFileSync("apps/mobile/src/DriverDemandMap.native.tsx", "utf8");
@@ -34,7 +39,7 @@ const customerRideTracking = section(
 const customerShipmentTracking = section(
   app,
   "function ShipmentTrackingSheet",
-  "export function CustomerScreen",
+  "CustomerTrackingSheets module boundary.",
 );
 const assert = (condition, label) => {
   if (!condition) throw new Error(`failed: ${label}`);
@@ -140,6 +145,14 @@ assert(
     contains(customerShipmentTracking, "api.getShipmentDeliveryEvidence(shipment.id)") &&
     !contains(customerShipmentTracking, "Promise.all"),
   "tracking shares route loading while shipment evidence degrades independently",
+);
+assert(
+  customerCoordinator.trimEnd().split(/\r?\n/).length <= 5384 &&
+    !contains(customerCoordinator, "function OrderTrackingSheet") &&
+    contains(customerTrackingSheets, "export function OrderTrackingSheet") &&
+    contains(customerTrackingSheets, "export function RideTrackingSheet") &&
+    contains(customerTrackingSheets, "export function ShipmentTrackingSheet"),
+  "customer tracking sheets stay outside the shrinking customer coordinator",
 );
 assert(
   contains(app, "defaultLocationSeededForUser") &&
