@@ -203,9 +203,12 @@ por actor, acción y recurso, más un
 [simulador que compara accesos antes y después de un cambio](https://www.uber.com/en-BR/blog/adding-determinism-and-safety-to-uber-iam-policy-changes/).
 Flash queda por debajo: no tiene un PAP central ni replay de tráfico productivo.
 La decisión viable para esta fase es incremental y verificable: la migración 131
-retira 11 `DELETE` de sesiones, MFA, dispositivos, verificaciones y tokens, y CI
-reproduce los flujos como `flash_runtime` además de comprobar esas once negativas
-por nombre. Una revocación masiva sin esa simulación sería menos segura, no más.
+retira 11 `DELETE` de sesiones, MFA, dispositivos, verificaciones y tokens, y la
+132 extiende el mismo límite a seis registros de evidencia financiera —webhooks,
+conexión PSP, conciliación, payouts y riesgo—. CI reproduce los flujos como
+`flash_runtime` además de comprobar ambas listas por nombre. Los permisos DML sin
+uso bajan de 114 a 54. Una revocación masiva sin esa simulación sería menos segura,
+no más.
 
 La lectura para un inversor no es «está terminado». Es: **el sustrato operativo y
 financiero está por encima de la etapa, y los huecos que quedan son de producto comercial y
