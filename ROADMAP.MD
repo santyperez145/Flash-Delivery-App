@@ -8,6 +8,16 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 29 de agosto de 2026 — GEO-001, identidad geográfica hasta el checkout
+
+- [x] Cada resultado de geocodificación recibe una validación JWT de 15 minutos, con audiencia propia y ligada al usuario autenticado.
+- [x] Web y mobile exigen buscar y elegir una coincidencia; ya no guardan automáticamente el primer resultado ni aceptan coordenadas del cliente como hecho.
+- [x] El flujo mobile vive en `CustomerAddressForm.tsx`; `CustomerScreen.tsx` bajó a 5.365 líneas y no se amplió el coordinador monolítico para sumar la capacidad.
+- [x] La migración 136 persiste proveedor, `place_id`, tipo y fecha de validación sin fabricar un backfill para direcciones legacy.
+- [x] El checkout de comida rechaza direcciones legacy, conserva la identidad geográfica dentro de la cotización firmada y obliga a recotizar si la dirección cambia.
+- [x] `test:maps` y `test:postgres` prueban token de otro usuario, campos manipulados, ausencia de validación y checkout legacy contra PostgreSQL/PostGIS real.
+- [~] Producción exige proveedor comercial y `place_id`, pero la calidad, deliverability y costo reales siguen bloqueados por una API key habilitada. Google Address Validation todavía no está integrado ni debe presentarse como tal.
+
 ## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 16, servidor y frente
 
 Entregas novena a decimoquinta de la Fase 0. El paso 2 quedó sin registrar acá cuando se publicó, así que esta sección cubre los siete.

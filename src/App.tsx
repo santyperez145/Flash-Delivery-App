@@ -837,6 +837,7 @@ function App() {
     lat: number;
     lng: number;
     isDefault: boolean;
+    validationToken: string;
   }): Promise<boolean> => {
     return runAddressAction(async () => {
       const response = await api.createAddress(payload);
@@ -852,6 +853,7 @@ function App() {
       lat: number;
       lng: number;
       isDefault: boolean;
+      validationToken: string;
     },
   ): Promise<boolean> => {
     return runAddressAction(async () => {

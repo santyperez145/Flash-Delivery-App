@@ -6,9 +6,11 @@ Fecha de la última revisión: **29 de agosto de 2026**.
 
 ## Resumen actual
 
-Flash es una **plataforma de preproducción avanzada** con cuatro superficies: cliente, comercio, conductor/repartidor y operaciones. El runtime principal es PostgreSQL/PostGIS con 135 migraciones versionadas; SQLite quedó reducido a fallback aislado de tests.
+Flash es una **plataforma de preproducción avanzada** con cuatro superficies: cliente, comercio, conductor/repartidor y operaciones. El runtime principal es PostgreSQL/PostGIS con 136 migraciones versionadas; SQLite quedó reducido a fallback aislado de tests.
 
 **DAT-001 cerró el alcance DML del runtime.** La migración 135 conserva sólo las operaciones observadas por código, upserts, candados y triggers. Los permisos sin uso bajaron de 114 a cero y el contrato bloqueante impide reintroducir las 35 operaciones del último lote.
+
+**GEO-001 cerró la identidad de dirección hasta el checkout de comida.** La migración 136 conserva procedencia sin inventar backfill; web y mobile eligen una coincidencia firmada y PostgreSQL sustituye los campos del cliente por los autoritativos. Producción sigue bloqueada por la API key y por una prueba real de calidad, deliverability y costo.
 
 La [auditoría del 25 de agosto de 2026](auditoria-2026-08-25.md) la evalúa en 6,2/10 y define nueve bloqueadores P0. De 91 capacidades inventariadas, el 81% de las existentes no está protegido por una puerta CI y ninguna fue probada contra un proveedor real.
 
@@ -86,7 +88,7 @@ Puertas nuevas del período, todas falsificadas: reparto de dinero con subsidio 
 - Cliente mobile crea pedidos, cotiza y solicita taxi, cancela operaciones propias y visualiza seguimiento.
 - Comercio mobile gestiona cocina, ETA, stock y alta de productos con persistencia.
 - Wallet sandbox registra cargas auditables y Perfil actualiza nombre, telefono y direccion principal.
-- Perfil web/PWA incorpora la libreta de direcciones persistente: destinos Casa/Trabajo/Otro con alta, edición, selección de principal, eliminación y captura GPS para que checkout reutilice coordenadas reales.
+- Perfil web/PWA incorpora la libreta de direcciones persistente: destinos Casa/Trabajo/Otro con alta, revalidación al editar, selección de principal y eliminación; el checkout reutiliza únicamente la coincidencia firmada por el backend.
 - Actividad web/PWA incorpora tracking dedicado de pedidos: ruta vial OSRM como capa GeoJSON interactiva MapLibre, repartidor y posición cuando existen, ETA/timeline persistidos, compartir estado y fallback explícito ante coordenadas o mapas no disponibles.
 - Actividad web/PWA incorpora tracking dedicado de viajes: ruta OSRM, vehículo/placa/rating, PIN de retiro, enlace temporal con vista pública móvil y reporte de incidentes conectado a la API autenticada.
 - Actividad web/PWA incorpora tracking dedicado de envíos: ruta OSRM, destinatario, repartidor, ETA/timeline, PIN de entrega y metadatos de prueba de entrega desde endpoints autenticados.

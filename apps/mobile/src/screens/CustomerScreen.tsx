@@ -34,6 +34,7 @@ import { mobileOrderStatusLabel, money, navigationInstruction } from "../format"
 import { styles } from "../styles";
 import { ActionButton, NativeMapUnavailable, ServiceChatModal } from "../ui";
 import { CustomerActivityScreen } from "./CustomerActivityScreen";
+import { CustomerAddressForm } from "./CustomerAddressForm";
 import {
   OrderTrackingSheet,
   RideTrackingSheet,
@@ -301,8 +302,6 @@ export function CustomerScreen({
       state.paymentMethods.find((method) => method.userId === user.id)?.id ||
       "",
   );
-  const [newAddressLabel, setNewAddressLabel] = useState("Casa");
-  const [newAddressText, setNewAddressText] = useState("");
   const [paymentToken, setPaymentToken] = useState("");
   const [paymentBrand, setPaymentBrand] = useState<"visa" | "mastercard" | "amex" | "cabal">(
     "visa",
@@ -4704,6 +4703,23 @@ export function CustomerScreen({
                         )}
                       </View>
                       <Text style={styles.cardText}>{item.address}</Text>
+                      <View style={styles.addressValidationStatus}>
+                        <Ionicons
+                          name={item.isValidated ? "checkmark-circle" : "alert-circle-outline"}
+                          size={14}
+                          color={item.isValidated ? "#087a50" : "#a15c00"}
+                        />
+                        <Text
+                          style={[
+                            styles.addressValidationText,
+                            !item.isValidated && styles.addressValidationTextWarning,
+                          ]}
+                        >
+                          {item.isValidated
+                            ? `Validada${item.geocodingProvider ? ` · ${item.geocodingProvider}` : ""}`
+                            : "Requiere volver a validarse"}
+                        </Text>
+                      </View>
                     </Pressable>
                     {!item.id.startsWith("profile-") && (
                       <View style={styles.savedAddressActions}>
@@ -4743,58 +4759,23 @@ export function CustomerScreen({
                     )}
                   </View>
                 ))}
-              <View style={styles.newAddressForm}>
-                <Text style={styles.sectionTitle}>Agregar dirección</Text>
-                <View style={styles.newAddressFields}>
-                  <TextInput
-                    style={[styles.input, styles.addressLabelInput]}
-                    value={newAddressLabel}
-                    onChangeText={setNewAddressLabel}
-                    placeholder="Etiqueta"
-                  />
-                  <TextInput
-                    style={[styles.input, styles.addressTextInput]}
-                    value={newAddressText}
-                    onChangeText={setNewAddressText}
-                    placeholder="Calle, número y ciudad"
-                  />
-                </View>
-                <Pressable
-                  style={[
-                    styles.primaryButton,
-                    (!newAddressLabel.trim() || newAddressText.trim().length < 3 || busy) &&
-                      styles.disabledButton,
-                  ]}
-                  disabled={!newAddressLabel.trim() || newAddressText.trim().length < 3 || busy}
-                  onPress={() =>
-                    runAction(async () => {
-                      const result = await api.geocode(newAddressText.trim());
-                      const match = result.results[0];
-                      if (!match) throw new Error("No encontramos esa dirección");
-                      await api.createAddress({
-                        label: newAddressLabel.trim(),
-                        address: match.label,
-                        lat: match.point.lat,
-                        lng: match.point.lng,
-                        isDefault: !state.addresses.some(
-                          (item) => item.userId === user.id && !item.id.startsWith("profile-"),
-                        ),
-                      });
-                      setDeliveryAddress(match.label);
-                      setPickup(match.label);
-                      setPickupCoords(match.point);
-                      setShipmentPickup(match.label);
-                      setShipmentPickupCoords(match.point);
-                      setShipmentQuote(null);
-                      setShipmentRoadRoute(null);
-                      setNewAddressText("");
-                    }, "Dirección guardada con coordenadas reales")
-                  }
-                >
-                  <Ionicons name="add-circle-outline" size={19} color="#fff" />
-                  <Text style={styles.primaryButtonText}>Guardar dirección</Text>
-                </Pressable>
-              </View>
+              <CustomerAddressForm
+                busy={busy}
+                hasPersistedAddress={state.addresses.some(
+                  (item) => item.userId === user.id && !item.id.startsWith("profile-"),
+                )}
+                runAction={runAction}
+                onSaved={(match) => {
+                  const point = match.point;
+                  setDeliveryAddress(match.label);
+                  setPickup(match.label);
+                  setPickupCoords(point);
+                  setShipmentPickup(match.label);
+                  setShipmentPickupCoords(point);
+                  setShipmentQuote(null);
+                  setShipmentRoadRoute(null);
+                }}
+              />
             </View>
             <View style={styles.addressBookCard}>
               <View style={styles.addressBookHeading}>

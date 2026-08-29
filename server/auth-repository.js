@@ -320,7 +320,11 @@ export async function getPostgresAddresses(userPublicId = null) {
     where = userPublicId ? "WHERE u.public_id=$1" : "";
   const [addresses, users] = await Promise.all([
     postgresPool.query(
-      `SELECT a.id::text,u.public_id user_id,a.label,a.formatted_address address,ST_Y(a.location::geometry) lat,ST_X(a.location::geometry) lng,a.is_default,a.created_at,a.updated_at FROM addresses a JOIN users u ON u.id=a.user_id ${where} ORDER BY a.is_default DESC,a.created_at`,
+      `SELECT a.id::text,u.public_id user_id,a.label,a.formatted_address address,
+        ST_Y(a.location::geometry) lat,ST_X(a.location::geometry) lng,a.is_default,
+        a.geocoding_provider,a.provider_place_id,a.geocode_type,a.geocoded_at,a.created_at,a.updated_at
+       FROM addresses a JOIN users u ON u.id=a.user_id ${where}
+       ORDER BY a.is_default DESC,a.created_at`,
       values,
     ),
     postgresPool.query(
@@ -336,6 +340,11 @@ export async function getPostgresAddresses(userPublicId = null) {
     lat: Number(row.lat),
     lng: Number(row.lng),
     isDefault: row.is_default,
+    geocodingProvider: row.geocoding_provider || null,
+    providerPlaceId: row.provider_place_id || null,
+    geocodeType: row.geocode_type || null,
+    validatedAt: row.geocoded_at?.toISOString?.() || null,
+    isValidated: Boolean(row.geocoded_at),
   }));
   const represented = new Set(
     result.filter((entry) => entry.isDefault).map((entry) => entry.userId),
@@ -350,6 +359,11 @@ export async function getPostgresAddresses(userPublicId = null) {
         lat: null,
         lng: null,
         isDefault: true,
+        geocodingProvider: null,
+        providerPlaceId: null,
+        geocodeType: null,
+        validatedAt: null,
+        isValidated: false,
       });
   return result;
 }
@@ -363,11 +377,29 @@ function mapAddress(row) {
     lat: Number(row.lat),
     lng: Number(row.lng),
     isDefault: row.is_default,
+    geocodingProvider: row.geocoding_provider || null,
+    providerPlaceId: row.provider_place_id || null,
+    geocodeType: row.geocode_type || null,
+    validatedAt: row.geocoded_at?.toISOString?.() || null,
+    isValidated: Boolean(row.geocoded_at),
   };
 }
-const addressReturning = `a.id,a.label,a.formatted_address,a.is_default,ST_Y(a.location::geometry) lat,ST_X(a.location::geometry) lng,u.public_id user_public_id`;
+const addressReturning = `a.id,a.label,a.formatted_address,a.is_default,
+  a.geocoding_provider,a.provider_place_id,a.geocode_type,a.geocoded_at,
+  ST_Y(a.location::geometry) lat,ST_X(a.location::geometry) lng,u.public_id user_public_id`;
 
-export async function createPostgresAddress({ userPublicId, label, address, lat, lng, isDefault }) {
+export async function createPostgresAddress({
+  userPublicId,
+  label,
+  address,
+  lat,
+  lng,
+  isDefault,
+  provider,
+  providerPlaceId,
+  geocodeType,
+  verifiedAt,
+}) {
   const client = await postgresPool.connect();
   try {
     await client.query("BEGIN");
@@ -395,8 +427,24 @@ export async function createPostgresAddress({ userPublicId, label, address, lat,
         [user.id],
       );
     const result = await client.query(
-      `INSERT INTO addresses(user_id,label,formatted_address,location,is_default) VALUES($1,$2,$3,ST_SetSRID(ST_MakePoint($5,$4),4326)::geography,$6) RETURNING *`,
-      [user.id, label, address, lat, lng, makeDefault],
+      `INSERT INTO addresses(
+        user_id,label,formatted_address,location,is_default,geocoding_provider,
+        provider_place_id,geocode_type,geocoded_at
+       ) VALUES(
+        $1,$2,$3,ST_SetSRID(ST_MakePoint($5,$4),4326)::geography,$6,$7,$8,$9,$10
+       ) RETURNING *`,
+      [
+        user.id,
+        label,
+        address,
+        lat,
+        lng,
+        makeDefault,
+        provider,
+        providerPlaceId,
+        geocodeType,
+        verifiedAt,
+      ],
     );
     if (makeDefault)
       await client.query(
@@ -421,6 +469,10 @@ export async function updatePostgresAddress({
   lat,
   lng,
   isDefault,
+  provider,
+  providerPlaceId,
+  geocodeType,
+  verifiedAt,
 }) {
   const client = await postgresPool.connect();
   try {
@@ -442,8 +494,27 @@ export async function updatePostgresAddress({
         [owned.user_id, addressId],
       );
     const result = await client.query(
-      `UPDATE addresses a SET label=$3,formatted_address=$4,location=ST_SetSRID(ST_MakePoint($6,$5),4326)::geography,is_default=CASE WHEN $7 THEN true ELSE is_default END,updated_at=now() FROM users u WHERE a.id=$1 AND a.user_id=u.id AND u.public_id=$2 RETURNING ${addressReturning}`,
-      [addressId, userPublicId, label, address, lat, lng, Boolean(isDefault)],
+      `UPDATE addresses a SET
+        label=$3,formatted_address=$4,
+        location=ST_SetSRID(ST_MakePoint($6,$5),4326)::geography,
+        is_default=CASE WHEN $7 THEN true ELSE is_default END,
+        geocoding_provider=$8,provider_place_id=$9,geocode_type=$10,geocoded_at=$11,updated_at=now()
+       FROM users u
+       WHERE a.id=$1 AND a.user_id=u.id AND u.public_id=$2
+       RETURNING ${addressReturning}`,
+      [
+        addressId,
+        userPublicId,
+        label,
+        address,
+        lat,
+        lng,
+        Boolean(isDefault),
+        provider,
+        providerPlaceId,
+        geocodeType,
+        verifiedAt,
+      ],
     );
     const updated = result.rows[0];
     if (updated.is_default)

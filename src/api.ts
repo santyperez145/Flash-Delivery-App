@@ -512,7 +512,13 @@ export const api = {
 
   async geocode(query: string) {
     return request<{
-      results: Array<{ label: string; point: GeoPoint; type: string }>;
+      results: Array<{
+        label: string;
+        point: GeoPoint;
+        type: string;
+        placeId: string | null;
+        validationToken: string;
+      }>;
       provider: string;
     }>(`/maps/geocode?q=${encodeURIComponent(query)}`);
   },
@@ -559,6 +565,7 @@ export const api = {
     lat: number;
     lng: number;
     isDefault: boolean;
+    validationToken: string;
   }) {
     return request<{
       address: AppState["addresses"][number];
@@ -573,6 +580,7 @@ export const api = {
       lat: number;
       lng: number;
       isDefault: boolean;
+      validationToken: string;
     },
   ) {
     return request<{

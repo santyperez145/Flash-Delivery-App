@@ -23,6 +23,7 @@ import {
   putCachedMapResponse,
 } from "../map-cache-repository.js";
 import { mapsProvider } from "../maps-provider.js";
+import { issueGeocodeValidation } from "../geocoding-validation.js";
 import { observeProviderCall } from "../observability.js";
 import { ProviderCircuit } from "../provider-resilience.js";
 import { requireAuth } from "./authentication.js";
@@ -32,6 +33,13 @@ import { fail, ok, parseOrFail } from "./responses.js";
 // parte del sistema que lo usa, y tenerlo acá evita que su estado —fallos
 // consecutivos, ventana abierta— quede en un archivo que no lo consulta.
 const mapProviderCircuit = new ProviderCircuit(config.mapProvider);
+
+function signedGeocodeResults(results, { provider, userPublicId, cache }) {
+  return results.map((result) => ({
+    ...result,
+    validationToken: issueGeocodeValidation({ result, provider, userPublicId, cache }),
+  }));
+}
 
 export const mapsRouter = Router();
 
@@ -52,7 +60,11 @@ mapsRouter.get("/api/maps/geocode", requireAuth, async (req, res) => {
     });
     if (cached)
       return ok(res, {
-        results: cached.payload.results,
+        results: signedGeocodeResults(cached.payload.results, {
+          provider: cached.provider,
+          userPublicId: req.auth.userId,
+          cache: "hit",
+        }),
         provider: cached.provider,
         cache: "hit",
       });
@@ -79,7 +91,15 @@ mapsRouter.get("/api/maps/geocode", requireAuth, async (req, res) => {
       payload: { results },
       ttlSeconds: config.geocodingCacheTtlSeconds,
     });
-    return ok(res, { results, provider: provider.name, cache: "miss" });
+    return ok(res, {
+      results: signedGeocodeResults(results, {
+        provider: provider.name,
+        userPublicId: req.auth.userId,
+        cache: "miss",
+      }),
+      provider: provider.name,
+      cache: "miss",
+    });
   } catch (error) {
     observeProviderCall({
       provider: mapsProvider().name,
@@ -95,7 +115,11 @@ mapsRouter.get("/api/maps/geocode", requireAuth, async (req, res) => {
       : null;
     if (stale)
       return ok(res, {
-        results: stale.payload.results,
+        results: signedGeocodeResults(stale.payload.results, {
+          provider: stale.provider,
+          userPublicId: req.auth.userId,
+          cache: "stale",
+        }),
         provider: stale.provider,
         cache: "stale",
         degraded: true,

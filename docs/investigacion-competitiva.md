@@ -373,3 +373,15 @@ La guía oficial de [Uber sobre ganancias de conductores](https://www.uber.com/u
 ### Decisión 22 de agosto de 2026 — proveedor de navegación elegido por Driver
 
 [Lyft Driver](https://help.lyft.com/hc/en-us/all/articles/115012926147) y [DoorDash In-App Navigation](https://help.doordash.com/dashers/s/article/In-app-Navigation) documentan selección o cambio del navegador desde la experiencia del conductor. Flash incorpora esa decisión en Cuenta, no en el cliente: `system`, Google Maps o Apple Maps se persisten por conductor y sólo modifican el handoff del botón de guía completa. La ruta, próximo hito y trabajo siguen siendo autoritativos en Flash; Apple sólo aparece en iOS y no se declara voz/tráfico propio.
+
+### Decisión 29 de agosto de 2026 — identidad verificable de la dirección
+
+La guía técnica oficial de Uber Direct indica que la plataforma vuelve a geocodificar el destino incluso cuando el integrador envía latitud y longitud, porque una coordenada aportada por el cliente no prueba por sí sola que la dirección sea entregable. Google documenta el `place_id` como identidad reutilizable entre APIs y separa la geocodificación de Address Validation, que agrega veredicto de calidad y deliverability.
+
+Flash adopta esa frontera sin declarar una integración que todavía no existe: `/api/maps/geocode` emite una validación JWT corta, con audiencia propia y ligada al usuario; web y mobile obligan a elegir una coincidencia; y PostgreSQL guarda proveedor, `place_id`, tipo y fecha desde el token, no desde los campos repetidos por el cliente. El checkout de comida rechaza registros legacy y la cotización firmada conserva esa identidad para forzar una recotización si cambia.
+
+La brecha competitiva queda explícita. En desarrollo, OpenStreetMap puede no devolver identidad estable; en producción el arranque y la escritura exigen proveedor comercial y `place_id`. Todavía faltan una API key habilitada, una prueba de calidad/costo en la zona real y el veredicto postal de Address Validation. Por eso la capacidad permanece en `CI`, no en `PROV`.
+
+- [Uber Direct: geocoding de destinos](https://developer.uber.com/docs/deliveries/guides/geocoding)
+- [Google Maps Platform: Place IDs](https://developers.google.com/maps/documentation/places/web-service/place-id)
+- [Google Address Validation API](https://developers.google.com/maps/documentation/address-validation/reference/rest/v1/TopLevel/validateAddress)

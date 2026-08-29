@@ -32,6 +32,7 @@ import {
 } from "./payment-marketplace-provider.js";
 import { pesos } from "./money.js";
 import { mapCatalogItem } from "./catalog-repository.js";
+import { config } from "./config.js";
 
 const marketplacePaymentKey = (value) =>
   `mp-${crypto.createHash("sha256").update(String(value)).digest("hex")}`;
@@ -210,13 +211,21 @@ export async function getPostgresFoodDeliveryQuote({
   const [plan, result] = await Promise.all([
     getPostgresPricingPlan("food"),
     postgresPool.query(
-      `SELECT a.id address_id,a.formatted_address,ST_Y(a.location::geometry) lat,ST_X(a.location::geometry) lng,
+      `SELECT a.id address_id,a.formatted_address,a.geocoding_provider,a.provider_place_id,a.geocoded_at,ST_Y(a.location::geometry) lat,ST_X(a.location::geometry) lng,
     m.public_id merchant_id,b.public_id branch_id,ST_Distance(b.location,a.location) air_distance_m,COALESCE(z.delivery_multiplier,1) zone_multiplier,z.public_id zone_id
     FROM users u JOIN addresses a ON a.user_id=u.id JOIN merchants m ON m.public_id=$2 AND m.status='active'
     JOIN merchant_branches b ON b.merchant_id=m.id AND b.status='active' AND b.open AND app.branch_is_scheduled_open(b.id,now()) AND (($4::text IS NULL AND b.is_primary) OR b.public_id=$4)
     LEFT JOIN LATERAL(SELECT public_id,delivery_multiplier FROM service_zones WHERE active AND ST_Covers(boundary::geometry,b.location::geometry) ORDER BY ST_Area(boundary) LIMIT 1) z ON true
-    WHERE u.public_id=$1 AND u.status='active' AND a.id=$3`,
-      [customerPublicId, merchantPublicId, deliveryAddressId, branchPublicId || null],
+    WHERE u.public_id=$1 AND u.status='active' AND a.id=$3 AND a.geocoded_at IS NOT NULL
+      AND (NOT $5::boolean OR (a.geocoding_provider=$6 AND a.provider_place_id IS NOT NULL))`,
+      [
+        customerPublicId,
+        merchantPublicId,
+        deliveryAddressId,
+        branchPublicId || null,
+        config.isProduction,
+        config.maps.provider,
+      ],
     ),
   ]);
   const row = result.rows[0];
@@ -225,18 +234,18 @@ export async function getPostgresFoodDeliveryQuote({
       new Error("La dirección o el comercio no están disponibles para este cliente"),
       { status: 404 },
     );
-  const config = plan.config;
-  const distanceKm = (Number(row.air_distance_m) / 1000) * Number(config.roadFactor);
-  if (distanceKm > Number(config.maximumDistanceKm))
+  const planConfig = plan.config;
+  const distanceKm = (Number(row.air_distance_m) / 1000) * Number(planConfig.roadFactor);
+  if (distanceKm > Number(planConfig.maximumDistanceKm))
     throw Object.assign(new Error("La dirección está fuera del radio máximo de entrega"), {
       status: 409,
     });
   const raw = Math.max(
-    Number(config.minimumDeliveryFee),
-    Number(config.baseDeliveryFee) + distanceKm * Number(config.distancePerKm),
+    Number(planConfig.minimumDeliveryFee),
+    Number(planConfig.baseDeliveryFee) + distanceKm * Number(planConfig.distancePerKm),
   );
   const deliveryFee = Math.round(
-    Math.min(Number(config.maximumDeliveryFee), raw * Number(row.zone_multiplier)),
+    Math.min(Number(planConfig.maximumDeliveryFee), raw * Number(row.zone_multiplier)),
   );
   return {
     customerId: customerPublicId,
@@ -244,11 +253,16 @@ export async function getPostgresFoodDeliveryQuote({
     branchId: row.branch_id,
     deliveryAddressId: String(row.address_id),
     deliveryAddress: row.formatted_address,
+    addressValidation: {
+      provider: row.geocoding_provider,
+      providerPlaceId: row.provider_place_id || null,
+      validatedAt: row.geocoded_at.toISOString(),
+    },
     destinationCoords: { lat: Number(row.lat), lng: Number(row.lng) },
     distanceKm: Number(distanceKm.toFixed(2)),
     deliveryFee,
-    serviceFee: Number(config.serviceFee),
-    roadFactor: Number(config.roadFactor),
+    serviceFee: Number(planConfig.serviceFee),
+    roadFactor: Number(planConfig.roadFactor),
     zoneId: row.zone_id || null,
     zoneMultiplier: Number(row.zone_multiplier),
     pricingVersion: plan.version,
@@ -461,17 +475,32 @@ export async function createPostgresOrder({
       });
     const address = (
       await client.query(
-        `SELECT a.id,a.formatted_address,a.location,ST_Distance(a.location,$3::geography) distance_m
-      FROM addresses a JOIN users u ON u.id=a.user_id WHERE a.id=$1 AND u.id=$2`,
-        [deliveryAddressId, customer.rows[0].id, merchant.rows[0].branch_location],
+        `SELECT a.id,a.formatted_address,a.location,a.geocoding_provider,a.provider_place_id,a.geocoded_at,ST_Distance(a.location,$3::geography) distance_m
+      FROM addresses a JOIN users u ON u.id=a.user_id WHERE a.id=$1 AND u.id=$2 AND a.geocoded_at IS NOT NULL
+        AND (NOT $4::boolean OR (a.geocoding_provider=$5 AND a.provider_place_id IS NOT NULL))`,
+        [
+          deliveryAddressId,
+          customer.rows[0].id,
+          merchant.rows[0].branch_location,
+          config.isProduction,
+          config.maps.provider,
+        ],
       )
     ).rows[0];
     if (!address)
       throw Object.assign(
-        new Error("La dirección de entrega no existe o no pertenece al cliente"),
+        new Error("La dirección no pertenece al cliente o necesita volver a validarse"),
         { status: 404 },
       );
     deliveryAddress = address.formatted_address;
+    if (
+      lockedQuote?.addressValidation?.provider !== address.geocoding_provider ||
+      lockedQuote?.addressValidation?.providerPlaceId !== (address.provider_place_id || null) ||
+      lockedQuote?.addressValidation?.validatedAt !== address.geocoded_at.toISOString()
+    )
+      throw Object.assign(new Error("La dirección cambió; actualiza la cotización"), {
+        status: 409,
+      });
     if (
       !lockedQuote ||
       Math.abs(
