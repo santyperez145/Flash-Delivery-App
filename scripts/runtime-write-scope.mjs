@@ -89,6 +89,13 @@ const GRUPOS_SIN_BORRADO_RUNTIME = [
     ],
   },
 ];
+const PERMISOS_ADMINISTRATIVOS_NO_USADOS = [
+  { tabla: "user_roles", operaciones: ["UPDATE"] },
+  { tabla: "feature_flags", operaciones: ["INSERT", "DELETE"] },
+  { tabla: "merchants", operaciones: ["INSERT", "DELETE"] },
+  { tabla: "service_zones", operaciones: ["INSERT", "DELETE"] },
+  { tabla: "support_agent_profiles", operaciones: ["INSERT", "DELETE"] },
+];
 
 async function fuentes(entrada) {
   const stat = await fs.stat(entrada).catch(() => null);
@@ -228,6 +235,17 @@ try {
         `flash_runtime todavía puede borrar ${grupo.nombre}: ${borrables.join(", ")}`,
       );
     }
+  }
+  const permisosAdministrativos = PERMISOS_ADMINISTRATIVOS_NO_USADOS.flatMap(
+    ({ tabla, operaciones }) =>
+      operaciones
+        .filter((operacion) => conEscritura.get(tabla)?.includes(operacion))
+        .map((operacion) => `${tabla}.${operacion}`),
+  );
+  if (permisosAdministrativos.length) {
+    throw new Error(
+      `flash_runtime todavía conserva autoridad administrativa sin uso: ${permisosAdministrativos.join(", ")}`,
+    );
   }
 
   // --- 2. Lo que el código escribe ------------------------------------------

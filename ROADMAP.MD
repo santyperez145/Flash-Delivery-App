@@ -358,7 +358,7 @@ Cuarta entrega de la Fase 0. Clasifica el hallazgo [H-04](docs/auditoria-2026-08
 - [x] Aplicar política a las cinco tablas de la deuda.
 - [x] Eliminar el esquema muerto con una migración.
 - [x] Decidir `FORCE ROW LEVEL SECURITY`: no corresponde al rol migrador y la forma del rol runtime queda probada en CI.
-- [~] Sustituir `GRANT ... ON ALL TABLES` por grants explícitos: las migraciones 116, 122, 123, 131, 132 y 133 reducen los pares DML sin uso de 114 a 44 y el trinquete impide que vuelvan a crecer.
+- [~] Sustituir `GRANT ... ON ALL TABLES` por grants explícitos: las migraciones hasta la 134 reducen los pares DML sin uso de 114 a 35 y el trinquete impide que vuelvan a crecer.
 
 ### Dos cosas que la clasificación destapó
 
