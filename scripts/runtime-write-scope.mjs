@@ -96,6 +96,39 @@ const PERMISOS_ADMINISTRATIVOS_NO_USADOS = [
   { tabla: "service_zones", operaciones: ["INSERT", "DELETE"] },
   { tabla: "support_agent_profiles", operaciones: ["INSERT", "DELETE"] },
 ];
+const PERMISOS_FINALES_NO_USADOS = [
+  { tabla: "branch_operating_hours", operaciones: ["UPDATE"] },
+  { tabla: "branch_schedule_exceptions", operaciones: ["DELETE"] },
+  { tabla: "cart_items", operaciones: ["UPDATE"] },
+  { tabla: "carts", operaciones: ["DELETE"] },
+  { tabla: "catalog_branch_inventory", operaciones: ["DELETE"] },
+  { tabla: "catalog_item_allergens", operaciones: ["UPDATE"] },
+  { tabla: "catalog_item_dietary_labels", operaciones: ["UPDATE"] },
+  { tabla: "catalog_items", operaciones: ["DELETE"] },
+  { tabla: "catalog_modifier_groups", operaciones: ["UPDATE"] },
+  { tabla: "catalog_modifiers", operaciones: ["DELETE", "UPDATE"] },
+  { tabla: "driver_availability_sessions", operaciones: ["DELETE"] },
+  { tabla: "driver_compliance", operaciones: ["DELETE"] },
+  { tabla: "driver_documents", operaciones: ["DELETE"] },
+  { tabla: "driver_job_sessions", operaciones: ["DELETE"] },
+  { tabla: "driver_preferences", operaciones: ["DELETE"] },
+  { tabla: "favorites", operaciones: ["UPDATE"] },
+  { tabla: "map_provider_cache", operaciones: ["DELETE"] },
+  { tabla: "merchant_branches", operaciones: ["INSERT", "DELETE"] },
+  { tabla: "notification_dead_letters", operaciones: ["DELETE"] },
+  { tabla: "pricing_change_requests", operaciones: ["DELETE"] },
+  { tabla: "pricing_plans", operaciones: ["DELETE"] },
+  { tabla: "ratings", operaciones: ["UPDATE"] },
+  { tabla: "referral_attributions", operaciones: ["DELETE"] },
+  { tabla: "referral_codes", operaciones: ["DELETE"] },
+  { tabla: "service_chat_quick_replies", operaciones: ["DELETE"] },
+  { tabla: "service_tip_adjustments", operaciones: ["DELETE"] },
+  { tabla: "shipment_item_categories", operaciones: ["INSERT", "DELETE"] },
+  { tabla: "shipment_service_levels", operaciones: ["INSERT", "DELETE"] },
+  { tabla: "user_avoided_allergens", operaciones: ["UPDATE"] },
+  { tabla: "user_dietary_preferences", operaciones: ["UPDATE"] },
+  { tabla: "user_dietary_profiles", operaciones: ["DELETE"] },
+];
 
 async function fuentes(entrada) {
   const stat = await fs.stat(entrada).catch(() => null);
@@ -245,6 +278,16 @@ try {
   if (permisosAdministrativos.length) {
     throw new Error(
       `flash_runtime todavía conserva autoridad administrativa sin uso: ${permisosAdministrativos.join(", ")}`,
+    );
+  }
+  const permisosFinales = PERMISOS_FINALES_NO_USADOS.flatMap(({ tabla, operaciones }) =>
+    operaciones
+      .filter((operacion) => conEscritura.get(tabla)?.includes(operacion))
+      .map((operacion) => `${tabla}.${operacion}`),
+  );
+  if (permisosFinales.length) {
+    throw new Error(
+      `flash_runtime todavía conserva operaciones sin uso del inventario final: ${permisosFinales.join(", ")}`,
     );
   }
 

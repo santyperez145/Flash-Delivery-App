@@ -1,12 +1,14 @@
 # Progreso de desarrollo
 
-Fecha de la última revisión: **28 de agosto de 2026**.
+Fecha de la última revisión: **29 de agosto de 2026**.
 
 > Este documento es un **registro histórico acumulativo**. Las entradas de «Entregado» conservan la fecha en que se escribieron y varias describen un estado ya superado (por ejemplo, SQLite como base principal). Para el estado real y verificado de cada capacidad, la fuente es [`docs/matriz-madurez.md`](matriz-madurez.md).
 
 ## Resumen actual
 
-Flash es una **plataforma de preproducción avanzada** con cuatro superficies: cliente, comercio, conductor/repartidor y operaciones. El runtime principal es PostgreSQL/PostGIS con 134 migraciones versionadas; SQLite quedó reducido a fallback aislado de tests.
+Flash es una **plataforma de preproducción avanzada** con cuatro superficies: cliente, comercio, conductor/repartidor y operaciones. El runtime principal es PostgreSQL/PostGIS con 135 migraciones versionadas; SQLite quedó reducido a fallback aislado de tests.
+
+**DAT-001 cerró el alcance DML del runtime.** La migración 135 conserva sólo las operaciones observadas por código, upserts, candados y triggers. Los permisos sin uso bajaron de 114 a cero y el contrato bloqueante impide reintroducir las 35 operaciones del último lote.
 
 La [auditoría del 25 de agosto de 2026](auditoria-2026-08-25.md) la evalúa en 6,2/10 y define nueve bloqueadores P0. De 91 capacidades inventariadas, el 81% de las existentes no está protegido por una puerta CI y ninguna fue probada contra un proveedor real.
 

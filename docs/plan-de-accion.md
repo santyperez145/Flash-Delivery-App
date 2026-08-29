@@ -374,10 +374,10 @@ imagen, ambos con su razón anotada.
 vinculante: una tabla nueva no entra sin declarar su clase. Las 69 tablas
 `por-usuario` ya tienen política y el rol runtime no puede asumir el migrador ni
 saltear RLS. El acotamiento DML pasó de estimación a inventario ejecutable:
-`test:runtime-write-scope` cruza código, triggers y permisos PostgreSQL. Las
-migraciones 116, 122, 123, 131, 132, 133 y 134 reducen de 114 a 35 los pares
-tabla/operación que nadie usa; quedan 35 por revisar en lotes, no un
-`ON ALL TABLES` vigente.
+`test:runtime-write-scope` cruza código, upserts, candados, triggers y permisos
+PostgreSQL. Las migraciones 116, 122, 123, 131, 132, 133, 134 y 135 reducen de
+114 a **cero** los pares tabla/operación que nadie usa. La línea base queda en
+cero y `test:grant-scope` impide recuperar `ON ALL TABLES` o sus defaults.
 
 **NOT-001 y GEO-001.** Ambos pasaron de imposibles a implementados y con puerta
 CI. `NOTIFICATION_PROVIDER` acepta `expo` y producción exige `EXPO_ACCESS_TOKEN`;
