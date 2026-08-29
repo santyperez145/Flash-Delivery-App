@@ -207,9 +207,12 @@ retira 11 `DELETE` de sesiones, MFA, dispositivos, verificaciones y tokens, y la
 132 extiende el mismo límite a seis registros de evidencia financiera —webhooks,
 conexión PSP, conciliación, payouts y riesgo—. La 133 protege diez registros del
 historial operativo: jobs, ofertas, incidencias, sustituciones, notificaciones,
-evidencias, reclamos y devoluciones. CI reproduce los flujos como `flash_runtime`
-además de comprobar las tres listas por nombre. Los permisos DML sin uso bajan de
-114 a 44. Una revocación masiva sin esa simulación sería menos segura, no más.
+evidencias, reclamos y devoluciones. La 134 recorta nueve operaciones del control
+plane: no permite mutar una asignación de rol ni crear/borrar flags, comercios,
+zonas o perfiles de soporte desde el proceso de tráfico. CI reproduce los flujos
+como `flash_runtime` además de comprobar las restricciones por nombre y operación.
+Los permisos DML sin uso bajan de 114 a 35. Una revocación masiva sin esa
+simulación sería menos segura, no más.
 
 La lectura para un inversor no es «está terminado». Es: **el sustrato operativo y
 financiero está por encima de la etapa, y los huecos que quedan son de producto comercial y
