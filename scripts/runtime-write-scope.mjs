@@ -45,18 +45,34 @@ const pool = new pg.Pool({
 const BASE = "scripts/runtime-write-scope-baseline.json";
 const ROL = "flash_runtime";
 const ESCRITURA = ["INSERT", "UPDATE", "DELETE"];
-const ARTEFACTOS_IDENTIDAD_SIN_BORRADO = [
-  "email_verification_challenges",
-  "merchant_payment_oauth_states",
-  "password_recovery_tokens",
-  "payout_step_up_authorizations",
-  "phone_verification_challenges",
-  "refresh_sessions",
-  "ride_pickup_verifications",
-  "ride_tracking_links",
-  "user_devices",
-  "user_mfa",
-  "user_notification_preferences",
+const GRUPOS_SIN_BORRADO_RUNTIME = [
+  {
+    nombre: "artefactos de identidad",
+    tablas: [
+      "email_verification_challenges",
+      "merchant_payment_oauth_states",
+      "password_recovery_tokens",
+      "payout_step_up_authorizations",
+      "phone_verification_challenges",
+      "refresh_sessions",
+      "ride_pickup_verifications",
+      "ride_tracking_links",
+      "user_devices",
+      "user_mfa",
+      "user_notification_preferences",
+    ],
+  },
+  {
+    nombre: "evidencia financiera",
+    tablas: [
+      "mercadopago_webhook_inbox",
+      "merchant_payment_connections",
+      "payment_reconciliation_cases",
+      "payouts",
+      "transaction_risk_assessments",
+      "webhook_events",
+    ],
+  },
 ];
 
 async function fuentes(entrada) {
@@ -190,13 +206,13 @@ try {
     [ROL, ESCRITURA],
   );
   const conEscritura = new Map(permisos.rows.map((f) => [f.table_name, f.privilegios]));
-  const borrables = ARTEFACTOS_IDENTIDAD_SIN_BORRADO.filter((tabla) =>
-    conEscritura.get(tabla)?.includes("DELETE"),
-  );
-  if (borrables.length) {
-    throw new Error(
-      `flash_runtime todavía puede borrar artefactos de identidad: ${borrables.join(", ")}`,
-    );
+  for (const grupo of GRUPOS_SIN_BORRADO_RUNTIME) {
+    const borrables = grupo.tablas.filter((tabla) => conEscritura.get(tabla)?.includes("DELETE"));
+    if (borrables.length) {
+      throw new Error(
+        `flash_runtime todavía puede borrar ${grupo.nombre}: ${borrables.join(", ")}`,
+      );
+    }
   }
 
   // --- 2. Lo que el código escribe ------------------------------------------

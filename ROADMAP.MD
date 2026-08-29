@@ -355,10 +355,10 @@ Cuarta entrega de la Fase 0. Clasifica el hallazgo [H-04](docs/auditoria-2026-08
 - [x] **`test:rls-matrix` como puerta.** Falla si una tabla nueva no se clasifica, si la matriz se desalinea de las migraciones, si una clasificación sobrevive a su tabla, o si una tabla `por-usuario` queda sin política fuera de la deuda declarada. Verificado que detecta las tres derivas.
 - [x] **Deuda declarada que sólo puede achicarse:** `user_roles`, `drivers`, `merchants`, `shipment_details`, `promotion_redemptions`.
 - [x] **Regla en `AGENTS.md`:** toda migración que crea una tabla la clasifica en el mismo PR.
-- [ ] Aplicar política a las cinco tablas de la deuda.
-- [ ] Eliminar el esquema muerto con una migración.
-- [ ] `FORCE ROW LEVEL SECURITY` — sigue en cero.
-- [ ] Sustituir `GRANT ... ON ALL TABLES` por grants explícitos.
+- [x] Aplicar política a las cinco tablas de la deuda.
+- [x] Eliminar el esquema muerto con una migración.
+- [x] Decidir `FORCE ROW LEVEL SECURITY`: no corresponde al rol migrador y la forma del rol runtime queda probada en CI.
+- [~] Sustituir `GRANT ... ON ALL TABLES` por grants explícitos: las migraciones 116, 122, 123, 131 y 132 reducen los pares DML sin uso de 114 a 54 y el trinquete impide que vuelvan a crecer.
 
 ### Dos cosas que la clasificación destapó
 
