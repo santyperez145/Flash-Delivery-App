@@ -164,6 +164,7 @@ export function CustomerApp(props: {
     lat: number;
     lng: number;
     isDefault: boolean;
+    validationToken: string;
   }) => Promise<boolean>;
   onUpdateAddress: (
     addressId: string,
@@ -173,6 +174,7 @@ export function CustomerApp(props: {
       lat: number;
       lng: number;
       isDefault: boolean;
+      validationToken: string;
     },
   ) => Promise<boolean>;
   onSetDefaultAddress: (addressId: string) => Promise<boolean>;
@@ -2172,6 +2174,7 @@ function ProfileScreen({
     lat: number;
     lng: number;
     isDefault: boolean;
+    validationToken: string;
   }) => Promise<boolean>;
   onUpdateAddress: (
     addressId: string,
@@ -2181,6 +2184,7 @@ function ProfileScreen({
       lat: number;
       lng: number;
       isDefault: boolean;
+      validationToken: string;
     },
   ) => Promise<boolean>;
   onSetDefaultAddress: (addressId: string) => Promise<boolean>;
@@ -2200,7 +2204,18 @@ function ProfileScreen({
     lat: null as number | null,
     lng: null as number | null,
     isDefault: addresses.length === 0,
+    validationToken: "",
   });
+  const [addressMatches, setAddressMatches] = useState<
+      Array<{
+        label: string;
+        point: { lat: number; lng: number };
+        type: string;
+        placeId: string | null;
+        validationToken: string;
+      }>
+    >([]),
+    [addressValidationBusy, setAddressValidationBusy] = useState(false);
   const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
   const [addressStatus, setAddressStatus] = useState("");
   const [addressStatusTone, setAddressStatusTone] = useState<"ready" | "denied" | "">("");
@@ -2266,7 +2281,9 @@ function ProfileScreen({
       lat: null,
       lng: null,
       isDefault: addresses.length === 0,
+      validationToken: "",
     });
+    setAddressMatches([]);
     setAddressStatus("");
     setAddressStatusTone("");
   };
@@ -2278,42 +2295,58 @@ function ProfileScreen({
       lat: entry.lat,
       lng: entry.lng,
       isDefault: entry.isDefault,
+      validationToken: "",
     });
+    setAddressMatches([]);
     setAddressStatus("");
     setAddressStatusTone("");
   };
-  const locateAddress = () => {
-    if (!navigator.geolocation) {
-      setAddressStatus("Este dispositivo no permite geolocalizacion.");
-      setAddressStatusTone("denied");
-      return;
-    }
-    setAddressStatus("Obteniendo coordenadas actuales...");
+  const validateAddress = async () => {
+    const query = addressDraft.address.trim();
+    if (query.length < 3) return;
+    setAddressValidationBusy(true);
+    setAddressStatus("Buscando coincidencias verificables...");
     setAddressStatusTone("");
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        setAddressDraft((current) => ({
-          ...current,
-          lat: coords.latitude,
-          lng: coords.longitude,
-          address: current.address || "Ubicacion actual",
-        }));
-        setAddressStatus("Ubicacion lista. Confirma el nombre y la direccion.");
-        setAddressStatusTone("ready");
-      },
-      () => {
-        setAddressStatus(
-          "No pudimos acceder al GPS. Activa el permiso o escribe la direccion y usa otro dispositivo con ubicacion.",
-        );
+    try {
+      const response = await api.geocode(query);
+      setAddressMatches(response.results.slice(0, 5));
+      if (!response.results.length) {
+        setAddressStatus("No encontramos una dirección precisa. Agregá calle, número y ciudad.");
         setAddressStatusTone("denied");
-      },
-      { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 },
-    );
+      } else {
+        setAddressStatus("Elegí la coincidencia correcta antes de guardar.");
+      }
+    } catch (error) {
+      setAddressMatches([]);
+      setAddressStatus(
+        error instanceof Error ? error.message : "No pudimos validar la dirección ahora.",
+      );
+      setAddressStatusTone("denied");
+    } finally {
+      setAddressValidationBusy(false);
+    }
+  };
+  const selectAddressMatch = (match: (typeof addressMatches)[number]) => {
+    setAddressDraft((current) => ({
+      ...current,
+      address: match.label,
+      lat: match.point.lat,
+      lng: match.point.lng,
+      validationToken: match.validationToken,
+    }));
+    setAddressMatches([]);
+    setAddressStatus("Dirección validada por el proveedor. Ya podés guardarla.");
+    setAddressStatusTone("ready");
   };
   const saveAddress = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!addressDraft.address.trim() || addressDraft.lat === null || addressDraft.lng === null) {
-      setAddressStatus("Necesitamos la direccion y una ubicacion GPS para guardar este destino.");
+    if (
+      !addressDraft.address.trim() ||
+      addressDraft.lat === null ||
+      addressDraft.lng === null ||
+      !addressDraft.validationToken
+    ) {
+      setAddressStatus("Buscá la dirección y elegí una coincidencia antes de guardarla.");
       setAddressStatusTone("denied");
       return;
     }
@@ -2323,6 +2356,7 @@ function ProfileScreen({
       lat: addressDraft.lat,
       lng: addressDraft.lng,
       isDefault: addressDraft.isDefault,
+      validationToken: addressDraft.validationToken,
     };
     const saved = editingAddressId
       ? await onUpdateAddress(editingAddressId, payload)
@@ -2416,7 +2450,9 @@ function ProfileScreen({
                   <span>{entry.address}</span>
                   <small>
                     {entry.lat !== null && entry.lng !== null
-                      ? "Ubicacion verificada"
+                      ? entry.isValidated
+                        ? `Validada${entry.geocodingProvider ? ` · ${entry.geocodingProvider}` : ""}`
+                        : "Requiere volver a validarse"
                       : "Sin coordenadas"}
                   </small>
                 </div>
@@ -2488,15 +2524,41 @@ function ProfileScreen({
               <input
                 value={addressDraft.address}
                 onChange={(event) =>
-                  setAddressDraft((current) => ({ ...current, address: event.target.value }))
+                  setAddressDraft((current) => ({
+                    ...current,
+                    address: event.target.value,
+                    lat: null,
+                    lng: null,
+                    validationToken: "",
+                  }))
                 }
                 placeholder="Ej. Av. Corrientes 1234"
               />
             </label>
           </div>
-          <button type="button" className="location-action" onClick={locateAddress}>
-            <LocateFixed size={15} /> Usar mi ubicacion actual
+          <button
+            type="button"
+            className="location-action"
+            onClick={() => void validateAddress()}
+            disabled={addressDraft.address.trim().length < 3 || addressValidationBusy}
+          >
+            {addressValidationBusy ? <RefreshCw size={15} /> : <Search size={15} />}
+            {addressValidationBusy ? " Validando..." : " Validar dirección"}
           </button>
+          {addressMatches.length > 0 && (
+            <div className="address-suggestion-list" aria-label="Coincidencias de dirección">
+              {addressMatches.map((match) => (
+                <button
+                  type="button"
+                  key={`${match.placeId || match.label}:${match.point.lat}:${match.point.lng}`}
+                  onClick={() => selectAddressMatch(match)}
+                >
+                  <MapPin size={15} />
+                  <span>{match.label}</span>
+                </button>
+              ))}
+            </div>
+          )}
           {addressStatus && (
             <small className={`location-message ${addressStatusTone}`}>{addressStatus}</small>
           )}
@@ -2514,7 +2576,10 @@ function ProfileScreen({
             type="submit"
             className="secondary-button"
             disabled={
-              !addressDraft.address.trim() || addressDraft.lat === null || addressDraft.lng === null
+              !addressDraft.address.trim() ||
+              addressDraft.lat === null ||
+              addressDraft.lng === null ||
+              !addressDraft.validationToken
             }
           >
             <MapPin size={16} /> {editingAddressId ? "Actualizar direccion" : "Guardar direccion"}

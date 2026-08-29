@@ -1,6 +1,7 @@
 import { createPool } from "./db-client.mjs";
 import { config } from "../server/config.js";
 import { createMapCacheKey } from "../server/map-cache-repository.js";
+import { verifyGeocodeValidation } from "../server/geocoding-validation.js";
 // La clave de caché se deriva del proveedor, no de su URL: cambiar de proveedor
 // no debe servir una entrada cacheada por otro con criterios distintos.
 import { mapsProvider } from "../server/maps-provider.js";
@@ -34,12 +35,18 @@ try {
   keys.push(geocodeKey);
   const geocodePayload = {
     results: [
-      { label: "Resultado cacheado", point: { lat: -34.6037, lng: -58.3816 }, type: "address" },
+      {
+        label: "Resultado cacheado",
+        point: { lat: -34.6037, lng: -58.3816 },
+        type: "address",
+        placeId: "fixture:map:result",
+      },
     ],
   };
   await pool.query(
-    `INSERT INTO map_provider_cache(cache_key,kind,provider,payload,expires_at) VALUES($1,'geocode','smoke',$2,now()+interval '5 minutes')`,
-    [geocodeKey, geocodePayload],
+    `INSERT INTO map_provider_cache(cache_key,kind,provider,payload,expires_at)
+     VALUES($1,'geocode',$2,$3,now()+interval '5 minutes')`,
+    [geocodeKey, provider.name, geocodePayload],
   );
   const geocodeResponse = await fetch(`${apiBase}/maps/geocode?q=${encodeURIComponent(query)}`, {
     headers,
@@ -51,6 +58,19 @@ try {
       geocode.results?.[0]?.label === "Resultado cacheado",
     "geocoder serves durable PostgreSQL cache without provider access",
   );
+  const signedAddress = verifyGeocodeValidation(geocode.results[0].validationToken, login.user.id);
+  assert(
+    signedAddress.providerPlaceId === "fixture:map:result" &&
+      signedAddress.address === "Resultado cacheado",
+    "geocoder signs the provider identity and authoritative address",
+  );
+  let rejectedForAnotherUser = false;
+  try {
+    verifyGeocodeValidation(geocode.results[0].validationToken, "usr_other_customer");
+  } catch (error) {
+    rejectedForAnotherUser = error.status === 409;
+  }
+  assert(rejectedForAnotherUser, "geocode validation is bound to the authenticated customer");
 
   const coordinates = [-34.6037, -58.3816, -34.6158, -58.4333];
   const routeIdentity = coordinates.map((value) => value.toFixed(5)).join(",");

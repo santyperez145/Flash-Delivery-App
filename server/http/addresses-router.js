@@ -25,6 +25,7 @@ import {
   usesPostgresAuth,
 } from "../auth-repository.js";
 import { audit, readDb } from "../fallback-runtime.js";
+import { verifyGeocodeValidation } from "../geocoding-validation.js";
 import { recordPostgresAudit } from "../operations-repository.js";
 import { createId, writeDb } from "../store.js";
 import { requireAuth } from "./authentication.js";
@@ -40,6 +41,7 @@ const addressSchema = z.object({
   address: z.string().trim().min(3).max(240),
   lat: z.coerce.number().min(-90).max(90),
   lng: z.coerce.number().min(-180).max(180),
+  validationToken: z.string().min(20).max(4096).optional(),
   isDefault: z.boolean().default(false),
 });
 
@@ -64,10 +66,11 @@ addressesRouter.post("/api/addresses", requireAuth, async (req, res) => {
     const owned = (db.addresses || []).filter((entry) => entry.userId === user.id);
     if (owned.length >= MAX_DIRECCIONES)
       return fail(res, 409, "Alcanzaste el límite de direcciones guardadas");
+    const { validationToken: _validationToken, ...addressInput } = parsed.data;
     const address = {
       id: createId("ADDR"),
       userId: user.id,
-      ...parsed.data,
+      ...addressInput,
       isDefault: parsed.data.isDefault || owned.length === 0,
     };
     if (address.isDefault) {
@@ -97,9 +100,14 @@ addressesRouter.post("/api/addresses", requireAuth, async (req, res) => {
     });
   }
   try {
+    if (!parsed.data.validationToken)
+      return fail(res, 409, "Buscá y confirmá una dirección válida antes de guardarla");
+    const validated = verifyGeocodeValidation(parsed.data.validationToken, req.auth.userId);
     const address = await createPostgresAddress({
       userPublicId: req.auth.userId,
-      ...parsed.data,
+      label: parsed.data.label,
+      isDefault: parsed.data.isDefault,
+      ...validated,
     });
     await recordPostgresAudit({
       actorPublicId: req.auth.userId,
@@ -108,7 +116,12 @@ addressesRouter.post("/api/addresses", requireAuth, async (req, res) => {
       entityType: "address",
       entityId: address.id,
       requestId: req.requestId,
-      afterData: { label: address.label, isDefault: address.isDefault },
+      afterData: {
+        label: address.label,
+        isDefault: address.isDefault,
+        geocodingProvider: address.geocodingProvider,
+        providerPlaceIdPresent: Boolean(address.providerPlaceId),
+      },
     });
     await publishRealtimeEvent({
       req,
@@ -144,7 +157,8 @@ addressesRouter.put("/api/addresses/:addressId", requireAuth, async (req, res) =
       const user = db.users.find((entry) => entry.id === req.auth.userId);
       if (user) user.defaultAddress = parsed.data.address;
     }
-    Object.assign(address, { ...parsed.data, isDefault: nextIsDefault });
+    const { validationToken: _validationToken, ...addressInput } = parsed.data;
+    Object.assign(address, { ...addressInput, isDefault: nextIsDefault });
     audit(db, req, "address", address.id, "address.updated", {
       label: address.label,
       isDefault: address.isDefault,
@@ -156,10 +170,15 @@ addressesRouter.put("/api/addresses/:addressId", requireAuth, async (req, res) =
     });
   }
   try {
+    if (!parsed.data.validationToken)
+      return fail(res, 409, "Buscá y confirmá una dirección válida antes de actualizarla");
+    const validated = verifyGeocodeValidation(parsed.data.validationToken, req.auth.userId);
     const address = await updatePostgresAddress({
       userPublicId: req.auth.userId,
       addressId: req.params.addressId,
-      ...parsed.data,
+      label: parsed.data.label,
+      isDefault: parsed.data.isDefault,
+      ...validated,
     });
     await recordPostgresAudit({
       actorPublicId: req.auth.userId,
@@ -168,7 +187,12 @@ addressesRouter.put("/api/addresses/:addressId", requireAuth, async (req, res) =
       entityType: "address",
       entityId: address.id,
       requestId: req.requestId,
-      afterData: { label: address.label, isDefault: address.isDefault },
+      afterData: {
+        label: address.label,
+        isDefault: address.isDefault,
+        geocodingProvider: address.geocodingProvider,
+        providerPlaceIdPresent: Boolean(address.providerPlaceId),
+      },
     });
     return ok(res, {
       address,

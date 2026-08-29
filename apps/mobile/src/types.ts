@@ -309,6 +309,11 @@ export type UserAddress = {
   lat: number | null;
   lng: number | null;
   isDefault: boolean;
+  geocodingProvider: string | null;
+  providerPlaceId: string | null;
+  geocodeType: string | null;
+  validatedAt: string | null;
+  isValidated: boolean;
 };
 export type RideDestination = {
   id: string;

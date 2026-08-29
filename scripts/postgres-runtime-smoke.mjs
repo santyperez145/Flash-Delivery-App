@@ -3,6 +3,8 @@ import { createPool } from "./db-client.mjs";
 import { readDb } from "../server/store.js";
 import { processPostgresDispatchBatch } from "../server/dispatch-repository.js";
 import { closePostgres } from "../server/postgres.js";
+import { issueGeocodeValidation } from "../server/geocoding-validation.js";
+import { config } from "../server/config.js";
 
 const base = process.env.API_URL || "http://127.0.0.1:4000/api";
 const pool = createPool();
@@ -16,6 +18,7 @@ let registeredUserId = null;
 let registeredEmail = null;
 let registeredToken = null;
 let registeredRefreshToken = null;
+let unvalidatedAddressId = null;
 let registeredRideId = null;
 let registeredRideKey = null;
 let moderationDriverId = null;
@@ -58,6 +61,15 @@ const sqliteBefore = sqliteFingerprint();
 function assert(condition, label) {
   if (!condition) throw new Error(`failed: ${label}`);
   console.log(`ok - ${label}`);
+}
+
+function addressValidationToken({ userPublicId, label, lat, lng, placeId = null }) {
+  return issueGeocodeValidation({
+    result: { label, point: { lat, lng }, type: "street_address", placeId },
+    provider: config.maps.provider,
+    userPublicId,
+    cache: "postgres-smoke",
+  });
 }
 
 async function request(path, init = {}) {
@@ -585,34 +597,82 @@ try {
       profileUpdated.body.account.addresses?.[0]?.address.includes("Corrientes"),
     "new PostgreSQL user updates profile and account address",
   );
+  const missingAddressValidation = await request("/addresses", {
+    method: "POST",
+    body: JSON.stringify({
+      label: "Sin validar",
+      address: "Texto del cliente",
+      lat: -34.6,
+      lng: -58.4,
+      isDefault: false,
+    }),
+  });
+  const foreignAddressValidation = await request("/addresses", {
+    method: "POST",
+    body: JSON.stringify({
+      label: "Token ajeno",
+      address: "Texto del cliente",
+      lat: -34.6,
+      lng: -58.4,
+      isDefault: false,
+      validationToken: addressValidationToken({
+        userPublicId: "usr_customer",
+        label: "Dirección de otro cliente",
+        lat: -34.6,
+        lng: -58.4,
+      }),
+    }),
+  });
+  assert(
+    missingAddressValidation.status === 409 && foreignAddressValidation.status === 409,
+    "PostgreSQL address writes require a validation bound to the authenticated customer",
+  );
+  const homeLabel = "Av. Corrientes 1234, Buenos Aires";
   const homeAddress = await request("/addresses", {
     method: "POST",
     body: JSON.stringify({
       label: "Casa",
-      address: "Av. Corrientes 1234, Buenos Aires",
-      lat: -34.6037,
-      lng: -58.3938,
+      address: "Texto manipulado por el cliente",
+      lat: 1,
+      lng: 2,
       isDefault: true,
+      validationToken: addressValidationToken({
+        userPublicId: registeredUserId,
+        label: homeLabel,
+        lat: -34.6037,
+        lng: -58.3938,
+      }),
     }),
   });
+  const workLabel = "Av. Santa Fe 1800, Buenos Aires";
   feedbackAuditRequestIds.push(homeAddress.body.requestId);
   const workAddress = await request("/addresses", {
     method: "POST",
     body: JSON.stringify({
       label: "Trabajo",
-      address: "Av. Santa Fe 1800, Buenos Aires",
+      address: workLabel,
       lat: -34.5942,
       lng: -58.3959,
       isDefault: false,
+      validationToken: addressValidationToken({
+        userPublicId: registeredUserId,
+        label: workLabel,
+        lat: -34.5942,
+        lng: -58.3959,
+      }),
     }),
   });
   feedbackAuditRequestIds.push(workAddress.body.requestId);
   assert(
     homeAddress.status === 201 &&
       homeAddress.body.address.isDefault &&
+      homeAddress.body.address.address === homeLabel &&
+      homeAddress.body.address.lat === -34.6037 &&
+      homeAddress.body.address.isValidated &&
+      homeAddress.body.address.geocodingProvider === config.maps.provider &&
       workAddress.status === 201 &&
       workAddress.body.addresses.length === 2,
-    "address book persists geocoded addresses in PostgreSQL",
+    "address book persists the signed provider result instead of client-controlled coordinates",
   );
   const workId = workAddress.body.address.id,
     homeId = homeAddress.body.address.id;
@@ -774,6 +834,12 @@ try {
           lat: -34.6,
           lng: -58.4,
           isDefault: true,
+          validationToken: addressValidationToken({
+            userPublicId: "usr_customer",
+            label: "Otra",
+            lat: -34.6,
+            lng: -58.4,
+          }),
         }),
       })
     ).status === 404,
@@ -788,6 +854,12 @@ try {
       lat: -34.6037,
       lng: -58.3938,
       isDefault: false,
+      validationToken: addressValidationToken({
+        userPublicId: registeredUserId,
+        label: "Av. Corrientes 1234, CABA",
+        lat: -34.6037,
+        lng: -58.3938,
+      }),
     }),
   });
   feedbackAuditRequestIds.push(homeUpdated.body.requestId);
@@ -1011,6 +1083,23 @@ try {
     ],
   };
   assert(checkoutAddress, "food checkout has a saved geocoded delivery address");
+  unvalidatedAddressId = (
+    await pool.query(
+      `INSERT INTO addresses(user_id,label,formatted_address,location,is_default)
+       SELECT id,'Runtime sin validar','Texto legacy',
+         ST_SetSRID(ST_MakePoint(-58.3816,-34.6037),4326)::geography,false
+       FROM users WHERE public_id='usr_customer'
+       RETURNING id::text`,
+    )
+  ).rows[0].id;
+  const unvalidatedFoodQuote = await request("/orders/quote", {
+    method: "POST",
+    body: JSON.stringify({ ...payload, deliveryAddressId: unvalidatedAddressId }),
+  });
+  assert(
+    unvalidatedFoodQuote.status === 404,
+    "food checkout rejects legacy coordinates without signed provider provenance",
+  );
   const foodQuote = await request("/orders/quote", {
     method: "POST",
     body: JSON.stringify(payload),
@@ -1018,6 +1107,7 @@ try {
   assert(
     foodQuote.status === 200 &&
       foodQuote.body.quote?.quoteToken &&
+      foodQuote.body.quote?.addressValidation?.validatedAt &&
       foodQuote.body.quote?.pricingVersion === "AR-BA-FOOD-2026.08" &&
       foodQuote.body.quote?.distanceKm > 0,
     "food quote returns a real versioned distance price lock",
@@ -4521,6 +4611,8 @@ try {
   }
   if (registeredRideKey)
     await pool.query("DELETE FROM idempotency_keys WHERE key=$1", [registeredRideKey]);
+  if (unvalidatedAddressId)
+    await pool.query("DELETE FROM addresses WHERE id=$1", [unvalidatedAddressId]);
   if (moderationDriverId)
     await pool.query("DELETE FROM drivers WHERE public_id=$1", [moderationDriverId]);
   const riskKeys = [
