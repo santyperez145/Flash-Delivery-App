@@ -73,6 +73,21 @@ const GRUPOS_SIN_BORRADO_RUNTIME = [
       "webhook_events",
     ],
   },
+  {
+    nombre: "historial operativo",
+    tablas: [
+      "dispatch_offers",
+      "job_items",
+      "jobs",
+      "notification_deliveries",
+      "order_issues",
+      "order_item_substitutions",
+      "shipment_delivery_evidence",
+      "shipment_details",
+      "shipment_protection_claims",
+      "shipment_return_requests",
+    ],
+  },
 ];
 
 async function fuentes(entrada) {
