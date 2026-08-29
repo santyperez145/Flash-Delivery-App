@@ -8,6 +8,9 @@ const fixtures = [
     lat: -34.6177,
     lng: -58.3621,
     isDefault: true,
+    provider: "fixture",
+    providerPlaceId: "fixture:usr_customer:casa",
+    geocodeType: "fixture",
   },
 ];
 
@@ -32,13 +35,41 @@ try {
       );
     if (existing)
       await client.query(
-        `UPDATE addresses SET label=$2,location=ST_SetSRID(ST_MakePoint($4,$3),4326)::geography,is_default=$5,updated_at=now() WHERE id=$1`,
-        [existing.id, fixture.label, fixture.lat, fixture.lng, fixture.isDefault],
+        `UPDATE addresses SET
+          label=$2,location=ST_SetSRID(ST_MakePoint($4,$3),4326)::geography,is_default=$5,
+          geocoding_provider=$6,provider_place_id=$7,geocode_type=$8,
+          geocoded_at=COALESCE(geocoded_at,created_at),updated_at=now()
+         WHERE id=$1`,
+        [
+          existing.id,
+          fixture.label,
+          fixture.lat,
+          fixture.lng,
+          fixture.isDefault,
+          fixture.provider,
+          fixture.providerPlaceId,
+          fixture.geocodeType,
+        ],
       );
     else
       await client.query(
-        `INSERT INTO addresses(user_id,label,formatted_address,location,is_default) VALUES($1,$2,$3,ST_SetSRID(ST_MakePoint($5,$4),4326)::geography,$6)`,
-        [user.id, fixture.label, fixture.address, fixture.lat, fixture.lng, fixture.isDefault],
+        `INSERT INTO addresses(
+          user_id,label,formatted_address,location,is_default,geocoding_provider,
+          provider_place_id,geocode_type,geocoded_at
+         ) VALUES(
+          $1,$2,$3,ST_SetSRID(ST_MakePoint($5,$4),4326)::geography,$6,$7,$8,$9,now()
+         )`,
+        [
+          user.id,
+          fixture.label,
+          fixture.address,
+          fixture.lat,
+          fixture.lng,
+          fixture.isDefault,
+          fixture.provider,
+          fixture.providerPlaceId,
+          fixture.geocodeType,
+        ],
       );
     if (fixture.isDefault)
       await client.query(

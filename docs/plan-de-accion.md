@@ -382,7 +382,9 @@ cero y `test:grant-scope` impide recuperar `ON ALL TABLES` o sus defaults.
 **NOT-001 y GEO-001.** Ambos pasaron de imposibles a implementados y con puerta
 CI. `NOTIFICATION_PROVIDER` acepta `expo` y producción exige `EXPO_ACCESS_TOKEN`;
 `MAPS_PROVIDER=openstreetmap` **hace fallar el arranque en producción** y existe
-un adapter con Google Routes detrás.
+un adapter con Google Routes detrás. Desde la migración 136, la geocodificación
+también emite una identidad breve ligada al usuario, persiste proveedor y
+`place_id`, y el checkout de comida rechaza direcciones legacy o modificadas.
 
 Los dos contratos se verifican con `fetch` interceptado, sin credenciales. Eso
 prueba que el contrato es correcto, **no** que un push llegue a un teléfono ni

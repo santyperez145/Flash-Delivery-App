@@ -54,7 +54,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | --- | --- |
 | ETA vial en el scoring de dispatch | Route Matrix lista, falta API key — ticket DSP-001 |
 | SSE, event log, retención realtime | Sin suite dedicada |
-| Geocoding y routing | Proveedores públicos — ticket GEO-001 |
+| Calidad y costo reales de geocoding/routing | Adapter y contratos en CI; falta API key comercial y ensayo de deliverability — ticket GEO-001 |
 | Backup y restore drill | Scripts PowerShell, van a `ci-nightly` |
 | Wallet sandbox, moderación, notificación in-app | Sin suite dedicada |
 | Registro y login | `test:security` corre sobre el fallback SQLite, no sobre PostgreSQL |
@@ -81,7 +81,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Capacidad | Estado | Evidencia / bloqueo |
 | --- | --- | --- |
 | PostgreSQL/PostGIS runtime | `CI` | `ci-postgres.yml` levanta PostGIS 17 con roles separados |
-| 135 migraciones versionadas | `CI` | `ci-postgres.yml` corre desde cero y de forma incremental sobre la rama base |
+| 136 migraciones versionadas | `CI` | `ci-postgres.yml` corre desde cero y de forma incremental sobre la rama base |
 | Row-Level Security | `CI` | `test:rls` bloquea el merge · **69 de 69** tablas `por-usuario` con política. `shipment_details` y `promotion_redemptions` cerraron el 27-08: la primera guardaba nombre, teléfono y PIN del destinatario sin `ENABLE` |
 | Matriz de clasificación RLS | `CI` | `test:rls-matrix`: las 104 tablas clasificadas, deuda declarada que sólo puede achicarse. Desde el 27/08 también resta los `DROP TABLE`: una clasificación no sobrevive a su tabla |
 | `FORCE ROW LEVEL SECURITY` | — | **Cero sentencias.** El dueño es `flash_app`, que migra y hace backfill sobre filas de todos: `FORCE` a todo rompe ese trabajo — ticket DAT-001 |
@@ -132,6 +132,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Geocoding | `CI` | Adapter con `test:maps-provider` · producción rechaza instancias públicas · **sin API key habilitada** |
 | Routing | `CI` | Adapter con Routes `TRAFFIC_AWARE` y Route Matrix · **sin API key habilitada** |
 | Cotización firmada | `CI` | `test:maps` en `ci-critical-flows` |
+| Dirección validada en checkout de comida | `CI` | Migración 136 + token geográfico ligado al usuario · `test:maps` y `test:postgres` rechazan manipulación y registros legacy · **sin veredicto de deliverability comercial** |
 | Caché, circuit breaker y presupuesto | `CI` | `test:provider-resilience` |
 
 ## Realtime y notificaciones
