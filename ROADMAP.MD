@@ -46,9 +46,15 @@ Nueve reglas decidían quién puede hacer qué desde adentro de un archivo de 9.
 
 Dos de ellas, `canAdvanceOrder` y `canMutateOrderStatus`, recibían el `db` completo y buscaban el comercio adentro. Esa dependencia era la que hacía imposible verificar un permiso sin un runtime. Ahora reciben el comercio ya resuelto y las nueve son puras.
 
-`test:authorization` afirma cada una por separado, sin red ni base, incluidos tres casos que un smoke de extremo a extremo no llega a montar: **el administrador con MFA habilitado y sin verificar**, el pedido cuyo comercio ya no existe, y el conductor que no es el asignado. El contrato encontró de paso que tres predicados devolvían `null` en vez de `false`; todos los sitios de llamada los usan en contexto booleano, así que la corrección es equivalente.
+`test:authorization` afirma cada una por separado sobre Vitest 4.1, sin red ni base, incluidos tres casos que un smoke de extremo a extremo no llega a montar: **el administrador con MFA habilitado y sin verificar**, el pedido cuyo comercio ya no existe, y el conductor que no es el asignado. El contrato encontró de paso que tres predicados devolvían `null` en vez de `false`; todos los sitios de llamada los usan en contexto booleano, así que la corrección es equivalente.
 
 La suite además afirma que **el propio módulo no vuelve a depender de la base**: si un predicado recibe otra vez el `db`, el contrato falla. Sin esa aserción, la propiedad que hace verificable a todo lo demás se pierde en el primer PR que la olvide.
+
+El primer límite de integración estándar también quedó activo: la segunda mitad de
+`test:runtime-role-shape` crea PostGIS 17 desde Docker, replica los tres roles de producción y
+aplica las 136 migraciones desde cero. Corre dentro de `ci-postgres`, así que una prueba que sólo
+funcionara sobre la base preparada a mano por el workflow ya no podría satisfacer por sí sola el
+criterio.
 
 ### Un contrato que pierde cobertura en silencio es peor que uno que falla
 

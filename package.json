@@ -37,7 +37,7 @@
     "preview": "vite preview --host 127.0.0.1",
     "start": "node --env-file-if-exists=.env.local server/start.js",
     "test:security": "node scripts/security-smoke.mjs",
-    "test:authorization": "node scripts/authorization-contract.mjs",
+    "test:authorization": "vitest run tests/unit/authorization.test.js",
     "test:domain-purity": "node scripts/domain-purity-contract.mjs",
     "test:module-references": "node scripts/module-references-contract.mjs",
     "test:dead-code": "node scripts/dead-code-contract.mjs",
@@ -49,8 +49,8 @@
     "test:user-view": "node scripts/user-view-contract.mjs",
     "test:error-disclosure": "node scripts/error-disclosure-smoke.mjs",
     "test:realtime-audience": "node scripts/realtime-audience-smoke.mjs",
-    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"server/**/*.js\" \"scripts/**/*.mjs\" \"apps/mobile/App.tsx\" \"apps/mobile/src/**/*.{ts,tsx}\"",
-    "test:format": "prettier --check \"src/**/*.{ts,tsx,css}\" \"server/**/*.js\" \"scripts/**/*.mjs\" \"apps/mobile/App.tsx\" \"apps/mobile/src/**/*.{ts,tsx}\"",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"server/**/*.js\" \"scripts/**/*.mjs\" \"tests/**/*.js\" \"vitest.config.js\" \"apps/mobile/App.tsx\" \"apps/mobile/src/**/*.{ts,tsx}\"",
+    "test:format": "prettier --check \"src/**/*.{ts,tsx,css}\" \"server/**/*.js\" \"scripts/**/*.mjs\" \"tests/**/*.js\" \"vitest.config.js\" \"apps/mobile/App.tsx\" \"apps/mobile/src/**/*.{ts,tsx}\"",
     "test:line-length": "node scripts/line-length-ratchet.mjs",
     "test:rls-matrix": "node scripts/rls-matrix-check.mjs",
     "test:rls-guard": "node scripts/rls-guard-contract.mjs",
@@ -61,7 +61,7 @@
     "test:postgres": "node --env-file-if-exists=.env.local scripts/postgres-runtime-smoke.mjs",
     "test:api-wiring": "node scripts/api-wiring-contract.mjs",
     "test:dispatch-plan": "node --env-file-if-exists=.env.local scripts/dispatch-plan-smoke.mjs",
-    "test:runtime-role-shape": "node --env-file-if-exists=.env.local scripts/runtime-role-shape-contract.mjs",
+    "test:runtime-role-shape": "node --env-file-if-exists=.env.local scripts/runtime-role-shape-contract.mjs && vitest run tests/integration/postgres-container.test.js --testTimeout=240000 --hookTimeout=240000",
     "test:runtime-write-scope": "node --env-file-if-exists=.env.local scripts/runtime-write-scope.mjs",
     "test:restore-drill": "node --env-file-if-exists=.env.local scripts/restore-drill-smoke.mjs",
     "test:realtime-audience-api": "node --env-file-if-exists=.env.local scripts/realtime-audience-api-smoke.mjs",
@@ -170,6 +170,7 @@
   },
   "devDependencies": {
     "@mercadopago/sdk-react": "^1.0.7",
+    "@testcontainers/postgresql": "^12.1.0",
     "@types/pg": "^8.23.1",
     "@types/qrcode": "^1.5.6",
     "@types/react": "^19.1.10",
@@ -187,6 +188,7 @@
     "terser": "^5.50.0",
     "typescript": "^5.9.2",
     "vite": "^7.1.2",
+    "vitest": "^4.1.11",
     "yaml": "^2.9.0"
   }
 }
