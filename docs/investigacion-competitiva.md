@@ -194,7 +194,7 @@ técnico mira y rara vez encuentra en una etapa temprana:
 - **Ninguna ruta queda construida y sin cablear**: una puerta lo impide, con línea base en
   cero.
 
-**Decisión de seguridad comparada, 28 de agosto.** La documentación vigente de
+**Decisión de seguridad comparada, 29 de agosto.** La documentación vigente de
 [PostgreSQL](https://www.postgresql.org/docs/current/ddl-priv.html) separa
 `INSERT`, `UPDATE` y `DELETE` como privilegios distintos y permite revocarlos por
 objeto; por eso Flash mide pares tabla/operación en lugar de declarar una tabla
@@ -211,8 +211,12 @@ evidencias, reclamos y devoluciones. La 134 recorta nueve operaciones del contro
 plane: no permite mutar una asignación de rol ni crear/borrar flags, comercios,
 zonas o perfiles de soporte desde el proceso de tráfico. CI reproduce los flujos
 como `flash_runtime` además de comprobar las restricciones por nombre y operación.
-Los permisos DML sin uso bajan de 114 a 35. Una revocación masiva sin esa
-simulación sería menos segura, no más.
+La 135 completa el mismo proceso sobre catálogo, carrito, preferencias,
+sesiones de conductor y configuración: conserva cada operación observada y
+lleva los permisos DML sin uso de 114 a **cero**. Flash todavía queda por debajo
+de Uber porque la simulación se alimenta del código y de pruebas, no de replay de
+tráfico productivo ni de un PAP central. Una revocación masiva sin esta
+simulación habría sido menos segura, no más.
 
 La lectura para un inversor no es «está terminado». Es: **el sustrato operativo y
 financiero está por encima de la etapa, y los huecos que quedan son de producto comercial y
