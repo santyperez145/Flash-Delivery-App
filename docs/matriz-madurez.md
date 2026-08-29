@@ -81,7 +81,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Capacidad | Estado | Evidencia / bloqueo |
 | --- | --- | --- |
 | PostgreSQL/PostGIS runtime | `CI` | `ci-postgres.yml` levanta PostGIS 17 con roles separados |
-| 132 migraciones versionadas | `CI` | `ci-postgres.yml` corre desde cero y de forma incremental sobre la rama base |
+| 133 migraciones versionadas | `CI` | `ci-postgres.yml` corre desde cero y de forma incremental sobre la rama base |
 | Row-Level Security | `CI` | `test:rls` bloquea el merge · **69 de 69** tablas `por-usuario` con política. `shipment_details` y `promotion_redemptions` cerraron el 27-08: la primera guardaba nombre, teléfono y PIN del destinatario sin `ENABLE` |
 | Matriz de clasificación RLS | `CI` | `test:rls-matrix`: las 104 tablas clasificadas, deuda declarada que sólo puede achicarse. Desde el 27/08 también resta los `DROP TABLE`: una clasificación no sobrevive a su tabla |
 | `FORCE ROW LEVEL SECURITY` | — | **Cero sentencias.** El dueño es `flash_app`, que migra y hace backfill sobre filas de todos: `FORCE` a todo rompe ese trabajo — ticket DAT-001 |
@@ -92,7 +92,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Aislamiento por ciudad | `CI` | `test:city-isolation` en `ci-postgres.yml` |
 | Backup y restore drill | `LOCAL` | `db:restore:drill` fuera de CI · sin cronometrar contra RTO |
 | Separación de roles PostgreSQL | `CI` | `test:container-security` |
-| Alcance de permisos del runtime | `CI` | `test:grant-scope` y `test:runtime-write-scope`. Las migraciones 116, 122, 123, 131 y 132 reducen los permisos DML sin uso de 114 a 54; los dos últimos lotes verifican por nombre artefactos de identidad y evidencia financiera sin DELETE |
+| Alcance de permisos del runtime | `CI` | `test:grant-scope` y `test:runtime-write-scope`. Las migraciones 116, 122, 123, 131, 132 y 133 reducen los permisos DML sin uso de 114 a 44; los tres últimos lotes verifican por nombre artefactos de identidad, evidencia financiera e historial operativo sin DELETE |
 | Imagen productiva non-root | `CI` | Job `container-image` construye la imagen y verifica `uid=999(flash)` |
 | Auditoría de dependencias de desarrollo | `CI` | `test:dependency-gate` cubre cuatro alcances: raíz y móvil, producción y desarrollo |
 | Dependencias de producción acotadas | `CI` | `test:production-deps`: las 20 están importadas por el servidor. Siete paquetes de frente salieron de la imagen: 381 → 303 MiB |
