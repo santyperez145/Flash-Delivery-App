@@ -5,6 +5,15 @@ import { contains, readMobileSource } from "./source-contract.mjs";
 // trabajo que queda del ticket es partir `App.tsx`, y un contrato con la ruta
 // fija se rompe —o se vacía— en cuanto un componente cambia de archivo.
 const { source: app } = await readMobileSource();
+const customerCoordinator = fs.readFileSync("apps/mobile/src/screens/CustomerScreen.tsx", "utf8");
+const foodCheckout = fs.readFileSync(
+  "apps/mobile/src/screens/CustomerFoodCheckoutScreen.tsx",
+  "utf8",
+);
+const foodRestaurant = fs.readFileSync(
+  "apps/mobile/src/screens/CustomerFoodRestaurantScreen.tsx",
+  "utf8",
+);
 const api = fs.readFileSync("apps/mobile/src/api.ts", "utf8");
 const types = fs.readFileSync("apps/mobile/src/types.ts", "utf8");
 const design = fs.readFileSync("apps/mobile/src/design-system.ts", "utf8");
@@ -68,19 +77,20 @@ assert(
   "cart must compose products, geocoded address and payment from real account state",
 );
 assert(
-  contains(app, "foodCheckoutHero") &&
-    contains(app, "foodCheckoutQuote.expiresAt") &&
-    contains(app, "foodCheckoutQuote.pricingVersion"),
+  contains(foodCheckout, "foodCheckoutHero") &&
+    contains(foodCheckout, "quote.expiresAt") &&
+    contains(foodCheckout, "quote.pricingVersion"),
   "checkout must present signed quote expiry and pricing provenance",
 );
 assert(
-  contains(app, "servidor vuelve a validar stock") && contains(app, "foodCheckoutQuote.total"),
+  contains(foodCheckout, "servidor vuelve a validar stock") &&
+    contains(foodCheckout, "quote.total + tipCents / 100"),
   "checkout must disclose server revalidation and use the authoritative total",
 );
 assert(
-  contains(app, "customizingModifierTotal") &&
-    contains(app, "customizingSelectionValid") &&
-    contains(app, "productCustomizerActionPrice"),
+  contains(foodRestaurant, "modifierTotal") &&
+    contains(foodRestaurant, "customizingSelectionValid") &&
+    contains(foodRestaurant, "productCustomizerActionPrice"),
   "product customization must enforce modifier limits and calculate the displayed total from catalog prices",
 );
 assert(
@@ -92,6 +102,17 @@ assert(
 assert(
   contains(app, "mobileOrderStatusLabel[order.status]") && contains(app, "foodActiveOrderCard"),
   "order activity must translate backend status into an actionable customer card",
+);
+assert(
+  customerCoordinator.trimEnd().split(/\r?\n/).length <= 1600 &&
+    [
+      "CustomerFoodBrowseScreen",
+      "CustomerFoodRestaurantScreen",
+      "CustomerFoodCartScreen",
+      "CustomerFoodCheckoutScreen",
+      "CustomerFoodOrdersScreen",
+    ].every((component) => contains(customerCoordinator, `<${component}`)),
+  "food discovery, restaurant, cart, checkout and orders must stay outside the shrinking coordinator",
 );
 assert(
   contains(roadmap, "Foodu") && contains(roadmap, "Definición de terminado visual"),

@@ -101,7 +101,7 @@ assert(
 );
 
 assert(
-  customerCoordinator.trimEnd().split(/\r?\n/).length <= 3165 &&
+  customerCoordinator.trimEnd().split(/\r?\n/).length <= 1600 &&
     contains(customerCoordinator, "<CustomerAccountScreen") &&
     !contains(customerCoordinator, "Teléfono de seguridad") &&
     contains(customerAccount, "export function CustomerAccountScreen") &&

@@ -8,12 +8,9 @@ import * as FileSystem from "expo-file-system/legacy";
 import * as Location from "expo-location";
 import * as Sharing from "expo-sharing";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import {
   ActivityIndicator,
   Alert,
-  Image,
-  ImageBackground,
   Modal,
   Pressable,
   ScrollView,
@@ -25,14 +22,17 @@ import {
 
 import { track } from "../analytics";
 import { api } from "../api";
-import { TipSelector } from "../TipSelector";
-import { RescheduleControl, SchedulePicker } from "../SchedulePicker";
 import { flashDesign } from "../design-system";
 import { mobileOrderStatusLabel, money } from "../format";
 import { styles } from "../styles";
 import { ActionButton, ServiceChatModal } from "../ui";
 import { CustomerActivityScreen } from "./CustomerActivityScreen";
 import { CustomerAccountScreen } from "./CustomerAccountScreen";
+import { CustomerFoodBrowseScreen, type CatalogSearchResult } from "./CustomerFoodBrowseScreen";
+import { CustomerFoodCartScreen } from "./CustomerFoodCartScreen";
+import { CustomerFoodCheckoutScreen } from "./CustomerFoodCheckoutScreen";
+import { CustomerFoodOrdersScreen } from "./CustomerFoodOrdersScreen";
+import { CustomerFoodRestaurantScreen } from "./CustomerFoodRestaurantScreen";
 import { CustomerRideScreen } from "./CustomerRideScreen";
 import { CustomerShipmentScreen } from "./CustomerShipmentScreen";
 import {
@@ -88,18 +88,6 @@ export function CustomerScreen({
     customerScrollRef.current?.scrollTo({ y: 0, animated: false });
   }, [foodScreen, customerWindow, sharedView]);
   const [foodQuery, setFoodQuery] = useState("");
-  type CatalogSearchResult = {
-    restaurantId: string;
-    restaurantName: string;
-    cuisine: string;
-    image: string;
-    cover: string;
-    etaMin: number;
-    deliveryFee: number;
-    matchedItems: Array<{ id: string; name: string; category: string }>;
-    matchCount: number;
-    score: number;
-  };
   const [catalogResults, setCatalogResults] = useState<CatalogSearchResult[]>([]),
     [catalogSearchLoading, setCatalogSearchLoading] = useState(false),
     [catalogSearchError, setCatalogSearchError] = useState(""),
@@ -184,10 +172,6 @@ export function CustomerScreen({
   const [cart, setCart] = useState<MobileCartLine[]>([]);
   const [lastCreatedOrder, setLastCreatedOrder] = useState<Order | null>(null);
   const [cartHydrated, setCartHydrated] = useState(false);
-  const [customizingItem, setCustomizingItem] = useState<Restaurant["menu"][number] | null>(null);
-  const [customizingRestaurant, setCustomizingRestaurant] = useState<Restaurant | null>(null);
-  const [customizingExtras, setCustomizingExtras] = useState<string[]>([]);
-  const [customizingNote, setCustomizingNote] = useState("");
   const toggleFavorite = async (restaurantId: string) => {
     if (favoritePendingId) return;
     const favorite = !favoriteRestaurantIds.includes(restaurantId);
@@ -685,17 +669,6 @@ export function CustomerScreen({
       (foodMenuCategory === "Todos" || (item.category?.trim() || "Otros") === foodMenuCategory) &&
       (!dietaryPreferences.hideIncompatible || itemMatchesDiet(item)),
   );
-  const customizingModifierTotal = (customizingItem?.modifierGroups || [])
-    .flatMap((group) => group.modifiers)
-    .filter((modifier) => customizingExtras.includes(modifier.id))
-    .reduce((sum, modifier) => sum + modifier.price, 0);
-  const customizingTotal = (customizingItem?.price || 0) + customizingModifierTotal;
-  const customizingSelectionValid = !customizingItem?.modifierGroups?.some(
-    (group) =>
-      customizingExtras.filter((id) => group.modifiers.some((modifier) => modifier.id === id))
-        .length < group.min,
-  );
-
   const changeCartQuantity = (lineId: string, delta: number) => {
     setCart((current) =>
       current
@@ -936,1700 +909,152 @@ export function CustomerScreen({
 
         {sharedView === "service" && customerWindow === "food" && (
           <>
-            {foodScreen === "home" && (
-              <>
-                <View style={styles.foodTopbar}>
-                  <View style={styles.foodLocationBlock}>
-                    <View style={styles.foodLocationIcon}>
-                      <Ionicons name="location" size={18} color={flashDesign.color.food} />
-                    </View>
-                    <View style={styles.foodLocationCopy}>
-                      <Text style={styles.foodDeliverLabel}>ENTREGAR EN</Text>
-                      <Text style={styles.foodAddress} numberOfLines={1}>
-                        {deliveryAddress || "Elegí una dirección"}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.foodTopActions}>
-                    <Pressable
-                      onPress={() => setSharedView("account")}
-                      style={styles.foodAvatar}
-                      accessibilityLabel="Abrir cuenta"
-                    >
-                      <Text style={styles.foodAvatarText}>
-                        {user.name.trim().slice(0, 1).toUpperCase()}
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => setFoodScreen("cart")}
-                      style={styles.foodCartIcon}
-                      accessibilityLabel={`Abrir carrito con ${cart.reduce((sum, line) => sum + line.quantity, 0)} productos`}
-                    >
-                      <Ionicons name="bag-handle-outline" size={20} color="#fff" />
-                      {cart.length > 0 && (
-                        <Text style={styles.foodCartCount}>
-                          {cart.reduce((sum, line) => sum + line.quantity, 0)}
-                        </Text>
-                      )}
-                    </Pressable>
-                  </View>
-                </View>
-                <View style={styles.foodHomeHeading}>
-                  <Text style={styles.foodHomeEyebrow}>
-                    HOLA, {user.name.split(" ")[0].toUpperCase()}
-                  </Text>
-                  <Text style={styles.foodHomeTitle}>¿Qué te gustaría pedir?</Text>
-                </View>
-                {activeFoodPromotion ? (
-                  <LinearGradient
-                    colors={[flashDesign.color.ink, "#33253B"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.foodPromoBanner}
-                  >
-                    <View style={styles.foodPromoCopy}>
-                      <View style={styles.foodPromoBadge}>
-                        <Ionicons name="sparkles" size={14} color={flashDesign.color.food} />
-                        <Text style={styles.foodPromoBadgeText}>{foodPromotionValue}</Text>
-                      </View>
-                      <Text style={styles.foodPromoTitle}>{activeFoodPromotion.title}</Text>
-                      <Text style={styles.foodPromoDescription} numberOfLines={2}>
-                        {activeFoodPromotion.description}
-                      </Text>
-                      <Pressable
-                        style={styles.foodPromoAction}
-                        onPress={() => {
-                          if (activeFoodPromotion.code)
-                            setFoodPromotionCode(activeFoodPromotion.code);
-                          setFoodScreen(cart.length ? "cart" : "search");
-                        }}
-                      >
-                        <Text style={styles.foodPromoActionText}>
-                          {cart.length ? "Ver carrito" : "Explorar opciones"}
-                        </Text>
-                        <Ionicons name="arrow-forward" size={16} color={flashDesign.color.ink} />
-                      </Pressable>
-                    </View>
-                    <View style={styles.foodPromoArt}>
-                      <Ionicons name="fast-food" size={45} color="#fff" />
-                      <View style={styles.foodPromoArtDot} />
-                    </View>
-                  </LinearGradient>
-                ) : null}
-                <Pressable onPress={() => setFoodScreen("search")} style={styles.foodSearchButton}>
-                  <Ionicons name="search" size={20} color={flashDesign.color.inkSoft} />
-                  <Text style={styles.foodSearchPlaceholder}>
-                    Buscar platos, tiendas o restaurantes
-                  </Text>
-                  <View style={styles.foodSearchFilter}>
-                    <Ionicons name="options-outline" size={18} color="#fff" />
-                  </View>
-                </Pressable>
-                <View style={styles.foodSectionHeader}>
-                  <Text style={styles.foodSectionTitle}>Todas las categorías</Text>
-                  <Text style={styles.foodSeeAll}>Ver todas ›</Text>
-                </View>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.foodCategoryRail}
-                >
-                  {foodCategories.map((category) => (
-                    <Pressable
-                      key={category.name}
-                      onPress={() => setFoodCategory(category.name)}
-                      style={styles.foodCategoryItem}
-                      accessibilityState={{ selected: foodCategory === category.name }}
-                    >
-                      <View
-                        style={[
-                          styles.foodCategoryArt,
-                          foodCategory === category.name && styles.foodCategoryArtActive,
-                        ]}
-                      >
-                        {category.image ? (
-                          <Image
-                            source={{ uri: category.image }}
-                            style={styles.foodCategoryImage}
-                          />
-                        ) : (
-                          <Ionicons name="restaurant" size={24} color={flashDesign.color.food} />
-                        )}
-                      </View>
-                      <Text
-                        style={[
-                          styles.foodCategoryName,
-                          foodCategory === category.name && styles.foodCategoryNameActive,
-                        ]}
-                        numberOfLines={2}
-                      >
-                        {category.name}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </ScrollView>
-                {favoriteRestaurants.length > 0 ? (
-                  <>
-                    <View style={styles.foodSectionHeader}>
-                      <Text style={styles.foodSectionTitle}>Tus favoritos</Text>
-                      <Text style={styles.foodSeeAll}>{favoriteRestaurants.length} guardados</Text>
-                    </View>
-                    <ScrollView
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={styles.foodFavoriteRail}
-                    >
-                      {favoriteRestaurants.map((restaurant) => (
-                        <Pressable
-                          key={restaurant.id}
-                          style={styles.foodFavoriteCard}
-                          onPress={() => {
-                            setSelectedRestaurantId(restaurant.id);
-                            setFoodScreen("restaurant");
-                          }}
-                        >
-                          <ImageBackground
-                            source={{ uri: restaurant.cover }}
-                            imageStyle={styles.foodFavoriteImageStyle}
-                            style={styles.foodFavoriteImage}
-                          >
-                            <View style={styles.foodFavoriteEta}>
-                              <Ionicons
-                                name="time-outline"
-                                size={13}
-                                color={flashDesign.color.ink}
-                              />
-                              <Text style={styles.foodFavoriteEtaText}>
-                                {restaurant.etaMin} min
-                              </Text>
-                            </View>
-                          </ImageBackground>
-                          <Text style={styles.foodFavoriteName} numberOfLines={1}>
-                            {restaurant.name}
-                          </Text>
-                          <Text style={styles.foodFavoriteMeta} numberOfLines={1}>
-                            {restaurant.cuisine}
-                          </Text>
-                        </Pressable>
-                      ))}
-                    </ScrollView>
-                  </>
-                ) : null}
-                <View style={styles.foodSectionHeader}>
-                  <Text style={styles.foodSectionTitle}>
-                    {foodCategory === "Todos" ? "Elegidos para vos" : foodCategory}
-                  </Text>
-                  <Text style={styles.foodSeeAll}>{openRestaurants.length} abiertos</Text>
-                </View>
-                {openRestaurants.map((restaurant) => (
-                  <Pressable
-                    key={restaurant.id}
-                    onPress={() => {
-                      setSelectedRestaurantId(restaurant.id);
-                      setFoodScreen("restaurant");
-                    }}
-                    style={styles.foodMerchantCard}
-                  >
-                    <ImageBackground
-                      source={{ uri: restaurant.cover }}
-                      imageStyle={styles.foodMerchantBannerImage}
-                      style={styles.foodCardBannerLarge}
-                    >
-                      <View style={styles.foodCardTopline}>
-                        <Text style={styles.foodCardPromo}>{restaurant.badge}</Text>
-                        <Pressable
-                          disabled={favoritePendingId === restaurant.id}
-                          style={styles.foodHeart}
-                          accessibilityLabel={
-                            favoriteRestaurantIds.includes(restaurant.id)
-                              ? `Quitar ${restaurant.name} de favoritos`
-                              : `Guardar ${restaurant.name} en favoritos`
-                          }
-                          accessibilityState={{
-                            checked: favoriteRestaurantIds.includes(restaurant.id),
-                            busy: favoritePendingId === restaurant.id,
-                          }}
-                          onPress={(event) => {
-                            event.stopPropagation();
-                            void toggleFavorite(restaurant.id);
-                          }}
-                        >
-                          <Ionicons
-                            name={
-                              favoriteRestaurantIds.includes(restaurant.id)
-                                ? "heart"
-                                : "heart-outline"
-                            }
-                            size={19}
-                            color={
-                              favoriteRestaurantIds.includes(restaurant.id)
-                                ? flashDesign.color.food
-                                : flashDesign.color.ink
-                            }
-                          />
-                        </Pressable>
-                      </View>
-                    </ImageBackground>
-                    <View style={styles.foodMerchantBody}>
-                      <View style={styles.foodMerchantTitleRow}>
-                        <View style={styles.itemCopy}>
-                          <Text style={styles.foodMerchantName} numberOfLines={1}>
-                            {restaurant.name}
-                          </Text>
-                          <Text style={styles.foodMerchantCuisine} numberOfLines={1}>
-                            {restaurant.cuisine}
-                          </Text>
-                        </View>
-                        <View style={styles.foodRatingPill}>
-                          <Ionicons name="star" size={12} color="#E98A00" />
-                          <Text style={styles.foodRatingText}>{restaurant.rating.toFixed(1)}</Text>
-                        </View>
-                      </View>
-                      <View style={styles.foodMetaRow}>
-                        <View style={styles.foodMetaItem}>
-                          <Ionicons
-                            name="time-outline"
-                            size={15}
-                            color={flashDesign.color.inkSoft}
-                          />
-                          <Text style={styles.foodMetaText}>{restaurant.etaMin} min</Text>
-                        </View>
-                        <View style={styles.foodMetaDot} />
-                        <View style={styles.foodMetaItem}>
-                          <Ionicons
-                            name="bicycle-outline"
-                            size={15}
-                            color={flashDesign.color.inkSoft}
-                          />
-                          <Text style={styles.foodMetaText}>
-                            {restaurant.deliveryFee
-                              ? money.format(restaurant.deliveryFee)
-                              : "Envío gratis"}
-                          </Text>
-                        </View>
-                        <View style={styles.foodMetaDot} />
-                        <Text style={styles.foodMetaText}>
-                          {restaurant.distanceKm.toFixed(1)} km
-                        </Text>
-                      </View>
-                    </View>
-                  </Pressable>
-                ))}
-                {openRestaurants.length === 0 ? (
-                  <View style={styles.foodEmpty}>
-                    <View style={styles.foodEmptyIcon}>
-                      <Ionicons
-                        name="restaurant-outline"
-                        size={30}
-                        color={flashDesign.color.food}
-                      />
-                    </View>
-                    <Text style={styles.foodEmptyTitle}>No hay opciones abiertas</Text>
-                    <Text style={styles.foodEmptyCopy}>
-                      Probá otra categoría o volvé a buscar cuando los comercios estén disponibles.
-                    </Text>
-                    <Pressable
-                      style={styles.foodEmptyAction}
-                      onPress={() => setFoodCategory("Todos")}
-                    >
-                      <Text style={styles.foodEmptyActionText}>Ver todas</Text>
-                    </Pressable>
-                  </View>
-                ) : null}
-              </>
-            )}
+            <CustomerFoodBrowseScreen
+              screen={foodScreen}
+              user={user}
+              deliveryAddress={deliveryAddress}
+              cart={cart}
+              promotion={activeFoodPromotion}
+              promotionValue={foodPromotionValue}
+              categories={foodCategories}
+              selectedCategory={foodCategory}
+              favoriteRestaurants={favoriteRestaurants}
+              restaurants={openRestaurants}
+              favoriteRestaurantIds={favoriteRestaurantIds}
+              favoritePendingId={favoritePendingId}
+              query={foodQuery}
+              catalogResults={catalogResults}
+              catalogLoading={catalogSearchLoading}
+              catalogError={catalogSearchError}
+              catalogNextOffset={catalogNextOffset}
+              onOpenAccount={() => setSharedView("account")}
+              onOpenCart={() => setFoodScreen("cart")}
+              onHome={() => setFoodScreen("home")}
+              onOpenSearch={() => setFoodScreen("search")}
+              onPromotionAction={(code) => {
+                if (code) setFoodPromotionCode(code);
+                setFoodScreen(cart.length ? "cart" : "search");
+              }}
+              onSelectCategory={setFoodCategory}
+              onOpenRestaurant={(restaurantId) => {
+                setSelectedRestaurantId(restaurantId);
+                setFoodScreen("restaurant");
+              }}
+              onToggleFavorite={(restaurantId) => void toggleFavorite(restaurantId)}
+              onQueryChange={setFoodQuery}
+              onRetrySearch={() => setCatalogSearchNonce((current) => current + 1)}
+              onLoadMore={() => {
+                if (catalogNextOffset === null) return;
+                setCatalogSearchLoading(true);
+                void api
+                  .searchCatalog(foodQuery, catalogNextOffset)
+                  .then((result) => {
+                    setCatalogResults((current) => [...current, ...result.results]);
+                    setCatalogNextOffset(result.nextOffset);
+                  })
+                  .catch((error) =>
+                    setCatalogSearchError(
+                      error instanceof Error ? error.message : "No se pudo continuar",
+                    ),
+                  )
+                  .finally(() => setCatalogSearchLoading(false));
+              }}
+            />
+            <CustomerFoodRestaurantScreen
+              visible={foodScreen === "restaurant"}
+              restaurant={selectedRestaurant}
+              menuCategories={foodMenuCategories}
+              selectedMenuCategory={foodMenuCategory}
+              visibleMenuItems={visibleFoodMenuItems}
+              dietaryPreferences={dietaryPreferences}
+              favorite={Boolean(
+                selectedRestaurant && favoriteRestaurantIds.includes(selectedRestaurant.id),
+              )}
+              favoritePending={Boolean(
+                selectedRestaurant && favoritePendingId === selectedRestaurant.id,
+              )}
+              cartCount={cart.reduce((sum, line) => sum + line.quantity, 0)}
+              cartTotal={cartTotal}
+              busy={busy}
+              onHome={() => setFoodScreen("home")}
+              onToggleFavorite={(restaurantId) => void toggleFavorite(restaurantId)}
+              onSelectMenuCategory={setFoodMenuCategory}
+              onAddItem={addItem}
+              onOpenCart={() => setFoodScreen("cart")}
+            />
+            <CustomerFoodCartScreen
+              visible={foodScreen === "cart"}
+              cart={cart}
+              restaurant={cartRestaurant}
+              addresses={state.addresses}
+              userId={user.id}
+              deliveryAddress={deliveryAddress}
+              paymentMethods={customerPaymentMethods}
+              selectedPayment={selectedFoodPayment}
+              promotion={activeFoodPromotion}
+              promotionCode={foodPromotionCode}
+              subtotal={cartTotal}
+              busy={busy}
+              canCheckout={Boolean(selectedFoodAddress && selectedFoodPayment)}
+              onBack={() => setFoodScreen(selectedRestaurant ? "restaurant" : "home")}
+              onHome={() => setFoodScreen("home")}
+              onOpenRestaurant={(restaurantId) => {
+                setSelectedRestaurantId(restaurantId);
+                setFoodScreen("restaurant");
+              }}
+              onChangeQuantity={changeCartQuantity}
+              onSelectAddress={(address) => {
+                setDeliveryAddress(address);
+                setFoodCheckoutQuote(null);
+              }}
+              onOpenAccount={() => setSharedView("account")}
+              onSelectPayment={(paymentMethodId) => {
+                setSelectedFoodPaymentId(paymentMethodId);
+                setFoodCheckoutQuote(null);
+              }}
+              onPromotionChange={(code) => {
+                setFoodPromotionCode(code);
+                setFoodCheckoutQuote(null);
+              }}
+              onCheckout={openFoodCheckout}
+            />
+            <CustomerFoodCheckoutScreen
+              visible={foodScreen === "checkout"}
+              quote={foodCheckoutQuote}
+              restaurantName={cartRestaurant?.name}
+              paymentMethod={selectedFoodPayment}
+              busy={busy}
+              tipCents={foodTipCents}
+              scheduledFor={foodScheduledFor}
+              onTipChange={setFoodTipCents}
+              onScheduleChange={setFoodScheduledFor}
+              onBack={() => setFoodScreen("cart")}
+              onConfirm={createOrder}
+              onRefreshQuote={openFoodCheckout}
+            />
 
-            {foodScreen === "search" && (
-              <>
-                <View style={styles.foodPageHeader}>
-                  <Pressable onPress={() => setFoodScreen("home")} style={styles.foodBack}>
-                    <Ionicons name="chevron-back" size={20} color="#222" />
-                  </Pressable>
-                  <View style={styles.foodPageHeaderCopy}>
-                    <Text style={styles.foodPageTitle}>Buscar</Text>
-                    <Text style={styles.foodPageSubtitle}>Catálogo y disponibilidad actual</Text>
-                  </View>
-                </View>
-                <View style={styles.foodSearchButton}>
-                  <Ionicons name="search" size={20} color={flashDesign.color.inkSoft} />
-                  <TextInput
-                    autoFocus
-                    value={foodQuery}
-                    onChangeText={setFoodQuery}
-                    placeholder="¿Qué querés comer?"
-                    style={styles.foodSearchInput}
-                  />
-                  {foodQuery ? (
-                    <Pressable
-                      accessibilityLabel="Limpiar búsqueda"
-                      style={styles.foodSearchClear}
-                      onPress={() => setFoodQuery("")}
-                    >
-                      <Ionicons name="close" size={17} color={flashDesign.color.inkSoft} />
-                    </Pressable>
-                  ) : null}
-                </View>
-                <View style={styles.foodSectionHeader}>
-                  <Text style={styles.foodSectionTitle}>
-                    {foodQuery ? "Resultados" : "Explorá el catálogo"}
-                  </Text>
-                  {!catalogSearchLoading && !catalogSearchError ? (
-                    <Text style={styles.foodSeeAll}>
-                      {catalogResults.length}
-                      {catalogNextOffset !== null ? "+" : ""} opciones
-                    </Text>
-                  ) : null}
-                </View>
-                {!foodQuery && (
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.foodSearchCategoryRail}
-                  >
-                    {foodCategories
-                      .filter((category) => category.name !== "Todos")
-                      .slice(0, 6)
-                      .map((category) => (
-                        <Pressable
-                          key={category.name}
-                          onPress={() => setFoodQuery(category.name)}
-                          style={styles.foodSearchCategoryCard}
-                        >
-                          {category.image ? (
-                            <Image
-                              source={{ uri: category.image }}
-                              style={styles.foodSearchCategoryImage}
-                            />
-                          ) : (
-                            <View style={styles.foodSearchCategoryImageFallback}>
-                              <Ionicons
-                                name="restaurant"
-                                size={20}
-                                color={flashDesign.color.food}
-                              />
-                            </View>
-                          )}
-                          <Text style={styles.foodSearchCategoryName} numberOfLines={2}>
-                            {category.name}
-                          </Text>
-                          <Text style={styles.foodSearchCategoryCount}>
-                            {category.count} {category.count === 1 ? "lugar" : "lugares"}
-                          </Text>
-                        </Pressable>
-                      ))}
-                  </ScrollView>
-                )}
-                {catalogSearchLoading ? (
-                  <View style={styles.foodSearchSkeletonList}>
-                    {[0, 1, 2].map((index) => (
-                      <View key={index} style={styles.foodSearchSkeletonCard}>
-                        <View style={styles.foodSearchSkeletonImage} />
-                        <View style={styles.foodSearchSkeletonCopy}>
-                          <View style={styles.foodSearchSkeletonTitle} />
-                          <View style={styles.foodSearchSkeletonLine} />
-                          <View style={styles.foodSearchSkeletonShort} />
-                        </View>
-                      </View>
-                    ))}
-                  </View>
-                ) : null}
-                {Boolean(catalogSearchError) && (
-                  <View style={styles.foodSearchState}>
-                    <View style={styles.foodSearchStateIcon}>
-                      <Ionicons
-                        name="cloud-offline-outline"
-                        size={25}
-                        color={flashDesign.color.danger}
-                      />
-                    </View>
-                    <Text style={styles.foodSearchStateTitle}>No pudimos buscar</Text>
-                    <Text style={styles.foodSearchStateCopy}>{catalogSearchError}</Text>
-                    <Pressable
-                      style={styles.foodSearchRetry}
-                      onPress={() => setCatalogSearchNonce((current) => current + 1)}
-                    >
-                      <Text style={styles.foodSearchRetryText}>Reintentar</Text>
-                    </Pressable>
-                  </View>
-                )}
-                {!catalogSearchLoading &&
-                !catalogSearchError &&
-                !catalogResults.length &&
-                foodQuery.trim() ? (
-                  <View style={styles.foodSearchState}>
-                    <View style={styles.foodSearchStateIcon}>
-                      <Ionicons name="search-outline" size={26} color={flashDesign.color.food} />
-                    </View>
-                    <Text style={styles.foodSearchStateTitle}>Sin coincidencias</Text>
-                    <Text style={styles.foodSearchStateCopy}>
-                      Probá con otro plato, categoría o restaurante.
-                    </Text>
-                    <Pressable style={styles.foodSearchRetry} onPress={() => setFoodQuery("")}>
-                      <Text style={styles.foodSearchRetryText}>Limpiar búsqueda</Text>
-                    </Pressable>
-                  </View>
-                ) : null}
-                {catalogResults.map((result) => (
-                  <Pressable
-                    key={result.restaurantId}
-                    onPress={() => {
-                      setSelectedRestaurantId(result.restaurantId);
-                      setFoodScreen("restaurant");
-                    }}
-                    style={styles.foodSearchResultCard}
-                  >
-                    <ImageBackground
-                      source={{ uri: result.cover }}
-                      imageStyle={styles.foodCardBannerImage}
-                      style={styles.foodSearchResultImage}
-                    >
-                      <View style={styles.foodSearchResultEta}>
-                        <Ionicons name="time-outline" size={12} color={flashDesign.color.ink} />
-                        <Text style={styles.foodSearchResultEtaText}>{result.etaMin} min</Text>
-                      </View>
-                    </ImageBackground>
-                    <View style={styles.foodSearchResultBody}>
-                      <View style={styles.foodSearchResultHeading}>
-                        <Text style={styles.foodSearchResultName} numberOfLines={1}>
-                          {result.restaurantName}
-                        </Text>
-                        <Ionicons
-                          name="chevron-forward"
-                          size={18}
-                          color={flashDesign.color.muted}
-                        />
-                      </View>
-                      <Text style={styles.foodSearchResultCuisine} numberOfLines={1}>
-                        {result.cuisine}
-                      </Text>
-                      <View style={styles.foodSearchResultMeta}>
-                        <Ionicons
-                          name="bicycle-outline"
-                          size={14}
-                          color={flashDesign.color.inkSoft}
-                        />
-                        <Text style={styles.foodSearchResultMetaText}>
-                          {result.deliveryFee ? money.format(result.deliveryFee) : "Envío gratis"}
-                        </Text>
-                        <View style={styles.foodMetaDot} />
-                        <Text style={styles.foodSearchResultMetaText}>
-                          {result.matchCount}{" "}
-                          {result.matchCount === 1 ? "coincidencia" : "coincidencias"}
-                        </Text>
-                      </View>
-                      {result.matchedItems.length ? (
-                        <Text style={styles.searchMatchText} numberOfLines={1}>
-                          {result.matchedItems.map((item) => item.name).join(" · ")}
-                        </Text>
-                      ) : null}
-                    </View>
-                  </Pressable>
-                ))}
-                {catalogNextOffset !== null && !catalogSearchLoading && (
-                  <Pressable
-                    style={styles.searchMoreButton}
-                    onPress={() => {
-                      setCatalogSearchLoading(true);
-                      void api
-                        .searchCatalog(foodQuery, catalogNextOffset)
-                        .then((result) => {
-                          setCatalogResults((current) => [...current, ...result.results]);
-                          setCatalogNextOffset(result.nextOffset);
-                        })
-                        .catch((error) =>
-                          setCatalogSearchError(
-                            error instanceof Error ? error.message : "No se pudo continuar",
-                          ),
-                        )
-                        .finally(() => setCatalogSearchLoading(false));
-                    }}
-                  >
-                    <Text style={styles.searchMoreText}>Ver más resultados</Text>
-                  </Pressable>
-                )}
-              </>
-            )}
-
-            {foodScreen === "restaurant" && selectedRestaurant && (
-              <>
-                <ImageBackground
-                  source={{ uri: selectedRestaurant.cover }}
-                  imageStyle={styles.foodRestaurantHeroImage}
-                  style={styles.foodRestaurantHero}
-                >
-                  <Pressable
-                    onPress={() => setFoodScreen("home")}
-                    style={styles.foodFloatingButton}
-                  >
-                    <Ionicons name="chevron-back" size={22} color={flashDesign.color.ink} />
-                  </Pressable>
-                  <Pressable
-                    disabled={favoritePendingId === selectedRestaurant.id}
-                    style={styles.foodFloatingButton}
-                    accessibilityLabel={
-                      favoriteRestaurantIds.includes(selectedRestaurant.id)
-                        ? `Quitar ${selectedRestaurant.name} de favoritos`
-                        : `Guardar ${selectedRestaurant.name} en favoritos`
-                    }
-                    accessibilityState={{
-                      checked: favoriteRestaurantIds.includes(selectedRestaurant.id),
-                      busy: favoritePendingId === selectedRestaurant.id,
-                    }}
-                    onPress={() => void toggleFavorite(selectedRestaurant.id)}
-                  >
-                    <Ionicons
-                      name={
-                        favoriteRestaurantIds.includes(selectedRestaurant.id)
-                          ? "heart"
-                          : "heart-outline"
-                      }
-                      size={22}
-                      color={
-                        favoriteRestaurantIds.includes(selectedRestaurant.id)
-                          ? flashDesign.color.food
-                          : flashDesign.color.ink
-                      }
-                    />
-                  </Pressable>
-                </ImageBackground>
-                <View style={styles.foodRestaurantInfo}>
-                  <View style={styles.foodRestaurantStatusRow}>
-                    <View style={styles.foodRestaurantOpenBadge}>
-                      <View style={styles.foodRestaurantOpenDot} />
-                      <Text style={styles.foodRestaurantOpenText}>Abierto ahora</Text>
-                    </View>
-                    {selectedRestaurant.badge ? (
-                      <Text style={styles.foodRestaurantOfferBadge}>
-                        {selectedRestaurant.badge}
-                      </Text>
-                    ) : null}
-                  </View>
-                  <Text style={styles.foodRestaurantTitle}>{selectedRestaurant.name}</Text>
-                  <Text style={styles.foodRestaurantCuisine}>
-                    {selectedRestaurant.cuisine} · {selectedRestaurant.address}
-                  </Text>
-                  <View style={styles.foodRestaurantFacts}>
-                    <View style={styles.foodRestaurantFact}>
-                      <View style={styles.foodRestaurantFactIcon}>
-                        <Ionicons name="star" size={15} color="#E98A00" />
-                      </View>
-                      <View>
-                        <Text style={styles.foodRestaurantFactValue}>
-                          {selectedRestaurant.rating.toFixed(1)}
-                        </Text>
-                        <Text style={styles.foodRestaurantFactLabel}>calificación</Text>
-                      </View>
-                    </View>
-                    <View style={styles.foodRestaurantFact}>
-                      <View style={styles.foodRestaurantFactIcon}>
-                        <Ionicons name="time-outline" size={16} color={flashDesign.color.food} />
-                      </View>
-                      <View>
-                        <Text style={styles.foodRestaurantFactValue}>
-                          {selectedRestaurant.etaMin} min
-                        </Text>
-                        <Text style={styles.foodRestaurantFactLabel}>estimado</Text>
-                      </View>
-                    </View>
-                    <View style={styles.foodRestaurantFact}>
-                      <View style={styles.foodRestaurantFactIcon}>
-                        <Ionicons
-                          name="bicycle-outline"
-                          size={16}
-                          color={flashDesign.color.shipment}
-                        />
-                      </View>
-                      <View>
-                        <Text style={styles.foodRestaurantFactValue}>
-                          {selectedRestaurant.deliveryFee
-                            ? money.format(selectedRestaurant.deliveryFee)
-                            : "Gratis"}
-                        </Text>
-                        <Text style={styles.foodRestaurantFactLabel}>
-                          {selectedRestaurant.distanceKm.toFixed(1)} km
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                </View>
-                <View style={styles.foodSectionHeader}>
-                  <Text style={styles.foodSectionTitle}>Menú</Text>
-                  <Text style={styles.foodSeeAll}>{visibleFoodMenuItems.length} disponibles</Text>
-                </View>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.foodMenuTabs}
-                >
-                  {foodMenuCategories.map((category) => (
-                    <Pressable
-                      key={category}
-                      style={[
-                        styles.foodMenuTabButton,
-                        foodMenuCategory === category && styles.foodMenuTabButtonActive,
-                      ]}
-                      onPress={() => setFoodMenuCategory(category)}
-                      accessibilityState={{ selected: foodMenuCategory === category }}
-                    >
-                      <Text
-                        style={[
-                          styles.foodMenuTab,
-                          foodMenuCategory === category && styles.foodMenuTabActive,
-                        ]}
-                      >
-                        {category}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </ScrollView>
-                {dietaryPreferences.hideIncompatible && (
-                  <View style={styles.dietaryFilterBanner}>
-                    <Ionicons name="options-outline" size={17} color="#087a50" />
-                    <Text style={styles.dietaryBadgeText}>
-                      Filtro personal activo · sólo productos declarados compatibles
-                    </Text>
-                  </View>
-                )}
-                {visibleFoodMenuItems.map((item) => (
-                  <View key={item.id} style={styles.foodProductCard}>
-                    <ImageBackground
-                      source={{ uri: selectedRestaurant.image || selectedRestaurant.cover }}
-                      imageStyle={styles.foodProductImageStyle}
-                      style={styles.foodProductImage}
-                    >
-                      {!item.stock ? (
-                        <View style={styles.foodProductUnavailable}>
-                          <Text style={styles.foodProductUnavailableText}>AGOTADO</Text>
-                        </View>
-                      ) : null}
-                    </ImageBackground>
-                    <View style={styles.itemCopy}>
-                      <View style={styles.foodProductHeading}>
-                        <Text style={styles.foodProductName} numberOfLines={2}>
-                          {item.name}
-                        </Text>
-                        {item.dietaryLabels?.length ? (
-                          <Ionicons
-                            name="leaf-outline"
-                            size={16}
-                            color={flashDesign.color.shipment}
-                          />
-                        ) : null}
-                      </View>
-                      <Text style={styles.foodProductDescription} numberOfLines={2}>
-                        {item.description?.trim() ||
-                          item.category ||
-                          "Información del producto no declarada"}
-                      </Text>
-                      <Text style={styles.foodProductPrice}>{money.format(item.price)}</Text>
-                    </View>
-                    <Pressable
-                      disabled={!item.stock || busy}
-                      onPress={() => {
-                        if (item.modifierGroups?.length) {
-                          setCustomizingRestaurant(selectedRestaurant);
-                          setCustomizingItem(item);
-                          setCustomizingExtras([]);
-                          setCustomizingNote("");
-                        } else addItem(selectedRestaurant, item);
-                      }}
-                      style={[styles.foodAddButton, !item.stock && styles.foodAddButtonDisabled]}
-                      accessibilityLabel={
-                        item.stock ? `Agregar ${item.name}` : `${item.name} agotado`
-                      }
-                    >
-                      <Ionicons name="add" size={22} color="#fff" />
-                    </Pressable>
-                  </View>
-                ))}
-                {visibleFoodMenuItems.length === 0 ? (
-                  <View style={styles.foodSearchState}>
-                    <View style={styles.foodSearchStateIcon}>
-                      <Ionicons
-                        name="restaurant-outline"
-                        size={25}
-                        color={flashDesign.color.food}
-                      />
-                    </View>
-                    <Text style={styles.foodSearchStateTitle}>No hay productos disponibles</Text>
-                    <Text style={styles.foodSearchStateCopy}>
-                      Probá otra categoría o revisá tus preferencias alimentarias.
-                    </Text>
-                    <Pressable
-                      style={styles.foodSearchRetry}
-                      onPress={() => setFoodMenuCategory("Todos")}
-                    >
-                      <Text style={styles.foodSearchRetryText}>Ver todo el menú</Text>
-                    </Pressable>
-                  </View>
-                ) : null}
-                {cart.length > 0 && (
-                  <Pressable onPress={() => setFoodScreen("cart")} style={styles.foodStickyCart}>
-                    <Text style={styles.foodStickyCount}>
-                      {cart.reduce((sum, line) => sum + line.quantity, 0)}
-                    </Text>
-                    <Text style={styles.foodStickyLabel}>Ver carrito</Text>
-                    <Text style={styles.foodStickyPrice}>{money.format(cartTotal)}</Text>
-                  </Pressable>
-                )}
-                <Modal
-                  visible={Boolean(customizingItem && customizingRestaurant)}
-                  transparent
-                  animationType="slide"
-                  onRequestClose={() => setCustomizingItem(null)}
-                >
-                  <View style={styles.productCustomizerBackdrop}>
-                    <View style={styles.productCustomizerSheet}>
-                      <View style={styles.productCustomizerHandle} />
-                      <View style={styles.productCustomizerHeader}>
-                        <View style={styles.itemCopy}>
-                          <Text style={styles.productCustomizerEyebrow}>PERSONALIZAR</Text>
-                          <Text style={styles.productCustomizerTitle}>{customizingItem?.name}</Text>
-                          <Text style={styles.productCustomizerRestaurant}>
-                            {customizingRestaurant?.name}
-                          </Text>
-                        </View>
-                        <Pressable
-                          style={styles.foodBack}
-                          accessibilityLabel="Cerrar personalización"
-                          onPress={() => setCustomizingItem(null)}
-                        >
-                          <Ionicons name="close" size={21} color={flashDesign.color.ink} />
-                        </Pressable>
-                      </View>
-                      <ScrollView
-                        showsVerticalScrollIndicator={false}
-                        contentContainerStyle={styles.productCustomizerContent}
-                      >
-                        <View style={styles.productCustomizerSummary}>
-                          {customizingRestaurant ? (
-                            <Image
-                              source={{
-                                uri: customizingRestaurant.image || customizingRestaurant.cover,
-                              }}
-                              style={styles.productCustomizerImage}
-                            />
-                          ) : null}
-                          <View style={styles.itemCopy}>
-                            <Text style={styles.productCustomizerSummaryPrice}>
-                              {money.format(customizingItem?.price || 0)}
-                            </Text>
-                            <Text
-                              style={styles.productCustomizerSummaryDescription}
-                              numberOfLines={3}
-                            >
-                              {customizingItem?.description?.trim() ||
-                                customizingItem?.category ||
-                                "Información del producto no declarada"}
-                            </Text>
-                          </View>
-                        </View>
-                        {Boolean(customizingItem?.dietaryLabels?.length) ? (
-                          <View style={styles.dietaryBadgeRow}>
-                            {customizingItem?.dietaryLabels?.map((label) => (
-                              <View style={styles.dietaryBadge} key={label.code}>
-                                <Ionicons
-                                  name="leaf-outline"
-                                  size={14}
-                                  color={flashDesign.color.shipment}
-                                />
-                                <Text style={styles.dietaryBadgeText}>{label.name}</Text>
-                              </View>
-                            ))}
-                          </View>
-                        ) : null}
-                        {Boolean(customizingItem?.allergens?.length) ? (
-                          <View style={styles.allergenWarning}>
-                            <View style={styles.productCustomizerWarningIcon}>
-                              <Ionicons name="warning-outline" size={19} color="#9A4B00" />
-                            </View>
-                            <View style={styles.itemCopy}>
-                              <Text style={styles.allergenWarningTitle}>
-                                Información de alérgenos
-                              </Text>
-                              <Text style={styles.allergenWarningText}>
-                                {customizingItem?.allergens
-                                  ?.map(
-                                    (entry) =>
-                                      `${entry.presence === "contains" ? "Contiene" : "Puede contener"} ${entry.name.toLowerCase()}`,
-                                  )
-                                  .join(" · ")}
-                              </Text>
-                            </View>
-                          </View>
-                        ) : null}
-                        {customizingItem?.modifierGroups?.map((group) => {
-                          const selected = customizingExtras.filter((id) =>
-                            group.modifiers.some((modifier) => modifier.id === id),
-                          );
-                          return (
-                            <View key={group.id} style={styles.foodCustomizerGroup}>
-                              <View style={styles.foodCustomizerGroupHeader}>
-                                <View style={styles.itemCopy}>
-                                  <View style={styles.foodCustomizerGroupTitleRow}>
-                                    <Text style={styles.foodCustomizerGroupTitle}>
-                                      {group.name}
-                                    </Text>
-                                    <Text
-                                      style={[
-                                        styles.foodCustomizerRequirement,
-                                        group.required && styles.foodCustomizerRequirementRequired,
-                                      ]}
-                                    >
-                                      {group.required ? "OBLIGATORIO" : "OPCIONAL"}
-                                    </Text>
-                                  </View>
-                                  <Text style={styles.foodCustomizerGroupMeta}>
-                                    Elegí entre {group.min} y {group.max}
-                                  </Text>
-                                </View>
-                                <Text style={styles.modifierCounter}>
-                                  {selected.length}/{group.max}
-                                </Text>
-                              </View>
-                              {group.modifiers
-                                .filter((modifier) => modifier.available)
-                                .map((modifier) => {
-                                  const checked = customizingExtras.includes(modifier.id),
-                                    blocked = !checked && selected.length >= group.max;
-                                  return (
-                                    <Pressable
-                                      key={modifier.id}
-                                      disabled={blocked}
-                                      style={[
-                                        styles.modifierRow,
-                                        checked && styles.modifierRowSelected,
-                                        blocked && styles.modifierRowBlocked,
-                                      ]}
-                                      onPress={() =>
-                                        setCustomizingExtras((current) =>
-                                          checked
-                                            ? current.filter((id) => id !== modifier.id)
-                                            : [...current, modifier.id],
-                                        )
-                                      }
-                                      accessibilityState={{ checked, disabled: blocked }}
-                                    >
-                                      <View
-                                        style={[
-                                          styles.modifierControl,
-                                          checked && styles.modifierControlSelected,
-                                        ]}
-                                      >
-                                        {checked ? (
-                                          <Ionicons name="checkmark" size={15} color="#fff" />
-                                        ) : null}
-                                      </View>
-                                      <Text style={styles.modifierName}>{modifier.name}</Text>
-                                      <Text style={styles.modifierPrice}>
-                                        {modifier.price
-                                          ? `+ ${money.format(modifier.price)}`
-                                          : "Incluido"}
-                                      </Text>
-                                    </Pressable>
-                                  );
-                                })}
-                            </View>
-                          );
-                        })}
-                        <View style={styles.foodCustomizerNoteSection}>
-                          <View style={styles.foodCustomizerNoteHeading}>
-                            <View>
-                              <Text style={styles.foodCustomizerGroupTitle}>
-                                Indicaciones para cocina
-                              </Text>
-                              <Text style={styles.foodCustomizerGroupMeta}>
-                                Opcional · máximo 500 caracteres
-                              </Text>
-                            </View>
-                            <Text style={styles.foodCustomizerNoteCount}>
-                              {customizingNote.length}/500
-                            </Text>
-                          </View>
-                          <TextInput
-                            value={customizingNote}
-                            onChangeText={setCustomizingNote}
-                            maxLength={500}
-                            multiline
-                            placeholder="Ej. sin sal, cortar por la mitad"
-                            placeholderTextColor={flashDesign.color.muted}
-                            style={styles.productNote}
-                          />
-                        </View>
-                      </ScrollView>
-                      <Pressable
-                        disabled={busy || !customizingSelectionValid}
-                        style={[
-                          styles.productCustomizerAction,
-                          (busy || !customizingSelectionValid) && styles.disabledButton,
-                        ]}
-                        onPress={() => {
-                          if (customizingRestaurant && customizingItem)
-                            addItem(
-                              customizingRestaurant,
-                              customizingItem,
-                              customizingExtras,
-                              customizingNote,
-                            );
-                          setCustomizingItem(null);
-                        }}
-                      >
-                        <View style={styles.productCustomizerActionCount}>
-                          <Text style={styles.productCustomizerActionCountText}>1</Text>
-                        </View>
-                        <Text style={styles.productCustomizerActionText}>
-                          {busy ? "Agregando…" : "Agregar al carrito"}
-                        </Text>
-                        <Text style={styles.productCustomizerActionPrice}>
-                          {money.format(customizingTotal)}
-                        </Text>
-                      </Pressable>
-                    </View>
-                  </View>
-                </Modal>
-              </>
-            )}
-
-            {foodScreen === "cart" && (
-              <>
-                <View style={styles.foodPageHeader}>
-                  <Pressable
-                    onPress={() => setFoodScreen(selectedRestaurant ? "restaurant" : "home")}
-                    style={styles.foodBack}
-                  >
-                    <Ionicons name="chevron-back" size={20} color={flashDesign.color.ink} />
-                  </Pressable>
-                  <View style={styles.foodPageHeaderCopy}>
-                    <Text style={styles.foodPageTitle}>Mi carrito</Text>
-                    <Text style={styles.foodPageSubtitle}>Revisá productos, entrega y pago</Text>
-                  </View>
-                </View>
-                {cart.length === 0 ? (
-                  <View style={styles.foodEmpty}>
-                    <View style={styles.foodEmptyIcon}>
-                      <Ionicons
-                        name="bag-handle-outline"
-                        size={31}
-                        color={flashDesign.color.food}
-                      />
-                    </View>
-                    <Text style={styles.foodEmptyTitle}>Tu carrito está vacío</Text>
-                    <Text style={styles.foodEmptyCopy}>
-                      Explorá restaurantes abiertos y agregá productos para calcular entrega y
-                      total.
-                    </Text>
-                    <Pressable
-                      disabled={busy}
-                      style={styles.foodEmptyAction}
-                      onPress={() => setFoodScreen("home")}
-                    >
-                      <Text style={styles.foodEmptyActionText}>Explorar restaurantes</Text>
-                    </Pressable>
-                  </View>
-                ) : (
-                  <>
-                    {cartRestaurant ? (
-                      <Pressable
-                        style={styles.foodCartMerchant}
-                        onPress={() => {
-                          setSelectedRestaurantId(cartRestaurant.id);
-                          setFoodScreen("restaurant");
-                        }}
-                      >
-                        <Image
-                          source={{ uri: cartRestaurant.image || cartRestaurant.cover }}
-                          style={styles.foodCartMerchantImage}
-                        />
-                        <View style={styles.itemCopy}>
-                          <Text style={styles.foodCartMerchantEyebrow}>PEDIDO EN</Text>
-                          <Text style={styles.foodCartMerchantName}>{cartRestaurant.name}</Text>
-                          <Text style={styles.foodCartMerchantMeta}>
-                            {cartRestaurant.etaMin} min · {cartRestaurant.distanceKm.toFixed(1)} km
-                          </Text>
-                        </View>
-                        <Ionicons
-                          name="chevron-forward"
-                          size={19}
-                          color={flashDesign.color.muted}
-                        />
-                      </Pressable>
-                    ) : null}
-                    <View style={styles.foodSectionHeader}>
-                      <Text style={styles.foodSectionTitle}>Productos</Text>
-                      <Text style={styles.foodSeeAll}>
-                        {cart.reduce((sum, line) => sum + line.quantity, 0)} unidades
-                      </Text>
-                    </View>
-                    {cart.map((line) => (
-                      <View key={line.lineId} style={styles.foodCartLine}>
-                        <View style={styles.foodCartLineIcon}>
-                          <Ionicons
-                            name="restaurant-outline"
-                            size={19}
-                            color={flashDesign.color.food}
-                          />
-                        </View>
-                        <View style={styles.itemCopy}>
-                          <Text style={styles.foodCartLineName}>{line.name}</Text>
-                          <Text style={styles.foodProductPrice}>
-                            {money.format(line.unitPrice * line.quantity)}
-                          </Text>
-                          {line.extras.length > 0 && (
-                            <Text style={styles.foodCartLineMeta}>
-                              {line.extras.length} agregado{line.extras.length === 1 ? "" : "s"}
-                            </Text>
-                          )}
-                          {line.note && (
-                            <Text style={styles.foodCartLineNote} numberOfLines={2}>
-                              “{line.note}”
-                            </Text>
-                          )}
-                        </View>
-                        <View style={styles.foodQuantity}>
-                          <Pressable
-                            accessibilityLabel={`Quitar una unidad de ${line.name}`}
-                            style={styles.foodQuantityButton}
-                            onPress={() => changeCartQuantity(line.lineId, -1)}
-                          >
-                            <Ionicons name="remove" size={17} color={flashDesign.color.ink} />
-                          </Pressable>
-                          <Text style={styles.foodQuantityValue}>{line.quantity}</Text>
-                          <Pressable
-                            accessibilityLabel={`Agregar una unidad de ${line.name}`}
-                            style={[styles.foodQuantityButton, styles.foodQuantityButtonAdd]}
-                            onPress={() => changeCartQuantity(line.lineId, 1)}
-                          >
-                            <Ionicons name="add" size={17} color="#fff" />
-                          </Pressable>
-                        </View>
-                      </View>
-                    ))}
-                    <View style={styles.foodSectionHeader}>
-                      <Text style={styles.foodSectionTitle}>Entrega</Text>
-                      <Text style={styles.foodSeeAll}>Dirección verificada</Text>
-                    </View>
-                    <View style={styles.foodCartOptionList}>
-                      {state.addresses
-                        .filter(
-                          (item) =>
-                            item.userId === user.id &&
-                            !item.id.startsWith("profile-") &&
-                            item.lat !== null &&
-                            item.lng !== null,
-                        )
-                        .map((address) => {
-                          const selected = deliveryAddress === address.address;
-                          return (
-                            <Pressable
-                              key={address.id}
-                              onPress={() => {
-                                setDeliveryAddress(address.address);
-                                setFoodCheckoutQuote(null);
-                              }}
-                              style={[
-                                styles.foodCartOption,
-                                selected && styles.foodCartOptionSelected,
-                              ]}
-                              accessibilityState={{ selected }}
-                            >
-                              <View
-                                style={[
-                                  styles.foodCartOptionIcon,
-                                  selected && styles.foodCartOptionIconSelected,
-                                ]}
-                              >
-                                <Ionicons
-                                  name={address.isDefault ? "home" : "location-outline"}
-                                  size={19}
-                                  color={selected ? "#fff" : flashDesign.color.food}
-                                />
-                              </View>
-                              <View style={styles.savedAddressCopy}>
-                                <View style={styles.foodCartOptionTitleRow}>
-                                  <Text style={styles.foodCartOptionTitle}>{address.label}</Text>
-                                  {address.isDefault ? (
-                                    <Text style={styles.foodCartDefaultBadge}>PREDETERMINADA</Text>
-                                  ) : null}
-                                </View>
-                                <Text style={styles.foodCartOptionMeta} numberOfLines={2}>
-                                  {address.address}
-                                </Text>
-                              </View>
-                              <Ionicons
-                                name={selected ? "checkmark-circle" : "ellipse-outline"}
-                                size={22}
-                                color={selected ? flashDesign.color.food : flashDesign.color.muted}
-                              />
-                            </Pressable>
-                          );
-                        })}
-                      {!state.addresses.some(
-                        (item) =>
-                          item.userId === user.id &&
-                          !item.id.startsWith("profile-") &&
-                          item.lat !== null &&
-                          item.lng !== null,
-                      ) ? (
-                        <Pressable
-                          style={styles.foodCartMissingOption}
-                          onPress={() => setSharedView("account")}
-                        >
-                          <Ionicons
-                            name="location-outline"
-                            size={20}
-                            color={flashDesign.color.danger}
-                          />
-                          <View style={styles.itemCopy}>
-                            <Text style={styles.foodCartOptionTitle}>
-                              Falta una dirección geocodificada
-                            </Text>
-                            <Text style={styles.foodCartOptionMeta}>
-                              Agregala en Cuenta para poder cotizar la entrega.
-                            </Text>
-                          </View>
-                          <Ionicons
-                            name="chevron-forward"
-                            size={18}
-                            color={flashDesign.color.muted}
-                          />
-                        </Pressable>
-                      ) : null}
-                    </View>
-                    <View style={styles.foodSectionHeader}>
-                      <Text style={styles.foodSectionTitle}>Pago</Text>
-                      <Text style={styles.foodSeeAll}>Token seguro</Text>
-                    </View>
-                    <View style={styles.foodCartOptionList}>
-                      {customerPaymentMethods.map((method) => {
-                        const selected = selectedFoodPayment?.id === method.id;
-                        return (
-                          <Pressable
-                            key={method.id}
-                            onPress={() => {
-                              setSelectedFoodPaymentId(method.id);
-                              setFoodCheckoutQuote(null);
-                            }}
-                            style={[
-                              styles.foodCartOption,
-                              selected && styles.foodCartOptionSelected,
-                            ]}
-                            accessibilityState={{ selected }}
-                          >
-                            <View
-                              style={[
-                                styles.foodCartOptionIcon,
-                                styles.foodCartPaymentIcon,
-                                selected && styles.foodCartPaymentIconSelected,
-                              ]}
-                            >
-                              <Ionicons
-                                name={method.type === "wallet" ? "wallet" : "card"}
-                                size={19}
-                                color={selected ? "#fff" : flashDesign.color.brand}
-                              />
-                            </View>
-                            <View style={styles.itemCopy}>
-                              <Text style={styles.foodCartOptionTitle}>{method.label}</Text>
-                              <Text style={styles.foodCartOptionMeta}>
-                                {method.type === "wallet"
-                                  ? "Saldo y movimientos en Flash Wallet"
-                                  : method.brand
-                                    ? `${method.brand.toUpperCase()} terminada en ${method.last4 || "••••"}`
-                                    : "Método tokenizado"}
-                              </Text>
-                            </View>
-                            <Ionicons
-                              name={selected ? "checkmark-circle" : "ellipse-outline"}
-                              size={22}
-                              color={selected ? flashDesign.color.brand : flashDesign.color.muted}
-                            />
-                          </Pressable>
-                        );
-                      })}
-                      {!customerPaymentMethods.length ? (
-                        <Pressable
-                          style={styles.foodCartMissingOption}
-                          onPress={() => setSharedView("account")}
-                        >
-                          <Ionicons
-                            name="card-outline"
-                            size={20}
-                            color={flashDesign.color.danger}
-                          />
-                          <View style={styles.itemCopy}>
-                            <Text style={styles.foodCartOptionTitle}>Falta un método de pago</Text>
-                            <Text style={styles.foodCartOptionMeta}>
-                              Agregalo de forma segura desde Cuenta.
-                            </Text>
-                          </View>
-                          <Ionicons
-                            name="chevron-forward"
-                            size={18}
-                            color={flashDesign.color.muted}
-                          />
-                        </Pressable>
-                      ) : null}
-                    </View>
-                    <View style={styles.foodSectionHeader}>
-                      <Text style={styles.foodSectionTitle}>Promoción</Text>
-                      {activeFoodPromotion?.code ? (
-                        <Pressable
-                          onPress={() => {
-                            setFoodPromotionCode(activeFoodPromotion.code || "");
-                            setFoodCheckoutQuote(null);
-                          }}
-                        >
-                          <Text style={styles.foodSeeAll}>Usar {activeFoodPromotion.code}</Text>
-                        </Pressable>
-                      ) : null}
-                    </View>
-                    <View style={styles.foodCouponField}>
-                      <View style={styles.foodCouponIcon}>
-                        <Ionicons name="ticket-outline" size={19} color={flashDesign.color.food} />
-                      </View>
-                      <TextInput
-                        value={foodPromotionCode}
-                        onChangeText={(value) => {
-                          setFoodPromotionCode(value.toUpperCase());
-                          setFoodCheckoutQuote(null);
-                        }}
-                        autoCapitalize="characters"
-                        placeholder="Código promocional (opcional)"
-                        placeholderTextColor={flashDesign.color.muted}
-                        style={styles.foodCouponInput}
-                      />
-                      {foodPromotionCode ? (
-                        <Pressable
-                          accessibilityLabel="Quitar promoción"
-                          style={styles.foodSearchClear}
-                          onPress={() => {
-                            setFoodPromotionCode("");
-                            setFoodCheckoutQuote(null);
-                          }}
-                        >
-                          <Ionicons name="close" size={17} color={flashDesign.color.inkSoft} />
-                        </Pressable>
-                      ) : null}
-                    </View>
-                    <View style={styles.foodCartTotalCard}>
-                      <View>
-                        <Text style={styles.foodCartTotalLabel}>SUBTOTAL DE PRODUCTOS</Text>
-                        <Text style={styles.foodCartTotalHelp}>
-                          Envío, servicio y descuento se calculan al continuar.
-                        </Text>
-                      </View>
-                      <Text style={styles.foodCartTotalValue}>{money.format(cartTotal)}</Text>
-                    </View>
-                    <Pressable
-                      disabled={busy || !selectedFoodAddress || !selectedFoodPayment}
-                      style={[
-                        styles.foodCheckoutPrimary,
-                        (busy || !selectedFoodAddress || !selectedFoodPayment) &&
-                          styles.disabledButton,
-                      ]}
-                      onPress={openFoodCheckout}
-                    >
-                      <Text style={styles.foodCheckoutPrimaryText}>
-                        {busy ? "Calculando precio…" : "Continuar al checkout"}
-                      </Text>
-                      <Ionicons name="arrow-forward" size={18} color="#fff" />
-                    </Pressable>
-                  </>
-                )}
-              </>
-            )}
-
-            {foodScreen === "checkout" && foodCheckoutQuote && (
-              <>
-                <View style={styles.foodPageHeader}>
-                  <Pressable onPress={() => setFoodScreen("cart")} style={styles.foodBack}>
-                    <Ionicons name="chevron-back" size={20} color={flashDesign.color.ink} />
-                  </Pressable>
-                  <View style={styles.foodPageHeaderCopy}>
-                    <Text style={styles.foodPageTitle}>Confirmar pedido</Text>
-                    <Text style={styles.foodPageSubtitle}>Última revisión antes de cobrar</Text>
-                  </View>
-                </View>
-                <LinearGradient
-                  colors={[flashDesign.color.ink, "#36293D"]}
-                  style={styles.foodCheckoutHero}
-                >
-                  <View style={styles.foodCheckoutHeroTop}>
-                    <View style={styles.foodCheckoutVerified}>
-                      <Ionicons name="shield-checkmark" size={15} color="#BDF3D7" />
-                      <Text style={styles.foodCheckoutVerifiedText}>PRECIO FIRMADO</Text>
-                    </View>
-                    <Text style={styles.foodCheckoutExpiry}>
-                      Hasta{" "}
-                      {new Date(foodCheckoutQuote.expiresAt).toLocaleTimeString("es-AR", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </Text>
-                  </View>
-                  <Text style={styles.foodCheckoutMerchant}>{cartRestaurant?.name}</Text>
-                  <Text style={styles.foodCheckoutEta}>
-                    Llega en aproximadamente {foodCheckoutQuote.etaMin} min
-                  </Text>
-                  <View style={styles.foodCheckoutHeroFacts}>
-                    <View>
-                      <Text style={styles.foodCheckoutHeroFactLabel}>DISTANCIA</Text>
-                      <Text style={styles.foodCheckoutHeroFactValue}>
-                        {foodCheckoutQuote.distanceKm} km
-                      </Text>
-                    </View>
-                    <View style={styles.foodCheckoutHeroDivider} />
-                    <View style={styles.itemCopy}>
-                      <Text style={styles.foodCheckoutHeroFactLabel}>TARIFA</Text>
-                      <Text style={styles.foodCheckoutHeroFactValue} numberOfLines={1}>
-                        {foodCheckoutQuote.pricingVersion}
-                      </Text>
-                    </View>
-                  </View>
-                </LinearGradient>
-                <View style={styles.foodSectionHeader}>
-                  <Text style={styles.foodSectionTitle}>Entrega y pago</Text>
-                  <Pressable onPress={() => setFoodScreen("cart")}>
-                    <Text style={styles.foodSeeAll}>Editar</Text>
-                  </Pressable>
-                </View>
-                <View style={styles.foodCheckoutInfoList}>
-                  <View style={styles.foodCheckoutInfoCard}>
-                    <View
-                      style={[
-                        styles.foodCheckoutInfoIcon,
-                        { backgroundColor: flashDesign.color.warningSoft },
-                      ]}
-                    >
-                      <Ionicons name="location" size={20} color={flashDesign.color.food} />
-                    </View>
-                    <View style={styles.itemCopy}>
-                      <Text style={styles.foodCheckoutInfoTitle}>Entregar en</Text>
-                      <Text style={styles.foodCheckoutInfoValue} numberOfLines={2}>
-                        {foodCheckoutQuote.deliveryAddress}
-                      </Text>
-                      <Text style={styles.foodCheckoutInfoMeta}>
-                        Dirección validada con coordenadas
-                      </Text>
-                    </View>
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={21}
-                      color={flashDesign.color.shipment}
-                    />
-                  </View>
-                  <View style={styles.foodCheckoutInfoCard}>
-                    <View style={[styles.foodCheckoutInfoIcon, { backgroundColor: "#EEE7FF" }]}>
-                      <Ionicons
-                        name={selectedFoodPayment?.type === "wallet" ? "wallet" : "card"}
-                        size={20}
-                        color={flashDesign.color.brand}
-                      />
-                    </View>
-                    <View style={styles.itemCopy}>
-                      <Text style={styles.foodCheckoutInfoTitle}>Pagar con</Text>
-                      <Text style={styles.foodCheckoutInfoValue}>
-                        {foodCheckoutQuote.paymentMethod}
-                      </Text>
-                      <Text style={styles.foodCheckoutInfoMeta}>
-                        {selectedFoodPayment?.type === "wallet"
-                          ? "Captura atómica al confirmar"
-                          : "Token seguro · captura según proveedor"}
-                      </Text>
-                    </View>
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={21}
-                      color={flashDesign.color.shipment}
-                    />
-                  </View>
-                </View>
-                <View style={styles.foodSectionHeader}>
-                  <Text style={styles.foodSectionTitle}>Tu pedido</Text>
-                  <Text style={styles.foodSeeAll}>
-                    {foodCheckoutQuote.items.reduce((sum, item) => sum + item.quantity, 0)} unidades
-                  </Text>
-                </View>
-                <View style={styles.foodCheckoutItems}>
-                  {foodCheckoutQuote.items.map((item, index) => (
-                    <View key={`${item.menuItemId}-${index}`} style={styles.checkoutItem}>
-                      <View style={styles.foodCheckoutItemQuantity}>
-                        <Text style={styles.foodCheckoutItemQuantityText}>{item.quantity}×</Text>
-                      </View>
-                      <View style={styles.itemCopy}>
-                        <Text style={styles.foodCheckoutItemName}>{item.name}</Text>
-                        {item.modifiers.map((modifier) => (
-                          <Text key={modifier.id} style={styles.foodCheckoutItemMeta}>
-                            + {modifier.name}
-                            {modifier.price ? ` · ${money.format(modifier.price)}` : ""}
-                          </Text>
-                        ))}
-                        {item.note ? (
-                          <Text style={styles.foodCheckoutItemNote}>“{item.note}”</Text>
-                        ) : null}
-                      </View>
-                      <Text style={styles.foodCheckoutItemPrice}>
-                        {money.format(item.unitPrice * item.quantity)}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-                <View style={styles.foodSectionHeader}>
-                  <Text style={styles.foodSectionTitle}>Detalle del total</Text>
-                  <Text style={styles.foodSeeAll}>ARS</Text>
-                </View>
-                <View style={styles.foodCheckoutTotals}>
-                  <View style={styles.foodTotalRow}>
-                    <Text style={styles.foodCheckoutTotalLabel}>Productos</Text>
-                    <Text style={styles.foodCheckoutTotalAmount}>
-                      {money.format(foodCheckoutQuote.subtotal)}
-                    </Text>
-                  </View>
-                  <View style={styles.foodTotalRow}>
-                    <Text style={styles.foodCheckoutTotalLabel}>Envío</Text>
-                    <Text style={styles.foodCheckoutTotalAmount}>
-                      {money.format(foodCheckoutQuote.deliveryFee)}
-                    </Text>
-                  </View>
-                  <View style={styles.foodTotalRow}>
-                    <Text style={styles.foodCheckoutTotalLabel}>Tarifa de servicio</Text>
-                    <Text style={styles.foodCheckoutTotalAmount}>
-                      {money.format(foodCheckoutQuote.serviceFee)}
-                    </Text>
-                  </View>
-                  {foodCheckoutQuote.discount > 0 ? (
-                    <View style={styles.foodTotalRow}>
-                      <Text style={styles.foodCheckoutDiscountLabel}>
-                        Descuento {foodCheckoutQuote.promotionCode}
-                      </Text>
-                      <Text style={styles.foodCheckoutDiscountAmount}>
-                        − {money.format(foodCheckoutQuote.discount)}
-                      </Text>
-                    </View>
-                  ) : null}
-                  {/* El beneficio se nombra en vez de sumarse al descuento: quien
-                      paga una suscripción tiene que ver qué le devolvió en cada
-                      pedido, y esconderlo en «Descuento» lo borra. */}
-                  {foodCheckoutQuote.subscriptionDiscount > 0 ? (
-                    <View style={styles.foodTotalRow}>
-                      <Text style={styles.foodCheckoutDiscountLabel}>Envío con Flash Más</Text>
-                      <Text style={styles.foodCheckoutDiscountAmount}>
-                        − {money.format(foodCheckoutQuote.subscriptionDiscount)}
-                      </Text>
-                    </View>
-                  ) : null}
-                  {/* Suma, no resta. Es la única línea que sube el total por
-                      decisión de la persona, y por eso se nombra: verla dentro
-                      del total sin nombrarla se siente un cargo que nadie eligió. */}
-                  {foodTipCents > 0 ? (
-                    <View style={styles.foodTotalRow}>
-                      <Text style={styles.foodCheckoutTotalLabel}>Propina</Text>
-                      <Text style={styles.foodCheckoutTotalAmount}>
-                        {money.format(foodTipCents / 100)}
-                      </Text>
-                    </View>
-                  ) : null}
-                  <View style={styles.foodCheckoutTotalDivider} />
-                  <View style={styles.foodTotalRow}>
-                    <Text style={styles.foodCheckoutGrandLabel}>Total</Text>
-                    <Text style={styles.foodCheckoutGrandAmount}>
-                      {money.format(foodCheckoutQuote.total + foodTipCents / 100)}
-                    </Text>
-                  </View>
-                </View>
-                {/* El horario antes que la propina: primero cuándo llega,
-                    después cuánto se deja. Al revés obligaría a repensar la
-                    propina tras descubrir que el pedido es para mañana. */}
-                <SchedulePicker
-                  scheduledFor={foodScheduledFor}
-                  onChange={setFoodScheduledFor}
-                  disabled={busy}
-                />
-                {/* Antes del bloque de seguridad y del botón de confirmar: la
-                    propina se elige mirando el total, no después de darlo por
-                    bueno. */}
-                <TipSelector
-                  subtotal={foodCheckoutQuote.subtotal}
-                  tipCents={foodTipCents}
-                  onChange={setFoodTipCents}
-                  orderTotal={foodCheckoutQuote.total}
-                  disabled={busy}
-                />
-                <View style={styles.foodCheckoutSecurity}>
-                  <View style={styles.foodCheckoutSecurityIcon}>
-                    <Ionicons name="lock-closed" size={18} color={flashDesign.color.shipment} />
-                  </View>
-                  <Text style={styles.foodCheckoutSecurityText}>
-                    Al confirmar, el servidor vuelve a validar stock, cupón, propiedad de la
-                    dirección y monto firmado antes de cobrar.
-                  </Text>
-                </View>
-                <Pressable
-                  disabled={busy || new Date(foodCheckoutQuote.expiresAt) <= new Date()}
-                  style={[
-                    styles.foodCheckoutPrimary,
-                    (busy || new Date(foodCheckoutQuote.expiresAt) <= new Date()) &&
-                      styles.disabledButton,
-                  ]}
-                  onPress={createOrder}
-                >
-                  <Text style={styles.foodCheckoutPrimaryText}>
-                    {busy ? "Confirmando…" : `Confirmar · ${money.format(foodCheckoutQuote.total)}`}
-                  </Text>
-                  <Ionicons name="arrow-forward" size={18} color="#fff" />
-                </Pressable>
-                {new Date(foodCheckoutQuote.expiresAt) <= new Date() ? (
-                  <Pressable
-                    disabled={busy}
-                    style={styles.foodCheckoutRefresh}
-                    onPress={openFoodCheckout}
-                  >
-                    <Ionicons name="refresh" size={17} color={flashDesign.color.food} />
-                    <Text style={styles.foodCheckoutRefreshText}>
-                      El precio venció · actualizar
-                    </Text>
-                  </Pressable>
-                ) : null}
-              </>
-            )}
-
-            {foodScreen === "orders" && (
-              <>
-                {lastCreatedOrder ? (
-                  <LinearGradient
-                    colors={["#FFF4E9", "#FFE7D6"]}
-                    style={styles.orderConfirmationCard}
-                  >
-                    <View style={styles.orderConfirmationIcon}>
-                      <Ionicons name="checkmark" size={29} color="#fff" />
-                    </View>
-                    <Text style={styles.orderConfirmationEyebrow}>PEDIDO CONFIRMADO</Text>
-                    <Text style={styles.orderConfirmationTitle}>El comercio ya lo recibió</Text>
-                    <Text style={styles.orderConfirmationCopy}>
-                      Pedido {lastCreatedOrder.id} · entrega estimada en {lastCreatedOrder.etaMin}{" "}
-                      min.
-                    </Text>
-                    <Text style={styles.orderConfirmationTotal}>
-                      {money.format(lastCreatedOrder.total)}
-                    </Text>
-                    <Pressable
-                      style={styles.orderConfirmationAction}
-                      onPress={() => {
-                        setLastCreatedOrder(null);
-                        setSharedView("activity");
-                      }}
-                    >
-                      <Text style={styles.orderConfirmationActionText}>Seguir en Actividad</Text>
-                      <Ionicons name="arrow-forward" size={18} color="#fff" />
-                    </Pressable>
-                  </LinearGradient>
-                ) : null}
-                <View style={styles.foodPageHeader}>
-                  <Pressable onPress={() => setFoodScreen("home")} style={styles.foodBack}>
-                    <Ionicons name="chevron-back" size={20} color={flashDesign.color.ink} />
-                  </Pressable>
-                  <View style={styles.foodPageHeaderCopy}>
-                    <Text style={styles.foodPageTitle}>Tus pedidos</Text>
-                    <Text style={styles.foodPageSubtitle}>
-                      Estado y próxima acción en tiempo real
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.foodSectionHeader}>
-                  <Text style={styles.foodSectionTitle}>En curso</Text>
-                  <Text style={styles.foodSeeAll}>{activeOrders.length} activos</Text>
-                </View>
-                {activeOrders.length === 0 && (
-                  <View style={styles.foodEmpty}>
-                    <View style={styles.foodEmptyIcon}>
-                      <Ionicons name="receipt-outline" size={30} color={flashDesign.color.food} />
-                    </View>
-                    <Text style={styles.foodEmptyTitle}>No hay pedidos en curso</Text>
-                    <Text style={styles.foodEmptyCopy}>
-                      Cuando confirmes una compra, su preparación y entrega aparecerán acá y en
-                      Actividad.
-                    </Text>
-                    <Pressable style={styles.foodEmptyAction} onPress={() => setFoodScreen("home")}>
-                      <Text style={styles.foodEmptyActionText}>Explorar restaurantes</Text>
-                    </Pressable>
-                  </View>
-                )}
-                {activeOrders.map((order) => (
-                  <View key={order.id} style={styles.foodActiveOrderCard}>
-                    <View style={styles.foodActiveOrderHeader}>
-                      <View style={styles.foodActiveOrderIcon}>
-                        <Ionicons name="restaurant" size={19} color="#fff" />
-                      </View>
-                      <View style={styles.itemCopy}>
-                        <Text style={styles.foodActiveOrderEyebrow}>PEDIDO {order.id}</Text>
-                        <Text style={styles.foodActiveOrderStatus}>
-                          {mobileOrderStatusLabel[order.status]}
-                        </Text>
-                      </View>
-                      <Text style={styles.foodActiveOrderEta}>{order.etaMin} min</Text>
-                    </View>
-                    <View style={styles.foodActiveOrderDestination}>
-                      <Ionicons name="location-outline" size={17} color={flashDesign.color.food} />
-                      <Text style={styles.foodActiveOrderDestinationText} numberOfLines={2}>
-                        {order.deliveryAddress}
-                      </Text>
-                      <Text style={styles.foodActiveOrderTotal}>{money.format(order.total)}</Text>
-                    </View>
-                    <View style={styles.foodActiveOrderActions}>
-                      <Pressable
-                        style={styles.foodActiveOrderSecondary}
-                        onPress={() =>
-                          shareStatus(
-                            "Pedido Flash",
-                            `Mi pedido Flash está ${mobileOrderStatusLabel[order.status].toLowerCase()}. Entrega en ${order.deliveryAddress}.`,
-                          )
-                        }
-                      >
-                        <Ionicons
-                          name="share-social-outline"
-                          size={17}
-                          color={flashDesign.color.food}
-                        />
-                        <Text style={styles.foodActiveOrderSecondaryText}>Compartir</Text>
-                      </Pressable>
-                      <Pressable
-                        style={styles.foodActiveOrderPrimary}
-                        onPress={() => setTrackingOrderId(order.id)}
-                      >
-                        <Ionicons name="map-outline" size={17} color="#fff" />
-                        <Text style={styles.foodActiveOrderPrimaryText}>Ver seguimiento</Text>
-                      </Pressable>
-                    </View>
-                    {/* Sólo mientras nadie empezó. Después el comercio ya está
-                        cocinando o hay conductor en camino, y el servidor lo
-                        rechaza: ofrecerlo igual sería prometer un 409. */}
-                    {order.scheduledFor && ["requested", "accepted"].includes(order.status) ? (
-                      <RescheduleControl
-                        scheduledFor={order.scheduledFor}
-                        disabled={busy}
-                        onReschedule={(iso) =>
-                          runAction(() => api.rescheduleJob(order.id, iso), "Pedido reprogramado")
-                        }
-                      />
-                    ) : null}
-                    {!["delivered", "cancelled"].includes(order.status) ? (
-                      <Pressable
-                        disabled={busy}
-                        style={styles.foodActiveOrderCancel}
-                        onPress={() => cancelService("order", order.id)}
-                      >
-                        <Text style={styles.foodActiveOrderCancelText}>Cancelar pedido</Text>
-                        <Ionicons
-                          name="chevron-forward"
-                          size={16}
-                          color={flashDesign.color.danger}
-                        />
-                      </Pressable>
-                    ) : null}
-                  </View>
-                ))}
-              </>
-            )}
+            <CustomerFoodOrdersScreen
+              visible={foodScreen === "orders"}
+              lastCreatedOrder={lastCreatedOrder}
+              activeOrders={activeOrders}
+              busy={busy}
+              onHome={() => setFoodScreen("home")}
+              onConfirmedActivity={() => {
+                setLastCreatedOrder(null);
+                setSharedView("activity");
+              }}
+              onShare={(order) =>
+                shareStatus(
+                  "Pedido Flash",
+                  `Mi pedido Flash está ${mobileOrderStatusLabel[order.status].toLowerCase()}. Entrega en ${order.deliveryAddress}.`,
+                )
+              }
+              onTrack={setTrackingOrderId}
+              onReschedule={(orderId, scheduledFor) =>
+                runAction(() => api.rescheduleJob(orderId, scheduledFor), "Pedido reprogramado")
+              }
+              onCancel={(orderId) => cancelService("order", orderId)}
+            />
           </>
         )}
 

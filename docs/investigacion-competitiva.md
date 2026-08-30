@@ -286,6 +286,17 @@ Fuentes oficiales adicionales:
 - [Uber Courier: preguntas frecuentes de paquetes](https://help.uber.com/riders/article/courier-package-delivery-faq?nodeId=2f234df8-cdf6-4bf9-81da-8f68b79b35f5)
 - [Uber Connect: seguimiento y comunicación de paquetes](https://www.uber.com/us/en/newsroom/uber-connect-holiday/)
 
+Revalidación del 30 de agosto de 2026 para la segmentación de Comidas:
+
+- La guía oficial de Uber Eats mantiene una secuencia explícita de dirección → restaurante → productos → carrito/checkout → revisión → confirmación → tracking. Flash conserva esos límites como módulos de tarea y comparte sólo el estado que cruza Cuenta y Actividad.
+- DoorDash mantiene el pedido activo en una superficie de Pedidos con ETA, estados de confirmación/preparación/entrega y mapa cuando existe Dasher. Flash conserva esos datos en Pedidos y en la hoja común de tracking; no los duplica dentro de cada pantalla.
+- La extracción es arquitectónica y no crea paridad ficticia. Flash todavía queda por debajo en push probado físicamente, mapas con SLA comercial, pagos marketplace conciliados, cobertura operativa y soporte habilitado.
+
+Fuentes oficiales revalidadas:
+
+- [Uber Eats — cómo realizar un pedido](https://help.uber.com/en/ubereats/restaurants/article/how-to-place-an-order-on-uber-eats?nodeId=509d1b2f-087c-4dac-9e94-6ab248e87491)
+- [DoorDash — estados y tracking de un pedido](https://help.doordash.com/en-us/consumers/article/customer-where-is-my-order)
+
 ## Pricing y rutas competitivas
 
 El cotizador de movilidad adopta el patron de precio adelantado: el servidor combina distancia y duracion previstas, modalidad, oferta/demanda, tarifa de servicio y peajes estimados. La cotizacion se firma y conserva durante cinco minutos; al solicitar, la API valida el token para impedir que el cliente modifique el precio.

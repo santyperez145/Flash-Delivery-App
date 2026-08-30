@@ -413,9 +413,9 @@ grupos están extraídos**, repartidos en 31 routers, y `server/index.js` bajó 
 
 En web, `src/App.tsx` bajó a **1.274 líneas** después de extraer el acceso y los
 estados de carga, error y derivación por rol. Las cinco audiencias se cargan por
-separado y el entry inicial se mantiene en 67,7 KiB; el siguiente corte sigue
-siendo por dominio dentro de `CustomerScreen.tsx`, no más condicionales en el
-shell.
+separado y el entry inicial se mantiene en 67,7 KiB. En mobile, la presentación
+de Comidas ya está separada por tarea; el siguiente corte vuelve a la mayor
+concentración pendiente de ARC-001, no a sumar condicionales al shell.
 
 Las 8 rutas que quedan no son dominio: salud, readiness, el documento OpenAPI,
 el bootstrap por audiencia, las dos de métricas, el 410 que retiró `/api/state`
@@ -465,8 +465,9 @@ propinas; las tres hojas de seguimiento pasaron a
   dirección. Viajes pasó a `CustomerRideScreen.tsx` con GPS, destinos, ruta,
   tarifa adelantada, reserva, contactos y solicitud persistida; un cambio de
   origen invalida el precio y las maniobras quedan sólo en Driver.
-  `CustomerScreen.tsx` bajó de 6.241 a 3.159 líneas. Queda Comidas. También quedó
-activo un ratchet que impide que el
+  Comidas se dividió luego en descubrimiento/búsqueda, restaurante/personalización,
+  carrito, checkout y pedidos. `CustomerScreen.tsx` bajó de 6.241 a 1.584 líneas
+  y un contrato fija el techo en 1.600. También quedó activo un ratchet que impide que el
 problema crezca:
 `test:line-length` fija una línea base vigente de **258 líneas de más de 200
 caracteres en 56 archivos** y sólo admite bajarla.

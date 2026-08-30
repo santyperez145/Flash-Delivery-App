@@ -8,6 +8,16 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 30 de agosto de 2026 — ARC-001, Comidas móvil segmentada por tarea
+
+- [x] Descubrimiento/búsqueda, restaurante/personalización, carrito, checkout y pedidos viven en cinco módulos con responsabilidad concreta; `CustomerScreen.tsx` bajó de 3.159 a 1.584 líneas sin agregar superficie durante el congelamiento de Fase 0.
+- [x] El carrito, la dirección y las preferencias permanecen en el coordinador porque Cuenta y Actividad los consumen; cambiar de pestaña no descarta una compra, grupo o cotización en curso.
+- [x] La extracción conserva catálogo y favoritos persistidos, stock, modificadores, alérgenos, dirección geocodificada, método tokenizado, cotización firmada, propina, reserva, creación, tracking y cancelación contra sus APIs reales.
+- [x] El botón final muestra el mismo total que el detalle, incluida la propina; ya no presenta una cifra menor justo antes de confirmar el cobro.
+- [x] `test:mobile-food-design` inspecciona cada límite extraído y fija un techo de 1.600 líneas; `test:responsive-layout` impide que el coordinador vuelva a crecer silenciosamente.
+- [~] El flujo coincide con la secuencia oficial de Uber Eats —dirección, restaurante, productos, carrito, revisión, confirmación y tracking— y con los estados/mapa de DoorDash. Flash sigue por debajo en proveedor de mapas con SLA, push físico, pagos marketplace conciliados, soporte 24/7 y operación comercial habilitada.
+- [ ] ARC-001 continúa con contratos compartidos y la siguiente concentración monolítica; esta extracción no cierra por sí sola el P0.
+
 ## Avance 30 de agosto de 2026 — ARC-001, Viajes móvil fuera del coordinador
 
 - [x] Origen/destino, GPS, destinos recientes, ruta, opciones, tarifa adelantada, reserva y solicitud persistida viven en `CustomerRideScreen.tsx`; no se agregó superficie durante el congelamiento de Fase 0.
@@ -16,7 +26,7 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [x] La pantalla cliente conserva vista previa de ruta, distancia y ETA, pero dejó de mostrar instrucciones giro a giro. La guía operativa permanece exclusivamente en Flash Driver, como exige la segmentación vigente.
 - [x] `test:responsive-layout` y `test:mobile-maps` fijan el nuevo techo, verifican las APIs reales `quoteRideOptions`/`createRide`, la invalidación de tarifa y la ausencia de maniobras en cliente.
 - [~] Uber y Lyft muestran precio adelantado sujeto a ruta, demanda, tráfico y peajes; Flash conserva ese desglose, pero sigue por debajo en tráfico con SLA, oferta productiva, habilitación, seguro y validación física. Las instrucciones de conducción requieren además build Driver probado en movimiento.
-- [ ] Comidas es el único dominio transaccional que queda dentro del coordinador customer para cerrar este tramo de ARC-001.
+- [x] Comidas ya fue segmentada por tarea en la entrega siguiente de este mismo día.
 
 ## Avance 30 de agosto de 2026 — ARC-001, Envíos móvil fuera del coordinador
 
