@@ -108,7 +108,7 @@ La matriz vive en `docs/matriz-madurez.md` y se actualiza en el mismo PR que cam
 | Entregable | Ticket | Criterio de cierre |
 | --- | --- | --- |
 | Separación de `src/App.tsx` | ARC-001 | Shell web en 1.274 líneas; acceso y estados transversales extraídos |
-| Separación de `apps/mobile/App.tsx` | ARC-001 | Entrypoints customer/driver/merchant independientes |
+| Separación de `apps/mobile/App.tsx` | ARC-001 | Entrypoints customer/driver/merchant independientes; Actividad, tracking y Cuenta fuera del coordinador customer |
 | Descomposición de `server/index.js` | ARC-001 | Controllers separados de use cases y repositories. **9 de 57 grupos extraídos**; el núcleo compartido está completo, así que lo que queda es repetitivo y no de diseño |
 | ~~Reformateo de archivos comprimidos~~ **hecho** | ARC-001 | Línea máxima 4.061 → 206; quedan 262 líneas largas, casi todas SQL |
 | ~~Dispatch v2 etapa 1~~ **hecho** | DSP-001 | `ST_DWithin` + KNN recortan candidatos antes del scoring |
@@ -458,8 +458,10 @@ Operaciones y Superadmin cargan por audiencia. La extracción interna
 continúa por dominio: Actividad mobile pasó a `CustomerActivityScreen.tsx` con
 grupos, sustituciones, servicios activos, comprobantes, repetición, reclamos y
 propinas; las tres hojas de seguimiento pasaron a
-`CustomerTrackingSheets.tsx`; `CustomerScreen.tsx` bajó de 6.241 a 5.384 líneas.
-Quedan Comidas, Viajes, Envíos y Cuenta. También quedó activo un ratchet que impide que el
+`CustomerTrackingSheets.tsx`; Cuenta pasó a `CustomerAccountScreen.tsx` sin
+perder estado de navegación ni el cableado de direcciones. `CustomerScreen.tsx`
+bajó de 6.241 a 4.292 líneas. Quedan Comidas, Viajes y Envíos. También quedó
+activo un ratchet que impide que el
 problema crezca:
 `test:line-length` fija una línea base vigente de **258 líneas de más de 200
 caracteres en 56 archivos** y sólo admite bajarla.

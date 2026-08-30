@@ -8,11 +8,20 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 29 de agosto de 2026 — ARC-001, Cuenta móvil fuera del coordinador
+
+- [x] Seguridad de cuenta, sesiones, referidos, preferencias alimentarias, notificaciones, soporte, direcciones y métodos de pago viven en `CustomerAccountScreen.tsx`, con las mismas APIs y transiciones persistidas.
+- [x] `CustomerScreen.tsx` bajó de 5.365 a 4.292 líneas sin agregar pantallas ni capacidades durante el congelamiento de Fase 0.
+- [x] Cuenta permanece montada cuando se cambia de pestaña: un OTP, un reintento o un formulario en curso no se descarta por navegar.
+- [x] La selección de una dirección cruza el límite mediante un solo evento tipado y sigue actualizando Comidas, Viajes y Envíos; no se trasladaron ocho setters al componente nuevo.
+- [x] `test:responsive-layout` impone el nuevo techo del coordinador y verifica que Cuenta no vuelva a incrustarse ni pierda el cableado de direcciones; Chromium recorrió customer mobile y desktop merchant/operaciones desde 320×568 hasta 1440×900 sin overflow.
+- [ ] Comidas, Viajes y Envíos siguen dentro del coordinador y son los próximos cortes de ARC-001.
+
 ## Avance 29 de agosto de 2026 — GEO-001, identidad geográfica hasta el checkout
 
 - [x] Cada resultado de geocodificación recibe una validación JWT de 15 minutos, con audiencia propia y ligada al usuario autenticado.
 - [x] Web y mobile exigen buscar y elegir una coincidencia; ya no guardan automáticamente el primer resultado ni aceptan coordenadas del cliente como hecho.
-- [x] El flujo mobile vive en `CustomerAddressForm.tsx`; `CustomerScreen.tsx` bajó a 5.365 líneas y no se amplió el coordinador monolítico para sumar la capacidad.
+- [x] El flujo mobile vive en `CustomerAddressForm.tsx`; esa entrega bajó `CustomerScreen.tsx` a 5.365 líneas y no amplió el coordinador monolítico para sumar la capacidad.
 - [x] La migración 136 persiste proveedor, `place_id`, tipo y fecha de validación sin fabricar un backfill para direcciones legacy.
 - [x] El checkout de comida rechaza direcciones legacy, conserva la identidad geográfica dentro de la cotización firmada y obliga a recotizar si la dirección cambia.
 - [x] `test:maps` y `test:postgres` prueban token de otro usuario, campos manipulados, ausencia de validación y checkout legacy contra PostgreSQL/PostGIS real.
