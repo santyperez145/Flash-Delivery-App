@@ -112,9 +112,17 @@ Ejecuta: migraciones desde cero · migraciones desde snapshot de la versión ant
 
 Adoptar además un framework estándar de pruebas: **Vitest**, **Testcontainers**, **Supertest**, **Playwright**, **k6**, cobertura y mutation testing selectivo sobre pricing, ledger y máquinas de estado.
 
+**Avance del 29-08:** Vitest 4.1 ya ejecuta el contrato unitario de autorización y
+`@testcontainers/postgresql` 12.1 crea un PostGIS 17 efímero, replica los tres roles sin
+`BYPASSRLS`, aplica las **136 migraciones** desde cero y comprueba extensión y privilegios. La
+prueba aislada corre como segunda mitad de `test:runtime-role-shape` dentro del job bloqueante de
+`ci-postgres`; no reemplaza el servicio de CI,
+sino que elimina la dependencia de su preparación manual y deja un punto de partida estándar
+para migrar suites gradualmente. Supertest, k6, cobertura y mutation testing siguen abiertos.
+
 ### Criterios de aceptación
 
-- [x] Un PR queda bloqueado si falla cualquier suite crítica — **105 de 106 suites con puerta, 103 bloqueantes**, 2 nocturnas y 1 en cuarentena.
+- [x] Un PR queda bloqueado si falla cualquier suite crítica — **105 de 106 suites con puerta, 103 bloqueantes**, 2 nocturnas y cuarentena vacía.
 - [x] Ningún script de riesgo queda fuera de una puerta sin justificación escrita — lo verifica `npm run test:ci-coverage`.
 - [x] **Cerrar las suites en cuarentena.** Las cuatro salieron. `test:postgres`, `test:dietary-local` y `test:notification-local` se cerraron el 26-08 —las dos últimas estaban apuntadas al runtime equivocado, no eran frágiles—. `test:support-routing` salió el 27-08 y su causa anotada resultó falsa: figuraba como «ruteo atómico de un caso de safety a un agente con skill», pero `POST /api/support/tickets` exige una cabecera `Idempotency-Key` y responde 400 sin ella, y la suite no la mandaba en ninguno de sus seis POST. **Nunca llegó a ejercitar el ruteo.** Con la cabecera puesta pasan sus diez afirmaciones sin tocar una línea de producto. Ya es bloqueante y el paso de cuarentena se quitó del workflow.
 - [ ] `ci-nightly.yml`. **Existe desde el 27-08** con la auditoría responsive en Chromium —una corrida por variante—, la latencia de endpoints y la conciliación de pagos programada. Faltan carga k6, sandbox de proveedores y builds EAS, que necesitan credenciales. El restore drill dejó de faltar por otra vía: `scripts/restore-drill.ps1` sigue siendo PowerShell y sigue siendo el ensayo que importa sobre los backups reales, pero `test:restore-drill` corre en cada PR un ensayo distinto —volcar, restaurar y verificar invariantes sobre la copia— que cubre lo que el local no puede cubrir por PR: que el esquema, las políticas y los permisos sobrevivan al viaje por `pg_dump`.
