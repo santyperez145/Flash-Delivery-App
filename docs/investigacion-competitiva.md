@@ -476,3 +476,24 @@ viales propios. Por eso el refactor corrige integridad y segmentación sin promo
 - [Lyft: precio y cargos del viaje](https://help.lyft.com/hc/en-us/rider/articles/115012925707)
 - [Uber Driver: navegación y etapas del viaje](https://www.uber.com/us/en/drive/driver-app/)
 - [Uber Driver: funciones de navegación](https://help.uber.com/driving-and-delivering/article/uber-driver-app-navigation-features?nodeId=d6da8da9-cad5-402f-a722-86307b01a1fd)
+
+### Decisión 30 de agosto de 2026 — Wallet web como límite financiero auditable
+
+Mercado Pago documenta saldo, movimientos aprobados, ingresos, reintegros, contracargos y
+disputas como eventos financieros conciliables. También diferencia el importe bruto del
+impacto neto y aclara que una cuenta de prueba puede ejecutar el flujo de reportes sin poblar
+datos reales. El patrón relevante para ARC-001 es que Wallet sea un límite financiero con
+historial trazable, no una tarjeta decorativa mezclada con el home.
+
+Flash mueve saldo, carga sandbox, movimientos y promociones a `WalletScreen.tsx`. Conserva
+el ledger autenticado y sus topes actuales; la extracción no cambia el modelo de custodia ni
+afirma que la recarga simulada sea dinero productivo. La puerta responsive impide volver a
+enterrar ese límite en `CustomerSurface.tsx`.
+
+Flash sigue por debajo de la referencia: la vista no separa todavía saldos disponible,
+pendiente o retenido, ni ofrece filtros, exportación o una conciliación visible contra el PSP.
+Esas capacidades requieren credenciales, operación productiva, revisión legal/regulatoria y
+evidencia del proveedor; no se cierran desde código.
+
+- [Mercado Pago: reporte de dinero en cuenta](https://www.mercadopago.com.ar/developers/es/docs/reports/account-money/introduction)
+- [Mercado Pago: tipos e impacto neto de las transacciones](https://www.mercadopago.com.ar/developers/en/docs/reports/account-money/how-to-use)

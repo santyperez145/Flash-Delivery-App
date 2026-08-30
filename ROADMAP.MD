@@ -8,6 +8,14 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 30 de agosto de 2026 — ARC-001, Wallet web fuera del monolito cliente
+
+- [x] Saldo, carga sandbox, movimientos y promociones viven en `src/customer/WalletScreen.tsx`; `CustomerSurface.tsx` bajó de 3.794 a 3.720 líneas sin agregar una capacidad nueva durante Fase 0.
+- [x] `test:responsive-layout` fija un techo de 3.725 líneas, exige el límite extraído y conserva los topes de carga entre ARS 1.000 y ARS 200.000. `test:responsive-browser` abre la PWA cliente a 390 × 844, comprueba actividad real, ausencia de overflow y ambos topes sin ejecutar una carga.
+- [x] El refactor mantiene la fuente real del saldo y del historial en el estado autenticado; no introduce fixtures ni convierte la carga sandbox en dinero custodial.
+- [~] Mercado Pago separa saldo disponible, movimientos aprobados, contracargos, reintegros y conciliación en reportes financieros. Flash muestra el ledger de la cuenta, pero sigue por debajo: faltan estados contables visibles, filtros/exportación, PSP productivo, conciliación externa y habilitación regulatoria.
+- [ ] ARC-001 continúa sobre las concentraciones internas del cliente web y los contratos compartidos; este corte no cierra por sí solo el P0.
+
 ## Avance 30 de agosto de 2026 — ARC-001, Comidas móvil segmentada por tarea
 
 - [x] Descubrimiento/búsqueda, restaurante/personalización, carrito, checkout y pedidos viven en cinco módulos con responsabilidad concreta. Incidencias de pedido, devoluciones y siniestros viven en `CustomerServiceIssueModals.tsx`; `CustomerScreen.tsx` bajó de 3.159 a 1.321 líneas sin agregar superficie durante el congelamiento de Fase 0.

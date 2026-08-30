@@ -416,6 +416,9 @@ estados de carga, error y derivación por rol. Las cinco audiencias se cargan po
 separado y el entry inicial se mantiene en 67,7 KiB. En mobile, la presentación
 de Comidas ya está separada por tarea; el siguiente corte vuelve a la mayor
 concentración pendiente de ARC-001, no a sumar condicionales al shell.
+El primer corte interno web movió Wallet a `src/customer/WalletScreen.tsx`:
+`CustomerSurface.tsx` bajó de 3.794 a **3.720 líneas** y una puerta fija el techo
+en 3.725 sin cambiar la frontera sandbox del dinero.
 
 Las 8 rutas que quedan no son dominio: salud, readiness, el documento OpenAPI,
 el bootstrap por audiencia, las dos de métricas, el 410 que retiró `/api/state`
@@ -468,7 +471,9 @@ propinas; las tres hojas de seguimiento pasaron a
   Comidas se dividió luego en descubrimiento/búsqueda, restaurante/personalización,
   carrito, checkout y pedidos. Los modales de incidencias, devoluciones y siniestros
   también salieron a un límite tipado. `CustomerScreen.tsx` bajó de 6.241 a 1.321
-  líneas y un contrato fija el techo en 1.350. También quedó activo un ratchet que impide que el
+  líneas y un contrato fija el techo en 1.350. En web, Wallet salió de
+  `CustomerSurface.tsx` a un límite propio; el coordinador quedó en 3.720 líneas
+  y su ratchet en 3.725. También quedó activo un ratchet que impide que el
 problema crezca:
 `test:line-length` fija una línea base vigente de **258 líneas de más de 200
 caracteres en 56 archivos** y sólo admite bajarla.

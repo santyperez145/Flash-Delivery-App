@@ -335,6 +335,37 @@ async function auditDesktopAccessGate(browser) {
   await context.close();
 }
 
+async function auditCompactCustomerWallet(browser) {
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    locale: "es-AR",
+    timezoneId: "America/Argentina/Buenos_Aires",
+    reducedMotion: "reduce",
+  });
+  const page = await context.newPage();
+
+  await login(page, desktopUrl, "cliente@flash.app", "Ingresar");
+  const walletTab = page.getByRole("button", { name: "Wallet", exact: true });
+  await walletTab.waitFor({ timeout: 15_000 });
+  await walletTab.click();
+
+  const amount = page.getByLabel("Monto a cargar", { exact: true });
+  const topUp = page.getByRole("button", { name: "Cargar saldo", exact: true });
+  await page.getByText("Actividad financiera", { exact: true }).waitFor();
+  await assertNoPageOverflow(page, "compact customer wallet");
+  await assertLocatorInsideViewport(page, topUp, "compact customer wallet top-up");
+
+  await amount.fill("999");
+  assert.equal(await topUp.isDisabled(), true, "wallet must reject amounts below the floor");
+  await amount.fill("200001");
+  assert.equal(await topUp.isDisabled(), true, "wallet must reject amounts above the ceiling");
+  await amount.fill("10000");
+  assert.equal(await topUp.isEnabled(), true, "wallet must accept an amount inside the range");
+
+  ok("compact customer wallet renders real activity and enforces money limits");
+  await context.close();
+}
+
 if (!skipDesktop) await assertReachable(`${desktopUrl}/`, "desktop web");
 await assertReachable(`${mobileUrl}/`, `${mobileVariant} mobile web`);
 
@@ -342,6 +373,7 @@ const browser = await chromium.launch({ headless: true });
 try {
   await auditMobile(browser);
   if (!skipDesktop) {
+    await auditCompactCustomerWallet(browser);
     await auditDesktopAccessGate(browser);
     await auditDesktopRole(browser, "merchant");
     await auditDesktopRole(browser, "operations");

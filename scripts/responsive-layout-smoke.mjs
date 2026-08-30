@@ -20,6 +20,8 @@ const customerIssues = fs.readFileSync(
   "utf8",
 );
 const { source: webApp } = await readWebSource();
+const webCustomerCoordinator = fs.readFileSync("src/customer/CustomerSurface.tsx", "utf8");
+const webWallet = fs.readFileSync("src/customer/WalletScreen.tsx", "utf8");
 const mobilePackage = JSON.parse(fs.readFileSync("apps/mobile/package.json", "utf8"));
 const rootPackage = JSON.parse(fs.readFileSync("package.json", "utf8"));
 const desktop = fs.readFileSync("src/styles.css", "utf8");
@@ -194,6 +196,16 @@ assert(
     contains(stateStyles, "min-height: 100dvh") &&
     contains(stateStyles, "var(--layout-safe-bottom)"),
   "loading, error and role boundaries share an adaptive honest-state composition",
+);
+
+assert(
+  webCustomerCoordinator.trimEnd().split(/\r?\n/).length <= 3725 &&
+    contains(webCustomerCoordinator, "<WalletScreen") &&
+    !contains(webCustomerCoordinator, "function WalletScreen") &&
+    contains(webWallet, "export function WalletScreen") &&
+    contains(webWallet, "parsedAmount < 1000") &&
+    contains(webWallet, "parsedAmount > 200000"),
+  "web wallet stays outside the customer monolith with its money input limits intact",
 );
 
 assert(

@@ -175,6 +175,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Presupuesto de bundle | `CI` | `test:web-bundle-budget` |
 | Compresión y caché | `CI` | `test:web-delivery` |
 | Contrato responsive | `CI` | `test:responsive-layout` |
+| Segmentación interna de Cliente | `CI` | Wallet vive en `src/customer/WalletScreen.tsx`; `test:responsive-layout` fija `CustomerSurface.tsx` en 3.725 líneas o menos y `test:responsive-browser` verifica actividad, overflow y topes en Chromium compacto sin cargar saldo |
 | Auditoría responsive en navegador real | `CI` | `test:responsive-browser` en `ci-nightly.yml`, una corrida por variante. Hasta el 27-08 pasaba sobre la pantalla de login |
 | Degradación explícita sobre el respaldo | `CI` | `test:fallback-degradation`: 54 rutas × 4 audiencias sin 500. Encontró 17 rutas que reventaban con `TypeError` en vez de responder 503 |
 | CSP activa | `LOCAL` | Sin puerta dedicada |
