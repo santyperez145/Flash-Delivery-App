@@ -286,6 +286,28 @@ Fuentes oficiales adicionales:
 - [Uber Courier: preguntas frecuentes de paquetes](https://help.uber.com/riders/article/courier-package-delivery-faq?nodeId=2f234df8-cdf6-4bf9-81da-8f68b79b35f5)
 - [Uber Connect: seguimiento y comunicación de paquetes](https://www.uber.com/us/en/newsroom/uber-connect-holiday/)
 
+Revalidación del 30 de agosto de 2026 para la segmentación de Comidas:
+
+- La guía oficial de Uber Eats mantiene una secuencia explícita de dirección → restaurante → productos → carrito/checkout → revisión → confirmación → tracking. Flash conserva esos límites como módulos de tarea y comparte sólo el estado que cruza Cuenta y Actividad.
+- DoorDash mantiene el pedido activo en una superficie de Pedidos con ETA, estados de confirmación/preparación/entrega y mapa cuando existe Dasher. Flash conserva esos datos en Pedidos y en la hoja común de tracking; no los duplica dentro de cada pantalla.
+- La extracción es arquitectónica y no crea paridad ficticia. Flash todavía queda por debajo en push probado físicamente, mapas con SLA comercial, pagos marketplace conciliados, cobertura operativa y soporte habilitado.
+
+Fuentes oficiales revalidadas:
+
+- [Uber Eats — cómo realizar un pedido](https://help.uber.com/en/ubereats/restaurants/article/how-to-place-an-order-on-uber-eats?nodeId=509d1b2f-087c-4dac-9e94-6ab248e87491)
+- [DoorDash — estados y tracking de un pedido](https://help.doordash.com/en-us/consumers/article/customer-where-is-my-order)
+
+Revalidación de soporte del 30 de agosto de 2026:
+
+- DoorDash abre Ayuda desde el pedido, pide elegir el problema y condiciona crédito, reembolso o reentrega a las circunstancias y evidencia. Uber Eats separa ítems faltantes o incorrectos y puede solicitar imagen antes de evaluar elegibilidad.
+- Flash mantiene el acceso contextual desde Actividad, categorías explícitas y revisión operativa antes del reintegro. Los formularios se extrajeron a un estado discriminado único para que cerrar un caso no deje datos de otro modal en memoria.
+- Flash queda por debajo en evidencia fotográfica para incidencias de comida, plazos/política aprobados y soporte humano habilitado. La evidencia cifrada existe sólo para siniestros de Envíos y no se presenta como cobertura general.
+
+Fuentes oficiales:
+
+- [DoorDash — reportar un ítem faltante o incorrecto](https://help.doordash.com/en-us/consumers/article/my-order-was-missing-an-item-incorrect-order)
+- [Uber Eats — ítems incorrectos o faltantes](https://help.uber.com/en/ubereats/restaurants/article/wrong-or-missing-items?nodeId=6a92ef28-0f96-433b-971a-4f87c23c21af)
+
 ## Pricing y rutas competitivas
 
 El cotizador de movilidad adopta el patron de precio adelantado: el servidor combina distancia y duracion previstas, modalidad, oferta/demanda, tarifa de servicio y peajes estimados. La cotizacion se firma y conserva durante cinco minutos; al solicitar, la API valida el token para impedir que el cliente modifique el precio.
@@ -404,3 +426,242 @@ deudas se presenta como cerrada por haber modularizado la interfaz.
 - [Uber: activar verificación en dos pasos](https://help.uber.com/riders/article/node-title?nodeId=b8bb9152-8c91-4f49-83c4-35cf2e1dcf72)
 - [Uber: protección de cuenta y dispositivo](https://help.uber.com/riders/article/how-does-uber-protect-my-account?nodeId=03ec28e4-9049-4fe2-a60c-1a7d0334891e)
 - [Uber: agregar o quitar lugares guardados](https://help.uber.com/riders/article/how-to-addremove-saved-places?nodeId=92f13cb2-bab2-4c88-a19e-9d52533496c3)
+
+### Decisión 30 de agosto de 2026 — Envíos como límite transaccional propio
+
+La documentación técnica vigente de Uber Direct separa el flujo en cotización y creación:
+primero valida cobertura, costo y ETA; luego crea la entrega con el identificador de esa
+cotización. Su modelo operativo continúa con despacho, tracking por estados y verificación de
+entrega. La prueba de entrega puede combinar firma, foto, barcode, identidad y PIN según el
+riesgo del artículo. El patrón relevante para ARC-001 es que cotización, confirmación y
+verificación formen un dominio cohesivo, no que sean condicionales dentro de un home general.
+
+Flash mueve ese límite a `CustomerShipmentScreen.tsx` sin cambiar el contrato real existente:
+geocodifica retiro y destino, pide la cotización firmada al servidor, carga la ruta vial de
+forma degradable, crea con el mismo `quoteToken` y conserva PIN, firma, cancelación y
+seguimiento. La pantalla permanece montada al navegar y consume un único evento de dirección
+desde Cuenta, por lo que el refactor no descarta trabajo ni vuelve a filtrar setters por el
+coordinador.
+
+La brecha no se oculta: Flash no está conectado a una red courier productiva ni demuestra aún
+tráfico con SLA, barcodes, identidad regulada, política de retención, cobertura asegurada o
+pruebas físicas de entrega. La extracción mejora mantenibilidad y testabilidad; no convierte
+esas dependencias externas en capacidades verificadas.
+
+- [Uber Direct: cotizar y crear una entrega](https://developer.uber.com/docs/deliveries/get-started)
+- [Uber Direct: ciclo operativo de una entrega](https://developer.uber.com/docs/deliveries/direct/guides/overview)
+- [Uber Direct: prueba de entrega](https://developer.uber.com/docs/deliveries/guides/proof-of-delivery)
+
+### Decisión 30 de agosto de 2026 — tarifa cliente y navegación Driver son límites distintos
+
+Uber y Lyft documentan que el pasajero decide con precio adelantado antes de solicitar. El
+cálculo incorpora ruta, tiempo, tipo de vehículo, disponibilidad o demanda, tráfico, peajes y
+cargos; ambos advierten que cambiar origen, destino o recorrido puede cambiar el importe. La
+documentación de Uber Driver ubica las instrucciones giro a giro, carriles, tráfico y selección
+del navegador dentro de la aplicación del conductor después de aceptar o iniciar un viaje.
+
+Flash separa ahora esos límites en código. `CustomerRideScreen.tsx` conserva mapa de vista
+previa, distancia, ETA, alternativas, desglose y `quoteToken`, pero invalida ruta, opciones y
+precio si cambia el origen por texto, GPS o Cuenta. También deja de convertir el preview del
+pasajero en una guía paso a paso. El cockpit Driver sigue siendo el único dueño de maniobras y
+handoff a un navegador soportado.
+
+La brecha competitiva sigue abierta: el desglose Flash es lógica de servidor probada en CI,
+pero no usa todavía tráfico comercial con SLA ni una oferta de conductores productiva; el
+navegador Driver no tiene evidencia de build físico en movimiento, voz, tráfico o cierres
+viales propios. Por eso el refactor corrige integridad y segmentación sin promover Viajes a
+`PROV`.
+
+- [Uber: precio adelantado para pasajeros](https://www.uber.com/us/en/ride/how-it-works/upfront-pricing/)
+- [Lyft: precio y cargos del viaje](https://help.lyft.com/hc/en-us/rider/articles/115012925707)
+- [Uber Driver: navegación y etapas del viaje](https://www.uber.com/us/en/drive/driver-app/)
+- [Uber Driver: funciones de navegación](https://help.uber.com/driving-and-delivering/article/uber-driver-app-navigation-features?nodeId=d6da8da9-cad5-402f-a722-86307b01a1fd)
+
+### Decisión 30 de agosto de 2026 — Wallet web como límite financiero auditable
+
+Mercado Pago documenta saldo, movimientos aprobados, ingresos, reintegros, contracargos y
+disputas como eventos financieros conciliables. También diferencia el importe bruto del
+impacto neto y aclara que una cuenta de prueba puede ejecutar el flujo de reportes sin poblar
+datos reales. El patrón relevante para ARC-001 es que Wallet sea un límite financiero con
+historial trazable, no una tarjeta decorativa mezclada con el home.
+
+Flash mueve saldo, carga sandbox, movimientos y promociones a `WalletScreen.tsx`. Conserva
+el ledger autenticado y sus topes actuales; la extracción no cambia el modelo de custodia ni
+afirma que la recarga simulada sea dinero productivo. La puerta responsive impide volver a
+enterrar ese límite en `CustomerSurface.tsx`.
+
+Flash sigue por debajo de la referencia: la vista no separa todavía saldos disponible,
+pendiente o retenido, ni ofrece filtros, exportación o una conciliación visible contra el PSP.
+Esas capacidades requieren credenciales, operación productiva, revisión legal/regulatoria y
+evidencia del proveedor; no se cierran desde código.
+
+- [Mercado Pago: reporte de dinero en cuenta](https://www.mercadopago.com.ar/developers/es/docs/reports/account-money/introduction)
+- [Mercado Pago: tipos e impacto neto de las transacciones](https://www.mercadopago.com.ar/developers/en/docs/reports/account-money/how-to-use)
+
+### Decisión 30 de agosto de 2026 — Cuenta web como límite reutilizable
+
+Uber ubica Casa, Trabajo y otros lugares guardados dentro de Cuenta y permite etiquetar,
+editar y eliminar destinos frecuentes. Uber Eats diferencia el filtro dietario del catálogo
+de una solicitud de alergia asociada al producto, y advierte que una instrucción no garantiza
+por sí misma que el comercio pueda cumplirla. El patrón útil es una Cuenta persistente que
+reutiliza destinos y preferencias sin degradar una declaración de seguridad alimentaria a un
+simple filtro visual.
+
+Flash separa perfil, libreta y dieta en `CustomerProfileScreen.tsx`,
+`CustomerAddressBook.tsx` y `CustomerDietaryPreferences.tsx`. Conserva geocoding, token de
+validación, ownership y selección predeterminada; editar texto invalida coordenadas y token
+hasta elegir otra coincidencia. Conserva también preferencias persistidas y la advertencia
+explícita sobre contaminación cruzada. La prueba Chromium sólo lee la superficie: no modifica
+el perfil de la cuenta de prueba.
+
+Flash sigue por debajo porque no ofrece todavía solicitudes de alergia por ítem con aceptación
+o rechazo del comercio, ni prueba física el circuito. La extracción mejora el límite técnico,
+pero no transforma etiquetas declaradas por el comercio en garantía médica.
+
+- [Uber: agregar o quitar lugares guardados](https://help.uber.com/riders/article/how-to-addremove-saved-places?nodeId=92f13cb2-bab2-4c88-a19e-9d52533496c3)
+- [Uber Eats: instrucciones de alergias y filtros dietarios](https://help.uber.com/en/ubereats/restaurants/article/about-allergies?nodeId=8b473a3d-8341-4369-9287-7febe2fe0b7b)
+
+### Decisión 30 de agosto de 2026 — Actividad y tracking web por vertical
+
+DoorDash mantiene el pedido activo dentro de Pedidos y, cuando un Dasher aceptó,
+muestra ETA, etapas, mapa relativo al comercio/destino y contacto. Uber Eats expone
+`Track Order` desde la lista y conserva confirmación, preparación y entrega como
+estados legibles. Para viajes, Uber comparte por enlace nombre, vehículo y ubicación
+en tiempo real; en paquetería, DoorDash Drive expone URL de tracking y POD por foto o
+firma. El patrón común no es una tarjeta decorativa: Actividad abre una superficie
+operativa específica y los datos ausentes se declaran.
+
+Flash separa `CustomerActivityScreen`, la tarjeta de estado y cada hoja de tracking.
+Las tres cargan ruta autenticada y mapa sólo con coordenadas reales. Pedido conserva
+estado y ETA; Viaje conserva PIN, enlace con vencimiento e incidente de seguridad;
+Envío conserva PIN y evidencia cifrada. Un error al consultar POD queda visible sin
+derribar la ruta. Chromium abre las tres hojas a 390 × 844 y, si falta el caso de
+Envío, lo crea por la cotización y solicitud públicas reales con firma e idempotencia.
+
+Flash sigue por debajo: no hay tráfico comercial con SLA, telefonía/mensajería
+anonimizada, push probado en dispositivos, operación de safety 24/7 ni retención de
+POD acordada con proveedor y marco legal. La prueba demuestra código y runtime local;
+no demuestra red productiva, habilitación, seguros ni atención humana.
+
+- [DoorDash: estados, ETA, mapa y contacto del pedido](https://help.doordash.com/en-us/consumers/article/customer-where-is-my-order)
+- [Uber Eats: seguimiento desde la lista de pedidos](https://help.uber.com/ubereats/restaurants/article/node-title?nodeId=0341399a-092f-4012-b4c6-478b9906700d)
+- [Uber: compartir ETA, conductor, vehículo y ubicación](https://help.uber.com/riders/article/sharing-eta-and-trip-status?nodeId=20e8c951-36ac-450a-90aa-738d467d023a)
+- [DoorDash Drive: URL de tracking y prueba de entrega](https://developer.doordash.com/en-US/docs/drive/how_to/Parcel/webhooks_payload_fields/)
+
+### Decisión 30 de agosto de 2026 — Envíos web como frontera cotizar → confirmar → crear
+
+La guía vigente de Uber Direct recomienda cotizar antes de crear: la quote valida
+entregabilidad y costo, devuelve tarifa, ETA e identidad con vencimiento, y esa identidad
+se conserva al solicitar la entrega. DoorDash Drive modela el mismo límite como crear y
+aceptar una quote antes de la delivery. Para ARC-001, la consecuencia es estructural:
+Envíos debe poseer formulario, opciones, quote y consentimiento; el shell sólo conserva
+el callback que integra el alta con el estado global.
+
+Flash mueve esa frontera a `ShipmentHome.tsx`. Las categorías y niveles siguen viniendo
+del backend, ambas direcciones se geocodifican, cualquier cambio invalida el precio, y la
+creación exige el `quoteToken` vigente. El navegador sólo recorre el formulario en este
+corte; la persistencia, ownership, riesgo, idempotencia y captura Wallet continúan
+verificados contra PostgreSQL por las puertas existentes.
+
+La similitud termina en el contrato: Flash no está conectado a la red Uber Direct ni
+DoorDash Drive, no tiene sus credenciales/OAuth, cobertura, SLA o aprobación comercial y
+no debe presentarse como homologado. La quote local es lógica Flash probada en CI, no una
+cotización de proveedor productivo.
+
+- [Uber Direct: crear quote y usar su identidad al crear delivery](https://developer.uber.com/docs/deliveries/get-started)
+- [Uber Direct: secuencia operativa quote → confirmación → delivery](https://developer.uber.com/docs/deliveries/direct/guides/overview)
+- [DoorDash Drive API: crear y aceptar quote](https://developer.doordash.com/en-US/api/drive/)
+
+### Decisión 30 de agosto de 2026 — Carrito y pago web como una tarea verificable
+
+La guía vigente de Uber Eats conserva una secuencia explícita: dirección, restaurante,
+productos, carrito/finalización, revisión, confirmación y tracking. Mercado Pago separa
+además la responsabilidad de seguridad: Card Payment Brick obtiene un token de tarjeta en
+cliente y el backend debe validar el contexto de compra y enviar el pago con su credencial
+privada. Esa frontera evita que el coordinador de Cliente sea dueño de la captura de pago o
+que el navegador invente el importe final.
+
+Flash mueve carrito y checkout a `FoodCartScreen.tsx`. La pantalla elige una dirección
+geocodificada, consulta la configuración pública del proveedor, pide una quote firmada con
+versión y vencimiento, y recién después habilita Wallet o el Card Payment Brick. El callback
+devuelve token, método y cuotas al flujo de creación existente; no maneja PAN ni CVV. Propina
+y horario siguen dentro de la selección confirmada, y cualquier cambio relevante obliga a
+recotizar.
+
+Esto demuestra el límite de código y el runtime local, no dinero productivo. Faltan
+credenciales productivas, onboarding marketplace de comercios, webhooks y conciliación
+externa, 3DS probado en dispositivos, gestión de contracargos, revisión PCI/legal y una
+operación financiera aprobada. La carga Wallet continúa siendo sandbox y se presenta como
+tal.
+
+- [Uber Eats: secuencia oficial para realizar un pedido](https://help.uber.com/es/ubereats/restaurants/article/c%C3%B3mo-hacer-un-pedido-en-uber-eats?nodeId=509d1b2f-087c-4dac-9e94-6ab248e87491)
+- [Mercado Pago: Card Payment Brick y alcance PCI del formulario](https://www.mercadopago.com.ar/developers/es/docs/checkout-bricks/card-payment-brick/introduction)
+- [Mercado Pago: envío server-side, validación y credencial privada](https://www.mercadopago.com.ar/developers/es/docs/checkout-bricks/card-payment-brick/payment-submission)
+
+### Decisión 30 de agosto de 2026 — Restaurante, modificadores y notas por producto
+
+Uber Eats y DoorDash colocan la personalización dentro del producto: modificadores con
+precio y una instrucción especial viajan con esa línea, antes del carrito. La documentación
+vigente distingue además una nota común de una solicitud estructurada de alergia. Esa
+separación importa porque el comercio puede rechazar una instrucción y una alergia requiere
+selección, respuesta y trazabilidad más fuertes que un texto libre.
+
+Flash separa el detalle de restaurante, los componentes compartidos de catálogo y la hoja de
+producto. La hoja conserva extras tarifados, nota, cantidad y total; el restaurante filtra
+productos sólo con las declaraciones dietarias persistidas y muestra una advertencia honesta.
+El shell global abre el personalizador directamente, mientras el coordinador conserva sólo el
+estado que cruza detalle, carrito y Actividad.
+
+Flash todavía no implementa una solicitud de alergia por ítem con confirmación del comercio,
+ventana de respuesta y cancelación. Tampoco prueba contaminación cruzada, exactitud nutricional
+o sincronización de menú contra un proveedor externo. Una nota libre no se presenta como
+garantía médica ni como aceptación del restaurante.
+
+- [Uber Eats: instrucciones especiales por producto](https://help.uber.com/es/ubereats/restaurants/article/c%C3%B3mo-puedo-hacer-una-instrucci%C3%B3n-especial-para-un-pedido?nodeId=6cae92ca-edd0-49fc-aa50-5b46366626dd)
+- [Uber Eats: filtros dietarios y solicitud de alergia diferenciada](https://help.uber.com/en/ubereats/restaurants/article/about-allergies?nodeId=8b473a3d-8341-4369-9287-7febe2fe0b7b)
+- [DoorDash: instrucciones especiales y posibles cargos adicionales](https://help.doordash.com/en-us/consumers/article/can-i-specify-special-instructions-for-my-order)
+
+### Decisión 30 de agosto de 2026 — Descubrimiento desde catálogo y señales honestas
+
+Uber Eats permite buscar restaurante, cocina y plato, y presenta tiempo de preparación,
+distancia, precio y rating como señales de decisión. Sus superficies también distinguen
+filtros editoriales como Highest Rated y recomendaciones personalizadas. DoorDash documenta
+que etiquetas dietarias, alérgenos y cocina deben ser confirmadas por el comercio y pueden
+alimentar búsqueda, badges y carruseles.
+
+Flash separa home/descubrimiento y conserva la búsqueda, categorías, restaurantes, productos
+y favoritos conectados al estado autenticado. La portada dejó de usar una foto promocional
+fija ajena al catálogo: elige el primer comercio abierto y usa su portada/imagen; si no hay
+datos, no inventa una campaña. Flash Más también sigue leyendo nombre, precio y beneficios
+del backend y se oculta ante una suscripción activa.
+
+La comparación deja una brecha explícita: Flash no tiene todavía ranking offline/online
+medido, personalización explicable, experimentación de relevancia, inventario con SLA ni
+etiquetas confirmadas por el comercio. Tampoco existe un producto publicitario cuya
+priorización y disclosure estén gobernados. Las secciones actuales son composición del
+catálogo, no una afirmación de recomendación algorítmica validada.
+
+- [Uber Eats: búsqueda por restaurante, cocina o plato y señales de decisión](https://help.uber.com/ubereats/restaurants/article/pick-up-order-faq?nodeId=a58f21e8-fc3e-42cb-adfd-92db5024faf5)
+- [Uber Eats: filtro Highest Rated y recomendaciones personalizadas](https://help.uber.com/ubereats/restaurants/article/what-is-highest-rated?nodeId=aa4408c6-c7e5-4752-bb18-3f637b93270e)
+- [DoorDash: etiquetas confirmadas que alimentan descubrimiento](https://help.doordash.com/en-us/merchants/article/how-to-manage-food-and-store-labels-in-merchant-portal)
+
+### Decisión 30 de agosto de 2026 — Servicios separados, identidad y Actividad comunes
+
+Uber permite usar las credenciales de Rides en Eats y expone Courier como una opción de la
+misma experiencia; su documentación de Courier también describe un hub de actividad con los
+viajes activos. La consecuencia útil no es copiar una barra concreta, sino mantener una
+identidad y un historial comunes mientras cada servicio conserva su tarea especializada.
+
+Flash mantiene Comida, Taxi y Envíos como superficies distintas y conserva Inicio,
+Actividad, Wallet y Perfil como navegación estable. `public_rides` y `shipment_beta` siguen
+viniendo de operaciones: ocultar una vertical es una decisión remota real, mientras una carga
+fallida de flags no se convierte silenciosamente en un apagado. El coordinador sólo integra
+estado y callbacks; la navegación es una frontera verificable.
+
+Quedan brechas de producción: elegibilidad por país/zona/proveedor, explicación visible de
+por qué un servicio no está disponible, medición de journeys entre verticales, deep links y
+push verificados en builds físicos. La existencia de una pestaña local no demuestra oferta,
+seguro ni habilitación comercial.
+
+- [Uber Eats: una identidad existente de Rides también accede a Eats](https://help.uber.com/ubereats/restaurants/article/how-do-i-create-an-uber-eats-account?nodeId=13daba70-cc3d-4204-9981-1591d7942042)
+- [Uber Courier: opción de paquetes y hub de actividad común](https://help.uber.com/en/riders/article/node-title?nodeId=8fa2306b-c14d-4f0b-9395-4c4523a81e85)

@@ -6,12 +6,52 @@ import { contains, containsAll, containsNone, readWebSource, section } from "./s
 // fija se rompe —o se vacía— en cuanto un componente cambia de archivo.
 const { source: app } = await readWebSource();
 const api = await fs.readFile("src/api.ts", "utf8");
+const coordinator = await fs.readFile("src/customer/CustomerSurface.tsx", "utf8");
+const foodCart = await fs.readFile("src/customer/FoodCartScreen.tsx", "utf8");
+const quantityCounter = await fs.readFile("src/customer/QuantityCounter.tsx", "utf8");
+const emptyState = await fs.readFile("src/customer/EmptyState.tsx", "utf8");
+const foodCatalog = await fs.readFile("src/customer/FoodCatalogComponents.tsx", "utf8");
+const foodRestaurant = await fs.readFile("src/customer/FoodRestaurantScreen.tsx", "utf8");
+const foodItemSheet = await fs.readFile("src/customer/FoodItemSheet.tsx", "utf8");
+const foodDiscovery = await fs.readFile("src/customer/FoodDiscoveryHome.tsx", "utf8");
 const checkout = section(app, "function CartScreen(", "type ProviderPaymentInput");
 if (!checkout) throw new Error("No se encontró el checkout web");
 const assert = (condition, message) => {
   if (!condition) throw new Error(message);
   console.log(`ok - ${message}`);
 };
+
+assert(
+  coordinator.trimEnd().split(/\r?\n/).length <= 375 &&
+    foodCart.trimEnd().split(/\r?\n/).length <= 690 &&
+    quantityCounter.trimEnd().split(/\r?\n/).length <= 35 &&
+    emptyState.trimEnd().split(/\r?\n/).length <= 25 &&
+    contains(coordinator, "<CartScreen") &&
+    !contains(coordinator, "function CartScreen") &&
+    contains(foodCart, "<MercadoPagoCardCheckout"),
+  "carrito, checkout, pago y primitivas conservan límites propios",
+);
+
+assert(
+  foodCatalog.trimEnd().split(/\r?\n/).length <= 155 &&
+    foodRestaurant.trimEnd().split(/\r?\n/).length <= 95 &&
+    foodItemSheet.trimEnd().split(/\r?\n/).length <= 110 &&
+    contains(coordinator, "<RestaurantDetail") &&
+    !contains(coordinator, "function RestaurantDetail") &&
+    !contains(coordinator, "function ItemSheet") &&
+    containsAll(foodRestaurant, ["itemMatchesDietary", "<CategoryRail", "<FoodRow"]) &&
+    containsAll(foodItemSheet, ["<QuantityCounter", "restaurant.extras.map", "setNote"]),
+  "restaurante, catálogo y personalización conservan límites propios",
+);
+
+assert(
+  foodDiscovery.trimEnd().split(/\r?\n/).length <= 130 &&
+    contains(coordinator, "<FoodDiscoveryHome") &&
+    !contains(coordinator, "function FoodDiscoveryHome") &&
+    containsAll(foodDiscovery, ["featuredRestaurant?.cover", "<RestaurantCard", "<FoodRow"]) &&
+    containsNone(foodDiscovery, ["images.unsplash.com"]),
+  "home y descubrimiento usan catálogo real y conservan un límite propio",
+);
 
 assert(
   containsNone(checkout, ["Defensa 982", "Dirección pendiente"]),

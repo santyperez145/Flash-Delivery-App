@@ -165,6 +165,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Crash reporting | — | **No existe** |
 | Entrypoints separados por audiencia | `CI` | `metro.config.js` resuelve la pantalla según `EXPO_PUBLIC_APP_VARIANT`; `test:mobile-variant-bundles` empaqueta las tres y exige que cada bundle Hermes lleve una sola |
 | Variante instalada con fuente única | `CI` | `test:mobile-build-variants`. El runtime la leía del manifiesto de Expo, que en web no llega: el build de conductor pedía rol `customer` y rechazaba al conductor |
+| Segmentación interna de Cliente | `CI` | Cuenta, Actividad, tracking, Viajes, Envíos, resolución de problemas y las cinco tareas de Comidas viven fuera de `CustomerScreen.tsx`; `test:responsive-layout` y `test:mobile-food-design` fijan el coordinador en 1.350 líneas o menos |
 
 ## Web y entrega
 
@@ -174,6 +175,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Presupuesto de bundle | `CI` | `test:web-bundle-budget` |
 | Compresión y caché | `CI` | `test:web-delivery` |
 | Contrato responsive | `CI` | `test:responsive-layout` |
+| Segmentación interna de Cliente | `CI` | Wallet, perfil, libreta, dieta, Actividad, Envíos, descubrimiento, restaurante, catálogo/personalización, carrito/checkout, navegación, tarjeta de estado y los tres trackings viven en módulos propios; `test:responsive-layout`, `test:web-checkout` y `test:web-tracking-maps` fijan 375/95/130/155/95/110/690/35/25/575/130/315/165/195/180/340/285 líneas y APIs propietarias. Chromium verifica Cuenta, cotizador, home, restaurante, personalizador, carrito y los tres trackings a 390 × 844; el envío activo faltante se cotiza/crea por API real e idempotente |
 | Auditoría responsive en navegador real | `CI` | `test:responsive-browser` en `ci-nightly.yml`, una corrida por variante. Hasta el 27-08 pasaba sobre la pantalla de login |
 | Degradación explícita sobre el respaldo | `CI` | `test:fallback-degradation`: 54 rutas × 4 audiencias sin 500. Encontró 17 rutas que reventaban con `TypeError` en vez de responder 503 |
 | CSP activa | `LOCAL` | Sin puerta dedicada |

@@ -10,7 +10,30 @@ const customerAccount = fs.readFileSync(
   "apps/mobile/src/screens/CustomerAccountScreen.tsx",
   "utf8",
 );
+const customerShipment = fs.readFileSync(
+  "apps/mobile/src/screens/CustomerShipmentScreen.tsx",
+  "utf8",
+);
+const customerRide = fs.readFileSync("apps/mobile/src/screens/CustomerRideScreen.tsx", "utf8");
+const customerIssues = fs.readFileSync(
+  "apps/mobile/src/screens/CustomerServiceIssueModals.tsx",
+  "utf8",
+);
 const { source: webApp } = await readWebSource();
+const webCustomerCoordinator = fs.readFileSync("src/customer/CustomerSurface.tsx", "utf8");
+const webWallet = fs.readFileSync("src/customer/WalletScreen.tsx", "utf8");
+const webCustomerProfile = fs.readFileSync("src/customer/CustomerProfileScreen.tsx", "utf8");
+const webCustomerAddressBook = fs.readFileSync("src/customer/CustomerAddressBook.tsx", "utf8");
+const webCustomerDietary = fs.readFileSync("src/customer/CustomerDietaryPreferences.tsx", "utf8");
+const webCustomerShipment = fs.readFileSync("src/customer/ShipmentHome.tsx", "utf8");
+const webFoodCart = fs.readFileSync("src/customer/FoodCartScreen.tsx", "utf8");
+const webQuantityCounter = fs.readFileSync("src/customer/QuantityCounter.tsx", "utf8");
+const webEmptyState = fs.readFileSync("src/customer/EmptyState.tsx", "utf8");
+const webFoodCatalog = fs.readFileSync("src/customer/FoodCatalogComponents.tsx", "utf8");
+const webFoodRestaurant = fs.readFileSync("src/customer/FoodRestaurantScreen.tsx", "utf8");
+const webFoodItemSheet = fs.readFileSync("src/customer/FoodItemSheet.tsx", "utf8");
+const webFoodDiscovery = fs.readFileSync("src/customer/FoodDiscoveryHome.tsx", "utf8");
+const webCustomerNavigation = fs.readFileSync("src/customer/CustomerNavigation.tsx", "utf8");
 const mobilePackage = JSON.parse(fs.readFileSync("apps/mobile/package.json", "utf8"));
 const rootPackage = JSON.parse(fs.readFileSync("package.json", "utf8"));
 const desktop = fs.readFileSync("src/styles.css", "utf8");
@@ -96,13 +119,46 @@ assert(
 );
 
 assert(
-  customerCoordinator.trimEnd().split(/\r?\n/).length <= 4346 &&
+  customerCoordinator.trimEnd().split(/\r?\n/).length <= 1350 &&
     contains(customerCoordinator, "<CustomerAccountScreen") &&
     !contains(customerCoordinator, "Teléfono de seguridad") &&
     contains(customerAccount, "export function CustomerAccountScreen") &&
     contains(customerAccount, "if (!visible) return null") &&
     contains(customerAccount, "onUseAddress(item.address, point)"),
   "customer account stays outside the shrinking coordinator and keeps address selection wired",
+);
+
+assert(
+  contains(customerCoordinator, "<CustomerShipmentScreen") &&
+    !contains(customerCoordinator, "Mandá algo hoy") &&
+    contains(customerShipment, "export function CustomerShipmentScreen") &&
+    contains(customerShipment, "if (!visible) return null") &&
+    contains(customerShipment, "api.quoteShipment") &&
+    contains(customerShipment, "api.createShipment") &&
+    contains(customerShipment, "setShipmentPickup(selectedAddress.address)"),
+  "shipment quote and request stay outside the coordinator with shared address wiring",
+);
+
+assert(
+  contains(customerCoordinator, "<CustomerRideScreen") &&
+    !contains(customerCoordinator, "¿A dónde vamos?") &&
+    contains(customerRide, "export function CustomerRideScreen") &&
+    contains(customerRide, "if (!visible) return null") &&
+    contains(customerRide, "api.quoteRideOptions") &&
+    contains(customerRide, "api.createRide") &&
+    contains(customerRide, "setPickup(selectedAddress.address)") &&
+    contains(customerRide, "invalidateQuote()"),
+  "ride quote and request stay outside the coordinator and invalidate stale prices",
+);
+
+assert(
+  contains(customerCoordinator, "<CustomerServiceIssueModals") &&
+    !contains(customerCoordinator, "No se mueve dinero hasta que operaciones valide") &&
+    contains(customerIssues, "export type CustomerServiceIssueState") &&
+    contains(customerIssues, "api.requestShipmentReturn") &&
+    contains(customerIssues, "api.createShipmentClaim") &&
+    contains(customerIssues, "api.createOrderIssue"),
+  "customer issue, return and claim dialogs stay outside the coordinator with real API wiring",
 );
 
 assert(
@@ -152,6 +208,92 @@ assert(
     contains(stateStyles, "min-height: 100dvh") &&
     contains(stateStyles, "var(--layout-safe-bottom)"),
   "loading, error and role boundaries share an adaptive honest-state composition",
+);
+
+assert(
+  webCustomerCoordinator.trimEnd().split(/\r?\n/).length <= 375 &&
+    contains(webCustomerCoordinator, "<WalletScreen") &&
+    contains(webCustomerCoordinator, "<CustomerProfileScreen") &&
+    !contains(webCustomerCoordinator, "function WalletScreen") &&
+    !contains(webCustomerCoordinator, "function ProfileScreen") &&
+    contains(webWallet, "export function WalletScreen") &&
+    contains(webWallet, "parsedAmount < 1000") &&
+    contains(webWallet, "parsedAmount > 200000") &&
+    contains(webCustomerProfile, "export function CustomerProfileScreen") &&
+    webCustomerProfile.trimEnd().split(/\r?\n/).length <= 130 &&
+    contains(webCustomerProfile, "<CustomerAddressBook") &&
+    contains(webCustomerProfile, "<CustomerDietaryPreferences") &&
+    webCustomerAddressBook.trimEnd().split(/\r?\n/).length <= 315 &&
+    contains(webCustomerAddressBook, "export type CustomerAddressPayload") &&
+    contains(webCustomerAddressBook, "await api.geocode(query)") &&
+    contains(webCustomerAddressBook, "onCreateAddress(payload)") &&
+    contains(webCustomerAddressBook, "onUpdateAddress(editingAddressId, payload)") &&
+    webCustomerDietary.trimEnd().split(/\r?\n/).length <= 165 &&
+    contains(webCustomerDietary, "api.updateDietaryPreferences"),
+  "web wallet, profile, addresses and dietary settings keep bounded ownership and API wiring",
+);
+
+assert(
+  contains(webCustomerCoordinator, "<ShipmentHome") &&
+    !contains(webCustomerCoordinator, "function ShipmentHome") &&
+    webCustomerShipment.trimEnd().split(/\r?\n/).length <= 575 &&
+    contains(webCustomerShipment, "api.getShipmentOptions") &&
+    contains(webCustomerShipment, "api.geocode") &&
+    contains(webCustomerShipment, "api.quoteShipment") &&
+    contains(webCustomerShipment, "quoteToken: quote.quoteToken") &&
+    contains(webCustomerShipment, "await onCreateShipment"),
+  "web shipment keeps options, geocoding, signed quote and creation outside the coordinator",
+);
+
+assert(
+  contains(webCustomerCoordinator, "<CartScreen") &&
+    !contains(webCustomerCoordinator, "function CartScreen") &&
+    !contains(webCustomerCoordinator, "function Counter") &&
+    !contains(webCustomerCoordinator, "function EmptyState") &&
+    webFoodCart.trimEnd().split(/\r?\n/).length <= 690 &&
+    webQuantityCounter.trimEnd().split(/\r?\n/).length <= 35 &&
+    webEmptyState.trimEnd().split(/\r?\n/).length <= 25,
+  "web cart, checkout and their shared primitives keep bounded ownership",
+);
+
+assert(
+  contains(webCustomerCoordinator, "<RestaurantDetail") &&
+    !contains(webCustomerCoordinator, "function RestaurantDetail") &&
+    !contains(webCustomerCoordinator, "function RestaurantCard") &&
+    !contains(webCustomerCoordinator, "function ItemSheet") &&
+    webFoodCatalog.trimEnd().split(/\r?\n/).length <= 155 &&
+    webFoodRestaurant.trimEnd().split(/\r?\n/).length <= 95 &&
+    webFoodItemSheet.trimEnd().split(/\r?\n/).length <= 110 &&
+    contains(webFoodRestaurant, "itemMatchesDietary") &&
+    contains(webFoodRestaurant, "<CategoryRail") &&
+    contains(webFoodRestaurant, "<FoodRow") &&
+    contains(webFoodItemSheet, "<QuantityCounter") &&
+    contains(webApp, 'import("./customer/FoodItemSheet")'),
+  "web restaurant, catalog cards and item customization keep bounded ownership",
+);
+
+assert(
+  contains(webCustomerCoordinator, "<FoodDiscoveryHome") &&
+    !contains(webCustomerCoordinator, "function FoodDiscoveryHome") &&
+    webFoodDiscovery.trimEnd().split(/\r?\n/).length <= 130 &&
+    contains(webFoodDiscovery, "featuredRestaurant?.cover") &&
+    !contains(webFoodDiscovery, "images.unsplash.com") &&
+    contains(webFoodDiscovery, "<RestaurantCard") &&
+    contains(webFoodDiscovery, "<FoodRow") &&
+    contains(webCustomerCoordinator, "api.setFavorite"),
+  "web food discovery owns real catalog composition without a hardcoded hero asset",
+);
+
+assert(
+  contains(webCustomerCoordinator, "<ServiceToggle") &&
+    contains(webCustomerCoordinator, "<CustomerBottomNav") &&
+    !contains(webCustomerCoordinator, "function ServiceToggle") &&
+    !contains(webCustomerCoordinator, "function BottomNav") &&
+    webCustomerNavigation.trimEnd().split(/\r?\n/).length <= 95 &&
+    contains(webCustomerNavigation, "features?.shipment_beta?.active") &&
+    contains(webCustomerNavigation, "features?.public_rides?.active") &&
+    contains(webCustomerNavigation, 'label: "Actividad"'),
+  "web service flags and stable customer navigation keep bounded ownership",
 );
 
 assert(

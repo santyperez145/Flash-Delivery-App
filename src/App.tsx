@@ -125,7 +125,7 @@ const CustomerApp = lazy(() =>
   import("./customer/CustomerSurface").then((module) => ({ default: module.CustomerApp })),
 );
 const ItemSheet = lazy(() =>
-  import("./customer/CustomerSurface").then((module) => ({ default: module.ItemSheet })),
+  import("./customer/FoodItemSheet").then((module) => ({ default: module.ItemSheet })),
 );
 const MerchantDesktopConsole = lazy(() =>
   import("./merchant/MerchantConsole").then((module) => ({
