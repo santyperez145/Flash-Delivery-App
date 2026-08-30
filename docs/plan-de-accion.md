@@ -108,7 +108,7 @@ La matriz vive en `docs/matriz-madurez.md` y se actualiza en el mismo PR que cam
 | Entregable | Ticket | Criterio de cierre |
 | --- | --- | --- |
 | Separación de `src/App.tsx` | ARC-001 | Shell web en 1.274 líneas; acceso y estados transversales extraídos |
-| Separación de `apps/mobile/App.tsx` | ARC-001 | Entrypoints customer/driver/merchant independientes; Actividad, tracking, Cuenta y Envíos fuera del coordinador customer |
+| Separación de `apps/mobile/App.tsx` | ARC-001 | Entrypoints customer/driver/merchant independientes; Actividad, tracking, Cuenta, Envíos y Viajes fuera del coordinador customer |
 | Descomposición de `server/index.js` | ARC-001 | Controllers separados de use cases y repositories. **9 de 57 grupos extraídos**; el núcleo compartido está completo, así que lo que queda es repetitivo y no de diseño |
 | ~~Reformateo de archivos comprimidos~~ **hecho** | ARC-001 | Línea máxima 4.061 → 206; quedan 262 líneas largas, casi todas SQL |
 | ~~Dispatch v2 etapa 1~~ **hecho** | DSP-001 | `ST_DWithin` + KNN recortan candidatos antes del scoring |
@@ -462,8 +462,10 @@ propinas; las tres hojas de seguimiento pasaron a
   perder estado de navegación ni el cableado de direcciones; y Envíos pasó a
   `CustomerShipmentScreen.tsx` con su cotización, ruta, opciones y solicitud
   reales. Ambos límites permanecen montados y comparten sólo el evento tipado de
-  dirección. `CustomerScreen.tsx` bajó de 6.241 a 3.809 líneas. Quedan Comidas y
-  Viajes. También quedó
+  dirección. Viajes pasó a `CustomerRideScreen.tsx` con GPS, destinos, ruta,
+  tarifa adelantada, reserva, contactos y solicitud persistida; un cambio de
+  origen invalida el precio y las maniobras quedan sólo en Driver.
+  `CustomerScreen.tsx` bajó de 6.241 a 3.159 líneas. Queda Comidas. También quedó
 activo un ratchet que impide que el
 problema crezca:
 `test:line-length` fija una línea base vigente de **258 líneas de más de 200

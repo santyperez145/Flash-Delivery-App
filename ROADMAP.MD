@@ -8,6 +8,16 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 30 de agosto de 2026 — ARC-001, Viajes móvil fuera del coordinador
+
+- [x] Origen/destino, GPS, destinos recientes, ruta, opciones, tarifa adelantada, reserva y solicitud persistida viven en `CustomerRideScreen.tsx`; no se agregó superficie durante el congelamiento de Fase 0.
+- [x] `CustomerScreen.tsx` bajó de 3.809 a 3.159 líneas. Viajes permanece montado entre pestañas para conservar direcciones y una cotización en curso.
+- [x] Cambiar el origen —por texto, GPS o una dirección de Cuenta— invalida ruta, opciones y precio anterior. El usuario ya no puede intentar solicitar con una tarifa visualmente vigente para otro origen.
+- [x] La pantalla cliente conserva vista previa de ruta, distancia y ETA, pero dejó de mostrar instrucciones giro a giro. La guía operativa permanece exclusivamente en Flash Driver, como exige la segmentación vigente.
+- [x] `test:responsive-layout` y `test:mobile-maps` fijan el nuevo techo, verifican las APIs reales `quoteRideOptions`/`createRide`, la invalidación de tarifa y la ausencia de maniobras en cliente.
+- [~] Uber y Lyft muestran precio adelantado sujeto a ruta, demanda, tráfico y peajes; Flash conserva ese desglose, pero sigue por debajo en tráfico con SLA, oferta productiva, habilitación, seguro y validación física. Las instrucciones de conducción requieren además build Driver probado en movimiento.
+- [ ] Comidas es el único dominio transaccional que queda dentro del coordinador customer para cerrar este tramo de ARC-001.
+
 ## Avance 30 de agosto de 2026 — ARC-001, Envíos móvil fuera del coordinador
 
 - [x] Cotización, geocodificación, ruta vial, opciones, protección, firma y creación persistida viven en `CustomerShipmentScreen.tsx`; el cambio mueve lógica existente y no agrega superficie durante el congelamiento de Fase 0.

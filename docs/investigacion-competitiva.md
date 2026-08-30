@@ -429,3 +429,28 @@ esas dependencias externas en capacidades verificadas.
 - [Uber Direct: cotizar y crear una entrega](https://developer.uber.com/docs/deliveries/get-started)
 - [Uber Direct: ciclo operativo de una entrega](https://developer.uber.com/docs/deliveries/direct/guides/overview)
 - [Uber Direct: prueba de entrega](https://developer.uber.com/docs/deliveries/guides/proof-of-delivery)
+
+### Decisión 30 de agosto de 2026 — tarifa cliente y navegación Driver son límites distintos
+
+Uber y Lyft documentan que el pasajero decide con precio adelantado antes de solicitar. El
+cálculo incorpora ruta, tiempo, tipo de vehículo, disponibilidad o demanda, tráfico, peajes y
+cargos; ambos advierten que cambiar origen, destino o recorrido puede cambiar el importe. La
+documentación de Uber Driver ubica las instrucciones giro a giro, carriles, tráfico y selección
+del navegador dentro de la aplicación del conductor después de aceptar o iniciar un viaje.
+
+Flash separa ahora esos límites en código. `CustomerRideScreen.tsx` conserva mapa de vista
+previa, distancia, ETA, alternativas, desglose y `quoteToken`, pero invalida ruta, opciones y
+precio si cambia el origen por texto, GPS o Cuenta. También deja de convertir el preview del
+pasajero en una guía paso a paso. El cockpit Driver sigue siendo el único dueño de maniobras y
+handoff a un navegador soportado.
+
+La brecha competitiva sigue abierta: el desglose Flash es lógica de servidor probada en CI,
+pero no usa todavía tráfico comercial con SLA ni una oferta de conductores productiva; el
+navegador Driver no tiene evidencia de build físico en movimiento, voz, tráfico o cierres
+viales propios. Por eso el refactor corrige integridad y segmentación sin promover Viajes a
+`PROV`.
+
+- [Uber: precio adelantado para pasajeros](https://www.uber.com/us/en/ride/how-it-works/upfront-pricing/)
+- [Lyft: precio y cargos del viaje](https://help.lyft.com/hc/en-us/rider/articles/115012925707)
+- [Uber Driver: navegación y etapas del viaje](https://www.uber.com/us/en/drive/driver-app/)
+- [Uber Driver: funciones de navegación](https://help.uber.com/driving-and-delivering/article/uber-driver-app-navigation-features?nodeId=d6da8da9-cad5-402f-a722-86307b01a1fd)

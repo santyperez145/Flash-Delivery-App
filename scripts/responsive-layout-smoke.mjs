@@ -14,6 +14,7 @@ const customerShipment = fs.readFileSync(
   "apps/mobile/src/screens/CustomerShipmentScreen.tsx",
   "utf8",
 );
+const customerRide = fs.readFileSync("apps/mobile/src/screens/CustomerRideScreen.tsx", "utf8");
 const { source: webApp } = await readWebSource();
 const mobilePackage = JSON.parse(fs.readFileSync("apps/mobile/package.json", "utf8"));
 const rootPackage = JSON.parse(fs.readFileSync("package.json", "utf8"));
@@ -100,7 +101,7 @@ assert(
 );
 
 assert(
-  customerCoordinator.trimEnd().split(/\r?\n/).length <= 3815 &&
+  customerCoordinator.trimEnd().split(/\r?\n/).length <= 3165 &&
     contains(customerCoordinator, "<CustomerAccountScreen") &&
     !contains(customerCoordinator, "Teléfono de seguridad") &&
     contains(customerAccount, "export function CustomerAccountScreen") &&
@@ -118,6 +119,18 @@ assert(
     contains(customerShipment, "api.createShipment") &&
     contains(customerShipment, "setShipmentPickup(selectedAddress.address)"),
   "shipment quote and request stay outside the coordinator with shared address wiring",
+);
+
+assert(
+  contains(customerCoordinator, "<CustomerRideScreen") &&
+    !contains(customerCoordinator, "¿A dónde vamos?") &&
+    contains(customerRide, "export function CustomerRideScreen") &&
+    contains(customerRide, "if (!visible) return null") &&
+    contains(customerRide, "api.quoteRideOptions") &&
+    contains(customerRide, "api.createRide") &&
+    contains(customerRide, "setPickup(selectedAddress.address)") &&
+    contains(customerRide, "invalidateQuote()"),
+  "ride quote and request stay outside the coordinator and invalidate stale prices",
 );
 
 assert(
