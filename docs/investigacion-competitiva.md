@@ -297,6 +297,17 @@ Fuentes oficiales revalidadas:
 - [Uber Eats — cómo realizar un pedido](https://help.uber.com/en/ubereats/restaurants/article/how-to-place-an-order-on-uber-eats?nodeId=509d1b2f-087c-4dac-9e94-6ab248e87491)
 - [DoorDash — estados y tracking de un pedido](https://help.doordash.com/en-us/consumers/article/customer-where-is-my-order)
 
+Revalidación de soporte del 30 de agosto de 2026:
+
+- DoorDash abre Ayuda desde el pedido, pide elegir el problema y condiciona crédito, reembolso o reentrega a las circunstancias y evidencia. Uber Eats separa ítems faltantes o incorrectos y puede solicitar imagen antes de evaluar elegibilidad.
+- Flash mantiene el acceso contextual desde Actividad, categorías explícitas y revisión operativa antes del reintegro. Los formularios se extrajeron a un estado discriminado único para que cerrar un caso no deje datos de otro modal en memoria.
+- Flash queda por debajo en evidencia fotográfica para incidencias de comida, plazos/política aprobados y soporte humano habilitado. La evidencia cifrada existe sólo para siniestros de Envíos y no se presenta como cobertura general.
+
+Fuentes oficiales:
+
+- [DoorDash — reportar un ítem faltante o incorrecto](https://help.doordash.com/en-us/consumers/article/my-order-was-missing-an-item-incorrect-order)
+- [Uber Eats — ítems incorrectos o faltantes](https://help.uber.com/en/ubereats/restaurants/article/wrong-or-missing-items?nodeId=6a92ef28-0f96-433b-971a-4f87c23c21af)
+
 ## Pricing y rutas competitivas
 
 El cotizador de movilidad adopta el patron de precio adelantado: el servidor combina distancia y duracion previstas, modalidad, oferta/demanda, tarifa de servicio y peajes estimados. La cotizacion se firma y conserva durante cinco minutos; al solicitar, la API valida el token para impedir que el cliente modifique el precio.

@@ -104,7 +104,7 @@ assert(
   "order activity must translate backend status into an actionable customer card",
 );
 assert(
-  customerCoordinator.trimEnd().split(/\r?\n/).length <= 1600 &&
+  customerCoordinator.trimEnd().split(/\r?\n/).length <= 1350 &&
     [
       "CustomerFoodBrowseScreen",
       "CustomerFoodRestaurantScreen",

@@ -466,8 +466,9 @@ propinas; las tres hojas de seguimiento pasaron a
   tarifa adelantada, reserva, contactos y solicitud persistida; un cambio de
   origen invalida el precio y las maniobras quedan sólo en Driver.
   Comidas se dividió luego en descubrimiento/búsqueda, restaurante/personalización,
-  carrito, checkout y pedidos. `CustomerScreen.tsx` bajó de 6.241 a 1.584 líneas
-  y un contrato fija el techo en 1.600. También quedó activo un ratchet que impide que el
+  carrito, checkout y pedidos. Los modales de incidencias, devoluciones y siniestros
+  también salieron a un límite tipado. `CustomerScreen.tsx` bajó de 6.241 a 1.321
+  líneas y un contrato fija el techo en 1.350. También quedó activo un ratchet que impide que el
 problema crezca:
 `test:line-length` fija una línea base vigente de **258 líneas de más de 200
 caracteres en 56 archivos** y sólo admite bajarla.

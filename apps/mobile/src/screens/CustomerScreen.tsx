@@ -8,17 +8,7 @@ import * as FileSystem from "expo-file-system/legacy";
 import * as Location from "expo-location";
 import * as Sharing from "expo-sharing";
 import { Ionicons } from "@expo/vector-icons";
-import {
-  ActivityIndicator,
-  Alert,
-  Modal,
-  Pressable,
-  ScrollView,
-  Share,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { ActivityIndicator, Alert, Pressable, ScrollView, Share, Text, View } from "react-native";
 
 import { track } from "../analytics";
 import { api } from "../api";
@@ -35,6 +25,10 @@ import { CustomerFoodOrdersScreen } from "./CustomerFoodOrdersScreen";
 import { CustomerFoodRestaurantScreen } from "./CustomerFoodRestaurantScreen";
 import { CustomerRideScreen } from "./CustomerRideScreen";
 import { CustomerShipmentScreen } from "./CustomerShipmentScreen";
+import {
+  CustomerServiceIssueModals,
+  type CustomerServiceIssueState,
+} from "./CustomerServiceIssueModals";
 import {
   OrderTrackingSheet,
   RideTrackingSheet,
@@ -352,14 +346,9 @@ export function CustomerScreen({
   const [shipmentCodes, setShipmentCodes] = useState<Record<string, string>>({});
   const [ridePickupCodes, setRidePickupCodes] = useState<Record<string, string>>({});
   const [receipts, setReceipts] = useState<Record<string, ServiceReceipt>>({});
-  const [shipmentReturns, setShipmentReturns] = useState<ShipmentReturn[]>([]),
-    [returnShipmentId, setReturnShipmentId] = useState<string | null>(null),
-    [returnReason, setReturnReason] = useState("");
-  const [shipmentClaims, setShipmentClaims] = useState<ShipmentClaim[]>([]),
-    [claimShipmentId, setClaimShipmentId] = useState<string | null>(null),
-    [claimType, setClaimType] = useState<ShipmentClaim["claimType"]>("damaged"),
-    [claimDescription, setClaimDescription] = useState(""),
-    [claimAmount, setClaimAmount] = useState("");
+  const [shipmentReturns, setShipmentReturns] = useState<ShipmentReturn[]>([]);
+  const [shipmentClaims, setShipmentClaims] = useState<ShipmentClaim[]>([]);
+  const [serviceIssue, setServiceIssue] = useState<CustomerServiceIssueState>({ kind: "none" });
   useEffect(() => {
     if (sharedView !== "activity") return;
     let cancelled = false;
@@ -435,12 +424,6 @@ export function CustomerScreen({
       });
     else Alert.alert("Flash", "El dispositivo no permite abrir este archivo.");
   };
-  const [issueOrderId, setIssueOrderId] = useState<string | null>(null);
-  const [issueCategory, setIssueCategory] = useState<
-    "missing_item" | "wrong_item" | "damaged_item" | "quality" | "late" | "other"
-  >("missing_item");
-  const [issueDescription, setIssueDescription] = useState("");
-  const [issueRefund, setIssueRefund] = useState("");
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
   const [trackingRideId, setTrackingRideId] = useState<string | null>(null);
   const [trackingShipmentId, setTrackingShipmentId] = useState<string | null>(null);
@@ -1131,22 +1114,27 @@ export function CustomerScreen({
               setFoodScreen("cart");
             }}
             onReportOrderIssue={(orderId) => {
-              setIssueOrderId(orderId);
-              setIssueCategory("missing_item");
-              setIssueDescription("");
-              setIssueRefund("");
+              setServiceIssue({
+                kind: "order",
+                orderId,
+                category: "missing_item",
+                description: "",
+                refund: "",
+              });
             }}
             onRequestReturn={(shipmentId) => {
-              setReturnShipmentId(shipmentId);
-              setReturnReason("");
+              setServiceIssue({ kind: "return", shipmentId, reason: "" });
             }}
             onOpenClaimEvidence={openClaimEvidence}
             onAttachClaimEvidence={attachClaimEvidence}
             onReportShipmentClaim={(shipmentId, declaredValue) => {
-              setClaimShipmentId(shipmentId);
-              setClaimType("damaged");
-              setClaimDescription("");
-              setClaimAmount(String(declaredValue));
+              setServiceIssue({
+                kind: "claim",
+                shipmentId,
+                claimType: "damaged",
+                description: "",
+                amount: String(declaredValue),
+              });
             }}
             onLoadMore={() => void loadActivity(true)}
           />
@@ -1244,267 +1232,16 @@ export function CustomerScreen({
         currentUserId={user.id}
         onClose={() => setChatJobId(null)}
       />
-      <Modal
-        transparent
-        visible={Boolean(returnShipmentId)}
-        animationType="slide"
-        onRequestClose={() => setReturnShipmentId(null)}
-      >
-        <View style={styles.issueModalBackdrop}>
-          <View style={styles.issueModalSheet}>
-            <View style={styles.issueModalHandle} />
-            <View style={styles.issueModalHeader}>
-              <View>
-                <Text style={styles.substitutionEyebrow}>LOGÍSTICA INVERSA</Text>
-                <Text style={styles.foodRestaurantTitle}>Solicitar devolución</Text>
-              </View>
-              <Pressable style={styles.issueModalClose} onPress={() => setReturnShipmentId(null)}>
-                <Ionicons name="close" size={21} color="#403a43" />
-              </Pressable>
-            </View>
-            <Text style={styles.cardText}>
-              Operaciones validará el motivo antes de programar el retiro.
-            </Text>
-            <TextInput
-              multiline
-              numberOfLines={4}
-              value={returnReason}
-              onChangeText={setReturnReason}
-              maxLength={500}
-              placeholder="Explicá por qué necesitás devolver el envío"
-              style={[styles.input, styles.issueDescriptionInput]}
-            />
-            <Pressable
-              disabled={busy || returnReason.trim().length < 5}
-              style={[
-                styles.issueSubmitButton,
-                (busy || returnReason.trim().length < 5) && styles.disabledButton,
-              ]}
-              onPress={() => {
-                const shipmentId = returnShipmentId;
-                if (!shipmentId) return;
-                runAction(async () => {
-                  const result = await api.requestShipmentReturn(shipmentId, returnReason.trim());
-                  setShipmentReturns((current) => [result.return, ...current]);
-                  setReturnShipmentId(null);
-                  setReturnReason("");
-                }, "Solicitud de devolución registrada");
-              }}
-            >
-              <Ionicons name="return-down-back" size={18} color="#fff" />
-              <Text style={styles.issueSubmitText}>Enviar solicitud</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
-      <Modal
-        transparent
-        visible={Boolean(claimShipmentId)}
-        animationType="slide"
-        onRequestClose={() => setClaimShipmentId(null)}
-      >
-        <View style={styles.issueModalBackdrop}>
-          <View style={styles.issueModalSheet}>
-            <View style={styles.issueModalHandle} />
-            <View style={styles.issueModalHeader}>
-              <View>
-                <Text style={styles.substitutionEyebrow}>PROTECCIÓN FLASH</Text>
-                <Text style={styles.foodRestaurantTitle}>Reportar siniestro</Text>
-              </View>
-              <Pressable style={styles.issueModalClose} onPress={() => setClaimShipmentId(null)}>
-                <Ionicons name="close" size={21} color="#403a43" />
-              </Pressable>
-            </View>
-            <Text style={styles.cardText}>
-              La cobertura y franquicia se validan contra el contrato del envío. La aprobación no
-              simula un pago externo.
-            </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.issueCategoryRail}
-            >
-              {(
-                [
-                  ["lost", "Extraviado"],
-                  ["damaged", "Dañado"],
-                  ["stolen", "Robado"],
-                ] as const
-              ).map(([value, label]) => (
-                <Pressable
-                  key={value}
-                  style={[
-                    styles.issueCategoryPill,
-                    claimType === value && styles.issueCategoryPillActive,
-                  ]}
-                  onPress={() => setClaimType(value)}
-                >
-                  <Text
-                    style={[
-                      styles.issueCategoryText,
-                      claimType === value && styles.issueCategoryTextActive,
-                    ]}
-                  >
-                    {label}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-            <TextInput
-              multiline
-              numberOfLines={4}
-              value={claimDescription}
-              onChangeText={setClaimDescription}
-              maxLength={1000}
-              placeholder="Describí qué ocurrió y qué evidencia tenés"
-              style={[styles.input, styles.issueDescriptionInput]}
-            />
-            <TextInput
-              value={claimAmount}
-              onChangeText={(value) => setClaimAmount(value.replace(/[^0-9]/g, ""))}
-              keyboardType="numeric"
-              placeholder="Monto reclamado"
-              style={styles.input}
-            />
-            <Pressable
-              disabled={busy || claimDescription.trim().length < 10 || !Number(claimAmount)}
-              style={[
-                styles.issueSubmitButton,
-                (busy || claimDescription.trim().length < 10 || !Number(claimAmount)) &&
-                  styles.disabledButton,
-              ]}
-              onPress={() => {
-                const shipmentId = claimShipmentId;
-                if (!shipmentId) return;
-                runAction(async () => {
-                  const result = await api.createShipmentClaim(shipmentId, {
-                    claimType,
-                    description: claimDescription.trim(),
-                    requestedAmount: Number(claimAmount),
-                  });
-                  setShipmentClaims((current) => [result.claim, ...current]);
-                  setClaimShipmentId(null);
-                }, "Siniestro registrado para revisión");
-              }}
-            >
-              <Ionicons name="shield-checkmark-outline" size={18} color="#fff" />
-              <Text style={styles.issueSubmitText}>Enviar reclamo</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
-      <Modal
-        transparent
-        visible={Boolean(issueOrderId)}
-        animationType="slide"
-        onRequestClose={() => setIssueOrderId(null)}
-      >
-        <View style={styles.issueModalBackdrop}>
-          <View style={styles.issueModalSheet}>
-            <View style={styles.issueModalHandle} />
-            <View style={styles.issueModalHeader}>
-              <View>
-                <Text style={styles.substitutionEyebrow}>Ayuda con tu pedido</Text>
-                <Text style={styles.foodRestaurantTitle}>Reportar un problema</Text>
-              </View>
-              <Pressable style={styles.issueModalClose} onPress={() => setIssueOrderId(null)}>
-                <Ionicons name="close" size={21} color="#403a43" />
-              </Pressable>
-            </View>
-            <Text style={styles.cardText}>
-              Operaciones revisará el caso y, si corresponde, realizará un reintegro parcial a tu
-              Wallet.
-            </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.issueCategoryRail}
-            >
-              {(
-                [
-                  ["missing_item", "Faltó un producto"],
-                  ["wrong_item", "Producto incorrecto"],
-                  ["damaged_item", "Llegó dañado"],
-                  ["quality", "Problema de calidad"],
-                  ["late", "Demora"],
-                  ["other", "Otro"],
-                ] as const
-              ).map(([value, label]) => (
-                <Pressable
-                  key={value}
-                  style={[
-                    styles.issueCategoryPill,
-                    issueCategory === value && styles.issueCategoryPillActive,
-                  ]}
-                  onPress={() => setIssueCategory(value)}
-                >
-                  <Text
-                    style={[
-                      styles.issueCategoryText,
-                      issueCategory === value && styles.issueCategoryTextActive,
-                    ]}
-                  >
-                    {label}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-            <Text style={styles.issueFieldLabel}>Contanos qué pasó</Text>
-            <TextInput
-              multiline
-              numberOfLines={4}
-              value={issueDescription}
-              onChangeText={setIssueDescription}
-              placeholder="Ej.: faltaron las papas del combo"
-              style={[styles.input, styles.issueDescriptionInput]}
-            />
-            <Text style={styles.issueFieldLabel}>Reintegro solicitado</Text>
-            <View style={styles.issueMoneyInput}>
-              <Text style={styles.issueMoneyPrefix}>$</Text>
-              <TextInput
-                value={issueRefund}
-                onChangeText={(value) => setIssueRefund(value.replace(/[^0-9]/g, ""))}
-                keyboardType="numeric"
-                placeholder="0"
-                style={styles.issueMoneyTextInput}
-              />
-            </View>
-            <View style={styles.issueSecurityNote}>
-              <Ionicons name="shield-checkmark-outline" size={18} color="#087a50" />
-              <Text style={styles.issueSecurityText}>
-                No se mueve dinero hasta que operaciones valide la evidencia y el importe.
-              </Text>
-            </View>
-            <Pressable
-              disabled={
-                busy || issueDescription.trim().length < 5 || !Number(issueRefund) || !issueOrderId
-              }
-              style={[
-                styles.issueSubmitButton,
-                (busy || issueDescription.trim().length < 5 || !Number(issueRefund)) &&
-                  styles.disabledButton,
-              ]}
-              onPress={() => {
-                const orderId = issueOrderId;
-                if (!orderId) return;
-                runAction(async () => {
-                  await api.createOrderIssue(orderId, {
-                    category: issueCategory,
-                    description: issueDescription.trim(),
-                    requestedRefund: Number(issueRefund),
-                  });
-                  setIssueOrderId(null);
-                  setIssueDescription("");
-                  setIssueRefund("");
-                }, "Incidencia enviada a operaciones");
-              }}
-            >
-              <Ionicons name="paper-plane-outline" size={18} color="#fff" />
-              <Text style={styles.issueSubmitText}>Enviar incidencia</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+      <CustomerServiceIssueModals
+        value={serviceIssue}
+        busy={busy}
+        runAction={runAction}
+        onChange={setServiceIssue}
+        onReturnCreated={(shipmentReturn) =>
+          setShipmentReturns((current) => [shipmentReturn, ...current])
+        }
+        onClaimCreated={(claim) => setShipmentClaims((current) => [claim, ...current])}
+      />
       <View style={styles.foodBottomNav}>
         <Pressable
           onPress={() => {

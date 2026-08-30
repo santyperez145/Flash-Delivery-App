@@ -10,11 +10,12 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 
 ## Avance 30 de agosto de 2026 — ARC-001, Comidas móvil segmentada por tarea
 
-- [x] Descubrimiento/búsqueda, restaurante/personalización, carrito, checkout y pedidos viven en cinco módulos con responsabilidad concreta; `CustomerScreen.tsx` bajó de 3.159 a 1.584 líneas sin agregar superficie durante el congelamiento de Fase 0.
+- [x] Descubrimiento/búsqueda, restaurante/personalización, carrito, checkout y pedidos viven en cinco módulos con responsabilidad concreta. Incidencias de pedido, devoluciones y siniestros viven en `CustomerServiceIssueModals.tsx`; `CustomerScreen.tsx` bajó de 3.159 a 1.321 líneas sin agregar superficie durante el congelamiento de Fase 0.
 - [x] El carrito, la dirección y las preferencias permanecen en el coordinador porque Cuenta y Actividad los consumen; cambiar de pestaña no descarta una compra, grupo o cotización en curso.
 - [x] La extracción conserva catálogo y favoritos persistidos, stock, modificadores, alérgenos, dirección geocodificada, método tokenizado, cotización firmada, propina, reserva, creación, tracking y cancelación contra sus APIs reales.
 - [x] El botón final muestra el mismo total que el detalle, incluida la propina; ya no presenta una cifra menor justo antes de confirmar el cobro.
-- [x] `test:mobile-food-design` inspecciona cada límite extraído y fija un techo de 1.600 líneas; `test:responsive-layout` impide que el coordinador vuelva a crecer silenciosamente.
+- [x] `test:mobile-food-design` inspecciona cada límite extraído y `test:responsive-layout` fija el coordinador en 1.350 líneas, verifica las tres APIs de resolución de problemas e impide que vuelva a crecer silenciosamente.
+- [~] Uber Eats y DoorDash permiten abrir problemas desde el pedido y categorizan ítems faltantes/incorrectos antes de evaluar crédito, reembolso u otra resolución. Flash conserva esa revisión y el ledger exacto, pero sigue por debajo porque no tiene evidencia fotográfica para incidencias de comida, política legal/comercial aprobada ni equipo de soporte habilitado.
 - [~] El flujo coincide con la secuencia oficial de Uber Eats —dirección, restaurante, productos, carrito, revisión, confirmación y tracking— y con los estados/mapa de DoorDash. Flash sigue por debajo en proveedor de mapas con SLA, push físico, pagos marketplace conciliados, soporte 24/7 y operación comercial habilitada.
 - [ ] ARC-001 continúa con contratos compartidos y la siguiente concentración monolítica; esta extracción no cierra por sí sola el P0.
 

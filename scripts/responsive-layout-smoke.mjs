@@ -15,6 +15,10 @@ const customerShipment = fs.readFileSync(
   "utf8",
 );
 const customerRide = fs.readFileSync("apps/mobile/src/screens/CustomerRideScreen.tsx", "utf8");
+const customerIssues = fs.readFileSync(
+  "apps/mobile/src/screens/CustomerServiceIssueModals.tsx",
+  "utf8",
+);
 const { source: webApp } = await readWebSource();
 const mobilePackage = JSON.parse(fs.readFileSync("apps/mobile/package.json", "utf8"));
 const rootPackage = JSON.parse(fs.readFileSync("package.json", "utf8"));
@@ -101,7 +105,7 @@ assert(
 );
 
 assert(
-  customerCoordinator.trimEnd().split(/\r?\n/).length <= 1600 &&
+  customerCoordinator.trimEnd().split(/\r?\n/).length <= 1350 &&
     contains(customerCoordinator, "<CustomerAccountScreen") &&
     !contains(customerCoordinator, "Teléfono de seguridad") &&
     contains(customerAccount, "export function CustomerAccountScreen") &&
@@ -131,6 +135,16 @@ assert(
     contains(customerRide, "setPickup(selectedAddress.address)") &&
     contains(customerRide, "invalidateQuote()"),
   "ride quote and request stay outside the coordinator and invalidate stale prices",
+);
+
+assert(
+  contains(customerCoordinator, "<CustomerServiceIssueModals") &&
+    !contains(customerCoordinator, "No se mueve dinero hasta que operaciones valide") &&
+    contains(customerIssues, "export type CustomerServiceIssueState") &&
+    contains(customerIssues, "api.requestShipmentReturn") &&
+    contains(customerIssues, "api.createShipmentClaim") &&
+    contains(customerIssues, "api.createOrderIssue"),
+  "customer issue, return and claim dialogs stay outside the coordinator with real API wiring",
 );
 
 assert(
