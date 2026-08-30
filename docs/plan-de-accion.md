@@ -92,7 +92,7 @@ La matriz vive en `docs/matriz-madurez.md` y se actualiza en el mismo PR que cam
 | ~~`ci-critical-flows.yml`~~ **hecho** | CI-001 | Pagos, ledger, webhooks, conciliación, KYC, soporte y safety bloquean el merge · **cuarentena vacía desde el 27-08** |
 | ~~Matriz formal de cobertura RLS~~ **hecho** | DAT-001 | 109 tablas clasificadas y con puerta CI; `FORCE ROW LEVEL SECURITY` sigue pendiente |
 | ~~Pruebas negativas por rol~~ **hecho** | DAT-001 | Las cinco tablas de la deuda cerraron el 27-08: `test:rls-matrix` reporta 69 de 69 y `test:rls` afirma las dos mitades de cada una —el rol auditor no ve nada, y el dueño sí ve lo suyo—. Falta acotar los grants por operación |
-| Vitest + Testcontainers | CI-001 | Framework estándar adoptado; primeras suites migradas |
+| ~~Vitest + Testcontainers~~ **hecho** | CI-001 | `test:authorization` corre sobre Vitest 4.1; `test:runtime-role-shape` crea además PostGIS 17 aislado, aplica las 136 migraciones y bloquea `ci-postgres` |
 
 #### Semana 3 (8–14 de septiembre) — Proveedores reales
 
@@ -286,7 +286,7 @@ Cuatro workflows sustituyen al `ci.yml` único. Detalle de implementación en [C
 | Workflow | Cuándo | Contenido |
 | --- | --- | --- |
 | `ci-fast.yml` | Cada PR | Typecheck · lint · unit tests · static security · secret scan · build · bundle budget |
-| `ci-postgres.yml` | Cada PR | PostgreSQL/PostGIS · migraciones desde cero · migraciones desde snapshot anterior · RLS · audit chain · runtime smoke · city isolation · idempotencia |
+| `ci-postgres.yml` | Cada PR | PostgreSQL/PostGIS · migraciones aisladas con Testcontainers · migraciones desde snapshot anterior · RLS · audit chain · runtime smoke · city isolation · idempotencia |
 | `ci-critical-flows.yml` | Cada PR | Pago · webhook · refund · ledger · dispatch · reconciliation · KYC · support SLA · safety |
 | `ci-nightly.yml` | Cada noche | Playwright E2E · performance · load · provider sandbox · restore drill · dependency scan completo · mobile build preview |
 
@@ -323,9 +323,9 @@ entre ellas las seis del libro de direcciones. `test:realtime-audience` bloquea 
 merge y se verificó que falla ante el defecto. Falta la verificación de runtime
 contra PostgreSQL y el dashboard de la métrica.
 
-**CI-001.** `ci.yml` se dividió en **tres workflows y los cinco jobs están en
-verde**. La cobertura pasó de **15 a 105 de 106 suites** detrás de una puerta, 100
-de ellas bloqueantes. `ci-critical-flows.yml` levanta la API contra PostgreSQL y
+**CI-001.** `ci.yml` se dividió en **cuatro workflows**. La cobertura pasó de
+**15 a 105 de 106 suites** detrás de una puerta, 103 de ellas bloqueantes.
+`ci-critical-flows.yml` levanta la API contra PostgreSQL y
 cubre pagos, conciliación, riesgo, payouts, KYC, vehículos, safety, chat,
 soporte y notificaciones.
 

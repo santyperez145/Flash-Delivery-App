@@ -1,8 +1,8 @@
 # Puertas CI de seguridad
 
-## Estado al 27 de agosto de 2026
+## Estado al 29 de agosto de 2026
 
-`ci.yml` se dividió en tres workflows y **los cinco jobs están en verde**. La cobertura pasó de **15 a 105 de 106 suites** detrás de una puerta: **103 bloquean el merge**, 2 corren de noche y 1 está en cuarentena declarada.
+`ci.yml` se dividió en cuatro workflows. La cobertura pasó de 15 a **105 de 106 suites** detrás de una puerta: **103 bloquean el merge**, 2 corren de noche y la cuarentena está vacía.
 
 Desde el 27 de agosto la rama `main` **está protegida**: los siete checks son obligatorios, la rama debe estar al día, la historia es lineal y no hay excepción para administradores. Hasta ese día se habían mergeado once PR con CI en verde sin que nada lo exigiera.
 
@@ -15,7 +15,7 @@ Además, `main` llevaba en rojo desde el 23 de agosto sin que nadie estuviera bl
 | Workflow | Cuándo | Contenido | Estado |
 | --- | --- | --- | --- |
 | `ci-fast.yml` | Cada PR | Build · contratos estáticos · contratos de pago sin proveedor · web y sesión · superficies mobile · secret scan · dependency gate · telemetría · alertas · resiliencia · contenedor · rate limit Redis · audiencias realtime · ratchet de línea · cobertura CI | **Verde** |
-| `ci-postgres.yml` | Cada PR | PostGIS 17 · roles separados · migraciones desde cero · migración incremental sobre la base del PR · seeds reproducibles · RLS · cadena de auditoría · aislamiento por ciudad · datos sensibles · idempotencia · comercio, zonas y configuración | **Verde** |
+| `ci-postgres.yml` | Cada PR | PostGIS 17 · roles separados · migraciones desde cero · Testcontainers aislado · migración incremental sobre la base del PR · seeds reproducibles · RLS · cadena de auditoría · aislamiento por ciudad · datos sensibles · idempotencia · comercio, zonas y configuración | **Verde** |
 | `ci-critical-flows.yml` | Cada PR | API levantada contra PostgreSQL · runtime smoke · pagos · conciliación · riesgo · payouts · propinas · KYC · vehículos · ganancias · safety · chat · siniestros · SLA · notificaciones · recursos por audiencia | **Verde** |
 | `local-fallback` (en `ci-fast`) | Cada PR | API sobre el fallback SQLite · contratos que no son los de PostgreSQL | **Verde** |
 | `ci-nightly.yml` | 06:00 UTC y a mano | Auditoría responsive en navegador real, una corrida por variante · latencia de endpoints contra PostgreSQL | **Existe** desde el 27-08. Sin k6, sandbox de proveedores, builds EAS ni restore drill |
@@ -48,6 +48,33 @@ Las cuentas demo viven en contenedores efímeros y nunca llegan a un ambiente de
 ### Migración incremental
 
 El job `migrate-from-base` existe porque **una migración puede pasar desde cero y romper sobre datos existentes**. Aplica primero el esquema de la rama base del PR y después las migraciones nuevas, que es lo que ocurre en un despliegue real. Sólo se activa en pull requests, y su primera ejecución fue el PR que introdujo `ci-critical-flows`.
+
+### Vitest y Testcontainers
+
+`test:authorization` es la primera suite unitaria migrada al runner estándar Vitest 4.1: sus
+siete casos conservan la matriz completa de ownership y MFA, y siguen corriendo en
+`ci-fast`. La segunda mitad de `test:runtime-role-shape` inicia `postgis/postgis:17-3.5` en
+un puerto asignado por Docker, crea `flash_app`, `flash_runtime` y `flash_rls_audit`, ejecuta
+las 136 migraciones con el rol migrador y comprueba PostGIS 3.5 y la ausencia de ownership,
+`SUPERUSER` y `BYPASSRLS` en runtime y auditoría.
+
+La suite de contenedor corre encadenada a una puerta ya bloqueante del job
+`schema-and-isolation`; agregar un script sin conectarlo al workflow sólo habría cambiado la
+herramienta, no la protección. El servicio
+PostgreSQL declarado por GitHub se mantiene porque aloja las suites extensas y el restore drill;
+el contenedor aislado prueba que el arranque no depende de esa preparación previa.
+
+**Decisión tecnológica.** Se eligió Vitest porque el repositorio ya usa Vite 7, ESM y Node 22:
+comparte resolución y transformaciones sin introducir la segunda cadena de compilación que
+exigiría Jest. Vitest 4 requiere Vite 6 o superior y Node 20 o superior según su
+[guía oficial](https://v4.vitest.dev/guide/), por lo que no baja ni altera el runtime soportado.
+Se eligió el módulo específico
+[`@testcontainers/postgresql`](https://node.testcontainers.org/modules/postgresql/) en lugar del
+paquete genérico usado directamente: limita la API de prueba al recurso que necesitamos y permite
+usar la misma imagen PostGIS versionada que CI. Ambos proyectos usan licencia MIT, son
+dependencias sólo de desarrollo y no viajan en la imagen productiva. El costo aceptado es tiempo
+de Docker en CI; por eso no se arranca un contenedor por cada caso ni se reemplaza el servicio
+compartido de las suites extensas.
 
 ### Rate limiting en flujos críticos
 
@@ -92,7 +119,7 @@ El inventario recorre **todo el árbol de `server/`, no un archivo**. Leía sól
 
 ### Autorización
 
-`test:authorization` afirma directamente las nueve reglas de permisos que viven en `server/http/authorization.js`: quién puede actuar como cliente, conductor o comercio, y quién puede avanzar o cancelar un pedido o un viaje.
+`test:authorization`, ejecutado por Vitest, afirma directamente las nueve reglas de permisos que viven en `server/http/authorization.js`: quién puede actuar como cliente, conductor o comercio, y quién puede avanzar o cancelar un pedido o un viaje.
 
 Existe porque hasta [ARC-001](backlog-tecnico.md#arc-001--modularización) paso 3 esas reglas estaban dentro de un archivo de 9.500 líneas y **la única forma de ejercitarlas era levantar la API entera**. Eso cubre los caminos que alguien recordó probar, no la regla. Al quedar puras —sin base de datos, sin Express— se afirman una por una sin red ni credenciales, incluidos los casos que un smoke de extremo a extremo no llega a montar: el administrador con MFA habilitado y sin verificar, el pedido cuyo comercio ya no existe, y el conductor que no es el asignado.
 

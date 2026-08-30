@@ -149,4 +149,4 @@ Reemplaza la lista anterior, cuyos ítems de PostgreSQL/PostGIS, ledger y realti
 | H-08 | ARC-001 | Cinco archivos concentran más de 1,3 MB, con líneas de hasta 4.061 caracteres |
 | H-09 | PAY-001 | Mercado Pago integrado pero nunca validado contra el proveedor |
 
-Además, sin ticket P0 asignado pero bloqueantes para las fases posteriores: framework estándar de pruebas (Vitest/Testcontainers/Playwright/k6), builds EAS firmados, crash reporting, error tracking, colector y dashboards administrados, Safety Operating System, y seguros y habilitación para movilidad.
+Además, sin ticket P0 asignado pero bloqueantes para las fases posteriores: completar el marco estándar ya iniciado con Vitest/Testcontainers mediante Supertest, k6, cobertura y mutation testing selectivo; builds EAS firmados, crash reporting, error tracking, colector y dashboards administrados, Safety Operating System, y seguros y habilitación para movilidad.
