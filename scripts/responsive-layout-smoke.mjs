@@ -5,6 +5,11 @@ import { contains, readMobileSource, readWebSource, squeeze } from "./source-con
 // trabajo que queda del ticket es partir `App.tsx`, y un contrato con la ruta
 // fija se rompe —o se vacía— en cuanto un componente cambia de archivo.
 const { source: mobile } = await readMobileSource();
+const customerCoordinator = fs.readFileSync("apps/mobile/src/screens/CustomerScreen.tsx", "utf8");
+const customerAccount = fs.readFileSync(
+  "apps/mobile/src/screens/CustomerAccountScreen.tsx",
+  "utf8",
+);
 const { source: webApp } = await readWebSource();
 const mobilePackage = JSON.parse(fs.readFileSync("apps/mobile/package.json", "utf8"));
 const rootPackage = JSON.parse(fs.readFileSync("package.json", "utf8"));
@@ -88,6 +93,16 @@ assert(
     contains(mobile, 'accessibilityLabel="Cerrar sesión"') &&
     contains(mobile, "customerAccountHeading"),
   "the customer account keeps an accessible session exit in its adaptive header",
+);
+
+assert(
+  customerCoordinator.trimEnd().split(/\r?\n/).length <= 4346 &&
+    contains(customerCoordinator, "<CustomerAccountScreen") &&
+    !contains(customerCoordinator, "Teléfono de seguridad") &&
+    contains(customerAccount, "export function CustomerAccountScreen") &&
+    contains(customerAccount, "if (!visible) return null") &&
+    contains(customerAccount, "onUseAddress(item.address, point)"),
+  "customer account stays outside the shrinking coordinator and keeps address selection wired",
 );
 
 assert(
