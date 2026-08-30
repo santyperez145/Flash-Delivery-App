@@ -23,6 +23,8 @@ const { source: webApp } = await readWebSource();
 const webCustomerCoordinator = fs.readFileSync("src/customer/CustomerSurface.tsx", "utf8");
 const webWallet = fs.readFileSync("src/customer/WalletScreen.tsx", "utf8");
 const webCustomerProfile = fs.readFileSync("src/customer/CustomerProfileScreen.tsx", "utf8");
+const webCustomerAddressBook = fs.readFileSync("src/customer/CustomerAddressBook.tsx", "utf8");
+const webCustomerDietary = fs.readFileSync("src/customer/CustomerDietaryPreferences.tsx", "utf8");
 const mobilePackage = JSON.parse(fs.readFileSync("apps/mobile/package.json", "utf8"));
 const rootPackage = JSON.parse(fs.readFileSync("package.json", "utf8"));
 const desktop = fs.readFileSync("src/styles.css", "utf8");
@@ -209,11 +211,17 @@ assert(
     contains(webWallet, "parsedAmount < 1000") &&
     contains(webWallet, "parsedAmount > 200000") &&
     contains(webCustomerProfile, "export function CustomerProfileScreen") &&
-    contains(webCustomerProfile, "api.updateDietaryPreferences") &&
-    contains(webCustomerProfile, "await api.geocode(query)") &&
-    contains(webCustomerProfile, "onCreateAddress(payload)") &&
-    contains(webCustomerProfile, "onUpdateAddress(editingAddressId, payload)"),
-  "web wallet and account stay outside the customer monolith with real API wiring intact",
+    webCustomerProfile.trimEnd().split(/\r?\n/).length <= 130 &&
+    contains(webCustomerProfile, "<CustomerAddressBook") &&
+    contains(webCustomerProfile, "<CustomerDietaryPreferences") &&
+    webCustomerAddressBook.trimEnd().split(/\r?\n/).length <= 315 &&
+    contains(webCustomerAddressBook, "export type CustomerAddressPayload") &&
+    contains(webCustomerAddressBook, "await api.geocode(query)") &&
+    contains(webCustomerAddressBook, "onCreateAddress(payload)") &&
+    contains(webCustomerAddressBook, "onUpdateAddress(editingAddressId, payload)") &&
+    webCustomerDietary.trimEnd().split(/\r?\n/).length <= 165 &&
+    contains(webCustomerDietary, "api.updateDietaryPreferences"),
+  "web wallet, profile, addresses and dietary settings keep bounded ownership and API wiring",
 );
 
 assert(

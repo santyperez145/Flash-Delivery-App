@@ -421,8 +421,9 @@ El primer corte interno web movió Wallet a `src/customer/WalletScreen.tsx`:
 en 3.725 sin cambiar la frontera sandbox del dinero.
 El segundo movió Cuenta a `CustomerProfileScreen.tsx`, conservando perfil,
 direcciones geocodificadas y preferencias alimentarias: el coordinador quedó en
-**3.172 líneas** y el ratchet en 3.180. El límite nuevo tiene 569 líneas y todavía
-debe partirse por subresponsabilidad antes de considerar completo el criterio 7.
+**3.172 líneas** y el ratchet en 3.180. La segunda partición dejó perfil y
+composición en 124 líneas, libreta geocodificada en 308 y dieta en 160, cada uno
+con ratchet y API propietaria; ese límite ya satisface el criterio 7.
 
 Las 8 rutas que quedan no son dominio: salud, readiness, el documento OpenAPI,
 el bootstrap por audiencia, las dos de métricas, el 410 que retiró `/api/state`

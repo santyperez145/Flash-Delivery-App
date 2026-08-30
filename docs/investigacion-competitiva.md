@@ -507,11 +507,12 @@ por sí misma que el comercio pueda cumplirla. El patrón útil es una Cuenta pe
 reutiliza destinos y preferencias sin degradar una declaración de seguridad alimentaria a un
 simple filtro visual.
 
-Flash mueve perfil, direcciones y dieta a `CustomerProfileScreen.tsx`. Conserva geocoding,
-token de validación, ownership y selección predeterminada; editar texto invalida coordenadas y
-token hasta elegir otra coincidencia. Conserva también preferencias persistidas y la
-advertencia explícita sobre contaminación cruzada. La prueba Chromium sólo lee la superficie:
-no modifica el perfil de la cuenta de prueba.
+Flash separa perfil, libreta y dieta en `CustomerProfileScreen.tsx`,
+`CustomerAddressBook.tsx` y `CustomerDietaryPreferences.tsx`. Conserva geocoding, token de
+validación, ownership y selección predeterminada; editar texto invalida coordenadas y token
+hasta elegir otra coincidencia. Conserva también preferencias persistidas y la advertencia
+explícita sobre contaminación cruzada. La prueba Chromium sólo lee la superficie: no modifica
+el perfil de la cuenta de prueba.
 
 Flash sigue por debajo porque no ofrece todavía solicitudes de alergia por ítem con aceptación
 o rechazo del comercio, ni prueba física el circuito. La extracción mejora el límite técnico,

@@ -8,13 +8,20 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 30 de agosto de 2026 — ARC-001, Cuenta web segmentada por responsabilidad
+
+- [x] `CustomerProfileScreen.tsx` quedó en 124 líneas y sólo coordina identidad y composición. La libreta geocodificada vive en `CustomerAddressBook.tsx` (308) y las preferencias alimentarias en `CustomerDietaryPreferences.tsx` (160).
+- [x] `CustomerAddressPayload` es el contrato compartido de alta y edición; la libreta sigue invalidando coordenadas/token al cambiar texto y sólo guarda una coincidencia validada.
+- [x] `test:responsive-layout` fija 130/315/165 líneas, exige composición, geocoding, alta/edición y persistencia dietaria. La matriz Chromium existente vuelve a recorrer Mis direcciones y Mi alimentación sin escribir datos.
+- [x] Este corte resuelve la deuda declarada en la entrega anterior y satisface responsabilidad concreta para Cuenta web; ARC-001 continúa sobre tracking, restaurante y carrito.
+
 ## Avance 30 de agosto de 2026 — ARC-001, Cuenta web fuera del monolito cliente
 
 - [x] Perfil, direcciones geocodificadas y preferencias alimentarias viven en `src/customer/CustomerProfileScreen.tsx`; `CustomerSurface.tsx` bajó de 3.720 a 3.172 líneas sin agregar superficie durante Fase 0.
 - [x] Se conservan las APIs reales de edición, alta/cambio/baja de direcciones, selección predeterminada y preferencias. Una dirección modificada pierde su token hasta volver a elegir una coincidencia validada.
 - [x] `test:responsive-layout` fija el coordinador en 3.180 líneas o menos y exige el cableado de geocoding, alta/edición y dieta. `test:responsive-browser` abre Cuenta a 390 × 844, comprueba ambas secciones y el botón final sin overflow ni escrituras.
 - [~] Uber agrupa Casa, Trabajo y otros lugares guardados dentro de Cuenta, y Uber Eats separa filtros dietarios de solicitudes de alergia por producto. Flash cubre destinos reutilizables y filtros persistidos, pero sigue por debajo en notas de alergia por ítem, confirmación del comercio y evidencia física; su advertencia de contaminación cruzada permanece visible.
-- [ ] El módulo extraído todavía contiene tres subresponsabilidades y queda como candidato para una segunda partición; ARC-001 continúa sobre tracking, restaurante y carrito web.
+- [x] La segunda partición se completó en la entrega siguiente: perfil, libreta y dieta tienen límites y ratchets propios.
 
 ## Avance 30 de agosto de 2026 — ARC-001, Wallet web fuera del monolito cliente
 
