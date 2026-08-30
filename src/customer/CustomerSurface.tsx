@@ -13,20 +13,7 @@
 // [`../ui/panels.tsx`](../ui/panels.tsx). El criterio fue contar usos por zona,
 // no leer nombres.
 import { lazy, Suspense, useState } from "react";
-import {
-  Bell,
-  Bike,
-  Car,
-  Home,
-  ListChecks,
-  MapPin,
-  PackageCheck,
-  RefreshCw,
-  ShoppingBag,
-  UserRound,
-  WalletCards,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { Bell, MapPin, RefreshCw, ShoppingBag } from "lucide-react";
 
 import { api } from "../api";
 import { SubscriptionPanel } from "./SubscriptionPanel";
@@ -38,6 +25,7 @@ import { ShipmentHome } from "./ShipmentHome";
 import { CartScreen } from "./FoodCartScreen";
 import { RestaurantDetail } from "./FoodRestaurantScreen";
 import { FoodDiscoveryHome } from "./FoodDiscoveryHome";
+import { CustomerBottomNav, ServiceToggle } from "./CustomerNavigation";
 import { IconButton } from "../ui/panels";
 import type {
   AppState,
@@ -56,12 +44,9 @@ import type {
   UserAddress,
 } from "../types";
 
-// Las tres pesadas se cargan bajo demanda: el mapa arrastra MapLibre entero, y
-// el centro de notificaciones y la vista de viajes sólo se abren si el cliente
-// entra ahí. Es la misma declaración que tenía `App.tsx` antes del corte.
+// Notificaciones y Viajes se cargan sólo cuando el cliente entra en esa tarea.
 const NotificationCenter = lazy(() => import("../NotificationCenter"));
 const RideHome = lazy(() => import("../RideHome"));
-const FlashMap = lazy(() => import("../maps/FlashMap"));
 
 export function CustomerApp(props: {
   state: AppState;
@@ -369,91 +354,7 @@ export function CustomerApp(props: {
           busy={busy}
         />
       )}
-      <BottomNav tab={tab} onTabChange={setTab} />
+      <CustomerBottomNav tab={tab} onTabChange={setTab} />
     </div>
-  );
-}
-
-/**
- * Selector de servicio, con el envío detrás de su flag.
- *
- * `shipment_beta` y `public_rides` existían en la base desde la migración 093 y
- * **nadie los leía**:
- * el panel de operaciones podía apagarlo y la pestaña seguía ahí. Ahora apagarlo
- * la esconde, que es lo que un control de release tiene que hacer.
- *
- * Un flag desconocido —`features` en `null` porque la llamada falló o todavía no
- * volvió— deja la pestaña visible. Esconder producto por una llamada que no
- * respondió sería peor que mostrar de más.
- */
-function ServiceToggle({
-  service,
-  setService,
-  features,
-}: {
-  service: Service;
-  setService: (service: Service) => void;
-  features: Record<string, { active: boolean; variant: Record<string, unknown> }> | null;
-}) {
-  const enviosHabilitados = features?.shipment_beta?.active ?? true;
-  const viajesHabilitados = features?.public_rides?.active ?? true;
-  return (
-    <div className="service-toggle">
-      <button
-        className={service === "food" ? "active" : ""}
-        onClick={() => setService("food")}
-        type="button"
-      >
-        <ShoppingBag size={16} /> Comida
-      </button>
-      {viajesHabilitados && (
-        <button
-          className={service === "ride" ? "active" : ""}
-          onClick={() => setService("ride")}
-          type="button"
-        >
-          <Car size={16} /> Taxi
-        </button>
-      )}
-      {enviosHabilitados && (
-        <button
-          className={service === "shipment" ? "active" : ""}
-          onClick={() => setService("shipment")}
-          type="button"
-        >
-          <PackageCheck size={16} /> Envíos
-        </button>
-      )}
-    </div>
-  );
-}
-
-function BottomNav({
-  tab,
-  onTabChange,
-}: {
-  tab: CustomerTab;
-  onTabChange: (tab: CustomerTab) => void;
-}) {
-  const tabs: Array<{ id: CustomerTab; label: string; icon: LucideIcon }> = [
-    { id: "home", label: "Inicio", icon: Home },
-    { id: "activity", label: "Actividad", icon: ListChecks },
-    { id: "wallet", label: "Wallet", icon: WalletCards },
-    { id: "profile", label: "Perfil", icon: UserRound },
-  ];
-  return (
-    <nav className="bottom-nav">
-      {tabs.map(({ id, label, icon: Icon }) => (
-        <button
-          className={tab === id ? "nav-item active" : "nav-item"}
-          key={id}
-          onClick={() => onTabChange(id)}
-          type="button"
-        >
-          <Icon size={18} />
-          <span>{label}</span>
-        </button>
-      ))}
-    </nav>
   );
 }

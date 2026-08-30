@@ -644,3 +644,24 @@ catálogo, no una afirmación de recomendación algorítmica validada.
 - [Uber Eats: búsqueda por restaurante, cocina o plato y señales de decisión](https://help.uber.com/ubereats/restaurants/article/pick-up-order-faq?nodeId=a58f21e8-fc3e-42cb-adfd-92db5024faf5)
 - [Uber Eats: filtro Highest Rated y recomendaciones personalizadas](https://help.uber.com/ubereats/restaurants/article/what-is-highest-rated?nodeId=aa4408c6-c7e5-4752-bb18-3f637b93270e)
 - [DoorDash: etiquetas confirmadas que alimentan descubrimiento](https://help.doordash.com/en-us/merchants/article/how-to-manage-food-and-store-labels-in-merchant-portal)
+
+### Decisión 30 de agosto de 2026 — Servicios separados, identidad y Actividad comunes
+
+Uber permite usar las credenciales de Rides en Eats y expone Courier como una opción de la
+misma experiencia; su documentación de Courier también describe un hub de actividad con los
+viajes activos. La consecuencia útil no es copiar una barra concreta, sino mantener una
+identidad y un historial comunes mientras cada servicio conserva su tarea especializada.
+
+Flash mantiene Comida, Taxi y Envíos como superficies distintas y conserva Inicio,
+Actividad, Wallet y Perfil como navegación estable. `public_rides` y `shipment_beta` siguen
+viniendo de operaciones: ocultar una vertical es una decisión remota real, mientras una carga
+fallida de flags no se convierte silenciosamente en un apagado. El coordinador sólo integra
+estado y callbacks; la navegación es una frontera verificable.
+
+Quedan brechas de producción: elegibilidad por país/zona/proveedor, explicación visible de
+por qué un servicio no está disponible, medición de journeys entre verticales, deep links y
+push verificados en builds físicos. La existencia de una pestaña local no demuestra oferta,
+seguro ni habilitación comercial.
+
+- [Uber Eats: una identidad existente de Rides también accede a Eats](https://help.uber.com/ubereats/restaurants/article/how-do-i-create-an-uber-eats-account?nodeId=13daba70-cc3d-4204-9981-1591d7942042)
+- [Uber Courier: opción de paquetes y hub de actividad común](https://help.uber.com/en/riders/article/node-title?nodeId=8fa2306b-c14d-4f0b-9395-4c4523a81e85)

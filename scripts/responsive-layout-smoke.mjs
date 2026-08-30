@@ -33,6 +33,7 @@ const webFoodCatalog = fs.readFileSync("src/customer/FoodCatalogComponents.tsx",
 const webFoodRestaurant = fs.readFileSync("src/customer/FoodRestaurantScreen.tsx", "utf8");
 const webFoodItemSheet = fs.readFileSync("src/customer/FoodItemSheet.tsx", "utf8");
 const webFoodDiscovery = fs.readFileSync("src/customer/FoodDiscoveryHome.tsx", "utf8");
+const webCustomerNavigation = fs.readFileSync("src/customer/CustomerNavigation.tsx", "utf8");
 const mobilePackage = JSON.parse(fs.readFileSync("apps/mobile/package.json", "utf8"));
 const rootPackage = JSON.parse(fs.readFileSync("package.json", "utf8"));
 const desktop = fs.readFileSync("src/styles.css", "utf8");
@@ -210,7 +211,7 @@ assert(
 );
 
 assert(
-  webCustomerCoordinator.trimEnd().split(/\r?\n/).length <= 470 &&
+  webCustomerCoordinator.trimEnd().split(/\r?\n/).length <= 375 &&
     contains(webCustomerCoordinator, "<WalletScreen") &&
     contains(webCustomerCoordinator, "<CustomerProfileScreen") &&
     !contains(webCustomerCoordinator, "function WalletScreen") &&
@@ -281,6 +282,18 @@ assert(
     contains(webFoodDiscovery, "<FoodRow") &&
     contains(webCustomerCoordinator, "api.setFavorite"),
   "web food discovery owns real catalog composition without a hardcoded hero asset",
+);
+
+assert(
+  contains(webCustomerCoordinator, "<ServiceToggle") &&
+    contains(webCustomerCoordinator, "<CustomerBottomNav") &&
+    !contains(webCustomerCoordinator, "function ServiceToggle") &&
+    !contains(webCustomerCoordinator, "function BottomNav") &&
+    webCustomerNavigation.trimEnd().split(/\r?\n/).length <= 95 &&
+    contains(webCustomerNavigation, "features?.shipment_beta?.active") &&
+    contains(webCustomerNavigation, "features?.public_rides?.active") &&
+    contains(webCustomerNavigation, 'label: "Actividad"'),
+  "web service flags and stable customer navigation keep bounded ownership",
 );
 
 assert(

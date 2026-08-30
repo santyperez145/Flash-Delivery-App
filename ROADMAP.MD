@@ -8,6 +8,16 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 30 de agosto de 2026 — ARC-001, Navegación cliente web con límite propio
+
+- [x] Selector Comida/Taxi/Envíos y barra Inicio/Actividad/Wallet/Perfil viven en `CustomerNavigation.tsx` (85 líneas); `CustomerSurface.tsx` bajó de 459 a 360 líneas y quedó como coordinador de estado/composición.
+- [x] Los flags reales `public_rides` y `shipment_beta` siguen gobernando la disponibilidad. Un fallo al cargar flags no se interpreta como decisión de apagar producto, y la navegación inferior conserva las cuatro tareas estables entre verticales.
+- [x] Se eliminó la importación lazy muerta de `FlashMap`; los mapas permanecen en las superficies que realmente los renderizan. `test:responsive-layout` fija techos 375/95 y exige flags, Actividad y composición fuera del coordinador.
+- [x] Build, contratos, 201 rutas cableadas y matriz Chromium completa permanecen verdes; cliente, comercio y operaciones se recorren desde 320 × 568 hasta 1.440 × 900.
+- [~] Uber reutiliza una identidad entre Rides y Eats y expone Courier/Actividad dentro de la app. Flash comparte cuenta y actividad entre sus tres servicios, pero sigue por debajo sin elegibilidad productiva por mercado, explicación visible de indisponibilidad, telemetría de navegación ni validación física de deep links/push.
+- [x] La segmentación interna del cliente web queda cerrada con responsabilidades y ratchets propios.
+- [ ] ARC-001 global sigue abierto: quedan el paquete de contratos compartidos y 256 líneas largas heredadas —255 SQL— contenidas por trinquete; no se declaran resueltas por este corte.
+
 ## Avance 30 de agosto de 2026 — ARC-001, Home y descubrimiento web fuera del coordinador
 
 - [x] Home, búsqueda, categorías, restaurantes, productos destacados, beneficios y promesas verificadas viven en `FoodDiscoveryHome.tsx` (119 líneas); `CustomerSurface.tsx` bajó de 598 a 459 líneas.

@@ -22,7 +22,7 @@ const assert = (condition, message) => {
 };
 
 assert(
-  coordinator.trimEnd().split(/\r?\n/).length <= 470 &&
+  coordinator.trimEnd().split(/\r?\n/).length <= 375 &&
     foodCart.trimEnd().split(/\r?\n/).length <= 690 &&
     quantityCounter.trimEnd().split(/\r?\n/).length <= 35 &&
     emptyState.trimEnd().split(/\r?\n/).length <= 25 &&
