@@ -842,7 +842,8 @@ Decisión competitiva: se adopta una bandeja transaccional persistente y prefere
 
 #### Fase 4 — piloto de movilidad
 
-- [x] KYC, vehículos, PIN, contactos, compartir recorrido, SOS y chat cifrado.
+- [~] KYC, vehículos, PIN, contactos, compartir recorrido, SOS y chat cifrado: los contratos y flujos internos existen, pero KYC no está homologado ni conectado a un proveedor productivo y las funciones de seguridad requieren piloto físico y operación habilitada.
+- [ ] KYC automatizado por riesgo conforme a [`docs/estrategia-kyc-automatizado.md`](docs/estrategia-kyc-automatizado.md): procesamiento directo para casos de alta confianza, recaptura automática y revisión excepcional antes de toda decisión adversa. Es candidato post-Fase 0; faltan proveedor, RFP, evaluación biométrica, DPIA, revisión legal, piloto físico y homologaciones.
 - [ ] Seguros/habilitación local, anomalías, privacidad telefónica, no-show/waiting fees, accidentes y aseguradora.
 
 #### Fases 5/6 — B2B y multiciudad

@@ -53,7 +53,19 @@ Este documento es obligatorio para cada cambio de Flash. Convierte la visión de
 - Todo movimiento monetario exige ledger balanceado, transacción, idempotencia, conciliación y estado externo verificable. Sin PSP/KYC/habilitación real, la liquidación productiva permanece bloqueada.
 - Capacidades de alto riesgo requieren threat model, abuso esperado, rate limits, alertas, runbook y prueba de recuperación proporcional.
 
-## 7. Definición de terminado
+## 7. IA, KYC y decisiones sensibles
+
+- La IA automatiza captura, validación, priorización, detección de anomalías y casos claros; las
+  reglas legales permanecen determinísticas y versionadas.
+- Un fallo técnico, una captura incierta o un score bajo no puede producir silenciosamente una
+  exclusión, suspensión definitiva o pérdida de fondos. Debe existir reintento, motivo legible,
+  revisión proporcional y apelación.
+- Biometría exige consentimiento, finalidad acotada, minimización, retención/borrado,
+  evaluación de impacto, métricas por cohorte y proveedor homologable.
+- Sandbox, OCR o face match local no equivalen a KYC productivo. La estrategia y puertas están
+  en [`estrategia-kyc-automatizado.md`](estrategia-kyc-automatizado.md).
+
+## 8. Definición de terminado
 
 Una capacidad sólo puede marcarse completa cuando:
 
@@ -65,7 +77,7 @@ Una capacidad sólo puede marcarse completa cuando:
 6. Las condiciones dependientes de dispositivo, proveedor u operación externa permanecen `[~]` o `[ ]` hasta verificarse físicamente.
 7. La entrega está sincronizada con `origin/main`, tiene commit descriptivo y push con pruebas relevantes verdes.
 
-## 8. Secuencia de ejecución
+## 9. Secuencia de ejecución
 
 1. Seleccionar el siguiente riesgo o flujo vertical completo del roadmap, no una pantalla aislada.
 2. Investigar fuentes oficiales y registrar la decisión.
@@ -75,11 +87,10 @@ Una capacidad sólo puede marcarse completa cuando:
 6. Actualizar `ROADMAP.md` con checks honestos y deudas explícitas.
 7. Publicar una entrega lógica pequeña; repetir.
 
-## 9. Prohibiciones explícitas
+## 10. Prohibiciones explícitas
 
 - No afirmar que Flash puede procesar un viaje, pago, retiro, SMS, seguro o navegación productiva sin proveedor y prueba real.
 - No completar checks por apariencia visual, fixtures, mocks, seeds o respuestas sandbox.
 - No duplicar pantallas con nombres distintos si comparten el mismo objetivo y estado de dominio.
 - No usar investigación competitiva como justificación para copiar ni para introducir una capacidad fuera de la estrategia de lanzamiento.
 - No relajar pruebas, ownership, RLS, seguridad, presupuestos de bundle o observabilidad para acelerar una demo.
-
