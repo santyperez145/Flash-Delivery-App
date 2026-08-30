@@ -29,6 +29,9 @@ const webCustomerShipment = fs.readFileSync("src/customer/ShipmentHome.tsx", "ut
 const webFoodCart = fs.readFileSync("src/customer/FoodCartScreen.tsx", "utf8");
 const webQuantityCounter = fs.readFileSync("src/customer/QuantityCounter.tsx", "utf8");
 const webEmptyState = fs.readFileSync("src/customer/EmptyState.tsx", "utf8");
+const webFoodCatalog = fs.readFileSync("src/customer/FoodCatalogComponents.tsx", "utf8");
+const webFoodRestaurant = fs.readFileSync("src/customer/FoodRestaurantScreen.tsx", "utf8");
+const webFoodItemSheet = fs.readFileSync("src/customer/FoodItemSheet.tsx", "utf8");
 const mobilePackage = JSON.parse(fs.readFileSync("apps/mobile/package.json", "utf8"));
 const rootPackage = JSON.parse(fs.readFileSync("package.json", "utf8"));
 const desktop = fs.readFileSync("src/styles.css", "utf8");
@@ -206,7 +209,7 @@ assert(
 );
 
 assert(
-  webCustomerCoordinator.trimEnd().split(/\r?\n/).length <= 930 &&
+  webCustomerCoordinator.trimEnd().split(/\r?\n/).length <= 610 &&
     contains(webCustomerCoordinator, "<WalletScreen") &&
     contains(webCustomerCoordinator, "<CustomerProfileScreen") &&
     !contains(webCustomerCoordinator, "function WalletScreen") &&
@@ -249,6 +252,22 @@ assert(
     webQuantityCounter.trimEnd().split(/\r?\n/).length <= 35 &&
     webEmptyState.trimEnd().split(/\r?\n/).length <= 25,
   "web cart, checkout and their shared primitives keep bounded ownership",
+);
+
+assert(
+  contains(webCustomerCoordinator, "<RestaurantDetail") &&
+    !contains(webCustomerCoordinator, "function RestaurantDetail") &&
+    !contains(webCustomerCoordinator, "function RestaurantCard") &&
+    !contains(webCustomerCoordinator, "function ItemSheet") &&
+    webFoodCatalog.trimEnd().split(/\r?\n/).length <= 155 &&
+    webFoodRestaurant.trimEnd().split(/\r?\n/).length <= 95 &&
+    webFoodItemSheet.trimEnd().split(/\r?\n/).length <= 110 &&
+    contains(webFoodRestaurant, "itemMatchesDietary") &&
+    contains(webFoodRestaurant, "<CategoryRail") &&
+    contains(webFoodRestaurant, "<FoodRow") &&
+    contains(webFoodItemSheet, "<QuantityCounter") &&
+    contains(webApp, 'import("./customer/FoodItemSheet")'),
+  "web restaurant, catalog cards and item customization keep bounded ownership",
 );
 
 assert(

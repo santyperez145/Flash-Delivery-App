@@ -597,3 +597,26 @@ tal.
 - [Uber Eats: secuencia oficial para realizar un pedido](https://help.uber.com/es/ubereats/restaurants/article/c%C3%B3mo-hacer-un-pedido-en-uber-eats?nodeId=509d1b2f-087c-4dac-9e94-6ab248e87491)
 - [Mercado Pago: Card Payment Brick y alcance PCI del formulario](https://www.mercadopago.com.ar/developers/es/docs/checkout-bricks/card-payment-brick/introduction)
 - [Mercado Pago: envío server-side, validación y credencial privada](https://www.mercadopago.com.ar/developers/es/docs/checkout-bricks/card-payment-brick/payment-submission)
+
+### Decisión 30 de agosto de 2026 — Restaurante, modificadores y notas por producto
+
+Uber Eats y DoorDash colocan la personalización dentro del producto: modificadores con
+precio y una instrucción especial viajan con esa línea, antes del carrito. La documentación
+vigente distingue además una nota común de una solicitud estructurada de alergia. Esa
+separación importa porque el comercio puede rechazar una instrucción y una alergia requiere
+selección, respuesta y trazabilidad más fuertes que un texto libre.
+
+Flash separa el detalle de restaurante, los componentes compartidos de catálogo y la hoja de
+producto. La hoja conserva extras tarifados, nota, cantidad y total; el restaurante filtra
+productos sólo con las declaraciones dietarias persistidas y muestra una advertencia honesta.
+El shell global abre el personalizador directamente, mientras el coordinador conserva sólo el
+estado que cruza detalle, carrito y Actividad.
+
+Flash todavía no implementa una solicitud de alergia por ítem con confirmación del comercio,
+ventana de respuesta y cancelación. Tampoco prueba contaminación cruzada, exactitud nutricional
+o sincronización de menú contra un proveedor externo. Una nota libre no se presenta como
+garantía médica ni como aceptación del restaurante.
+
+- [Uber Eats: instrucciones especiales por producto](https://help.uber.com/es/ubereats/restaurants/article/c%C3%B3mo-puedo-hacer-una-instrucci%C3%B3n-especial-para-un-pedido?nodeId=6cae92ca-edd0-49fc-aa50-5b46366626dd)
+- [Uber Eats: filtros dietarios y solicitud de alergia diferenciada](https://help.uber.com/en/ubereats/restaurants/article/about-allergies?nodeId=8b473a3d-8341-4369-9287-7febe2fe0b7b)
+- [DoorDash: instrucciones especiales y posibles cargos adicionales](https://help.doordash.com/en-us/consumers/article/can-i-specify-special-instructions-for-my-order)

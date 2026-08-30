@@ -427,6 +427,19 @@ async function auditCompactCustomerSurfaces(browser) {
   ok("compact customer shipment keeps the real quote flow inside the viewport");
 
   await page.getByRole("button", { name: "Comida", exact: true }).click();
+  await page.locator(".restaurant-card").first().click();
+  await page.locator(".detail-screen").waitFor();
+  await assertNoPageOverflow(page, "compact customer restaurant");
+  const firstAvailableItem = page.locator(".food-row:not(.disabled)").first();
+  await firstAvailableItem.click();
+  await page.locator(".item-sheet").waitFor();
+  const addItem = page.locator(".item-sheet .primary-button");
+  await assertNoPageOverflow(page, "compact customer item customization");
+  await assertLocatorInsideViewport(page, addItem, "compact customer item add action");
+  await page.getByRole("button", { name: "Cerrar", exact: true }).click();
+  await page.getByRole("button", { name: "Volver", exact: true }).click();
+  ok("compact customer restaurant and item customization stay inside the viewport");
+
   await page.getByRole("button", { name: "Carrito", exact: true }).click();
   await page.getByRole("heading", { name: "Carrito", exact: true }).waitFor();
   const closeCart = page.getByRole("button", { name: "Volver", exact: true });

@@ -1,13 +1,13 @@
 // Superficie de cliente en la web (ticket ARC-001, paso 15).
 //
 // Coordinador de Cliente extraído de `src/App.tsx`. Sólo conserva selección y
-// estado entre tareas. Wallet, Cuenta, Actividad, Envíos, carrito/checkout y
-// los trackings tienen límites propios; restaurante y descubrimiento son los
-// próximos cortes de ARC-001.
+// estado entre tareas. Wallet, Cuenta, Actividad, Envíos, restaurante,
+// carrito/checkout y los trackings tienen límites propios; descubrimiento es
+// el próximo corte de ARC-001.
 //
-// De las veinticinco piezas **sólo dos cruzan la frontera**: `CustomerApp`, que
-// es la superficie, y `ItemSheet`, que `App` renderiza como hoja global porque
-// se abre desde cualquier pantalla de comida.
+// `CustomerApp` es la única pieza que cruza esta frontera. La personalización
+// global de producto se carga desde `FoodItemSheet` sin volver a atravesar el
+// coordinador.
 //
 // `SectionTitle`, `TopBar` e `IconButton` iban en sentido contrario: las usan
 // también las consolas de operaciones, así que salieron antes a
@@ -15,29 +15,21 @@
 // no leer nombres.
 import { lazy, Suspense, useState } from "react";
 import {
-  ArrowLeft,
   Bell,
   Bike,
   Car,
   Clock3,
-  Heart,
   Home,
-  Leaf,
   ListChecks,
   LocateFixed,
   MapPin,
   PackageCheck,
-  Plus,
   RefreshCw,
-  Search,
   ShieldCheck,
   ShoppingBag,
-  SlidersHorizontal,
   Sparkles,
-  Star,
   UserRound,
   WalletCards,
-  X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -49,8 +41,8 @@ import { CustomerProfileScreen } from "./CustomerProfileScreen";
 import { CustomerActivityScreen } from "./CustomerActivityScreen";
 import { ShipmentHome } from "./ShipmentHome";
 import { CartScreen } from "./FoodCartScreen";
-import { Counter } from "./QuantityCounter";
-import { EmptyState } from "./EmptyState";
+import { RestaurantDetail } from "./FoodRestaurantScreen";
+import { CategoryRail, FoodRow, RestaurantCard, SearchBar } from "./FoodCatalogComponents";
 import { allergenOptions, dietOptions, itemMatchesDietary } from "../dietary";
 import { money } from "../format";
 import { IconButton, SectionTitle } from "../ui/panels";
@@ -571,314 +563,6 @@ function FlashPromiseGrid() {
           <span>{detail}</span>
         </article>
       ))}
-    </div>
-  );
-}
-
-function RestaurantDetail({
-  restaurant,
-  dietaryPreferences,
-  cartCount,
-  onBack,
-  onOpenCart,
-  onOpenItem,
-}: {
-  restaurant: Restaurant;
-  dietaryPreferences: DietaryPreferences | null;
-  cartCount: number;
-  onBack: () => void;
-  onOpenCart: () => void;
-  onOpenItem: (item: MenuItem) => void;
-}) {
-  const [category, setCategory] = useState("Todo");
-  const categories = ["Todo", ...Array.from(new Set(restaurant.menu.map((item) => item.category)))];
-  const menu = restaurant.menu.filter(
-    (item) =>
-      (category === "Todo" || item.category === category) &&
-      (!dietaryPreferences?.hideIncompatible || itemMatchesDietary(item, dietaryPreferences)),
-  );
-  return (
-    <div className="screen detail-screen">
-      <div className="restaurant-cover">
-        <img src={restaurant.cover} alt={restaurant.name} />
-        <div className="detail-topbar">
-          <IconButton icon={ArrowLeft} label="Volver" onClick={onBack} />
-          <IconButton icon={ShoppingBag} label="Carrito" badge={cartCount} onClick={onOpenCart} />
-        </div>
-      </div>
-      <section className="detail-summary">
-        <span className="badge warm">{restaurant.badge}</span>
-        <h2>{restaurant.name}</h2>
-        <p>
-          {restaurant.cuisine} · {restaurant.address}
-        </p>
-        <div className="summary-grid">
-          <span>
-            <Star size={14} /> {restaurant.rating}
-          </span>
-          <span>
-            <Bike size={14} /> {restaurant.distanceKm} km
-          </span>
-          <span>
-            <Clock3 size={14} /> {restaurant.etaMin} min
-          </span>
-        </div>
-      </section>
-      <CategoryRail categories={categories} category={category} setCategory={setCategory} />
-      {dietaryPreferences?.hideIncompatible && (
-        <div className="dietary-filter-banner">
-          <Leaf size={16} />
-          <span>Filtro alimentario activo · sólo productos con declaraciones compatibles.</span>
-        </div>
-      )}
-      <div className="item-list">
-        {menu.map((item) => (
-          <FoodRow
-            key={item.id}
-            item={item}
-            restaurant={restaurant}
-            onClick={() => onOpenItem(item)}
-          />
-        ))}
-        {!menu.length && (
-          <EmptyState
-            icon={Search}
-            title="Sin coincidencias declaradas"
-            text="Probá otra categoría o revisá tu filtro alimentario en Perfil."
-          />
-        )}
-      </div>
-    </div>
-  );
-}
-
-function SearchBar({ query, setQuery }: { query: string; setQuery: (query: string) => void }) {
-  return (
-    <div className="search-bar">
-      <Search size={17} />
-      <input
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        placeholder="Que queres pedir hoy?"
-      />
-      <button
-        type="button"
-        aria-label="Limpiar busqueda"
-        title="Limpiar busqueda"
-        onClick={() => setQuery("")}
-      >
-        {query ? <X size={17} /> : <SlidersHorizontal size={17} />}
-      </button>
-    </div>
-  );
-}
-
-function CategoryRail({
-  categories,
-  category,
-  setCategory,
-}: {
-  categories: string[];
-  category: string;
-  setCategory: (category: string) => void;
-}) {
-  return (
-    <div className="category-rail">
-      {categories.map((entry) => (
-        <button
-          className={category === entry ? "category-pill active" : "category-pill"}
-          key={entry}
-          onClick={() => setCategory(entry)}
-          type="button"
-        >
-          {entry}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function RestaurantCard({
-  restaurant,
-  onClick,
-  favorite,
-  onToggleFavorite,
-}: {
-  restaurant: Restaurant;
-  onClick: () => void;
-  favorite: boolean;
-  onToggleFavorite: () => void;
-}) {
-  return (
-    <button className="restaurant-card" type="button" onClick={onClick}>
-      <img src={restaurant.image} alt={restaurant.name} />
-      <span className={restaurant.open ? "badge" : "badge closed"}>
-        {restaurant.open ? restaurant.badge : "Cerrado"}
-      </span>
-      <div className="restaurant-card-body">
-        <div>
-          <strong>{restaurant.name}</strong>
-          <span>{restaurant.cuisine}</span>
-        </div>
-        <Heart
-          size={18}
-          fill={favorite ? "currentColor" : "none"}
-          role="button"
-          aria-label={favorite ? "Quitar de favoritos" : "Agregar a favoritos"}
-          tabIndex={0}
-          onClick={(event) => {
-            event.stopPropagation();
-            onToggleFavorite();
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              event.stopPropagation();
-              onToggleFavorite();
-            }
-          }}
-        />
-      </div>
-      <div className="restaurant-meta">
-        <span>
-          <Star size={13} /> {restaurant.rating}
-        </span>
-        <span>{restaurant.etaMin} min</span>
-        <span>{money.format(restaurant.deliveryFee)}</span>
-      </div>
-    </button>
-  );
-}
-
-function FoodRow({
-  item,
-  restaurant,
-  onClick,
-}: {
-  item: MenuItem;
-  restaurant: Restaurant;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      className={item.stock ? "food-row" : "food-row disabled"}
-      type="button"
-      onClick={onClick}
-      disabled={!item.stock}
-    >
-      <img src={item.image} alt={item.name} />
-      <div className="food-row-main">
-        <strong>{item.name}</strong>
-        <span>{restaurant.name}</span>
-        <div className="food-row-meta">
-          <span>
-            <Star size={12} /> {item.rating}
-          </span>
-          <span>
-            <Clock3 size={12} /> {item.timeMin} min
-          </span>
-        </div>
-      </div>
-      <div className="price-block">
-        <strong>{money.format(item.price)}</strong>
-        <Plus size={16} />
-      </div>
-    </button>
-  );
-}
-
-export function ItemSheet({
-  restaurant,
-  item,
-  quantity,
-  setQuantity,
-  extras,
-  setExtras,
-  note,
-  setNote,
-  onAdd,
-  onClose,
-}: {
-  restaurant: Restaurant;
-  item: MenuItem;
-  quantity: number;
-  setQuantity: (quantity: number) => void;
-  extras: string[];
-  setExtras: (extras: string[]) => void;
-  note: string;
-  setNote: (note: string) => void;
-  onAdd: () => void;
-  onClose: () => void;
-}) {
-  const extrasTotal = extras.reduce((sum, extraId) => {
-    const extra = restaurant.extras.find((entry) => entry.id === extraId);
-    return sum + (extra?.price || 0);
-  }, 0);
-  return (
-    <div className="sheet-backdrop">
-      <section className="item-sheet">
-        <button
-          className="sheet-close"
-          onClick={onClose}
-          type="button"
-          aria-label="Cerrar"
-          title="Cerrar"
-        >
-          <X size={16} />
-        </button>
-        <div className="sheet-hero">
-          <img src={item.image} alt={item.name} />
-          <div>
-            <span>{restaurant.name}</span>
-            <h2>{item.name}</h2>
-            <p>{item.description}</p>
-          </div>
-        </div>
-        <div className="sheet-stats">
-          <span>
-            <Star size={13} /> {item.rating}
-          </span>
-          <span>{item.kcal} kcal</span>
-          <span>{item.timeMin} min</span>
-        </div>
-        <div className="extras-list">
-          <strong>Extras</strong>
-          {restaurant.extras.map((extra) => {
-            const checked = extras.includes(extra.id);
-            return (
-              <label className="extra-row" key={extra.id}>
-                <span>
-                  <input
-                    checked={checked}
-                    onChange={() =>
-                      setExtras(
-                        checked
-                          ? extras.filter((entry) => entry !== extra.id)
-                          : [...extras, extra.id],
-                      )
-                    }
-                    type="checkbox"
-                  />
-                  {extra.name}
-                </span>
-                <small>{money.format(extra.price)}</small>
-              </label>
-            );
-          })}
-        </div>
-        <textarea
-          rows={3}
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-          placeholder="Nota para el local"
-        />
-        <div className="sheet-actions">
-          <Counter value={quantity} min={1} onChange={setQuantity} />
-          <button className="primary-button" type="button" onClick={onAdd}>
-            <ShoppingBag size={17} /> Agregar {money.format((item.price + extrasTotal) * quantity)}
-          </button>
-        </div>
-      </section>
     </div>
   );
 }

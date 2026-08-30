@@ -8,6 +8,15 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 30 de agosto de 2026 — ARC-001, Restaurante y personalización web segmentados
+
+- [x] Detalle de restaurante vive en `FoodRestaurantScreen.tsx` (85 líneas), cards/filas/búsqueda/categorías en `FoodCatalogComponents.tsx` (145) y el personalizador en `FoodItemSheet.tsx` (101); `CustomerSurface.tsx` bajó de 914 a 598 líneas.
+- [x] El refactor conserva catálogo/stock del backend, favorito persistido, filtro por declaraciones dietarias, extras con precio, nota para el local, cantidad y total calculado. `src/App.tsx` carga el personalizador directamente y ya no atraviesa el coordinador.
+- [x] `test:web-checkout` y `test:responsive-layout` fijan techos 610/155/95/110, exigen el cableado dietario y la personalización, y `test:web-tracking-maps` adopta el techo nuevo sin leer texto fuente crudo.
+- [x] Chromium y el navegador integrado abren Nori Club y Roll salmon furai a 390 × 844: detalle y hoja miden 390 px sobre un viewport de 390 px; extras, nota, cantidad y `Agregar $ 8.200` permanecen operables sin desborde.
+- [~] Uber Eats y DoorDash separan modificadores/notas de solicitudes estructuradas de alergia y advierten que el comercio puede no cumplir una nota. Flash conserva modificadores y notas, pero sigue por debajo sin solicitud de alergia por ítem, confirmación/timebox del comercio, trazabilidad de contaminación cruzada, sincronización externa de menú ni validación física.
+- [ ] ARC-001 continúa sobre home/descubrimiento y contratos compartidos; este corte no amplía catálogo ni resuelve los bloqueos comerciales.
+
 ## Avance 30 de agosto de 2026 — ARC-001, Carrito y checkout web fuera del coordinador
 
 - [x] Carrito, dirección de entrega, método de pago, cotización, propina, horario, resumen y confirmación viven en `src/customer/FoodCartScreen.tsx` (680 líneas); `CustomerSurface.tsx` bajó de 1.617 a 914 líneas sin agregar superficie durante Fase 0.

@@ -10,6 +10,9 @@ const coordinator = await fs.readFile("src/customer/CustomerSurface.tsx", "utf8"
 const foodCart = await fs.readFile("src/customer/FoodCartScreen.tsx", "utf8");
 const quantityCounter = await fs.readFile("src/customer/QuantityCounter.tsx", "utf8");
 const emptyState = await fs.readFile("src/customer/EmptyState.tsx", "utf8");
+const foodCatalog = await fs.readFile("src/customer/FoodCatalogComponents.tsx", "utf8");
+const foodRestaurant = await fs.readFile("src/customer/FoodRestaurantScreen.tsx", "utf8");
+const foodItemSheet = await fs.readFile("src/customer/FoodItemSheet.tsx", "utf8");
 const checkout = section(app, "function CartScreen(", "type ProviderPaymentInput");
 if (!checkout) throw new Error("No se encontró el checkout web");
 const assert = (condition, message) => {
@@ -18,7 +21,7 @@ const assert = (condition, message) => {
 };
 
 assert(
-  coordinator.trimEnd().split(/\r?\n/).length <= 930 &&
+  coordinator.trimEnd().split(/\r?\n/).length <= 610 &&
     foodCart.trimEnd().split(/\r?\n/).length <= 690 &&
     quantityCounter.trimEnd().split(/\r?\n/).length <= 35 &&
     emptyState.trimEnd().split(/\r?\n/).length <= 25 &&
@@ -26,6 +29,18 @@ assert(
     !contains(coordinator, "function CartScreen") &&
     contains(foodCart, "<MercadoPagoCardCheckout"),
   "carrito, checkout, pago y primitivas conservan límites propios",
+);
+
+assert(
+  foodCatalog.trimEnd().split(/\r?\n/).length <= 155 &&
+    foodRestaurant.trimEnd().split(/\r?\n/).length <= 95 &&
+    foodItemSheet.trimEnd().split(/\r?\n/).length <= 110 &&
+    contains(coordinator, "<RestaurantDetail") &&
+    !contains(coordinator, "function RestaurantDetail") &&
+    !contains(coordinator, "function ItemSheet") &&
+    containsAll(foodRestaurant, ["itemMatchesDietary", "<CategoryRail", "<FoodRow"]) &&
+    containsAll(foodItemSheet, ["<QuantityCounter", "restaurant.extras.map", "setNote"]),
+  "restaurante, catálogo y personalización conservan límites propios",
 );
 
 assert(

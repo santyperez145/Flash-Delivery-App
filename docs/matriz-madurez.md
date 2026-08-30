@@ -175,7 +175,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Presupuesto de bundle | `CI` | `test:web-bundle-budget` |
 | Compresión y caché | `CI` | `test:web-delivery` |
 | Contrato responsive | `CI` | `test:responsive-layout` |
-| Segmentación interna de Cliente | `CI` | Wallet, perfil, libreta, dieta, Actividad, Envíos, carrito/checkout, tarjeta de estado y los tres trackings viven en módulos propios; `test:responsive-layout`, `test:web-checkout` y `test:web-tracking-maps` fijan 930/690/35/25/575/130/315/165/195/180/340/285 líneas y APIs propietarias. Chromium verifica Cuenta, cotizador, carrito y los tres trackings a 390 × 844; el envío activo faltante se cotiza/crea por API real e idempotente |
+| Segmentación interna de Cliente | `CI` | Wallet, perfil, libreta, dieta, Actividad, Envíos, restaurante, catálogo/personalización, carrito/checkout, tarjeta de estado y los tres trackings viven en módulos propios; `test:responsive-layout`, `test:web-checkout` y `test:web-tracking-maps` fijan 610/155/95/110/690/35/25/575/130/315/165/195/180/340/285 líneas y APIs propietarias. Chromium verifica Cuenta, cotizador, restaurante, personalizador, carrito y los tres trackings a 390 × 844; el envío activo faltante se cotiza/crea por API real e idempotente |
 | Auditoría responsive en navegador real | `CI` | `test:responsive-browser` en `ci-nightly.yml`, una corrida por variante. Hasta el 27-08 pasaba sobre la pantalla de login |
 | Degradación explícita sobre el respaldo | `CI` | `test:fallback-degradation`: 54 rutas × 4 audiencias sin 500. Encontró 17 rutas que reventaban con `TypeError` en vez de responder 503 |
 | CSP activa | `LOCAL` | Sin puerta dedicada |

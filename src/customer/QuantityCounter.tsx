@@ -1,6 +1,6 @@
 import { Minus, Plus } from "lucide-react";
 
-export function Counter({
+export function QuantityCounter({
   value,
   onChange,
   min = 0,

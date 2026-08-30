@@ -25,7 +25,7 @@ import type {
 } from "../types";
 import { TopBar } from "../ui/panels";
 import { EmptyState } from "./EmptyState";
-import { Counter } from "./QuantityCounter";
+import { QuantityCounter } from "./QuantityCounter";
 import { SchedulePicker } from "./SchedulePicker";
 import { TipSelector } from "./TipSelector";
 
@@ -267,7 +267,7 @@ export function CartScreen({
                   <span>{line.extras.length ? `${line.extras.length} extras` : "Sin extras"}</span>
                   <small>{line.note || "Sin nota"}</small>
                 </div>
-                <Counter
+                <QuantityCounter
                   value={line.quantity}
                   min={0}
                   onChange={(quantity) =>
