@@ -10,6 +10,10 @@ const customerAccount = fs.readFileSync(
   "apps/mobile/src/screens/CustomerAccountScreen.tsx",
   "utf8",
 );
+const customerShipment = fs.readFileSync(
+  "apps/mobile/src/screens/CustomerShipmentScreen.tsx",
+  "utf8",
+);
 const { source: webApp } = await readWebSource();
 const mobilePackage = JSON.parse(fs.readFileSync("apps/mobile/package.json", "utf8"));
 const rootPackage = JSON.parse(fs.readFileSync("package.json", "utf8"));
@@ -96,13 +100,24 @@ assert(
 );
 
 assert(
-  customerCoordinator.trimEnd().split(/\r?\n/).length <= 4346 &&
+  customerCoordinator.trimEnd().split(/\r?\n/).length <= 3815 &&
     contains(customerCoordinator, "<CustomerAccountScreen") &&
     !contains(customerCoordinator, "Teléfono de seguridad") &&
     contains(customerAccount, "export function CustomerAccountScreen") &&
     contains(customerAccount, "if (!visible) return null") &&
     contains(customerAccount, "onUseAddress(item.address, point)"),
   "customer account stays outside the shrinking coordinator and keeps address selection wired",
+);
+
+assert(
+  contains(customerCoordinator, "<CustomerShipmentScreen") &&
+    !contains(customerCoordinator, "Mandá algo hoy") &&
+    contains(customerShipment, "export function CustomerShipmentScreen") &&
+    contains(customerShipment, "if (!visible) return null") &&
+    contains(customerShipment, "api.quoteShipment") &&
+    contains(customerShipment, "api.createShipment") &&
+    contains(customerShipment, "setShipmentPickup(selectedAddress.address)"),
+  "shipment quote and request stay outside the coordinator with shared address wiring",
 );
 
 assert(

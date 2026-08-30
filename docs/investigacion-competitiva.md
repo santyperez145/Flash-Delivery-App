@@ -404,3 +404,28 @@ deudas se presenta como cerrada por haber modularizado la interfaz.
 - [Uber: activar verificación en dos pasos](https://help.uber.com/riders/article/node-title?nodeId=b8bb9152-8c91-4f49-83c4-35cf2e1dcf72)
 - [Uber: protección de cuenta y dispositivo](https://help.uber.com/riders/article/how-does-uber-protect-my-account?nodeId=03ec28e4-9049-4fe2-a60c-1a7d0334891e)
 - [Uber: agregar o quitar lugares guardados](https://help.uber.com/riders/article/how-to-addremove-saved-places?nodeId=92f13cb2-bab2-4c88-a19e-9d52533496c3)
+
+### Decisión 30 de agosto de 2026 — Envíos como límite transaccional propio
+
+La documentación técnica vigente de Uber Direct separa el flujo en cotización y creación:
+primero valida cobertura, costo y ETA; luego crea la entrega con el identificador de esa
+cotización. Su modelo operativo continúa con despacho, tracking por estados y verificación de
+entrega. La prueba de entrega puede combinar firma, foto, barcode, identidad y PIN según el
+riesgo del artículo. El patrón relevante para ARC-001 es que cotización, confirmación y
+verificación formen un dominio cohesivo, no que sean condicionales dentro de un home general.
+
+Flash mueve ese límite a `CustomerShipmentScreen.tsx` sin cambiar el contrato real existente:
+geocodifica retiro y destino, pide la cotización firmada al servidor, carga la ruta vial de
+forma degradable, crea con el mismo `quoteToken` y conserva PIN, firma, cancelación y
+seguimiento. La pantalla permanece montada al navegar y consume un único evento de dirección
+desde Cuenta, por lo que el refactor no descarta trabajo ni vuelve a filtrar setters por el
+coordinador.
+
+La brecha no se oculta: Flash no está conectado a una red courier productiva ni demuestra aún
+tráfico con SLA, barcodes, identidad regulada, política de retención, cobertura asegurada o
+pruebas físicas de entrega. La extracción mejora mantenibilidad y testabilidad; no convierte
+esas dependencias externas en capacidades verificadas.
+
+- [Uber Direct: cotizar y crear una entrega](https://developer.uber.com/docs/deliveries/get-started)
+- [Uber Direct: ciclo operativo de una entrega](https://developer.uber.com/docs/deliveries/direct/guides/overview)
+- [Uber Direct: prueba de entrega](https://developer.uber.com/docs/deliveries/guides/proof-of-delivery)

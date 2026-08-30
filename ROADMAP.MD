@@ -8,6 +8,15 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 30 de agosto de 2026 — ARC-001, Envíos móvil fuera del coordinador
+
+- [x] Cotización, geocodificación, ruta vial, opciones, protección, firma y creación persistida viven en `CustomerShipmentScreen.tsx`; el cambio mueve lógica existente y no agrega superficie durante el congelamiento de Fase 0.
+- [x] `CustomerScreen.tsx` bajó de 4.292 a 3.809 líneas. Envíos conserva su estado montado al cambiar de pestaña para no descartar direcciones, destinatario ni una cotización en curso.
+- [x] Cuenta sigue propagando la dirección elegida mediante un evento tipado; Envíos consume el evento y reinvalida ruta/cotización sin volver a acoplar sus setters al coordinador.
+- [x] `test:responsive-layout` y `test:mobile-maps` fijan el nuevo límite, verifican las APIs reales `quoteShipment`/`createShipment` y exigen coordenadas persistidas para el origen de sus mapas.
+- [~] La secuencia cotizar → confirmar → crear y la prueba de entrega con PIN/firma siguen el contrato documentado por Uber Direct. Flash continúa por debajo en red productiva, SLA de tráfico, verificación de identidad, barcodes, retención de evidencia y operación asegurada; todos dependen de proveedor, habilitación y pruebas físicas.
+- [ ] Comidas y Viajes son los dos cortes que todavía quedan dentro del coordinador para cerrar esta parte de ARC-001.
+
 ## Avance 29 de agosto de 2026 — ARC-001, Cuenta móvil fuera del coordinador
 
 - [x] Seguridad de cuenta, sesiones, referidos, preferencias alimentarias, notificaciones, soporte, direcciones y métodos de pago viven en `CustomerAccountScreen.tsx`, con las mismas APIs y transiciones persistidas.

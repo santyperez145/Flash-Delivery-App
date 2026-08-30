@@ -12,6 +12,10 @@ const customerTrackingSheets = fs.readFileSync(
   "apps/mobile/src/screens/CustomerTrackingSheets.tsx",
   "utf8",
 );
+const customerShipment = fs.readFileSync(
+  "apps/mobile/src/screens/CustomerShipmentScreen.tsx",
+  "utf8",
+);
 const map = fs.readFileSync("apps/mobile/src/FlashNativeMap.native.tsx", "utf8");
 const webMap = fs.readFileSync("apps/mobile/src/FlashNativeMap.web.tsx", "utf8");
 const demandMap = fs.readFileSync("apps/mobile/src/DriverDemandMap.native.tsx", "utf8");
@@ -147,7 +151,7 @@ assert(
   "tracking shares route loading while shipment evidence degrades independently",
 );
 assert(
-  customerCoordinator.trimEnd().split(/\r?\n/).length <= 5384 &&
+  customerCoordinator.trimEnd().split(/\r?\n/).length <= 3815 &&
     !contains(customerCoordinator, "function OrderTrackingSheet") &&
     contains(customerTrackingSheets, "export function OrderTrackingSheet") &&
     contains(customerTrackingSheets, "export function RideTrackingSheet") &&
@@ -155,9 +159,13 @@ assert(
   "customer tracking sheets stay outside the shrinking customer coordinator",
 );
 assert(
-  contains(app, "defaultLocationSeededForUser") &&
-    contains(app, "setPickupCoords(point)") &&
-    contains(app, "setShipmentPickupCoords(point)"),
+  contains(customerCoordinator, "defaultLocationSeededForUser") &&
+    contains(customerCoordinator, "setPickupCoords(point)") &&
+    contains(customerShipment, "defaultLocationSeededForUser") &&
+    contains(
+      customerShipment,
+      "setShipmentPickupCoords({ lat: primaryAddress.lat!, lng: primaryAddress.lng! })",
+    ),
   "customer ride and shipment maps seed the real geocoded default address instead of opening with an empty origin",
 );
 nodeAssert.equal(
