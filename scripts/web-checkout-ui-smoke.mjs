@@ -13,6 +13,7 @@ const emptyState = await fs.readFile("src/customer/EmptyState.tsx", "utf8");
 const foodCatalog = await fs.readFile("src/customer/FoodCatalogComponents.tsx", "utf8");
 const foodRestaurant = await fs.readFile("src/customer/FoodRestaurantScreen.tsx", "utf8");
 const foodItemSheet = await fs.readFile("src/customer/FoodItemSheet.tsx", "utf8");
+const foodDiscovery = await fs.readFile("src/customer/FoodDiscoveryHome.tsx", "utf8");
 const checkout = section(app, "function CartScreen(", "type ProviderPaymentInput");
 if (!checkout) throw new Error("No se encontró el checkout web");
 const assert = (condition, message) => {
@@ -21,7 +22,7 @@ const assert = (condition, message) => {
 };
 
 assert(
-  coordinator.trimEnd().split(/\r?\n/).length <= 610 &&
+  coordinator.trimEnd().split(/\r?\n/).length <= 470 &&
     foodCart.trimEnd().split(/\r?\n/).length <= 690 &&
     quantityCounter.trimEnd().split(/\r?\n/).length <= 35 &&
     emptyState.trimEnd().split(/\r?\n/).length <= 25 &&
@@ -41,6 +42,15 @@ assert(
     containsAll(foodRestaurant, ["itemMatchesDietary", "<CategoryRail", "<FoodRow"]) &&
     containsAll(foodItemSheet, ["<QuantityCounter", "restaurant.extras.map", "setNote"]),
   "restaurante, catálogo y personalización conservan límites propios",
+);
+
+assert(
+  foodDiscovery.trimEnd().split(/\r?\n/).length <= 130 &&
+    contains(coordinator, "<FoodDiscoveryHome") &&
+    !contains(coordinator, "function FoodDiscoveryHome") &&
+    containsAll(foodDiscovery, ["featuredRestaurant?.cover", "<RestaurantCard", "<FoodRow"]) &&
+    containsNone(foodDiscovery, ["images.unsplash.com"]),
+  "home y descubrimiento usan catálogo real y conservan un límite propio",
 );
 
 assert(

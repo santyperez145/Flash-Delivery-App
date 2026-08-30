@@ -8,6 +8,15 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 30 de agosto de 2026 — ARC-001, Home y descubrimiento web fuera del coordinador
+
+- [x] Home, búsqueda, categorías, restaurantes, productos destacados, beneficios y promesas verificadas viven en `FoodDiscoveryHome.tsx` (119 líneas); `CustomerSurface.tsx` bajó de 598 a 459 líneas.
+- [x] La portada usa restaurantes/productos/favoritos del estado autenticado y el plan real del backend. La imagen hero ya no es una URL promocional fija: toma `cover`/`image` del primer comercio abierto y desaparece honestamente si el catálogo está vacío.
+- [x] `test:web-checkout` y `test:responsive-layout` fijan techos 470/130, exigen composición con cards reales, persistencia de favorito y ausencia de `images.unsplash.com`; `test:web-tracking-maps` adopta el nuevo techo.
+- [x] Chromium y el navegador integrado vuelven a recorrer la matriz completa. A 390 × 844, el home mide 390 px, expone 4 restaurantes, 7 productos y anuncia `Promoción de Nori Club` desde el catálogo activo.
+- [~] Uber Eats combina búsqueda por restaurante/cocina/plato con tiempo, distancia, precio, rating y recomendaciones; DoorDash usa etiquetas confirmadas para descubrimiento dietario. Flash cubre búsqueda, categoría y señales básicas, pero sigue por debajo sin ranking medido, personalización explicable, frescura de inventario con SLA, etiquetas confirmadas por comercio ni gobernanza de promociones pagas.
+- [ ] ARC-001 continúa sobre el selector de servicio, navegación y la composición residual del coordinador; no se agrega una vertical durante Fase 0.
+
 ## Avance 30 de agosto de 2026 — ARC-001, Restaurante y personalización web segmentados
 
 - [x] Detalle de restaurante vive en `FoodRestaurantScreen.tsx` (85 líneas), cards/filas/búsqueda/categorías en `FoodCatalogComponents.tsx` (145) y el personalizador en `FoodItemSheet.tsx` (101); `CustomerSurface.tsx` bajó de 914 a 598 líneas.

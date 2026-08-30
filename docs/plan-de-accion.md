@@ -107,7 +107,7 @@ La matriz vive en `docs/matriz-madurez.md` y se actualiza en el mismo PR que cam
 
 | Entregable | Ticket | Criterio de cierre |
 | --- | --- | --- |
-| Separación de `src/App.tsx` | ARC-001 | Shell web en 1.274 líneas; cliente delegado y, dentro de él, Wallet, Cuenta, Actividad, Envíos, restaurante, personalización, carrito/checkout y los tres trackings tienen límites propios. `CustomerSurface.tsx` queda en 598 líneas |
+| Separación de `src/App.tsx` | ARC-001 | Shell web en 1.274 líneas; cliente delegado y, dentro de él, Wallet, Cuenta, Actividad, Envíos, descubrimiento, restaurante, personalización, carrito/checkout y los tres trackings tienen límites propios. `CustomerSurface.tsx` queda en 459 líneas |
 | Separación de `apps/mobile/App.tsx` | ARC-001 | Entrypoints customer/driver/merchant independientes; Actividad, tracking, Cuenta, Envíos y Viajes fuera del coordinador customer |
 | Descomposición de `server/index.js` | ARC-001 | Controllers separados de use cases y repositories. **9 de 57 grupos extraídos**; el núcleo compartido está completo, así que lo que queda es repetitivo y no de diseño |
 | ~~Reformateo de archivos comprimidos~~ **hecho** | ARC-001 | Línea máxima 4.061 → 206; quedan 262 líneas largas, casi todas SQL |
@@ -443,6 +443,11 @@ personalizador (101). `CustomerSurface.tsx` quedó en **598 líneas** con ratche
 610; `App.tsx` carga la hoja de producto directamente. Chromium recorre detalle,
 extras, nota, cantidad y total a 390 × 844 sin agregar el producto ni escribir
 datos.
+El séptimo movió home, búsqueda, categorías, beneficios y listados a
+`FoodDiscoveryHome.tsx` (119 líneas). `CustomerSurface.tsx` quedó en **459** con
+ratchet 470. La portada dejó de depender de una imagen promocional fija: toma el
+hero del catálogo activo, y Chromium confirma 4 restaurantes y 7 productos sin
+overflow a 390 × 844.
 
 Las 8 rutas que quedan no son dominio: salud, readiness, el documento OpenAPI,
 el bootstrap por audiencia, las dos de métricas, el 410 que retiró `/api/state`

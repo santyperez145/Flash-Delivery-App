@@ -1,9 +1,8 @@
 // Superficie de cliente en la web (ticket ARC-001, paso 15).
 //
 // Coordinador de Cliente extraído de `src/App.tsx`. Sólo conserva selección y
-// estado entre tareas. Wallet, Cuenta, Actividad, Envíos, restaurante,
-// carrito/checkout y los trackings tienen límites propios; descubrimiento es
-// el próximo corte de ARC-001.
+// estado entre tareas. Wallet, Cuenta, Actividad, Envíos, descubrimiento,
+// restaurante, carrito/checkout y los trackings tienen límites propios.
 //
 // `CustomerApp` es la única pieza que cruza esta frontera. La personalización
 // global de producto se carga desde `FoodItemSheet` sin volver a atravesar el
@@ -18,23 +17,19 @@ import {
   Bell,
   Bike,
   Car,
-  Clock3,
   Home,
   ListChecks,
-  LocateFixed,
   MapPin,
   PackageCheck,
   RefreshCw,
-  ShieldCheck,
   ShoppingBag,
-  Sparkles,
   UserRound,
   WalletCards,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 import { api } from "../api";
-import { Beneficios, SubscriptionPanel, useSubscription } from "./SubscriptionPanel";
+import { SubscriptionPanel } from "./SubscriptionPanel";
 import { GroupOrderPanel } from "./GroupOrderPanel";
 import { WalletScreen } from "./WalletScreen";
 import { CustomerProfileScreen } from "./CustomerProfileScreen";
@@ -42,10 +37,8 @@ import { CustomerActivityScreen } from "./CustomerActivityScreen";
 import { ShipmentHome } from "./ShipmentHome";
 import { CartScreen } from "./FoodCartScreen";
 import { RestaurantDetail } from "./FoodRestaurantScreen";
-import { CategoryRail, FoodRow, RestaurantCard, SearchBar } from "./FoodCatalogComponents";
-import { allergenOptions, dietOptions, itemMatchesDietary } from "../dietary";
-import { money } from "../format";
-import { IconButton, SectionTitle } from "../ui/panels";
+import { FoodDiscoveryHome } from "./FoodDiscoveryHome";
+import { IconButton } from "../ui/panels";
 import type {
   AppState,
   CartLine,
@@ -271,7 +264,7 @@ export function CustomerApp(props: {
       <ServiceToggle service={service} setService={setService} features={props.features} />
 
       {tab === "home" && service === "food" && (
-        <FoodHome
+        <FoodDiscoveryHome
           restaurants={restaurants}
           allItems={allItems}
           query={query}
@@ -431,138 +424,6 @@ function ServiceToggle({
           <PackageCheck size={16} /> Envíos
         </button>
       )}
-    </div>
-  );
-}
-
-function FoodHome({
-  restaurants,
-  allItems,
-  query,
-  setQuery,
-  category,
-  setCategory,
-  categories,
-  favoriteRestaurantIds,
-  onToggleFavorite,
-  onOpenRestaurant,
-  onOpenItem,
-  onOpenSubscription,
-}: {
-  restaurants: Restaurant[];
-  allItems: Array<{ restaurant: Restaurant; item: MenuItem }>;
-  query: string;
-  setQuery: (query: string) => void;
-  category: string;
-  setCategory: (category: string) => void;
-  categories: string[];
-  favoriteRestaurantIds: string[];
-  onToggleFavorite: (restaurantId: string, favorite: boolean) => void;
-  onOpenRestaurant: (restaurant: Restaurant) => void;
-  onOpenItem: (restaurant: Restaurant, item: MenuItem) => void;
-  onOpenSubscription: () => void;
-}) {
-  return (
-    <>
-      <section className="promo-card">
-        <img
-          src="https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=900&q=80"
-          alt="Promocion de comida"
-        />
-        <div className="promo-overlay">
-          <span>Hot deal</span>
-          <h2>Comida en minutos</h2>
-          <p>Pedidos, tracking y reparto con backend activo.</p>
-        </div>
-      </section>
-      <FlashPassTeaser onOpen={onOpenSubscription} />
-      <FlashPromiseGrid />
-      <SearchBar query={query} setQuery={setQuery} />
-      <CategoryRail categories={categories} category={category} setCategory={setCategory} />
-      <SectionTitle title="Cerca tuyo" action="Abiertos" />
-      <div className="restaurant-rail">
-        {restaurants.map((restaurant) => (
-          <RestaurantCard
-            key={restaurant.id}
-            restaurant={restaurant}
-            favorite={favoriteRestaurantIds.includes(restaurant.id)}
-            onToggleFavorite={() =>
-              onToggleFavorite(restaurant.id, !favoriteRestaurantIds.includes(restaurant.id))
-            }
-            onClick={() => onOpenRestaurant(restaurant)}
-          />
-        ))}
-      </div>
-      <SectionTitle title="Mas pedidos" action="Filtros" />
-      <div className="item-list">
-        {allItems.slice(0, 7).map(({ restaurant, item }) => (
-          <FoodRow
-            key={`${restaurant.id}-${item.id}`}
-            item={item}
-            restaurant={restaurant}
-            onClick={() => onOpenItem(restaurant, item)}
-          />
-        ))}
-      </div>
-    </>
-  );
-}
-
-/**
- * Anuncio de la suscripción en la portada.
- *
- * **Esto era una tarjeta decorativa.** Prometía «Flash Pass — envíos gratis,
- * soporte prioritario y promos cross-food/taxi», decía «Disponible en checkout»,
- * y detrás no había tabla, ruta ni concepto: ni el nombre ni dos de los tres
- * beneficios existían en ninguna parte del producto. Vender algo que no existe
- * en la primera pantalla es peor que no venderlo, porque la persona lo busca en
- * el checkout y no lo encuentra.
- *
- * Ahora anuncia el plan real con sus beneficios reales, leídos del servidor, y
- * lleva a donde se contrata. **Se esconde para quien ya está suscripto**: seguir
- * ofreciéndole lo que ya paga es el error más barato de cometer y el que más
- * rápido enseña que la app no sabe quién es.
- */
-function FlashPassTeaser({ onOpen }: { onOpen: () => void }) {
-  const { planes, suscripcion, cargando } = useSubscription();
-  const plan = planes[0];
-  if (cargando || suscripcion || !plan) return null;
-  return (
-    <button type="button" className="flash-pass" onClick={onOpen}>
-      <div>
-        <span>{plan.planName}</span>
-        {/* La descripción del plan repite exactamente estos tres beneficios. Se
-            muestra la lista y no la prosa: sale de los valores del plan, así que
-            no puede prometer un umbral distinto del que aplica la tarifa. */}
-        <Beneficios plan={plan} />
-      </div>
-      <span className="flash-pass-status">
-        <Sparkles size={15} /> {money.format(plan.priceCents / 100)} / {plan.billingPeriodDays} días
-      </span>
-    </button>
-  );
-}
-
-function FlashPromiseGrid() {
-  // Las cuatro promesas de la portada, y las cuatro tienen que existir. «Grupal
-  // — Pedido compartido» estaba acá y **no existe**: el backlog lo lista como
-  // hueco abierto (GTM-001). Se reemplaza por las sustituciones, que sí existen,
-  // están probadas y son el momento en que un pedido se salva o se pierde.
-  const promises = [
-    ["Tracking vivo", "Mapa + ETA", LocateFixed],
-    ["Garantia", "Credito si falla", ShieldCheck],
-    ["Sustituciones", "Vos elegis el reemplazo", UserRound],
-    ["Programar", "Food o taxi", Clock3],
-  ] as const;
-  return (
-    <div className="promise-grid">
-      {promises.map(([title, detail, Icon]) => (
-        <article key={title}>
-          <Icon size={16} />
-          <strong>{title}</strong>
-          <span>{detail}</span>
-        </article>
-      ))}
     </div>
   );
 }

@@ -620,3 +620,27 @@ garantía médica ni como aceptación del restaurante.
 - [Uber Eats: instrucciones especiales por producto](https://help.uber.com/es/ubereats/restaurants/article/c%C3%B3mo-puedo-hacer-una-instrucci%C3%B3n-especial-para-un-pedido?nodeId=6cae92ca-edd0-49fc-aa50-5b46366626dd)
 - [Uber Eats: filtros dietarios y solicitud de alergia diferenciada](https://help.uber.com/en/ubereats/restaurants/article/about-allergies?nodeId=8b473a3d-8341-4369-9287-7febe2fe0b7b)
 - [DoorDash: instrucciones especiales y posibles cargos adicionales](https://help.doordash.com/en-us/consumers/article/can-i-specify-special-instructions-for-my-order)
+
+### Decisión 30 de agosto de 2026 — Descubrimiento desde catálogo y señales honestas
+
+Uber Eats permite buscar restaurante, cocina y plato, y presenta tiempo de preparación,
+distancia, precio y rating como señales de decisión. Sus superficies también distinguen
+filtros editoriales como Highest Rated y recomendaciones personalizadas. DoorDash documenta
+que etiquetas dietarias, alérgenos y cocina deben ser confirmadas por el comercio y pueden
+alimentar búsqueda, badges y carruseles.
+
+Flash separa home/descubrimiento y conserva la búsqueda, categorías, restaurantes, productos
+y favoritos conectados al estado autenticado. La portada dejó de usar una foto promocional
+fija ajena al catálogo: elige el primer comercio abierto y usa su portada/imagen; si no hay
+datos, no inventa una campaña. Flash Más también sigue leyendo nombre, precio y beneficios
+del backend y se oculta ante una suscripción activa.
+
+La comparación deja una brecha explícita: Flash no tiene todavía ranking offline/online
+medido, personalización explicable, experimentación de relevancia, inventario con SLA ni
+etiquetas confirmadas por el comercio. Tampoco existe un producto publicitario cuya
+priorización y disclosure estén gobernados. Las secciones actuales son composición del
+catálogo, no una afirmación de recomendación algorítmica validada.
+
+- [Uber Eats: búsqueda por restaurante, cocina o plato y señales de decisión](https://help.uber.com/ubereats/restaurants/article/pick-up-order-faq?nodeId=a58f21e8-fc3e-42cb-adfd-92db5024faf5)
+- [Uber Eats: filtro Highest Rated y recomendaciones personalizadas](https://help.uber.com/ubereats/restaurants/article/what-is-highest-rated?nodeId=aa4408c6-c7e5-4752-bb18-3f637b93270e)
+- [DoorDash: etiquetas confirmadas que alimentan descubrimiento](https://help.doordash.com/en-us/merchants/article/how-to-manage-food-and-store-labels-in-merchant-portal)

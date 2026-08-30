@@ -32,6 +32,7 @@ const webEmptyState = fs.readFileSync("src/customer/EmptyState.tsx", "utf8");
 const webFoodCatalog = fs.readFileSync("src/customer/FoodCatalogComponents.tsx", "utf8");
 const webFoodRestaurant = fs.readFileSync("src/customer/FoodRestaurantScreen.tsx", "utf8");
 const webFoodItemSheet = fs.readFileSync("src/customer/FoodItemSheet.tsx", "utf8");
+const webFoodDiscovery = fs.readFileSync("src/customer/FoodDiscoveryHome.tsx", "utf8");
 const mobilePackage = JSON.parse(fs.readFileSync("apps/mobile/package.json", "utf8"));
 const rootPackage = JSON.parse(fs.readFileSync("package.json", "utf8"));
 const desktop = fs.readFileSync("src/styles.css", "utf8");
@@ -209,7 +210,7 @@ assert(
 );
 
 assert(
-  webCustomerCoordinator.trimEnd().split(/\r?\n/).length <= 610 &&
+  webCustomerCoordinator.trimEnd().split(/\r?\n/).length <= 470 &&
     contains(webCustomerCoordinator, "<WalletScreen") &&
     contains(webCustomerCoordinator, "<CustomerProfileScreen") &&
     !contains(webCustomerCoordinator, "function WalletScreen") &&
@@ -268,6 +269,18 @@ assert(
     contains(webFoodItemSheet, "<QuantityCounter") &&
     contains(webApp, 'import("./customer/FoodItemSheet")'),
   "web restaurant, catalog cards and item customization keep bounded ownership",
+);
+
+assert(
+  contains(webCustomerCoordinator, "<FoodDiscoveryHome") &&
+    !contains(webCustomerCoordinator, "function FoodDiscoveryHome") &&
+    webFoodDiscovery.trimEnd().split(/\r?\n/).length <= 130 &&
+    contains(webFoodDiscovery, "featuredRestaurant?.cover") &&
+    !contains(webFoodDiscovery, "images.unsplash.com") &&
+    contains(webFoodDiscovery, "<RestaurantCard") &&
+    contains(webFoodDiscovery, "<FoodRow") &&
+    contains(webCustomerCoordinator, "api.setFavorite"),
+  "web food discovery owns real catalog composition without a hardcoded hero asset",
 );
 
 assert(
