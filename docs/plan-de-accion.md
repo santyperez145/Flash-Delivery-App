@@ -107,7 +107,7 @@ La matriz vive en `docs/matriz-madurez.md` y se actualiza en el mismo PR que cam
 
 | Entregable | Ticket | Criterio de cierre |
 | --- | --- | --- |
-| Separación de `src/App.tsx` | ARC-001 | Shell web en 1.274 líneas; acceso y estados transversales extraídos |
+| Separación de `src/App.tsx` | ARC-001 | Shell web en 1.274 líneas; cliente delegado y, dentro de él, Wallet, Cuenta, Actividad y los tres trackings tienen límites propios. `CustomerSurface.tsx` queda en 2.166 líneas |
 | Separación de `apps/mobile/App.tsx` | ARC-001 | Entrypoints customer/driver/merchant independientes; Actividad, tracking, Cuenta, Envíos y Viajes fuera del coordinador customer |
 | Descomposición de `server/index.js` | ARC-001 | Controllers separados de use cases y repositories. **9 de 57 grupos extraídos**; el núcleo compartido está completo, así que lo que queda es repetitivo y no de diseño |
 | ~~Reformateo de archivos comprimidos~~ **hecho** | ARC-001 | Línea máxima 4.061 → 206; quedan 262 líneas largas, casi todas SQL |
@@ -424,6 +424,11 @@ direcciones geocodificadas y preferencias alimentarias: el coordinador quedó en
 **3.172 líneas** y el ratchet en 3.180. La segunda partición dejó perfil y
 composición en 124 líneas, libreta geocodificada en 308 y dieta en 160, cada uno
 con ratchet y API propietaria; ese límite ya satisface el criterio 7.
+El tercer corte movió Actividad, su tarjeta común y los tres trackings a módulos
+propios. `CustomerSurface.tsx` quedó en **2.166 líneas** con ratchet 2.185; las
+hojas conservan ruta, ETA, PIN, safety, enlace compartible y evidencia. Chromium
+abre las tres a 390 × 844 y crea el fixture ausente por la API real de envío,
+con cotización firmada e idempotencia, en lugar de insertar datos de prueba.
 
 Las 8 rutas que quedan no son dominio: salud, readiness, el documento OpenAPI,
 el bootstrap por audiencia, las dos de métricas, el 410 que retiró `/api/state`

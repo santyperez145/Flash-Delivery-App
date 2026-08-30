@@ -8,6 +8,16 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 30 de agosto de 2026 — ARC-001, Actividad y tracking web segmentados
+
+- [x] Actividad, tarjeta de estado y los seguimientos de comida, viaje y envío viven en seis módulos con una responsabilidad concreta; `CustomerSurface.tsx` bajó de 3.172 a 2.166 líneas sin agregar superficie durante Fase 0.
+- [x] La extracción conserva recursos autenticados, rutas viales, ETA, conductor asignado, PIN de retiro/entrega, enlace público de viaje, incidente de seguridad, evidencia de entrega, cancelación, reprogramación y calificación contra las APIs existentes.
+- [x] `test:web-tracking-maps` fija techos de 2.185/195/180/340/285 líneas y usa contratos independientes del formato. `test:responsive-layout` adopta el mismo techo del coordinador.
+- [x] `test:responsive-browser` abre los tres seguimientos a 390 × 844. Si la cuenta de prueba no tiene un envío activo, lo cotiza y crea por las APIs públicas reales con precio firmado e idempotencia; no inserta SQL ni intercepta respuestas.
+- [x] Un fallo al consultar prueba de entrega ya no se convierte silenciosamente en una lista vacía: la hoja conserva la ruta y muestra el error del backend.
+- [~] Flash cubre el patrón competitivo de Actividad → estado/ETA → mapa y contacto operativo, además de viaje compartible y POD de envío. Sigue por debajo sin tráfico/mapas con SLA, mensajería o telefonía anonimizada, push probado en dispositivos, operación de safety 24/7, proveedores productivos y habilitación/seguro.
+- [ ] ARC-001 continúa sobre restaurante, carrito y contratos compartidos; este corte no cierra el P0.
+
 ## Avance 30 de agosto de 2026 — ARC-001, Cuenta web segmentada por responsabilidad
 
 - [x] `CustomerProfileScreen.tsx` quedó en 124 líneas y sólo coordina identidad y composición. La libreta geocodificada vive en `CustomerAddressBook.tsx` (308) y las preferencias alimentarias en `CustomerDietaryPreferences.tsx` (160).

@@ -520,3 +520,30 @@ pero no transforma etiquetas declaradas por el comercio en garantía médica.
 
 - [Uber: agregar o quitar lugares guardados](https://help.uber.com/riders/article/how-to-addremove-saved-places?nodeId=92f13cb2-bab2-4c88-a19e-9d52533496c3)
 - [Uber Eats: instrucciones de alergias y filtros dietarios](https://help.uber.com/en/ubereats/restaurants/article/about-allergies?nodeId=8b473a3d-8341-4369-9287-7febe2fe0b7b)
+
+### Decisión 30 de agosto de 2026 — Actividad y tracking web por vertical
+
+DoorDash mantiene el pedido activo dentro de Pedidos y, cuando un Dasher aceptó,
+muestra ETA, etapas, mapa relativo al comercio/destino y contacto. Uber Eats expone
+`Track Order` desde la lista y conserva confirmación, preparación y entrega como
+estados legibles. Para viajes, Uber comparte por enlace nombre, vehículo y ubicación
+en tiempo real; en paquetería, DoorDash Drive expone URL de tracking y POD por foto o
+firma. El patrón común no es una tarjeta decorativa: Actividad abre una superficie
+operativa específica y los datos ausentes se declaran.
+
+Flash separa `CustomerActivityScreen`, la tarjeta de estado y cada hoja de tracking.
+Las tres cargan ruta autenticada y mapa sólo con coordenadas reales. Pedido conserva
+estado y ETA; Viaje conserva PIN, enlace con vencimiento e incidente de seguridad;
+Envío conserva PIN y evidencia cifrada. Un error al consultar POD queda visible sin
+derribar la ruta. Chromium abre las tres hojas a 390 × 844 y, si falta el caso de
+Envío, lo crea por la cotización y solicitud públicas reales con firma e idempotencia.
+
+Flash sigue por debajo: no hay tráfico comercial con SLA, telefonía/mensajería
+anonimizada, push probado en dispositivos, operación de safety 24/7 ni retención de
+POD acordada con proveedor y marco legal. La prueba demuestra código y runtime local;
+no demuestra red productiva, habilitación, seguros ni atención humana.
+
+- [DoorDash: estados, ETA, mapa y contacto del pedido](https://help.doordash.com/en-us/consumers/article/customer-where-is-my-order)
+- [Uber Eats: seguimiento desde la lista de pedidos](https://help.uber.com/ubereats/restaurants/article/node-title?nodeId=0341399a-092f-4012-b4c6-478b9906700d)
+- [Uber: compartir ETA, conductor, vehículo y ubicación](https://help.uber.com/riders/article/sharing-eta-and-trip-status?nodeId=20e8c951-36ac-450a-90aa-738d467d023a)
+- [DoorDash Drive: URL de tracking y prueba de entrega](https://developer.doordash.com/en-US/docs/drive/how_to/Parcel/webhooks_payload_fields/)

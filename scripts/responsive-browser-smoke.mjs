@@ -3,6 +3,7 @@ import { chromium } from "playwright";
 
 const desktopUrl = process.env.FLASH_DESKTOP_URL ?? "http://127.0.0.1:5173";
 const mobileUrl = process.env.FLASH_MOBILE_URL ?? "http://127.0.0.1:8081";
+const apiUrl = process.env.FLASH_API_URL ?? "http://127.0.0.1:4000/api";
 const mobileVariant = process.env.FLASH_MOBILE_VARIANT ?? "customer";
 const skipDesktop = process.env.FLASH_SKIP_DESKTOP === "1";
 
@@ -105,6 +106,78 @@ async function login(page, url, email, submitLabel) {
     await page.getByLabel("Email", { exact: true }).fill(email);
     await page.getByLabel("Contraseña", { exact: true }).fill("demo123");
     await page.getByText(submitLabel, { exact: true }).click();
+  }
+}
+
+async function ensureActiveTestShipment() {
+  const loginResponse = await fetch(`${apiUrl}/auth/login`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      email: "cliente@flash.app",
+      password: "demo123",
+      deviceName: "responsive-browser-shipment",
+    }),
+  });
+  assert.equal(loginResponse.status, 200, "test customer must authenticate to provision shipment");
+  const session = await loginResponse.json();
+  assert.ok(session.refreshToken, "test fixture session must expose a revocable refresh token");
+  const headers = {
+    authorization: `Bearer ${session.token}`,
+    "content-type": "application/json",
+  };
+  try {
+    const activityResponse = await fetch(`${apiUrl}/me/activity?limit=50`, { headers });
+    assert.equal(activityResponse.status, 200, "test customer activity must be available");
+    const activity = await activityResponse.json();
+    const hasActiveShipment = activity.items?.some(
+      (item) =>
+        item.kind === "shipment" && !["delivered", "cancelled"].includes(item.resource?.status),
+    );
+    if (hasActiveShipment) return;
+
+    // La puerta crea el fixture por los mismos contratos públicos que usa el
+    // producto. No inserta SQL ni intercepta requests: cotización firmada,
+    // ownership, riesgo e idempotencia siguen bajo prueba.
+    const shipment = {
+      customerId: "usr_customer",
+      pickup: "Defensa 982, San Telmo",
+      destination: "Plaza Italia, Buenos Aires",
+      pickupCoords: { lat: -34.6177, lng: -58.3621 },
+      destinationCoords: { lat: -34.5814, lng: -58.4208 },
+      recipientName: "Control responsive",
+      recipientPhone: "+5491100000000",
+      packageSize: "small",
+      description: "Documentación de prueba",
+      weightKg: 0.5,
+      deliveryNotes: "Recepción",
+      paymentMethod: "Efectivo",
+      termsAccepted: true,
+    };
+    const quoteResponse = await fetch(`${apiUrl}/shipments/quote`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(shipment),
+    });
+    assert.equal(quoteResponse.status, 200, "real shipment quote must be available");
+    const quote = await quoteResponse.json();
+    assert.ok(quote.quote?.quoteToken, "real shipment quote must return a signed lock");
+    const createResponse = await fetch(`${apiUrl}/shipments`, {
+      method: "POST",
+      headers: {
+        ...headers,
+        "Idempotency-Key": `responsive-browser-shipment-${globalThis.crypto.randomUUID()}`,
+      },
+      body: JSON.stringify({ ...shipment, quoteToken: quote.quote.quoteToken }),
+    });
+    assert.equal(createResponse.status, 200, "real shipment must be created for browser tracking");
+  } finally {
+    const logoutResponse = await fetch(`${apiUrl}/auth/logout`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ refreshToken: session.refreshToken }),
+    });
+    assert.equal(logoutResponse.status, 200, "shipment fixture session must be revoked");
   }
 }
 
@@ -344,6 +417,7 @@ async function auditCompactCustomerSurfaces(browser) {
   });
   const page = await context.newPage();
 
+  await ensureActiveTestShipment();
   await login(page, desktopUrl, "cliente@flash.app", "Ingresar");
   const walletTab = page.getByRole("button", { name: "Wallet", exact: true });
   await walletTab.waitFor({ timeout: 15_000 });
@@ -375,6 +449,22 @@ async function auditCompactCustomerSurfaces(browser) {
   );
 
   ok("compact customer account renders saved places and dietary preferences");
+
+  await page.getByRole("button", { name: "Actividad", exact: true }).click();
+  const trackingCases = [
+    { action: "Seguir pedido", marker: /Pedido / },
+    { action: "Seguir viaje", marker: "Centro de seguridad" },
+    { action: "Seguir envío", marker: "Prueba de entrega" },
+  ];
+  for (const trackingCase of trackingCases) {
+    await page.getByRole("button", { name: trackingCase.action, exact: true }).first().click();
+    await page.getByText(trackingCase.marker, { exact: false }).first().waitFor();
+    const close = page.getByRole("button", { name: "Cerrar seguimiento", exact: true });
+    await assertNoPageOverflow(page, `compact customer ${trackingCase.action}`);
+    await assertLocatorInsideViewport(page, close, `${trackingCase.action} close action`);
+    await close.click();
+  }
+  ok("compact customer opens food, ride and shipment tracking without overflow");
   await context.close();
 }
 

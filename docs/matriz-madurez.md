@@ -175,7 +175,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Presupuesto de bundle | `CI` | `test:web-bundle-budget` |
 | Compresión y caché | `CI` | `test:web-delivery` |
 | Contrato responsive | `CI` | `test:responsive-layout` |
-| Segmentación interna de Cliente | `CI` | Wallet, perfil, libreta y dieta viven en módulos propios; `test:responsive-layout` fija 3.180/130/315/165 líneas y exige composición y APIs; Chromium verifica las superficies compactas sin escribir datos y `test:postgres` prueba persistencia, ownership y vocabularios |
+| Segmentación interna de Cliente | `CI` | Wallet, perfil, libreta, dieta, Actividad, tarjeta de estado y los tres trackings viven en módulos propios; `test:responsive-layout` y `test:web-tracking-maps` fijan 2.185/130/315/165/195/180/340/285 líneas y APIs propietarias. Chromium verifica Cuenta sin escribir y abre comida, viaje y envío a 390 × 844; el envío faltante se cotiza/crea por API real e idempotente |
 | Auditoría responsive en navegador real | `CI` | `test:responsive-browser` en `ci-nightly.yml`, una corrida por variante. Hasta el 27-08 pasaba sobre la pantalla de login |
 | Degradación explícita sobre el respaldo | `CI` | `test:fallback-degradation`: 54 rutas × 4 audiencias sin 500. Encontró 17 rutas que reventaban con `TypeError` en vez de responder 503 |
 | CSP activa | `LOCAL` | Sin puerta dedicada |

@@ -202,7 +202,7 @@ assert(
 );
 
 assert(
-  webCustomerCoordinator.trimEnd().split(/\r?\n/).length <= 3180 &&
+  webCustomerCoordinator.trimEnd().split(/\r?\n/).length <= 2185 &&
     contains(webCustomerCoordinator, "<WalletScreen") &&
     contains(webCustomerCoordinator, "<CustomerProfileScreen") &&
     !contains(webCustomerCoordinator, "function WalletScreen") &&

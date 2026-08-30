@@ -1,5 +1,5 @@
 import fs from "node:fs/promises";
-import { readAudienceSource, readWebSource } from "./source-contract.mjs";
+import { contains, readAudienceSource, readWebSource } from "./source-contract.mjs";
 
 // La fuente se lee por audiencia y no por archivo (ARC-001 paso 8): la mitad del
 // trabajo que queda del ticket es partir `App.tsx`, y un contrato con la ruta
@@ -8,6 +8,11 @@ const { source: app } = await readWebSource();
 const publicTracking = await fs.readFile("src/PublicRideTrackingPage.tsx", "utf8");
 const entry = await fs.readFile("src/main.tsx", "utf8");
 const map = await fs.readFile("src/maps/FlashMap.tsx", "utf8");
+const customerCoordinator = await fs.readFile("src/customer/CustomerSurface.tsx", "utf8");
+const customerActivity = await fs.readFile("src/customer/CustomerActivityScreen.tsx", "utf8");
+const orderTracking = await fs.readFile("src/customer/OrderTrackingSheet.tsx", "utf8");
+const rideTracking = await fs.readFile("src/customer/RideTrackingSheet.tsx", "utf8");
+const shipmentTracking = await fs.readFile("src/customer/ShipmentTrackingSheet.tsx", "utf8");
 const vite = await fs.readFile("vite.config.ts", "utf8");
 const assert = (condition, message) => {
   if (!condition) throw new Error(message);
@@ -29,6 +34,32 @@ const mapUsages = [...app.matchAll(/<FlashMap\b/g)].length;
 assert(
   mapUsages === 5,
   `tracking público, comida, viajes y envíos comparten el mapa interactivo (${mapUsages} usos)`,
+);
+const lineCount = (source) => source.trimEnd().split(/\r?\n/).length;
+assert(
+  lineCount(customerCoordinator) <= 2185 &&
+    lineCount(customerActivity) <= 195 &&
+    lineCount(orderTracking) <= 180 &&
+    lineCount(rideTracking) <= 340 &&
+    lineCount(shipmentTracking) <= 285 &&
+    contains(customerCoordinator, "<CustomerActivityScreen") &&
+    !contains(customerCoordinator, "function OrderTrackingSheet") &&
+    contains(customerActivity, "<OrderTrackingSheet") &&
+    contains(customerActivity, "<RideTrackingSheet") &&
+    contains(customerActivity, "<ShipmentTrackingSheet"),
+  "actividad y cada tracking web conservan límites propios con ratchets de tamaño",
+);
+assert(
+  [orderTracking, rideTracking, shipmentTracking].every(
+    (source) => contains(source, "api.route(origin, destination)") && contains(source, "<FlashMap"),
+  ) &&
+    contains(rideTracking, "api.getRidePickupCode") &&
+    contains(rideTracking, "api.createRideTrackingLink") &&
+    contains(rideTracking, "api.createRideSafetyIncident") &&
+    contains(shipmentTracking, "api.getShipmentDeliveryCode") &&
+    contains(shipmentTracking, "api.getShipmentDeliveryEvidence") &&
+    contains(shipmentTracking, "setEvidenceError"),
+  "tracking conserva rutas, PIN, seguridad, enlaces y evidencia con errores visibles",
 );
 // La prohibición es para las **pantallas**, no para el renderer.
 //
