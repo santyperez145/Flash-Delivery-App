@@ -419,6 +419,10 @@ concentración pendiente de ARC-001, no a sumar condicionales al shell.
 El primer corte interno web movió Wallet a `src/customer/WalletScreen.tsx`:
 `CustomerSurface.tsx` bajó de 3.794 a **3.720 líneas** y una puerta fija el techo
 en 3.725 sin cambiar la frontera sandbox del dinero.
+El segundo movió Cuenta a `CustomerProfileScreen.tsx`, conservando perfil,
+direcciones geocodificadas y preferencias alimentarias: el coordinador quedó en
+**3.172 líneas** y el ratchet en 3.180. El límite nuevo tiene 569 líneas y todavía
+debe partirse por subresponsabilidad antes de considerar completo el criterio 7.
 
 Las 8 rutas que quedan no son dominio: salud, readiness, el documento OpenAPI,
 el bootstrap por audiencia, las dos de métricas, el 410 que retiró `/api/state`
@@ -472,8 +476,9 @@ propinas; las tres hojas de seguimiento pasaron a
   carrito, checkout y pedidos. Los modales de incidencias, devoluciones y siniestros
   también salieron a un límite tipado. `CustomerScreen.tsx` bajó de 6.241 a 1.321
   líneas y un contrato fija el techo en 1.350. En web, Wallet salió de
-  `CustomerSurface.tsx` a un límite propio; el coordinador quedó en 3.720 líneas
-  y su ratchet en 3.725. También quedó activo un ratchet que impide que el
+  `CustomerSurface.tsx` a un límite propio y Cuenta siguió a
+  `CustomerProfileScreen.tsx`; el coordinador quedó en 3.172 líneas y su ratchet
+  en 3.180. También quedó activo un ratchet que impide que el
 problema crezca:
 `test:line-length` fija una línea base vigente de **258 líneas de más de 200
 caracteres en 56 archivos** y sólo admite bajarla.

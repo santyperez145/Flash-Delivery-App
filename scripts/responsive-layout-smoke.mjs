@@ -22,6 +22,7 @@ const customerIssues = fs.readFileSync(
 const { source: webApp } = await readWebSource();
 const webCustomerCoordinator = fs.readFileSync("src/customer/CustomerSurface.tsx", "utf8");
 const webWallet = fs.readFileSync("src/customer/WalletScreen.tsx", "utf8");
+const webCustomerProfile = fs.readFileSync("src/customer/CustomerProfileScreen.tsx", "utf8");
 const mobilePackage = JSON.parse(fs.readFileSync("apps/mobile/package.json", "utf8"));
 const rootPackage = JSON.parse(fs.readFileSync("package.json", "utf8"));
 const desktop = fs.readFileSync("src/styles.css", "utf8");
@@ -199,13 +200,20 @@ assert(
 );
 
 assert(
-  webCustomerCoordinator.trimEnd().split(/\r?\n/).length <= 3725 &&
+  webCustomerCoordinator.trimEnd().split(/\r?\n/).length <= 3180 &&
     contains(webCustomerCoordinator, "<WalletScreen") &&
+    contains(webCustomerCoordinator, "<CustomerProfileScreen") &&
     !contains(webCustomerCoordinator, "function WalletScreen") &&
+    !contains(webCustomerCoordinator, "function ProfileScreen") &&
     contains(webWallet, "export function WalletScreen") &&
     contains(webWallet, "parsedAmount < 1000") &&
-    contains(webWallet, "parsedAmount > 200000"),
-  "web wallet stays outside the customer monolith with its money input limits intact",
+    contains(webWallet, "parsedAmount > 200000") &&
+    contains(webCustomerProfile, "export function CustomerProfileScreen") &&
+    contains(webCustomerProfile, "api.updateDietaryPreferences") &&
+    contains(webCustomerProfile, "await api.geocode(query)") &&
+    contains(webCustomerProfile, "onCreateAddress(payload)") &&
+    contains(webCustomerProfile, "onUpdateAddress(editingAddressId, payload)"),
+  "web wallet and account stay outside the customer monolith with real API wiring intact",
 );
 
 assert(

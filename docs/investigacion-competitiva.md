@@ -497,3 +497,25 @@ evidencia del proveedor; no se cierran desde código.
 
 - [Mercado Pago: reporte de dinero en cuenta](https://www.mercadopago.com.ar/developers/es/docs/reports/account-money/introduction)
 - [Mercado Pago: tipos e impacto neto de las transacciones](https://www.mercadopago.com.ar/developers/en/docs/reports/account-money/how-to-use)
+
+### Decisión 30 de agosto de 2026 — Cuenta web como límite reutilizable
+
+Uber ubica Casa, Trabajo y otros lugares guardados dentro de Cuenta y permite etiquetar,
+editar y eliminar destinos frecuentes. Uber Eats diferencia el filtro dietario del catálogo
+de una solicitud de alergia asociada al producto, y advierte que una instrucción no garantiza
+por sí misma que el comercio pueda cumplirla. El patrón útil es una Cuenta persistente que
+reutiliza destinos y preferencias sin degradar una declaración de seguridad alimentaria a un
+simple filtro visual.
+
+Flash mueve perfil, direcciones y dieta a `CustomerProfileScreen.tsx`. Conserva geocoding,
+token de validación, ownership y selección predeterminada; editar texto invalida coordenadas y
+token hasta elegir otra coincidencia. Conserva también preferencias persistidas y la
+advertencia explícita sobre contaminación cruzada. La prueba Chromium sólo lee la superficie:
+no modifica el perfil de la cuenta de prueba.
+
+Flash sigue por debajo porque no ofrece todavía solicitudes de alergia por ítem con aceptación
+o rechazo del comercio, ni prueba física el circuito. La extracción mejora el límite técnico,
+pero no transforma etiquetas declaradas por el comercio en garantía médica.
+
+- [Uber: agregar o quitar lugares guardados](https://help.uber.com/riders/article/how-to-addremove-saved-places?nodeId=92f13cb2-bab2-4c88-a19e-9d52533496c3)
+- [Uber Eats: instrucciones de alergias y filtros dietarios](https://help.uber.com/en/ubereats/restaurants/article/about-allergies?nodeId=8b473a3d-8341-4369-9287-7febe2fe0b7b)

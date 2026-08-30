@@ -8,6 +8,14 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 30 de agosto de 2026 — ARC-001, Cuenta web fuera del monolito cliente
+
+- [x] Perfil, direcciones geocodificadas y preferencias alimentarias viven en `src/customer/CustomerProfileScreen.tsx`; `CustomerSurface.tsx` bajó de 3.720 a 3.172 líneas sin agregar superficie durante Fase 0.
+- [x] Se conservan las APIs reales de edición, alta/cambio/baja de direcciones, selección predeterminada y preferencias. Una dirección modificada pierde su token hasta volver a elegir una coincidencia validada.
+- [x] `test:responsive-layout` fija el coordinador en 3.180 líneas o menos y exige el cableado de geocoding, alta/edición y dieta. `test:responsive-browser` abre Cuenta a 390 × 844, comprueba ambas secciones y el botón final sin overflow ni escrituras.
+- [~] Uber agrupa Casa, Trabajo y otros lugares guardados dentro de Cuenta, y Uber Eats separa filtros dietarios de solicitudes de alergia por producto. Flash cubre destinos reutilizables y filtros persistidos, pero sigue por debajo en notas de alergia por ítem, confirmación del comercio y evidencia física; su advertencia de contaminación cruzada permanece visible.
+- [ ] El módulo extraído todavía contiene tres subresponsabilidades y queda como candidato para una segunda partición; ARC-001 continúa sobre tracking, restaurante y carrito web.
+
 ## Avance 30 de agosto de 2026 — ARC-001, Wallet web fuera del monolito cliente
 
 - [x] Saldo, carga sandbox, movimientos y promociones viven en `src/customer/WalletScreen.tsx`; `CustomerSurface.tsx` bajó de 3.794 a 3.720 líneas sin agregar una capacidad nueva durante Fase 0.

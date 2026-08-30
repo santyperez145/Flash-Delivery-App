@@ -335,7 +335,7 @@ async function auditDesktopAccessGate(browser) {
   await context.close();
 }
 
-async function auditCompactCustomerWallet(browser) {
+async function auditCompactCustomerSurfaces(browser) {
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
     locale: "es-AR",
@@ -363,6 +363,18 @@ async function auditCompactCustomerWallet(browser) {
   assert.equal(await topUp.isEnabled(), true, "wallet must accept an amount inside the range");
 
   ok("compact customer wallet renders real activity and enforces money limits");
+
+  await page.getByRole("button", { name: "Perfil", exact: true }).click();
+  await page.getByRole("heading", { name: "Mis direcciones", exact: true }).waitFor();
+  await page.getByRole("heading", { name: "Mi alimentación", exact: true }).waitFor();
+  await assertNoPageOverflow(page, "compact customer account");
+  await assertLocatorInsideViewport(
+    page,
+    page.getByRole("button", { name: "Guardar cambios", exact: true }),
+    "compact customer account save action",
+  );
+
+  ok("compact customer account renders saved places and dietary preferences");
   await context.close();
 }
 
@@ -373,7 +385,7 @@ const browser = await chromium.launch({ headless: true });
 try {
   await auditMobile(browser);
   if (!skipDesktop) {
-    await auditCompactCustomerWallet(browser);
+    await auditCompactCustomerSurfaces(browser);
     await auditDesktopAccessGate(browser);
     await auditDesktopRole(browser, "merchant");
     await auditDesktopRole(browser, "operations");
