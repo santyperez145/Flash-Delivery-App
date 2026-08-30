@@ -385,3 +385,22 @@ La brecha competitiva queda explícita. En desarrollo, OpenStreetMap puede no de
 - [Uber Direct: geocoding de destinos](https://developer.uber.com/docs/deliveries/guides/geocoding)
 - [Google Maps Platform: Place IDs](https://developers.google.com/maps/documentation/places/web-service/place-id)
 - [Google Address Validation API](https://developers.google.com/maps/documentation/address-validation/reference/rest/v1/TopLevel/validateAddress)
+
+### Decisión 29 de agosto de 2026 — Cuenta como límite sensible
+
+La documentación oficial de Uber ubica las direcciones guardadas dentro de Cuenta y
+protege cambios de teléfono con OTP. Su postura va más lejos: ofrece segundo factor por
+SMS o aplicación autenticadora, códigos de respaldo y vinculación entre teléfono y
+dispositivo para detectar accesos o fraude. El patrón relevante no es la estética de una
+pantalla, sino que identidad, sesiones, direcciones y pagos formen un límite auditable que
+no quede mezclado con el flujo transaccional de pedir un servicio.
+
+Flash separa ahora ese límite en `CustomerAccountScreen.tsx` y conserva sus operaciones
+persistidas de OTP telefónico, cierre de sesiones, direcciones validadas y métodos
+tokenizados. Sigue por debajo: no hay TOTP, códigos de respaldo ni verificación de identidad,
+y SMS y PSP productivos continúan bloqueados por proveedor y prueba física. Ninguna de esas
+deudas se presenta como cerrada por haber modularizado la interfaz.
+
+- [Uber: activar verificación en dos pasos](https://help.uber.com/riders/article/node-title?nodeId=b8bb9152-8c91-4f49-83c4-35cf2e1dcf72)
+- [Uber: protección de cuenta y dispositivo](https://help.uber.com/riders/article/how-does-uber-protect-my-account?nodeId=03ec28e4-9049-4fe2-a60c-1a7d0334891e)
+- [Uber: agregar o quitar lugares guardados](https://help.uber.com/riders/article/how-to-addremove-saved-places?nodeId=92f13cb2-bab2-4c88-a19e-9d52533496c3)
