@@ -26,6 +26,9 @@ const webCustomerProfile = fs.readFileSync("src/customer/CustomerProfileScreen.t
 const webCustomerAddressBook = fs.readFileSync("src/customer/CustomerAddressBook.tsx", "utf8");
 const webCustomerDietary = fs.readFileSync("src/customer/CustomerDietaryPreferences.tsx", "utf8");
 const webCustomerShipment = fs.readFileSync("src/customer/ShipmentHome.tsx", "utf8");
+const webFoodCart = fs.readFileSync("src/customer/FoodCartScreen.tsx", "utf8");
+const webQuantityCounter = fs.readFileSync("src/customer/QuantityCounter.tsx", "utf8");
+const webEmptyState = fs.readFileSync("src/customer/EmptyState.tsx", "utf8");
 const mobilePackage = JSON.parse(fs.readFileSync("apps/mobile/package.json", "utf8"));
 const rootPackage = JSON.parse(fs.readFileSync("package.json", "utf8"));
 const desktop = fs.readFileSync("src/styles.css", "utf8");
@@ -203,7 +206,7 @@ assert(
 );
 
 assert(
-  webCustomerCoordinator.trimEnd().split(/\r?\n/).length <= 1635 &&
+  webCustomerCoordinator.trimEnd().split(/\r?\n/).length <= 930 &&
     contains(webCustomerCoordinator, "<WalletScreen") &&
     contains(webCustomerCoordinator, "<CustomerProfileScreen") &&
     !contains(webCustomerCoordinator, "function WalletScreen") &&
@@ -235,6 +238,17 @@ assert(
     contains(webCustomerShipment, "quoteToken: quote.quoteToken") &&
     contains(webCustomerShipment, "await onCreateShipment"),
   "web shipment keeps options, geocoding, signed quote and creation outside the coordinator",
+);
+
+assert(
+  contains(webCustomerCoordinator, "<CartScreen") &&
+    !contains(webCustomerCoordinator, "function CartScreen") &&
+    !contains(webCustomerCoordinator, "function Counter") &&
+    !contains(webCustomerCoordinator, "function EmptyState") &&
+    webFoodCart.trimEnd().split(/\r?\n/).length <= 690 &&
+    webQuantityCounter.trimEnd().split(/\r?\n/).length <= 35 &&
+    webEmptyState.trimEnd().split(/\r?\n/).length <= 25,
+  "web cart, checkout and their shared primitives keep bounded ownership",
 );
 
 assert(

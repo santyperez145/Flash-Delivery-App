@@ -571,3 +571,29 @@ cotización de proveedor productivo.
 - [Uber Direct: crear quote y usar su identidad al crear delivery](https://developer.uber.com/docs/deliveries/get-started)
 - [Uber Direct: secuencia operativa quote → confirmación → delivery](https://developer.uber.com/docs/deliveries/direct/guides/overview)
 - [DoorDash Drive API: crear y aceptar quote](https://developer.doordash.com/en-US/api/drive/)
+
+### Decisión 30 de agosto de 2026 — Carrito y pago web como una tarea verificable
+
+La guía vigente de Uber Eats conserva una secuencia explícita: dirección, restaurante,
+productos, carrito/finalización, revisión, confirmación y tracking. Mercado Pago separa
+además la responsabilidad de seguridad: Card Payment Brick obtiene un token de tarjeta en
+cliente y el backend debe validar el contexto de compra y enviar el pago con su credencial
+privada. Esa frontera evita que el coordinador de Cliente sea dueño de la captura de pago o
+que el navegador invente el importe final.
+
+Flash mueve carrito y checkout a `FoodCartScreen.tsx`. La pantalla elige una dirección
+geocodificada, consulta la configuración pública del proveedor, pide una quote firmada con
+versión y vencimiento, y recién después habilita Wallet o el Card Payment Brick. El callback
+devuelve token, método y cuotas al flujo de creación existente; no maneja PAN ni CVV. Propina
+y horario siguen dentro de la selección confirmada, y cualquier cambio relevante obliga a
+recotizar.
+
+Esto demuestra el límite de código y el runtime local, no dinero productivo. Faltan
+credenciales productivas, onboarding marketplace de comercios, webhooks y conciliación
+externa, 3DS probado en dispositivos, gestión de contracargos, revisión PCI/legal y una
+operación financiera aprobada. La carga Wallet continúa siendo sandbox y se presenta como
+tal.
+
+- [Uber Eats: secuencia oficial para realizar un pedido](https://help.uber.com/es/ubereats/restaurants/article/c%C3%B3mo-hacer-un-pedido-en-uber-eats?nodeId=509d1b2f-087c-4dac-9e94-6ab248e87491)
+- [Mercado Pago: Card Payment Brick y alcance PCI del formulario](https://www.mercadopago.com.ar/developers/es/docs/checkout-bricks/card-payment-brick/introduction)
+- [Mercado Pago: envío server-side, validación y credencial privada](https://www.mercadopago.com.ar/developers/es/docs/checkout-bricks/card-payment-brick/payment-submission)

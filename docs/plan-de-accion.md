@@ -107,7 +107,7 @@ La matriz vive en `docs/matriz-madurez.md` y se actualiza en el mismo PR que cam
 
 | Entregable | Ticket | Criterio de cierre |
 | --- | --- | --- |
-| Separación de `src/App.tsx` | ARC-001 | Shell web en 1.274 líneas; cliente delegado y, dentro de él, Wallet, Cuenta, Actividad, Envíos y los tres trackings tienen límites propios. `CustomerSurface.tsx` queda en 1.617 líneas |
+| Separación de `src/App.tsx` | ARC-001 | Shell web en 1.274 líneas; cliente delegado y, dentro de él, Wallet, Cuenta, Actividad, Envíos, carrito/checkout y los tres trackings tienen límites propios. `CustomerSurface.tsx` queda en 914 líneas |
 | Separación de `apps/mobile/App.tsx` | ARC-001 | Entrypoints customer/driver/merchant independientes; Actividad, tracking, Cuenta, Envíos y Viajes fuera del coordinador customer |
 | Descomposición de `server/index.js` | ARC-001 | Controllers separados de use cases y repositories. **9 de 57 grupos extraídos**; el núcleo compartido está completo, así que lo que queda es repetitivo y no de diseño |
 | ~~Reformateo de archivos comprimidos~~ **hecho** | ARC-001 | Línea máxima 4.061 → 206; quedan 262 líneas largas, casi todas SQL |
@@ -433,6 +433,11 @@ El cuarto corte movió el formulario completo de Envíos a `ShipmentHome.tsx`
 (567 líneas): opciones, geocoding, quote con vencimiento, protección, firma y
 creación siguen en una sola frontera. El coordinador quedó en **1.617 líneas**,
 con ratchet 1.635; Chromium abre la cotización compacta sin ejecutar dinero.
+El quinto corte movió carrito, dirección, método, cotización, propina, horario,
+resumen y confirmación a `FoodCartScreen.tsx` (680 líneas), con contador y estado
+vacío bajo límites propios. `CustomerSurface.tsx` quedó en **914 líneas** y el
+ratchet en 930. La matriz abre un carrito persistido a 390 × 844 y conserva la
+quote firmada, Wallet y Card Payment Brick sin ejecutar un cobro productivo.
 
 Las 8 rutas que quedan no son dominio: salud, readiness, el documento OpenAPI,
 el bootstrap por audiencia, las dos de métricas, el 410 que retiró `/api/state`

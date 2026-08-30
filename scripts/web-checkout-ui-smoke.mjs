@@ -6,12 +6,27 @@ import { contains, containsAll, containsNone, readWebSource, section } from "./s
 // fija se rompe —o se vacía— en cuanto un componente cambia de archivo.
 const { source: app } = await readWebSource();
 const api = await fs.readFile("src/api.ts", "utf8");
+const coordinator = await fs.readFile("src/customer/CustomerSurface.tsx", "utf8");
+const foodCart = await fs.readFile("src/customer/FoodCartScreen.tsx", "utf8");
+const quantityCounter = await fs.readFile("src/customer/QuantityCounter.tsx", "utf8");
+const emptyState = await fs.readFile("src/customer/EmptyState.tsx", "utf8");
 const checkout = section(app, "function CartScreen(", "type ProviderPaymentInput");
 if (!checkout) throw new Error("No se encontró el checkout web");
 const assert = (condition, message) => {
   if (!condition) throw new Error(message);
   console.log(`ok - ${message}`);
 };
+
+assert(
+  coordinator.trimEnd().split(/\r?\n/).length <= 930 &&
+    foodCart.trimEnd().split(/\r?\n/).length <= 690 &&
+    quantityCounter.trimEnd().split(/\r?\n/).length <= 35 &&
+    emptyState.trimEnd().split(/\r?\n/).length <= 25 &&
+    contains(coordinator, "<CartScreen") &&
+    !contains(coordinator, "function CartScreen") &&
+    contains(foodCart, "<MercadoPagoCardCheckout"),
+  "carrito, checkout, pago y primitivas conservan límites propios",
+);
 
 assert(
   containsNone(checkout, ["Defensa 982", "Dirección pendiente"]),

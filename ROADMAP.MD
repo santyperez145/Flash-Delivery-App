@@ -8,6 +8,15 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 30 de agosto de 2026 — ARC-001, Carrito y checkout web fuera del coordinador
+
+- [x] Carrito, dirección de entrega, método de pago, cotización, propina, horario, resumen y confirmación viven en `src/customer/FoodCartScreen.tsx` (680 líneas); `CustomerSurface.tsx` bajó de 1.617 a 914 líneas sin agregar superficie durante Fase 0.
+- [x] El corte conserva carrito persistido, direcciones geocodificadas, Wallet, configuración pública de Mercado Pago, Card Payment Brick tokenizado, quote firmada con versión/vencimiento y creación por la API existente. `QuantityCounter.tsx` (28) y `EmptyState.tsx` (19) dejan de volver a crecer dentro del coordinador.
+- [x] `test:web-checkout` prueba que cotización, pago y primitivas pertenecen a sus módulos. `test:responsive-layout` y `test:web-tracking-maps` fijan techos de 930/690/35/25 líneas sin acoplarse al espaciado.
+- [x] Chromium y el navegador integrado abren un carrito real a 390 × 844: mide 390 px de documento sobre 390 px de viewport y mantiene `Volver`, cantidades e `Ir a pagar` visibles. La matriz completa pasa cliente, comercio y operaciones entre 320 × 568 y 1.440 × 900.
+- [~] La tarea coincide con Uber Eats —dirección, restaurante, productos, carrito, revisión, confirmación y tracking— y con el límite recomendado por Mercado Pago: el Brick tokeniza en cliente y el backend valida y crea el pago. Flash sigue por debajo sin credenciales productivas del PSP, onboarding de vendedores, 3DS/dispositivos físicos, conciliación externa, contracargos y aprobación legal/comercial.
+- [ ] ARC-001 continúa sobre restaurante, descubrimiento y contratos compartidos; este corte no habilita dinero productivo ni cierra el P0.
+
 ## Avance 30 de agosto de 2026 — ARC-001, Envíos web fuera del coordinador
 
 - [x] Cotización, geocodificación, opciones operativas, protección, firma y solicitud persistida viven en `src/customer/ShipmentHome.tsx` (567 líneas); `CustomerSurface.tsx` bajó de 2.166 a 1.617 líneas sin sumar capacidad durante Fase 0.

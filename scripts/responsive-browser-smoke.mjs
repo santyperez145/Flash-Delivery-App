@@ -426,6 +426,15 @@ async function auditCompactCustomerSurfaces(browser) {
   await assertLocatorInsideViewport(page, quoteShipment, "compact customer shipment quote action");
   ok("compact customer shipment keeps the real quote flow inside the viewport");
 
+  await page.getByRole("button", { name: "Comida", exact: true }).click();
+  await page.getByRole("button", { name: "Carrito", exact: true }).click();
+  await page.getByRole("heading", { name: "Carrito", exact: true }).waitFor();
+  const closeCart = page.getByRole("button", { name: "Volver", exact: true });
+  await assertNoPageOverflow(page, "compact customer food cart");
+  await assertLocatorInsideViewport(page, closeCart, "compact customer food cart back action");
+  await closeCart.click();
+  ok("compact customer food cart stays inside the viewport");
+
   const walletTab = page.getByRole("button", { name: "Wallet", exact: true });
   await walletTab.waitFor({ timeout: 15_000 });
   await walletTab.click();
