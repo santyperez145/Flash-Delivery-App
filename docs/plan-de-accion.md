@@ -107,8 +107,8 @@ La matriz vive en `docs/matriz-madurez.md` y se actualiza en el mismo PR que cam
 
 | Entregable | Ticket | Criterio de cierre |
 | --- | --- | --- |
-| Separación de `src/App.tsx` | ARC-001 | Shell web en 1.274 líneas; acceso y estados transversales extraídos |
-| Separación de `apps/mobile/App.tsx` | ARC-001 | Entrypoints customer/driver/merchant independientes; Actividad, tracking y Cuenta fuera del coordinador customer |
+| Separación de `src/App.tsx` | ARC-001 | Shell web en 1.274 líneas; cliente delegado y, dentro de él, Wallet, Cuenta, Actividad, Envíos, descubrimiento, restaurante, personalización, carrito/checkout, navegación y los tres trackings tienen límites propios. `CustomerSurface.tsx` queda en 360 líneas |
+| Separación de `apps/mobile/App.tsx` | ARC-001 | Entrypoints customer/driver/merchant independientes; Actividad, tracking, Cuenta, Envíos y Viajes fuera del coordinador customer |
 | Descomposición de `server/index.js` | ARC-001 | Controllers separados de use cases y repositories. **9 de 57 grupos extraídos**; el núcleo compartido está completo, así que lo que queda es repetitivo y no de diseño |
 | ~~Reformateo de archivos comprimidos~~ **hecho** | ARC-001 | Línea máxima 4.061 → 206; quedan 262 líneas largas, casi todas SQL |
 | ~~Dispatch v2 etapa 1~~ **hecho** | DSP-001 | `ST_DWithin` + KNN recortan candidatos antes del scoring |
@@ -413,9 +413,46 @@ grupos están extraídos**, repartidos en 31 routers, y `server/index.js` bajó 
 
 En web, `src/App.tsx` bajó a **1.274 líneas** después de extraer el acceso y los
 estados de carga, error y derivación por rol. Las cinco audiencias se cargan por
-separado y el entry inicial se mantiene en 67,7 KiB; el siguiente corte sigue
-siendo por dominio dentro de `CustomerScreen.tsx`, no más condicionales en el
-shell.
+separado y el entry inicial se mantiene en 67,7 KiB. En mobile, la presentación
+de Comidas ya está separada por tarea; el siguiente corte vuelve a la mayor
+concentración pendiente de ARC-001, no a sumar condicionales al shell.
+El primer corte interno web movió Wallet a `src/customer/WalletScreen.tsx`:
+`CustomerSurface.tsx` bajó de 3.794 a **3.720 líneas** y una puerta fija el techo
+en 3.725 sin cambiar la frontera sandbox del dinero.
+El segundo movió Cuenta a `CustomerProfileScreen.tsx`, conservando perfil,
+direcciones geocodificadas y preferencias alimentarias: el coordinador quedó en
+**3.172 líneas** y el ratchet en 3.180. La segunda partición dejó perfil y
+composición en 124 líneas, libreta geocodificada en 308 y dieta en 160, cada uno
+con ratchet y API propietaria; ese límite ya satisface el criterio 7.
+El tercer corte movió Actividad, su tarjeta común y los tres trackings a módulos
+propios. `CustomerSurface.tsx` quedó en **2.166 líneas** con ratchet 2.185; las
+hojas conservan ruta, ETA, PIN, safety, enlace compartible y evidencia. Chromium
+abre las tres a 390 × 844 y crea el fixture ausente por la API real de envío,
+con cotización firmada e idempotencia, en lugar de insertar datos de prueba.
+El cuarto corte movió el formulario completo de Envíos a `ShipmentHome.tsx`
+(567 líneas): opciones, geocoding, quote con vencimiento, protección, firma y
+creación siguen en una sola frontera. El coordinador quedó en **1.617 líneas**,
+con ratchet 1.635; Chromium abre la cotización compacta sin ejecutar dinero.
+El quinto corte movió carrito, dirección, método, cotización, propina, horario,
+resumen y confirmación a `FoodCartScreen.tsx` (680 líneas), con contador y estado
+vacío bajo límites propios. `CustomerSurface.tsx` quedó en **914 líneas** y el
+ratchet en 930. La matriz abre un carrito persistido a 390 × 844 y conserva la
+quote firmada, Wallet y Card Payment Brick sin ejecutar un cobro productivo.
+El sexto corte separó restaurante (85 líneas), componentes de catálogo (145) y
+personalizador (101). `CustomerSurface.tsx` quedó en **598 líneas** con ratchet
+610; `App.tsx` carga la hoja de producto directamente. Chromium recorre detalle,
+extras, nota, cantidad y total a 390 × 844 sin agregar el producto ni escribir
+datos.
+El séptimo movió home, búsqueda, categorías, beneficios y listados a
+`FoodDiscoveryHome.tsx` (119 líneas). `CustomerSurface.tsx` quedó en **459** con
+ratchet 470. La portada dejó de depender de una imagen promocional fija: toma el
+hero del catálogo activo, y Chromium confirma 4 restaurantes y 7 productos sin
+overflow a 390 × 844.
+El octavo llevó selector de servicio y navegación inferior a
+`CustomerNavigation.tsx` (85 líneas), conservando flags y una Actividad común.
+`CustomerSurface.tsx` quedó en **360 líneas** con ratchet 375 y sin la importación
+muerta de `FlashMap`. La segmentación del cliente web está cerrada; ARC-001 no,
+porque el paquete compartido y 256 líneas largas heredadas siguen pendientes.
 
 Las 8 rutas que quedan no son dominio: salud, readiness, el documento OpenAPI,
 el bootstrap por audiencia, las dos de métricas, el 410 que retiró `/api/state`
@@ -458,10 +495,20 @@ Operaciones y Superadmin cargan por audiencia. La extracción interna
 continúa por dominio: Actividad mobile pasó a `CustomerActivityScreen.tsx` con
 grupos, sustituciones, servicios activos, comprobantes, repetición, reclamos y
 propinas; las tres hojas de seguimiento pasaron a
-`CustomerTrackingSheets.tsx`; Cuenta pasó a `CustomerAccountScreen.tsx` sin
-perder estado de navegación ni el cableado de direcciones. `CustomerScreen.tsx`
-bajó de 6.241 a 4.292 líneas. Quedan Comidas, Viajes y Envíos. También quedó
-activo un ratchet que impide que el
+  `CustomerTrackingSheets.tsx`; Cuenta pasó a `CustomerAccountScreen.tsx` sin
+  perder estado de navegación ni el cableado de direcciones; y Envíos pasó a
+  `CustomerShipmentScreen.tsx` con su cotización, ruta, opciones y solicitud
+  reales. Ambos límites permanecen montados y comparten sólo el evento tipado de
+  dirección. Viajes pasó a `CustomerRideScreen.tsx` con GPS, destinos, ruta,
+  tarifa adelantada, reserva, contactos y solicitud persistida; un cambio de
+  origen invalida el precio y las maniobras quedan sólo en Driver.
+  Comidas se dividió luego en descubrimiento/búsqueda, restaurante/personalización,
+  carrito, checkout y pedidos. Los modales de incidencias, devoluciones y siniestros
+  también salieron a un límite tipado. `CustomerScreen.tsx` bajó de 6.241 a 1.321
+  líneas y un contrato fija el techo en 1.350. En web, Wallet salió de
+  `CustomerSurface.tsx` a un límite propio y Cuenta siguió a
+  `CustomerProfileScreen.tsx`; el coordinador quedó en 3.172 líneas y su ratchet
+  en 3.180. También quedó activo un ratchet que impide que el
 problema crezca:
 `test:line-length` fija una línea base vigente de **258 líneas de más de 200
 caracteres en 56 archivos** y sólo admite bajarla.

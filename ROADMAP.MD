@@ -8,6 +8,115 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 30 de agosto de 2026 — ARC-001, Navegación cliente web con límite propio
+
+- [x] Selector Comida/Taxi/Envíos y barra Inicio/Actividad/Wallet/Perfil viven en `CustomerNavigation.tsx` (85 líneas); `CustomerSurface.tsx` bajó de 459 a 360 líneas y quedó como coordinador de estado/composición.
+- [x] Los flags reales `public_rides` y `shipment_beta` siguen gobernando la disponibilidad. Un fallo al cargar flags no se interpreta como decisión de apagar producto, y la navegación inferior conserva las cuatro tareas estables entre verticales.
+- [x] Se eliminó la importación lazy muerta de `FlashMap`; los mapas permanecen en las superficies que realmente los renderizan. `test:responsive-layout` fija techos 375/95 y exige flags, Actividad y composición fuera del coordinador.
+- [x] Build, contratos, 201 rutas cableadas y matriz Chromium completa permanecen verdes; cliente, comercio y operaciones se recorren desde 320 × 568 hasta 1.440 × 900.
+- [~] Uber reutiliza una identidad entre Rides y Eats y expone Courier/Actividad dentro de la app. Flash comparte cuenta y actividad entre sus tres servicios, pero sigue por debajo sin elegibilidad productiva por mercado, explicación visible de indisponibilidad, telemetría de navegación ni validación física de deep links/push.
+- [x] La segmentación interna del cliente web queda cerrada con responsabilidades y ratchets propios.
+- [ ] ARC-001 global sigue abierto: quedan el paquete de contratos compartidos y 256 líneas largas heredadas —255 SQL— contenidas por trinquete; no se declaran resueltas por este corte.
+
+## Avance 30 de agosto de 2026 — ARC-001, Home y descubrimiento web fuera del coordinador
+
+- [x] Home, búsqueda, categorías, restaurantes, productos destacados, beneficios y promesas verificadas viven en `FoodDiscoveryHome.tsx` (119 líneas); `CustomerSurface.tsx` bajó de 598 a 459 líneas.
+- [x] La portada usa restaurantes/productos/favoritos del estado autenticado y el plan real del backend. La imagen hero ya no es una URL promocional fija: toma `cover`/`image` del primer comercio abierto y desaparece honestamente si el catálogo está vacío.
+- [x] `test:web-checkout` y `test:responsive-layout` fijan techos 470/130, exigen composición con cards reales, persistencia de favorito y ausencia de `images.unsplash.com`; `test:web-tracking-maps` adopta el nuevo techo.
+- [x] Chromium y el navegador integrado vuelven a recorrer la matriz completa. A 390 × 844, el home mide 390 px, expone 4 restaurantes, 7 productos y anuncia `Promoción de Nori Club` desde el catálogo activo.
+- [~] Uber Eats combina búsqueda por restaurante/cocina/plato con tiempo, distancia, precio, rating y recomendaciones; DoorDash usa etiquetas confirmadas para descubrimiento dietario. Flash cubre búsqueda, categoría y señales básicas, pero sigue por debajo sin ranking medido, personalización explicable, frescura de inventario con SLA, etiquetas confirmadas por comercio ni gobernanza de promociones pagas.
+- [ ] ARC-001 continúa sobre el selector de servicio, navegación y la composición residual del coordinador; no se agrega una vertical durante Fase 0.
+
+## Avance 30 de agosto de 2026 — ARC-001, Restaurante y personalización web segmentados
+
+- [x] Detalle de restaurante vive en `FoodRestaurantScreen.tsx` (85 líneas), cards/filas/búsqueda/categorías en `FoodCatalogComponents.tsx` (145) y el personalizador en `FoodItemSheet.tsx` (101); `CustomerSurface.tsx` bajó de 914 a 598 líneas.
+- [x] El refactor conserva catálogo/stock del backend, favorito persistido, filtro por declaraciones dietarias, extras con precio, nota para el local, cantidad y total calculado. `src/App.tsx` carga el personalizador directamente y ya no atraviesa el coordinador.
+- [x] `test:web-checkout` y `test:responsive-layout` fijan techos 610/155/95/110, exigen el cableado dietario y la personalización, y `test:web-tracking-maps` adopta el techo nuevo sin leer texto fuente crudo.
+- [x] Chromium y el navegador integrado abren Nori Club y Roll salmon furai a 390 × 844: detalle y hoja miden 390 px sobre un viewport de 390 px; extras, nota, cantidad y `Agregar $ 8.200` permanecen operables sin desborde.
+- [~] Uber Eats y DoorDash separan modificadores/notas de solicitudes estructuradas de alergia y advierten que el comercio puede no cumplir una nota. Flash conserva modificadores y notas, pero sigue por debajo sin solicitud de alergia por ítem, confirmación/timebox del comercio, trazabilidad de contaminación cruzada, sincronización externa de menú ni validación física.
+- [ ] ARC-001 continúa sobre home/descubrimiento y contratos compartidos; este corte no amplía catálogo ni resuelve los bloqueos comerciales.
+
+## Avance 30 de agosto de 2026 — ARC-001, Carrito y checkout web fuera del coordinador
+
+- [x] Carrito, dirección de entrega, método de pago, cotización, propina, horario, resumen y confirmación viven en `src/customer/FoodCartScreen.tsx` (680 líneas); `CustomerSurface.tsx` bajó de 1.617 a 914 líneas sin agregar superficie durante Fase 0.
+- [x] El corte conserva carrito persistido, direcciones geocodificadas, Wallet, configuración pública de Mercado Pago, Card Payment Brick tokenizado, quote firmada con versión/vencimiento y creación por la API existente. `QuantityCounter.tsx` (28) y `EmptyState.tsx` (19) dejan de volver a crecer dentro del coordinador.
+- [x] `test:web-checkout` prueba que cotización, pago y primitivas pertenecen a sus módulos. `test:responsive-layout` y `test:web-tracking-maps` fijan techos de 930/690/35/25 líneas sin acoplarse al espaciado.
+- [x] Chromium y el navegador integrado abren un carrito real a 390 × 844: mide 390 px de documento sobre 390 px de viewport y mantiene `Volver`, cantidades e `Ir a pagar` visibles. La matriz completa pasa cliente, comercio y operaciones entre 320 × 568 y 1.440 × 900.
+- [~] La tarea coincide con Uber Eats —dirección, restaurante, productos, carrito, revisión, confirmación y tracking— y con el límite recomendado por Mercado Pago: el Brick tokeniza en cliente y el backend valida y crea el pago. Flash sigue por debajo sin credenciales productivas del PSP, onboarding de vendedores, 3DS/dispositivos físicos, conciliación externa, contracargos y aprobación legal/comercial.
+- [ ] ARC-001 continúa sobre restaurante, descubrimiento y contratos compartidos; este corte no habilita dinero productivo ni cierra el P0.
+
+## Avance 30 de agosto de 2026 — ARC-001, Envíos web fuera del coordinador
+
+- [x] Cotización, geocodificación, opciones operativas, protección, firma y solicitud persistida viven en `src/customer/ShipmentHome.tsx` (567 líneas); `CustomerSurface.tsx` bajó de 2.166 a 1.617 líneas sin sumar capacidad durante Fase 0.
+- [x] La pantalla conserva selección de origen guardado, invalidación de precio al cambiar datos, categoría/SLA desde PostgreSQL, coordenadas reales, quote firmada con vencimiento y confirmación por `onCreateShipment`.
+- [x] `test:responsive-layout` fija techos de 1.635/575 líneas y exige `getShipmentOptions`, geocoding, `quoteShipment`, `quoteToken` y creación fuera del coordinador. `test:web-tracking-maps` adopta el nuevo techo del coordinador.
+- [x] Chromium abre Envíos web a 390 × 844, espera el formulario real y comprueba que la acción de cotizar permanece dentro del viewport sin ejecutar una cotización.
+- [~] La secuencia coincide con Uber Direct: validar cobertura/costo, mostrar tarifa/ETA con vencimiento, obtener consentimiento y crear usando la identidad de la quote. Flash sigue por debajo porque la red, OAuth de proveedor, tráfico con SLA, seguro, restricciones legales y prueba física no están validados.
+- [ ] ARC-001 continúa sobre restaurante, carrito y contratos compartidos; Envíos ya no justifica volver a crecer el coordinador.
+
+## Avance 30 de agosto de 2026 — ARC-001, Actividad y tracking web segmentados
+
+- [x] Actividad, tarjeta de estado y los seguimientos de comida, viaje y envío viven en seis módulos con una responsabilidad concreta; `CustomerSurface.tsx` bajó de 3.172 a 2.166 líneas sin agregar superficie durante Fase 0.
+- [x] La extracción conserva recursos autenticados, rutas viales, ETA, conductor asignado, PIN de retiro/entrega, enlace público de viaje, incidente de seguridad, evidencia de entrega, cancelación, reprogramación y calificación contra las APIs existentes.
+- [x] `test:web-tracking-maps` fija techos de 2.185/195/180/340/285 líneas y usa contratos independientes del formato. `test:responsive-layout` adopta el mismo techo del coordinador.
+- [x] `test:responsive-browser` abre los tres seguimientos a 390 × 844. Si la cuenta de prueba no tiene un envío activo, lo cotiza y crea por las APIs públicas reales con precio firmado e idempotencia; no inserta SQL ni intercepta respuestas.
+- [x] Un fallo al consultar prueba de entrega ya no se convierte silenciosamente en una lista vacía: la hoja conserva la ruta y muestra el error del backend.
+- [~] Flash cubre el patrón competitivo de Actividad → estado/ETA → mapa y contacto operativo, además de viaje compartible y POD de envío. Sigue por debajo sin tráfico/mapas con SLA, mensajería o telefonía anonimizada, push probado en dispositivos, operación de safety 24/7, proveedores productivos y habilitación/seguro.
+- [ ] ARC-001 continúa sobre restaurante, carrito y contratos compartidos; este corte no cierra el P0.
+
+## Avance 30 de agosto de 2026 — ARC-001, Cuenta web segmentada por responsabilidad
+
+- [x] `CustomerProfileScreen.tsx` quedó en 124 líneas y sólo coordina identidad y composición. La libreta geocodificada vive en `CustomerAddressBook.tsx` (308) y las preferencias alimentarias en `CustomerDietaryPreferences.tsx` (160).
+- [x] `CustomerAddressPayload` es el contrato compartido de alta y edición; la libreta sigue invalidando coordenadas/token al cambiar texto y sólo guarda una coincidencia validada.
+- [x] `test:responsive-layout` fija 130/315/165 líneas, exige composición, geocoding, alta/edición y persistencia dietaria. La matriz Chromium existente vuelve a recorrer Mis direcciones y Mi alimentación sin escribir datos.
+- [x] Este corte resuelve la deuda declarada en la entrega anterior y satisface responsabilidad concreta para Cuenta web; ARC-001 continúa sobre tracking, restaurante y carrito.
+
+## Avance 30 de agosto de 2026 — ARC-001, Cuenta web fuera del monolito cliente
+
+- [x] Perfil, direcciones geocodificadas y preferencias alimentarias viven en `src/customer/CustomerProfileScreen.tsx`; `CustomerSurface.tsx` bajó de 3.720 a 3.172 líneas sin agregar superficie durante Fase 0.
+- [x] Se conservan las APIs reales de edición, alta/cambio/baja de direcciones, selección predeterminada y preferencias. Una dirección modificada pierde su token hasta volver a elegir una coincidencia validada.
+- [x] `test:responsive-layout` fija el coordinador en 3.180 líneas o menos y exige el cableado de geocoding, alta/edición y dieta. `test:responsive-browser` abre Cuenta a 390 × 844, comprueba ambas secciones y el botón final sin overflow ni escrituras.
+- [~] Uber agrupa Casa, Trabajo y otros lugares guardados dentro de Cuenta, y Uber Eats separa filtros dietarios de solicitudes de alergia por producto. Flash cubre destinos reutilizables y filtros persistidos, pero sigue por debajo en notas de alergia por ítem, confirmación del comercio y evidencia física; su advertencia de contaminación cruzada permanece visible.
+- [x] La segunda partición se completó en la entrega siguiente: perfil, libreta y dieta tienen límites y ratchets propios.
+
+## Avance 30 de agosto de 2026 — ARC-001, Wallet web fuera del monolito cliente
+
+- [x] Saldo, carga sandbox, movimientos y promociones viven en `src/customer/WalletScreen.tsx`; `CustomerSurface.tsx` bajó de 3.794 a 3.720 líneas sin agregar una capacidad nueva durante Fase 0.
+- [x] `test:responsive-layout` fija un techo de 3.725 líneas, exige el límite extraído y conserva los topes de carga entre ARS 1.000 y ARS 200.000. `test:responsive-browser` abre la PWA cliente a 390 × 844, comprueba actividad real, ausencia de overflow y ambos topes sin ejecutar una carga.
+- [x] El refactor mantiene la fuente real del saldo y del historial en el estado autenticado; no introduce fixtures ni convierte la carga sandbox en dinero custodial.
+- [~] Mercado Pago separa saldo disponible, movimientos aprobados, contracargos, reintegros y conciliación en reportes financieros. Flash muestra el ledger de la cuenta, pero sigue por debajo: faltan estados contables visibles, filtros/exportación, PSP productivo, conciliación externa y habilitación regulatoria.
+- [ ] ARC-001 continúa sobre las concentraciones internas del cliente web y los contratos compartidos; este corte no cierra por sí solo el P0.
+
+## Avance 30 de agosto de 2026 — ARC-001, Comidas móvil segmentada por tarea
+
+- [x] Descubrimiento/búsqueda, restaurante/personalización, carrito, checkout y pedidos viven en cinco módulos con responsabilidad concreta. Incidencias de pedido, devoluciones y siniestros viven en `CustomerServiceIssueModals.tsx`; `CustomerScreen.tsx` bajó de 3.159 a 1.321 líneas sin agregar superficie durante el congelamiento de Fase 0.
+- [x] El carrito, la dirección y las preferencias permanecen en el coordinador porque Cuenta y Actividad los consumen; cambiar de pestaña no descarta una compra, grupo o cotización en curso.
+- [x] La extracción conserva catálogo y favoritos persistidos, stock, modificadores, alérgenos, dirección geocodificada, método tokenizado, cotización firmada, propina, reserva, creación, tracking y cancelación contra sus APIs reales.
+- [x] El botón final muestra el mismo total que el detalle, incluida la propina; ya no presenta una cifra menor justo antes de confirmar el cobro.
+- [x] `test:mobile-food-design` inspecciona cada límite extraído y `test:responsive-layout` fija el coordinador en 1.350 líneas, verifica las tres APIs de resolución de problemas e impide que vuelva a crecer silenciosamente.
+- [~] Uber Eats y DoorDash permiten abrir problemas desde el pedido y categorizan ítems faltantes/incorrectos antes de evaluar crédito, reembolso u otra resolución. Flash conserva esa revisión y el ledger exacto, pero sigue por debajo porque no tiene evidencia fotográfica para incidencias de comida, política legal/comercial aprobada ni equipo de soporte habilitado.
+- [~] El flujo coincide con la secuencia oficial de Uber Eats —dirección, restaurante, productos, carrito, revisión, confirmación y tracking— y con los estados/mapa de DoorDash. Flash sigue por debajo en proveedor de mapas con SLA, push físico, pagos marketplace conciliados, soporte 24/7 y operación comercial habilitada.
+- [ ] ARC-001 continúa con contratos compartidos y la siguiente concentración monolítica; esta extracción no cierra por sí sola el P0.
+
+## Avance 30 de agosto de 2026 — ARC-001, Viajes móvil fuera del coordinador
+
+- [x] Origen/destino, GPS, destinos recientes, ruta, opciones, tarifa adelantada, reserva y solicitud persistida viven en `CustomerRideScreen.tsx`; no se agregó superficie durante el congelamiento de Fase 0.
+- [x] `CustomerScreen.tsx` bajó de 3.809 a 3.159 líneas. Viajes permanece montado entre pestañas para conservar direcciones y una cotización en curso.
+- [x] Cambiar el origen —por texto, GPS o una dirección de Cuenta— invalida ruta, opciones y precio anterior. El usuario ya no puede intentar solicitar con una tarifa visualmente vigente para otro origen.
+- [x] La pantalla cliente conserva vista previa de ruta, distancia y ETA, pero dejó de mostrar instrucciones giro a giro. La guía operativa permanece exclusivamente en Flash Driver, como exige la segmentación vigente.
+- [x] `test:responsive-layout` y `test:mobile-maps` fijan el nuevo techo, verifican las APIs reales `quoteRideOptions`/`createRide`, la invalidación de tarifa y la ausencia de maniobras en cliente.
+- [~] Uber y Lyft muestran precio adelantado sujeto a ruta, demanda, tráfico y peajes; Flash conserva ese desglose, pero sigue por debajo en tráfico con SLA, oferta productiva, habilitación, seguro y validación física. Las instrucciones de conducción requieren además build Driver probado en movimiento.
+- [x] Comidas ya fue segmentada por tarea en la entrega siguiente de este mismo día.
+
+## Avance 30 de agosto de 2026 — ARC-001, Envíos móvil fuera del coordinador
+
+- [x] Cotización, geocodificación, ruta vial, opciones, protección, firma y creación persistida viven en `CustomerShipmentScreen.tsx`; el cambio mueve lógica existente y no agrega superficie durante el congelamiento de Fase 0.
+- [x] `CustomerScreen.tsx` bajó de 4.292 a 3.809 líneas. Envíos conserva su estado montado al cambiar de pestaña para no descartar direcciones, destinatario ni una cotización en curso.
+- [x] Cuenta sigue propagando la dirección elegida mediante un evento tipado; Envíos consume el evento y reinvalida ruta/cotización sin volver a acoplar sus setters al coordinador.
+- [x] `test:responsive-layout` y `test:mobile-maps` fijan el nuevo límite, verifican las APIs reales `quoteShipment`/`createShipment` y exigen coordenadas persistidas para el origen de sus mapas.
+- [~] La secuencia cotizar → confirmar → crear y la prueba de entrega con PIN/firma siguen el contrato documentado por Uber Direct. Flash continúa por debajo en red productiva, SLA de tráfico, verificación de identidad, barcodes, retención de evidencia y operación asegurada; todos dependen de proveedor, habilitación y pruebas físicas.
+- [ ] Comidas y Viajes son los dos cortes que todavía quedan dentro del coordinador para cerrar esta parte de ARC-001.
+
 ## Avance 29 de agosto de 2026 — ARC-001, Cuenta móvil fuera del coordinador
 
 - [x] Seguridad de cuenta, sesiones, referidos, preferencias alimentarias, notificaciones, soporte, direcciones y métodos de pago viven en `CustomerAccountScreen.tsx`, con las mismas APIs y transiciones persistidas.
@@ -823,7 +932,8 @@ Decisión competitiva: se adopta una bandeja transaccional persistente y prefere
 
 #### Fase 4 — piloto de movilidad
 
-- [x] KYC, vehículos, PIN, contactos, compartir recorrido, SOS y chat cifrado.
+- [~] KYC, vehículos, PIN, contactos, compartir recorrido, SOS y chat cifrado: los contratos y flujos internos existen, pero KYC no está homologado ni conectado a un proveedor productivo y las funciones de seguridad requieren piloto físico y operación habilitada.
+- [ ] KYC automatizado por riesgo conforme a [`docs/estrategia-kyc-automatizado.md`](docs/estrategia-kyc-automatizado.md): procesamiento directo para casos de alta confianza, recaptura automática y revisión excepcional antes de toda decisión adversa. Es candidato post-Fase 0; faltan proveedor, RFP, evaluación biométrica, DPIA, revisión legal, piloto físico y homologaciones.
 - [ ] Seguros/habilitación local, anomalías, privacidad telefónica, no-show/waiting fees, accidentes y aseguradora.
 
 #### Fases 5/6 — B2B y multiciudad
