@@ -25,6 +25,7 @@ const webWallet = fs.readFileSync("src/customer/WalletScreen.tsx", "utf8");
 const webCustomerProfile = fs.readFileSync("src/customer/CustomerProfileScreen.tsx", "utf8");
 const webCustomerAddressBook = fs.readFileSync("src/customer/CustomerAddressBook.tsx", "utf8");
 const webCustomerDietary = fs.readFileSync("src/customer/CustomerDietaryPreferences.tsx", "utf8");
+const webCustomerShipment = fs.readFileSync("src/customer/ShipmentHome.tsx", "utf8");
 const mobilePackage = JSON.parse(fs.readFileSync("apps/mobile/package.json", "utf8"));
 const rootPackage = JSON.parse(fs.readFileSync("package.json", "utf8"));
 const desktop = fs.readFileSync("src/styles.css", "utf8");
@@ -202,7 +203,7 @@ assert(
 );
 
 assert(
-  webCustomerCoordinator.trimEnd().split(/\r?\n/).length <= 2185 &&
+  webCustomerCoordinator.trimEnd().split(/\r?\n/).length <= 1635 &&
     contains(webCustomerCoordinator, "<WalletScreen") &&
     contains(webCustomerCoordinator, "<CustomerProfileScreen") &&
     !contains(webCustomerCoordinator, "function WalletScreen") &&
@@ -222,6 +223,18 @@ assert(
     webCustomerDietary.trimEnd().split(/\r?\n/).length <= 165 &&
     contains(webCustomerDietary, "api.updateDietaryPreferences"),
   "web wallet, profile, addresses and dietary settings keep bounded ownership and API wiring",
+);
+
+assert(
+  contains(webCustomerCoordinator, "<ShipmentHome") &&
+    !contains(webCustomerCoordinator, "function ShipmentHome") &&
+    webCustomerShipment.trimEnd().split(/\r?\n/).length <= 575 &&
+    contains(webCustomerShipment, "api.getShipmentOptions") &&
+    contains(webCustomerShipment, "api.geocode") &&
+    contains(webCustomerShipment, "api.quoteShipment") &&
+    contains(webCustomerShipment, "quoteToken: quote.quoteToken") &&
+    contains(webCustomerShipment, "await onCreateShipment"),
+  "web shipment keeps options, geocoding, signed quote and creation outside the coordinator",
 );
 
 assert(

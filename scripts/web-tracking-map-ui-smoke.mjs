@@ -37,7 +37,7 @@ assert(
 );
 const lineCount = (source) => source.trimEnd().split(/\r?\n/).length;
 assert(
-  lineCount(customerCoordinator) <= 2185 &&
+  lineCount(customerCoordinator) <= 1635 &&
     lineCount(customerActivity) <= 195 &&
     lineCount(orderTracking) <= 180 &&
     lineCount(rideTracking) <= 340 &&

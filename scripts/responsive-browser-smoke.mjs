@@ -419,6 +419,13 @@ async function auditCompactCustomerSurfaces(browser) {
 
   await ensureActiveTestShipment();
   await login(page, desktopUrl, "cliente@flash.app", "Ingresar");
+  await page.getByRole("button", { name: "Envíos", exact: true }).click();
+  await page.getByRole("heading", { name: "Mandá un paquete hoy", exact: true }).waitFor();
+  const quoteShipment = page.getByRole("button", { name: "Cotizar envío", exact: true });
+  await assertNoPageOverflow(page, "compact customer shipment quote");
+  await assertLocatorInsideViewport(page, quoteShipment, "compact customer shipment quote action");
+  ok("compact customer shipment keeps the real quote flow inside the viewport");
+
   const walletTab = page.getByRole("button", { name: "Wallet", exact: true });
   await walletTab.waitFor({ timeout: 15_000 });
   await walletTab.click();

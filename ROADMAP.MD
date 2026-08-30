@@ -8,6 +8,15 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 30 de agosto de 2026 — ARC-001, Envíos web fuera del coordinador
+
+- [x] Cotización, geocodificación, opciones operativas, protección, firma y solicitud persistida viven en `src/customer/ShipmentHome.tsx` (567 líneas); `CustomerSurface.tsx` bajó de 2.166 a 1.617 líneas sin sumar capacidad durante Fase 0.
+- [x] La pantalla conserva selección de origen guardado, invalidación de precio al cambiar datos, categoría/SLA desde PostgreSQL, coordenadas reales, quote firmada con vencimiento y confirmación por `onCreateShipment`.
+- [x] `test:responsive-layout` fija techos de 1.635/575 líneas y exige `getShipmentOptions`, geocoding, `quoteShipment`, `quoteToken` y creación fuera del coordinador. `test:web-tracking-maps` adopta el nuevo techo del coordinador.
+- [x] Chromium abre Envíos web a 390 × 844, espera el formulario real y comprueba que la acción de cotizar permanece dentro del viewport sin ejecutar una cotización.
+- [~] La secuencia coincide con Uber Direct: validar cobertura/costo, mostrar tarifa/ETA con vencimiento, obtener consentimiento y crear usando la identidad de la quote. Flash sigue por debajo porque la red, OAuth de proveedor, tráfico con SLA, seguro, restricciones legales y prueba física no están validados.
+- [ ] ARC-001 continúa sobre restaurante, carrito y contratos compartidos; Envíos ya no justifica volver a crecer el coordinador.
+
 ## Avance 30 de agosto de 2026 — ARC-001, Actividad y tracking web segmentados
 
 - [x] Actividad, tarjeta de estado y los seguimientos de comida, viaje y envío viven en seis módulos con una responsabilidad concreta; `CustomerSurface.tsx` bajó de 3.172 a 2.166 líneas sin agregar superficie durante Fase 0.

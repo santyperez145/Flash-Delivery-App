@@ -547,3 +547,27 @@ no demuestra red productiva, habilitación, seguros ni atención humana.
 - [Uber Eats: seguimiento desde la lista de pedidos](https://help.uber.com/ubereats/restaurants/article/node-title?nodeId=0341399a-092f-4012-b4c6-478b9906700d)
 - [Uber: compartir ETA, conductor, vehículo y ubicación](https://help.uber.com/riders/article/sharing-eta-and-trip-status?nodeId=20e8c951-36ac-450a-90aa-738d467d023a)
 - [DoorDash Drive: URL de tracking y prueba de entrega](https://developer.doordash.com/en-US/docs/drive/how_to/Parcel/webhooks_payload_fields/)
+
+### Decisión 30 de agosto de 2026 — Envíos web como frontera cotizar → confirmar → crear
+
+La guía vigente de Uber Direct recomienda cotizar antes de crear: la quote valida
+entregabilidad y costo, devuelve tarifa, ETA e identidad con vencimiento, y esa identidad
+se conserva al solicitar la entrega. DoorDash Drive modela el mismo límite como crear y
+aceptar una quote antes de la delivery. Para ARC-001, la consecuencia es estructural:
+Envíos debe poseer formulario, opciones, quote y consentimiento; el shell sólo conserva
+el callback que integra el alta con el estado global.
+
+Flash mueve esa frontera a `ShipmentHome.tsx`. Las categorías y niveles siguen viniendo
+del backend, ambas direcciones se geocodifican, cualquier cambio invalida el precio, y la
+creación exige el `quoteToken` vigente. El navegador sólo recorre el formulario en este
+corte; la persistencia, ownership, riesgo, idempotencia y captura Wallet continúan
+verificados contra PostgreSQL por las puertas existentes.
+
+La similitud termina en el contrato: Flash no está conectado a la red Uber Direct ni
+DoorDash Drive, no tiene sus credenciales/OAuth, cobertura, SLA o aprobación comercial y
+no debe presentarse como homologado. La quote local es lógica Flash probada en CI, no una
+cotización de proveedor productivo.
+
+- [Uber Direct: crear quote y usar su identidad al crear delivery](https://developer.uber.com/docs/deliveries/get-started)
+- [Uber Direct: secuencia operativa quote → confirmación → delivery](https://developer.uber.com/docs/deliveries/direct/guides/overview)
+- [DoorDash Drive API: crear y aceptar quote](https://developer.doordash.com/en-US/api/drive/)
