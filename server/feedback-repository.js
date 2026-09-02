@@ -93,7 +93,13 @@ export async function createPostgresRating({
 
 export async function getPostgresRatings({ userPublicId, includeAll = false }) {
   const result = await postgresPool.query(
-    `SELECT r.public_id,j.public_id job_id,u.public_id user_id,r.subject_type,r.score,r.tags,r.comment,r.created_at FROM ratings r JOIN jobs j ON j.id=r.job_id JOIN users u ON u.id=r.author_id WHERE($2::boolean OR u.public_id=$1) ORDER BY r.created_at DESC`,
+    `SELECT r.public_id, j.public_id job_id, u.public_id user_id, r.subject_type,
+       r.score, r.tags, r.comment, r.created_at
+     FROM ratings r
+     JOIN jobs j ON j.id=r.job_id
+     JOIN users u ON u.id=r.author_id
+     WHERE ($2::boolean OR u.public_id=$1)
+     ORDER BY r.created_at DESC`,
     [userPublicId, includeAll],
   );
   return result.rows.map((row) => ({

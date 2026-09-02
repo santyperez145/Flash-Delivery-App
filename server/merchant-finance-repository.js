@@ -300,16 +300,21 @@ export async function getMerchantFinance({ merchantPublicId, actorPublicId, admi
     const merchant = await merchantForActor(client, { merchantPublicId, actorPublicId, admin });
     const balance = (
       await client.query(
-        `SELECT COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint balance FROM ledger_accounts a LEFT JOIN ledger_entries e ON e.account_id=a.id WHERE a.owner_type='merchant' AND a.owner_id=$1 AND a.account_type='payable'`,
+        `SELECT COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint balance
+        FROM ledger_accounts a LEFT JOIN ledger_entries e ON e.account_id=a.id
+        WHERE a.owner_type='merchant' AND a.owner_id=$1 AND a.account_type='payable'`,
         [merchant.id],
       )
     ).rows[0];
     const movements = await client.query(
-      `SELECT t.id::text,t.kind,t.description,t.created_at,e.direction,e.amount_cents,t.metadata FROM ledger_accounts a JOIN ledger_entries e ON e.account_id=a.id JOIN ledger_transactions t ON t.id=e.transaction_id WHERE a.owner_type='merchant' AND a.owner_id=$1 ORDER BY t.created_at DESC LIMIT 100`,
+      `SELECT t.id::text,t.kind,t.description,t.created_at,e.direction,e.amount_cents,t.metadata
+      FROM ledger_accounts a JOIN ledger_entries e ON e.account_id=a.id JOIN ledger_transactions t ON t.id=e.transaction_id
+      WHERE a.owner_type='merchant' AND a.owner_id=$1 ORDER BY t.created_at DESC LIMIT 100`,
       [merchant.id],
     );
     const payouts = await client.query(
-      "SELECT public_id,amount_cents,status,period_start,period_end,created_at,paid_at,review_decision,review_note,reviewed_at FROM payouts WHERE payee_type='merchant' AND payee_id=$1 ORDER BY created_at DESC LIMIT 100",
+      `SELECT public_id,amount_cents,status,period_start,period_end,created_at,paid_at,review_decision,review_note,reviewed_at
+      FROM payouts WHERE payee_type='merchant' AND payee_id=$1 ORDER BY created_at DESC LIMIT 100`,
       [merchant.id],
     );
     return {
@@ -367,7 +372,9 @@ export async function requestMerchantPayout({
     }
     const authorized = (
       await client.query(
-        `UPDATE payout_step_up_authorizations s SET consumed_at=now() FROM users u WHERE s.jti=$1 AND s.user_id=u.id AND u.public_id=$2 AND s.merchant_id=$3 AND s.amount_cents=$4 AND s.consumed_at IS NULL AND s.expires_at>now() RETURNING s.jti`,
+        `UPDATE payout_step_up_authorizations s SET consumed_at=now() FROM users u
+        WHERE s.jti=$1 AND s.user_id=u.id AND u.public_id=$2 AND s.merchant_id=$3 AND s.amount_cents=$4
+          AND s.consumed_at IS NULL AND s.expires_at>now() RETURNING s.jti`,
         [stepUpJti, actorPublicId, merchant.id, amountCents],
       )
     ).rows[0];
@@ -393,7 +400,10 @@ export async function requestMerchantPayout({
       throw Object.assign(new Error("Saldo comercial insuficiente"), { status: 409 });
     const payout = (
       await client.query(
-        `INSERT INTO payouts(public_id,payee_type,payee_id,provider,amount_cents,status,period_start,period_end,idempotency_key,metadata,requested_by) SELECT $1,'merchant',$2,'pending_provider',$3,'pending',now()-interval '30 days',now(),$4,$5,u.id FROM users u WHERE u.public_id=$6 ON CONFLICT(idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING RETURNING public_id`,
+        `INSERT INTO payouts(public_id,payee_type,payee_id,provider,amount_cents,status,period_start,period_end,idempotency_key,metadata,requested_by)
+        SELECT $1,'merchant',$2,'pending_provider',$3,'pending',now()-interval '30 days',now(),$4,$5,u.id
+        FROM users u WHERE u.public_id=$6
+        ON CONFLICT(idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING RETURNING public_id`,
         [payoutId(), merchant.id, amountCents, idempotencyKey, { merchantPublicId }, actorPublicId],
       )
     ).rows[0];
@@ -448,7 +458,10 @@ const mapPayout = (row) => ({
   reviewedAt: row.reviewed_at ? new Date(row.reviewed_at).toISOString() : null,
   paidAt: row.paid_at ? new Date(row.paid_at).toISOString() : null,
 });
-const payoutSelect = `SELECT p.*,m.public_id merchant_public_id,m.name merchant_name,requester.public_id requested_by_public_id,reviewer.public_id reviewed_by_public_id FROM payouts p JOIN merchants m ON p.payee_type='merchant' AND m.id=p.payee_id LEFT JOIN users requester ON requester.id=p.requested_by LEFT JOIN users reviewer ON reviewer.id=p.reviewed_by`;
+const payoutSelect = `SELECT p.*,m.public_id merchant_public_id,m.name merchant_name,
+  requester.public_id requested_by_public_id,reviewer.public_id reviewed_by_public_id
+  FROM payouts p JOIN merchants m ON p.payee_type='merchant' AND m.id=p.payee_id
+  LEFT JOIN users requester ON requester.id=p.requested_by LEFT JOIN users reviewer ON reviewer.id=p.reviewed_by`;
 export async function getPayoutReviewQueue() {
   return (
     await postgresPool.query(
@@ -510,7 +523,8 @@ export async function reviewMerchantPayout({ payoutPublicId, actorPublicId, deci
         ).rows[0];
       if (transaction)
         await client.query(
-          `INSERT INTO ledger_entries(transaction_id,account_id,direction,amount_cents,reference_type,reference_id,metadata) VALUES($1,$2,'debit',$4,'merchant_payout',$5,$6),($1,$3,'credit',$4,'merchant_payout',$5,$6)`,
+          `INSERT INTO ledger_entries(transaction_id,account_id,direction,amount_cents,reference_type,reference_id,metadata)
+          VALUES($1,$2,'debit',$4,'merchant_payout',$5,$6),($1,$3,'credit',$4,'merchant_payout',$5,$6)`,
           [
             transaction.id,
             pending,

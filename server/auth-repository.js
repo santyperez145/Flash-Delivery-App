@@ -191,7 +191,11 @@ export async function getPostgresOperationsUserPage({
   query = "",
 } = {}) {
   const page = await postgresPool.query(
-    `SELECT u.id,u.public_id,to_char(u.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') cursor_created_at FROM users u WHERE ($1='' OR u.public_id ILIKE '%'||$1||'%' OR u.name ILIKE '%'||$1||'%' OR u.email ILIKE '%'||$1||'%') AND ($2::timestamptz IS NULL OR (u.created_at,u.id)>($2::timestamptz,$3::uuid)) ORDER BY u.created_at,u.id LIMIT $4`,
+    `SELECT u.id,u.public_id,to_char(u.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') cursor_created_at
+    FROM users u
+    WHERE ($1='' OR u.public_id ILIKE '%'||$1||'%' OR u.name ILIKE '%'||$1||'%' OR u.email ILIKE '%'||$1||'%')
+      AND ($2::timestamptz IS NULL OR (u.created_at,u.id)>($2::timestamptz,$3::uuid))
+    ORDER BY u.created_at,u.id LIMIT $4`,
     [query.trim(), cursor?.createdAt || null, cursor?.id || null, limit + 1],
   );
   const hasMore = page.rows.length > limit,
@@ -328,7 +332,11 @@ export async function getPostgresAddresses(userPublicId = null) {
       values,
     ),
     postgresPool.query(
-      `SELECT public_id,profile->>'defaultAddress' address FROM users u ${userPublicId ? "WHERE u.public_id=$1 AND COALESCE(profile->>'defaultAddress','')<>''" : "WHERE COALESCE(profile->>'defaultAddress','')<>''"}`,
+      userPublicId
+        ? `SELECT public_id,profile->>'defaultAddress' address FROM users u
+          WHERE u.public_id=$1 AND COALESCE(profile->>'defaultAddress','')<>''`
+        : `SELECT public_id,profile->>'defaultAddress' address FROM users u
+          WHERE COALESCE(profile->>'defaultAddress','')<>''`,
       values,
     ),
   ]);
@@ -611,7 +619,8 @@ export async function deletePostgresAddress({ userPublicId, addressId }) {
 
 export async function getPostgresPaymentMethods() {
   const result = await postgresPool.query(
-    `SELECT pm.id::text,u.public_id user_id,pm.kind,pm.brand,pm.last4,pm.expiry_month,pm.expiry_year,pm.is_default FROM payment_methods pm JOIN users u ON u.id=pm.user_id WHERE pm.revoked_at IS NULL ORDER BY pm.created_at`,
+    `SELECT pm.id::text,u.public_id user_id,pm.kind,pm.brand,pm.last4,pm.expiry_month,pm.expiry_year,pm.is_default
+    FROM payment_methods pm JOIN users u ON u.id=pm.user_id WHERE pm.revoked_at IS NULL ORDER BY pm.created_at`,
   );
   return result.rows.map((row) => ({
     id: row.id,
@@ -663,7 +672,8 @@ export async function createSandboxPaymentMethod({
       );
     const row = (
       await client.query(
-        `INSERT INTO payment_methods(user_id,provider,provider_payment_method_id,kind,brand,last4,expiry_month,expiry_year,is_default) VALUES($1,'sandbox',$2,'card',$3,$4,$5,$6,$7) RETURNING id::text`,
+        `INSERT INTO payment_methods(user_id,provider,provider_payment_method_id,kind,brand,last4,expiry_month,expiry_year,is_default)
+        VALUES($1,'sandbox',$2,'card',$3,$4,$5,$6,$7) RETURNING id::text`,
         [user.id, providerToken, brand, last4, expiryMonth, expiryYear, makeDefault],
       )
     ).rows[0];
@@ -724,7 +734,9 @@ export async function revokePostgresPaymentMethod({ userPublicId, paymentMethodI
     ]);
     if (owned.is_default)
       await client.query(
-        `UPDATE payment_methods SET is_default=true WHERE id=(SELECT id FROM payment_methods WHERE user_id=$1 AND revoked_at IS NULL ORDER BY CASE WHEN kind='wallet' THEN 0 ELSE 1 END,created_at LIMIT 1)`,
+        `UPDATE payment_methods SET is_default=true
+        WHERE id=(SELECT id FROM payment_methods WHERE user_id=$1 AND revoked_at IS NULL
+          ORDER BY CASE WHEN kind='wallet' THEN 0 ELSE 1 END,created_at LIMIT 1)`,
         [owned.user_id],
       );
     await client.query("COMMIT");
@@ -834,7 +846,10 @@ export async function confirmEmailVerification({ email, code }) {
     await client.query("BEGIN");
     const row = (
       await client.query(
-        `SELECT c.*,u.public_id,u.email_verified_at FROM users u JOIN email_verification_challenges c ON c.user_id=u.id WHERE u.email=$1 AND u.status='active' AND c.consumed_at IS NULL ORDER BY c.created_at DESC LIMIT 1 FOR UPDATE OF c,u`,
+        `SELECT c.*,u.public_id,u.email_verified_at FROM users u
+        JOIN email_verification_challenges c ON c.user_id=u.id
+        WHERE u.email=$1 AND u.status='active' AND c.consumed_at IS NULL
+        ORDER BY c.created_at DESC LIMIT 1 FOR UPDATE OF c,u`,
         [String(email).trim().toLowerCase()],
       )
     ).rows[0];

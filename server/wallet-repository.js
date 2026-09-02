@@ -69,7 +69,11 @@ export async function getWallet(publicUserId) {
     [account.id],
   );
   const history = await postgresPool.query(
-    `SELECT t.id,t.kind,t.description,t.created_at,e.direction,e.amount_cents,t.metadata FROM ledger_entries e JOIN ledger_transactions t ON t.id=e.transaction_id WHERE e.account_id=$1 AND t.status='posted' ORDER BY t.created_at DESC LIMIT 100`,
+    `SELECT t.id, t.kind, t.description, t.created_at, e.direction, e.amount_cents, t.metadata
+     FROM ledger_entries e
+     JOIN ledger_transactions t ON t.id=e.transaction_id
+     WHERE e.account_id=$1 AND t.status='posted'
+     ORDER BY t.created_at DESC LIMIT 100`,
     [account.id],
   );
   return {
@@ -95,7 +99,15 @@ export async function getWalletBalances() {
 
 export async function getPostgresWalletTransactions({ userPublicId, includeAll = false }) {
   const result = await postgresPool.query(
-    `SELECT t.id::text,u.public_id user_id,t.kind,t.description,t.created_at,e.direction,e.amount_cents,t.metadata FROM ledger_entries e JOIN ledger_transactions t ON t.id=e.transaction_id JOIN ledger_accounts a ON a.id=e.account_id JOIN users u ON u.id=a.owner_id WHERE a.owner_type='user' AND a.account_type='wallet' AND ($2::boolean OR u.public_id=$1) AND t.status='posted' ORDER BY t.created_at DESC LIMIT 500`,
+    `SELECT t.id::text, u.public_id user_id, t.kind, t.description, t.created_at,
+       e.direction, e.amount_cents, t.metadata
+     FROM ledger_entries e
+     JOIN ledger_transactions t ON t.id=e.transaction_id
+     JOIN ledger_accounts a ON a.id=e.account_id
+     JOIN users u ON u.id=a.owner_id
+     WHERE a.owner_type='user' AND a.account_type='wallet'
+       AND ($2::boolean OR u.public_id=$1) AND t.status='posted'
+     ORDER BY t.created_at DESC LIMIT 500`,
     [userPublicId, includeAll],
   );
   return result.rows.map((row) => ({
@@ -444,14 +456,22 @@ export async function settleMobilityWalletPayment({
       clearing = await clearingAccount(client),
       revenue = (
         await client.query(
-          `INSERT INTO ledger_accounts(owner_type,owner_id,currency,account_type) VALUES('platform',NULL,'ARS','revenue') ON CONFLICT(owner_type,currency,account_type) WHERE owner_id IS NULL DO UPDATE SET owner_type=excluded.owner_type RETURNING id`,
+          `INSERT INTO ledger_accounts(owner_type, owner_id, currency, account_type)
+           VALUES('platform', NULL, 'ARS', 'revenue')
+           ON CONFLICT(owner_type, currency, account_type) WHERE owner_id IS NULL
+           DO UPDATE SET owner_type=excluded.owner_type RETURNING id`,
         )
       ).rows[0].id;
     await client.query("SELECT id FROM ledger_accounts WHERE id=ANY($1) ORDER BY id FOR UPDATE", [
       [driverWallet, clearing, revenue],
     ]);
     await client.query(
-      `INSERT INTO ledger_entries(transaction_id,account_id,direction,amount_cents,reference_type,reference_id,metadata) VALUES($1,$2,'debit',$3,'mobility_settlement',$4,$5),($1,$6,'credit',$7,'mobility_settlement',$4,$5),($1,$8,'credit',$9,'mobility_settlement',$4,$5)`,
+      `INSERT INTO ledger_entries(
+        transaction_id, account_id, direction, amount_cents, reference_type, reference_id, metadata
+      ) VALUES
+        ($1, $2, 'debit', $3, 'mobility_settlement', $4, $5),
+        ($1, $6, 'credit', $7, 'mobility_settlement', $4, $5),
+        ($1, $8, 'credit', $9, 'mobility_settlement', $4, $5)`,
       [
         transaction.id,
         clearing,
@@ -487,7 +507,9 @@ export async function cancelOrderAndRefundWallet({
       .rows[0];
     const job = (
       await client.query(
-        `UPDATE jobs SET status='cancelled',version=version+1,updated_at=now() WHERE public_id=$1 AND kind='delivery' AND metadata->>'subtype'='food_order' AND status NOT IN('completed','cancelled') RETURNING id,customer_id`,
+        `UPDATE jobs SET status='cancelled', version=version+1, updated_at=now()
+         WHERE public_id=$1 AND kind='delivery' AND metadata->>'subtype'='food_order'
+           AND status NOT IN('completed','cancelled') RETURNING id,customer_id`,
         [orderPublicId],
       )
     ).rows[0];

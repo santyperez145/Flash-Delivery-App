@@ -72,7 +72,12 @@ export async function getPostgresOperationsDriverPage({
   query = "",
 } = {}) {
   const page = await postgresPool.query(
-    `SELECT d.id,d.public_id,to_char(d.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') cursor_created_at FROM drivers d WHERE ($1='' OR d.public_id ILIKE '%'||$1||'%' OR d.metadata->>'name' ILIKE '%'||$1||'%') AND ($2::timestamptz IS NULL OR (d.created_at,d.id)>($2::timestamptz,$3::uuid)) ORDER BY d.created_at,d.id LIMIT $4`,
+    `SELECT d.id, d.public_id,
+       to_char(d.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') cursor_created_at
+     FROM drivers d
+     WHERE ($1='' OR d.public_id ILIKE '%'||$1||'%' OR d.metadata->>'name' ILIKE '%'||$1||'%')
+       AND ($2::timestamptz IS NULL OR (d.created_at, d.id)>($2::timestamptz, $3::uuid))
+     ORDER BY d.created_at, d.id LIMIT $4`,
     [query.trim(), cursor?.createdAt || null, cursor?.id || null, limit + 1],
   );
   const hasMore = page.rows.length > limit,

@@ -202,7 +202,11 @@ export async function resolveOrderIssue({
         )
       ).rows[0];
       await client.query(
-        `INSERT INTO ledger_entries(transaction_id,account_id,direction,amount_cents,reference_type,reference_id,metadata) VALUES($1,$2,'credit',$3,'order_issue',$4,$5),($1,$6,'debit',$3,'order_issue',$4,$5)`,
+        `INSERT INTO ledger_entries(
+          transaction_id, account_id, direction, amount_cents, reference_type, reference_id, metadata
+        ) VALUES
+          ($1, $2, 'credit', $3, 'order_issue', $4, $5),
+          ($1, $6, 'debit', $3, 'order_issue', $4, $5)`,
         [
           transaction.id,
           wallet.id,

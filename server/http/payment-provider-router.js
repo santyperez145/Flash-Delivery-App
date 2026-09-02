@@ -120,7 +120,15 @@ router.get(
       merchantReady = Boolean(
         (
           await postgresPool.query(
-            `SELECT 1 FROM merchant_payment_connections c JOIN merchants m ON m.id=c.merchant_id WHERE m.public_id=$1 AND c.provider='mercadopago' AND c.revoked_at IS NULL AND c.access_token_ciphertext IS NOT NULL AND c.token_expires_at>now() AND c.refresh_failures<5`,
+            `SELECT 1
+             FROM merchant_payment_connections c
+             JOIN merchants m ON m.id = c.merchant_id
+             WHERE m.public_id = $1
+               AND c.provider = 'mercadopago'
+               AND c.revoked_at IS NULL
+               AND c.access_token_ciphertext IS NOT NULL
+               AND c.token_expires_at > now()
+               AND c.refresh_failures < 5`,
             [merchantId],
           )
         ).rowCount,

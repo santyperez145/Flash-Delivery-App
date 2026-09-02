@@ -2,7 +2,22 @@ import { postgresPool } from "./postgres.js";
 
 export async function getUserDietaryPreferences(userPublicId) {
   const result = await postgresPool.query(
-    `SELECT COALESCE(p.hide_incompatible,false) hide_incompatible,COALESCE((SELECT jsonb_agg(jsonb_build_object('code',d.code,'name',d.name) ORDER BY d.name) FROM user_dietary_preferences x JOIN dietary_labels d ON d.code=x.dietary_code WHERE x.user_id=u.id),'[]') dietary_labels,COALESCE((SELECT jsonb_agg(jsonb_build_object('code',a.code,'name',a.name) ORDER BY a.name) FROM user_avoided_allergens x JOIN allergens a ON a.code=x.allergen_code WHERE x.user_id=u.id),'[]') avoided_allergens FROM users u LEFT JOIN user_dietary_profiles p ON p.user_id=u.id WHERE u.public_id=$1`,
+    `SELECT COALESCE(p.hide_incompatible, false) hide_incompatible,
+       COALESCE((
+         SELECT jsonb_agg(jsonb_build_object('code', d.code, 'name', d.name) ORDER BY d.name)
+         FROM user_dietary_preferences x
+         JOIN dietary_labels d ON d.code=x.dietary_code
+         WHERE x.user_id=u.id
+       ), '[]') dietary_labels,
+       COALESCE((
+         SELECT jsonb_agg(jsonb_build_object('code', a.code, 'name', a.name) ORDER BY a.name)
+         FROM user_avoided_allergens x
+         JOIN allergens a ON a.code=x.allergen_code
+         WHERE x.user_id=u.id
+       ), '[]') avoided_allergens
+     FROM users u
+     LEFT JOIN user_dietary_profiles p ON p.user_id=u.id
+     WHERE u.public_id=$1`,
     [userPublicId],
   );
   if (!result.rows[0]) throw Object.assign(new Error("Usuario no encontrado"), { status: 404 });

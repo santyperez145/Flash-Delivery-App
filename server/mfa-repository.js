@@ -51,7 +51,11 @@ export async function beginAdminMfaEnrollment({ userPublicId, email }) {
   const result = await postgresPool.query(
     `INSERT INTO user_mfa(user_id,secret_ciphertext,recovery_code_hashes)
     SELECT id,$2,$3 FROM users WHERE public_id=$1
-    ON CONFLICT(user_id) DO UPDATE SET secret_ciphertext=EXCLUDED.secret_ciphertext,recovery_code_hashes=EXCLUDED.recovery_code_hashes,enabled=false,failed_attempts=0,locked_until=NULL,confirmed_at=NULL,updated_at=now()
+    ON CONFLICT(user_id) DO UPDATE SET
+      secret_ciphertext=EXCLUDED.secret_ciphertext,
+      recovery_code_hashes=EXCLUDED.recovery_code_hashes,
+      enabled=false, failed_attempts=0, locked_until=NULL,
+      confirmed_at=NULL, updated_at=now()
     RETURNING user_id`,
     [userPublicId, encryptMfaSecret(secret), hashes],
   );

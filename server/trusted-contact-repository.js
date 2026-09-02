@@ -17,7 +17,11 @@ const mapContact = (row) => ({
 
 export async function getPostgresTrustedContacts(userPublicId) {
   const result = await postgresPool.query(
-    `SELECT c.id,c.name,c.relationship,c.phone_ciphertext,c.phone_last4,c.active,c.created_at FROM ride_trusted_contacts c JOIN users u ON u.id=c.user_id WHERE u.public_id=$1 AND c.active ORDER BY c.created_at`,
+    `SELECT c.id, c.name, c.relationship, c.phone_ciphertext, c.phone_last4, c.active, c.created_at
+     FROM ride_trusted_contacts c
+     JOIN users u ON u.id=c.user_id
+     WHERE u.public_id=$1 AND c.active
+     ORDER BY c.created_at`,
     [userPublicId],
   );
   return result.rows.map(mapContact);
@@ -52,7 +56,14 @@ export async function createPostgresTrustedContact({ userPublicId, name, relatio
       });
     const row = (
       await client.query(
-        `INSERT INTO ride_trusted_contacts(user_id,name,relationship,phone_ciphertext,phone_hash,phone_last4) VALUES($1,$2,$3,$4,$5,right($6,4)) ON CONFLICT(user_id,phone_hash) DO UPDATE SET name=excluded.name,relationship=excluded.relationship,phone_ciphertext=excluded.phone_ciphertext,active=true,updated_at=now() RETURNING id,name,relationship,phone_ciphertext,phone_last4,active,created_at`,
+        `INSERT INTO ride_trusted_contacts(
+          user_id, name, relationship, phone_ciphertext, phone_hash, phone_last4
+        ) VALUES($1, $2, $3, $4, $5, right($6, 4))
+         ON CONFLICT(user_id, phone_hash) DO UPDATE SET
+           name=excluded.name, relationship=excluded.relationship,
+           phone_ciphertext=excluded.phone_ciphertext,
+           active=true, updated_at=now()
+         RETURNING id, name, relationship, phone_ciphertext, phone_last4, active, created_at`,
         [user.id, name, relationship, encryptTrustedContactPhone(phone), phoneHash, phone],
       )
     ).rows[0];

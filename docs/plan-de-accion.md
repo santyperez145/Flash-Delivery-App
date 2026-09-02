@@ -512,8 +512,8 @@ propinas; las tres hojas de seguimiento pasaron a
   `CustomerProfileScreen.tsx`; el coordinador quedó en 3.172 líneas y su ratchet
   en 3.180. También quedó activo un ratchet que impide que el
 problema crezca:
-`test:line-length` fija una línea base vigente de **224 líneas de más de 200
-caracteres en 50 archivos** y sólo admite bajarla.
+`test:line-length` fija una línea base vigente de **170 líneas de más de 200
+caracteres en 47 archivos** y sólo admite bajarla.
 
 Valores admitidos para **Estado**: `Pendiente` · `En curso` · `Bloqueado por externo` · `Cerrado`.
 
