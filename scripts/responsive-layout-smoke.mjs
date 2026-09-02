@@ -220,10 +220,14 @@ assert(
     contains(authStyles, "@media (max-width: 900px)") &&
     contains(authStyles, "min-height: 100dvh") &&
     contains(authStyles, ".web-auth-nav") &&
+    contains(authStyles, ".flash-landing-hero") &&
     contains(webApp, "Andá a cualquier lado con Flash") &&
+    contains(webApp, "PublicLanding") &&
+    contains(webApp, 'setSurface("login")') &&
     !contains(webApp, "Pickup location") &&
-    !contains(webApp, "See prices"),
-  "web auth and shared surfaces consume the Flash visual system across breakpoints",
+    !contains(webApp, "See prices") &&
+    !contains(fs.readFileSync("src/auth/PublicLanding.tsx", "utf8"), 'type="password"'),
+  "web landing follows Uber-style hierarchy without embedding login or fake quotes",
 );
 
 assert(

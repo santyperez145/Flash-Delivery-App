@@ -165,9 +165,9 @@ prueba física pendiente conserva `[~]`.
 - [~] Operaciones: recursos, mapas, soporte, riesgo, conciliación, pricing,
   promociones, zonas, auditoría y configuración con permisos reales.
 - [~] Tracking público: token temporal, estado, ETA y revocación.
-- [~] Marketing desktop: la portada pública (`WebLogin`) adopta jerarquía tipo
-  Uber (nav, titular, ingreso real) sin cotizador anónimo ni métricas inventadas.
-  El sitio de adquisición con ciudades, stores y SEO queda post-Fase 0.
+- [~] Marketing desktop: portada pública tipo Uber (nav, hero a sangre, CTAs) con
+  identidad Flash; el login es una superficie aparte. Sin cotizador anónimo ni
+  métricas inventadas. Adquisición con ciudades, stores y SEO queda post-Fase 0.
 
 ## Secuencia de ejecución
 
