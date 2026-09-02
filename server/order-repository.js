@@ -43,7 +43,15 @@ async function resolveModifierSelection(client, { catalogItemId, selectedIds = [
     throw Object.assign(new Error("No puedes repetir un agregado"), { status: 409 });
   const groups = (
     await client.query(
-      `SELECT g.id,g.public_id,g.name,g.minimum_selections,g.maximum_selections,COALESCE(jsonb_agg(jsonb_build_object('id',m.public_id,'name',m.name,'priceCents',m.price_cents,'available',m.available) ORDER BY m.sort_order,m.created_at) FILTER(WHERE m.id IS NOT NULL),'[]') modifiers FROM catalog_modifier_groups g LEFT JOIN catalog_modifiers m ON m.group_id=g.id WHERE g.catalog_item_id=$1 AND g.active GROUP BY g.id ORDER BY g.sort_order,g.created_at`,
+      `SELECT g.id, g.public_id, g.name, g.minimum_selections, g.maximum_selections,
+        COALESCE(jsonb_agg(jsonb_build_object(
+          'id', m.public_id, 'name', m.name, 'priceCents', m.price_cents, 'available', m.available
+        ) ORDER BY m.sort_order, m.created_at) FILTER (WHERE m.id IS NOT NULL), '[]') modifiers
+       FROM catalog_modifier_groups g
+       LEFT JOIN catalog_modifiers m ON m.group_id = g.id
+       WHERE g.catalog_item_id = $1 AND g.active
+       GROUP BY g.id
+       ORDER BY g.sort_order, g.created_at`,
       [catalogItemId],
     )
   ).rows;
@@ -147,7 +155,11 @@ export async function getPostgresOrders({ publicIds = null } = {}) {
       driver.public_id AS driver_public_id,
       ji.id AS item_id, ji.name AS item_name, ji.quantity, ji.unit_price_cents,
       ji.customer_note, ji.metadata AS item_metadata, catalog.public_id AS catalog_public_id,
-      (SELECT jsonb_build_object('id',c.public_id,'reason',c.reason_code,'refundAmount',c.refund_amount_cents/100.0,'fee',c.cancellation_fee_cents/100.0,'createdAt',c.created_at) FROM job_cancellations c WHERE c.job_id=j.id) cancellation,
+      (SELECT jsonb_build_object(
+        'id', c.public_id, 'reason', c.reason_code,
+        'refundAmount', c.refund_amount_cents / 100.0, 'fee', c.cancellation_fee_cents / 100.0,
+        'createdAt', c.created_at
+      ) FROM job_cancellations c WHERE c.job_id = j.id) cancellation,
       COALESCE((SELECT jsonb_agg(jsonb_build_object('status',
         CASE WHEN je.status = 'driver_assigned' THEN 'courier_assigned'
              WHEN je.status = 'completed' THEN 'delivered' ELSE je.status::text END,
@@ -183,7 +195,17 @@ export async function getPostgresMerchantActiveOrderPage({
   if (!selected)
     throw Object.assign(new Error("Comercio no encontrado o no autorizado"), { status: 404 });
   const page = await postgresPool.query(
-    `SELECT j.public_id FROM jobs j WHERE j.merchant_id=$1 AND j.kind='delivery' AND j.metadata->>'subtype'='food_order' AND j.status=ANY($2::job_status[]) ORDER BY CASE j.status WHEN 'accepted' THEN 0 WHEN 'preparing' THEN 1 WHEN 'ready_for_pickup' THEN 2 WHEN 'driver_assigned' THEN 3 WHEN 'picked_up' THEN 4 WHEN 'delivering' THEN 5 ELSE 6 END,j.merchant_ready_due_at NULLS LAST,j.created_at LIMIT $3`,
+    `SELECT j.public_id
+     FROM jobs j
+     WHERE j.merchant_id = $1 AND j.kind = 'delivery'
+       AND j.metadata->>'subtype' = 'food_order'
+       AND j.status = ANY($2::job_status[])
+     ORDER BY CASE j.status
+       WHEN 'accepted' THEN 0 WHEN 'preparing' THEN 1 WHEN 'ready_for_pickup' THEN 2
+       WHEN 'driver_assigned' THEN 3 WHEN 'picked_up' THEN 4 WHEN 'delivering' THEN 5
+       ELSE 6 END,
+       j.merchant_ready_due_at NULLS LAST, j.created_at
+     LIMIT $3`,
     [
       selected.id,
       ["accepted", "preparing", "ready_for_pickup", "driver_assigned", "picked_up", "delivering"],
@@ -290,7 +312,11 @@ export async function getPostgresFoodCheckoutQuote({
   try {
     const context = (
       await client.query(
-        `SELECT u.id user_id,m.id merchant_id,b.id branch_id,b.eta_min FROM users u JOIN merchants m ON m.public_id=$2 JOIN merchant_branches b ON b.merchant_id=m.id AND b.public_id=$3 WHERE u.public_id=$1`,
+        `SELECT u.id user_id, m.id merchant_id, b.id branch_id, b.eta_min
+         FROM users u
+         JOIN merchants m ON m.public_id = $2
+         JOIN merchant_branches b ON b.merchant_id = m.id AND b.public_id = $3
+         WHERE u.public_id = $1`,
         [customerPublicId, merchantPublicId, delivery.branchId],
       )
     ).rows[0];
@@ -314,7 +340,11 @@ export async function getPostgresFoodCheckoutQuote({
     for (const entry of items) {
       const item = (
         await client.query(
-          `SELECT c.id,c.public_id,c.name,c.unit_price_cents FROM catalog_items c JOIN catalog_branch_inventory i ON i.catalog_item_id=c.id AND i.branch_id=$3 WHERE c.public_id=$1 AND c.merchant_id=$2 AND c.available AND i.available AND COALESCE(i.stock_quantity,1)>0`,
+          `SELECT c.id, c.public_id, c.name, c.unit_price_cents
+           FROM catalog_items c
+           JOIN catalog_branch_inventory i ON i.catalog_item_id = c.id AND i.branch_id = $3
+           WHERE c.public_id = $1 AND c.merchant_id = $2
+             AND c.available AND i.available AND COALESCE(i.stock_quantity, 1) > 0`,
           [entry.menuItemId, context.merchant_id, context.branch_id],
         )
       ).rows[0];
@@ -446,7 +476,12 @@ export async function createPostgresOrder({
       [customerPublicId],
     );
     const merchant = await client.query(
-      `SELECT m.*,b.id branch_id,b.public_id branch_public_id,b.address branch_address,b.location branch_location,b.eta_min branch_eta_min FROM merchants m JOIN merchant_branches b ON b.merchant_id=m.id AND b.public_id=$2 AND b.status='active' AND b.open AND app.branch_is_scheduled_open(b.id,now()) WHERE m.public_id=$1 AND m.status='active'`,
+      `SELECT m.*, b.id branch_id, b.public_id branch_public_id, b.address branch_address,
+        b.location branch_location, b.eta_min branch_eta_min
+       FROM merchants m
+       JOIN merchant_branches b ON b.merchant_id = m.id AND b.public_id = $2
+         AND b.status = 'active' AND b.open AND app.branch_is_scheduled_open(b.id, now())
+       WHERE m.public_id = $1 AND m.status = 'active'`,
       [merchantPublicId, lockedQuote?.branchId],
     );
     if (!customer.rows[0]) throw Object.assign(new Error("Cliente no encontrado"), { status: 404 });
@@ -564,7 +599,12 @@ export async function createPostgresOrder({
     const snapshots = [];
     for (const entry of items) {
       const item = await client.query(
-        `SELECT c.* FROM catalog_items c JOIN catalog_branch_inventory i ON i.catalog_item_id=c.id AND i.branch_id=$3 WHERE c.public_id=$1 AND c.merchant_id=$2 AND c.available AND i.available AND COALESCE(i.stock_quantity,1)>0 FOR SHARE OF c,i`,
+        `SELECT c.*
+         FROM catalog_items c
+         JOIN catalog_branch_inventory i ON i.catalog_item_id = c.id AND i.branch_id = $3
+         WHERE c.public_id = $1 AND c.merchant_id = $2
+           AND c.available AND i.available AND COALESCE(i.stock_quantity, 1) > 0
+         FOR SHARE OF c, i`,
         [entry.menuItemId, merchant.rows[0].id, merchant.rows[0].branch_id],
       );
       if (!item.rows[0]) throw Object.assign(new Error("Producto no disponible"), { status: 409 });
@@ -849,7 +889,10 @@ export async function createPostgresOrder({
           status: 409,
         });
       await client.query(
-        `INSERT INTO payment_intents(job_id,customer_id,provider,status,amount_cents,captured_amount_cents,currency,idempotency_key,provider_payload) VALUES($1,$2,'mercadopago','requires_confirmation',$3,0,'ARS',$4,$5)`,
+        `INSERT INTO payment_intents(
+          job_id, customer_id, provider, status, amount_cents, captured_amount_cents,
+          currency, idempotency_key, provider_payload
+        ) VALUES ($1, $2, 'mercadopago', 'requires_confirmation', $3, 0, 'ARS', $4, $5)`,
         [
           job.rows[0].id,
           customer.rows[0].id,
@@ -942,7 +985,17 @@ export async function processPostgresOrderMarketplacePayment({
 }) {
   const context = (
     await postgresPool.query(
-      `SELECT j.id job_id,j.public_id,j.status,j.quoted_amount_cents,j.customer_id,u.email,m.public_id merchant_public_id,p.id payment_intent_id,p.status payment_status,p.amount_cents,p.provider_payload,c.access_token_ciphertext,c.revoked_at,c.token_expires_at FROM jobs j JOIN users u ON u.id=j.customer_id JOIN merchants m ON m.id=j.merchant_id JOIN payment_intents p ON p.job_id=j.id AND p.provider='mercadopago' LEFT JOIN merchant_payment_connections c ON c.merchant_id=m.id AND c.provider='mercadopago' WHERE j.public_id=$1 AND u.public_id=$2`,
+      `SELECT j.id job_id, j.public_id, j.status, j.quoted_amount_cents, j.customer_id,
+        u.email, m.public_id merchant_public_id, p.id payment_intent_id,
+        p.status payment_status, p.amount_cents, p.provider_payload,
+        c.access_token_ciphertext, c.revoked_at, c.token_expires_at
+       FROM jobs j
+       JOIN users u ON u.id = j.customer_id
+       JOIN merchants m ON m.id = j.merchant_id
+       JOIN payment_intents p ON p.job_id = j.id AND p.provider = 'mercadopago'
+       LEFT JOIN merchant_payment_connections c ON c.merchant_id = m.id
+         AND c.provider = 'mercadopago'
+       WHERE j.public_id = $1 AND u.public_id = $2`,
       [orderPublicId, customerPublicId],
     )
   ).rows[0];
@@ -1200,7 +1253,18 @@ export async function replacePostgresCart(customerPublicId, merchantPublicId, li
     await client.query("DELETE FROM cart_items WHERE cart_id = $1", [cart.rows[0].id]);
     for (const line of lines) {
       const item = await client.query(
-        `SELECT c.id,c.unit_price_cents FROM catalog_items c WHERE c.public_id=$1 AND c.merchant_id=$2 AND c.available AND EXISTS(SELECT 1 FROM merchant_branches b JOIN catalog_branch_inventory i ON i.branch_id=b.id AND i.catalog_item_id=c.id WHERE b.merchant_id=c.merchant_id AND b.is_primary AND b.status='active' AND b.open AND app.branch_is_scheduled_open(b.id,now()) AND i.available AND COALESCE(i.stock_quantity,1)>0)`,
+        `SELECT c.id, c.unit_price_cents
+         FROM catalog_items c
+         WHERE c.public_id = $1 AND c.merchant_id = $2 AND c.available
+           AND EXISTS (
+             SELECT 1 FROM merchant_branches b
+             JOIN catalog_branch_inventory i ON i.branch_id = b.id
+               AND i.catalog_item_id = c.id
+             WHERE b.merchant_id = c.merchant_id AND b.is_primary
+               AND b.status = 'active' AND b.open
+               AND app.branch_is_scheduled_open(b.id, now())
+               AND i.available AND COALESCE(i.stock_quantity, 1) > 0
+           )`,
         [line.menuItemId, merchant.rows[0].id],
       );
       if (!item.rows[0])
@@ -1236,7 +1300,17 @@ export async function replacePostgresCart(customerPublicId, merchantPublicId, li
 
 export async function reorderPostgresOrder({ customerPublicId, orderPublicId }) {
   const result = await postgresPool.query(
-    `SELECT m.public_id restaurant_id,ji.quantity,ji.customer_note,COALESCE(ji.metadata->>'publicId',c.public_id) menu_item_id,COALESCE(ji.metadata->'modifiers','[]') modifiers FROM jobs j JOIN users u ON u.id=j.customer_id JOIN merchants m ON m.id=j.merchant_id JOIN job_items ji ON ji.job_id=j.id LEFT JOIN catalog_items c ON c.id=ji.catalog_item_id WHERE j.public_id=$1 AND u.public_id=$2 AND j.kind='delivery' AND j.metadata->>'subtype'='food_order' ORDER BY ji.id`,
+    `SELECT m.public_id restaurant_id, ji.quantity, ji.customer_note,
+      COALESCE(ji.metadata->>'publicId', c.public_id) menu_item_id,
+      COALESCE(ji.metadata->'modifiers', '[]') modifiers
+     FROM jobs j
+     JOIN users u ON u.id = j.customer_id
+     JOIN merchants m ON m.id = j.merchant_id
+     JOIN job_items ji ON ji.job_id = j.id
+     LEFT JOIN catalog_items c ON c.id = ji.catalog_item_id
+     WHERE j.public_id = $1 AND u.public_id = $2
+       AND j.kind = 'delivery' AND j.metadata->>'subtype' = 'food_order'
+     ORDER BY ji.id`,
     [orderPublicId, customerPublicId],
   );
   if (!result.rowCount) throw Object.assign(new Error("Pedido no encontrado"), { status: 404 });
