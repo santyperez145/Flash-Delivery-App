@@ -26,6 +26,12 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 - [ ] **Candidatas post-Fase 0 (no se implementan aún):** FCM/APNs directos, microservicios/Kubernetes HPA, Redis administrado, WebSockets productivos, IA de producto, dinero productivo Mercado Pago, apps EAS en stores. Bloqueo: dueño (credenciales, gasto, dispositivos, staging).
 - [~] Uber/DoorDash ya operan esas capas en producción. Flash las tiene como deuda nombrada; fingirlas en Fase 0 empeora la métrica de la auditoría.
 
+## Avance 2 de septiembre de 2026 — ARC-001, partir paneles de soporte del backoffice
+
+- [x] `AdminSupportPanels` (~563) se parte en respuestas rápidas, dead letters y operaciones/SLA; el archivo original queda como reexport.
+- [~] Zendesk / Uber Support aíslan canned replies, deliveries y mesa. Flash ahora también; sigue por debajo sin techo CI ni unificar tipos divergentes.
+- [ ] ARC-001 global sigue abierto: unificar tipos divergentes y 251 líneas largas SQL.
+
 ## Avance 2 de septiembre de 2026 — ARC-001, partir paneles de dinero del backoffice
 
 - [x] `AdminFinancePanels` (842) se parte en `AdminPricingGovernance`, `AdminPayoutReview`, `AdminTipAdjustment` y `AdminPaymentReconciliation`; el archivo original queda como reexport.
