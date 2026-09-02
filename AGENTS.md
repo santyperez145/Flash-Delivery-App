@@ -15,8 +15,9 @@ libertad total mientras sea para bien. Formalizado también en
 [`.cursor/rules/competitive-mandate.mdc`](.cursor/rules/competitive-mandate.mdc) y en
 [`docs/product-execution-guidelines.md`](docs/product-execution-guidelines.md). Durante la
 Fase 0 eso significa paridad de **ingeniería y operación verificable** (dominio compartido,
-módulos por responsabilidad, CI, PostGIS, imagen endurecida), no copiar verticales ni
-fingir providers productivos.
+módulos por responsabilidad, CI, PostGIS, imagen endurecida, adapters Expo/mapas/pagos).
+Microservicios sólo con un límite demostrado de deploy o escala; hasta entonces, monolito
+modular como Uber/DoorDash a esta altura. No copiar verticales ni fingir providers.
 
 De ahí salen tres obligaciones que no estaban antes:
 

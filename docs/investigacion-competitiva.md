@@ -286,6 +286,17 @@ Fuentes oficiales adicionales:
 - [Uber Courier: preguntas frecuentes de paquetes](https://help.uber.com/riders/article/courier-package-delivery-faq?nodeId=2f234df8-cdf6-4bf9-81da-8f68b79b35f5)
 - [Uber Connect: seguimiento y comunicación de paquetes](https://www.uber.com/us/en/newsroom/uber-connect-holiday/)
 
+Revalidación del 2 de septiembre de 2026 para la consola de comercio:
+
+- DoorDash Merchant Portal y Uber Eats Manager separan live orders, missing item / 86, menú, store hours y payouts. Flash adopta esa frontera en web: cocina, detalle/sustituciones, catálogo, sucursales, analítica y liquidaciones son módulos; el shell sólo navega y hace polling.
+- La extracción no crea paridad ficticia. Flash sigue por debajo en POS, prep-time por ítem, evidencia fotográfica de faltantes y liquidación marketplace contra el proveedor real.
+
+Fuentes oficiales:
+
+- [DoorDash Merchant Portal](https://merchants.doordash.com/en-us/products/merchant-portal)
+- [DoorDash Business Manager](https://merchants.doordash.com/en-us/learning-center/business-manager-app)
+- [Uber Eats — live order tracking](https://help.uber.com/en/merchants-and-restaurants/article/live-order-tracking---faq?nodeId=d006582e-113f-4423-9d33-e938de34b3a2)
+
 Revalidación del 30 de agosto de 2026 para la segmentación de Comidas:
 
 - La guía oficial de Uber Eats mantiene una secuencia explícita de dirección → restaurante → productos → carrito/checkout → revisión → confirmación → tracking. Flash conserva esos límites como módulos de tarea y comparte sólo el estado que cruza Cuenta y Actividad.
