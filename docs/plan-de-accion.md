@@ -401,7 +401,7 @@ liberar a ocho contratos que afirmaban sobre texto fuente sin formatear, porque
 bloqueaban el propio refactor que debían proteger.
 
 La extracción empezó por el núcleo compartido, no por los grupos grandes:
-`http/responses.js` (697 llamadas), `http/authorization.js` (81 usos, 9 reglas
+`http/responses.js` (697 llamadas), `http/authorization.js` (81 usos, 10 reglas
 ahora puras y con contrato propio) y `http/realtime.js` (43 publicaciones y el
 registro de clientes SSE). El paso 5 cerró el núcleo con
 `http/authentication.js`, `http/rate-limits.js` y `fallback-runtime.js`: los

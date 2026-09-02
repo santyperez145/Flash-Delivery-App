@@ -75,6 +75,11 @@ export function canManageRestaurant(req, restaurant) {
   return isAdmin(req) || (hasRole(req, "merchant") && restaurant.ownerId === req.auth.userId);
 }
 
+/** Admin gestiona el equipo; soporte sólo puede editar su propio perfil. */
+export function canManageSupportAgent(req, userId) {
+  return isAdmin(req) || (hasRole(req, "support") && req.auth.userId === userId);
+}
+
 /**
  * Quién puede llevar un pedido al siguiente estado.
  *

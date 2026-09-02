@@ -9,6 +9,7 @@ const {
   canAdvanceOrder,
   canAdvanceRide,
   canManageRestaurant,
+  canManageSupportAgent,
   canMutateOrderStatus,
   canMutateRideStatus,
   hasRole,
@@ -143,6 +144,13 @@ describe("HTTP authorization", () => {
     expect(canManageRestaurant(merchant, restaurant)).toBe(true);
     expect(canManageRestaurant(otherMerchant, restaurant)).toBe(false);
     expect(canManageRestaurant(customer, restaurant)).toBe(false);
+
+    const support = asUser({ userId: "USR-SUPPORT", roles: ["support"] });
+    const otherSupport = asUser({ userId: "USR-SUPPORT-2", roles: ["support"] });
+    expect(canManageSupportAgent(support, "USR-SUPPORT")).toBe(true);
+    expect(canManageSupportAgent(otherSupport, "USR-SUPPORT")).toBe(false);
+    expect(canManageSupportAgent(customer, "USR-SUPPORT")).toBe(false);
+    expect(canManageSupportAgent(adminWithMfa, "USR-SUPPORT")).toBe(true);
   });
 
   test("separates merchant preparation from driver delivery", () => {

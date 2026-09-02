@@ -11,7 +11,7 @@ const pool = new pg.Pool({
   ticketIds = [],
   requestIds = [];
 let token = "",
-  originalProfile = null;
+  originalProfiles = [];
 const assert = (value, label) => {
   if (!value) throw new Error(`failed: ${label}`);
   console.log(`ok - ${label}`);
@@ -61,12 +61,11 @@ const login = async (email) =>
 try {
   const admin = (await pool.query("SELECT id,password_hash FROM users WHERE public_id='usr_admin'"))
     .rows[0];
-  originalProfile = (
+  originalProfiles = (
     await pool.query(
-      "SELECT availability,max_active_tickets,skills,last_assigned_at FROM support_agent_profiles WHERE user_id=$1",
-      [admin.id],
+      "SELECT user_id,availability,max_active_tickets,skills,last_assigned_at FROM support_agent_profiles",
     )
-  ).rows[0];
+  ).rows;
   const support = (
     await pool.query(
       "INSERT INTO users(public_id,email,password_hash,name,email_verified_at) VALUES($1,$2,$3,'Agente Seguridad',now()) RETURNING id",
@@ -78,8 +77,11 @@ try {
     "INSERT INTO support_agent_profiles(user_id,availability,max_active_tickets,skills) VALUES($1,'available',1,ARRAY['safety'])",
     [support.id],
   );
-  await pool.query("UPDATE support_agent_profiles SET availability='offline' WHERE user_id=$1", [
-    admin.id,
+  // El seed ya no tiene un solo agente: usr_support queda available con skill
+  // `all`. Si sólo se apaga usr_admin, el segundo ticket se asigna al resto y
+  // la afirmación de capacidad deja de medir cupo.
+  await pool.query("UPDATE support_agent_profiles SET availability='offline' WHERE user_id<>$1", [
+    support.id,
   ]);
   token = await login("cliente@flash.app");
   assert(
@@ -222,16 +224,18 @@ try {
   await pool
     .query("DELETE FROM idempotency_keys WHERE key LIKE $1", [`support-routing-${stamp}-%`])
     .catch(() => {});
-  if (originalProfile)
+  for (const profile of originalProfiles) {
     await pool.query(
-      "UPDATE support_agent_profiles SET availability=$1,max_active_tickets=$2,skills=$3,last_assigned_at=$4,updated_at=now() WHERE user_id=(SELECT id FROM users WHERE public_id='usr_admin')",
+      "UPDATE support_agent_profiles SET availability=$2,max_active_tickets=$3,skills=$4,last_assigned_at=$5,updated_at=now() WHERE user_id=$1",
       [
-        originalProfile.availability,
-        originalProfile.max_active_tickets,
-        originalProfile.skills,
-        originalProfile.last_assigned_at,
+        profile.user_id,
+        profile.availability,
+        profile.max_active_tickets,
+        profile.skills,
+        profile.last_assigned_at,
       ],
     );
+  }
   await pool.query(
     "DELETE FROM refresh_sessions WHERE user_id=(SELECT id FROM users WHERE public_id=$1)",
     [supportId],

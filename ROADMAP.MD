@@ -8,6 +8,13 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 2 de septiembre de 2026 — ARC-001 pendiente y cierre de IDOR de soporte
+
+- [x] Se integró lo que `codex/reflow-catalog-search-sql` no llegó a `main`: SQL de catálogo/búsqueda refloweado y editores de comercio extraídos a `MerchantCatalogEditors.tsx`.
+- [x] Un agente `support` ya no puede editar el perfil de otro (`canManageSupportAgent`), lee la cola de tickets y un bootstrap propio, y no enumera usuarios ni el dashboard admin. `test:security` y `test:authorization` lo cubren.
+- [~] PedidosYa y Zendesk separan cola de tickets de administración de agentes. Flash ahora niega el IDOR, pero sigue por debajo sin SLA visible al cliente, asignación automática medida y portal self-serve del ticket.
+- [ ] ARC-001 global sigue abierto: paquete de contratos compartidos y líneas SQL largas contenidas por trinquete.
+
 ## Avance 30 de agosto de 2026 — ARC-001, Navegación cliente web con límite propio
 
 - [x] Selector Comida/Taxi/Envíos y barra Inicio/Actividad/Wallet/Perfil viven en `CustomerNavigation.tsx` (85 líneas); `CustomerSurface.tsx` bajó de 459 a 360 líneas y quedó como coordinador de estado/composición.
@@ -146,7 +153,7 @@ Entregas novena a decimoquinta de la Fase 0. El paso 2 quedó sin registrar acá
 | --- | --- | ---: |
 | `server/http/responses.js` | `ok`, `fail`, `parseOrFail` — 697 llamadas | 2 |
 | `server/http/maps-router.js` | 2 rutas de mapas | 2 |
-| `server/http/authorization.js` | 9 predicados + `requireAnyRole` — 81 usos | 3 |
+| `server/http/authorization.js` | 10 predicados + `requireAnyRole` — 81 usos | 3 |
 | `server/http/addresses-router.js` | 5 rutas de direcciones, con esquema Zod propio | 3 |
 | `server/http/realtime.js` | transporte SSE, registro de clientes y `/api/events` | 4 |
 | `server/http/authentication.js` | `requireAuth` y la lectura del token | 5 |

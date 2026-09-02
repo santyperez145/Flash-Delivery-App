@@ -27,7 +27,7 @@ import {
   updateSupportAgent,
 } from "../operations-repository.js";
 import { requireAuth } from "./authentication.js";
-import { isAdmin, requireAnyRole } from "./authorization.js";
+import { canManageSupportAgent, isAdmin, requireAnyRole } from "./authorization.js";
 import { publishRealtimeEvent } from "./realtime.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";
 
@@ -213,6 +213,10 @@ router.patch(
   requireAuth,
   requireAnyRole("support", "admin"),
   async (req, res) => {
+    if (!canManageSupportAgent(req, req.params.userId))
+      return fail(res, 403, "No tienes permisos para editar este agente");
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "La configuración de agentes requiere PostgreSQL");
     const parsed = parseOrFail(supportAgentUpdateSchema, req.body || {});
     if (!parsed.ok) return fail(res, 400, parsed.message);
     try {

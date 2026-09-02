@@ -119,6 +119,62 @@ async function run() {
   const merchantToken = await login("comercio@flash.app");
   const driverToken = await login("conductor@flash.app");
   const adminToken = await login("ops@flash.app");
+  const supportToken = await login("soporte@flash.app");
+  const supportBootstrap = await request("/bootstrap/support", {
+    headers: auth(supportToken),
+  });
+  assert(
+    supportBootstrap.status === 200 && supportBootstrap.body?.audience === "support",
+    "support receives its dedicated bootstrap audience",
+    supportBootstrap.text,
+  );
+  assert(
+    [
+      "users",
+      "restaurants",
+      "drivers",
+      "zones",
+      "promotions",
+      "auditEvents",
+      "supportTickets",
+    ].every((key) => !Object.hasOwn(supportBootstrap.body?.state || {}, key)),
+    "support bootstrap excludes global identity and operational aggregates",
+    supportBootstrap.text,
+  );
+  const supportForeignBootstrap = await request("/bootstrap/customer", {
+    headers: auth(supportToken),
+  });
+  assert(
+    supportForeignBootstrap.status === 403,
+    "support cannot select the customer bootstrap audience",
+    supportForeignBootstrap.text,
+  );
+  const supportTickets = await request("/operations/support-tickets", {
+    headers: auth(supportToken),
+  });
+  assert(
+    supportTickets.status === 200 && Array.isArray(supportTickets.body?.tickets),
+    "support reads the operational ticket queue",
+    supportTickets.text,
+  );
+  const supportUsers = await request("/operations/users", { headers: auth(supportToken) });
+  assert(supportUsers.status === 403, "support cannot enumerate platform users", supportUsers.text);
+  const supportDashboard = await request("/admin/dashboard", { headers: auth(supportToken) });
+  assert(
+    supportDashboard.status === 403,
+    "support cannot read the administrator dashboard",
+    supportDashboard.text,
+  );
+  const supportForeignAgent = await request("/admin/support/agents/usr_admin", {
+    method: "PATCH",
+    headers: { ...auth(supportToken), "Idempotency-Key": "support-agent-check" },
+    body: JSON.stringify({ availability: "busy" }),
+  });
+  assert(
+    supportForeignAgent.status === 403,
+    "support cannot edit another agent profile",
+    supportForeignAgent.text,
+  );
   const metricsWithoutToken = await request("/internal/metrics"),
     metricsWithAdminJwt = await request("/internal/metrics", { headers: auth(adminToken) });
   assert(
