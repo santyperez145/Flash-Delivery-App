@@ -41,7 +41,7 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 ## Avance 2 de septiembre de 2026 — ARC-001, transporte HTTP web
 
 - [x] Timeout, refresh de sesión y SSE salen de `src/api.ts` a `src/api/http.ts`. El mapa de recursos queda en el barrel; `test:network-resilience` fija techo 280 y lee el transporte, no la ruta vieja.
-- [~] Uber/DoorDash tienen clientes por dominio. Flash ahora separa red de recursos en web; el mapa web ya está partido (corte siguiente); sigue por debajo el `api.ts` mobile.
+- [~] Uber/DoorDash tienen clientes por dominio. Flash ahora separa red de recursos en web y mobile; sigue por debajo sin unificar User/Order/Restaurant.
 - [ ] ARC-001 global sigue abierto: unificar User/Order/Restaurant y 251 líneas largas SQL.
 
 ## Avance 2 de septiembre de 2026 — portada pública al patrón Uber
@@ -54,7 +54,7 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 
 - [x] `src/App.tsx` (~1.283) deja catálogo, carrito, checkout firmado y cotización de viaje en `useCustomerCommerce`; el chrome del phone-stage vive en `AppChrome`. El entry queda como sesión, auth y enrutado; `test:responsive-layout` fija techo 720 y `test:web-ride-home` vigila el origen geocodificado en el hook.
 - [~] Uber Eats y Uber Rides separan la máquina de estado de pedir del shell de plataforma. Flash ahora también en web; el mapa HTTP ya está partido en web y mobile; sigue por debajo sin unificar User/Order/Restaurant.
-- [ ] ARC-001 global sigue abierto: unificar tipos divergentes, clientes HTTP y 251 líneas largas SQL.
+- [ ] ARC-001 global sigue abierto: unificar tipos divergentes y 251 líneas largas SQL.
 
 ## Avance 2 de septiembre de 2026 — ARC-001, sesión de Comidas mobile
 
