@@ -267,3 +267,49 @@ export type GroupOrder = {
   participants: GroupOrderParticipant[];
   subtotal: number;
 };
+
+/** Respuesta rápida de soporte in-app (cuerpo + audiencia + alcance). */
+export type ServiceQuickReply = {
+  id: string;
+  serviceScope: "all" | "food" | "ride" | "shipment";
+  audience: "customer" | "driver" | "merchant";
+  locale: string;
+  body: string;
+  position: number;
+  active: boolean;
+  updatedAt: string;
+};
+
+/** Reclamo de envío protegido (pérdida / daño / robo). */
+export type ShipmentClaim = {
+  id: string;
+  shipmentId: string;
+  claimType: "lost" | "damaged" | "stolen";
+  description: string;
+  requestedAmount: number;
+  eligibleAmount: number;
+  approvedAmount: number | null;
+  status: "submitted" | "under_review" | "approved" | "rejected" | "settlement_pending" | "settled";
+  resolutionNote: string | null;
+  evidence: ShipmentClaimEvidence[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+/** Oferta de despacho pendiente para un conductor. */
+export type DispatchOffer = {
+  id: string;
+  jobId: string;
+  kind: "ride" | "delivery";
+  subtype: string | null;
+  serviceLevel: string;
+  pickup: string;
+  destination: string;
+  fare: number;
+  distanceKm: number;
+  durationMin: number;
+  score: number;
+  scoreBreakdown?: DispatchScoreBreakdown;
+  expiresAt: string;
+  status: "pending";
+};

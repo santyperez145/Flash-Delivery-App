@@ -8,6 +8,12 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 2 de septiembre de 2026 — ARC-001, contratos compartidos lote 2
+
+- [x] `ServiceQuickReply`, `ShipmentClaim` y `DispatchOffer` viven en `@flash/domain-contracts` (23 tipos compartidos); web y mobile los reexportan; `MerchantOperationsDashboard` sigue local por `Restaurant` divergente.
+- [~] DoorDash/Uber mantienen un SDK de dominio único. Flash avanza el lote idéntico; sigue por debajo en los 17 tipos aún divergentes.
+- [ ] ARC-001 global sigue abierto: unificar tipos divergentes y 251 líneas largas SQL.
+
 ## Avance 2 de septiembre de 2026 — ARC-001, home operativo fuera de DriverScreen
 
 - [x] Disponibilidad, demanda, trabajo activo, jobs y ofertas viven en `DriverHomePanel.tsx` (~652); `DriverScreen.tsx` bajó a ~569 como shell de GPS/modales/pestañas.
