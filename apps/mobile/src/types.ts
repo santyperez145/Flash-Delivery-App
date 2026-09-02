@@ -22,6 +22,11 @@ import type {
   ServiceQuickReply,
   ShipmentClaim,
   DispatchOffer,
+  UserRole,
+  UserStatus,
+  User,
+  OrderStatus,
+  RideStatus,
 } from "@flash/domain-contracts";
 
 export type {
@@ -48,24 +53,16 @@ export type {
   ServiceQuickReply,
   ShipmentClaim,
   DispatchOffer,
+  UserRole,
+  UserStatus,
+  User,
+  OrderStatus,
+  RideStatus,
 };
 
 export type Mode = "customer" | "merchant" | "driver";
 export type ServiceMode = "delivery" | "ride";
 export type RideService = "economy" | "comfort" | "moto" | "xl";
-
-export type User = {
-  id: string;
-  name: string;
-  email: string;
-  phone?: string;
-  phoneVerifiedAt?: string | null;
-  roles: Array<"customer" | "merchant" | "driver" | "admin">;
-  wallet: number;
-  defaultAddress?: string;
-  restaurantId?: string;
-  driverId?: string;
-};
 
 export type Restaurant = {
   id: string;
@@ -154,16 +151,7 @@ export type Order = {
   restaurantId: string;
   branchId?: string | null;
   courierId: string | null;
-  status:
-    | "requested"
-    | "accepted"
-    | "preparing"
-    | "ready_for_pickup"
-    | "courier_assigned"
-    | "picked_up"
-    | "delivering"
-    | "delivered"
-    | "cancelled";
+  status: OrderStatus;
   deliveryAddress: string;
   pickupLocation?: GeoPoint | null;
   deliveryLocation?: GeoPoint | null;
@@ -188,7 +176,7 @@ export type Ride = {
   id: string;
   customerId: string;
   driverId: string | null;
-  status: "requested" | "driver_assigned" | "arriving" | "in_progress" | "completed" | "cancelled";
+  status: RideStatus;
   service?: RideService;
   pickup: string;
   destination: string;

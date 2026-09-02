@@ -1,8 +1,9 @@
 // Contratos de dominio idénticos entre web y mobile (ARC-001 paso 6).
 //
-// Sólo entran tipos byte-a-byte iguales y autocontenidos. User, Order,
-// Restaurant y el resto de divergencias reales se unifican en entregas
-// posteriores; reexportar una mentira compartida sería peor que duplicar.
+// Sólo entran tipos byte-a-byte iguales y autocontenidos, o la proyección
+// autoritativa del servidor cuando ambas superficies ya la consumen. Order y
+// Restaurant siguen locales: divergen de verdad (ítems, timeline, menú).
+// MerchantOperationsDashboard sigue local porque referencia Restaurant.
 
 export type DietaryPreferences = {
   dietaryLabels: Array<{ code: string; name: string }>;
@@ -313,3 +314,51 @@ export type DispatchOffer = {
   expiresAt: string;
   status: "pending";
 };
+
+/** Roles del enum PostgreSQL `user_role`. No incluye roles inventados en OpenAPI. */
+export type UserRole = "customer" | "merchant" | "driver" | "admin" | "support";
+
+/** Estado de cuenta en `users.status`. */
+export type UserStatus = "active" | "suspended" | "pending";
+
+/**
+ * Proyección pública de usuario (`sanitizeUser` / `mapUser`).
+ *
+ * Incluye lo que el servidor expone tras quitar hash, id interno y lock de
+ * login. `phone` es string (puede ser vacío); la verificación vive aparte.
+ */
+export type User = {
+  id: string;
+  name: string;
+  email: string;
+  roles: UserRole[];
+  phone: string;
+  wallet: number;
+  defaultAddress?: string;
+  restaurantId?: string;
+  driverId?: string;
+  status?: UserStatus;
+  emailVerifiedAt?: string | null;
+  phoneVerifiedAt?: string | null;
+};
+
+/** Ciclo de cocina / entrega de un pedido de comida. */
+export type OrderStatus =
+  | "requested"
+  | "accepted"
+  | "preparing"
+  | "ready_for_pickup"
+  | "courier_assigned"
+  | "picked_up"
+  | "delivering"
+  | "delivered"
+  | "cancelled";
+
+/** Ciclo de un viaje. */
+export type RideStatus =
+  | "requested"
+  | "driver_assigned"
+  | "arriving"
+  | "in_progress"
+  | "completed"
+  | "cancelled";

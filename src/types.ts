@@ -22,6 +22,11 @@ import type {
   ServiceQuickReply,
   ShipmentClaim,
   DispatchOffer,
+  UserRole,
+  UserStatus,
+  User,
+  OrderStatus,
+  RideStatus,
 } from "@flash/domain-contracts";
 
 export type {
@@ -48,43 +53,17 @@ export type {
   ServiceQuickReply,
   ShipmentClaim,
   DispatchOffer,
+  UserRole,
+  UserStatus,
+  User,
+  OrderStatus,
+  RideStatus,
 };
 
 export type Mode = "customer" | "merchant" | "driver" | "ops";
-export type UserRole = "customer" | "merchant" | "driver" | "admin" | "support";
 export type Service = "food" | "ride" | "shipment";
 export type DriverService = "delivery" | "ride";
 export type CustomerTab = "home" | "activity" | "wallet" | "profile" | "notifications";
-export type OrderStatus =
-  | "requested"
-  | "accepted"
-  | "preparing"
-  | "ready_for_pickup"
-  | "courier_assigned"
-  | "picked_up"
-  | "delivering"
-  | "delivered"
-  | "cancelled";
-export type RideStatus =
-  | "requested"
-  | "driver_assigned"
-  | "arriving"
-  | "in_progress"
-  | "completed"
-  | "cancelled";
-
-export type User = {
-  id: string;
-  name: string;
-  email: string;
-  roles: UserRole[];
-  phone: string;
-  wallet: number;
-  defaultAddress?: string;
-  restaurantId?: string;
-  driverId?: string;
-  status?: "active" | "suspended" | "pending";
-};
 
 export type Extra = {
   id: string;

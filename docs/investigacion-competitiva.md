@@ -739,7 +739,19 @@ del conductor, y el gate de `allowsVariant` no debe mezclarse con `/rides`.
 Flash aísla timeout y refresh en `apps/mobile/src/api/http.ts` y parte el mapa
 igual que en web. Login y restore siguen negando una cuenta sin el rol de la
 variante instalada; el bootstrap pide la audiencia de esa variante, no la
-prioridad de roles. Sigue por debajo: tipos User/Order/Restaurant divergentes.
+prioridad de roles. `User` ya es contrato compartido; Order/Restaurant siguen
+divergentes.
+
+### Decisión 2 de septiembre de 2026 — User compartido sin mentir Order/Restaurant
+
+Las plataformas comparables tienen un solo modelo de cuenta entre superficies.
+Flash alineó `User` a la proyección del servidor (`sanitizeUser`/`mapUser`):
+roles del enum PostgreSQL, phone string, status, email/phone verified. También
+compartió `OrderStatus` y `RideStatus`, que ya eran literales idénticos.
+
+Order y Restaurant no entraron: mobile modela ítems/menú más flojos que el
+desktop. Unificarlos sin cerrar esa brecha reexportaría una mentira compartida.
+`MerchantOperationsDashboard` sigue local porque referencia `Restaurant`.
 
 - [Uber Base Web: sistema compartido, no un archivo de 1.700 llamadas](https://www.uber.com/us/en/blog/introducing-base-web/)
 
