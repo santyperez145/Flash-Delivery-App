@@ -10,6 +10,18 @@ const customerAccount = fs.readFileSync(
   "apps/mobile/src/screens/CustomerAccountScreen.tsx",
   "utf8",
 );
+const customerAccountAddresses = fs.readFileSync(
+  "apps/mobile/src/screens/CustomerAccountAddresses.tsx",
+  "utf8",
+);
+const customerAccountSecurity = fs.readFileSync(
+  "apps/mobile/src/screens/CustomerAccountSecurity.tsx",
+  "utf8",
+);
+const customerAccountPayments = fs.readFileSync(
+  "apps/mobile/src/screens/CustomerAccountPayments.tsx",
+  "utf8",
+);
 const customerShipment = fs.readFileSync(
   "apps/mobile/src/screens/CustomerShipmentScreen.tsx",
   "utf8",
@@ -120,12 +132,18 @@ assert(
 
 assert(
   customerCoordinator.trimEnd().split(/\r?\n/).length <= 1350 &&
+    customerAccount.trimEnd().split(/\r?\n/).length <= 240 &&
     contains(customerCoordinator, "<CustomerAccountScreen") &&
     !contains(customerCoordinator, "Teléfono de seguridad") &&
     contains(customerAccount, "export function CustomerAccountScreen") &&
     contains(customerAccount, "if (!visible) return null") &&
-    contains(customerAccount, "onUseAddress(item.address, point)"),
-  "customer account stays outside the shrinking coordinator and keeps address selection wired",
+    contains(customerAccount, "<CustomerAccountAddresses") &&
+    contains(customerAccount, "<CustomerAccountSecurity") &&
+    contains(customerAccount, "<CustomerAccountPayments") &&
+    contains(customerAccountAddresses, "onUseAddress(item.address, point)") &&
+    contains(customerAccountSecurity, "Teléfono de seguridad") &&
+    contains(customerAccountPayments, "api.createSandboxPaymentMethod"),
+  "customer account stays a shell with security, address and payment modules wired",
 );
 
 assert(
