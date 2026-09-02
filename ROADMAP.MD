@@ -8,6 +8,12 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 2 de septiembre de 2026 — ARC-001, paneles de dinero fuera de AdminConsole
+
+- [x] Tarifas, payouts, propinas y conciliación viven en `AdminFinancePanels.tsx` (~841 líneas); `AdminConsole.tsx` bajó de ~3.216 a ~2.400 sin cambiar secciones ni APIs.
+- [~] Uber Eats Manager y DoorDash Merchant Portal separan dinero operativo de la consola general. Flash ahora aísla esos paneles en módulo propio, pero sigue por debajo sin techos de archivo en CI para backoffice ni el siguiente corte de `DriverScreen`.
+- [ ] ARC-001 global sigue abierto: unificar tipos divergentes, 251 líneas largas SQL y concentraciones restantes (`AdminConsole` residual, `DriverScreen`).
+
 ## Avance 2 de septiembre de 2026 — ARC-001, contratos compartidos idénticos
 
 - [x] 20 tipos byte-a-byte idénticos y autocontenidos entre web y mobile viven en `packages/domain-contracts` (`@flash/domain-contracts`); `src/types.ts` y `apps/mobile/src/types.ts` los importan y reexportan sin redefinir el cuerpo.
