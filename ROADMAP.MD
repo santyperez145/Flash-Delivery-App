@@ -8,6 +8,12 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 2 de septiembre de 2026 — ARC-001, paneles de envíos fuera de AdminConsole
+
+- [x] Siniestros protegidos y configuración de categorías/SLA viven en `AdminShipmentPanels.tsx` (~511 líneas); `AdminConsole.tsx` bajó de ~2.381 a ~1.879 sin cambiar secciones ni APIs.
+- [~] PedidosYa Courier y Uber Direct separan claims/SLA del cockpit admin. Flash ahora tiene módulo propio; sigue por debajo sin techo CI del archivo ni el corte de soporte/seguridad residual.
+- [ ] ARC-001 global sigue abierto: unificar tipos divergentes, 251 líneas largas SQL y concentraciones residuales (`AdminConsole`, `DriverScreen`).
+
 ## Avance 2 de septiembre de 2026 — ARC-001, modales operativos fuera de DriverScreen
 
 - [x] Guía giro a giro y captura de firma viven en `DriverDeliveryModals.tsx` (~342 líneas); `DriverScreen.tsx` bajó de ~2.471 a ~2.155 sin cambiar APIs ni flujo del turno.
