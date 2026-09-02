@@ -6,6 +6,7 @@ import { contains, readMobileSource } from "./source-contract.mjs";
 // fija se rompe —o se vacía— en cuanto un componente cambia de archivo.
 const { source: app } = await readMobileSource();
 const customerCoordinator = fs.readFileSync("apps/mobile/src/screens/CustomerScreen.tsx", "utf8");
+const customerFoodSession = fs.readFileSync("apps/mobile/src/screens/useCustomerFood.tsx", "utf8");
 const foodCheckout = fs.readFileSync(
   "apps/mobile/src/screens/CustomerFoodCheckoutScreen.tsx",
   "utf8",
@@ -104,7 +105,8 @@ assert(
   "order activity must translate backend status into an actionable customer card",
 );
 assert(
-  customerCoordinator.trimEnd().split(/\r?\n/).length <= 1350 &&
+  customerCoordinator.trimEnd().split(/\r?\n/).length <= 950 &&
+    contains(customerFoodSession, "export function useCustomerFood") &&
     [
       "CustomerFoodBrowseScreen",
       "CustomerFoodRestaurantScreen",

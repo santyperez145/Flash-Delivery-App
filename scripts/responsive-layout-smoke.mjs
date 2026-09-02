@@ -6,6 +6,7 @@ import { contains, readMobileSource, readWebSource, squeeze } from "./source-con
 // fija se rompe —o se vacía— en cuanto un componente cambia de archivo.
 const { source: mobile } = await readMobileSource();
 const customerCoordinator = fs.readFileSync("apps/mobile/src/screens/CustomerScreen.tsx", "utf8");
+const customerFoodSession = fs.readFileSync("apps/mobile/src/screens/useCustomerFood.tsx", "utf8");
 const customerAccount = fs.readFileSync(
   "apps/mobile/src/screens/CustomerAccountScreen.tsx",
   "utf8",
@@ -131,7 +132,8 @@ assert(
 );
 
 assert(
-  customerCoordinator.trimEnd().split(/\r?\n/).length <= 1350 &&
+  customerCoordinator.trimEnd().split(/\r?\n/).length <= 950 &&
+    contains(customerFoodSession, "export function useCustomerFood") &&
     customerAccount.trimEnd().split(/\r?\n/).length <= 240 &&
     contains(customerCoordinator, "<CustomerAccountScreen") &&
     !contains(customerCoordinator, "Teléfono de seguridad") &&

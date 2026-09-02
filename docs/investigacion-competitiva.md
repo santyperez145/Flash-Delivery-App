@@ -678,3 +678,19 @@ seguro ni habilitación comercial.
 
 - [Uber Eats: una identidad existente de Rides también accede a Eats](https://help.uber.com/ubereats/restaurants/article/how-do-i-create-an-uber-eats-account?nodeId=13daba70-cc3d-4204-9981-1591d7942042)
 - [Uber Courier: opción de paquetes y hub de actividad común](https://help.uber.com/en/riders/article/node-title?nodeId=8fa2306b-c14d-4f0b-9395-4c4523a81e85)
+
+### Decisión 2 de septiembre de 2026 — sesión de Comidas mobile como máquina de estado propia
+
+La guía vigente de Uber Eats conserva una secuencia explícita: descubrir, restaurante,
+personalizar, carrito, revisión con precio autoritativo y confirmación. El patrón relevante
+para ARC-001 no es otra pantalla, sino que esa máquina de estado no viva mezclada con
+Viajes, Envíos, Actividad y Cuenta.
+
+Flash mueve catálogo, favoritos, carrito persistido, quote firmada, propina, horario y
+checkout de grupo a `useCustomerFood`. El coordinador sólo navega verticales y comparte
+dirección/dieta con Cuenta. Sigue por debajo: sin POS, prep-time por ítem, evidencia
+fotográfica de faltantes ni push físico. Ninguna de esas deudas se presenta como cerrada
+por haber extraído el hook.
+
+- [Uber Eats: recorre restaurantes, platos y checkout con precio final](https://help.uber.com/ubereats/restaurants/article/pick-up-order-faq?nodeId=a58f21e8-fc3e-42cb-adfd-92db5024faf5)
+- [Uber Eats: seguimiento desde la lista de pedidos](https://help.uber.com/ubereats/restaurants/article/node-title?nodeId=0341399a-092f-4012-b4c6-478b9906700d)

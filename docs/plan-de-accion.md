@@ -108,7 +108,7 @@ La matriz vive en `docs/matriz-madurez.md` y se actualiza en el mismo PR que cam
 | Entregable | Ticket | Criterio de cierre |
 | --- | --- | --- |
 | Separación de `src/App.tsx` | ARC-001 | Shell web en 1.274 líneas; cliente delegado y, dentro de él, Wallet, Cuenta, Actividad, Envíos, descubrimiento, restaurante, personalización, carrito/checkout, navegación y los tres trackings tienen límites propios. `CustomerSurface.tsx` queda en 360 líneas. Backoffice: `AdminConsole` es shell. Comercio: `MerchantConsole` es shell. Phone-stage: comercio, conductor y ops en módulos y chunks propios. |
-| Separación de `apps/mobile/App.tsx` | ARC-001 | Entrypoints customer/driver/merchant independientes; Actividad, tracking, Cuenta, Envíos y Viajes fuera del coordinador customer. Merchant App: `MerchantScreen` es shell (Hoy, Pedidos, Catálogo, Cuenta y detalle en módulos propios). |
+| Separación de `apps/mobile/App.tsx` | ARC-001 | Entrypoints customer/driver/merchant independientes; Actividad, tracking, Cuenta, Envíos y Viajes fuera del coordinador customer. Merchant App: `MerchantScreen` es shell. Sesión de Comidas en `useCustomerFood`; `CustomerScreen` queda como shell. |
 | Descomposición de `server/index.js` | ARC-001 | Controllers separados de use cases y repositories. **9 de 57 grupos extraídos**; el núcleo compartido está completo, así que lo que queda es repetitivo y no de diseño |
 | ~~Reformateo de archivos comprimidos~~ **hecho** | ARC-001 | Línea máxima 4.061 → 206; quedan 262 líneas largas, casi todas SQL |
 | ~~Dispatch v2 etapa 1~~ **hecho** | DSP-001 | `ST_DWithin` + KNN recortan candidatos antes del scoring |
@@ -504,8 +504,9 @@ propinas; las tres hojas de seguimiento pasaron a
   origen invalida el precio y las maniobras quedan sólo en Driver.
   Comidas se dividió luego en descubrimiento/búsqueda, restaurante/personalización,
   carrito, checkout y pedidos. Los modales de incidencias, devoluciones y siniestros
-  también salieron a un límite tipado. `CustomerScreen.tsx` bajó de 6.241 a 1.321
-  líneas y un contrato fija el techo en 1.350. En web, Wallet salió de
+  también salieron a un límite tipado. `CustomerScreen.tsx` bajó de 6.241 a 908
+  líneas al extraer la sesión de Comidas a `useCustomerFood`; el contrato fija el
+  techo en 950. En web, Wallet salió de
   `CustomerSurface.tsx` a un límite propio y Cuenta siguió a
   `CustomerProfileScreen.tsx`; el coordinador quedó en 3.172 líneas y su ratchet
   en 3.180. También quedó activo un ratchet que impide que el
