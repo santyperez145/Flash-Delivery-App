@@ -57,6 +57,8 @@ jobs:
         run: npm run test:authorization
       - name: Domain purity
         run: npm run test:domain-purity
+      - name: Shared domain contracts
+        run: npm run test:domain-contracts
       - name: Module references
         run: npm run test:module-references
 
