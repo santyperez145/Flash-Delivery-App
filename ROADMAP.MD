@@ -8,6 +8,23 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Decisión 2 de septiembre de 2026 — no cablear “uso real absoluto” ni IA de producto en Fase 0
+
+Pedido del dueño: cablear absolutamente todo para uso real, con automatizaciones e IA, e instalar dependencias externas si hiciera falta.
+
+- [x] Medición previa: `test:api-wiring` marca **0 rutas huérfanas** (201 expuestas · 194 literales · 12 consumidores externos declarados). El cableado código↔API ya está cerrado.
+- [x] Matriz de madurez: **`PROV` = 0, `STG` = 0, `PROD` = 0**. Lo que falta para “uso real” no es superficie nueva: son credenciales, dispositivos y un entorno desplegado.
+- [x] **No se implementa** en Fase 0 (congelamiento hasta 20/09/2026): verticales nuevas, pantallas nuevas, agentes/IA de producto, “automatizaciones” que presenten mocks o sandboxes como capacidad productiva.
+- [x] **Sí se mantiene** el flujo de ingeniería: PR → CI → squash-merge → borrado automático de rama (`delete_branch_on_merge=true` en GitHub desde esta fecha).
+- [ ] Candidata **post-Fase 0**: automatizaciones de producto con IA (asignación, soporte, fraud assist, ops copilots) sólo tras `PROV` en pagos/push/mapas y con proveedor + presupuesto nombrados.
+- [ ] Habilitación productiva — **bloqueo externo del dueño** (sin esto no hay `PROV`):
+  1. `NOTIFICATION_PROVIDER=expo` + `EXPO_ACCESS_TOKEN` + EAS + Android/iOS físicos (NOT-001).
+  2. `MAPS_PROVIDER=google` + `GOOGLE_MAPS_SERVER_API_KEY` (+ claves Android/iOS restringidas) (GEO-001).
+  3. Mercado Pago app + sellers de prueba + webhook reachable (PAY-001; ticket Fase 1).
+  4. Twilio Verify si SMS productivo (hoy sandbox).
+  5. SMTP real si email productivo (hoy sandbox).
+  6. Hosting/staging con secretos, dominio HTTPS y planificador de conciliación (no hay producción todavía).
+
 ## Avance 2 de septiembre de 2026 — ARC-001, tableros overview fuera de AdminConsole
 
 - [x] Salud, investor pulse, funnel, riesgos, zonas, grillas live e infra viven en `AdminOverviewBoards.tsx` (~307); `AdminConsole.tsx` bajó a ~582 y queda como orquestador de secciones.
