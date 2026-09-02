@@ -8,6 +8,12 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 2 de septiembre de 2026 — ARC-001, paneles de confianza fuera de AdminConsole
+
+- [x] Legajo de conductores, moderación de usuarios y MFA administrativo viven en `AdminTrustPanels.tsx` (~458); `AdminConsole.tsx` bajó de ~1.330 a ~871 sin cambiar secciones ni APIs.
+- [~] Uber/DoorDash separan trust & safety del cockpit. Flash ahora tiene módulo propio; sigue por debajo sin techo CI del archivo ni el corte de tableros overview residuales.
+- [ ] ARC-001 global sigue abierto: unificar tipos divergentes, 251 líneas largas SQL y tableros overview residuales en AdminConsole / home residual de DriverScreen.
+
 ## Avance 2 de septiembre de 2026 — ARC-001, cuenta y ganancias fuera de DriverScreen
 
 - [x] Preferencia de navegación, legajo/flota viven en `DriverAccountPanel.tsx` (~525); ledger/jornada en `DriverEarningsPanel.tsx` (~409); `DriverScreen.tsx` bajó de ~2.155 a ~1.320 y queda bajo el techo de 1.500.
