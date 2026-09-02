@@ -110,7 +110,7 @@ La matriz vive en `docs/matriz-madurez.md` y se actualiza en el mismo PR que cam
 | Separación de `src/App.tsx` | ARC-001 | Shell web de sesión/auth/enrutado; catálogo, carrito, checkout y viajes viven en `useCustomerCommerce`. Cliente HTTP: transporte en `src/api/http.ts`; mapa partido en cuenta/comercio/movilidad/operaciones; el barrel sólo compone. Cliente delegado: Wallet, Cuenta, Actividad, Envíos, descubrimiento, restaurante, personalización, carrito/checkout, navegación y los tres trackings. `CustomerSurface.tsx` queda en 360 líneas. Backoffice: `AdminConsole` es shell. Comercio: `MerchantConsole` es shell. Phone-stage: comercio, conductor y ops en módulos y chunks propios. |
 | Separación de `apps/mobile/App.tsx` | ARC-001 | Entrypoints customer/driver/merchant independientes; Actividad, tracking, Cuenta, Envíos y Viajes fuera del coordinador customer. Merchant App: `MerchantScreen` es shell. Sesión de Comidas en `useCustomerFood`; `CustomerScreen` queda como shell. Cliente HTTP: transporte en `apps/mobile/src/api/http.ts`; mapa partido en cuenta/comercio/movilidad/operaciones; el barrel sólo compone. |
 | Descomposición de `server/index.js` | ARC-001 | Controllers separados de use cases y repositories. **9 de 57 grupos extraídos**; el núcleo compartido está completo, así que lo que queda es repetitivo y no de diseño |
-| ~~Reformateo de archivos comprimidos~~ **hecho** | ARC-001 | Línea máxima 4.061 → 206; quedan 262 líneas largas, casi todas SQL |
+| ~~Reformateo de archivos comprimidos~~ **hecho** | ARC-001 | Línea máxima 4.061 → 206; quedan **224** líneas largas (bajan de 251), casi todas SQL |
 | ~~Dispatch v2 etapa 1~~ **hecho** | DSP-001 | `ST_DWithin` + KNN recortan candidatos antes del scoring |
 | SLOs documentados | — | Objetivos técnicos de la auditoría publicados y medibles |
 
@@ -512,8 +512,8 @@ propinas; las tres hojas de seguimiento pasaron a
   `CustomerProfileScreen.tsx`; el coordinador quedó en 3.172 líneas y su ratchet
   en 3.180. También quedó activo un ratchet que impide que el
 problema crezca:
-`test:line-length` fija una línea base vigente de **258 líneas de más de 200
-caracteres en 56 archivos** y sólo admite bajarla.
+`test:line-length` fija una línea base vigente de **224 líneas de más de 200
+caracteres en 50 archivos** y sólo admite bajarla.
 
 Valores admitidos para **Estado**: `Pendiente` · `En curso` · `Bloqueado por externo` · `Cerrado`.
 

@@ -1308,7 +1308,9 @@ Object.assign(openApiDocument.paths, {
       operationId: "proposeOrderSubstitution",
       summary: "Proponer sustitución con inventario y precio validados",
       description:
-        "Sólo Comercio u Operaciones puede proponer durante preparación. El original debe estar agotado y el reemplazo debe tener stock suficiente en la sucursal, ser distinto y no superar el precio original.",
+        "Sólo Comercio u Operaciones puede proponer durante preparación. " +
+        "El original debe estar agotado y el reemplazo debe tener stock suficiente " +
+        "en la sucursal, ser distinto y no superar el precio original.",
       security: [{ bearerAuth: [] }],
       parameters: [
         {
