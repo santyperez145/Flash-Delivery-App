@@ -1,14 +1,16 @@
 import fs from "node:fs/promises";
 import { contains, containsAll, containsNone, section } from "./source-contract.mjs";
 
-const app = await fs.readFile("src/App.tsx", "utf8"),
+const commerce = await fs.readFile("src/customer/useCustomerCommerce.tsx", "utf8"),
   ride = await fs.readFile("src/RideHome.tsx", "utf8"),
   map = await fs.readFile("src/maps/FlashMap.tsx", "utf8");
 const assert = (condition, message) => {
   if (!condition) throw new Error(message);
   console.log(`ok - ${message}`);
 };
-const initialForm = section(app, "const [rideForm", "const [quote");
+const initialForm = section(commerce, "const emptyRideForm", "const [quote", {
+  minChars: 150,
+});
 
 assert(
   containsAll(initialForm, ['pickup: ""', 'destination: ""']) &&
@@ -16,7 +18,7 @@ assert(
   "Viajes web no inicia con una ruta ficticia",
 );
 assert(
-  containsAll(app, ["rideSeededUserId", "entry.isDefault", "entry.lat !== null"]),
+  containsAll(commerce, ["rideSeededUserId", "entry.isDefault", "entry.lat !== null"]),
   "origen inicial deriva una sola vez de la dirección geocodificada propia",
 );
 assert(

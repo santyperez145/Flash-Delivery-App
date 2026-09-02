@@ -33,6 +33,8 @@ const customerIssues = fs.readFileSync(
   "utf8",
 );
 const { source: webApp } = await readWebSource();
+const webAppEntry = fs.readFileSync("src/App.tsx", "utf8");
+const webCustomerCommerce = fs.readFileSync("src/customer/useCustomerCommerce.tsx", "utf8");
 const webCustomerCoordinator = fs.readFileSync("src/customer/CustomerSurface.tsx", "utf8");
 const webWallet = fs.readFileSync("src/customer/WalletScreen.tsx", "utf8");
 const webCustomerProfile = fs.readFileSync("src/customer/CustomerProfileScreen.tsx", "utf8");
@@ -228,6 +230,15 @@ assert(
     contains(stateStyles, "min-height: 100dvh") &&
     contains(stateStyles, "var(--layout-safe-bottom)"),
   "loading, error and role boundaries share an adaptive honest-state composition",
+);
+
+assert(
+  webAppEntry.trimEnd().split(/\r?\n/).length <= 720 &&
+    contains(webAppEntry, "useCustomerCommerce") &&
+    contains(webCustomerCommerce, "export function useCustomerCommerce") &&
+    contains(webCustomerCommerce, "const [rideForm") &&
+    !contains(webAppEntry, "const [rideForm"),
+  "web App stays a session shell; food, cart and ride state live in useCustomerCommerce",
 );
 
 assert(
