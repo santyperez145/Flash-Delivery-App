@@ -8,6 +8,15 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Decisión 2 de septiembre de 2026 — staging cloud y base managed (bloqueo dueño)
+
+Pedido: desplegar donde haga falta y alojar en una DB próspera/escalable.
+
+- [x] **Stack ya decidido (28-08):** Google Cloud `southamerica-east1` — Cloud SQL PostgreSQL 17 + PostGIS, Memorystore Redis, Cloud Run (imagen del `Dockerfile`), CDN para la PWA. Detalle en [`docs/despliegue.md`](docs/despliegue.md). Es la paridad operativa con Uber/DoorDash (Postgres geoespacial managed + API en contenedor), no serverless.
+- [x] **Qué NO se usa:** Vercel/Netlify para la API (SSE + `LISTEN/NOTIFY` no caben); Neon pooled / Railway sin región SA (latencia BA↔Virginia y trampas de pooler). Autenticación Vercel MCP en esta sesión: sin teams/proyectos; irrelevante para el runtime.
+- [ ] **Bloqueo externo (dueño):** crear proyecto GCP, facturación, secretos en Secret Manager y ejecutar el runbook de `docs/despliegue.md`. En esta máquina no hay Docker ni `gcloud`. Sin cuenta no hay URL de staging ni columnas `PROV`/`STG`/`PROD`.
+- [~] Competencia ya opera PostGIS managed. Flash tiene imagen, esquema y decisión; falta la cuenta de nube.
+
 ## Decisión 2 de septiembre de 2026 — competir como Uber/DoorDash sin romper Fase 0
 
 Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adoptar la mejor tecnología de la competencia.
@@ -16,6 +25,12 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 - [x] **Qué se implementa ahora:** P0 de [`docs/backlog-tecnico.md`](docs/backlog-tecnico.md), empezando por ARC-001 (modularización + contratos). Cada entrega declara contra qué se comparó y dónde Flash sigue por debajo.
 - [ ] **Candidatas post-Fase 0 (no se implementan aún):** FCM/APNs directos, microservicios/Kubernetes HPA, Redis administrado, WebSockets productivos, IA de producto, dinero productivo Mercado Pago, apps EAS en stores. Bloqueo: dueño (credenciales, gasto, dispositivos, staging).
 - [~] Uber/DoorDash ya operan esas capas en producción. Flash las tiene como deuda nombrada; fingirlas en Fase 0 empeora la métrica de la auditoría.
+
+## Avance 2 de septiembre de 2026 — ARC-001, finanzas e inversión fuera de AdminConsole
+
+- [x] Snapshot de ledger/GMV vive en `AdminFinanceOverview.tsx`; readiness/unit economics/funnel en `AdminInvestorPanels.tsx`; `AdminConsole` queda como shell de navegación.
+- [~] Uber Finance / dashboards seed aíslan dinero e inversión. Flash ahora también; sigue por debajo sin techo CI del archivo ni unificar tipos divergentes.
+- [ ] ARC-001 global sigue abierto: unificar tipos divergentes y 251 líneas largas SQL.
 
 ## Avance 2 de septiembre de 2026 — ARC-001, marketplace ops fuera de AdminConsole
 
