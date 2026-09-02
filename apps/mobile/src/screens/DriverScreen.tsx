@@ -1,7 +1,7 @@
 // Pantalla del conductor (ticket ARC-001).
 //
-// Cockpit operativo del turno. Guía/firma viven en DriverDeliveryModals;
-// cuenta y ganancias en paneles propios.
+// Cockpit operativo del turno. Guía/firma, cuenta, ganancias, inbox y tarjetas
+// de trabajo viven en módulos propios.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as ImagePicker from "expo-image-picker";
@@ -34,7 +34,6 @@ import { buildExternalNavigationUrl } from "../navigation-links";
 import { styles } from "../styles";
 import { ActionButton, KpiRow, NativeMapUnavailable, OrderCard, ServiceChatModal } from "../ui";
 import type {
-  AppNotification,
   AppState,
   DispatchOffer,
   Driver,
@@ -42,7 +41,6 @@ import type {
   DriverPreferences,
   DriverVehicle,
   GeoPoint,
-  Ride,
   RoadRoute,
 } from "../types";
 import { DriverAccountPanel } from "./DriverAccountPanel";
@@ -52,6 +50,8 @@ import {
   type DriverNavigationTarget,
 } from "./DriverDeliveryModals";
 import { DriverEarningsPanel } from "./DriverEarningsPanel";
+import { DriverInboxPanel } from "./DriverInboxPanel";
+import { RideCard, ShipmentCard } from "./DriverJobCards";
 
 export function DriverScreen({
   state,
@@ -71,8 +71,7 @@ export function DriverScreen({
   const [driverView, setDriverView] = useState<"home" | "earnings" | "inbox" | "account">("home");
   const driverScrollRef = useRef<ScrollView>(null);
   const [navigationOpen, setNavigationOpen] = useState(false);
-  const [driverNotifications, setDriverNotifications] = useState<AppNotification[]>([]);
-  const [driverNotificationsLoading, setDriverNotificationsLoading] = useState(false);
+  const [inboxUnread, setInboxUnread] = useState(0);
   const [driverDemand, setDriverDemand] = useState<DriverDemand | null>(null);
   const [driverDemandLoading, setDriverDemandLoading] = useState(false);
   const [driverDemandError, setDriverDemandError] = useState("");
@@ -99,25 +98,6 @@ export function DriverScreen({
     updatedAt: null,
   });
 
-  useEffect(() => {
-    if (driverView !== "inbox") return;
-    let cancelled = false;
-    setDriverNotificationsLoading(true);
-    void api
-      .getNotifications()
-      .then((result) => {
-        if (!cancelled) setDriverNotifications(result.notifications);
-      })
-      .catch(() => {
-        if (!cancelled) setDriverNotifications([]);
-      })
-      .finally(() => {
-        if (!cancelled) setDriverNotificationsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [driverView, driver.id]);
   useEffect(() => {
     driverScrollRef.current?.scrollTo({ y: 0, animated: false });
   }, [driverView]);
@@ -392,16 +372,6 @@ export function DriverScreen({
     if (!navigationTarget) setNavigationOpen(false);
   }, [navigationTarget?.id]);
 
-  const notificationTitles: Record<string, string> = {
-    order_status: "Actualización de entrega",
-    ride_status: "Actualización de viaje",
-    shipment_status: "Actualización de envío",
-    tip_received: "Recibiste una propina",
-    support_reply: "Nueva respuesta de soporte",
-    support_ticket_created: "Caso de soporte creado",
-    driver_document_status: "Estado de documento",
-    driver_vehicle_status: "Estado de vehículo",
-  };
   const activeChats = [
     ...activeOrders.map((order) => ({
       id: order.id,
@@ -529,95 +499,11 @@ export function DriverScreen({
           />
         )}
         {driverView === "inbox" && (
-          <>
-            <View style={styles.driverSectionHeading}>
-              <View>
-                <Text style={styles.driverSectionEyebrow}>COMUNICACIONES</Text>
-                <Text style={styles.driverSectionTitle}>Inbox</Text>
-              </View>
-              <View style={styles.driverUnreadBadge}>
-                <Text style={styles.driverUnreadText}>
-                  {driverNotifications.filter((item) => !item.readAt).length}
-                </Text>
-              </View>
-            </View>
-            {activeChats.length > 0 ? (
-              <View style={styles.complianceCard}>
-                <Text style={styles.sectionTitle}>Chats de trabajos activos</Text>
-                <Text style={styles.cardText}>
-                  El chat queda ligado al servicio y conserva participantes autorizados.
-                </Text>
-                {activeChats.map((chat) => (
-                  <Pressable
-                    key={chat.id}
-                    style={styles.driverInboxRow}
-                    onPress={() => setChatJobId(chat.id)}
-                  >
-                    <View style={styles.driverInboxIcon}>
-                      <Ionicons name={chat.icon} size={20} color="#7c3cff" />
-                    </View>
-                    <View style={styles.itemCopy}>
-                      <Text style={styles.sectionTitle}>{chat.label}</Text>
-                      <Text style={styles.cardText} numberOfLines={1}>
-                        {chat.detail}
-                      </Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={19} color="#968c9e" />
-                  </Pressable>
-                ))}
-              </View>
-            ) : null}
-            <View style={styles.complianceCard}>
-              <Text style={styles.sectionTitle}>Novedades de tu cuenta</Text>
-              {driverNotificationsLoading ? (
-                <ActivityIndicator color="#7c3cff" />
-              ) : driverNotifications.length === 0 ? (
-                <View style={styles.driverEmptyState}>
-                  <Ionicons name="mail-open-outline" size={34} color="#7c3cff" />
-                  <Text style={styles.sectionTitle}>Todo al día</Text>
-                  <Text style={styles.cardText}>
-                    Los estados de servicios, documentos y soporte aparecerán acá.
-                  </Text>
-                </View>
-              ) : (
-                driverNotifications.slice(0, 20).map((item) => (
-                  <Pressable
-                    key={item.id}
-                    disabled={Boolean(item.readAt)}
-                    onPress={async () => {
-                      const result = await api.markNotificationRead(item.id);
-                      setDriverNotifications(result.notifications);
-                    }}
-                    style={[styles.driverInboxRow, !item.readAt && styles.driverInboxUnread]}
-                  >
-                    <View style={styles.driverInboxIcon}>
-                      <Ionicons
-                        name={item.readAt ? "mail-open-outline" : "mail-unread-outline"}
-                        size={20}
-                        color={item.readAt ? "#777" : "#7c3cff"}
-                      />
-                    </View>
-                    <View style={styles.itemCopy}>
-                      <Text style={styles.sectionTitle}>
-                        {notificationTitles[item.template] || "Novedad de Flash"}
-                      </Text>
-                      <Text style={styles.cardText}>
-                        {String(
-                          item.payload.status ||
-                            item.payload.kind ||
-                            "Revisá el detalle de tu cuenta",
-                        )}
-                      </Text>
-                      <Text style={styles.notificationTime}>
-                        {new Date(item.createdAt).toLocaleString("es-AR")}
-                      </Text>
-                    </View>
-                    {!item.readAt ? <Text style={styles.notificationNew}>NUEVA</Text> : null}
-                  </Pressable>
-                ))
-              )}
-            </View>
-          </>
+          <DriverInboxPanel
+            activeChats={activeChats}
+            onOpenChat={setChatJobId}
+            onUnreadChange={setInboxUnread}
+          />
         )}
         {driverView === "home" && (
           <>
@@ -1206,7 +1092,7 @@ export function DriverScreen({
                 size={22}
                 color={driverView === value ? "#7c3cff" : "#8a828f"}
               />
-              {value === "inbox" && driverNotifications.some((item) => !item.readAt) ? (
+              {value === "inbox" && inboxUnread > 0 ? (
                 <View style={styles.driverBottomDot} />
               ) : null}
             </View>
@@ -1221,94 +1107,6 @@ export function DriverScreen({
           </Pressable>
         ))}
       </View>
-    </View>
-  );
-}
-
-function RideCard({
-  ride,
-  disabled,
-  onPress,
-}: {
-  ride: Ride;
-  disabled?: boolean;
-  onPress?: () => void;
-}) {
-  return (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>{ride.status}</Text>
-      <Text style={styles.cardText}>
-        {ride.pickup} {"->"} {ride.destination}
-      </Text>
-      <Text style={styles.cardText}>
-        {ride.distanceKm} km - {money.format(ride.fare)}
-      </Text>
-      {onPress && <ActionButton label="Gestionar" disabled={disabled} onPress={onPress} />}
-    </View>
-  );
-}
-
-function ShipmentCard({
-  shipment,
-  disabled,
-  onPress,
-  pin = "",
-  onPinChange,
-}: {
-  shipment: AppState["shipments"][number];
-  disabled?: boolean;
-  onPress?: () => void;
-  pin?: string;
-  onPinChange?: (value: string) => void;
-}) {
-  return (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>Envio · {shipment.status}</Text>
-      <Text style={styles.cardText}>
-        {shipment.pickup} → {shipment.destination}
-      </Text>
-      <Text style={styles.cardText}>
-        {shipment.weightKg} kg · {money.format(shipment.fare)}
-      </Text>
-      <Text style={styles.helperText}>
-        {shipment.serviceLevel?.toUpperCase()} · {shipment.itemCategory}
-        {shipment.handlingInstructions ? ` · ${shipment.handlingInstructions}` : ""}
-      </Text>
-      {(shipment.deliveryEvidenceCount || 0) > 0 && (
-        <View style={styles.deliveryEvidenceBadge}>
-          <Ionicons name="shield-checkmark" size={16} color="#087a50" />
-          <Text style={styles.deliveryEvidenceBadgeText}>
-            {shipment.status === "delivered"
-              ? shipment.signatureRequired
-                ? "Entrega verificada con foto + firma + PIN"
-                : "Entrega verificada con foto + PIN"
-              : shipment.signatureRequired
-                ? "Evidencia de entrega protegida"
-                : "Foto de entrega protegida"}
-          </Text>
-        </View>
-      )}
-      {shipment.status === "delivering" && onPinChange ? (
-        <>
-          <Text style={styles.cardText}>Solicitá el PIN al destinatario</Text>
-          <TextInput
-            value={pin}
-            onChangeText={onPinChange}
-            keyboardType="number-pad"
-            maxLength={4}
-            secureTextEntry
-            placeholder="PIN de 4 dígitos"
-            style={styles.input}
-          />
-        </>
-      ) : null}
-      {onPress && (
-        <ActionButton
-          label={shipment.status === "delivering" ? "Confirmar entrega" : "Gestionar envio"}
-          disabled={disabled || (shipment.status === "delivering" && pin.length !== 4)}
-          onPress={onPress}
-        />
-      )}
     </View>
   );
 }
