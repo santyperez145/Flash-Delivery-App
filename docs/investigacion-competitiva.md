@@ -716,8 +716,8 @@ por dominio.
 
 Flash mueve esa frontera a `src/api/http.ts`. Las lecturas GET/HEAD/OPTIONS reintentan
 una vez; las mutaciones no. El refresh es single-flight. El mapa de `/orders` y
-`/rides` queda partido por dominio. Sigue por debajo: el mobile todavía mezcla
-transporte y recursos.
+`/rides` queda partido por dominio. El mobile hace el mismo corte. Sigue por
+debajo: User/Order/Restaurant siguen divergentes.
 
 ### Decisión 2 de septiembre de 2026 — mapa HTTP web por dominio
 
@@ -727,8 +727,19 @@ un cambio de `/rides` no debería tocar el carrito.
 
 Flash parte el mapa en cuenta, comercio, movilidad y operaciones. `createOrder`
 reutiliza la cotización firmada como función hermana, no vía `this`. El barrel
-sólo compone y arma el bootstrap. Sigue por debajo: el cliente mobile sigue
-siendo un archivo solo, y User/Order/Restaurant siguen divergentes.
+sólo compone y arma el bootstrap. El cliente mobile hace el mismo corte. Sigue
+por debajo: User/Order/Restaurant siguen divergentes.
+
+### Decisión 2 de septiembre de 2026 — mapa HTTP mobile por dominio
+
+La variante instalada (cliente, conductor, comercio) no puede compartir un
+cliente de 1.300 líneas: un cambio de quote de comida no debe tocar el turno
+del conductor, y el gate de `allowsVariant` no debe mezclarse con `/rides`.
+
+Flash aísla timeout y refresh en `apps/mobile/src/api/http.ts` y parte el mapa
+igual que en web. Login y restore siguen negando una cuenta sin el rol de la
+variante instalada; el bootstrap pide la audiencia de esa variante, no la
+prioridad de roles. Sigue por debajo: tipos User/Order/Restaurant divergentes.
 
 - [Uber Base Web: sistema compartido, no un archivo de 1.700 llamadas](https://www.uber.com/us/en/blog/introducing-base-web/)
 

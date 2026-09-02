@@ -69,6 +69,8 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Access/refresh rotativo | `CI` | `test:web-auth-session` en `ci-fast` |
 | Transporte HTTP web acotado | `CI` | Timeout, refresh y SSE viven en `src/api/http.ts`; `test:network-resilience` fija techo 280 |
 | Mapa HTTP web por dominio | `CI` | Cuenta, comercio, movilidad y operaciones en `src/api/*`; el barrel sólo compone; `test:network-resilience` fija techos |
+| Transporte HTTP mobile acotado | `CI` | Timeout y refresh viven en `apps/mobile/src/api/http.ts`; `test:network-resilience` fija techo 210 |
+| Mapa HTTP mobile por dominio | `CI` | Cuenta, comercio, movilidad y operaciones en `apps/mobile/src/api/*`; el barrel sólo compone; `test:network-resilience` fija techos |
 | Refresh en cookie HttpOnly | `CI` | `test:web-auth-session` en `ci-fast` |
 | Sesiones remotas | `CI` | `test:remote-sessions` en `ci-critical-flows` |
 | Recuperación de contraseña | `CI` | `test:password-recovery` en `ci-critical-flows` |
