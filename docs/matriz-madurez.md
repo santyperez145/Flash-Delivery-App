@@ -165,7 +165,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Crash reporting | — | **No existe** |
 | Entrypoints separados por audiencia | `CI` | `metro.config.js` resuelve la pantalla según `EXPO_PUBLIC_APP_VARIANT`; `test:mobile-variant-bundles` empaqueta las tres y exige que cada bundle Hermes lleve una sola |
 | Variante instalada con fuente única | `CI` | `test:mobile-build-variants`. El runtime la leía del manifiesto de Expo, que en web no llega: el build de conductor pedía rol `customer` y rechazaba al conductor |
-| Segmentación interna de Cliente | `CI` | Cuenta, Actividad, tracking, Viajes, Envíos, resolución de problemas y las cinco tareas de Comidas viven fuera de `CustomerScreen.tsx`; `test:responsive-layout` y `test:mobile-food-design` fijan el coordinador en 1.350 líneas o menos |
+| Segmentación interna de Cliente | `CI` | Cuenta, Actividad, tracking, Viajes, Envíos, resolución de problemas y las cinco tareas de Comidas viven fuera de `CustomerScreen.tsx`; la sesión de Comidas vive en `useCustomerFood`; `test:responsive-layout` y `test:mobile-food-design` fijan el coordinador en 950 líneas o menos |
 
 ## Web y entrega
 

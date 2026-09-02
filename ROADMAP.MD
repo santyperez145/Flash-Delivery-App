@@ -26,6 +26,12 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 - [ ] **Candidatas post-Fase 0 (no se implementan aún):** FCM/APNs directos, microservicios/Kubernetes HPA, Redis administrado, WebSockets productivos, IA de producto, dinero productivo Mercado Pago, apps EAS en stores. Bloqueo: dueño (credenciales, gasto, dispositivos, staging).
 - [~] Uber/DoorDash ya operan esas capas en producción. Flash las tiene como deuda nombrada; fingirlas en Fase 0 empeora la métrica de la auditoría.
 
+## Avance 2 de septiembre de 2026 — ARC-001, sesión de Comidas mobile
+
+- [x] `CustomerScreen` (~1.321) deja la máquina de estado de Comidas en `useCustomerFood` (catálogo, favoritos, carrito persistido, quote firmada, propina, horario, grupo y checkout). El coordinador conserva verticales, Actividad, Cuenta y tracking; `test:mobile-food-design` y `test:responsive-layout` bajan el techo a 950.
+- [~] Uber Eats separa catálogo, carrito y checkout firmado del shell de cuenta. Flash ahora también en mobile; sigue por debajo sin POS, prep-time por ítem, evidencia fotográfica de faltantes ni push físico.
+- [ ] ARC-001 global sigue abierto: unificar tipos divergentes y 251 líneas largas SQL.
+
 ## Avance 2 de septiembre de 2026 — ARC-001, Cuenta mobile por responsabilidad
 
 - [x] `CustomerAccountScreen` (1.079) queda como shell (~220). Seguridad, referidos, dieta, inbox, soporte, libreta y pagos viven en módulos propios; `test:responsive-layout` fija techo y cableado.
