@@ -23,6 +23,10 @@ const [
   merchantKitchen,
   merchantFinance,
   merchantOrderDetail,
+  mobileMerchantScreen,
+  mobileMerchantToday,
+  mobileMerchantOrders,
+  mobileMerchantDetail,
 ] = await Promise.all([
   readWebSource(),
   readMobileSource(),
@@ -36,6 +40,10 @@ const [
   fs.readFile("src/merchant/MerchantKitchenPanel.tsx", "utf8"),
   fs.readFile("src/merchant/MerchantFinancePanel.tsx", "utf8"),
   fs.readFile("src/merchant/MerchantOrderDetail.tsx", "utf8"),
+  fs.readFile("apps/mobile/src/screens/MerchantScreen.tsx", "utf8"),
+  fs.readFile("apps/mobile/src/screens/MerchantTodayPanel.tsx", "utf8"),
+  fs.readFile("apps/mobile/src/screens/MerchantStoreOrders.tsx", "utf8"),
+  fs.readFile("apps/mobile/src/screens/MerchantOrderDetailModal.tsx", "utf8"),
 ]);
 const lineCount = (source) => source.trimEnd().split(/\r?\n/).length;
 const assert = (condition, label) => {
@@ -153,6 +161,31 @@ assert(
     containsAll(merchantFinance, ["api.getMerchantFinance", "api.authorizeMerchantPayout"]) &&
     containsAll(merchantOrderDetail, ["api.proposeOrderSubstitution", "api.updateBranchInventory"]),
   "desktop merchant console stays a navigation shell with ratcheted kitchen, finance and substitution modules",
+);
+assert(
+  lineCount(mobileMerchantScreen) <= 240 &&
+    lineCount(mobileMerchantToday) <= 200 &&
+    lineCount(mobileMerchantOrders) <= 120 &&
+    lineCount(mobileMerchantDetail) <= 450 &&
+    containsAll(mobileMerchantScreen, [
+      "<MerchantTodayPanel",
+      "<MerchantStoreOrders",
+      "<MerchantStoreMenu",
+      "<MerchantStoreAccount",
+      "<MerchantOrderDetailModal",
+    ]) &&
+    containsNone(mobileMerchantScreen, [
+      "api.proposeOrderSubstitution",
+      "grossSalesToday",
+      '["accepted", "preparing"].includes(order.status)',
+    ]) &&
+    containsAll(mobileMerchantToday, ["grossSalesToday", "Última lectura conservada"]) &&
+    containsAll(mobileMerchantOrders, ['["accepted", "preparing"].includes(order.status)']) &&
+    containsAll(mobileMerchantDetail, [
+      "api.proposeOrderSubstitution",
+      "api.updateBranchInventory",
+    ]),
+  "Merchant App stays a navigation shell with ratcheted today, orders and substitution modules",
 );
 assert(
   containsAll(desktop, ["api.updateBranchInventory", "order.branchId"]) &&
