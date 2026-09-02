@@ -694,3 +694,19 @@ por haber extraído el hook.
 
 - [Uber Eats: recorre restaurantes, platos y checkout con precio final](https://help.uber.com/ubereats/restaurants/article/pick-up-order-faq?nodeId=a58f21e8-fc3e-42cb-adfd-92db5024faf5)
 - [Uber Eats: seguimiento desde la lista de pedidos](https://help.uber.com/ubereats/restaurants/article/node-title?nodeId=0341399a-092f-4012-b4c6-478b9906700d)
+
+### Decisión 2 de septiembre de 2026 — sesión de comercio web fuera del shell
+
+Uber Eats y Uber Rides conservan descubrir, carrito, precio autoritativo y cotización de
+viaje como una máquina de estado propia, no como estado del marco de autenticación. El
+patrón relevante para ARC-001 es que `App.tsx` arranque sesión y enrute por audiencia;
+pedir comida o un viaje no debe vivir mezclado con MFA, bootstrap ni el portal desktop.
+
+Flash mueve esa frontera a `useCustomerCommerce`. El origen de un viaje sigue derivando
+una sola vez de la dirección geocodificada propia y una quote se invalida al cambiar
+origen, destino o servicio. Sigue por debajo: tipos User/Order/Restaurant divergentes,
+clientes HTTP monolíticos y sin liquidación productiva. Extraer el hook no cierra esas
+deudas.
+
+- [Uber Eats: recorre restaurantes, platos y checkout con precio final](https://help.uber.com/ubereats/restaurants/article/pick-up-order-faq?nodeId=a58f21e8-fc3e-42cb-adfd-92db5024faf5)
+- [Uber: estimar precio antes de confirmar el viaje](https://www.uber.com/global/en/price-estimate/)
