@@ -26,6 +26,13 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 - [ ] **Candidatas post-Fase 0 (no se implementan aún):** FCM/APNs directos, microservicios/Kubernetes HPA, Redis administrado, WebSockets productivos, IA de producto, dinero productivo Mercado Pago, apps EAS en stores. Bloqueo: dueño (credenciales, gasto, dispositivos, staging).
 - [~] Uber/DoorDash ya operan esas capas en producción. Flash las tiene como deuda nombrada; fingirlas en Fase 0 empeora la métrica de la auditoría.
 
+## Avance 2 de septiembre de 2026 — ARC-001, overview admin + hook de turno driver
+
+- [x] Resumen operativo vive en `AdminOverviewHome.tsx`; `AdminConsole` queda como shell de nav (~280).
+- [x] GPS/ofertas/evidencia/ruta del conductor viven en `useDriverShift.ts`; `DriverScreen` queda como cockpit (~220). Marcador de variante sigue en `DriverScreen` (`Ubicacion GPS`).
+- [~] Uber Ops / Uber Driver separan command center y turno del shell. Flash ahora también; sigue por debajo sin techo CI de archivos ni unificar tipos divergentes.
+- [ ] ARC-001 global sigue abierto: unificar tipos divergentes y 251 líneas largas SQL.
+
 ## Decisión 2 de septiembre de 2026 — mandato competitivo permanente
 
 - [x] Lineamiento del dueño formalizado en `AGENTS.md`, `docs/product-execution-guidelines.md` §0 y `.cursor/rules/competitive-mandate.mdc` (`alwaysApply`): roles CEO/CTO/CFO/PM/PO/inversor, comparar siempre, mejor tecnología medida, libertad para el bien del producto.
