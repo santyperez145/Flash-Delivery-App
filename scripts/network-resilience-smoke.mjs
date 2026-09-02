@@ -28,6 +28,42 @@ assert.equal(
   true,
   "web HTTP transport stays a bounded module instead of growing back into the resource map",
 );
+const [webApiBarrel, webAccount, webCommerce, webMobility, webOperations] = await Promise.all([
+  fs.readFile(new URL("../src/api.ts", import.meta.url), "utf8"),
+  fs.readFile(new URL("../src/api/account.ts", import.meta.url), "utf8"),
+  fs.readFile(new URL("../src/api/commerce.ts", import.meta.url), "utf8"),
+  fs.readFile(new URL("../src/api/mobility.ts", import.meta.url), "utf8"),
+  fs.readFile(new URL("../src/api/operations.ts", import.meta.url), "utf8"),
+]);
+assert.match(webApiBarrel, /\.\.\.accountApi/);
+assert.match(webApiBarrel, /\.\.\.commerceApi/);
+assert.match(webApiBarrel, /\.\.\.mobilityApi/);
+assert.match(webApiBarrel, /\.\.\.operationsApi/);
+assert.equal(
+  webApiBarrel.trimEnd().split(/\r?\n/).length <= 140,
+  true,
+  "web API barrel stays a composer of domain maps, not the resource catalog",
+);
+assert.equal(
+  webAccount.trimEnd().split(/\r?\n/).length <= 280,
+  true,
+  "web account API stays a bounded session/profile module",
+);
+assert.equal(
+  webCommerce.trimEnd().split(/\r?\n/).length <= 360,
+  true,
+  "web commerce API stays a bounded catalog/checkout module",
+);
+assert.equal(
+  webMobility.trimEnd().split(/\r?\n/).length <= 360,
+  true,
+  "web mobility API stays a bounded rides/shipments module",
+);
+assert.equal(
+  webOperations.trimEnd().split(/\r?\n/).length <= 520,
+  true,
+  "web operations API stays a bounded backoffice module",
+);
 assert.match(webApp, /loading \|\| authRequired \|\| !sessionUserId/);
 
 assert.equal(mobilePackage.dependencies["expo-network"], "~57.0.1");

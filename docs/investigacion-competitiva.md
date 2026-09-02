@@ -716,8 +716,19 @@ por dominio.
 
 Flash mueve esa frontera a `src/api/http.ts`. Las lecturas GET/HEAD/OPTIONS reintentan
 una vez; las mutaciones no. El refresh es single-flight. El mapa de `/orders` y
-`/rides` queda en `src/api.ts`. Sigue por debajo: el mobile todavía mezcla transporte
-y recursos, y el mapa web no está partido por comida/viajes/ops.
+`/rides` queda partido por dominio. Sigue por debajo: el mobile todavía mezcla
+transporte y recursos.
+
+### Decisión 2 de septiembre de 2026 — mapa HTTP web por dominio
+
+Uber y DoorDash no mezclan checkout de comida, cotización de viaje y backoffice
+en un solo cliente. Un incidente de quote no debería obligar a leer payouts, y
+un cambio de `/rides` no debería tocar el carrito.
+
+Flash parte el mapa en cuenta, comercio, movilidad y operaciones. `createOrder`
+reutiliza la cotización firmada como función hermana, no vía `this`. El barrel
+sólo compone y arma el bootstrap. Sigue por debajo: el cliente mobile sigue
+siendo un archivo solo, y User/Order/Restaurant siguen divergentes.
 
 - [Uber Base Web: sistema compartido, no un archivo de 1.700 llamadas](https://www.uber.com/us/en/blog/introducing-base-web/)
 
