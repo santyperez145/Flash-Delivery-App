@@ -15,7 +15,6 @@ const foodRestaurant = fs.readFileSync(
   "apps/mobile/src/screens/CustomerFoodRestaurantScreen.tsx",
   "utf8",
 );
-const api = fs.readFileSync("apps/mobile/src/api.ts", "utf8");
 const types = fs.readFileSync("apps/mobile/src/types.ts", "utf8");
 const design = fs.readFileSync("apps/mobile/src/design-system.ts", "utf8");
 const roadmap = fs.readFileSync("docs/DESIGN_ROADMAP.md", "utf8");
@@ -40,7 +39,7 @@ assert(
 );
 assert(
   contains(app, "activeFoodPromotion") &&
-    contains(api, 'request<{promotions:import("./types").Promotion[]}>("/promotions")'),
+    contains(app, 'request<{promotions:import("../types").Promotion[]}>("/promotions")'),
   "promotion banner must consume the promotions contract",
 );
 assert(
@@ -49,7 +48,7 @@ assert(
 );
 assert(
   contains(app, "toggleFavorite") &&
-    contains(api, "/favorites/${restaurantId}") &&
+    contains(app, "/favorites/${restaurantId}") &&
     contains(types, "favoriteRestaurantIds?: string[]"),
   "favorite controls must persist through the authenticated API",
 );
@@ -156,7 +155,7 @@ assert(
     contains(fs.readFileSync("apps/mobile/src/styles.ts", "utf8"), "minHeight: 44"),
   "las opciones de propina son objetivos tactiles de 44px",
 );
-assert(contains(api, "tipCents?: number"), "la propina viaja a la API movil en centavos");
+assert(contains(app, "tipCents?: number"), "la propina viaja a la API movil en centavos");
 
 // **Los topes de reserva del cliente son los del servidor.** Mismo riesgo que
 // con la propina: los dos clientes duplican la ventana para no ofrecer un

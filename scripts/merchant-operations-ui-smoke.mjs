@@ -14,7 +14,6 @@ const [
   { source: desktop },
   { source: mobile },
   desktopTypes,
-  mobileApi,
   mobileTypes,
   sharedContracts,
   styles,
@@ -34,7 +33,6 @@ const [
   readWebSource(),
   readMobileSource(),
   fs.readFile("src/types.ts", "utf8"),
-  fs.readFile("apps/mobile/src/api.ts", "utf8"),
   fs.readFile("apps/mobile/src/types.ts", "utf8"),
   fs.readFile("packages/domain-contracts/src/index.ts", "utf8"),
   fs.readFile("src/styles.css", "utf8"),
@@ -79,14 +77,14 @@ assert(
 );
 assert(
   containsAll(desktop, ["getMerchantDashboard"]) &&
-    containsAll(mobileApi, ["getMerchantDashboard"]) &&
+    containsAll(mobile, ["getMerchantDashboard"]) &&
     containsAll(desktopMerchant, ["api.getMerchantDashboard"]) &&
     containsAll(mobileMerchant, ["api.getMerchantDashboard"]),
   "both merchant surfaces consume the private dashboard endpoint",
 );
 assert(
   containsAll(desktop, ["getMerchantActiveOrders"]) &&
-    containsAll(mobileApi, ["getMerchantActiveOrders"]) &&
+    containsAll(mobile, ["getMerchantActiveOrders"]) &&
     containsAll(desktopMerchant, ["merchantActiveOrders"]) &&
     containsAll(mobileMerchant, ["setActiveOrders(queue.orders)"]),
   "desktop and Merchant App render the dedicated active queue instead of a partial activity slice",

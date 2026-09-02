@@ -26,11 +26,17 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 - [ ] **Candidatas post-Fase 0 (no se implementan aún):** FCM/APNs directos, microservicios/Kubernetes HPA, Redis administrado, WebSockets productivos, IA de producto, dinero productivo Mercado Pago, apps EAS en stores. Bloqueo: dueño (credenciales, gasto, dispositivos, staging).
 - [~] Uber/DoorDash ya operan esas capas en producción. Flash las tiene como deuda nombrada; fingirlas en Fase 0 empeora la métrica de la auditoría.
 
+## Avance 2 de septiembre de 2026 — ARC-001, mapa HTTP mobile por dominio
+
+- [x] El cliente de `apps/mobile/src/api.ts` (~1.320) deja timeout y refresh en `http.ts` y parte el mapa en cuenta, comercio, movilidad y operaciones. El barrel (~77) sólo compone y arma el bootstrap; login/restore gatean por la variante instalada. `test:network-resilience` fija techos y las suites de auth/comida/variantes leen el árbol, no una ruta que se vacía.
+- [~] Uber/DoorDash tienen el mismo corte en ambas superficies. Flash ahora también; sigue por debajo sin unificar User/Order/Restaurant.
+- [ ] ARC-001 global sigue abierto: contratos compartidos restantes y 251 líneas largas SQL.
+
 ## Avance 2 de septiembre de 2026 — ARC-001, mapa HTTP web por dominio
 
 - [x] El mapa de `src/api.ts` (~1.539) se parte en cuenta, comercio, movilidad y operaciones. El barrel (~124) sólo compone y arma el bootstrap; `createOrder` reutiliza `quoteFoodCheckout` sin `this`. `test:network-resilience` fija techos y `test:web-checkout` lee la cotización en el árbol web, no en una ruta fija.
-- [~] Uber/DoorDash tienen clientes por dominio también en mobile. Flash ahora también en web; sigue por debajo sin partir `apps/mobile/src/api.ts` ni unificar User/Order/Restaurant.
-- [ ] ARC-001 global sigue abierto: cliente HTTP mobile, contratos compartidos restantes y 251 líneas largas SQL.
+- [~] Uber/DoorDash tienen clientes por dominio también en mobile. Flash ahora también en web y mobile; sigue por debajo sin unificar User/Order/Restaurant.
+- [ ] ARC-001 global sigue abierto: contratos compartidos restantes y 251 líneas largas SQL.
 
 ## Avance 2 de septiembre de 2026 — ARC-001, transporte HTTP web
 
@@ -47,7 +53,7 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 ## Avance 2 de septiembre de 2026 — ARC-001, sesión de comercio web
 
 - [x] `src/App.tsx` (~1.283) deja catálogo, carrito, checkout firmado y cotización de viaje en `useCustomerCommerce`; el chrome del phone-stage vive en `AppChrome`. El entry queda como sesión, auth y enrutado; `test:responsive-layout` fija techo 720 y `test:web-ride-home` vigila el origen geocodificado en el hook.
-- [~] Uber Eats y Uber Rides separan la máquina de estado de pedir del shell de plataforma. Flash ahora también en web; el mapa HTTP web ya está partido; sigue por debajo sin unificar User/Order/Restaurant ni el cliente mobile.
+- [~] Uber Eats y Uber Rides separan la máquina de estado de pedir del shell de plataforma. Flash ahora también en web; el mapa HTTP ya está partido en web y mobile; sigue por debajo sin unificar User/Order/Restaurant.
 - [ ] ARC-001 global sigue abierto: unificar tipos divergentes, clientes HTTP y 251 líneas largas SQL.
 
 ## Avance 2 de septiembre de 2026 — ARC-001, sesión de Comidas mobile
