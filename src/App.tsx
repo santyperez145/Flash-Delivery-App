@@ -133,16 +133,16 @@ const MerchantDesktopConsole = lazy(() =>
   })),
 );
 const DriverApp = lazy(() =>
-  import("./operations/OperationsSurface").then((module) => ({ default: module.DriverApp })),
+  import("./operations/DriverApp").then((module) => ({ default: module.DriverApp })),
 );
 const MerchantApp = lazy(() =>
-  import("./operations/OperationsSurface").then((module) => ({ default: module.MerchantApp })),
+  import("./operations/MerchantApp").then((module) => ({ default: module.MerchantApp })),
 );
 const OpsApp = lazy(() =>
-  import("./operations/OperationsSurface").then((module) => ({ default: module.OpsApp })),
+  import("./operations/OpsApp").then((module) => ({ default: module.OpsApp })),
 );
 const OpsRail = lazy(() =>
-  import("./operations/OperationsSurface").then((module) => ({ default: module.OpsRail })),
+  import("./operations/OpsRail").then((module) => ({ default: module.OpsRail })),
 );
 
 function App() {
