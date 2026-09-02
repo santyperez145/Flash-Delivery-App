@@ -8,6 +8,12 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 2 de septiembre de 2026 — ARC-001, modales operativos fuera de DriverScreen
+
+- [x] Guía giro a giro y captura de firma viven en `DriverDeliveryModals.tsx` (~342 líneas); `DriverScreen.tsx` bajó de ~2.471 a ~2.155 sin cambiar APIs ni flujo del turno.
+- [~] Uber Driver y DiDi aíslan navegación y evidencia de entrega del cockpit. Flash ahora tiene módulo propio; sigue por debajo sin techo CI del archivo ni el corte residual de tarjetas/estado.
+- [ ] ARC-001 global sigue abierto: unificar tipos divergentes, 251 líneas largas SQL y concentraciones restantes (`AdminConsole` residual, `DriverScreen` residual).
+
 ## Avance 2 de septiembre de 2026 — ARC-001, paneles de dinero fuera de AdminConsole
 
 - [x] Tarifas, payouts, propinas y conciliación viven en `AdminFinancePanels.tsx` (~841 líneas); `AdminConsole.tsx` bajó de ~3.216 a ~2.400 sin cambiar secciones ni APIs.
