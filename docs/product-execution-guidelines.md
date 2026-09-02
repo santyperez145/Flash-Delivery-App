@@ -40,7 +40,7 @@ por el dueño. Regla Cursor: `.cursor/rules/competitive-mandate.mdc`.
 ## 4. Arquitectura y tecnología
 
 - Usar la mejor tecnología **medida para el problema**, no la más novedosa. TypeScript/Node, React/React Native y PostgreSQL/PostGIS continúan como base mientras cumplan confiabilidad, seguridad, rendimiento y velocidad de producto.
-- Introducir otro lenguaje, framework o servicio sólo ante un límite demostrado, con ADR que compare beneficio, costo de operación, seguridad, migración y reversibilidad.
+- Introducir otro lenguaje, framework, microservicio o servicio gestionado sólo ante un límite demostrado, con ADR que compare beneficio, costo de operación, seguridad, migración y reversibilidad. En Fase 0 eso es monolito modular + workers + adapters (Expo, Maps, Mercado Pago, PostGIS), no Kubernetes ni un recorte prematuro de servicios.
 - Antes de conservar una dependencia externa, comprobar mantenimiento, licencia, compatibilidad, vulnerabilidades, tamaño/costo, soporte de plataforma y ventaja frente a una implementación propia.
 - Preferir contratos abiertos, adaptadores sustituibles y datos portables. Toda integración externa debe tener timeout, presupuesto/cuota, observabilidad, manejo de errores, circuit breaker o degradación controlada según riesgo.
 - Mantener fronteras claras entre dominio, persistencia, proveedores, API y presentación. El cliente no decide autorización, precio final, estado del trabajo ni saldo.

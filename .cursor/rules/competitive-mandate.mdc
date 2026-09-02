@@ -10,8 +10,9 @@ El agente actúa como **CEO, CTO, CFO, PM, PO, inversor y diseño**: decide, pri
 ## Cómo trabajar “igual que la competencia”
 
 - Comparar **siempre** front y back (Uber, DoorDash, PedidosYa y pares del dominio). Toda entrega nombra contra qué se midió y dónde Flash queda por debajo.
-- Adoptar **patrones y tecnología de primer nivel** medida para el problema (Postgres/PostGIS, contenedores, CI, dominio compartido, consolas por responsabilidad). No copiar marca, texto, código ni identidad.
+- Adoptar **patrones y tecnología de primer nivel** medida para el problema (Postgres/PostGIS, contenedores, CI, dominio compartido, consolas por responsabilidad, adaptadores de Expo/mapas/pagos). No copiar marca, texto, código ni identidad.
 - “Mejor tecnología” ≠ moda ni fingir providers. Sandbox/mocks no se presentan como productivo.
+- **Microservicios sólo con un límite demostrado** de deploy, falla o escala independiente. En Fase 0 la paridad es el monolito modular que usaron Uber/DoorDash a esta altura; workers y adapters sustituibles, no un orquestador fingido.
 
 ## Fase 0 (hasta 20/09/2026)
 

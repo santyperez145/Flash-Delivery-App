@@ -26,6 +26,13 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 - [ ] **Candidatas post-Fase 0 (no se implementan aún):** FCM/APNs directos, microservicios/Kubernetes HPA, Redis administrado, WebSockets productivos, IA de producto, dinero productivo Mercado Pago, apps EAS en stores. Bloqueo: dueño (credenciales, gasto, dispositivos, staging).
 - [~] Uber/DoorDash ya operan esas capas en producción. Flash las tiene como deuda nombrada; fingirlas en Fase 0 empeora la métrica de la auditoría.
 
+## Avance 2 de septiembre de 2026 — ARC-001, consola de comercio por responsabilidad
+
+- [x] `MerchantConsole` (1.282) queda como shell de nav/polling (~270). Cocina, detalle/sustituciones, catálogo, sucursales, analítica, pulso y liquidaciones viven en módulos propios; `test:merchant-operations-ui` fija techos.
+- [~] DoorDash Merchant Portal / Uber Eats Manager aíslan live orders, 86-item, menú, store hours y payouts. Flash ahora también; sigue por debajo sin POS, prep-time por ítem ni liquidación productiva (PAY-001).
+- [x] Microservicios: **no** en este corte. Uber/DoorDash a esta altura operaban monolito modular + workers. Candidata post-Fase 0 en la decisión del 2-09.
+- [ ] ARC-001 global sigue abierto: unificar tipos divergentes y 251 líneas largas SQL.
+
 ## Avance 2 de septiembre de 2026 — ARC-001, partir paneles de soporte del backoffice
 
 - [x] `AdminSupportPanels` (~563) se parte en respuestas rápidas, dead letters y operaciones/SLA; el archivo original queda como reexport.
