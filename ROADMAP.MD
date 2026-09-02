@@ -21,7 +21,7 @@ Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` 
 - [x] Se integró lo que `codex/reflow-catalog-search-sql` no llegó a `main`: SQL de catálogo/búsqueda refloweado y editores de comercio extraídos a `MerchantCatalogEditors.tsx`.
 - [x] Un agente `support` ya no puede editar el perfil de otro (`canManageSupportAgent`), lee la cola de tickets y un bootstrap propio, y no enumera usuarios ni el dashboard admin. `test:security` y `test:authorization` lo cubren.
 - [~] PedidosYa y Zendesk separan cola de tickets de administración de agentes. Flash ahora niega el IDOR, pero sigue por debajo sin SLA visible al cliente, asignación automática medida y portal self-serve del ticket.
-- [ ] ARC-001 global sigue abierto: paquete de contratos compartidos y líneas SQL largas contenidas por trinquete.
+- [ ] ARC-001 global sigue abierto: unificar tipos divergentes, 251 líneas largas SQL y concentraciones restantes (AdminConsole, DriverScreen).
 
 ## Avance 30 de agosto de 2026 — ARC-001, Navegación cliente web con límite propio
 
@@ -587,6 +587,33 @@ Evaluación global: **6,2/10**. La matriz de madurez lo cuantifica: de 91 capaci
 ### Congelamiento de funcionalidades
 
 Desde el 25 de agosto y hasta cerrar la Fase 0 (20 de septiembre de 2026), **no se agregan verticales, pantallas ni capacidades nuevas**. Sólo se admiten: tickets P0, defectos que bloqueen un P0, pruebas/contratos/puertas CI/observabilidad, y documentación de lo anterior. Detalle en [`docs/plan-de-accion.md`](docs/plan-de-accion.md).
+
+### Candidatos de superficie post-Fase 0 — 2 de septiembre de 2026
+
+Pedido de producto: cerrar paridad competitiva con pantallas/admin/config “completas”. **Durante el freeze no se implementan.** Quedan acá como candidatos priorizados tras el 20/09, medidos contra Uber/Uber Eats, PedidosYa, Rappi, DoorDash y el inventario en [`docs/experience-surface-inventory.md`](docs/experience-surface-inventory.md).
+
+**Ya existe (no reinventar):** Cliente web/móvil (Comidas, Viajes, Envíos, Actividad, Cuenta, Wallet); Driver (mapa, ofertas, cockpit, ganancias, KYC); Merchant desktop + app (cocina, catálogo, sucursales, finanzas); Superadmin con 16 secciones (dispatch, comercios, drivers, envíos, siniestros, pagos, tarifas, mensajes, usuarios, finanzas, inversión, producto/flags, soporte, seguridad, infra); rol support acotado a tickets.
+
+**P0 post-freeze (habilitación / dinero / safety — no pantallas decorativas):**
+- [ ] PSP marketplace + conciliación + payouts productivos (PAY-001).
+- [ ] Push FCM/APNs en dispositivo físico + builds firmados + deep links (NOT-001 / MOB-001).
+- [ ] Mapas comerciales con SLA y Route Matrix (GEO-001 / DSP-001).
+- [ ] Safety rides: no-show/waiting regulado, seguros, ops 24/7 antes de movilidad pública.
+
+**P1 post-freeze (paridad operativa fina):**
+- [ ] Merchant: POS sync, campañas nativas, prep predictivo, equipo/permisos/auditoría.
+- [ ] Driver: multi-oferta cuando DSP lo soporte; promos reales; liquidación bancaria.
+- [ ] Cliente: foto en incidencias de comida; alergia por ítem con timebox; pin de pickup editable; SLA self-serve.
+- [ ] Soporte: portal con SLA visible al cliente y asignación automática medida.
+- [ ] *Flash Más* cobrado + beneficios de ride/dispatch activos (hoy el cobro depende de PAY-001).
+- [ ] Settings de plataforma: actualización forzosa / mantenimiento remotos; explicación de indisponibilidad por mercado.
+
+**P2 post-freeze (diferenciadores / escala):**
+- [ ] Multi-comercio en un pedido; grocery/kiosco; Destination Mode; CarPlay/Android Auto.
+- [ ] Marketing desktop; personalización con consentimiento; B2B/centros de costo.
+- [ ] KYC biométrico automatizado; playbook de segunda ciudad.
+
+**Comparación:** Uber/DoorDash/PedidosYa ya tratan POS, personalización, multi-store y safety 24/7 como producto core. Flash tiene el esqueleto de marketplace + admin; queda por debajo en habilitaciones productivas y profundidad operativa, no en “falta de shell”. Inventar pantallas nuevas ahora empeora exactamente la métrica de la auditoría: más superficie de la que se puede validar.
 
 ### Hallazgos P0 verificados
 
