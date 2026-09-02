@@ -8,6 +8,12 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 2 de septiembre de 2026 — ARC-001, paneles de soporte fuera de AdminConsole
+
+- [x] Respuestas rápidas, dead letters y operaciones de agentes/SLA viven en `AdminSupportPanels.tsx` (~553 líneas); `AdminConsole.tsx` bajó a ~1.365 y queda bajo el techo de 1.500 del criterio ARC-001.
+- [~] Zendesk y PedidosYa separan cola/SLA de la consola general. Flash ahora tiene módulo propio; sigue por debajo sin techo CI del archivo ni el corte de seguridad/moderación residual.
+- [ ] ARC-001 global sigue abierto: unificar tipos divergentes, 251 líneas largas SQL, seguridad/moderación residual en AdminConsole y `DriverScreen` residual.
+
 ## Avance 2 de septiembre de 2026 — ARC-001, paneles de envíos fuera de AdminConsole
 
 - [x] Siniestros protegidos y configuración de categorías/SLA viven en `AdminShipmentPanels.tsx` (~511 líneas); `AdminConsole.tsx` bajó de ~2.381 a ~1.879 sin cambiar secciones ni APIs.
