@@ -47,7 +47,11 @@ export async function getPostgresRides() {
     SELECT j.*, customer.public_id customer_public_id, driver.public_id driver_public_id,
       ST_Y(j.pickup_location::geometry) pickup_lat, ST_X(j.pickup_location::geometry) pickup_lng,
       ST_Y(j.dropoff_location::geometry) dropoff_lat, ST_X(j.dropoff_location::geometry) dropoff_lng,
-      (SELECT jsonb_build_object('id',c.public_id,'reason',c.reason_code,'refundAmount',c.refund_amount_cents/100.0,'fee',c.cancellation_fee_cents/100.0,'createdAt',c.created_at) FROM job_cancellations c WHERE c.job_id=j.id) cancellation,
+      (SELECT jsonb_build_object(
+        'id', c.public_id, 'reason', c.reason_code,
+        'refundAmount', c.refund_amount_cents / 100.0, 'fee', c.cancellation_fee_cents / 100.0,
+        'createdAt', c.created_at
+      ) FROM job_cancellations c WHERE c.job_id = j.id) cancellation,
       COALESCE((SELECT jsonb_agg(jsonb_build_object('status',je.status::text,'at',je.occurred_at) ORDER BY je.occurred_at)
         FROM job_events je WHERE je.job_id=j.id),'[]') timeline
     FROM jobs j JOIN users customer ON customer.id=j.customer_id
@@ -246,7 +250,13 @@ export async function setPostgresRideStatus(
     if (status === "in_progress") {
       const verification = (
         await client.query(
-          `SELECT v.verified_at,v.job_id IS NOT NULL verification_required,j.created_at,(SELECT applied_at FROM schema_migrations WHERE version='073_ride_pickup_verification.sql') rollout_at FROM jobs j LEFT JOIN ride_pickup_verifications v ON v.job_id=j.id WHERE j.public_id=$1 AND j.kind='ride' FOR UPDATE OF j`,
+          `SELECT v.verified_at, v.job_id IS NOT NULL verification_required, j.created_at,
+            (SELECT applied_at FROM schema_migrations
+             WHERE version = '073_ride_pickup_verification.sql') rollout_at
+           FROM jobs j
+           LEFT JOIN ride_pickup_verifications v ON v.job_id = j.id
+           WHERE j.public_id = $1 AND j.kind = 'ride'
+           FOR UPDATE OF j`,
           [publicId],
         )
       ).rows[0];
@@ -279,8 +289,18 @@ export async function setPostgresRideStatus(
             ],
           }
         : await client.query(
-            `WITH changed AS (UPDATE jobs SET status=$1,driver_id=COALESCE($4,driver_id),version=version+1,updated_at=now(),metadata=CASE WHEN $1::job_status='completed' THEN jsonb_set(metadata,'{etaMin}','0') ELSE metadata END
-    WHERE public_id=$2 AND kind='ride' AND status NOT IN('completed','cancelled') RETURNING id,customer_id) INSERT INTO job_events(job_id,actor_id,status) SELECT id,$3,$1 FROM changed RETURNING job_id`,
+            `WITH changed AS (
+              UPDATE jobs SET status = $1, driver_id = COALESCE($4, driver_id), version = version + 1,
+                updated_at = now(),
+                metadata = CASE WHEN $1::job_status = 'completed'
+                  THEN jsonb_set(metadata, '{etaMin}', '0') ELSE metadata END
+              WHERE public_id = $2 AND kind = 'ride'
+                AND status NOT IN ('completed', 'cancelled')
+              RETURNING id, customer_id
+            )
+            INSERT INTO job_events (job_id, actor_id, status)
+            SELECT id, $3, $1 FROM changed
+            RETURNING job_id`,
             [status, publicId, actor?.id || null, driverId],
           );
     if (!result.rows[0])
@@ -398,7 +418,15 @@ export async function getShipmentOptions({ includeInactive = false } = {}) {
 export async function updateShipmentItemCategory(code, patch) {
   const row = (
     await postgresPool.query(
-      `UPDATE shipment_item_categories SET name=COALESCE($2,name),handling_instructions=COALESCE($3,handling_instructions),surcharge_cents=COALESCE($4,surcharge_cents),maximum_weight_grams=COALESCE($5,maximum_weight_grams),active=COALESCE($6,active),updated_at=now() WHERE code=$1 RETURNING code,name,handling_instructions,surcharge_cents,maximum_weight_grams,active`,
+      `UPDATE shipment_item_categories SET
+        name = COALESCE($2, name),
+        handling_instructions = COALESCE($3, handling_instructions),
+        surcharge_cents = COALESCE($4, surcharge_cents),
+        maximum_weight_grams = COALESCE($5, maximum_weight_grams),
+        active = COALESCE($6, active),
+        updated_at = now()
+      WHERE code = $1
+      RETURNING code, name, handling_instructions, surcharge_cents, maximum_weight_grams, active`,
       [
         code,
         patch.name ?? null,
@@ -423,7 +451,15 @@ export async function updateShipmentServiceLevel(code, patch) {
   const hasMaximumDistance = Object.prototype.hasOwnProperty.call(patch, "maximumDistanceKm"),
     row = (
       await postgresPool.query(
-        `UPDATE shipment_service_levels SET name=COALESCE($2,name),transport_multiplier=COALESCE($3,transport_multiplier),eta_multiplier=COALESCE($4,eta_multiplier),maximum_distance_m=CASE WHEN $5 THEN $6 ELSE maximum_distance_m END,active=COALESCE($7,active),updated_at=now() WHERE code=$1 RETURNING code,name,transport_multiplier,eta_multiplier,maximum_distance_m,active`,
+        `UPDATE shipment_service_levels SET
+          name = COALESCE($2, name),
+          transport_multiplier = COALESCE($3, transport_multiplier),
+          eta_multiplier = COALESCE($4, eta_multiplier),
+          maximum_distance_m = CASE WHEN $5 THEN $6 ELSE maximum_distance_m END,
+          active = COALESCE($7, active),
+          updated_at = now()
+        WHERE code = $1
+        RETURNING code, name, transport_multiplier, eta_multiplier, maximum_distance_m, active`,
         [
           code,
           patch.name ?? null,
@@ -450,15 +486,32 @@ export async function updateShipmentServiceLevel(code, patch) {
 }
 
 export async function getPostgresShipments() {
-  const result =
-    await postgresPool.query(`SELECT j.*,u.public_id customer_public_id,d.public_id driver_public_id,sd.*,
-    ST_Y(j.pickup_location::geometry) pickup_lat,ST_X(j.pickup_location::geometry) pickup_lng,
-    ST_Y(j.dropoff_location::geometry) dropoff_lat,ST_X(j.dropoff_location::geometry) dropoff_lng,
-    (SELECT jsonb_build_object('id',c.public_id,'reason',c.reason_code,'refundAmount',c.refund_amount_cents/100.0,'fee',c.cancellation_fee_cents/100.0,'createdAt',c.created_at) FROM job_cancellations c WHERE c.job_id=j.id) cancellation,
-    (SELECT count(*)::int FROM shipment_delivery_evidence e WHERE e.job_id=j.id) delivery_evidence_count,
-    COALESCE((SELECT jsonb_agg(jsonb_build_object('status',CASE WHEN je.status='completed' THEN 'delivered' ELSE je.status::text END,'at',je.occurred_at) ORDER BY je.occurred_at) FROM job_events je WHERE je.job_id=j.id),'[]') timeline
-    FROM jobs j JOIN users u ON u.id=j.customer_id JOIN shipment_details sd ON sd.job_id=j.id JOIN shipment_item_categories sic ON sic.id=sd.item_category_id JOIN shipment_service_levels ssl ON ssl.id=sd.service_level_id
-    LEFT JOIN drivers d ON d.id=j.driver_id WHERE j.kind='delivery' AND j.metadata->>'subtype'='shipment' ORDER BY j.created_at DESC`);
+  const result = await postgresPool.query(`
+    SELECT j.*, u.public_id customer_public_id, d.public_id driver_public_id, sd.*,
+      ST_Y(j.pickup_location::geometry) pickup_lat, ST_X(j.pickup_location::geometry) pickup_lng,
+      ST_Y(j.dropoff_location::geometry) dropoff_lat, ST_X(j.dropoff_location::geometry) dropoff_lng,
+      (SELECT jsonb_build_object(
+        'id', c.public_id, 'reason', c.reason_code,
+        'refundAmount', c.refund_amount_cents / 100.0, 'fee', c.cancellation_fee_cents / 100.0,
+        'createdAt', c.created_at
+      ) FROM job_cancellations c WHERE c.job_id = j.id) cancellation,
+      (SELECT count(*)::int FROM shipment_delivery_evidence e WHERE e.job_id = j.id)
+        delivery_evidence_count,
+      COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+          'status', CASE WHEN je.status = 'completed' THEN 'delivered' ELSE je.status::text END,
+          'at', je.occurred_at
+        ) ORDER BY je.occurred_at)
+        FROM job_events je WHERE je.job_id = j.id
+      ), '[]') timeline
+    FROM jobs j
+    JOIN users u ON u.id = j.customer_id
+    JOIN shipment_details sd ON sd.job_id = j.id
+    JOIN shipment_item_categories sic ON sic.id = sd.item_category_id
+    JOIN shipment_service_levels ssl ON ssl.id = sd.service_level_id
+    LEFT JOIN drivers d ON d.id = j.driver_id
+    WHERE j.kind = 'delivery' AND j.metadata->>'subtype' = 'shipment'
+    ORDER BY j.created_at DESC`);
   return result.rows.map((row) => ({
     id: row.public_id,
     customerId: row.customer_public_id,
@@ -556,8 +609,18 @@ export async function createPostgresShipment({
     };
     const job = (
       await client.query(
-        `INSERT INTO jobs(public_id,kind,customer_id,driver_id,status,pickup_address,pickup_location,dropoff_address,dropoff_location,service_level,quoted_amount_cents,final_amount_cents,distance_m,estimated_duration_s,payment_method_label,metadata)
-      VALUES($1,'delivery',$2,$3,$4,$5,ST_SetSRID(ST_MakePoint($6,$7),4326)::geography,$8,ST_SetSRID(ST_MakePoint($9,$10),4326)::geography,$16,$11,$11,$12,$13,$14,$15) RETURNING id,created_at`,
+        `INSERT INTO jobs(
+          public_id, kind, customer_id, driver_id, status, pickup_address, pickup_location,
+          dropoff_address, dropoff_location, service_level, quoted_amount_cents,
+          final_amount_cents, distance_m, estimated_duration_s, payment_method_label, metadata
+        )
+        VALUES (
+          $1, 'delivery', $2, $3, $4, $5,
+          ST_SetSRID(ST_MakePoint($6, $7), 4326)::geography, $8,
+          ST_SetSRID(ST_MakePoint($9, $10), 4326)::geography, $16,
+          $11, $11, $12, $13, $14, $15
+        )
+        RETURNING id, created_at`,
         [
           publicId,
           customer.id,
@@ -579,7 +642,12 @@ export async function createPostgresShipment({
       )
     ).rows[0];
     await client.query(
-      `INSERT INTO shipment_details(job_id,recipient_name,recipient_phone,package_size,description,weight_grams,delivery_notes,delivery_pin_hash,terms_accepted_at,declared_value_cents,protection_plan_id,protection_premium_cents,signature_required,item_category_id,service_level_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,now(),$9,$10,$11,$12,$13,$14)`,
+      `INSERT INTO shipment_details(
+        job_id, recipient_name, recipient_phone, package_size, description, weight_grams,
+        delivery_notes, delivery_pin_hash, terms_accepted_at, declared_value_cents,
+        protection_plan_id, protection_premium_cents, signature_required,
+        item_category_id, service_level_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now(), $9, $10, $11, $12, $13, $14)`,
       [
         job.id,
         data.recipientName,
@@ -677,14 +745,26 @@ const mapShipmentReturn = (row) => ({
 });
 export async function getPostgresShipmentReturns({ customerPublicId, includeAll = false }) {
   const result = await postgresPool.query(
-    `SELECT r.*,j.public_id shipment_public_id FROM shipment_return_requests r JOIN jobs j ON j.id=r.job_id JOIN users u ON u.id=r.requested_by WHERE $2::boolean OR u.public_id=$1 ORDER BY r.created_at DESC`,
+    `SELECT r.*, j.public_id shipment_public_id
+     FROM shipment_return_requests r
+     JOIN jobs j ON j.id = r.job_id
+     JOIN users u ON u.id = r.requested_by
+     WHERE $2::boolean OR u.public_id = $1
+     ORDER BY r.created_at DESC`,
     [customerPublicId, includeAll],
   );
   return result.rows.map(mapShipmentReturn);
 }
 export async function createPostgresShipmentReturn({ shipmentPublicId, customerPublicId, reason }) {
   const result = await postgresPool.query(
-    `INSERT INTO shipment_return_requests(public_id,job_id,requested_by,reason) SELECT $1,j.id,u.id,$4 FROM jobs j JOIN users u ON u.id=j.customer_id WHERE j.public_id=$2 AND u.public_id=$3 AND j.metadata->>'subtype'='shipment' AND j.status='completed' AND j.updated_at>=now()-interval '7 days' RETURNING *`,
+    `INSERT INTO shipment_return_requests(public_id, job_id, requested_by, reason)
+     SELECT $1, j.id, u.id, $4
+     FROM jobs j
+     JOIN users u ON u.id = j.customer_id
+     WHERE j.public_id = $2 AND u.public_id = $3
+       AND j.metadata->>'subtype' = 'shipment' AND j.status = 'completed'
+       AND j.updated_at >= now() - interval '7 days'
+     RETURNING *`,
     [`RET-${crypto.randomUUID()}`, shipmentPublicId, customerPublicId, reason],
   );
   if (!result.rows[0])
@@ -695,7 +775,16 @@ export async function createPostgresShipmentReturn({ shipmentPublicId, customerP
 }
 export async function updatePostgresShipmentReturn({ returnPublicId, status, resolutionNote }) {
   const result = await postgresPool.query(
-    `UPDATE shipment_return_requests SET status=$2,resolution_note=$3,updated_at=now() WHERE public_id=$1 AND (($2='approved' AND status='requested') OR ($2='rejected' AND status='requested') OR ($2='in_transit' AND status='approved') OR ($2='completed' AND status='in_transit')) RETURNING *`,
+    `UPDATE shipment_return_requests SET
+      status = $2, resolution_note = $3, updated_at = now()
+     WHERE public_id = $1
+       AND (
+         ($2 = 'approved' AND status = 'requested')
+         OR ($2 = 'rejected' AND status = 'requested')
+         OR ($2 = 'in_transit' AND status = 'approved')
+         OR ($2 = 'completed' AND status = 'in_transit')
+       )
+     RETURNING *`,
     [returnPublicId, status, resolutionNote || null],
   );
   if (!result.rows[0])
@@ -739,7 +828,19 @@ const mapShipmentClaim = (row) => ({
 export async function getPostgresShipmentClaims({ customerPublicId, includeAll = false }) {
   const rows = (
     await postgresPool.query(
-      `SELECT c.*,j.public_id shipment_public_id,COALESCE((SELECT jsonb_agg(jsonb_build_object('id',e.public_id,'fileName',e.file_name,'mimeType',e.mime_type,'sha256',e.content_sha256,'sizeBytes',e.size_bytes,'createdAt',e.created_at) ORDER BY e.created_at) FROM shipment_claim_evidence e WHERE e.claim_id=c.id),'[]'::jsonb) evidence FROM shipment_protection_claims c JOIN jobs j ON j.id=c.job_id JOIN users u ON u.id=c.customer_id WHERE $2::boolean OR u.public_id=$1 ORDER BY c.created_at DESC`,
+      `SELECT c.*, j.public_id shipment_public_id,
+        COALESCE((
+          SELECT jsonb_agg(jsonb_build_object(
+            'id', e.public_id, 'fileName', e.file_name, 'mimeType', e.mime_type,
+            'sha256', e.content_sha256, 'sizeBytes', e.size_bytes, 'createdAt', e.created_at
+          ) ORDER BY e.created_at)
+          FROM shipment_claim_evidence e WHERE e.claim_id = c.id
+        ), '[]'::jsonb) evidence
+       FROM shipment_protection_claims c
+       JOIN jobs j ON j.id = c.job_id
+       JOIN users u ON u.id = c.customer_id
+       WHERE $2::boolean OR u.public_id = $1
+       ORDER BY c.created_at DESC`,
       [customerPublicId, includeAll],
     )
   ).rows;
@@ -754,9 +855,21 @@ export async function createPostgresShipmentClaim({
 }) {
   const id = `CLM-${crypto.randomUUID()}`,
     result = await postgresPool.query(
-      `INSERT INTO shipment_protection_claims(public_id,job_id,customer_id,claim_type,description,requested_amount_cents,eligible_amount_cents)
- SELECT $1,j.id,j.customer_id,$4,$5,$6,LEAST($6,GREATEST(0,sd.declared_value_cents-p.deductible_cents)) FROM jobs j JOIN users u ON u.id=j.customer_id JOIN shipment_details sd ON sd.job_id=j.id JOIN shipment_protection_plans p ON p.id=sd.protection_plan_id
- WHERE j.public_id=$2 AND u.public_id=$3 AND j.metadata->>'subtype'='shipment' AND j.status IN('completed','cancelled') AND j.updated_at>=now()-interval '7 days' RETURNING *`,
+      `INSERT INTO shipment_protection_claims(
+        public_id, job_id, customer_id, claim_type, description,
+        requested_amount_cents, eligible_amount_cents
+      )
+      SELECT $1, j.id, j.customer_id, $4, $5, $6,
+        LEAST($6, GREATEST(0, sd.declared_value_cents - p.deductible_cents))
+      FROM jobs j
+      JOIN users u ON u.id = j.customer_id
+      JOIN shipment_details sd ON sd.job_id = j.id
+      JOIN shipment_protection_plans p ON p.id = sd.protection_plan_id
+      WHERE j.public_id = $2 AND u.public_id = $3
+        AND j.metadata->>'subtype' = 'shipment'
+        AND j.status IN ('completed', 'cancelled')
+        AND j.updated_at >= now() - interval '7 days'
+      RETURNING *`,
       [
         id,
         shipmentPublicId,
@@ -806,7 +919,12 @@ export async function updatePostgresShipmentClaim({
     });
   const row = (
       await postgresPool.query(
-        `UPDATE shipment_protection_claims SET status=$2,resolution_note=$3,approved_amount_cents=$4,reviewed_by=(SELECT id FROM users WHERE public_id=$5),reviewed_at=now(),updated_at=now() WHERE public_id=$1 RETURNING *`,
+        `UPDATE shipment_protection_claims SET
+          status = $2, resolution_note = $3, approved_amount_cents = $4,
+          reviewed_by = (SELECT id FROM users WHERE public_id = $5),
+          reviewed_at = now(), updated_at = now()
+         WHERE public_id = $1
+         RETURNING *`,
         [claimPublicId, status, resolutionNote || null, approvedCents, actorPublicId],
       )
     ).rows[0],
@@ -842,7 +960,18 @@ export async function addPostgresShipmentClaimEvidence({
       status: 400,
     });
   const result = await postgresPool.query(
-    `INSERT INTO shipment_claim_evidence(public_id,claim_id,uploaded_by,file_name,mime_type,content_ciphertext,content_sha256,size_bytes) SELECT $1,c.id,actor.id,$4,$5,$6,$7,$8 FROM shipment_protection_claims c JOIN users owner ON owner.id=c.customer_id JOIN users actor ON actor.public_id=$3 WHERE c.public_id=$2 AND ($9::boolean OR owner.public_id=$3) AND c.status IN('submitted','under_review') RETURNING *`,
+    `INSERT INTO shipment_claim_evidence(
+      public_id, claim_id, uploaded_by, file_name, mime_type,
+      content_ciphertext, content_sha256, size_bytes
+    )
+    SELECT $1, c.id, actor.id, $4, $5, $6, $7, $8
+    FROM shipment_protection_claims c
+    JOIN users owner ON owner.id = c.customer_id
+    JOIN users actor ON actor.public_id = $3
+    WHERE c.public_id = $2
+      AND ($9::boolean OR owner.public_id = $3)
+      AND c.status IN ('submitted', 'under_review')
+    RETURNING *`,
     [
       `CEV-${crypto.randomUUID()}`,
       claimPublicId,
@@ -868,7 +997,11 @@ export async function getPostgresShipmentClaimEvidenceContent({
 }) {
   const row = (
     await postgresPool.query(
-      `SELECT e.*,owner.public_id owner_public_id FROM shipment_claim_evidence e JOIN shipment_protection_claims c ON c.id=e.claim_id JOIN users owner ON owner.id=c.customer_id WHERE e.public_id=$1 AND ($3::boolean OR owner.public_id=$2)`,
+      `SELECT e.*, owner.public_id owner_public_id
+       FROM shipment_claim_evidence e
+       JOIN shipment_protection_claims c ON c.id = e.claim_id
+       JOIN users owner ON owner.id = c.customer_id
+       WHERE e.public_id = $1 AND ($3::boolean OR owner.public_id = $2)`,
       [evidencePublicId, actorPublicId, includeAll],
     )
   ).rows[0];
@@ -911,7 +1044,18 @@ export async function setPostgresShipmentStatus(
             ],
           }
         : await client.query(
-            `WITH changed AS(UPDATE jobs SET status=$1,driver_id=COALESCE($4,driver_id),version=version+1,updated_at=now(),metadata=CASE WHEN $1::job_status='completed' THEN jsonb_set(metadata,'{etaMin}','0') ELSE metadata END WHERE public_id=$2 AND metadata->>'subtype'='shipment' AND status NOT IN('completed','cancelled') RETURNING id,customer_id) INSERT INTO job_events(job_id,actor_id,status) SELECT id,$3,$1 FROM changed RETURNING job_id`,
+            `WITH changed AS (
+              UPDATE jobs SET status = $1, driver_id = COALESCE($4, driver_id), version = version + 1,
+                updated_at = now(),
+                metadata = CASE WHEN $1::job_status = 'completed'
+                  THEN jsonb_set(metadata, '{etaMin}', '0') ELSE metadata END
+              WHERE public_id = $2 AND metadata->>'subtype' = 'shipment'
+                AND status NOT IN ('completed', 'cancelled')
+              RETURNING id, customer_id
+            )
+            INSERT INTO job_events (job_id, actor_id, status)
+            SELECT id, $3, $1 FROM changed
+            RETURNING job_id`,
             [shipmentDbStatus(status), publicId, actor?.id || null, driverId],
           );
     if (!changed.rows[0])
@@ -953,7 +1097,14 @@ export async function getPostgresShipmentDeliveryCode({
   return deriveDeliveryPin(publicId);
 }
 
-const evidenceSelect = `SELECT e.*,j.public_id shipment_public_id,j.customer_id,d.user_id driver_user_id,ST_Y(e.captured_location::geometry) captured_lat,ST_X(e.captured_location::geometry) captured_lng FROM shipment_delivery_evidence e JOIN jobs j ON j.id=e.job_id LEFT JOIN drivers d ON d.id=j.driver_id`;
+const evidenceSelect = `
+  SELECT e.*, j.public_id shipment_public_id, j.customer_id, d.user_id driver_user_id,
+    ST_Y(e.captured_location::geometry) captured_lat,
+    ST_X(e.captured_location::geometry) captured_lng
+  FROM shipment_delivery_evidence e
+  JOIN jobs j ON j.id = e.job_id
+  LEFT JOIN drivers d ON d.id = j.driver_id
+`;
 
 export async function addPostgresShipmentDeliveryEvidence({
   publicId,
@@ -1005,7 +1156,30 @@ export async function addPostgresShipmentDeliveryEvidence({
       hash = crypto.createHash("sha256").update(content).digest("hex");
     const row = (
       await client.query(
-        `INSERT INTO shipment_delivery_evidence(public_id,job_id,created_by,evidence_type,mime_type,content_ciphertext,content_sha256,size_bytes,captured_location,captured_at,signer_name,signer_relationship,consent_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,CASE WHEN $9::double precision IS NULL THEN NULL ELSE ST_SetSRID(ST_MakePoint($10,$9),4326)::geography END,$11,$12,$13,$14) ON CONFLICT(job_id,evidence_type) DO UPDATE SET public_id=excluded.public_id,created_by=excluded.created_by,mime_type=excluded.mime_type,content_ciphertext=excluded.content_ciphertext,content_sha256=excluded.content_sha256,size_bytes=excluded.size_bytes,captured_location=excluded.captured_location,captured_at=excluded.captured_at,signer_name=excluded.signer_name,signer_relationship=excluded.signer_relationship,consent_version=excluded.consent_version,created_at=now() RETURNING *`,
+        `INSERT INTO shipment_delivery_evidence(
+          public_id, job_id, created_by, evidence_type, mime_type, content_ciphertext,
+          content_sha256, size_bytes, captured_location, captured_at,
+          signer_name, signer_relationship, consent_version
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8,
+          CASE WHEN $9::double precision IS NULL THEN NULL
+            ELSE ST_SetSRID(ST_MakePoint($10, $9), 4326)::geography END,
+          $11, $12, $13, $14
+        )
+        ON CONFLICT (job_id, evidence_type) DO UPDATE SET
+          public_id = excluded.public_id,
+          created_by = excluded.created_by,
+          mime_type = excluded.mime_type,
+          content_ciphertext = excluded.content_ciphertext,
+          content_sha256 = excluded.content_sha256,
+          size_bytes = excluded.size_bytes,
+          captured_location = excluded.captured_location,
+          captured_at = excluded.captured_at,
+          signer_name = excluded.signer_name,
+          signer_relationship = excluded.signer_relationship,
+          consent_version = excluded.consent_version,
+          created_at = now()
+        RETURNING *`,
         [
           id,
           job.id,
@@ -1102,7 +1276,15 @@ export async function verifyPostgresShipmentDelivery({
   try {
     await client.query("BEGIN");
     const result = await client.query(
-      `SELECT j.id,j.status,j.customer_id,j.driver_id,sd.delivery_pin_hash,sd.delivery_pin_failed_attempts,sd.delivery_pin_locked_until,sd.signature_required,d.user_id driver_user_id,u.public_id driver_user_public_id FROM jobs j JOIN shipment_details sd ON sd.job_id=j.id LEFT JOIN drivers d ON d.id=j.driver_id LEFT JOIN users u ON u.id=d.user_id WHERE j.public_id=$1 AND j.metadata->>'subtype'='shipment' FOR UPDATE OF j,sd`,
+      `SELECT j.id, j.status, j.customer_id, j.driver_id,
+        sd.delivery_pin_hash, sd.delivery_pin_failed_attempts, sd.delivery_pin_locked_until,
+        sd.signature_required, d.user_id driver_user_id, u.public_id driver_user_public_id
+       FROM jobs j
+       JOIN shipment_details sd ON sd.job_id = j.id
+       LEFT JOIN drivers d ON d.id = j.driver_id
+       LEFT JOIN users u ON u.id = d.user_id
+       WHERE j.public_id = $1 AND j.metadata->>'subtype' = 'shipment'
+       FOR UPDATE OF j, sd`,
       [publicId],
     );
     const job = result.rows[0];

@@ -47,7 +47,27 @@ const mapTicket = (row) => ({
 async function assignTicketToBestAgent(client, { ticketId, category, reason, assignedBy = null }) {
   const candidate = (
     await client.query(
-      `SELECT p.user_id,u.public_id,load.active_count FROM support_agent_profiles p JOIN users u ON u.id=p.user_id CROSS JOIN LATERAL(SELECT count(*)::int active_count FROM support_tickets open_ticket WHERE open_ticket.assigned_to=p.user_id AND open_ticket.status NOT IN('resolved','closed')) load WHERE u.status='active' AND p.availability<>'offline' AND ('all'=ANY(p.skills) OR $1=ANY(p.skills)) AND load.active_count<p.max_active_tickets AND EXISTS(SELECT 1 FROM user_roles ur WHERE ur.user_id=u.id AND ur.role IN('admin','support')) ORDER BY load.active_count::numeric/p.max_active_tickets,p.availability='busy',p.last_assigned_at NULLS FIRST,u.public_id LIMIT 1 FOR UPDATE OF p SKIP LOCKED`,
+      `SELECT p.user_id, u.public_id, load.active_count
+       FROM support_agent_profiles p
+       JOIN users u ON u.id = p.user_id
+       CROSS JOIN LATERAL (
+         SELECT count(*)::int active_count
+         FROM support_tickets open_ticket
+         WHERE open_ticket.assigned_to = p.user_id
+           AND open_ticket.status NOT IN ('resolved', 'closed')
+       ) load
+       WHERE u.status = 'active'
+         AND p.availability <> 'offline'
+         AND ('all' = ANY(p.skills) OR $1 = ANY(p.skills))
+         AND load.active_count < p.max_active_tickets
+         AND EXISTS (
+           SELECT 1 FROM user_roles ur
+           WHERE ur.user_id = u.id AND ur.role IN ('admin', 'support')
+         )
+       ORDER BY load.active_count::numeric / p.max_active_tickets,
+         p.availability = 'busy', p.last_assigned_at NULLS FIRST, u.public_id
+       LIMIT 1
+       FOR UPDATE OF p SKIP LOCKED`,
       [category],
     )
   ).rows[0];
@@ -70,13 +90,44 @@ async function assignTicketToBestAgent(client, { ticketId, category, reason, ass
 export async function getPostgresSupportTickets({ userPublicId, roles }) {
   const staff = isStaff(roles);
   const result = await postgresPool.query(
-    `SELECT t.*,u.public_id user_public_id,j.public_id job_public_id,a.public_id assigned_public_id,
-    COALESCE((SELECT jsonb_agg(jsonb_build_object('id',m.id,'senderId',s.public_id,'body',m.body,'attachments',m.attachments,'internal',m.internal,'createdAt',m.created_at) ORDER BY m.created_at)
-      FROM support_messages m LEFT JOIN users s ON s.id=m.sender_id WHERE m.ticket_id=t.id AND ($2::boolean OR NOT m.internal)),'[]') messages
-    ,COALESCE((SELECT jsonb_agg(jsonb_build_object('assignedTo',assignee.public_id,'assignedBy',assigner.public_id,'reason',h.reason,'createdAt',h.created_at) ORDER BY h.created_at) FROM support_ticket_assignments h JOIN users assignee ON assignee.id=h.assigned_to LEFT JOIN users assigner ON assigner.id=h.assigned_by WHERE h.ticket_id=t.id),'[]') assignment_history
-    ,COALESCE((SELECT jsonb_agg(jsonb_build_object('level',e.level,'breachKind',e.breach_kind,'assignedTo',ea.public_id,'createdAt',e.created_at) ORDER BY e.created_at) FROM support_escalation_events e LEFT JOIN users ea ON ea.id=e.assigned_to WHERE e.ticket_id=t.id),'[]') escalations
-    FROM support_tickets t JOIN users u ON u.id=t.user_id LEFT JOIN jobs j ON j.id=t.job_id LEFT JOIN users a ON a.id=t.assigned_to
-    WHERE ($2::boolean OR u.public_id=$1) ORDER BY CASE t.priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'normal' THEN 3 ELSE 4 END,t.updated_at DESC`,
+    `SELECT t.*, u.public_id user_public_id, j.public_id job_public_id,
+      a.public_id assigned_public_id,
+      COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+          'id', m.id, 'senderId', s.public_id, 'body', m.body,
+          'attachments', m.attachments, 'internal', m.internal, 'createdAt', m.created_at
+        ) ORDER BY m.created_at)
+        FROM support_messages m
+        LEFT JOIN users s ON s.id = m.sender_id
+        WHERE m.ticket_id = t.id AND ($2::boolean OR NOT m.internal)
+      ), '[]') messages,
+      COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+          'assignedTo', assignee.public_id, 'assignedBy', assigner.public_id,
+          'reason', h.reason, 'createdAt', h.created_at
+        ) ORDER BY h.created_at)
+        FROM support_ticket_assignments h
+        JOIN users assignee ON assignee.id = h.assigned_to
+        LEFT JOIN users assigner ON assigner.id = h.assigned_by
+        WHERE h.ticket_id = t.id
+      ), '[]') assignment_history,
+      COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+          'level', e.level, 'breachKind', e.breach_kind,
+          'assignedTo', ea.public_id, 'createdAt', e.created_at
+        ) ORDER BY e.created_at)
+        FROM support_escalation_events e
+        LEFT JOIN users ea ON ea.id = e.assigned_to
+        WHERE e.ticket_id = t.id
+      ), '[]') escalations
+    FROM support_tickets t
+    JOIN users u ON u.id = t.user_id
+    LEFT JOIN jobs j ON j.id = t.job_id
+    LEFT JOIN users a ON a.id = t.assigned_to
+    WHERE ($2::boolean OR u.public_id = $1)
+    ORDER BY CASE t.priority
+      WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'normal' THEN 3 ELSE 4 END,
+      t.updated_at DESC`,
     [userPublicId, staff],
   );
   return result.rows.map(mapTicket);
@@ -88,15 +139,46 @@ export async function getPostgresOperationsSupportTicketPage({
   query = "",
 } = {}) {
   const result = await postgresPool.query(
-    `SELECT t.*,u.public_id user_public_id,j.public_id job_public_id,a.public_id assigned_public_id,
-    to_char(t.updated_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') cursor_updated_at,
-    COALESCE((SELECT jsonb_agg(jsonb_build_object('id',m.id,'senderId',s.public_id,'body',m.body,'attachments',m.attachments,'internal',m.internal,'createdAt',m.created_at) ORDER BY m.created_at) FROM support_messages m LEFT JOIN users s ON s.id=m.sender_id WHERE m.ticket_id=t.id),'[]') messages,
-    COALESCE((SELECT jsonb_agg(jsonb_build_object('assignedTo',assignee.public_id,'assignedBy',assigner.public_id,'reason',h.reason,'createdAt',h.created_at) ORDER BY h.created_at) FROM support_ticket_assignments h JOIN users assignee ON assignee.id=h.assigned_to LEFT JOIN users assigner ON assigner.id=h.assigned_by WHERE h.ticket_id=t.id),'[]') assignment_history,
-    COALESCE((SELECT jsonb_agg(jsonb_build_object('level',e.level,'breachKind',e.breach_kind,'assignedTo',ea.public_id,'createdAt',e.created_at) ORDER BY e.created_at) FROM support_escalation_events e LEFT JOIN users ea ON ea.id=e.assigned_to WHERE e.ticket_id=t.id),'[]') escalations
-    FROM support_tickets t JOIN users u ON u.id=t.user_id LEFT JOIN jobs j ON j.id=t.job_id LEFT JOIN users a ON a.id=t.assigned_to
-    WHERE ($1='' OR t.public_id ILIKE '%'||$1||'%' OR t.subject ILIKE '%'||$1||'%' OR u.email ILIKE '%'||$1||'%')
-      AND ($2::timestamptz IS NULL OR (t.updated_at,t.id)<($2::timestamptz,$3::uuid))
-    ORDER BY t.updated_at DESC,t.id DESC LIMIT $4`,
+    `SELECT t.*, u.public_id user_public_id, j.public_id job_public_id,
+      a.public_id assigned_public_id,
+      to_char(t.updated_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') cursor_updated_at,
+      COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+          'id', m.id, 'senderId', s.public_id, 'body', m.body,
+          'attachments', m.attachments, 'internal', m.internal, 'createdAt', m.created_at
+        ) ORDER BY m.created_at)
+        FROM support_messages m
+        LEFT JOIN users s ON s.id = m.sender_id
+        WHERE m.ticket_id = t.id
+      ), '[]') messages,
+      COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+          'assignedTo', assignee.public_id, 'assignedBy', assigner.public_id,
+          'reason', h.reason, 'createdAt', h.created_at
+        ) ORDER BY h.created_at)
+        FROM support_ticket_assignments h
+        JOIN users assignee ON assignee.id = h.assigned_to
+        LEFT JOIN users assigner ON assigner.id = h.assigned_by
+        WHERE h.ticket_id = t.id
+      ), '[]') assignment_history,
+      COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+          'level', e.level, 'breachKind', e.breach_kind,
+          'assignedTo', ea.public_id, 'createdAt', e.created_at
+        ) ORDER BY e.created_at)
+        FROM support_escalation_events e
+        LEFT JOIN users ea ON ea.id = e.assigned_to
+        WHERE e.ticket_id = t.id
+      ), '[]') escalations
+    FROM support_tickets t
+    JOIN users u ON u.id = t.user_id
+    LEFT JOIN jobs j ON j.id = t.job_id
+    LEFT JOIN users a ON a.id = t.assigned_to
+    WHERE ($1 = '' OR t.public_id ILIKE '%' || $1 || '%'
+      OR t.subject ILIKE '%' || $1 || '%' OR u.email ILIKE '%' || $1 || '%')
+      AND ($2::timestamptz IS NULL OR (t.updated_at, t.id) < ($2::timestamptz, $3::uuid))
+    ORDER BY t.updated_at DESC, t.id DESC
+    LIMIT $4`,
     [query.trim(), cursor?.updatedAt || null, cursor?.id || null, limit + 1],
   );
   const hasMore = result.rows.length > limit,
@@ -178,7 +260,16 @@ export async function createPostgresSupportTicket({
     const publicId = ticketId();
     const ticket = (
       await client.query(
-        `INSERT INTO support_tickets(public_id,user_id,job_id,category,priority,subject,first_response_due_at,resolution_due_at) SELECT $1,$2,$3,$4,$5,$6,now()+(p.first_response_minutes*interval '1 minute'),now()+(p.resolution_minutes*interval '1 minute') FROM support_sla_policies p WHERE p.priority=$5 AND p.active RETURNING id`,
+        `INSERT INTO support_tickets(
+          public_id, user_id, job_id, category, priority, subject,
+          first_response_due_at, resolution_due_at
+        )
+        SELECT $1, $2, $3, $4, $5, $6,
+          now() + (p.first_response_minutes * interval '1 minute'),
+          now() + (p.resolution_minutes * interval '1 minute')
+        FROM support_sla_policies p
+        WHERE p.priority = $5 AND p.active
+        RETURNING id`,
         [publicId, user.id, jobId, category, priority, subject],
       )
     ).rows[0];
@@ -348,7 +439,15 @@ export async function updatePostgresSupportTicket({
     if (assignedTo) {
       const target = (
         await client.query(
-          `SELECT u.id FROM users u JOIN support_agent_profiles p ON p.user_id=u.id WHERE u.public_id=$1 AND u.status='active' AND p.availability<>'offline' AND EXISTS(SELECT 1 FROM user_roles ur WHERE ur.user_id=u.id AND ur.role IN('admin','support'))`,
+          `SELECT u.id
+           FROM users u
+           JOIN support_agent_profiles p ON p.user_id = u.id
+           WHERE u.public_id = $1 AND u.status = 'active'
+             AND p.availability <> 'offline'
+             AND EXISTS (
+               SELECT 1 FROM user_roles ur
+               WHERE ur.user_id = u.id AND ur.role IN ('admin', 'support')
+             )`,
           [assignedTo],
         )
       ).rows[0];
@@ -359,7 +458,18 @@ export async function updatePostgresSupportTicket({
       assignedId = target.id;
     } else if (!assignedId) assignedId = actor?.id || null;
     await client.query(
-      `UPDATE support_tickets t SET status=COALESCE($2,t.status),priority=COALESCE($3,t.priority),assigned_to=$4,resolved_at=CASE WHEN $2 IN('resolved','closed') THEN now() WHEN $2 IS NOT NULL THEN NULL ELSE t.resolved_at END,updated_at=now() FROM support_sla_policies p WHERE t.id=$1 AND p.priority=COALESCE($3,t.priority)`,
+      `UPDATE support_tickets t SET
+        status = COALESCE($2, t.status),
+        priority = COALESCE($3, t.priority),
+        assigned_to = $4,
+        resolved_at = CASE
+          WHEN $2 IN ('resolved', 'closed') THEN now()
+          WHEN $2 IS NOT NULL THEN NULL
+          ELSE t.resolved_at
+        END,
+        updated_at = now()
+      FROM support_sla_policies p
+      WHERE t.id = $1 AND p.priority = COALESCE($3, t.priority)`,
       [current.id, status || null, priority || null, assignedId],
     );
     if (assignedId && String(assignedId) !== String(current.assigned_to)) {
@@ -397,14 +507,29 @@ const mapAgent = (row) => ({
 export async function getSupportAgents() {
   const rows = (
     await postgresPool.query(
-      `SELECT u.public_id,u.name,p.*,count(t.id) FILTER(WHERE t.status NOT IN('resolved','closed'))::int active_tickets FROM support_agent_profiles p JOIN users u ON u.id=p.user_id LEFT JOIN support_tickets t ON t.assigned_to=p.user_id GROUP BY u.id,p.user_id ORDER BY p.availability='offline',active_tickets,u.name`,
+      `SELECT u.public_id, u.name, p.*,
+        count(t.id) FILTER (WHERE t.status NOT IN ('resolved', 'closed'))::int active_tickets
+       FROM support_agent_profiles p
+       JOIN users u ON u.id = p.user_id
+       LEFT JOIN support_tickets t ON t.assigned_to = p.user_id
+       GROUP BY u.id, p.user_id
+       ORDER BY p.availability = 'offline', active_tickets, u.name`,
     )
   ).rows;
   return rows.map(mapAgent);
 }
 export async function updateSupportAgent({ userPublicId, availability, maxActiveTickets, skills }) {
   const result = await postgresPool.query(
-    `UPDATE support_agent_profiles p SET availability=COALESCE($2,p.availability),max_active_tickets=COALESCE($3,p.max_active_tickets),skills=COALESCE($4,p.skills),updated_at=now() FROM users u WHERE p.user_id=u.id AND u.public_id=$1 RETURNING u.public_id,u.name,p.*,(SELECT count(*)::int FROM support_tickets t WHERE t.assigned_to=p.user_id AND t.status NOT IN('resolved','closed')) active_tickets`,
+    `UPDATE support_agent_profiles p SET
+      availability = COALESCE($2, p.availability),
+      max_active_tickets = COALESCE($3, p.max_active_tickets),
+      skills = COALESCE($4, p.skills),
+      updated_at = now()
+     FROM users u
+     WHERE p.user_id = u.id AND u.public_id = $1
+     RETURNING u.public_id, u.name, p.*,
+       (SELECT count(*)::int FROM support_tickets t
+        WHERE t.assigned_to = p.user_id AND t.status NOT IN ('resolved', 'closed')) active_tickets`,
     [userPublicId, availability || null, maxActiveTickets || null, skills || null],
   );
   if (!result.rows[0])
@@ -422,7 +547,14 @@ export async function processSupportQueue({ limit = 50 } = {}) {
     await client.query("BEGIN");
     const unassigned = (
       await client.query(
-        `SELECT id,public_id,category FROM support_tickets WHERE assigned_to IS NULL AND status NOT IN('resolved','closed') ORDER BY CASE priority WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'normal' THEN 3 ELSE 4 END,created_at FOR UPDATE SKIP LOCKED LIMIT $1`,
+        `SELECT id, public_id, category
+         FROM support_tickets
+         WHERE assigned_to IS NULL AND status NOT IN ('resolved', 'closed')
+         ORDER BY CASE priority
+           WHEN 'urgent' THEN 1 WHEN 'high' THEN 2 WHEN 'normal' THEN 3 ELSE 4 END,
+           created_at
+         FOR UPDATE SKIP LOCKED
+         LIMIT $1`,
         [limit],
       )
     ).rows;
@@ -436,7 +568,22 @@ export async function processSupportQueue({ limit = 50 } = {}) {
     }
     const candidates = (
       await client.query(
-        `SELECT id,public_id,category,assigned_to,CASE WHEN first_responded_at IS NULL AND first_response_due_at<now() THEN 1 WHEN resolution_due_at<now() THEN 2 ELSE 0 END target_level FROM support_tickets WHERE status NOT IN('resolved','closed') AND ((first_responded_at IS NULL AND first_response_due_at<now() AND escalation_level<1) OR (resolution_due_at<now() AND escalation_level<2)) ORDER BY resolution_due_at FOR UPDATE SKIP LOCKED LIMIT $1`,
+        `SELECT id, public_id, category, assigned_to,
+          CASE
+            WHEN first_responded_at IS NULL AND first_response_due_at < now() THEN 1
+            WHEN resolution_due_at < now() THEN 2
+            ELSE 0
+          END target_level
+         FROM support_tickets
+         WHERE status NOT IN ('resolved', 'closed')
+           AND (
+             (first_responded_at IS NULL AND first_response_due_at < now()
+              AND escalation_level < 1)
+             OR (resolution_due_at < now() AND escalation_level < 2)
+           )
+         ORDER BY resolution_due_at
+         FOR UPDATE SKIP LOCKED
+         LIMIT $1`,
         [limit],
       )
     ).rows;
@@ -478,7 +625,10 @@ export async function processSupportQueue({ limit = 50 } = {}) {
           ).rows.map((row) => row.id);
       for (const userId of recipients)
         await client.query(
-          `INSERT INTO notifications(public_id,user_id,channel,template,payload,deduplication_key,status) VALUES($1,$2,'in_app','support_escalated',$3,$4,'sent') ON CONFLICT(user_id,channel,deduplication_key) DO NOTHING`,
+          `INSERT INTO notifications(
+            public_id, user_id, channel, template, payload, deduplication_key, status
+          ) VALUES ($1, $2, 'in_app', 'support_escalated', $3, $4, 'sent')
+          ON CONFLICT (user_id, channel, deduplication_key) DO NOTHING`,
           [
             notificationId(),
             userId,
@@ -508,7 +658,13 @@ export async function processSupportQueue({ limit = 50 } = {}) {
 
 export async function getPostgresNotifications(userPublicId) {
   const result = await postgresPool.query(
-    `SELECT n.public_id id,n.channel,n.template,n.payload,n.status,n.created_at,n.read_at FROM notifications n JOIN users u ON u.id=n.user_id WHERE u.public_id=$1 ORDER BY n.created_at DESC LIMIT 100`,
+    `SELECT n.public_id id, n.channel, n.template, n.payload, n.status,
+      n.created_at, n.read_at
+     FROM notifications n
+     JOIN users u ON u.id = n.user_id
+     WHERE u.public_id = $1
+     ORDER BY n.created_at DESC
+     LIMIT 100`,
     [userPublicId],
   );
   return result.rows.map((row) => ({
@@ -595,7 +751,12 @@ export async function recordSystemAudit({
 
 export async function getPostgresAuditEvents(limit = 100) {
   const result = await postgresPool.query(
-    `SELECT ae.id::text,u.public_id actor_id,ae.entity_type,ae.entity_id,ae.action,COALESCE(ae.after_data,'{}') payload,ae.occurred_at FROM audit_events ae LEFT JOIN users u ON u.id=ae.actor_id ORDER BY ae.occurred_at DESC LIMIT $1`,
+    `SELECT ae.id::text, u.public_id actor_id, ae.entity_type, ae.entity_id, ae.action,
+      COALESCE(ae.after_data, '{}') payload, ae.occurred_at
+     FROM audit_events ae
+     LEFT JOIN users u ON u.id = ae.actor_id
+     ORDER BY ae.occurred_at DESC
+     LIMIT $1`,
     [Math.min(500, Math.max(1, limit))],
   );
   return result.rows.map((row) => ({
@@ -611,7 +772,18 @@ export async function getPostgresAuditEvents(limit = 100) {
 
 export async function getPostgresAuditEventPage({ limit = 100, cursor = null, query = "" } = {}) {
   const result = await postgresPool.query(
-    `SELECT ae.id::text,u.public_id actor_id,ae.entity_type,ae.entity_id,ae.action,COALESCE(ae.after_data,'{}') payload,ae.occurred_at,to_char(ae.occurred_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') cursor_occurred_at FROM audit_events ae LEFT JOIN users u ON u.id=ae.actor_id WHERE ($1='' OR ae.action ILIKE '%'||$1||'%' OR ae.entity_type ILIKE '%'||$1||'%' OR ae.entity_id ILIKE '%'||$1||'%' OR u.public_id ILIKE '%'||$1||'%') AND ($2::timestamptz IS NULL OR (ae.occurred_at,ae.id)<($2::timestamptz,$3::bigint)) ORDER BY ae.occurred_at DESC,ae.id DESC LIMIT $4`,
+    `SELECT ae.id::text, u.public_id actor_id, ae.entity_type, ae.entity_id, ae.action,
+      COALESCE(ae.after_data, '{}') payload, ae.occurred_at,
+      to_char(ae.occurred_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') cursor_occurred_at
+     FROM audit_events ae
+     LEFT JOIN users u ON u.id = ae.actor_id
+     WHERE ($1 = '' OR ae.action ILIKE '%' || $1 || '%'
+       OR ae.entity_type ILIKE '%' || $1 || '%'
+       OR ae.entity_id ILIKE '%' || $1 || '%'
+       OR u.public_id ILIKE '%' || $1 || '%')
+       AND ($2::timestamptz IS NULL OR (ae.occurred_at, ae.id) < ($2::timestamptz, $3::bigint))
+     ORDER BY ae.occurred_at DESC, ae.id DESC
+     LIMIT $4`,
     [query.trim(), cursor?.occurredAt || null, cursor?.id || null, limit + 1],
   );
   const hasMore = result.rows.length > limit,
@@ -645,13 +817,24 @@ export async function getPostgresAdminFinancials() {
       `SELECT COALESCE(sum(amount_cents) FILTER(WHERE status='succeeded'),0)::bigint refunded_cents,count(*) FILTER(WHERE status='succeeded')::int refund_count FROM refunds`,
     ),
     postgresPool.query(
-      `SELECT COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint cents FROM ledger_accounts a LEFT JOIN ledger_entries e ON e.account_id=a.id WHERE a.owner_type='platform' AND a.owner_id IS NULL AND a.account_type='revenue'`,
+      `SELECT COALESCE(sum(CASE WHEN e.direction = 'credit' THEN e.amount_cents
+        ELSE -e.amount_cents END), 0)::bigint cents
+       FROM ledger_accounts a
+       LEFT JOIN ledger_entries e ON e.account_id = a.id
+       WHERE a.owner_type = 'platform' AND a.owner_id IS NULL AND a.account_type = 'revenue'`,
     ),
     postgresPool.query(
-      `SELECT COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint cents FROM ledger_accounts a LEFT JOIN ledger_entries e ON e.account_id=a.id WHERE a.owner_type='merchant' AND a.account_type='payable'`,
+      `SELECT COALESCE(sum(CASE WHEN e.direction = 'credit' THEN e.amount_cents
+        ELSE -e.amount_cents END), 0)::bigint cents
+       FROM ledger_accounts a
+       LEFT JOIN ledger_entries e ON e.account_id = a.id
+       WHERE a.owner_type = 'merchant' AND a.account_type = 'payable'`,
     ),
     postgresPool.query(
-      `SELECT COALESCE(sum(amount_cents) FILTER(WHERE status IN('pending','processing')),0)::bigint pending_cents,count(*) FILTER(WHERE status IN('pending','processing'))::int pending_count FROM payouts`,
+      `SELECT COALESCE(sum(amount_cents) FILTER (WHERE status IN ('pending', 'processing')), 0)::bigint
+        pending_cents,
+        count(*) FILTER (WHERE status IN ('pending', 'processing'))::int pending_count
+       FROM payouts`,
     ),
   ]);
   const money = (value) => Number(value || 0) / 100;
