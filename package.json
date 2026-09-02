@@ -39,6 +39,7 @@
     "test:security": "node scripts/security-smoke.mjs",
     "test:authorization": "vitest run tests/unit/authorization.test.js",
     "test:domain-purity": "node scripts/domain-purity-contract.mjs",
+    "test:domain-contracts": "node scripts/domain-contracts-contract.mjs",
     "test:module-references": "node scripts/module-references-contract.mjs",
     "test:dead-code": "node scripts/dead-code-contract.mjs",
     "test:docs-drift": "node scripts/docs-drift-contract.mjs",
@@ -49,8 +50,8 @@
     "test:user-view": "node scripts/user-view-contract.mjs",
     "test:error-disclosure": "node scripts/error-disclosure-smoke.mjs",
     "test:realtime-audience": "node scripts/realtime-audience-smoke.mjs",
-    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"server/**/*.js\" \"scripts/**/*.mjs\" \"tests/**/*.js\" \"vitest.config.js\" \"apps/mobile/App.tsx\" \"apps/mobile/src/**/*.{ts,tsx}\"",
-    "test:format": "prettier --check \"src/**/*.{ts,tsx,css}\" \"server/**/*.js\" \"scripts/**/*.mjs\" \"tests/**/*.js\" \"vitest.config.js\" \"apps/mobile/App.tsx\" \"apps/mobile/src/**/*.{ts,tsx}\"",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"server/**/*.js\" \"scripts/**/*.mjs\" \"tests/**/*.js\" \"vitest.config.js\" \"packages/**/*.{ts,tsx,js,json}\" \"apps/mobile/App.tsx\" \"apps/mobile/src/**/*.{ts,tsx}\"",
+    "test:format": "prettier --check \"src/**/*.{ts,tsx,css}\" \"server/**/*.js\" \"scripts/**/*.mjs\" \"tests/**/*.js\" \"vitest.config.js\" \"packages/**/*.{ts,tsx,js,json}\" \"apps/mobile/App.tsx\" \"apps/mobile/src/**/*.{ts,tsx}\"",
     "test:line-length": "node scripts/line-length-ratchet.mjs",
     "test:rls-matrix": "node scripts/rls-matrix-check.mjs",
     "test:rls-guard": "node scripts/rls-guard-contract.mjs",
@@ -147,6 +148,7 @@
     "test:idempotency-prune": "node scripts/idempotency-prune-smoke.mjs"
   },
   "dependencies": {
+    "@flash/domain-contracts": "file:packages/domain-contracts",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/auto-instrumentations-node": "^0.79.0",
     "@opentelemetry/exporter-trace-otlp-proto": "^0.221.0",

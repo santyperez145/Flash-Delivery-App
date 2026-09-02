@@ -15,7 +15,7 @@ import path from "node:path";
 
 const MAX_LINE_LENGTH = 200;
 const BASELINE_PATH = "scripts/line-length-baseline.json";
-const ROOTS = ["src", "apps/mobile/src", "apps/mobile/App.tsx", "server", "scripts"];
+const ROOTS = ["src", "apps/mobile/src", "apps/mobile/App.tsx", "server", "scripts", "packages"];
 const EXTENSIONS = new Set([".ts", ".tsx", ".js", ".mjs"]);
 
 async function collect(entry) {
