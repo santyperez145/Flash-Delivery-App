@@ -26,6 +26,12 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 - [ ] **Candidatas post-Fase 0 (no se implementan aún):** FCM/APNs directos, microservicios/Kubernetes HPA, Redis administrado, WebSockets productivos, IA de producto, dinero productivo Mercado Pago, apps EAS en stores. Bloqueo: dueño (credenciales, gasto, dispositivos, staging).
 - [~] Uber/DoorDash ya operan esas capas en producción. Flash las tiene como deuda nombrada; fingirlas en Fase 0 empeora la métrica de la auditoría.
 
+## Avance 2 de septiembre de 2026 — ARC-001, Cuenta mobile por responsabilidad
+
+- [x] `CustomerAccountScreen` (1.079) queda como shell (~220). Seguridad, referidos, dieta, inbox, soporte, libreta y pagos viven en módulos propios; `test:responsive-layout` fija techo y cableado.
+- [~] Uber y DoorDash aíslan security/payments/addresses/help. Flash ahora también en mobile; sigue por debajo sin techo CI de cada panel ni unificar tipos divergentes.
+- [ ] ARC-001 global sigue abierto: unificar tipos divergentes y 251 líneas largas SQL.
+
 ## Avance 2 de septiembre de 2026 — ARC-001, phone-stage por audiencia
 
 - [x] `OperationsSurface` (941) deja de mezclar comercio, conductor y ops. Cada audiencia es un módulo y `App.tsx` las carga en chunks separados; primitivas compartidas viven en `ops-primitives.tsx`.
