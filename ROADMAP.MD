@@ -8,6 +8,21 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Decisión 2 de septiembre de 2026 — competir como Uber/DoorDash sin romper Fase 0
+
+Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adoptar la mejor tecnología de la competencia.
+
+- [x] **Lectura operativa:** durante Fase 0 (hasta 20/09/2026) “igual que la competencia” significa su **barra de ingeniería** —dominio compartido, consolas por responsabilidad, CI bloqueante, RLS, degradación honesta— no copiar verticales, pantallas nuevas ni providers productivos sin credenciales.
+- [x] **Qué se implementa ahora:** P0 de [`docs/backlog-tecnico.md`](docs/backlog-tecnico.md), empezando por ARC-001 (modularización + contratos). Cada entrega declara contra qué se comparó y dónde Flash sigue por debajo.
+- [ ] **Candidatas post-Fase 0 (no se implementan aún):** FCM/APNs directos, microservicios/Kubernetes HPA, Redis administrado, WebSockets productivos, IA de producto, dinero productivo Mercado Pago, apps EAS en stores. Bloqueo: dueño (credenciales, gasto, dispositivos, staging).
+- [~] Uber/DoorDash ya operan esas capas en producción. Flash las tiene como deuda nombrada; fingirlas en Fase 0 empeora la métrica de la auditoría.
+
+## Avance 2 de septiembre de 2026 — ARC-001, marketplace ops fuera de AdminConsole
+
+- [x] Dispatch, comercios y supply de drivers viven en `AdminMarketplacePanels.tsx`; `AdminConsole.tsx` baja a ~499 como shell de navegación/orquestación.
+- [~] Uber Ops / DoorDash Drive aíslan asignación y oferta. Flash ahora también en módulos propios; sigue por debajo sin techo CI del archivo ni unificar tipos divergentes.
+- [ ] ARC-001 global sigue abierto: unificar tipos divergentes y 251 líneas largas SQL.
+
 ## Avance 2 de septiembre de 2026 — ARC-001, contratos compartidos lote 2
 
 - [x] `ServiceQuickReply`, `ShipmentClaim` y `DispatchOffer` viven en `@flash/domain-contracts` (23 tipos compartidos); web y mobile los reexportan; `MerchantOperationsDashboard` sigue local por `Restaurant` divergente.
