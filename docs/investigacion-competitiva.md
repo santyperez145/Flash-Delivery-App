@@ -742,7 +742,16 @@ variante instalada; el bootstrap pide la audiencia de esa variante, no la
 prioridad de roles. `User` ya es contrato compartido; Order/Restaurant siguen
 divergentes.
 
-### Decisión 2 de septiembre de 2026 — User compartido sin mentir Order/Restaurant
+### Decisión 2 de septiembre de 2026 — landing sin login embebido
+
+Uber.com separa la portada de conversión del formulario de cuenta. Meter email
+y contraseña en el hero convierte marketing en un panel de IT y baja la
+confianza frente a la competencia.
+
+Flash parte la superficie: `PublicLanding` (nav + hero a sangre + servicios con
+tokens food/ride/shipment) y `WebLogin` (acceso protegido). El CTA «Ingresar»
+abre el formulario; la portada no tiene `password`. Sigue por debajo: sin quote
+pública anónima, ciudades reales ni badges de store.
 
 Las plataformas comparables tienen un solo modelo de cuenta entre superficies.
 Flash alineó `User` a la proyección del servidor (`sanitizeUser`/`mapUser`):

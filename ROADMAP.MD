@@ -50,6 +50,12 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 - [~] Uber/DoorDash tienen clientes por dominio. Flash ahora separa red de recursos en web y mobile; `User` ya compartido; sigue por debajo Order/Restaurant.
 - [ ] ARC-001 global sigue abierto: Order/Restaurant y 251 líneas largas SQL.
 
+## Avance 2 de septiembre de 2026 — portada pública sin login embebido
+
+- [x] La landing (`PublicLanding`) es hero a sangre + servicios Flash; el formulario vive en `WebLogin` aparte. CTA «Ingresar» / «Ingresar a Flash» abre el acceso. Sin password en la portada, sin cotizador anónimo.
+- [~] Uber cotiza sin cuenta y tiene ciudades/stores. Flash no: falta quote pública y cobertura real. Inventarlo mentiría el producto.
+- [ ] **Candidata post-Fase 0:** SEO, ciudades reales, badges de store, FoodWagon.
+
 ## Avance 2 de septiembre de 2026 — portada pública al patrón Uber
 
 - [x] La superficie de acceso (`WebLogin`) pasa a nav + titular + ingreso real, como uber.com. No hay pickup/dropoff anónimo ni ciudades/comercios de demostración; el CTA es autenticarse.
