@@ -38,7 +38,16 @@ export async function getPostgresRestaurants({ publicIds = null, ownerPublicId =
   const result = await postgresPool.query(
     `
     SELECT m.id, m.public_id, m.owner_id, owner.public_id AS owner_public_id,
-      m.name, COALESCE(branch.address,m.address) address, CASE WHEN branch.id IS NULL THEN m.open ELSE branch.open AND branch.status='active' AND app.branch_is_scheduled_open(branch.id,now()) END open, COALESCE(branch.open,m.open) manual_open, COALESCE(branch.eta_min,m.eta_min) eta_min, m.delivery_fee_cents, m.metadata,
+      m.name,
+      COALESCE(branch.address, m.address) address,
+      CASE
+        WHEN branch.id IS NULL THEN m.open
+        ELSE branch.open AND branch.status = 'active' AND app.branch_is_scheduled_open(branch.id, now())
+      END open,
+      COALESCE(branch.open, m.open) manual_open,
+      COALESCE(branch.eta_min, m.eta_min) eta_min,
+      m.delivery_fee_cents,
+      m.metadata,
       (SELECT round(avg(r.score),2) FROM ratings r WHERE r.subject_type='merchant' AND r.subject_id=m.id) AS merchant_rating,
       ST_Y(COALESCE(branch.location,m.location)::geometry) AS lat, ST_X(COALESCE(branch.location,m.location)::geometry) AS lng,
       ci.public_id AS item_public_id, ci.name AS item_name, ci.description,
@@ -295,7 +304,14 @@ const publicRestaurant = (restaurant) => ({
 });
 export async function getPostgresRestaurantPage({ limit = 20, cursor = null, query = "" } = {}) {
   const page = await postgresPool.query(
-      `SELECT id,public_id,created_at,to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') cursor_created_at FROM merchants WHERE status='active' AND ($1='' OR name ILIKE '%'||$1||'%' OR metadata->>'cuisine' ILIKE '%'||$1||'%') AND ($2::timestamptz IS NULL OR (created_at,id)>($2::timestamptz,$3::uuid)) ORDER BY created_at,id LIMIT $4`,
+      `SELECT id, public_id, created_at,
+         to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') cursor_created_at
+       FROM merchants
+       WHERE status = 'active'
+         AND ($1 = '' OR name ILIKE '%' || $1 || '%' OR metadata->>'cuisine' ILIKE '%' || $1 || '%')
+         AND ($2::timestamptz IS NULL OR (created_at, id) > ($2::timestamptz, $3::uuid))
+       ORDER BY created_at, id
+       LIMIT $4`,
       [query.trim(), cursor?.createdAt || null, cursor?.id || null, limit + 1],
     ),
     hasMore = page.rows.length > limit,
@@ -320,7 +336,13 @@ export async function getPostgresOperationsRestaurantPage({
   query = "",
 } = {}) {
   const page = await postgresPool.query(
-    `SELECT id,public_id,to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') cursor_created_at FROM merchants WHERE ($1='' OR name ILIKE '%'||$1||'%' OR public_id ILIKE '%'||$1||'%') AND ($2::timestamptz IS NULL OR (created_at,id)>($2::timestamptz,$3::uuid)) ORDER BY created_at,id LIMIT $4`,
+    `SELECT id, public_id,
+       to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') cursor_created_at
+     FROM merchants
+     WHERE ($1 = '' OR name ILIKE '%' || $1 || '%' OR public_id ILIKE '%' || $1 || '%')
+       AND ($2::timestamptz IS NULL OR (created_at, id) > ($2::timestamptz, $3::uuid))
+     ORDER BY created_at, id
+     LIMIT $4`,
     [query.trim(), cursor?.createdAt || null, cursor?.id || null, limit + 1],
   );
   const hasMore = page.rows.length > limit,
@@ -411,7 +433,12 @@ export async function createPostgresMenuItem(merchantPublicId, item) {
     ],
   );
   await postgresPool.query(
-    `INSERT INTO catalog_branch_inventory(branch_id,catalog_item_id,available) SELECT b.id,c.id,true FROM merchant_branches b JOIN catalog_items c ON c.merchant_id=b.merchant_id WHERE b.merchant_id=$1 AND c.public_id=$2 ON CONFLICT DO NOTHING`,
+    `INSERT INTO catalog_branch_inventory(branch_id, catalog_item_id, available)
+     SELECT b.id, c.id, true
+     FROM merchant_branches b
+     JOIN catalog_items c ON c.merchant_id = b.merchant_id
+     WHERE b.merchant_id = $1 AND c.public_id = $2
+     ON CONFLICT DO NOTHING`,
     [merchant.rows[0].id, item.id],
   );
   return (
@@ -444,7 +471,13 @@ export async function updatePostgresMenuItem(merchantPublicId, itemPublicId, cha
   );
   if (typeof changes.stock === "boolean")
     await postgresPool.query(
-      `UPDATE catalog_branch_inventory i SET available=$3,version=version+1,updated_at=now() FROM merchant_branches b JOIN merchants m ON m.id=b.merchant_id JOIN catalog_items c ON c.merchant_id=m.id WHERE i.branch_id=b.id AND i.catalog_item_id=c.id AND m.public_id=$1 AND c.public_id=$2`,
+      `UPDATE catalog_branch_inventory i
+       SET available = $3, version = version + 1, updated_at = now()
+       FROM merchant_branches b
+       JOIN merchants m ON m.id = b.merchant_id
+       JOIN catalog_items c ON c.merchant_id = m.id
+       WHERE i.branch_id = b.id AND i.catalog_item_id = c.id
+         AND m.public_id = $1 AND c.public_id = $2`,
       [merchantPublicId, itemPublicId, changes.stock],
     );
   return (
@@ -465,7 +498,13 @@ export async function replacePostgresItemModifiers({
     await client.query("BEGIN");
     const item = (
       await client.query(
-        `SELECT c.id FROM catalog_items c JOIN merchants m ON m.id=c.merchant_id JOIN users u ON u.id=m.owner_id WHERE m.public_id=$1 AND c.public_id=$2 AND ($4::boolean OR u.public_id=$3) FOR UPDATE OF c`,
+        `SELECT c.id
+         FROM catalog_items c
+         JOIN merchants m ON m.id = c.merchant_id
+         JOIN users u ON u.id = m.owner_id
+         WHERE m.public_id = $1 AND c.public_id = $2
+           AND ($4::boolean OR u.public_id = $3)
+         FOR UPDATE OF c`,
         [merchantPublicId, itemPublicId, actorPublicId, admin],
       )
     ).rows[0];
@@ -525,7 +564,13 @@ export async function replacePostgresItemDietary({
     await client.query("BEGIN");
     const item = (
       await client.query(
-        `SELECT c.id FROM catalog_items c JOIN merchants m ON m.id=c.merchant_id JOIN users u ON u.id=m.owner_id WHERE m.public_id=$1 AND c.public_id=$2 AND ($4::boolean OR u.public_id=$3) FOR UPDATE OF c`,
+        `SELECT c.id
+         FROM catalog_items c
+         JOIN merchants m ON m.id = c.merchant_id
+         JOIN users u ON u.id = m.owner_id
+         WHERE m.public_id = $1 AND c.public_id = $2
+           AND ($4::boolean OR u.public_id = $3)
+         FOR UPDATE OF c`,
         [merchantPublicId, itemPublicId, actorPublicId, admin],
       )
     ).rows[0];
@@ -591,7 +636,15 @@ export async function updatePostgresBranch({
   if (!fields.length) throw Object.assign(new Error("No hay cambios"), { status: 400 });
   values.push(merchantPublicId, branchPublicId, actorPublicId, admin);
   const result = await postgresPool.query(
-    `UPDATE merchant_branches b SET ${fields.join(",")},updated_at=now() FROM merchants m JOIN users u ON u.id=m.owner_id WHERE b.merchant_id=m.id AND m.public_id=$${values.length - 3} AND b.public_id=$${values.length - 2} AND ($${values.length}::boolean OR u.public_id=$${values.length - 1}) RETURNING b.public_id`,
+    `UPDATE merchant_branches b
+     SET ${fields.join(",")}, updated_at = now()
+     FROM merchants m
+     JOIN users u ON u.id = m.owner_id
+     WHERE b.merchant_id = m.id
+       AND m.public_id = $${values.length - 3}
+       AND b.public_id = $${values.length - 2}
+       AND ($${values.length}::boolean OR u.public_id = $${values.length - 1})
+     RETURNING b.public_id`,
     values,
   );
   if (!result.rowCount)
@@ -608,7 +661,16 @@ export async function updatePostgresBranchInventory({
   stockQuantity,
 }) {
   const result = await postgresPool.query(
-    `UPDATE catalog_branch_inventory i SET available=$6,stock_quantity=$7,version=version+1,updated_at=now() FROM merchant_branches b JOIN merchants m ON m.id=b.merchant_id JOIN users u ON u.id=m.owner_id JOIN catalog_items c ON c.merchant_id=m.id WHERE i.branch_id=b.id AND i.catalog_item_id=c.id AND m.public_id=$1 AND b.public_id=$2 AND c.public_id=$3 AND ($5::boolean OR u.public_id=$4) RETURNING i.version`,
+    `UPDATE catalog_branch_inventory i
+     SET available = $6, stock_quantity = $7, version = version + 1, updated_at = now()
+     FROM merchant_branches b
+     JOIN merchants m ON m.id = b.merchant_id
+     JOIN users u ON u.id = m.owner_id
+     JOIN catalog_items c ON c.merchant_id = m.id
+     WHERE i.branch_id = b.id AND i.catalog_item_id = c.id
+       AND m.public_id = $1 AND b.public_id = $2 AND c.public_id = $3
+       AND ($5::boolean OR u.public_id = $4)
+     RETURNING i.version`,
     [
       merchantPublicId,
       branchPublicId,
@@ -629,7 +691,13 @@ export async function updatePostgresBranchInventory({
 async function lockOwnedBranch(client, { merchantPublicId, branchPublicId, actorPublicId, admin }) {
   const branch = (
     await client.query(
-      `SELECT b.id FROM merchant_branches b JOIN merchants m ON m.id=b.merchant_id JOIN users u ON u.id=m.owner_id WHERE m.public_id=$1 AND b.public_id=$2 AND ($4::boolean OR u.public_id=$3) FOR UPDATE OF b`,
+      `SELECT b.id
+       FROM merchant_branches b
+       JOIN merchants m ON m.id = b.merchant_id
+       JOIN users u ON u.id = m.owner_id
+       WHERE m.public_id = $1 AND b.public_id = $2
+         AND ($4::boolean OR u.public_id = $3)
+       FOR UPDATE OF b`,
       [merchantPublicId, branchPublicId, actorPublicId, admin],
     )
   ).rows[0];
@@ -700,7 +768,15 @@ export async function upsertPostgresBranchScheduleException({
       admin,
     });
     await client.query(
-      `INSERT INTO branch_schedule_exceptions(branch_id,local_date,is_open,opens_at,closes_at,reason) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(branch_id,local_date) DO UPDATE SET is_open=excluded.is_open,opens_at=excluded.opens_at,closes_at=excluded.closes_at,reason=excluded.reason,updated_at=now()`,
+      `INSERT INTO branch_schedule_exceptions(
+         branch_id, local_date, is_open, opens_at, closes_at, reason
+       ) VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (branch_id, local_date) DO UPDATE SET
+         is_open = excluded.is_open,
+         opens_at = excluded.opens_at,
+         closes_at = excluded.closes_at,
+         reason = excluded.reason,
+         updated_at = now()`,
       [branch.id, date, isOpen, isOpen ? opensAt : null, isOpen ? closesAt : null, reason || null],
     );
     await client.query("COMMIT");

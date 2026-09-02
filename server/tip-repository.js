@@ -19,10 +19,26 @@ const mapTip = (row) => ({
 // todavia no tiene destinatario. Con el JOIN interno que habia antes, quien
 // dejaba propina en el checkout no la veia en su cuenta hasta que se liberara —
 // plata cobrada que no aparece en ningun lado es la peor version de este bug.
-const tipSelect = `SELECT t.*,j.public_id job_public_id,c.public_id customer_public_id,d.public_id driver_public_id FROM service_tips t JOIN jobs j ON j.id=t.job_id JOIN users c ON c.id=t.customer_id LEFT JOIN drivers d ON d.id=t.driver_id`;
+const tipSelect = `
+  SELECT t.*, j.public_id job_public_id, c.public_id customer_public_id, d.public_id driver_public_id
+  FROM service_tips t
+  JOIN jobs j ON j.id = t.job_id
+  JOIN users c ON c.id = t.customer_id
+  LEFT JOIN drivers d ON d.id = t.driver_id
+`;
 const adjustmentId = () => `TADJ-${crypto.randomBytes(5).toString("hex").toUpperCase()}`;
-const adjustmentSelect = `SELECT a.*,t.public_id tip_public_id,t.amount_cents tip_amount_cents,j.public_id job_public_id,c.public_id customer_public_id,d.public_id driver_public_id,requester.public_id requested_by_public_id,reviewer.public_id reviewed_by_public_id
-  FROM service_tip_adjustments a JOIN service_tips t ON t.id=a.tip_id JOIN jobs j ON j.id=t.job_id JOIN users c ON c.id=t.customer_id JOIN drivers d ON d.id=t.driver_id JOIN users requester ON requester.id=a.requested_by LEFT JOIN users reviewer ON reviewer.id=a.reviewed_by`;
+const adjustmentSelect = `
+  SELECT a.*, t.public_id tip_public_id, t.amount_cents tip_amount_cents, j.public_id job_public_id,
+    c.public_id customer_public_id, d.public_id driver_public_id,
+    requester.public_id requested_by_public_id, reviewer.public_id reviewed_by_public_id
+  FROM service_tip_adjustments a
+  JOIN service_tips t ON t.id = a.tip_id
+  JOIN jobs j ON j.id = t.job_id
+  JOIN users c ON c.id = t.customer_id
+  JOIN drivers d ON d.id = t.driver_id
+  JOIN users requester ON requester.id = a.requested_by
+  LEFT JOIN users reviewer ON reviewer.id = a.reviewed_by
+`;
 const mapAdjustment = (row) => ({
   id: row.public_id,
   tipId: row.tip_public_id,
@@ -61,7 +77,13 @@ export async function createPostgresTip({ jobPublicId, customerPublicId, amount,
     }
     const job = (
       await client.query(
-        `SELECT j.id,j.customer_id,j.driver_id,j.status,j.quoted_amount_cents,d.user_id driver_user_id,d.public_id driver_public_id FROM jobs j LEFT JOIN drivers d ON d.id=j.driver_id JOIN users c ON c.id=j.customer_id WHERE j.public_id=$1 AND c.public_id=$2 FOR UPDATE OF j`,
+        `SELECT j.id, j.customer_id, j.driver_id, j.status, j.quoted_amount_cents,
+          d.user_id driver_user_id, d.public_id driver_public_id
+         FROM jobs j
+         LEFT JOIN drivers d ON d.id = j.driver_id
+         JOIN users c ON c.id = j.customer_id
+         WHERE j.public_id = $1 AND c.public_id = $2
+         FOR UPDATE OF j`,
         [jobPublicId, customerPublicId],
       )
     ).rows[0];
@@ -93,7 +115,11 @@ export async function createPostgresTip({ jobPublicId, customerPublicId, amount,
         status: 409,
       });
     const accounts = await client.query(
-      `INSERT INTO ledger_accounts(owner_type,owner_id,currency,account_type) VALUES('user',$1,'ARS','wallet'),('user',$2,'ARS','wallet') ON CONFLICT(owner_type,owner_id,currency,account_type) DO UPDATE SET owner_type=excluded.owner_type RETURNING id,owner_id`,
+      `INSERT INTO ledger_accounts(owner_type, owner_id, currency, account_type)
+       VALUES ('user', $1, 'ARS', 'wallet'), ('user', $2, 'ARS', 'wallet')
+       ON CONFLICT (owner_type, owner_id, currency, account_type)
+       DO UPDATE SET owner_type = excluded.owner_type
+       RETURNING id, owner_id`,
       [job.customer_id, job.driver_user_id],
     );
     const customerAccount = accounts.rows.find(
@@ -369,7 +395,11 @@ export async function reviewTipAdjustment({ adjustmentPublicId, actorPublicId, d
         )
       ).rows[0];
       const accounts = await client.query(
-        `INSERT INTO ledger_accounts(owner_type,owner_id,currency,account_type) VALUES('user',$1,'ARS','wallet'),('user',$2,'ARS','wallet') ON CONFLICT(owner_type,owner_id,currency,account_type) DO UPDATE SET owner_type=excluded.owner_type RETURNING id,owner_id`,
+        `INSERT INTO ledger_accounts(owner_type, owner_id, currency, account_type)
+         VALUES ('user', $1, 'ARS', 'wallet'), ('user', $2, 'ARS', 'wallet')
+         ON CONFLICT (owner_type, owner_id, currency, account_type)
+         DO UPDATE SET owner_type = excluded.owner_type
+         RETURNING id, owner_id`,
         [participants.customer_id, participants.driver_user_id],
       );
       const customerAccount = accounts.rows.find(
@@ -396,7 +426,11 @@ export async function reviewTipAdjustment({ adjustmentPublicId, actorPublicId, d
         )
       ).rows[0];
       await client.query(
-        `INSERT INTO ledger_entries(transaction_id,account_id,direction,amount_cents,reference_type,reference_id,metadata) VALUES($1,$2,'debit',$4,'tip_adjustment',$3,$5),($1,$6,'credit',$4,'tip_adjustment',$3,$5)`,
+        `INSERT INTO ledger_entries(
+           transaction_id, account_id, direction, amount_cents, reference_type, reference_id, metadata
+         ) VALUES
+           ($1, $2, 'debit', $4, 'tip_adjustment', $3, $5),
+           ($1, $6, 'credit', $4, 'tip_adjustment', $3, $5)`,
         [
           transaction.id,
           driverAccount.id,

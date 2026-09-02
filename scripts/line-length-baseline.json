@@ -19,7 +19,6 @@
   "scripts/tip-adjustment-smoke.mjs": 5,
   "scripts/transaction-risk-smoke.mjs": 1,
   "server/auth-repository.js": 6,
-  "server/catalog-repository.js": 11,
   "server/compliance-repository.js": 1,
   "server/configuration-repository.js": 6,
   "server/destination-repository.js": 2,
@@ -36,7 +35,6 @@
   "server/mfa-repository.js": 1,
   "server/mobility-repository.js": 23,
   "server/notification-repository.js": 9,
-  "server/openapi.js": 1,
   "server/operations-repository.js": 20,
   "server/order-issue-repository.js": 1,
   "server/order-repository.js": 11,
@@ -47,11 +45,8 @@
   "server/receipt-repository.js": 1,
   "server/referral-repository.js": 6,
   "server/ride-safety-repository.js": 2,
-  "server/risk-repository.js": 4,
   "server/service-chat-repository.js": 5,
   "server/substitution-repository.js": 5,
-  "server/tip-repository.js": 7,
   "server/trusted-contact-repository.js": 2,
-  "server/wallet-repository.js": 5,
-  "server/zone-readiness-repository.js": 4
+  "server/wallet-repository.js": 5
 }
