@@ -8,6 +8,12 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 2 de septiembre de 2026 — ARC-001, cuenta y ganancias fuera de DriverScreen
+
+- [x] Preferencia de navegación, legajo/flota viven en `DriverAccountPanel.tsx` (~525); ledger/jornada en `DriverEarningsPanel.tsx` (~409); `DriverScreen.tsx` bajó de ~2.155 a ~1.320 y queda bajo el techo de 1.500.
+- [~] Uber Driver y DiDi aíslan earnings/account del cockpit. Flash ahora tiene paneles propios; sigue por debajo sin techo CI del archivo ni el corte residual de home/inbox.
+- [ ] ARC-001 global sigue abierto: unificar tipos divergentes, 251 líneas largas SQL, seguridad/moderación residual en AdminConsole y home residual de DriverScreen.
+
 ## Avance 2 de septiembre de 2026 — ARC-001, paneles de soporte fuera de AdminConsole
 
 - [x] Respuestas rápidas, dead letters y operaciones de agentes/SLA viven en `AdminSupportPanels.tsx` (~553 líneas); `AdminConsole.tsx` bajó a ~1.365 y queda bajo el techo de 1.500 del criterio ARC-001.
