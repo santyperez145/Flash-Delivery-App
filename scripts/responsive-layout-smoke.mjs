@@ -218,7 +218,11 @@ assert(
     contains(foundation, "min-height: var(--layout-touch)") &&
     contains(authStyles, "grid-template-columns: minmax(420px, 1.08fr)") &&
     contains(authStyles, "@media (max-width: 900px)") &&
-    contains(authStyles, "min-height: 100dvh"),
+    contains(authStyles, "min-height: 100dvh") &&
+    contains(authStyles, ".web-auth-nav") &&
+    contains(webApp, "Andá a cualquier lado con Flash") &&
+    !contains(webApp, "Pickup location") &&
+    !contains(webApp, "See prices"),
   "web auth and shared surfaces consume the Flash visual system across breakpoints",
 );
 

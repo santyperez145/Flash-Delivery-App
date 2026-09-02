@@ -29,9 +29,10 @@ Fecha de contraste: 28 de agosto de 2026.
 2. El acceso web deja de reutilizar la tarjeta de loading. `WebLogin` es un módulo de autenticación con
    jerarquía propia, etiquetas accesibles, mostrar/ocultar contraseña, error con `role=alert` y el mismo
    submit real de email, contraseña y MFA que existía.
-3. Expanded presenta el carácter multi-audiencia de Flash; compact elimina el panel narrativo y conserva
-   sólo marca, seguridad y tarea. No se dibujan Apple, Google, passkeys, SMS ni biometría porque esos
-   proveedores no están integrados.
+3. La portada pública sigue el patrón de uber.com —nav persistente, titular de conversión e ingreso—
+   con identidad Flash. No se dibuja un cotizador anónimo ni ciudades/métricas inventadas: el CTA real
+   es autenticarse. Compact conserva titular corto + formulario; no esconde la propuesta. No se dibujan
+   Apple, Google, passkeys, SMS ni biometría porque esos proveedores no están integrados.
 4. Las barras operativas admiten scroll interno. Elevar todos los targets a 44 px reveló que la navegación
    de Operaciones excedía 900 px y dejaba `Cerrar sesión` fuera del viewport; la base compartida corrige el
    defecto sin reducir el área táctil.

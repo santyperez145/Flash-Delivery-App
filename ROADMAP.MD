@@ -26,6 +26,12 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 - [ ] **Candidatas post-Fase 0 (no se implementan aún):** FCM/APNs directos, microservicios/Kubernetes HPA, Redis administrado, WebSockets productivos, IA de producto, dinero productivo Mercado Pago, apps EAS en stores. Bloqueo: dueño (credenciales, gasto, dispositivos, staging).
 - [~] Uber/DoorDash ya operan esas capas en producción. Flash las tiene como deuda nombrada; fingirlas en Fase 0 empeora la métrica de la auditoría.
 
+## Avance 2 de septiembre de 2026 — portada pública al patrón Uber
+
+- [x] La superficie de acceso (`WebLogin`) pasa a nav + titular + ingreso real, como uber.com. No hay pickup/dropoff anónimo ni ciudades/comercios de demostración; el CTA es autenticarse.
+- [~] Uber cotiza un viaje sin cuenta. Flash no: falta quote pública, cobertura por zona y stores. Inventarlo en Fase 0 mentiría el producto.
+- [ ] **Candidata post-Fase 0:** landing de adquisición (SEO, ciudades reales, badges de store, FoodWagon). No se implementa hasta cerrar P0.
+
 ## Avance 2 de septiembre de 2026 — ARC-001, sesión de comercio web
 
 - [x] `src/App.tsx` (~1.283) deja catálogo, carrito, checkout firmado y cotización de viaje en `useCustomerCommerce`; el chrome del phone-stage vive en `AppChrome`. El entry queda como sesión, auth y enrutado; `test:responsive-layout` fija techo 720 y `test:web-ride-home` vigila el origen geocodificado en el hook.
