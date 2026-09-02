@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import { readMobileSource, readWebSource } from "./source-contract.mjs";
 
-const webApi = await fs.readFile(new URL("../src/api.ts", import.meta.url), "utf8");
+const webApi = await fs.readFile(new URL("../src/api/http.ts", import.meta.url), "utf8");
 // La fuente se lee por audiencia y no por archivo (ARC-001 paso 8): la mitad del
 // trabajo que queda del ticket es partir `App.tsx`, y un contrato con la ruta
 // fija se rompe —o se vacía— en cuanto un componente cambia de archivo.
@@ -23,6 +23,11 @@ assert.match(webApp, /refreshedUser\?\.roles\.includes\("admin"\)/);
 assert.match(webApi, /createAuthRefreshCoordinator/);
 assert.match(webApi, /recoverUnauthorized\(tokenUsed\)/);
 assert.match(webApi, /flash:auth-required/);
+assert.equal(
+  webApi.trimEnd().split(/\r?\n/).length <= 280,
+  true,
+  "web HTTP transport stays a bounded module instead of growing back into the resource map",
+);
 assert.match(webApp, /loading \|\| authRequired \|\| !sessionUserId/);
 
 assert.equal(mobilePackage.dependencies["expo-network"], "~57.0.1");

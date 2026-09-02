@@ -26,6 +26,12 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 - [ ] **Candidatas post-Fase 0 (no se implementan aún):** FCM/APNs directos, microservicios/Kubernetes HPA, Redis administrado, WebSockets productivos, IA de producto, dinero productivo Mercado Pago, apps EAS en stores. Bloqueo: dueño (credenciales, gasto, dispositivos, staging).
 - [~] Uber/DoorDash ya operan esas capas en producción. Flash las tiene como deuda nombrada; fingirlas en Fase 0 empeora la métrica de la auditoría.
 
+## Avance 2 de septiembre de 2026 — ARC-001, transporte HTTP web
+
+- [x] Timeout, refresh de sesión y SSE salen de `src/api.ts` a `src/api/http.ts`. El mapa de recursos queda en el barrel; `test:network-resilience` fija techo 280 y lee el transporte, no la ruta vieja.
+- [~] Uber/DoorDash tienen clientes por dominio. Flash ahora separa red de recursos en web; sigue por debajo sin partir el mapa (comida/viajes/ops) ni el `api.ts` mobile.
+- [ ] ARC-001 global sigue abierto: unificar User/Order/Restaurant y 251 líneas largas SQL.
+
 ## Avance 2 de septiembre de 2026 — portada pública al patrón Uber
 
 - [x] La superficie de acceso (`WebLogin`) pasa a nav + titular + ingreso real, como uber.com. No hay pickup/dropoff anónimo ni ciudades/comercios de demostración; el CTA es autenticarse.

@@ -704,9 +704,22 @@ pedir comida o un viaje no debe vivir mezclado con MFA, bootstrap ni el portal d
 
 Flash mueve esa frontera a `useCustomerCommerce`. El origen de un viaje sigue derivando
 una sola vez de la dirección geocodificada propia y una quote se invalida al cambiar
-origen, destino o servicio. Sigue por debajo: tipos User/Order/Restaurant divergentes,
-clientes HTTP monolíticos y sin liquidación productiva. Extraer el hook no cierra esas
-deudas.
+origen, destino o servicio. Sigue por debajo: tipos User/Order/Restaurant divergentes
+y sin liquidación productiva.
+
+### Decisión 2 de septiembre de 2026 — transporte HTTP separado del mapa de recursos
+
+Las plataformas comparables aíslan timeout, reintento seguro, rotación de sesión y
+evento en vivo del catálogo de llamadas. Mezclar esas dos responsabilidades en un
+solo archivo hace ilegible cualquier incidente de red y bloquea partir el cliente
+por dominio.
+
+Flash mueve esa frontera a `src/api/http.ts`. Las lecturas GET/HEAD/OPTIONS reintentan
+una vez; las mutaciones no. El refresh es single-flight. El mapa de `/orders` y
+`/rides` queda en `src/api.ts`. Sigue por debajo: el mobile todavía mezcla transporte
+y recursos, y el mapa web no está partido por comida/viajes/ops.
+
+- [Uber Base Web: sistema compartido, no un archivo de 1.700 llamadas](https://www.uber.com/us/en/blog/introducing-base-web/)
 
 - [Uber Eats: recorre restaurantes, platos y checkout con precio final](https://help.uber.com/ubereats/restaurants/article/pick-up-order-faq?nodeId=a58f21e8-fc3e-42cb-adfd-92db5024faf5)
 - [Uber: estimar precio antes de confirmar el viaje](https://www.uber.com/global/en/price-estimate/)
