@@ -1,15 +1,12 @@
 // Pantalla del conductor (ticket ARC-001).
 //
-// Cockpit operativo, tarjetas de viaje/envío y orquestación del turno. La guía
-// giro a giro y la captura de firma viven en `DriverDeliveryModals.tsx`.
+// Cockpit operativo del turno. Guía/firma viven en DriverDeliveryModals;
+// cuenta y ganancias en paneles propios.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import * as DocumentPicker from "expo-document-picker";
-import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import {
   ActivityIndicator,
   Alert,
@@ -32,7 +29,7 @@ import {
 } from "../background-location";
 import DriverDemandMap from "../DriverDemandMap";
 import FlashNativeMap from "../FlashNativeMap";
-import { compactMoney, money, navigationInstruction, operationalDuration } from "../format";
+import { money, navigationInstruction } from "../format";
 import { buildExternalNavigationUrl } from "../navigation-links";
 import { styles } from "../styles";
 import { ActionButton, KpiRow, NativeMapUnavailable, OrderCard, ServiceChatModal } from "../ui";
@@ -41,21 +38,20 @@ import type {
   AppState,
   DispatchOffer,
   Driver,
-  DriverCompliance,
   DriverDemand,
-  DriverDocument,
-  DriverEarnings,
   DriverPreferences,
   DriverVehicle,
   GeoPoint,
   Ride,
   RoadRoute,
 } from "../types";
+import { DriverAccountPanel } from "./DriverAccountPanel";
 import {
   DriverNavigationModal,
   SignatureCaptureModal,
   type DriverNavigationTarget,
 } from "./DriverDeliveryModals";
+import { DriverEarningsPanel } from "./DriverEarningsPanel";
 
 export function DriverScreen({
   state,
@@ -77,10 +73,6 @@ export function DriverScreen({
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [driverNotifications, setDriverNotifications] = useState<AppNotification[]>([]);
   const [driverNotificationsLoading, setDriverNotificationsLoading] = useState(false);
-  const [driverEarnings, setDriverEarnings] = useState<DriverEarnings | null>(null);
-  const [driverEarningsLoading, setDriverEarningsLoading] = useState(false);
-  const [driverEarningsError, setDriverEarningsError] = useState("");
-  const [selectedDriverDay, setSelectedDriverDay] = useState<string | null>(null);
   const [driverDemand, setDriverDemand] = useState<DriverDemand | null>(null);
   const [driverDemandLoading, setDriverDemandLoading] = useState(false);
   const [driverDemandError, setDriverDemandError] = useState("");
@@ -100,25 +92,12 @@ export function DriverScreen({
   const [deliverySignatureReady, setDeliverySignatureReady] = useState<Record<string, boolean>>({});
   const [deliveryEvidenceUploading, setDeliveryEvidenceUploading] = useState<string | null>(null);
   const [signatureShipmentId, setSignatureShipmentId] = useState<string | null>(null);
-  const [compliance, setCompliance] = useState<DriverCompliance | null>(null);
-  const [documentType, setDocumentType] = useState<DriverDocument["type"]>("identity");
-  const [documentExpiry, setDocumentExpiry] = useState("2099-12-31");
-  const [documentUploading, setDocumentUploading] = useState(false);
   const [vehicles, setVehicles] = useState<DriverVehicle[]>([]);
-  const [vehicleBusy, setVehicleBusy] = useState(false);
   const [driverPreferences, setDriverPreferences] = useState<DriverPreferences>({
     driverId: driver.id,
     navigationProvider: "system",
     updatedAt: null,
   });
-  const [driverPreferenceBusy, setDriverPreferenceBusy] = useState(false);
-  const [vehicleDraft, setVehicleDraft] = useState<{
-    kind: DriverVehicle["kind"];
-    model: string;
-    plate: string;
-    color: string;
-    seats: string;
-  }>({ kind: "car", model: "", plate: "", color: "", seats: "4" });
 
   useEffect(() => {
     if (driverView !== "inbox") return;
@@ -143,26 +122,6 @@ export function DriverScreen({
     driverScrollRef.current?.scrollTo({ y: 0, animated: false });
   }, [driverView]);
 
-  const loadDriverEarnings = useCallback(async () => {
-    setDriverEarningsLoading(true);
-    setDriverEarningsError("");
-    try {
-      setDriverEarnings((await api.getDriverEarnings()).earnings);
-    } catch (error) {
-      setDriverEarningsError(
-        error instanceof Error ? error.message : "No se pudieron cargar las ganancias",
-      );
-    } finally {
-      setDriverEarningsLoading(false);
-    }
-  }, [driver.id]);
-  useEffect(() => {
-    if (driverView !== "earnings") return;
-    void loadDriverEarnings();
-    const poll = setInterval(() => void loadDriverEarnings(), 60000);
-    return () => clearInterval(poll);
-  }, [driverView, loadDriverEarnings]);
-
   const loadDriverDemand = useCallback(async () => {
     setDriverDemandLoading(true);
     setDriverDemandError("");
@@ -183,13 +142,6 @@ export function DriverScreen({
     return () => clearInterval(poll);
   }, [driverView, loadDriverDemand]);
 
-  const loadCompliance = useCallback(async () => {
-    try {
-      setCompliance((await api.getDriverCompliance(driver.id)).compliance);
-    } catch (_error) {
-      setCompliance(null);
-    }
-  }, [driver.id]);
   const loadVehicles = useCallback(async () => {
     try {
       setVehicles((await api.getDriverVehicles(driver.id)).vehicles);
@@ -205,95 +157,12 @@ export function DriverScreen({
     }
   }, [driver.id]);
   useEffect(() => {
-    void loadCompliance();
     void loadVehicles();
     void loadDriverPreferences();
-  }, [loadCompliance, loadVehicles, loadDriverPreferences]);
+  }, [loadVehicles, loadDriverPreferences]);
   useEffect(() => {
     void getBackgroundLocationState().then(setBackgroundGps);
   }, [driver.online]);
-  const addVehicle = async () => {
-    setVehicleBusy(true);
-    try {
-      const ride = ["car", "van"].includes(vehicleDraft.kind);
-      await api.createDriverVehicle(driver.id, {
-        kind: vehicleDraft.kind,
-        model: vehicleDraft.model.trim(),
-        plate: vehicleDraft.plate.trim(),
-        color: vehicleDraft.color.trim() || null,
-        seats: ride ? Number(vehicleDraft.seats) : 1,
-        serviceModes: ride ? ["delivery", "ride"] : ["delivery"],
-      });
-      setVehicleDraft({ kind: "car", model: "", plate: "", color: "", seats: "4" });
-      await loadVehicles();
-      Alert.alert(
-        "Vehículo enviado",
-        "Operaciones debe verificarlo antes de que puedas conectarte.",
-      );
-    } catch (error) {
-      Alert.alert(
-        "Flash",
-        error instanceof Error ? error.message : "No se pudo registrar el vehículo",
-      );
-    } finally {
-      setVehicleBusy(false);
-    }
-  };
-  const runVehicleAction = async (action: () => Promise<unknown>, message: string) => {
-    setVehicleBusy(true);
-    try {
-      await action();
-      await loadVehicles();
-      Alert.alert("Flash", message);
-    } catch (error) {
-      Alert.alert(
-        "Flash",
-        error instanceof Error ? error.message : "No se pudo actualizar el vehículo",
-      );
-    } finally {
-      setVehicleBusy(false);
-    }
-  };
-  const pickComplianceDocument = async () => {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: ["image/jpeg", "image/png", "application/pdf"],
-      copyToCacheDirectory: true,
-      multiple: false,
-    });
-    if (result.canceled) return;
-    const asset = result.assets[0];
-    if ((asset.size || 0) > 750000) {
-      Alert.alert("Documento demasiado grande", "El máximo seguro es 750 KB.");
-      return;
-    }
-    const mimeType = (asset.mimeType || "application/pdf") as
-      | "image/jpeg"
-      | "image/png"
-      | "application/pdf";
-    setDocumentUploading(true);
-    try {
-      const contentBase64 = await FileSystem.readAsStringAsync(asset.uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-      await api.submitDriverDocument(driver.id, {
-        type: documentType,
-        mimeType,
-        contentBase64,
-        expiresAt: ["driver_license", "vehicle_registration", "insurance"].includes(documentType)
-          ? documentExpiry
-          : null,
-      });
-      await loadCompliance();
-      Alert.alert("Flash", "Documento cifrado y enviado a revisión");
-    } catch (error) {
-      Alert.alert(
-        "Flash",
-        error instanceof Error ? error.message : "No se pudo subir el documento",
-      );
-    } finally {
-      setDocumentUploading(false);
-    }
-  };
   const captureDeliveryEvidence = async (shipmentId: string) => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
@@ -579,23 +448,6 @@ export function DriverScreen({
     };
   }, [driverPoint?.lat, driverPoint?.lng, navigationTarget?.id, navigationTarget?.phase]);
 
-  const onlineToday = driverEarnings?.today.onlineSeconds;
-  const activeToday = driverEarnings?.today.activeSeconds;
-  const operationalRatio =
-    onlineToday != null && activeToday != null && onlineToday > 0 && activeToday <= onlineToday
-      ? Math.round((activeToday / onlineToday) * 100)
-      : null;
-  const operationalAnomaly =
-    onlineToday != null && activeToday != null && activeToday > onlineToday;
-  const driverWeekMagnitude = Math.max(
-    1,
-    ...(driverEarnings?.days || []).map((day) => Math.abs(day.amount)),
-  );
-  const driverSelectedDay =
-    driverEarnings?.days.find((day) => day.date === selectedDriverDay) ||
-    driverEarnings?.days.at(-1) ||
-    null;
-
   return (
     <View style={styles.driverShell}>
       <SignatureCaptureModal
@@ -661,724 +513,20 @@ export function DriverScreen({
           </Pressable>
         </View>
         {driverView === "account" && (
-          <>
-            <View style={styles.complianceCard}>
-              <View style={styles.complianceHeader}>
-                <View>
-                  <Text style={styles.heroLabel}>NAVEGACIÓN</Text>
-                  <Text style={styles.sectionTitle}>Guía externa preferida</Text>
-                </View>
-                <View style={styles.driverInsightIcon}>
-                  <Ionicons name="navigate-outline" size={22} color="#7c3cff" />
-                </View>
-              </View>
-              <Text style={styles.cardText}>
-                Flash conserva etapa y trabajo activo. Esta preferencia sólo decide qué app abre el
-                botón de guía completa.
-              </Text>
-              <View style={styles.driverPreferenceOptions}>
-                {(
-                  [
-                    [
-                      "system",
-                      "Predeterminada",
-                      "Usa Apple Maps en iPhone y Google Maps en el resto",
-                    ],
-                    [
-                      "google_maps",
-                      "Google Maps",
-                      "Mantiene conducción o bicicleta según tu vehículo",
-                    ],
-                    ...(Platform.OS === "ios"
-                      ? [["apple_maps", "Apple Maps", "Disponible para conducción en iPhone"]]
-                      : []),
-                  ] as Array<[DriverPreferences["navigationProvider"], string, string]>
-                ).map(([value, label, detail]) => (
-                  <Pressable
-                    key={value}
-                    disabled={driverPreferenceBusy}
-                    accessibilityRole="radio"
-                    accessibilityState={{ checked: driverPreferences.navigationProvider === value }}
-                    onPress={async () => {
-                      setDriverPreferenceBusy(true);
-                      try {
-                        setDriverPreferences(
-                          (await api.updateDriverPreferences(value)).preferences,
-                        );
-                      } catch (error) {
-                        Alert.alert(
-                          "Flash",
-                          error instanceof Error
-                            ? error.message
-                            : "No se pudo guardar la preferencia",
-                        );
-                      } finally {
-                        setDriverPreferenceBusy(false);
-                      }
-                    }}
-                    style={[
-                      styles.driverPreferenceOption,
-                      driverPreferences.navigationProvider === value &&
-                        styles.driverPreferenceOptionActive,
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.driverPreferenceRadio,
-                        driverPreferences.navigationProvider === value &&
-                          styles.driverPreferenceRadioActive,
-                      ]}
-                    >
-                      {driverPreferences.navigationProvider === value ? (
-                        <View style={styles.driverPreferenceDot} />
-                      ) : null}
-                    </View>
-                    <View style={styles.itemCopy}>
-                      <Text style={styles.sectionTitle}>{label}</Text>
-                      <Text style={styles.cardText}>{detail}</Text>
-                    </View>
-                  </Pressable>
-                ))}
-              </View>
-              <Text style={styles.notificationTime}>
-                {driverPreferences.updatedAt
-                  ? `Guardado ${new Date(driverPreferences.updatedAt).toLocaleString("es-AR")}`
-                  : "Preferencia predeterminada"}
-              </Text>
-            </View>
-            <View style={styles.complianceCard}>
-              <View style={styles.complianceHeader}>
-                <View>
-                  <Text style={styles.heroLabel}>LEGAJO Y SEGURIDAD</Text>
-                  <Text style={styles.sectionTitle}>Verificación del conductor</Text>
-                </View>
-                <Text
-                  style={[
-                    styles.complianceBadge,
-                    compliance?.status === "approved" && styles.complianceBadgeApproved,
-                    compliance?.status === "rejected" && styles.complianceBadgeRejected,
-                  ]}
-                >
-                  {(compliance?.status || "cargando").replaceAll("_", " ").toUpperCase()}
-                </Text>
-              </View>
-              <Text style={styles.cardText}>
-                Los archivos se cifran antes de persistir y sólo operaciones puede aprobarlos.
-              </Text>
-              <View style={styles.complianceDocuments}>
-                {compliance?.requiredTypes.map((type) => {
-                  const current = compliance.documents.find(
-                    (document) =>
-                      document.type === type && !["superseded"].includes(document.status),
-                  );
-                  const labels = {
-                    identity: "Identidad",
-                    driver_license: "Licencia",
-                    vehicle_registration: "Cédula del vehículo",
-                    insurance: "Seguro",
-                    background_check: "Antecedentes",
-                  };
-                  return (
-                    <View style={styles.complianceDocumentRow} key={type}>
-                      <Ionicons
-                        name={
-                          current?.status === "approved"
-                            ? "checkmark-circle"
-                            : current?.status === "rejected"
-                              ? "close-circle"
-                              : "document-text-outline"
-                        }
-                        size={20}
-                        color={
-                          current?.status === "approved"
-                            ? "#087a50"
-                            : current?.status === "rejected"
-                              ? "#c43d38"
-                              : "#7c3cff"
-                        }
-                      />
-                      <View style={styles.itemCopy}>
-                        <Text style={styles.sectionTitle}>{labels[type]}</Text>
-                        <Text style={styles.cardText}>
-                          {current ? current.status.replaceAll("_", " ") : "Pendiente de envío"}
-                          {current?.expiresAt ? ` · vence ${current.expiresAt}` : ""}
-                        </Text>
-                        {current?.rejectionReason && (
-                          <Text style={styles.complianceRejection}>{current.rejectionReason}</Text>
-                        )}
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.paymentBrandRail}
-              >
-                {(
-                  [
-                    ["identity", "Identidad"],
-                    ["driver_license", "Licencia"],
-                    ["vehicle_registration", "Cédula"],
-                    ["insurance", "Seguro"],
-                    ["background_check", "Antecedentes"],
-                  ] as const
-                ).map(([value, label]) => (
-                  <Pressable
-                    key={value}
-                    onPress={() => setDocumentType(value)}
-                    style={[
-                      styles.issueCategoryPill,
-                      documentType === value && styles.issueCategoryPillActive,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.issueCategoryText,
-                        documentType === value && styles.issueCategoryTextActive,
-                      ]}
-                    >
-                      {label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-              {["driver_license", "vehicle_registration", "insurance"].includes(documentType) && (
-                <TextInput
-                  style={styles.input}
-                  value={documentExpiry}
-                  onChangeText={setDocumentExpiry}
-                  placeholder="Vencimiento AAAA-MM-DD"
-                />
-              )}
-              <Pressable
-                disabled={documentUploading}
-                style={[styles.primaryButton, documentUploading && styles.disabledButton]}
-                onPress={pickComplianceDocument}
-              >
-                <Ionicons name="cloud-upload-outline" size={19} color="#fff" />
-                <Text style={styles.primaryButtonText}>
-                  {documentUploading ? "Cifrando y enviando…" : "Elegir PDF o imagen"}
-                </Text>
-              </Pressable>
-            </View>
-            <View style={styles.complianceCard}>
-              <View style={styles.complianceHeader}>
-                <View>
-                  <Text style={styles.heroLabel}>FLOTA PERSONAL</Text>
-                  <Text style={styles.sectionTitle}>Vehículo operativo</Text>
-                </View>
-                <Text style={styles.complianceBadge}>{vehicles.length}/5</Text>
-              </View>
-              <Text style={styles.cardText}>
-                Sólo el vehículo activo, aprobado y compatible recibe ofertas. Un cambio vuelve a
-                revisión y te desconecta.
-              </Text>
-              {vehicles.map((vehicle) => (
-                <View key={vehicle.id} style={styles.complianceDocumentRow}>
-                  <Ionicons
-                    name={
-                      vehicle.kind === "bicycle"
-                        ? "bicycle"
-                        : vehicle.kind === "motorcycle"
-                          ? "speedometer-outline"
-                          : "car-sport-outline"
-                    }
-                    size={22}
-                    color={vehicle.active ? "#7c3cff" : "#777"}
-                  />
-                  <View style={styles.itemCopy}>
-                    <Text style={styles.sectionTitle}>
-                      {vehicle.model} · {vehicle.plate}
-                    </Text>
-                    <Text style={styles.cardText}>
-                      {vehicle.kind} · {vehicle.serviceModes.join(" + ")} · {vehicle.status}
-                      {vehicle.active ? " · activo" : ""}
-                    </Text>
-                    {vehicle.rejectionReason && (
-                      <Text style={styles.complianceRejection}>{vehicle.rejectionReason}</Text>
-                    )}
-                  </View>
-                  {!vehicle.active && vehicle.status === "approved" ? (
-                    <Pressable
-                      disabled={vehicleBusy}
-                      onPress={() =>
-                        void runVehicleAction(
-                          () => api.activateDriverVehicle(vehicle.id),
-                          "Vehículo activado; revisá tu disponibilidad.",
-                        )
-                      }
-                    >
-                      <Ionicons name="checkmark-circle-outline" size={25} color="#087a50" />
-                    </Pressable>
-                  ) : null}
-                  <Pressable
-                    disabled={vehicleBusy}
-                    onPress={() =>
-                      Alert.alert(
-                        "Retirar vehículo",
-                        `¿Retirar ${vehicle.model}? La evidencia histórica se conservará.`,
-                        [
-                          { text: "Cancelar", style: "cancel" },
-                          {
-                            text: "Retirar",
-                            style: "destructive",
-                            onPress: () =>
-                              void runVehicleAction(
-                                () => api.retireDriverVehicle(vehicle.id),
-                                "Vehículo retirado",
-                              ),
-                          },
-                        ],
-                      )
-                    }
-                  >
-                    <Ionicons name="trash-outline" size={21} color="#a33939" />
-                  </Pressable>
-                </View>
-              ))}
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.paymentBrandRail}
-              >
-                {(
-                  [
-                    ["bicycle", "Bici"],
-                    ["motorcycle", "Moto"],
-                    ["car", "Auto"],
-                    ["van", "Van"],
-                  ] as const
-                ).map(([value, label]) => (
-                  <Pressable
-                    key={value}
-                    onPress={() =>
-                      setVehicleDraft((current) => ({
-                        ...current,
-                        kind: value,
-                        seats: ["car", "van"].includes(value) ? current.seats || "4" : "1",
-                      }))
-                    }
-                    style={[
-                      styles.issueCategoryPill,
-                      vehicleDraft.kind === value && styles.issueCategoryPillActive,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.issueCategoryText,
-                        vehicleDraft.kind === value && styles.issueCategoryTextActive,
-                      ]}
-                    >
-                      {label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-              <TextInput
-                style={styles.input}
-                value={vehicleDraft.model}
-                onChangeText={(model) => setVehicleDraft((current) => ({ ...current, model }))}
-                placeholder="Marca y modelo"
-              />
-              <TextInput
-                style={styles.input}
-                value={vehicleDraft.plate}
-                onChangeText={(plate) =>
-                  setVehicleDraft((current) => ({ ...current, plate: plate.toUpperCase() }))
-                }
-                autoCapitalize="characters"
-                placeholder="Patente"
-              />
-              <TextInput
-                style={styles.input}
-                value={vehicleDraft.color}
-                onChangeText={(color) => setVehicleDraft((current) => ({ ...current, color }))}
-                placeholder="Color"
-              />
-              {["car", "van"].includes(vehicleDraft.kind) ? (
-                <TextInput
-                  style={styles.input}
-                  value={vehicleDraft.seats}
-                  onChangeText={(seats) =>
-                    setVehicleDraft((current) => ({
-                      ...current,
-                      seats: seats.replace(/\D/g, "").slice(0, 1),
-                    }))
-                  }
-                  keyboardType="numeric"
-                  placeholder="Asientos"
-                />
-              ) : null}
-              <Pressable
-                disabled={
-                  vehicleBusy || !vehicleDraft.model.trim() || vehicleDraft.plate.trim().length < 3
-                }
-                style={[
-                  styles.primaryButton,
-                  (vehicleBusy ||
-                    !vehicleDraft.model.trim() ||
-                    vehicleDraft.plate.trim().length < 3) &&
-                    styles.disabledButton,
-                ]}
-                onPress={() => void addVehicle()}
-              >
-                <Ionicons name="add-circle-outline" size={19} color="#fff" />
-                <Text style={styles.primaryButtonText}>
-                  {vehicleBusy ? "Guardando…" : "Registrar vehículo"}
-                </Text>
-              </Pressable>
-            </View>
-          </>
+          <DriverAccountPanel
+            driverId={driver.id}
+            vehicles={vehicles}
+            onVehiclesChange={setVehicles}
+            preferences={driverPreferences}
+            onPreferencesChange={setDriverPreferences}
+          />
         )}
         {driverView === "earnings" && (
-          <>
-            <LinearGradient
-              colors={["#21132f", "#6f25d8"]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.driverEarningsHero}
-            >
-              <Text style={styles.driverEarningsLabel}>INGRESOS REGISTRADOS HOY</Text>
-              <Text style={styles.driverEarningsValue}>
-                {money.format(driverEarnings?.today.amount ?? driver.earningsToday)}
-              </Text>
-              <Text style={styles.driverEarningsCopy}>
-                {driverEarnings?.source === "postgres-ledger"
-                  ? "Calculado desde asientos contables posteados. Incluye servicios, propinas y ajustes reales."
-                  : "Runtime local de prueba: los importes provienen de movimientos persistidos, sin proyecciones."}
-              </Text>
-            </LinearGradient>
-            {driverEarningsLoading && !driverEarnings ? (
-              <ActivityIndicator color="#7c3cff" />
-            ) : null}
-            {driverEarningsError ? (
-              <Pressable
-                style={styles.driverEarningsError}
-                onPress={() => void loadDriverEarnings()}
-              >
-                <Ionicons name="refresh-circle-outline" size={23} color="#a33939" />
-                <View style={styles.itemCopy}>
-                  <Text style={styles.sectionTitle}>No pudimos leer el ledger</Text>
-                  <Text style={styles.cardText}>{driverEarningsError} · Tocá para reintentar.</Text>
-                </View>
-              </Pressable>
-            ) : null}
-            <View style={styles.driverPeriodGrid}>
-              <View style={styles.driverPeriodCard}>
-                <Text style={styles.driverPeriodLabel}>ESTA SEMANA</Text>
-                <Text style={styles.driverPeriodValue}>
-                  {money.format(driverEarnings?.week.amount ?? 0)}
-                </Text>
-                <Text style={styles.driverPeriodMeta}>
-                  {driverEarnings?.week.services ?? 0} servicios
-                </Text>
-              </View>
-              <View style={styles.driverPeriodCard}>
-                <Text style={styles.driverPeriodLabel}>SALDO WALLET</Text>
-                <Text style={styles.driverPeriodValue}>
-                  {money.format(driverEarnings?.walletBalance ?? 0)}
-                </Text>
-                <Text style={styles.driverPeriodMeta}>retiro aún no habilitado</Text>
-              </View>
-            </View>
-            {driverEarnings?.days.length ? (
-              <View style={styles.driverWeekChartCard}>
-                <View style={styles.driverSectionHeading}>
-                  <View>
-                    <Text style={styles.driverSectionEyebrow}>SEMANA EN CURSO</Text>
-                    <Text style={styles.driverTimeTitle}>Ingresos por día</Text>
-                  </View>
-                  <Text style={styles.driverWeekChartTotal}>
-                    {money.format(driverEarnings.week.amount)}
-                  </Text>
-                </View>
-                <View
-                  style={styles.driverWeekChart}
-                  accessibilityRole="summary"
-                  accessibilityLabel={`Ingresos de la semana ${money.format(driverEarnings.week.amount)}`}
-                >
-                  {driverEarnings.days.map((day) => {
-                    const height = Math.max(
-                      day.amount === 0 ? 3 : 8,
-                      Math.round((Math.abs(day.amount) / driverWeekMagnitude) * 52),
-                    );
-                    const weekday = new Date(`${day.date}T12:00:00`)
-                      .toLocaleDateString("es-AR", { weekday: "short" })
-                      .replace(".", "")
-                      .toUpperCase();
-                    const selected = driverSelectedDay?.date === day.date;
-                    return (
-                      <Pressable
-                        key={day.date}
-                        onPress={() => setSelectedDriverDay(day.date)}
-                        style={[
-                          styles.driverWeekColumn,
-                          selected && styles.driverWeekColumnSelected,
-                        ]}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected }}
-                        accessibilityLabel={`${weekday}: ${money.format(day.amount)}, ${day.services} servicios`}
-                      >
-                        <Text
-                          style={[
-                            styles.driverWeekAmount,
-                            day.amount < 0 && styles.driverWeekAmountNegative,
-                          ]}
-                        >
-                          {compactMoney(day.amount)}
-                        </Text>
-                        <View style={styles.driverWeekUpper}>
-                          {day.amount >= 0 ? (
-                            <View
-                              style={[
-                                styles.driverWeekBar,
-                                {
-                                  height,
-                                  backgroundColor: day.amount === 0 ? "#d9d2dd" : "#7c3cff",
-                                },
-                              ]}
-                            />
-                          ) : null}
-                        </View>
-                        <View style={styles.driverWeekBaseline} />
-                        <View style={styles.driverWeekLower}>
-                          {day.amount < 0 ? (
-                            <View
-                              style={[styles.driverWeekBar, { height, backgroundColor: "#c44a45" }]}
-                            />
-                          ) : null}
-                        </View>
-                        <Text
-                          style={[styles.driverWeekDay, selected && styles.driverWeekDaySelected]}
-                        >
-                          {weekday}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-                {driverSelectedDay ? (
-                  <View style={styles.driverWeekDetail}>
-                    <View style={styles.driverWeekDetailHeader}>
-                      <View>
-                        <Text style={styles.driverTimeLabel}>DETALLE SELECCIONADO</Text>
-                        <Text style={styles.driverWeekDetailDate}>
-                          {new Date(`${driverSelectedDay.date}T12:00:00`).toLocaleDateString(
-                            "es-AR",
-                            { weekday: "long", day: "numeric", month: "long" },
-                          )}
-                        </Text>
-                      </View>
-                      <Text
-                        style={[
-                          styles.driverWeekDetailAmount,
-                          driverSelectedDay.amount < 0 && styles.driverWeekAmountNegative,
-                        ]}
-                      >
-                        {money.format(driverSelectedDay.amount)}
-                      </Text>
-                    </View>
-                    <View style={styles.driverWeekDetailGrid}>
-                      <View style={styles.driverWeekDetailMetric}>
-                        <Text style={styles.driverTimeMeta}>Servicios</Text>
-                        <Text style={styles.driverWeekDetailValue}>
-                          {driverSelectedDay.services}
-                        </Text>
-                      </View>
-                      <View style={styles.driverWeekDetailMetric}>
-                        <Text style={styles.driverTimeMeta}>Propinas</Text>
-                        <Text style={styles.driverWeekDetailValue}>
-                          {money.format(driverSelectedDay.tips)}
-                        </Text>
-                      </View>
-                      <View style={styles.driverWeekDetailMetric}>
-                        <Text style={styles.driverTimeMeta}>Conectado</Text>
-                        <Text style={styles.driverWeekDetailValue}>
-                          {operationalDuration(driverSelectedDay.onlineSeconds)}
-                        </Text>
-                      </View>
-                      <View style={styles.driverWeekDetailMetric}>
-                        <Text style={styles.driverTimeMeta}>En servicio</Text>
-                        <Text style={styles.driverWeekDetailValue}>
-                          {operationalDuration(driverSelectedDay.activeSeconds)}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                ) : null}
-                <Text style={styles.driverTimeSource}>
-                  Neto diario posteado: servicios, propinas y ajustes. Los días vacíos son cero, no
-                  una proyección.
-                </Text>
-              </View>
-            ) : null}
-            {driverEarnings?.timeTracking.status === "available" ? (
-              <View style={styles.driverTimeCard}>
-                <View style={styles.driverSectionHeading}>
-                  <View>
-                    <Text style={styles.driverSectionEyebrow}>JORNADA OBSERVADA</Text>
-                    <Text style={styles.driverTimeTitle}>Tu tiempo de hoy</Text>
-                  </View>
-                  <View style={styles.driverTimeClock}>
-                    <Ionicons name="time-outline" size={22} color="#7c3cff" />
-                  </View>
-                </View>
-                <View style={styles.driverTimeGrid}>
-                  <View style={styles.driverTimeMetric}>
-                    <View style={styles.driverTimeMetricTop}>
-                      <View style={[styles.driverTimeDot, { backgroundColor: "#7c3cff" }]} />
-                      <Text style={styles.driverTimeLabel}>CONECTADO</Text>
-                    </View>
-                    <Text style={styles.driverTimeValue}>{operationalDuration(onlineToday)}</Text>
-                    <Text style={styles.driverTimeMeta}>incluye espera online</Text>
-                  </View>
-                  <View style={styles.driverTimeMetric}>
-                    <View style={styles.driverTimeMetricTop}>
-                      <View style={[styles.driverTimeDot, { backgroundColor: "#087a50" }]} />
-                      <Text style={styles.driverTimeLabel}>EN SERVICIO</Text>
-                    </View>
-                    <Text style={styles.driverTimeValue}>{operationalDuration(activeToday)}</Text>
-                    <Text style={styles.driverTimeMeta}>asignación a cierre</Text>
-                  </View>
-                </View>
-                {operationalRatio != null ? (
-                  <View style={styles.driverTimeRatio}>
-                    <View style={styles.driverTimeTrack}>
-                      <View style={[styles.driverTimeFill, { width: `${operationalRatio}%` }]} />
-                    </View>
-                    <Text style={styles.driverTimeRatioText}>
-                      {operationalRatio}% de la jornada conectada estuvo en servicio
-                    </Text>
-                  </View>
-                ) : null}
-                {operationalAnomaly ? (
-                  <View style={styles.driverTimeWarning}>
-                    <Ionicons name="alert-circle-outline" size={18} color="#9b5b00" />
-                    <Text style={styles.driverTimeWarningText}>
-                      Hay tiempo asignado fuera de una sesión online. El registro se conserva para
-                      revisión operativa.
-                    </Text>
-                  </View>
-                ) : null}
-                <View style={styles.driverTimeWeek}>
-                  <Text style={styles.driverTimeWeekLabel}>SEMANA</Text>
-                  <Text style={styles.driverTimeWeekValue}>
-                    {operationalDuration(driverEarnings.week.onlineSeconds)} conectado
-                  </Text>
-                  <View style={styles.driverTimeWeekDivider} />
-                  <Text style={styles.driverTimeWeekValue}>
-                    {operationalDuration(driverEarnings.week.activeSeconds)} en servicio
-                  </Text>
-                </View>
-                <Text style={styles.driverTimeSource}>
-                  PostgreSQL · actualizado{" "}
-                  {new Date(driverEarnings.timeTracking.observedAt).toLocaleTimeString("es-AR", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}{" "}
-                  · los solapamientos cuentan una sola vez
-                </Text>
-              </View>
-            ) : driverEarnings ? (
-              <View style={styles.driverTimeUnavailable}>
-                <Ionicons name="cloud-offline-outline" size={21} color="#a33939" />
-                <View style={styles.itemCopy}>
-                  <Text style={styles.sectionTitle}>Jornada no disponible</Text>
-                  <Text style={styles.cardText}>
-                    Este runtime no tiene sesiones PostgreSQL. No mostramos horas aproximadas.
-                  </Text>
-                </View>
-              </View>
-            ) : null}
-            <KpiRow
-              items={[
-                ["Servicios", driverEarnings?.today.services ?? 0],
-                ["Propinas", money.format(driverEarnings?.today.tips ?? 0)],
-                ["Ajustes", money.format(driverEarnings?.today.adjustments ?? 0)],
-                ["Rating", driver.rating],
-              ]}
-            />
-            <View style={styles.complianceCard}>
-              <View style={styles.driverSectionHeading}>
-                <View>
-                  <Text style={styles.driverSectionEyebrow}>MOVIMIENTOS CONTABLES</Text>
-                  <Text style={styles.sectionTitle}>Detalle reciente</Text>
-                </View>
-                <Pressable
-                  onPress={() => void loadDriverEarnings()}
-                  accessibilityRole="button"
-                  accessibilityLabel="Actualizar ganancias"
-                >
-                  <Ionicons name="refresh-outline" size={21} color="#7c3cff" />
-                </Pressable>
-              </View>
-              {driverEarnings?.recent.length ? (
-                driverEarnings.recent.map((entry) => (
-                  <View key={entry.id} style={styles.driverEarningRow}>
-                    <View
-                      style={[
-                        styles.driverInboxIcon,
-                        entry.amount < 0 && styles.driverEarningAdjustment,
-                      ]}
-                    >
-                      <Ionicons
-                        name={
-                          entry.category === "tip"
-                            ? "heart-outline"
-                            : entry.category === "adjustment"
-                              ? "remove-circle-outline"
-                              : entry.category === "ride"
-                                ? "car-sport-outline"
-                                : entry.category === "shipment"
-                                  ? "cube-outline"
-                                  : "bag-handle-outline"
-                        }
-                        size={20}
-                        color={entry.amount < 0 ? "#a33939" : "#7c3cff"}
-                      />
-                    </View>
-                    <View style={styles.itemCopy}>
-                      <Text style={styles.sectionTitle}>{entry.description}</Text>
-                      <Text style={styles.cardText}>
-                        {entry.jobId || "Movimiento de cuenta"} ·{" "}
-                        {new Date(entry.createdAt).toLocaleString("es-AR")}
-                      </Text>
-                    </View>
-                    <Text
-                      style={[
-                        styles.driverEarningAmount,
-                        entry.amount < 0 && styles.driverEarningAmountNegative,
-                      ]}
-                    >
-                      {entry.amount > 0 ? "+" : ""}
-                      {money.format(entry.amount)}
-                    </Text>
-                  </View>
-                ))
-              ) : (
-                <View style={styles.driverEmptyState}>
-                  <Ionicons name="receipt-outline" size={34} color="#7c3cff" />
-                  <Text style={styles.sectionTitle}>Sin movimientos todavía</Text>
-                  <Text style={styles.cardText}>
-                    Los servicios completados, propinas y ajustes aparecerán al postearse en el
-                    ledger.
-                  </Text>
-                </View>
-              )}
-            </View>
-            <View style={styles.driverTransparencyCard}>
-              <Ionicons name="shield-checkmark-outline" size={22} color="#087a50" />
-              <View style={styles.itemCopy}>
-                <Text style={styles.sectionTitle}>Datos honestos</Text>
-                <Text style={styles.cardText}>
-                  Ingresos y jornada provienen del ledger y de sesiones operativas. Metas,
-                  promociones y retiros siguen ocultos hasta tener contratos productivos.
-                </Text>
-              </View>
-            </View>
-          </>
+          <DriverEarningsPanel
+            driverId={driver.id}
+            fallbackEarningsToday={driver.earningsToday}
+            rating={driver.rating}
+          />
         )}
         {driverView === "inbox" && (
           <>
