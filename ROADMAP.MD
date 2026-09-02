@@ -47,8 +47,8 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 ## Avance 2 de septiembre de 2026 — ARC-001, transporte HTTP web
 
 - [x] Timeout, refresh de sesión y SSE salen de `src/api.ts` a `src/api/http.ts`. El mapa de recursos queda en el barrel; `test:network-resilience` fija techo 280 y lee el transporte, no la ruta vieja.
-- [~] Uber/DoorDash tienen clientes por dominio. Flash ahora separa red de recursos en web y mobile; sigue por debajo sin unificar User/Order/Restaurant.
-- [ ] ARC-001 global sigue abierto: unificar User/Order/Restaurant y 251 líneas largas SQL.
+- [~] Uber/DoorDash tienen clientes por dominio. Flash ahora separa red de recursos en web y mobile; `User` ya compartido; sigue por debajo Order/Restaurant.
+- [ ] ARC-001 global sigue abierto: Order/Restaurant y 251 líneas largas SQL.
 
 ## Avance 2 de septiembre de 2026 — portada pública al patrón Uber
 
@@ -59,7 +59,7 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 ## Avance 2 de septiembre de 2026 — ARC-001, sesión de comercio web
 
 - [x] `src/App.tsx` (~1.283) deja catálogo, carrito, checkout firmado y cotización de viaje en `useCustomerCommerce`; el chrome del phone-stage vive en `AppChrome`. El entry queda como sesión, auth y enrutado; `test:responsive-layout` fija techo 720 y `test:web-ride-home` vigila el origen geocodificado en el hook.
-- [~] Uber Eats y Uber Rides separan la máquina de estado de pedir del shell de plataforma. Flash ahora también en web; el mapa HTTP ya está partido en web y mobile; sigue por debajo sin unificar User/Order/Restaurant.
+- [~] Uber Eats y Uber Rides separan la máquina de estado de pedir del shell de plataforma. Flash ahora también en web; el mapa HTTP ya está partido en web y mobile; `User` ya compartido; sigue por debajo Order/Restaurant.
 - [ ] ARC-001 global sigue abierto: unificar tipos divergentes y 251 líneas largas SQL.
 
 ## Avance 2 de septiembre de 2026 — ARC-001, sesión de Comidas mobile
@@ -217,7 +217,7 @@ Pedido del dueño: cablear absolutamente todo para uso real, con automatizacione
 - [x] 20 tipos byte-a-byte idénticos y autocontenidos entre web y mobile viven en `packages/domain-contracts` (`@flash/domain-contracts`); `src/types.ts` y `apps/mobile/src/types.ts` los importan y reexportan sin redefinir el cuerpo.
 - [x] `MerchantOperationsDashboard` permanece local: su texto era idéntico, pero referencia `Restaurant`, que diverge entre superficies.
 - [x] Root y mobile declaran la dependencia `file:`; Metro observa el paquete; `test:domain-contracts` bloquea el merge junto a typecheck web/móvil.
-- [~] Uber Eats y DoorDash mantienen un modelo de dominio único entre superficies. Flash comparte el núcleo idéntico, pero sigue por debajo sin unificar User/Order/Restaurant ni el resto de divergencias reales.
+- [~] Uber Eats y DoorDash mantienen un modelo de dominio único entre superficies. Flash comparte `User` y 27 tipos más; sigue por debajo sin unificar Order/Restaurant.
 - [ ] ARC-001 global sigue abierto: unificar tipos divergentes, 251 líneas largas SQL y concentraciones restantes (AdminConsole, DriverScreen).
 
 ## Avance 2 de septiembre de 2026 — ARC-001 pendiente y cierre de IDOR de soporte
