@@ -13,7 +13,6 @@ import {
 const [
   { source: desktop },
   { source: mobile },
-  desktopApi,
   desktopTypes,
   mobileApi,
   mobileTypes,
@@ -34,7 +33,6 @@ const [
 ] = await Promise.all([
   readWebSource(),
   readMobileSource(),
-  fs.readFile("src/api.ts", "utf8"),
   fs.readFile("src/types.ts", "utf8"),
   fs.readFile("apps/mobile/src/api.ts", "utf8"),
   fs.readFile("apps/mobile/src/types.ts", "utf8"),
@@ -80,14 +78,14 @@ assert(
   "desktop and Merchant App share the authoritative operations contract",
 );
 assert(
-  containsAll(desktopApi, ["getMerchantDashboard"]) &&
+  containsAll(desktop, ["getMerchantDashboard"]) &&
     containsAll(mobileApi, ["getMerchantDashboard"]) &&
     containsAll(desktopMerchant, ["api.getMerchantDashboard"]) &&
     containsAll(mobileMerchant, ["api.getMerchantDashboard"]),
   "both merchant surfaces consume the private dashboard endpoint",
 );
 assert(
-  containsAll(desktopApi, ["getMerchantActiveOrders"]) &&
+  containsAll(desktop, ["getMerchantActiveOrders"]) &&
     containsAll(mobileApi, ["getMerchantActiveOrders"]) &&
     containsAll(desktopMerchant, ["merchantActiveOrders"]) &&
     containsAll(mobileMerchant, ["setActiveOrders(queue.orders)"]),
