@@ -19,6 +19,9 @@ import type {
   Subscription,
   GroupOrderParticipant,
   GroupOrder,
+  ServiceQuickReply,
+  ShipmentClaim,
+  DispatchOffer,
 } from "@flash/domain-contracts";
 
 export type {
@@ -42,6 +45,9 @@ export type {
   Subscription,
   GroupOrderParticipant,
   GroupOrder,
+  ServiceQuickReply,
+  ShipmentClaim,
+  DispatchOffer,
 };
 
 export type Mode = "customer" | "merchant" | "driver" | "ops";
@@ -616,32 +622,6 @@ export type ShipmentOptions = {
   }>;
 };
 export type PricingService = "food" | "ride" | "shipment";
-export type ServiceQuickReply = {
-  id: string;
-  serviceScope: "all" | "food" | "ride" | "shipment";
-  audience: "customer" | "driver" | "merchant";
-  locale: string;
-  body: string;
-  position: number;
-  active: boolean;
-  updatedAt: string;
-};
-/** Devolución de un envío protegido. La resuelve soporte u operaciones. */
-
-export type ShipmentClaim = {
-  id: string;
-  shipmentId: string;
-  claimType: "lost" | "damaged" | "stolen";
-  description: string;
-  requestedAmount: number;
-  eligibleAmount: number;
-  approvedAmount: number | null;
-  status: "submitted" | "under_review" | "approved" | "rejected" | "settlement_pending" | "settled";
-  resolutionNote: string | null;
-  evidence: ShipmentClaimEvidence[];
-  createdAt: string;
-  updatedAt: string;
-};
 /** Embudo y eventos de producto sobre una ventana de días (ticket ARC-001). */
 export type ProductMetrics = {
   windowDays: number;
@@ -822,6 +802,9 @@ export type TipAdjustment = {
   reviewedAt: string | null;
 };
 
+/** Dashboard de operaciones del comercio.
+ *  Queda local: `restaurant: Restaurant` y `Restaurant` aún diverge entre
+ *  web y mobile (ARC-001). No se mueve hasta unificar ese tipo. */
 export type MerchantOperationsDashboard = {
   generatedAt: string;
   source: "postgres-live-operations" | "sqlite-test-fallback";
@@ -840,22 +823,6 @@ export type MerchantOperationsDashboard = {
   metrics: MerchantOperationsMetrics;
 };
 
-export type DispatchOffer = {
-  id: string;
-  jobId: string;
-  kind: "ride" | "delivery";
-  subtype: string | null;
-  serviceLevel: string;
-  pickup: string;
-  destination: string;
-  fare: number;
-  distanceKm: number;
-  durationMin: number;
-  score: number;
-  scoreBreakdown?: DispatchScoreBreakdown;
-  expiresAt: string;
-  status: "pending";
-};
 export type MerchantFinance = {
   merchantId: string;
   availableBalance: number;

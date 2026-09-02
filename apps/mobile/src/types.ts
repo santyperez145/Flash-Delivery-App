@@ -19,6 +19,9 @@ import type {
   Subscription,
   GroupOrderParticipant,
   GroupOrder,
+  ServiceQuickReply,
+  ShipmentClaim,
+  DispatchOffer,
 } from "@flash/domain-contracts";
 
 export type {
@@ -42,6 +45,9 @@ export type {
   Subscription,
   GroupOrderParticipant,
   GroupOrder,
+  ServiceQuickReply,
+  ShipmentClaim,
+  DispatchOffer,
 };
 
 export type Mode = "customer" | "merchant" | "driver";
@@ -392,20 +398,6 @@ export type ShipmentQuote = {
   quoteToken?: string;
   expiresAt?: string;
 };
-export type ShipmentClaim = {
-  id: string;
-  shipmentId: string;
-  claimType: "lost" | "damaged" | "stolen";
-  description: string;
-  requestedAmount: number;
-  eligibleAmount: number;
-  approvedAmount: number | null;
-  status: "submitted" | "under_review" | "approved" | "rejected" | "settlement_pending" | "settled";
-  resolutionNote: string | null;
-  evidence: ShipmentClaimEvidence[];
-  createdAt: string;
-  updatedAt: string;
-};
 export type ShipmentOptions = {
   categories: Array<{
     code: NonNullable<Shipment["itemCategory"]>;
@@ -508,16 +500,6 @@ export type ServiceAttachment = {
   sizeBytes: number;
   createdAt: string;
 };
-export type ServiceQuickReply = {
-  id: string;
-  serviceScope: "all" | "food" | "ride" | "shipment";
-  audience: "customer" | "driver" | "merchant";
-  locale: string;
-  body: string;
-  position: number;
-  active: boolean;
-  updatedAt: string;
-};
 export type ServiceMessage = {
   id: string;
   jobId: string;
@@ -592,6 +574,9 @@ export type ServiceReceipt = {
   metadata: { pickup?: string; dropoff?: string; serviceLevel?: string };
 };
 
+/** Dashboard de operaciones del comercio.
+ *  Queda local: `restaurant: Restaurant` y `Restaurant` aún diverge entre
+ *  web y mobile (ARC-001). No se mueve hasta unificar ese tipo. */
 export type MerchantOperationsDashboard = {
   generatedAt: string;
   source: "postgres-live-operations" | "sqlite-test-fallback";
@@ -608,23 +593,6 @@ export type MerchantOperationsDashboard = {
   };
   restaurant: Restaurant;
   metrics: MerchantOperationsMetrics;
-};
-
-export type DispatchOffer = {
-  id: string;
-  jobId: string;
-  kind: "ride" | "delivery";
-  subtype: string | null;
-  serviceLevel: string;
-  pickup: string;
-  destination: string;
-  fare: number;
-  distanceKm: number;
-  durationMin: number;
-  score: number;
-  scoreBreakdown?: DispatchScoreBreakdown;
-  expiresAt: string;
-  status: "pending";
 };
 
 // --- Tipos de dominio que vivían en el entrypoint (ARC-001, paso 11) ---------
