@@ -8,6 +8,12 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 2 de septiembre de 2026 — ARC-001, home operativo fuera de DriverScreen
+
+- [x] Disponibilidad, demanda, trabajo activo, jobs y ofertas viven en `DriverHomePanel.tsx` (~652); `DriverScreen.tsx` bajó a ~569 como shell de GPS/modales/pestañas.
+- [~] Uber Driver separa el mapa/home del resto del cockpit. Flash ahora también; sigue por debajo sin techo CI del archivo ni unificar tipos divergentes.
+- [ ] ARC-001 global sigue abierto: unificar tipos divergentes y 251 líneas largas SQL.
+
 ## Avance 2 de septiembre de 2026 — ARC-001, inbox y tarjetas fuera de DriverScreen
 
 - [x] Inbox (chats + novedades) vive en `DriverInboxPanel.tsx` (~148); viaje/envío en `DriverJobCards.tsx` (~96); `DriverScreen.tsx` bajó a ~1.098.
