@@ -8,6 +8,12 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 2 de septiembre de 2026 — ARC-001, tableros overview fuera de AdminConsole
+
+- [x] Salud, investor pulse, funnel, riesgos, zonas, grillas live e infra viven en `AdminOverviewBoards.tsx` (~307); `AdminConsole.tsx` bajó a ~582 y queda como orquestador de secciones.
+- [~] Paneles admin de Uber/DoorDash separan dashboard widgets del shell. Flash ahora también; sigue por debajo sin techo CI del archivo ni el corte residual de home/inbox en DriverScreen.
+- [ ] ARC-001 global sigue abierto: unificar tipos divergentes, 251 líneas largas SQL y home residual de DriverScreen.
+
 ## Avance 2 de septiembre de 2026 — ARC-001, paneles de confianza fuera de AdminConsole
 
 - [x] Legajo de conductores, moderación de usuarios y MFA administrativo viven en `AdminTrustPanels.tsx` (~458); `AdminConsole.tsx` bajó de ~1.330 a ~871 sin cambiar secciones ni APIs.
