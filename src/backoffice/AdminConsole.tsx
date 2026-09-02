@@ -14,7 +14,6 @@ import {
   LogIn,
   MessageCircle,
   PackageCheck,
-  ReceiptText,
   RefreshCw,
   ShieldCheck,
   SlidersHorizontal,
@@ -36,22 +35,15 @@ import {
   ProductFunnelPanel,
   ZoneReadinessPanel,
 } from "./ProductOperationsBoard";
-import {
-  PaymentReconciliationPanel,
-  PayoutReviewPanel,
-  PricingGovernancePanel,
-  TipAdjustmentPanel,
-} from "./AdminFinancePanels";
+import { PaymentReconciliationPanel, PricingGovernancePanel } from "./AdminFinancePanels";
+import { AdminFinanceOverview } from "./AdminFinanceOverview";
+import { AdminInvestorPanels } from "./AdminInvestorPanels";
 import {
   AdminLiveGrid,
-  GrowthFunnel,
   InfraItem,
   InvestorPulse,
   MarketplaceHealth,
-  MilestoneBoard,
   RealtimeStatus,
-  RiskSignalBoard,
-  UnitEconomicsBoard,
   ZoneBoard,
 } from "./AdminOverviewBoards";
 import {
@@ -301,88 +293,24 @@ export function SuperAdminConsole({
         )}
 
         {section === "finance" && (
-          <div className="admin-grid">
-            <section className="admin-card">
-              <AdminSectionHeader title="Finanzas y conciliacion" action="Ledger PostgreSQL" />
-              <div className="admin-kpis finance">
-                <AdminKpi
-                  label="GMV total"
-                  value={money.format(grossVolume)}
-                  detail="Pedidos + viajes"
-                  tone="orange"
-                />
-                <AdminKpi
-                  label="Ingreso plataforma"
-                  value={money.format(platformRevenue)}
-                  detail={`${marketplace?.takeRatePercent ?? 0}% registrado`}
-                  tone="green"
-                />
-                <AdminKpi
-                  label="Wallet clientes"
-                  value={money.format(state.users.reduce((sum, user) => sum + user.wallet, 0))}
-                  detail="Saldo total"
-                  tone="teal"
-                />
-                <AdminKpi
-                  label="Cancelaciones"
-                  value={cancellationCount}
-                  detail="Pedidos + viajes"
-                  tone="dark"
-                />
-              </div>
-              <div className="admin-table">
-                {[...state.orders.slice(0, 4), ...state.rides.slice(0, 4)].map((entry) => (
-                  <article className="admin-row compact" key={entry.id}>
-                    <ReceiptText size={18} />
-                    <div>
-                      <strong>{entry.id}</strong>
-                      <span>{"restaurantId" in entry ? "Pedido de comida" : "Viaje/taxi"}</span>
-                    </div>
-                    <b>{money.format("total" in entry ? entry.total : entry.fare)}</b>
-                    <small>{entry.paymentMethod}</small>
-                  </article>
-                ))}
-              </div>
-            </section>
-            <PayoutReviewPanel />
-            <TipAdjustmentPanel tips={state.tips || []} currentUserId={currentUserId} />
-          </div>
+          <AdminFinanceOverview
+            state={state}
+            grossVolume={grossVolume}
+            platformRevenue={platformRevenue}
+            takeRatePercent={marketplace?.takeRatePercent ?? 0}
+            cancellationCount={cancellationCount}
+            currentUserId={currentUserId}
+          />
         )}
 
         {section === "investors" && (
-          <div className="admin-grid">
-            <section className="admin-card">
-              <AdminSectionHeader title="Ronda seed readiness" action={`${readinessScore}/100`} />
-              <InvestorPulse
-                dashboard={dashboard}
-                grossVolume={grossVolume}
-                platformRevenue={platformRevenue}
-              />
-            </section>
-            <div className="admin-grid two">
-              <section className="admin-card">
-                <AdminSectionHeader title="Unit economics" action="Modelo financiero" />
-                <UnitEconomicsBoard dashboard={dashboard} />
-              </section>
-              <section className="admin-card">
-                <AdminSectionHeader title="Milestones para levantar capital" action="18 meses" />
-                <MilestoneBoard dashboard={dashboard} />
-              </section>
-            </div>
-            <div className="admin-grid two">
-              <section className="admin-card">
-                <AdminSectionHeader title="Funnel de crecimiento" action="Seed metrics" />
-                <GrowthFunnel state={state} dashboard={dashboard} />
-              </section>
-              <section className="admin-card">
-                <AdminSectionHeader
-                  title="Riesgos y mitigacion"
-                  action={`${dashboard?.riskSignals.length ?? 0} senales`}
-                />
-                <RiskSignalBoard dashboard={dashboard} />
-              </section>
-            </div>
-          </div>
+          <AdminInvestorPanels
+            state={state}
+            dashboard={dashboard}
+            grossVolume={grossVolume}
+            platformRevenue={platformRevenue}
+            readinessScore={readinessScore}
+          />
         )}
 
         {/* Producto: embudo, flags y go/no-go de zona. Las cinco rutas que los
