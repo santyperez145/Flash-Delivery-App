@@ -27,6 +27,10 @@ const [
   mobileMerchantToday,
   mobileMerchantOrders,
   mobileMerchantDetail,
+  compactMerchant,
+  compactDriver,
+  compactOps,
+  appEntry,
 ] = await Promise.all([
   readWebSource(),
   readMobileSource(),
@@ -44,6 +48,10 @@ const [
   fs.readFile("apps/mobile/src/screens/MerchantTodayPanel.tsx", "utf8"),
   fs.readFile("apps/mobile/src/screens/MerchantStoreOrders.tsx", "utf8"),
   fs.readFile("apps/mobile/src/screens/MerchantOrderDetailModal.tsx", "utf8"),
+  fs.readFile("src/operations/MerchantApp.tsx", "utf8"),
+  fs.readFile("src/operations/DriverApp.tsx", "utf8"),
+  fs.readFile("src/operations/OpsApp.tsx", "utf8"),
+  fs.readFile("src/App.tsx", "utf8"),
 ]);
 const lineCount = (source) => source.trimEnd().split(/\r?\n/).length;
 const assert = (condition, label) => {
@@ -200,4 +208,19 @@ assert(
 assert(
   containsAll(styles, ["merchant-pulse-stages", "@media (max-width: 720px)"]),
   "desktop operations pulse has explicit narrow-layout behavior",
+);
+assert(
+  lineCount(compactMerchant) <= 220 &&
+    lineCount(compactDriver) <= 280 &&
+    lineCount(compactOps) <= 210 &&
+    containsAll(appEntry, [
+      'import("./operations/MerchantApp")',
+      'import("./operations/DriverApp")',
+      'import("./operations/OpsApp")',
+      'import("./operations/OpsRail")',
+    ]) &&
+    containsNone(compactMerchant, ["function DriverApp", "function OpsApp"]) &&
+    containsNone(compactDriver, ["function MerchantApp", "function OpsApp"]) &&
+    containsNone(compactOps, ["function MerchantApp", "function DriverApp"]),
+  "phone-stage web loads merchant, driver and ops from separate audience chunks",
 );
