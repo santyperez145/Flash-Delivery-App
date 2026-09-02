@@ -1,7 +1,6 @@
 // Consola de backoffice (ticket ARC-001).
 //
-// Shell de navegación. Finanzas, envíos, soporte, confianza, marketplace,
-// inversión, release/pricing/infra y overview viven en módulos propios.
+// Shell de navegación. Todas las secciones viven en módulos propios.
 import {
   BadgeDollarSign,
   Bike,
@@ -25,20 +24,12 @@ import { useState } from "react";
 
 import type { AdminDashboard, AppState } from "../types";
 
-import { money } from "../format";
-import { AdminKpi, AdminSectionHeader } from "../ui/panels";
 import { ShipmentReturnsPanel } from "./ShipmentReturnsPanel";
-import { WorkQueueBoard } from "./WorkQueueBoard";
 import { PaymentReconciliationPanel } from "./AdminFinancePanels";
 import { AdminFinanceOverview } from "./AdminFinanceOverview";
 import { AdminInvestorPanels } from "./AdminInvestorPanels";
-import {
-  AdminLiveGrid,
-  InvestorPulse,
-  MarketplaceHealth,
-  RealtimeStatus,
-  ZoneBoard,
-} from "./AdminOverviewBoards";
+import { RealtimeStatus } from "./AdminOverviewBoards";
+import { AdminOverviewHome } from "./AdminOverviewHome";
 import {
   AdminDispatchPanel,
   AdminDriversSupplyPanel,
@@ -193,79 +184,18 @@ export function SuperAdminConsole({
         </header>
 
         {section === "overview" && (
-          <>
-            {/* Primero de todo en la vista general: es la única pantalla que
-                responde «¿hay algo acumulándose?» sin entrar a ocho secciones, y
-                debajo de los KPI se leería después de lo que ya está bien. */}
-            <WorkQueueBoard />
-            <div className="admin-kpis">
-              <AdminKpi
-                label="Pedidos activos"
-                value={state.metrics.activeOrders}
-                detail={`${state.metrics.avgOrderEta}m ETA`}
-                tone="orange"
-              />
-              <AdminKpi
-                label="Viajes activos"
-                value={state.metrics.activeRides}
-                detail={`${state.metrics.avgRideEta}m pickup`}
-                tone="teal"
-              />
-              <AdminKpi
-                label="Drivers online"
-                value={state.metrics.onlineDrivers}
-                detail={`${state.drivers.length} registrados`}
-                tone="green"
-              />
-              <AdminKpi
-                label="GMV registrado"
-                value={money.format(marketplace?.grossVolume ?? grossVolume)}
-                detail={`Revenue posteado ${money.format(platformRevenue)}`}
-                tone="dark"
-              />
-            </div>
-            <section className="admin-card">
-              <AdminSectionHeader
-                title="Investor pulse"
-                action={`${readinessScore}/100 readiness`}
-              />
-              <InvestorPulse
-                dashboard={dashboard}
-                grossVolume={grossVolume}
-                platformRevenue={platformRevenue}
-              />
-            </section>
-            <div className="admin-grid two">
-              <section className="admin-card">
-                <AdminSectionHeader
-                  title="Salud del marketplace"
-                  action={`${state.restaurants.length} comercios`}
-                />
-                <MarketplaceHealth
-                  state={state}
-                  dashboard={dashboard}
-                  cancellationCount={cancellationCount}
-                />
-              </section>
-              <section className="admin-card">
-                <AdminSectionHeader title="Zonas calientes" action="Live" />
-                <ZoneBoard state={state} />
-              </section>
-            </div>
-            <section className="admin-card">
-              <AdminSectionHeader
-                title="Actividad en vivo"
-                action={`${activeOrders.length + activeRides.length} activos`}
-              />
-              <AdminLiveGrid
-                state={state}
-                orders={activeOrders}
-                rides={activeRides}
-                busy={busy}
-                runAction={runAction}
-              />
-            </section>
-          </>
+          <AdminOverviewHome
+            state={state}
+            dashboard={dashboard}
+            grossVolume={grossVolume}
+            platformRevenue={platformRevenue}
+            readinessScore={readinessScore}
+            cancellationCount={cancellationCount}
+            activeOrders={activeOrders}
+            activeRides={activeRides}
+            busy={busy}
+            runAction={runAction}
+          />
         )}
 
         {section === "dispatch" && (
@@ -307,8 +237,6 @@ export function SuperAdminConsole({
           />
         )}
 
-        {/* Producto: embudo, flags y go/no-go de zona. Las cinco rutas que los
-            alimentan estaban construidas y sin pantalla hasta el 28 de agosto. */}
         {section === "product" && (
           <AdminProductOpsPanel zones={state.zones} runAction={runAction} />
         )}
@@ -327,9 +255,6 @@ export function SuperAdminConsole({
           <ShipmentConfigurationPanel busy={busy} runAction={runAction} />
         )}
 
-        {/* Siniestros y devoluciones son la misma clase de excepción y viven
-            juntos. La cola de devoluciones se listaba desde el móvil y no tenía
-            forma de resolverse hasta el 28 de agosto. */}
         {section === "claims" && (
           <div className="admin-grid">
             <ShipmentClaimsPanel />
