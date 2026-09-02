@@ -133,12 +133,25 @@ export async function createRideSafetyIncident({
       throw Object.assign(new Error("El viaje ya no está activo"), { status: 409 });
     const id = publicId("SOS");
     await client.query(
-      `INSERT INTO ride_safety_incidents(public_id,job_id,reporter_id,incident_type,details,location) VALUES($1,$2,$3,$4,$5,CASE WHEN $6::double precision IS NULL THEN NULL ELSE ST_SetSRID(ST_MakePoint($7,$6),4326)::geography END)`,
+      `INSERT INTO ride_safety_incidents(
+        public_id, job_id, reporter_id, incident_type, details, location
+      ) VALUES(
+        $1, $2, $3, $4, $5,
+        CASE WHEN $6::double precision IS NULL THEN NULL
+          ELSE ST_SetSRID(ST_MakePoint($7, $6), 4326)::geography END
+      )`,
       [id, ride.id, user.id, type, details || null, location?.lat ?? null, location?.lng ?? null],
     );
     await client.query(
-      `INSERT INTO notifications(public_id,user_id,channel,template,payload,deduplication_key,status)
-      SELECT 'NTF-'||upper(substr(md5(random()::text||u.id::text),1,8)),u.id,'in_app','safety_sos',$1,$2||':'||u.id,'sent' FROM users u JOIN user_roles ur ON ur.user_id=u.id WHERE ur.role IN('admin','support') ON CONFLICT DO NOTHING`,
+      `INSERT INTO notifications(
+        public_id, user_id, channel, template, payload, deduplication_key, status
+      )
+      SELECT 'NTF-'||upper(substr(md5(random()::text||u.id::text), 1, 8)), u.id,
+        'in_app', 'safety_sos', $1, $2||':'||u.id, 'sent'
+      FROM users u
+      JOIN user_roles ur ON ur.user_id=u.id
+      WHERE ur.role IN('admin','support')
+      ON CONFLICT DO NOTHING`,
       [{ incidentId: id, rideId: ridePublicId, type }, `safety-sos:${id}`],
     );
     await client.query("COMMIT");

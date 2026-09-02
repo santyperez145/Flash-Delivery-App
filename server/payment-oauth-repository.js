@@ -37,7 +37,9 @@ export async function beginMerchantPaymentOAuth({ merchantPublicId, userPublicId
     codeChallenge = crypto.createHash("sha256").update(codeVerifier).digest("base64url"),
     expiresAt = new Date(Date.now() + 10 * 60 * 1000);
   const result = await postgresPool.query(
-    `INSERT INTO merchant_payment_oauth_states(state_hash,merchant_id,user_id,expires_at,code_verifier_ciphertext) SELECT $1,m.id,u.id,$4,$5 FROM merchants m JOIN users u ON u.id=m.owner_id WHERE m.public_id=$2 AND u.public_id=$3 AND u.status='active' RETURNING id`,
+    `INSERT INTO merchant_payment_oauth_states(state_hash,merchant_id,user_id,expires_at,code_verifier_ciphertext)
+    SELECT $1,m.id,u.id,$4,$5 FROM merchants m JOIN users u ON u.id=m.owner_id
+    WHERE m.public_id=$2 AND u.public_id=$3 AND u.status='active' RETURNING id`,
     [
       stateHash(state),
       merchantPublicId,
@@ -56,7 +58,9 @@ export async function beginMerchantPaymentOAuth({ merchantPublicId, userPublicId
 export async function completeMerchantPaymentOAuth({ state, code }) {
   const consumed = (
     await postgresPool.query(
-      `UPDATE merchant_payment_oauth_states s SET consumed_at=now() WHERE s.state_hash=$1 AND s.consumed_at IS NULL AND s.expires_at>now() RETURNING s.merchant_id,s.user_id,s.code_verifier_ciphertext`,
+      `UPDATE merchant_payment_oauth_states s SET consumed_at=now()
+      WHERE s.state_hash=$1 AND s.consumed_at IS NULL AND s.expires_at>now()
+      RETURNING s.merchant_id,s.user_id,s.code_verifier_ciphertext`,
       [stateHash(state)],
     )
   ).rows[0];
@@ -85,7 +89,12 @@ export async function completeMerchantPaymentOAuth({ state, code }) {
     : null;
   const row = (
     await postgresPool.query(
-      `INSERT INTO merchant_payment_connections(merchant_id,provider,external_account_id,access_token_ciphertext,refresh_token_ciphertext,token_expires_at,scope,live_mode,revoked_at) VALUES($1,'mercadopago',$2,$3,$4,$5,$6,$7,NULL) ON CONFLICT(merchant_id,provider) DO UPDATE SET external_account_id=excluded.external_account_id,access_token_ciphertext=excluded.access_token_ciphertext,refresh_token_ciphertext=excluded.refresh_token_ciphertext,token_expires_at=excluded.token_expires_at,scope=excluded.scope,live_mode=excluded.live_mode,revoked_at=NULL,connected_at=now(),updated_at=now() RETURNING *`,
+      `INSERT INTO merchant_payment_connections(merchant_id,provider,external_account_id,access_token_ciphertext,refresh_token_ciphertext,token_expires_at,scope,live_mode,revoked_at)
+      VALUES($1,'mercadopago',$2,$3,$4,$5,$6,$7,NULL)
+      ON CONFLICT(merchant_id,provider) DO UPDATE SET external_account_id=excluded.external_account_id,
+        access_token_ciphertext=excluded.access_token_ciphertext,refresh_token_ciphertext=excluded.refresh_token_ciphertext,
+        token_expires_at=excluded.token_expires_at,scope=excluded.scope,live_mode=excluded.live_mode,
+        revoked_at=NULL,connected_at=now(),updated_at=now() RETURNING *`,
       [
         consumed.merchant_id,
         credential.externalAccountId,
@@ -98,7 +107,9 @@ export async function completeMerchantPaymentOAuth({ state, code }) {
     )
   ).rows[0];
   await postgresPool.query(
-    `INSERT INTO audit_events(actor_id,actor_roles,action,entity_type,entity_id,after_data) SELECT $1,ARRAY['merchant']::user_role[],'merchant.payment_provider_connected','merchant',m.public_id,$2 FROM merchants m WHERE m.id=$3`,
+    `INSERT INTO audit_events(actor_id,actor_roles,action,entity_type,entity_id,after_data)
+    SELECT $1,ARRAY['merchant']::user_role[],'merchant.payment_provider_connected','merchant',m.public_id,$2
+    FROM merchants m WHERE m.id=$3`,
     [
       consumed.user_id,
       {
@@ -132,7 +143,10 @@ export async function revokeMerchantPaymentConnection({
     await client.query("BEGIN");
     const row = (
       await client.query(
-        `UPDATE merchant_payment_connections c SET access_token_ciphertext=NULL,refresh_token_ciphertext=NULL,revoked_at=COALESCE(revoked_at,now()),updated_at=now() FROM merchants m JOIN users u ON u.id=m.owner_id WHERE c.merchant_id=m.id AND m.public_id=$1 AND u.public_id=$2 RETURNING c.*,u.id actor_id`,
+        `UPDATE merchant_payment_connections c SET access_token_ciphertext=NULL,refresh_token_ciphertext=NULL,
+          revoked_at=COALESCE(revoked_at,now()),updated_at=now()
+        FROM merchants m JOIN users u ON u.id=m.owner_id
+        WHERE c.merchant_id=m.id AND m.public_id=$1 AND u.public_id=$2 RETURNING c.*,u.id actor_id`,
         [merchantPublicId, userPublicId],
       )
     ).rows[0];
@@ -141,7 +155,8 @@ export async function revokeMerchantPaymentConnection({
         status: 404,
       });
     await client.query(
-      `INSERT INTO audit_events(actor_id,actor_roles,action,entity_type,entity_id,request_id,after_data) VALUES($1,ARRAY['merchant']::user_role[],'merchant.payment_provider_revoked','merchant',$2,$3,$4)`,
+      `INSERT INTO audit_events(actor_id,actor_roles,action,entity_type,entity_id,request_id,after_data)
+      VALUES($1,ARRAY['merchant']::user_role[],'merchant.payment_provider_revoked','merchant',$2,$3,$4)`,
       [
         row.actor_id,
         merchantPublicId,

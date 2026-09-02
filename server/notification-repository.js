@@ -120,7 +120,9 @@ export async function updatePostgresNotificationPreference({
   emailEnabled,
 }) {
   await postgresPool.query(
-    `INSERT INTO user_notification_preferences(user_id,category,push_enabled,email_enabled) SELECT id,$2,$3,$4 FROM users WHERE public_id=$1 ON CONFLICT(user_id,category) DO UPDATE SET push_enabled=excluded.push_enabled,email_enabled=excluded.email_enabled,updated_at=now()`,
+    `INSERT INTO user_notification_preferences(user_id,category,push_enabled,email_enabled)
+    SELECT id,$2,$3,$4 FROM users WHERE public_id=$1
+    ON CONFLICT(user_id,category) DO UPDATE SET push_enabled=excluded.push_enabled,email_enabled=excluded.email_enabled,updated_at=now()`,
     [userPublicId, category, pushEnabled, emailEnabled],
   );
   return getPostgresNotificationPreferences(userPublicId);
@@ -147,8 +149,13 @@ export async function registerPostgresDevice({
     );
     const row = (
       await client.query(
-        `INSERT INTO user_devices(public_id,user_id,platform,push_token,push_token_ciphertext,push_token_hash,device_fingerprint_hash,app_version,last_seen_at,revoked_at) VALUES($1,$2,$3,NULL,$4,$5,$6,$7,now(),NULL)
-    ON CONFLICT(push_token_hash) WHERE push_token_hash IS NOT NULL AND revoked_at IS NULL DO UPDATE SET user_id=excluded.user_id,platform=excluded.platform,push_token=NULL,push_token_ciphertext=excluded.push_token_ciphertext,device_fingerprint_hash=excluded.device_fingerprint_hash,app_version=excluded.app_version,last_seen_at=now(),revoked_at=NULL RETURNING public_id,platform,app_version,last_seen_at`,
+        `INSERT INTO user_devices(public_id,user_id,platform,push_token,push_token_ciphertext,push_token_hash,device_fingerprint_hash,app_version,last_seen_at,revoked_at)
+        VALUES($1,$2,$3,NULL,$4,$5,$6,$7,now(),NULL)
+    ON CONFLICT(push_token_hash) WHERE push_token_hash IS NOT NULL AND revoked_at IS NULL
+    DO UPDATE SET user_id=excluded.user_id,platform=excluded.platform,push_token=NULL,
+      push_token_ciphertext=excluded.push_token_ciphertext,device_fingerprint_hash=excluded.device_fingerprint_hash,
+      app_version=excluded.app_version,last_seen_at=now(),revoked_at=NULL
+    RETURNING public_id,platform,app_version,last_seen_at`,
         [
           publicId("DEV"),
           user.id,
@@ -208,7 +215,11 @@ export async function enqueuePostgresNotification({
   const category = categoryForTemplate(template),
     essential = essentialTemplates.has(template);
   const result = await postgresPool.query(
-    `INSERT INTO notifications(public_id,user_id,channel,template,payload,deduplication_key,status,scheduled_at) SELECT $1,u.id,CASE WHEN $2='push' AND NOT $8 AND COALESCE(p.push_enabled,$9)=false THEN 'in_app' ELSE $2 END,$3,$4,$5,CASE WHEN $2='push' AND NOT $8 AND COALESCE(p.push_enabled,$9)=false THEN 'sent' ELSE 'queued' END,$6 FROM users u LEFT JOIN user_notification_preferences p ON p.user_id=u.id AND p.category=$10 WHERE u.public_id=$7 ON CONFLICT(user_id,channel,deduplication_key) DO NOTHING RETURNING public_id`,
+    `INSERT INTO notifications(public_id,user_id,channel,template,payload,deduplication_key,status,scheduled_at)
+    SELECT $1,u.id,CASE WHEN $2='push' AND NOT $8 AND COALESCE(p.push_enabled,$9)=false THEN 'in_app' ELSE $2 END,$3,$4,$5,
+      CASE WHEN $2='push' AND NOT $8 AND COALESCE(p.push_enabled,$9)=false THEN 'sent' ELSE 'queued' END,$6
+    FROM users u LEFT JOIN user_notification_preferences p ON p.user_id=u.id AND p.category=$10
+    WHERE u.public_id=$7 ON CONFLICT(user_id,channel,deduplication_key) DO NOTHING RETURNING public_id`,
     [
       publicId("NTF"),
       channel,
@@ -234,7 +245,11 @@ export async function enqueueNotificationForInternalUser(
     defaultPush = category !== "promotions";
   const result = await client.query(
     `INSERT INTO notifications(public_id,user_id,channel,template,payload,deduplication_key,status,scheduled_at)
-    SELECT $1,$2,CASE WHEN $3='push' AND NOT $8 AND COALESCE(p.push_enabled,$9)=false THEN 'in_app' ELSE $3 END,$4,$5,$6,CASE WHEN $3='push' AND NOT $8 AND COALESCE(p.push_enabled,$9)=false THEN 'sent' ELSE 'queued' END,$7 FROM (SELECT 1) seed LEFT JOIN user_notification_preferences p ON p.user_id=$2 AND p.category=$10
+    SELECT $1,$2,
+      CASE WHEN $3='push' AND NOT $8 AND COALESCE(p.push_enabled,$9)=false THEN 'in_app' ELSE $3 END,
+      $4,$5,$6,
+      CASE WHEN $3='push' AND NOT $8 AND COALESCE(p.push_enabled,$9)=false THEN 'sent' ELSE 'queued' END,$7
+    FROM (SELECT 1) seed LEFT JOIN user_notification_preferences p ON p.user_id=$2 AND p.category=$10
     ON CONFLICT(user_id,channel,deduplication_key) DO NOTHING RETURNING public_id`,
     [
       publicId("NTF"),
@@ -264,7 +279,8 @@ async function deadLetterNotification(notification, { workerId, reason }) {
     ).rows[0];
     if (updated)
       await client.query(
-        `INSERT INTO notification_dead_letters(notification_id,reason,attempts) VALUES($1,$2,$3) ON CONFLICT(notification_id) DO UPDATE SET reason=excluded.reason,attempts=excluded.attempts,created_at=now(),resolved_at=NULL,replayed_by=NULL`,
+        `INSERT INTO notification_dead_letters(notification_id,reason,attempts) VALUES($1,$2,$3)
+        ON CONFLICT(notification_id) DO UPDATE SET reason=excluded.reason,attempts=excluded.attempts,created_at=now(),resolved_at=NULL,replayed_by=NULL`,
         [notification.id, reason, notification.attempts],
       );
     await client.query("COMMIT");
@@ -287,7 +303,9 @@ const mapDeadLetter = (row) => ({
   createdAt: new Date(row.dead_letter_created_at).toISOString(),
   lastReplayedAt: row.last_replayed_at ? new Date(row.last_replayed_at).toISOString() : null,
 });
-const deadLetterSelect = `SELECT n.public_id,n.channel,n.template,n.replay_count,n.last_replayed_at,u.public_id user_public_id,d.reason,d.attempts dead_letter_attempts,d.created_at dead_letter_created_at FROM notification_dead_letters d JOIN notifications n ON n.id=d.notification_id JOIN users u ON u.id=n.user_id`;
+const deadLetterSelect = `SELECT n.public_id,n.channel,n.template,n.replay_count,n.last_replayed_at,u.public_id user_public_id,
+  d.reason,d.attempts dead_letter_attempts,d.created_at dead_letter_created_at
+  FROM notification_dead_letters d JOIN notifications n ON n.id=d.notification_id JOIN users u ON u.id=n.user_id`;
 export async function getNotificationDeadLetters() {
   return (
     await postgresPool.query(
@@ -326,7 +344,9 @@ export async function replayNotificationDeadLetter({ notificationPublicId, actor
       .rows[0];
     const replayed = (
       await client.query(
-        "UPDATE notifications SET status='queued',attempts=0,scheduled_at=now(),dead_lettered_at=NULL,last_error=NULL,locked_at=NULL,locked_by=NULL,replay_count=replay_count+1,last_replayed_at=now(),last_replayed_by=$2 WHERE public_id=$1 AND status='dead_lettered' RETURNING id",
+        `UPDATE notifications SET status='queued',attempts=0,scheduled_at=now(),dead_lettered_at=NULL,last_error=NULL,
+          locked_at=NULL,locked_by=NULL,replay_count=replay_count+1,last_replayed_at=now(),last_replayed_by=$2
+        WHERE public_id=$1 AND status='dead_lettered' RETURNING id`,
         [notificationPublicId, actor?.id || null],
       )
     ).rows[0];
@@ -533,8 +553,12 @@ export async function processPostgresNotificationBatch({
   try {
     await client.query("BEGIN");
     const result = await client.query(
-      `WITH candidates AS(SELECT id FROM notifications WHERE status='queued' AND scheduled_at<=now() AND (locked_at IS NULL OR locked_at<now()-interval '5 minutes') ORDER BY scheduled_at,created_at FOR UPDATE SKIP LOCKED LIMIT $1)
-  UPDATE notifications n SET locked_at=now(),locked_by=$2,attempts=attempts+1 FROM candidates c WHERE n.id=c.id RETURNING n.*`,
+      `WITH candidates AS(
+        SELECT id FROM notifications WHERE status='queued' AND scheduled_at<=now()
+          AND (locked_at IS NULL OR locked_at<now()-interval '5 minutes')
+        ORDER BY scheduled_at,created_at FOR UPDATE SKIP LOCKED LIMIT $1)
+      UPDATE notifications n SET locked_at=now(),locked_by=$2,attempts=attempts+1
+      FROM candidates c WHERE n.id=c.id RETURNING n.*`,
       [limit, workerId],
     );
     claimed.push(...result.rows);

@@ -64,7 +64,8 @@ export async function updatePostgresPromotion(publicId, data) {
   ).rows[0];
   if (!current) throw Object.assign(new Error("Promoción no encontrada"), { status: 404 });
   await postgresPool.query(
-    `UPDATE promotions SET code=$2,name=$3,description=$4,kind=$5,value=$6,max_discount_cents=$7,min_subtotal_cents=$8,usage_limit=$9,per_user_limit=$10,starts_at=$11,ends_at=$12,rules=$13,active=$14 WHERE public_id=$1`,
+    `UPDATE promotions SET code=$2,name=$3,description=$4,kind=$5,value=$6,max_discount_cents=$7,min_subtotal_cents=$8,
+      usage_limit=$9,per_user_limit=$10,starts_at=$11,ends_at=$12,rules=$13,active=$14 WHERE public_id=$1`,
     [
       publicId,
       data.code ?? current.code,
@@ -120,7 +121,9 @@ export async function getPostgresZones({ citySlug = "buenos-aires" } = {}) {
 
 export async function updatePostgresZone(publicId, data) {
   const result = await postgresPool.query(
-    `UPDATE service_zones SET name=COALESCE($2,name),demand_level=COALESCE($3,demand_level),delivery_multiplier=COALESCE($4,delivery_multiplier),ride_multiplier=COALESCE($5,ride_multiplier),active=COALESCE($6,active),updated_at=now() WHERE public_id=$1 RETURNING id`,
+    `UPDATE service_zones SET name=COALESCE($2,name),demand_level=COALESCE($3,demand_level),
+      delivery_multiplier=COALESCE($4,delivery_multiplier),ride_multiplier=COALESCE($5,ride_multiplier),
+      active=COALESCE($6,active),updated_at=now() WHERE public_id=$1 RETURNING id`,
     [
       publicId,
       data.name || null,
@@ -155,7 +158,9 @@ export async function getPostgresPricingPlan(service) {
   await activateDuePostgresPricingChanges();
   const row = (
     await postgresPool.query(
-      `SELECT service,version,currency,config,effective_from FROM pricing_plans WHERE service=$1 AND active AND effective_from<=now() AND (effective_until IS NULL OR effective_until>now()) ORDER BY effective_from DESC LIMIT 1`,
+      `SELECT service,version,currency,config,effective_from FROM pricing_plans
+      WHERE service=$1 AND active AND effective_from<=now() AND (effective_until IS NULL OR effective_until>now())
+      ORDER BY effective_from DESC LIMIT 1`,
       [service],
     )
   ).rows[0];
@@ -229,7 +234,10 @@ const mapPricingChange = (row) => ({
   activatedAt: row.activated_at ? new Date(row.activated_at).toISOString() : null,
   reviewNote: row.review_note || null,
 });
-const pricingChangeSelect = `SELECT r.*,requester.public_id requested_by_public_id,reviewer.public_id reviewed_by_public_id,source.version source_version FROM pricing_change_requests r JOIN users requester ON requester.id=r.requested_by LEFT JOIN users reviewer ON reviewer.id=r.reviewed_by LEFT JOIN pricing_plans source ON source.id=r.source_pricing_plan_id`;
+const pricingChangeSelect = `SELECT r.*,requester.public_id requested_by_public_id,reviewer.public_id reviewed_by_public_id,
+  source.version source_version FROM pricing_change_requests r
+  JOIN users requester ON requester.id=r.requested_by LEFT JOIN users reviewer ON reviewer.id=r.reviewed_by
+  LEFT JOIN pricing_plans source ON source.id=r.source_pricing_plan_id`;
 
 export async function getPostgresPricingChangeRequests() {
   const result = await postgresPool.query(
@@ -298,7 +306,8 @@ export async function createPostgresPricingChangeRequest({
   const risk = calculatePricingRisk(current.config, config),
     row = (
       await postgresPool.query(
-        `INSERT INTO pricing_change_requests(public_id,service,version,config,effective_at,requested_by,change_kind,source_pricing_plan_id,risk_level,maximum_change_percent,risk_warnings) SELECT $1,$2,$3,$4,$5,u.id,$7,$8,$9,$10,$11 FROM users u WHERE u.public_id=$6 RETURNING id`,
+        `INSERT INTO pricing_change_requests(public_id,service,version,config,effective_at,requested_by,change_kind,source_pricing_plan_id,risk_level,maximum_change_percent,risk_warnings)
+        SELECT $1,$2,$3,$4,$5,u.id,$7,$8,$9,$10,$11 FROM users u WHERE u.public_id=$6 RETURNING id`,
         [
           pricingChangeId(),
           service,
@@ -372,7 +381,9 @@ export async function reviewPostgresPricingChangeRequest({
     await client.query("BEGIN");
     const row = (
       await client.query(
-        `SELECT r.*,requester.public_id requester_public_id,reviewer.id reviewer_id FROM pricing_change_requests r JOIN users requester ON requester.id=r.requested_by JOIN users reviewer ON reviewer.public_id=$2 WHERE r.public_id=$1 FOR UPDATE OF r`,
+        `SELECT r.*,requester.public_id requester_public_id,reviewer.id reviewer_id
+        FROM pricing_change_requests r JOIN users requester ON requester.id=r.requested_by
+        JOIN users reviewer ON reviewer.public_id=$2 WHERE r.public_id=$1 FOR UPDATE OF r`,
         [publicId, reviewerPublicId],
       )
     ).rows[0];

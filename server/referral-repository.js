@@ -5,27 +5,32 @@ const publicCode = (userId) =>
 const walletAccount = async (client, userId) =>
   (
     await client.query(
-      `INSERT INTO ledger_accounts(owner_type,owner_id,currency,account_type) VALUES('user',$1,'ARS','wallet') ON CONFLICT(owner_type,owner_id,currency,account_type) DO UPDATE SET owner_type=excluded.owner_type RETURNING id`,
+      `INSERT INTO ledger_accounts(owner_type,owner_id,currency,account_type) VALUES('user',$1,'ARS','wallet')
+      ON CONFLICT(owner_type,owner_id,currency,account_type) DO UPDATE SET owner_type=excluded.owner_type RETURNING id`,
       [userId],
     )
   ).rows[0].id;
 const clearingAccount = async (client) =>
   (
     await client.query(
-      `INSERT INTO ledger_accounts(owner_type,owner_id,currency,account_type) VALUES('platform',NULL,'ARS','cash_clearing') ON CONFLICT(owner_type,currency,account_type) WHERE owner_id IS NULL DO UPDATE SET owner_type=excluded.owner_type RETURNING id`,
+      `INSERT INTO ledger_accounts(owner_type,owner_id,currency,account_type) VALUES('platform',NULL,'ARS','cash_clearing')
+      ON CONFLICT(owner_type,currency,account_type) WHERE owner_id IS NULL DO UPDATE SET owner_type=excluded.owner_type RETURNING id`,
     )
   ).rows[0].id;
 async function settleEligible(client, user) {
   const attribution = (
     await client.query(
-      `SELECT a.*,c.advocate_reward_cents,c.friend_reward_cents FROM referral_attributions a JOIN referral_campaigns c ON c.id=a.campaign_id WHERE a.referred_user_id=$1 AND a.status='pending' FOR UPDATE OF a`,
+      `SELECT a.*,c.advocate_reward_cents,c.friend_reward_cents FROM referral_attributions a
+      JOIN referral_campaigns c ON c.id=a.campaign_id WHERE a.referred_user_id=$1 AND a.status='pending' FOR UPDATE OF a`,
       [user.id],
     )
   ).rows[0];
   if (!attribution) return false;
   const job = (
     await client.query(
-      `SELECT j.id,j.public_id FROM jobs j JOIN payment_intents p ON p.job_id=j.id WHERE j.customer_id=$1 AND j.status='completed' AND p.status='captured' GROUP BY j.id ORDER BY min(p.created_at) LIMIT 1`,
+      `SELECT j.id,j.public_id FROM jobs j JOIN payment_intents p ON p.job_id=j.id
+      WHERE j.customer_id=$1 AND j.status='completed' AND p.status='captured'
+      GROUP BY j.id ORDER BY min(p.created_at) LIMIT 1`,
       [user.id],
     )
   ).rows[0];
@@ -52,7 +57,8 @@ async function settleEligible(client, user) {
     transactionIds.push(transaction.id);
     const wallet = await walletAccount(client, ownerId);
     await client.query(
-      `INSERT INTO ledger_entries(transaction_id,account_id,direction,amount_cents,reference_type,reference_id,metadata) VALUES($1,$2,'credit',$3,'referral',$4,$5),($1,$6,'debit',$3,'referral',$4,$5)`,
+      `INSERT INTO ledger_entries(transaction_id,account_id,direction,amount_cents,reference_type,reference_id,metadata)
+      VALUES($1,$2,'credit',$3,'referral',$4,$5),($1,$6,'debit',$3,'referral',$4,$5)`,
       [
         transaction.id,
         wallet,
@@ -152,7 +158,9 @@ export async function claimReferral({ publicUserId, code }) {
       throw Object.assign(new Error("Tu cuenta ya tiene un referido atribuido"), { status: 409 });
     const ref = (
       await client.query(
-        `SELECT rc.id,rc.user_id,c.id campaign_id FROM referral_codes rc CROSS JOIN LATERAL(SELECT id FROM referral_campaigns WHERE active AND starts_at<=now() AND (ends_at IS NULL OR ends_at>now()) LIMIT 1)c WHERE rc.code=$1 AND rc.disabled_at IS NULL FOR UPDATE OF rc`,
+        `SELECT rc.id,rc.user_id,c.id campaign_id FROM referral_codes rc
+        CROSS JOIN LATERAL(SELECT id FROM referral_campaigns WHERE active AND starts_at<=now() AND (ends_at IS NULL OR ends_at>now()) LIMIT 1)c
+        WHERE rc.code=$1 AND rc.disabled_at IS NULL FOR UPDATE OF rc`,
         [code.toUpperCase()],
       )
     ).rows[0];

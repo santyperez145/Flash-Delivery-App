@@ -111,7 +111,12 @@ export async function confirmPhoneVerification({ userPublicId, code }) {
     transactionOpen = true;
     const row = (
       await client.query(
-        `SELECT c.*,u.public_id FROM phone_verification_challenges c JOIN users u ON u.id=c.user_id WHERE u.public_id=$1 AND u.status='active' AND c.consumed_at IS NULL ORDER BY c.created_at DESC LIMIT 1 FOR UPDATE OF c,u`,
+        `SELECT c.*, u.public_id
+         FROM phone_verification_challenges c
+         JOIN users u ON u.id=c.user_id
+         WHERE u.public_id=$1 AND u.status='active' AND c.consumed_at IS NULL
+         ORDER BY c.created_at DESC LIMIT 1
+         FOR UPDATE OF c,u`,
         [userPublicId],
       )
     ).rows[0];

@@ -760,7 +760,13 @@ app.get("/api/internal/metrics", async (req, res) => {
       "SELECT status,count(*)::int count FROM payouts GROUP BY status ORDER BY status",
     ),
     merchantPayable = await postgresPool.query(
-      `SELECT COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint cents FROM ledger_accounts a JOIN ledger_entries e ON e.account_id=a.id WHERE a.owner_type='merchant' AND a.account_type='payable'`,
+      `SELECT COALESCE(
+         sum(CASE WHEN e.direction = 'credit' THEN e.amount_cents ELSE -e.amount_cents END),
+         0
+       )::bigint cents
+       FROM ledger_accounts a
+       JOIN ledger_entries e ON e.account_id = a.id
+       WHERE a.owner_type = 'merchant' AND a.account_type = 'payable'`,
     ),
     tips = await postgresPool.query(
       "SELECT count(*)::int count,COALESCE(sum(amount_cents),0)::bigint cents FROM service_tips",
