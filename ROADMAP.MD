@@ -26,6 +26,17 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 - [ ] **Candidatas post-Fase 0 (no se implementan aún):** FCM/APNs directos, microservicios/Kubernetes HPA, Redis administrado, WebSockets productivos, IA de producto, dinero productivo Mercado Pago, apps EAS en stores. Bloqueo: dueño (credenciales, gasto, dispositivos, staging).
 - [~] Uber/DoorDash ya operan esas capas en producción. Flash las tiene como deuda nombrada; fingirlas en Fase 0 empeora la métrica de la auditoría.
 
+## Decisión 2 de septiembre de 2026 — mandato competitivo permanente
+
+- [x] Lineamiento del dueño formalizado en `AGENTS.md`, `docs/product-execution-guidelines.md` §0 y `.cursor/rules/competitive-mandate.mdc` (`alwaysApply`): roles CEO/CTO/CFO/PM/PO/inversor, comparar siempre, mejor tecnología medida, libertad para el bien del producto.
+- [x] En Fase 0 se interpreta como paridad de ingeniería/operación (no verticales nuevas ni providers fingidos). Gasto y cuentas cloud siguen siendo del dueño.
+
+## Avance 2 de septiembre de 2026 — ARC-001, release/pricing/infra fuera de AdminConsole
+
+- [x] Producto, tarifas y ruta de infra viven en `AdminReleaseControls.tsx`; `AdminConsole` queda como shell de nav + overview/claims.
+- [~] DoorDash/Uber aíslan launch controls y surge. Flash ahora también; sigue por debajo sin techo CI del archivo ni unificar tipos divergentes.
+- [ ] ARC-001 global sigue abierto: unificar tipos divergentes y 251 líneas largas SQL.
+
 ## Avance 2 de septiembre de 2026 — ARC-001, finanzas e inversión fuera de AdminConsole
 
 - [x] Snapshot de ledger/GMV vive en `AdminFinanceOverview.tsx`; readiness/unit economics/funnel en `AdminInvestorPanels.tsx`; `AdminConsole` queda como shell de navegación.

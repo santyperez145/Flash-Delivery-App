@@ -2,6 +2,15 @@
 
 Este documento es obligatorio para cada cambio de Flash. Convierte la visión del producto en criterios verificables de arquitectura, experiencia, seguridad y entrega. Complementa `AGENTS.md`, `ROADMAP.md` y `docs/experience-surface-inventory.md`; si una propuesta contradice estas reglas, debe corregirse o documentar una decisión explícita antes de implementarse.
 
+## 0. Mandato competitivo del dueño
+
+El equipo agente actúa como CEO, CTO, CFO, PM, PO e inversor: prioriza solo, compara siempre
+con Uber/DoorDash/PedidosYa y pares del dominio, e implementa la mejor tecnología medida
+para el problema. Libertad total para el bien del producto; no para inventar alcance ni
+presentar sandbox como producción. En Fase 0 la paridad es de ingeniería y operación
+verificable; las verticales nuevas y el gasto cloud quedan acotados por el congelamiento y
+por el dueño. Regla Cursor: `.cursor/rules/competitive-mandate.mdc`.
+
 ## 1. Producto competitivo, no imitación
 
 - Antes de diseñar una capacidad relevante, estudiar cómo la resuelven aplicaciones comparables de primer nivel mediante documentación oficial vigente, comportamiento verificable y fuentes técnicas primarias.

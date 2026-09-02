@@ -1,7 +1,7 @@
 // Consola de backoffice (ticket ARC-001).
 //
-// Orquestación de secciones. Finanzas, envíos, soporte, confianza, marketplace
-// (dispatch/comercios/drivers) y tableros overview viven en módulos propios.
+// Shell de navegación. Finanzas, envíos, soporte, confianza, marketplace,
+// inversión, release/pricing/infra y overview viven en módulos propios.
 import {
   BadgeDollarSign,
   Bike,
@@ -27,20 +27,13 @@ import type { AdminDashboard, AppState } from "../types";
 
 import { money } from "../format";
 import { AdminKpi, AdminSectionHeader } from "../ui/panels";
-import { PromotionControlsPanel, ZoneDemandPanel } from "./DemandControlsBoard";
 import { ShipmentReturnsPanel } from "./ShipmentReturnsPanel";
 import { WorkQueueBoard } from "./WorkQueueBoard";
-import {
-  FeatureFlagsPanel,
-  ProductFunnelPanel,
-  ZoneReadinessPanel,
-} from "./ProductOperationsBoard";
-import { PaymentReconciliationPanel, PricingGovernancePanel } from "./AdminFinancePanels";
+import { PaymentReconciliationPanel } from "./AdminFinancePanels";
 import { AdminFinanceOverview } from "./AdminFinanceOverview";
 import { AdminInvestorPanels } from "./AdminInvestorPanels";
 import {
   AdminLiveGrid,
-  InfraItem,
   InvestorPulse,
   MarketplaceHealth,
   RealtimeStatus,
@@ -51,12 +44,13 @@ import {
   AdminDriversSupplyPanel,
   AdminMerchantsPanel,
 } from "./AdminMarketplacePanels";
-import { ShipmentClaimsPanel, ShipmentConfigurationPanel } from "./AdminShipmentPanels";
 import {
-  NotificationDeliveryPanel,
-  ServiceQuickReplyPanel,
-  SupportOperationsPanel,
-} from "./AdminSupportPanels";
+  AdminInfraPanel,
+  AdminPricingOpsPanel,
+  AdminProductOpsPanel,
+} from "./AdminReleaseControls";
+import { ShipmentClaimsPanel, ShipmentConfigurationPanel } from "./AdminShipmentPanels";
+import { ServiceQuickReplyPanel, SupportOperationsPanel } from "./AdminSupportPanels";
 import { AdminSecurityPanel, AdminUserModeration } from "./AdminTrustPanels";
 
 export function SuperAdminConsole({
@@ -316,25 +310,7 @@ export function SuperAdminConsole({
         {/* Producto: embudo, flags y go/no-go de zona. Las cinco rutas que los
             alimentan estaban construidas y sin pantalla hasta el 28 de agosto. */}
         {section === "product" && (
-          <div className="admin-grid">
-            <section className="admin-card">
-              <AdminSectionHeader title="Embudo de producto" action="Eventos propios" />
-              <ProductFunnelPanel />
-            </section>
-            <div className="admin-grid two">
-              <section className="admin-card">
-                <AdminSectionHeader title="Flags por audiencia" action="Rollout" />
-                <FeatureFlagsPanel runAction={runAction} />
-              </section>
-              <section className="admin-card">
-                <AdminSectionHeader title="Go/no-go de zona" action="Criterios" />
-                <ZoneReadinessPanel
-                  zones={state.zones.map((zona) => ({ id: zona.id, name: zona.name }))}
-                  runAction={runAction}
-                />
-              </section>
-            </div>
-          </div>
+          <AdminProductOpsPanel zones={state.zones} runAction={runAction} />
         )}
 
         {section === "support" && (
@@ -363,32 +339,12 @@ export function SuperAdminConsole({
         {section === "payments" && <PaymentReconciliationPanel />}
 
         {section === "pricing" && (
-          <div className="admin-grid">
-            <PricingGovernancePanel
-              currentUserId={currentUserId}
-              busy={busy}
-              runAction={runAction}
-            />
-            {/* Promociones y multiplicadores: las dos palancas con las que se
-                corrige una operación en curso. Estaban construidas y sin pantalla. */}
-            <div className="admin-grid two">
-              <section className="admin-card">
-                <AdminSectionHeader
-                  title="Promociones"
-                  action={`${state.promotions.filter((promo) => promo.active).length} activas`}
-                />
-                <PromotionControlsPanel
-                  promotions={state.promotions}
-                  runAction={runAction}
-                  busy={busy}
-                />
-              </section>
-              <section className="admin-card">
-                <AdminSectionHeader title="Multiplicadores por zona" action="Surge" />
-                <ZoneDemandPanel zones={state.zones} runAction={runAction} busy={busy} />
-              </section>
-            </div>
-          </div>
+          <AdminPricingOpsPanel
+            state={state}
+            currentUserId={currentUserId}
+            busy={busy}
+            runAction={runAction}
+          />
         )}
 
         {section === "messages" && <ServiceQuickReplyPanel busy={busy} />}
@@ -399,40 +355,7 @@ export function SuperAdminConsole({
 
         {section === "security" && <AdminSecurityPanel />}
 
-        {section === "infra" && (
-          <div className="admin-grid">
-            <section className="admin-card">
-              <AdminSectionHeader title="Ruta de infraestructura" action="Escalable" />
-              <div className="infra-list">
-                <InfraItem
-                  title="Apps nativas"
-                  text="Migrar la experiencia mobile a Expo/React Native con EAS, manteniendo esta API como backend."
-                />
-                <InfraItem
-                  title="API modular"
-                  text="Separar auth, marketplace, dispatch, payments, notifications, support y admin en modulos o servicios."
-                />
-                <InfraItem
-                  title="Datos"
-                  text="PostgreSQL + PostGIS es el runtime primario; SQLite queda aislado como fallback de pruebas. Siguiente escala: réplicas, Redis administrado y object storage."
-                />
-                <InfraItem
-                  title="Tiempo real"
-                  text="WebSockets/SSE para tracking, ofertas a drivers, chats, eventos de cocina y consola admin."
-                />
-                <InfraItem
-                  title="Operabilidad"
-                  text="Contenedores, Kubernetes HPA, observabilidad, alertas, feature flags y auditoria de acciones."
-                />
-                <InfraItem
-                  title="Seguridad"
-                  text="RBAC real por rol, proteccion OWASP API Top 10, rate limits, secretos gestionados y trazabilidad."
-                />
-              </div>
-            </section>
-            <NotificationDeliveryPanel />
-          </div>
-        )}
+        {section === "infra" && <AdminInfraPanel />}
       </section>
     </main>
   );
