@@ -277,6 +277,9 @@ function App() {
     if (user.roles.includes("admin")) {
       setMode("ops");
       setDesktopPortal("admin");
+    } else if (user.roles.includes("support")) {
+      setMode("ops");
+      setDesktopPortal("admin");
     } else if (user.roles.includes("merchant")) {
       setMode("merchant");
       setDesktopPortal("merchant");
@@ -936,8 +939,11 @@ function App() {
       />
     );
     const canAdmin = Boolean(activeUser?.roles.includes("admin"));
-    const canMerchant = Boolean(activeUser?.roles.includes("merchant") && merchantRestaurant);
-    if (!canAdmin && !canMerchant)
+    const canSupport = Boolean(activeUser?.roles.includes("support") && !canAdmin);
+    const canMerchant = Boolean(
+      activeUser?.roles.includes("merchant") && merchantRestaurant && !canSupport,
+    );
+    if (!canAdmin && !canMerchant && !canSupport)
       return (
         <>
           {networkBanner}
@@ -997,6 +1003,7 @@ function App() {
             runAction={runAction}
             onSwitchPortal={() => setDesktopPortal("merchant")}
             onLogout={logoutWeb}
+            isSupport={canSupport}
           />
         </Suspense>
       </>

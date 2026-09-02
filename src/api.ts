@@ -29,7 +29,17 @@ const REFRESH_KEY = "flash_platform_refresh";
 const EVENT_CURSOR_KEY = "flash_platform_event_cursor";
 
 let authToken = "";
-let activeAudience: "customer" | "merchant" | "driver" | "operations" = "customer";
+type WebAudience = "customer" | "merchant" | "driver" | "operations" | "support";
+
+let activeAudience: WebAudience = "customer";
+
+function audienceForUser(user: User): WebAudience {
+  if (user.roles.includes("admin")) return "operations";
+  if (user.roles.includes("support")) return "support";
+  if (user.roles.includes("merchant")) return "merchant";
+  if (user.roles.includes("driver")) return "driver";
+  return "customer";
+}
 let refreshToken =
   typeof window === "undefined" ? "" : window.localStorage.getItem(REFRESH_KEY) || "";
 
@@ -297,7 +307,9 @@ export const api = {
         };
         audience: string;
       }>(`/bootstrap/${activeAudience}`),
-      this.getActivity(undefined, 50),
+      activeAudience === "support"
+        ? Promise.resolve({ items: [], nextCursor: null })
+        : this.getActivity(undefined, 50),
       ["customer", "driver"].includes(activeAudience)
         ? this.getCatalog(undefined, 50)
         : Promise.resolve(null),
@@ -315,7 +327,7 @@ export const api = {
       activeAudience === "operations"
         ? this.getOperationsUsers(undefined, 100)
         : Promise.resolve(null),
-      activeAudience === "operations"
+      ["operations", "support"].includes(activeAudience)
         ? this.getOperationsSupportTickets(undefined, 100)
         : Promise.resolve(null),
       this.getRuntimeConfiguration(),
@@ -340,7 +352,10 @@ export const api = {
         zones: configuration.zones,
         promotions: configuration.promotions,
         auditEvents: operationsAudit?.events || bootstrap.state.auditEvents || [],
-        users: operationsUsers?.users || bootstrap.state.users || [],
+        users:
+          activeAudience === "support"
+            ? [account.user]
+            : operationsUsers?.users || bootstrap.state.users || [],
         supportTickets: operationsSupport?.tickets || account.supportTickets || [],
         notifications: notifications.notifications,
         notificationPreferences: notificationPreferences.preferences,
@@ -556,6 +571,7 @@ export const api = {
     if (session.token) {
       setAuthToken(session.token);
       persistRefreshToken(session.refreshToken || "");
+      if (session.user) activeAudience = audienceForUser(session.user);
     }
     return session;
   },
@@ -613,13 +629,7 @@ export const api = {
       body: JSON.stringify({ challenge, code, deviceName: "Flash Web" }),
     });
     setAuthToken(session.token);
-    activeAudience = session.user.roles.includes("admin")
-      ? "operations"
-      : session.user.roles.includes("merchant")
-        ? "merchant"
-        : session.user.roles.includes("driver")
-          ? "driver"
-          : "customer";
+    activeAudience = audienceForUser(session.user);
     persistRefreshToken(session.refreshToken || "");
     return session;
   },
@@ -868,13 +878,7 @@ export const api = {
     if (!authToken && !(await refreshAccessToken())) return null;
     try {
       const account = await request<{ account: { user: User } }>("/me");
-      activeAudience = account.account.user.roles.includes("admin")
-        ? "operations"
-        : account.account.user.roles.includes("merchant")
-          ? "merchant"
-          : account.account.user.roles.includes("driver")
-            ? "driver"
-            : "customer";
+      activeAudience = audienceForUser(account.account.user);
       return account.account.user;
     } catch (_error) {
       clearAuthToken();

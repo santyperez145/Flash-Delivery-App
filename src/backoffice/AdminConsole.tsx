@@ -92,6 +92,7 @@ export function SuperAdminConsole({
   runAction,
   onSwitchPortal,
   onLogout,
+  isSupport = false,
 }: {
   state: AppState;
   currentUserId: string;
@@ -101,6 +102,7 @@ export function SuperAdminConsole({
   runAction: (action: () => Promise<unknown>, success: string) => void;
   onSwitchPortal: () => void;
   onLogout: () => void;
+  isSupport?: boolean;
 }) {
   const [section, setSection] = useState<
     | "overview"
@@ -119,7 +121,7 @@ export function SuperAdminConsole({
     | "support"
     | "security"
     | "infra"
-  >("overview");
+  >(isSupport ? "support" : "overview");
   const activeOrders = state.orders.filter(
     (order) => !["delivered", "cancelled"].includes(order.status),
   );
@@ -155,6 +157,7 @@ export function SuperAdminConsole({
     ["security", "Seguridad", KeyRound],
     ["infra", "Infra", ShieldCheck],
   ] as const;
+  const visibleNav = isSupport ? nav.filter(([id]) => id === "support") : nav;
 
   return (
     <main className="admin-shell">
@@ -164,15 +167,17 @@ export function SuperAdminConsole({
             <Flame size={22} />
           </span>
           <div>
-            <strong>Flash Command</strong>
-            <small>Superadministrador</small>
+            <strong>{isSupport ? "Flash Support" : "Flash Command"}</strong>
+            <small>{isSupport ? "Mesa de ayuda" : "Superadministrador"}</small>
           </div>
         </div>
         <nav className="admin-nav">
-          <button type="button" onClick={onSwitchPortal}>
-            <Store size={17} /> Portal de comercio
-          </button>
-          {nav.map(([id, label, Icon]) => (
+          {!isSupport && (
+            <button type="button" onClick={onSwitchPortal}>
+              <Store size={17} /> Portal de comercio
+            </button>
+          )}
+          {visibleNav.map(([id, label, Icon]) => (
             <button
               className={section === id ? "active" : ""}
               key={id}
@@ -190,8 +195,9 @@ export function SuperAdminConsole({
         <div className="admin-note">
           <strong>Superficie correcta</strong>
           <span>
-            En escritorio solo se muestra gestion de plataforma. Cliente, comercio y driver quedan
-            como app mobile/PWA.
+            {isSupport
+              ? "Esta cuenta sólo puede atender tickets, SLA, asignaciones y colas autorizadas."
+              : "En escritorio solo se muestra gestion de plataforma. Cliente, comercio y driver quedan como app mobile/PWA."}
           </span>
         </div>
       </aside>
@@ -199,8 +205,14 @@ export function SuperAdminConsole({
       <section className="admin-main">
         <header className="admin-topbar">
           <div>
-            <span>Operaciones · PostgreSQL/PostGIS</span>
-            <h1>Control de marketplace, movilidad y delivery</h1>
+            <span>
+              {isSupport ? "Soporte · PostgreSQL/PostGIS" : "Operaciones · PostgreSQL/PostGIS"}
+            </span>
+            <h1>
+              {isSupport
+                ? "Atención de clientes y operación de tickets"
+                : "Control de marketplace, movilidad y delivery"}
+            </h1>
           </div>
           <div className="admin-actions">
             <RealtimeStatus status={realtimeStatus} />
@@ -513,6 +525,7 @@ export function SuperAdminConsole({
             currentUserId={currentUserId}
             busy={busy}
             runAction={runAction}
+            isSupport={isSupport}
           />
         )}
 
@@ -2382,11 +2395,13 @@ function SupportOperationsPanel({
   currentUserId,
   busy,
   runAction,
+  isSupport,
 }: {
   tickets: SupportTicket[];
   currentUserId: string;
   busy: boolean;
   runAction: (action: () => Promise<unknown>, success: string) => void;
+  isSupport: boolean;
 }) {
   const [agents, setAgents] = useState<SupportAgent[]>([]),
     [loading, setLoading] = useState(false),
@@ -2593,7 +2608,7 @@ function SupportOperationsPanel({
                   Estado
                   <select
                     value={agent.availability}
-                    disabled={loading}
+                    disabled={loading || (isSupport && agent.userId !== currentUserId)}
                     onChange={(event) =>
                       void updateAgent(agent.userId, {
                         availability: event.target.value as SupportAgent["availability"],
@@ -2612,7 +2627,7 @@ function SupportOperationsPanel({
                     min="1"
                     max="100"
                     defaultValue={agent.maxActiveTickets}
-                    disabled={loading}
+                    disabled={loading || (isSupport && agent.userId !== currentUserId)}
                     onBlur={(event) => {
                       const value = Number(event.target.value);
                       if (value >= 1 && value <= 100 && value !== agent.maxActiveTickets)

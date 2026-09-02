@@ -499,6 +499,15 @@ function createSeed() {
         phone: "+54 11 5555 0404",
         wallet: 0,
       },
+      {
+        id: "usr_support",
+        name: "Valentina Ruiz",
+        email: "soporte@flash.app",
+        password,
+        roles: ["support"],
+        phone: "+54 11 5555 0505",
+        wallet: 0,
+      },
     ],
     addresses: [
       {
@@ -1434,7 +1443,40 @@ function seedIfNeeded() {
   if (count === 0) {
     replaceTransaction(createSeed());
   }
+  ensureBootstrapSupportUser();
   ensureLocalNotificationData();
+}
+
+function ensureBootstrapSupportUser() {
+  const support = createSeed().users.find((user) => user.roles?.includes("support"));
+  if (!support) return;
+  const byEmail = database.prepare("SELECT id FROM users WHERE email = ?").get(support.email);
+  if (!byEmail && !database.prepare("SELECT id FROM users WHERE id = ?").get(support.id)) {
+    database
+      .prepare(
+        `INSERT INTO users (
+          id, name, email, password_hash, phone, wallet, default_address, restaurant_id, driver_id, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        support.id,
+        support.name,
+        support.email,
+        support.password,
+        support.phone || null,
+        support.wallet || 0,
+        support.defaultAddress || null,
+        support.restaurantId || null,
+        support.driverId || null,
+        support.createdAt || now(),
+      );
+  }
+  const user = database.prepare("SELECT id FROM users WHERE email = ?").get(support.email);
+  if (user) {
+    database
+      .prepare("INSERT OR IGNORE INTO user_roles (user_id, role) VALUES (?, ?)")
+      .run(user.id, "support");
+  }
 }
 
 function ensureLocalNotificationData() {

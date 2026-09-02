@@ -634,6 +634,7 @@ const bootstrapAudienceRoles = {
   merchant: "merchant",
   driver: "driver",
   operations: "admin",
+  support: "support",
 };
 
 app.get("/api/bootstrap/:audience", requireAuth, async (req, res) => {
@@ -650,9 +651,13 @@ app.get("/api/bootstrap/:audience", requireAuth, async (req, res) => {
     tips: _tips,
     ...withoutActivity
   } = scopedState;
-  const excludedBootstrapKeys = ["customer", "merchant", "driver", "operations"].includes(
-    req.params.audience,
-  )
+  const excludedBootstrapKeys = [
+    "customer",
+    "merchant",
+    "driver",
+    "operations",
+    "support",
+  ].includes(req.params.audience)
     ? [
         "restaurants",
         "drivers",
@@ -665,7 +670,9 @@ app.get("/api/bootstrap/:audience", requireAuth, async (req, res) => {
         "ratings",
         "favoriteRestaurantIds",
         "tips",
-        ...(req.params.audience === "operations" ? ["users", "auditEvents"] : []),
+        ...(["operations", "support"].includes(req.params.audience)
+          ? ["users", "auditEvents"]
+          : []),
       ]
     : [];
   const bootstrapState = Object.fromEntries(
