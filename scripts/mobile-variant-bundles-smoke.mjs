@@ -28,7 +28,7 @@ import path from "node:path";
 const MOBILE = "apps/mobile";
 const MARCADORES = [
   { variante: "customer", pantalla: "CustomerScreen", marcador: "Activar Seguridad Flash" },
-  { variante: "driver", pantalla: "DriverScreen", marcador: "ACTIVIDAD OBSERVADA" },
+  { variante: "driver", pantalla: "DriverScreen", marcador: "Ubicacion GPS" },
   { variante: "merchant", pantalla: "MerchantScreen", marcador: "Abierto y recibiendo" },
 ];
 
