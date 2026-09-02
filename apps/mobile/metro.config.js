@@ -18,6 +18,7 @@
 // ubicación en segundo plano, o ninguna de las tres cosas.
 //
 // Sin la variable la resolución cae en `customer`, igual que `app.config.js`.
+const path = require("node:path");
 const { getDefaultConfig } = require("expo/metro-config");
 
 const VARIANTS = new Set(["customer", "driver", "merchant"]);
@@ -26,6 +27,17 @@ const variant = VARIANTS.has(process.env.EXPO_PUBLIC_APP_VARIANT)
   : "customer";
 
 const config = getDefaultConfig(__dirname);
+const domainContracts = path.resolve(__dirname, "../../packages/domain-contracts");
+config.watchFolders = [...(config.watchFolders || []), domainContracts];
+config.resolver.nodeModulesPaths = [
+  path.resolve(__dirname, "node_modules"),
+  path.resolve(__dirname, "../../node_modules"),
+  ...(config.resolver.nodeModulesPaths || []),
+];
+config.resolver.extraNodeModules = {
+  ...(config.resolver.extraNodeModules || {}),
+  "@flash/domain-contracts": domainContracts,
+};
 const upstreamResolveRequest = config.resolver.resolveRequest;
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {

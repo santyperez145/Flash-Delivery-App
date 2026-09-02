@@ -17,6 +17,7 @@ const [
   desktopTypes,
   mobileApi,
   mobileTypes,
+  sharedContracts,
   styles,
 ] = await Promise.all([
   readWebSource(),
@@ -25,6 +26,7 @@ const [
   fs.readFile("src/types.ts", "utf8"),
   fs.readFile("apps/mobile/src/api.ts", "utf8"),
   fs.readFile("apps/mobile/src/types.ts", "utf8"),
+  fs.readFile("packages/domain-contracts/src/index.ts", "utf8"),
   fs.readFile("src/styles.css", "utf8"),
 ]);
 const assert = (condition, label) => {
@@ -39,8 +41,17 @@ const desktopMerchant = section(
 const mobileMerchant = section(mobile, "function MerchantScreen", "function DriverScreen");
 
 assert(
-  containsAll(desktopTypes, ["export type MerchantOperationsDashboard"]) &&
-    containsAll(mobileTypes, ["export type MerchantOperationsDashboard"]),
+  containsAll(sharedContracts, ["export type MerchantOperationsMetrics"]) &&
+    containsAll(desktopTypes, [
+      "export type MerchantOperationsDashboard",
+      "MerchantOperationsMetrics",
+      'from "@flash/domain-contracts"',
+    ]) &&
+    containsAll(mobileTypes, [
+      "export type MerchantOperationsDashboard",
+      "MerchantOperationsMetrics",
+      'from "@flash/domain-contracts"',
+    ]),
   "desktop and Merchant App share the authoritative operations contract",
 );
 assert(

@@ -12,12 +12,18 @@
     "target": "ES2022",
     "types": [
       "react"
-    ]
+    ],
+    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
+    "paths": {
+      "@flash/domain-contracts": ["../../packages/domain-contracts/src/index.ts"]
+    }
   },
   "include": [
     "App.tsx",
     "src/**/*.ts",
-    "src/**/*.tsx"
+    "src/**/*.tsx",
+    "../../packages/domain-contracts/src/**/*.ts"
   ],
   "extends": "expo/tsconfig.base"
 }

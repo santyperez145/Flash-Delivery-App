@@ -14,8 +14,12 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@flash/domain-contracts": ["packages/domain-contracts/src/index.ts"]
+    }
   },
-  "include": ["src"],
+  "include": ["src", "packages/domain-contracts/src"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

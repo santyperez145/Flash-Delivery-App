@@ -1,3 +1,49 @@
+import type {
+  DietaryPreferences,
+  GeoPoint,
+  DeliveryEvidence,
+  AppNotification,
+  NotificationPreference,
+  OrderIssue,
+  OrderSubstitution,
+  UserAddress,
+  FoodCheckoutQuote,
+  ShipmentReturn,
+  ShipmentClaimEvidence,
+  DriverDocument,
+  DriverCompliance,
+  ServiceTip,
+  DispatchScoreBreakdown,
+  MerchantOperationsMetrics,
+  SubscriptionPlan,
+  Subscription,
+  GroupOrderParticipant,
+  GroupOrder,
+} from "@flash/domain-contracts";
+
+export type {
+  DietaryPreferences,
+  GeoPoint,
+  DeliveryEvidence,
+  AppNotification,
+  NotificationPreference,
+  OrderIssue,
+  OrderSubstitution,
+  UserAddress,
+  FoodCheckoutQuote,
+  ShipmentReturn,
+  ShipmentClaimEvidence,
+  DriverDocument,
+  DriverCompliance,
+  ServiceTip,
+  DispatchScoreBreakdown,
+  MerchantOperationsMetrics,
+  SubscriptionPlan,
+  Subscription,
+  GroupOrderParticipant,
+  GroupOrder,
+};
+
 export type Mode = "customer" | "merchant" | "driver" | "ops";
 export type UserRole = "customer" | "merchant" | "driver" | "admin" | "support";
 export type Service = "food" | "ride" | "shipment";
@@ -71,17 +117,6 @@ export type MenuItem = {
   }>;
   image: string;
   tags: string[];
-};
-
-export type DietaryPreferences = {
-  dietaryLabels: Array<{ code: string; name: string }>;
-  avoidedAllergens: Array<{ code: string; name: string }>;
-  hideIncompatible: boolean;
-};
-
-export type GeoPoint = {
-  lat: number;
-  lng: number;
 };
 
 export type RoadRoute = {
@@ -292,21 +327,6 @@ export type Shipment = {
   timeline?: Array<{ status: string; at: string }>;
 };
 
-export type DeliveryEvidence = {
-  id: string;
-  shipmentId: string;
-  type: "photo" | "signature";
-  mimeType: "image/jpeg" | "image/png" | "image/webp";
-  sha256: string;
-  sizeBytes: number;
-  capturedLocation: GeoPoint | null;
-  capturedAt: string;
-  createdAt: string;
-  signerName?: string | null;
-  signerRelationship?: "recipient" | "authorized_person" | null;
-  consentVersion?: string | null;
-};
-
 export type Promotion = {
   id: string;
   code?: string;
@@ -355,21 +375,6 @@ export type SupportTicket = {
     createdAt: string;
   }>;
 };
-export type AppNotification = {
-  id: string;
-  channel: "push" | "email" | "sms" | "in_app";
-  template: string;
-  payload: Record<string, unknown>;
-  status: string;
-  createdAt: string;
-  readAt: string | null;
-};
-export type NotificationPreference = {
-  category: "service_updates" | "promotions" | "support" | "wallet" | "account";
-  pushEnabled: boolean;
-  emailEnabled: boolean;
-  updatedAt: string | null;
-};
 export type SupportAgent = {
   userId: string;
   name: string;
@@ -391,30 +396,6 @@ export type NotificationDeadLetter = {
   createdAt: string;
   lastReplayedAt: string | null;
 };
-export type OrderIssue = {
-  id: string;
-  orderId: string;
-  category: "missing_item" | "wrong_item" | "damaged_item" | "quality" | "late" | "other";
-  description: string;
-  status: "open" | "approved" | "rejected";
-  requestedRefund: number;
-  approvedRefund: number;
-  resolutionNote: string | null;
-  createdAt: string;
-  resolvedAt: string | null;
-};
-export type OrderSubstitution = {
-  id: string;
-  orderId: string;
-  status: "pending" | "accepted" | "rejected" | "cancelled";
-  quantity: number;
-  reason: string;
-  original: { id: string; name: string; unitPrice: number };
-  replacement: { id: string; name: string; unitPrice: number };
-  refundAmount: number;
-  createdAt: string;
-  decidedAt: string | null;
-};
 
 export type Rating = {
   id: string;
@@ -427,21 +408,6 @@ export type Rating = {
   createdAt: string;
 };
 
-export type UserAddress = {
-  id: string;
-  userId: string;
-  label: string;
-  address: string;
-  lat: number | null;
-  lng: number | null;
-  isDefault: boolean;
-  geocodingProvider: string | null;
-  providerPlaceId: string | null;
-  geocodeType: string | null;
-  validatedAt: string | null;
-  isValidated: boolean;
-};
-
 export type PaymentMethod = {
   id: string;
   userId: string;
@@ -450,48 +416,6 @@ export type PaymentMethod = {
   last4: string;
   balance: number;
   isDefault: boolean;
-};
-
-export type FoodCheckoutQuote = {
-  quoteId: string;
-  quoteToken: string;
-  expiresAt: string;
-  customerId: string;
-  restaurantId: string;
-  branchId: string;
-  deliveryAddressId: string;
-  deliveryAddress: string;
-  distanceKm: number;
-  deliveryFee: number;
-  serviceFee: number;
-  subtotal: number;
-  discount: number;
-  /** Envío cubierto por la suscripción. Va aparte de `discount` porque no lo
-   *  financia el comercio sino Flash, y el resumen tiene que poder nombrarlo. */
-  subscriptionDiscount: number;
-  subscriptionPlan: string | null;
-  promotionCode: string | null;
-  total: number;
-  etaMin: number;
-  paymentMethod: string;
-  paymentMethodId: string | null;
-  pricingVersion: string;
-  currency: string;
-  items: Array<{
-    menuItemId: string;
-    name: string;
-    quantity: number;
-    baseUnitPrice: number;
-    unitPrice: number;
-    modifiers: Array<{
-      id: string;
-      name: string;
-      price: number;
-      groupId: string;
-      groupName: string;
-    }>;
-    note: string;
-  }>;
 };
 
 export type WalletTransaction = {
@@ -703,24 +627,7 @@ export type ServiceQuickReply = {
   updatedAt: string;
 };
 /** Devolución de un envío protegido. La resuelve soporte u operaciones. */
-export type ShipmentReturn = {
-  id: string;
-  shipmentId: string;
-  reason: string;
-  status: "requested" | "approved" | "rejected" | "in_transit" | "completed";
-  resolutionNote: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
 
-export type ShipmentClaimEvidence = {
-  id: string;
-  fileName: string;
-  mimeType: "image/jpeg" | "image/png" | "application/pdf";
-  sha256: string;
-  sizeBytes: number;
-  createdAt: string;
-};
 export type ShipmentClaim = {
   id: string;
   shipmentId: string;
@@ -880,27 +787,6 @@ export type PricingChangeRequest = {
   activatedAt: string | null;
   reviewNote: string | null;
 };
-export type DriverDocument = {
-  id: string;
-  type: "identity" | "driver_license" | "vehicle_registration" | "insurance" | "background_check";
-  mimeType: string;
-  sha256: string;
-  sizeBytes: number;
-  expiresAt: string | null;
-  status: "pending" | "approved" | "rejected" | "expired" | "superseded";
-  rejectionReason: string | null;
-  reviewedAt: string | null;
-  createdAt: string;
-};
-export type DriverCompliance = {
-  driverId: string;
-  status: "pending" | "in_review" | "approved" | "rejected" | "suspended";
-  submittedAt: string | null;
-  reviewedAt: string | null;
-  rejectionReason: string | null;
-  requiredTypes: DriverDocument["type"][];
-  documents: DriverDocument[];
-};
 export type DriverVehicle = {
   id: string;
   driverId: string;
@@ -919,14 +805,6 @@ export type DriverVehicle = {
   updatedAt: string;
 };
 
-export type ServiceTip = {
-  id: string;
-  jobId: string;
-  customerId: string;
-  driverId: string;
-  amount: number;
-  createdAt: string;
-};
 export type TipAdjustment = {
   id: string;
   tipId: string;
@@ -944,16 +822,24 @@ export type TipAdjustment = {
   reviewedAt: string | null;
 };
 
-export type DispatchScoreBreakdown = {
-  rating: number;
-  distancePenalty: number;
-  loadPenalty: number;
-  freshnessPenalty: number;
-  acceptancePoints: number;
-  responsePoints: number;
-  acceptanceRate: number;
-  averageResponseSeconds: number;
+export type MerchantOperationsDashboard = {
+  generatedAt: string;
+  source: "postgres-live-operations" | "sqlite-test-fallback";
+  timezone: string;
+  restaurantId: string;
+  branch: null | {
+    id: string;
+    name: string;
+    timezone: string;
+    open: boolean;
+    manualOpen: boolean;
+    status: "active" | "paused" | "closed";
+    etaMin: number;
+  };
+  restaurant: Restaurant;
+  metrics: MerchantOperationsMetrics;
 };
+
 export type DispatchOffer = {
   id: string;
   jobId: string;
@@ -994,38 +880,6 @@ export type MerchantFinance = {
     reviewNote: string | null;
     reviewedAt: string | null;
   }>;
-};
-export type MerchantOperationsMetrics = {
-  activeOrders: number;
-  needsAction: number;
-  preparing: number;
-  readyForPickup: number;
-  courierFlow: number;
-  lateOrders: number;
-  untrackedPrepOrders: number;
-  oldestActiveMinutes: number;
-  completedToday: number;
-  cancelledToday: number;
-  grossSalesToday: number;
-  averageTicketToday: number;
-  unavailableItems: number;
-};
-export type MerchantOperationsDashboard = {
-  generatedAt: string;
-  source: "postgres-live-operations" | "sqlite-test-fallback";
-  timezone: string;
-  restaurantId: string;
-  branch: null | {
-    id: string;
-    name: string;
-    timezone: string;
-    open: boolean;
-    manualOpen: boolean;
-    status: "active" | "paused" | "closed";
-    etaMin: number;
-  };
-  restaurant: Restaurant;
-  metrics: MerchantOperationsMetrics;
 };
 export type MerchantPaymentConnection = {
   provider: "mercadopago";
@@ -1097,61 +951,3 @@ export type ShipmentCreatePayload = {
 
 /** Plan de suscripción ofrecido. Los beneficios vienen del servidor: la pantalla
  *  no puede inventar un umbral ni un porcentaje que la tarifa no vaya a aplicar. */
-export type SubscriptionPlan = {
-  id: string;
-  planKey: string;
-  planName: string;
-  description: string;
-  priceCents: number;
-  currency: string;
-  billingPeriodDays: number;
-  freeDeliveryMinSubtotalCents: number | null;
-  rideDiscountBps: number;
-  dispatchPriorityBoost: number;
-};
-
-export type Subscription = SubscriptionPlan & {
-  status: string;
-  currentPeriodStart: string;
-  currentPeriodEnd: string;
-  /** `false` después de cancelar: los beneficios siguen hasta el fin del período. */
-  renews: boolean;
-  /** `false` mientras el cobro recurrente (PAY-001) no tenga credenciales. */
-  billed: boolean;
-};
-
-/** Pedido grupal (GTM-001). Cada participante tiene su propia canasta; el
- *  anfitrión cierra y confirma, y el grupo se vuelve un pedido normal. */
-export type GroupOrderParticipant = {
-  userId: string;
-  name: string;
-  isHost: boolean;
-  items: Array<{
-    menuItemId: string;
-    name: string;
-    quantity: number;
-    unitPrice: number;
-    extras: string[];
-    note: string;
-  }>;
-  subtotal: number;
-};
-
-export type GroupOrder = {
-  id: string;
-  /** Seis caracteres para compartir. Sólo lo ve quien ya está adentro. */
-  joinCode: string;
-  status: "open" | "locked" | "placed" | "cancelled";
-  restaurantId: string;
-  restaurantName: string;
-  branchId: string;
-  hostId: string;
-  hostName: string;
-  /** Tope de gasto por persona. `null` es sin tope. */
-  spendLimit: number | null;
-  closesAt: string | null;
-  orderId: string | null;
-  createdAt: string;
-  participants: GroupOrderParticipant[];
-  subtotal: number;
-};

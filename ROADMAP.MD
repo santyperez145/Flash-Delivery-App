@@ -8,6 +8,14 @@ Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estra
 
 Leyenda: `[x]` verificado localmente, `[~]` operativo con deuda concreta, `[ ]` pendiente o dependiente de proveedor/operación externa.
 
+## Avance 2 de septiembre de 2026 — ARC-001, contratos compartidos idénticos
+
+- [x] 20 tipos byte-a-byte idénticos y autocontenidos entre web y mobile viven en `packages/domain-contracts` (`@flash/domain-contracts`); `src/types.ts` y `apps/mobile/src/types.ts` los importan y reexportan sin redefinir el cuerpo.
+- [x] `MerchantOperationsDashboard` permanece local: su texto era idéntico, pero referencia `Restaurant`, que diverge entre superficies.
+- [x] Root y mobile declaran la dependencia `file:`; Metro observa el paquete; `test:domain-contracts` bloquea el merge junto a typecheck web/móvil.
+- [~] Uber Eats y DoorDash mantienen un modelo de dominio único entre superficies. Flash comparte el núcleo idéntico, pero sigue por debajo sin unificar User/Order/Restaurant ni el resto de divergencias reales.
+- [ ] ARC-001 global sigue abierto: unificar tipos divergentes, 251 líneas largas SQL y concentraciones restantes (AdminConsole, DriverScreen).
+
 ## Avance 2 de septiembre de 2026 — ARC-001 pendiente y cierre de IDOR de soporte
 
 - [x] Se integró lo que `codex/reflow-catalog-search-sql` no llegó a `main`: SQL de catálogo/búsqueda refloweado y editores de comercio extraídos a `MerchantCatalogEditors.tsx`.

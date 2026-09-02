@@ -19,7 +19,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-const ROOTS = ["server", "src", "apps/mobile/src"];
+const ROOTS = ["server", "src", "apps/mobile/src", "packages"];
 const IGNORED_DIRS = new Set(["node_modules", "data"]);
 
 // Sólo React, y sólo como valor: un `.ts` que importe hooks o JSX está del lado
