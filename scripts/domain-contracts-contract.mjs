@@ -31,6 +31,11 @@ const SHARED = [
   "ServiceQuickReply",
   "ShipmentClaim",
   "DispatchOffer",
+  "UserRole",
+  "UserStatus",
+  "User",
+  "OrderStatus",
+  "RideStatus",
 ];
 
 const assert = (condition, label) => {

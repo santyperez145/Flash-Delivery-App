@@ -26,17 +26,23 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 - [ ] **Candidatas post-Fase 0 (no se implementan aún):** FCM/APNs directos, microservicios/Kubernetes HPA, Redis administrado, WebSockets productivos, IA de producto, dinero productivo Mercado Pago, apps EAS en stores. Bloqueo: dueño (credenciales, gasto, dispositivos, staging).
 - [~] Uber/DoorDash ya operan esas capas en producción. Flash las tiene como deuda nombrada; fingirlas en Fase 0 empeora la métrica de la auditoría.
 
+## Avance 2 de septiembre de 2026 — ARC-001, User y estados de dominio compartidos
+
+- [x] `User`, `UserRole`, `UserStatus`, `OrderStatus` y `RideStatus` viven en `@flash/domain-contracts`. La forma de `User` es la proyección del servidor (`sanitizeUser`/`mapUser`): phone string, status, email/phone verified. `test:domain-contracts` fija 28 contratos.
+- [~] Uber/DoorDash comparten también Order y Restaurant. Flash no: mobile tiene Order/Restaurant más flojos (ítems opcionales, menú inline); unificarlos ahora mentiría el contrato. `MerchantOperationsDashboard` sigue local por `Restaurant`.
+- [ ] ARC-001 global sigue abierto: Order/Restaurant y 251 líneas largas SQL.
+
 ## Avance 2 de septiembre de 2026 — ARC-001, mapa HTTP mobile por dominio
 
 - [x] El cliente de `apps/mobile/src/api.ts` (~1.320) deja timeout y refresh en `http.ts` y parte el mapa en cuenta, comercio, movilidad y operaciones. El barrel (~77) sólo compone y arma el bootstrap; login/restore gatean por la variante instalada. `test:network-resilience` fija techos y las suites de auth/comida/variantes leen el árbol, no una ruta que se vacía.
-- [~] Uber/DoorDash tienen el mismo corte en ambas superficies. Flash ahora también; sigue por debajo sin unificar User/Order/Restaurant.
-- [ ] ARC-001 global sigue abierto: contratos compartidos restantes y 251 líneas largas SQL.
+- [~] Uber/DoorDash tienen el mismo corte en ambas superficies. Flash ahora también; User ya compartido; sigue por debajo Order/Restaurant.
+- [ ] ARC-001 global sigue abierto: Order/Restaurant y 251 líneas largas SQL.
 
 ## Avance 2 de septiembre de 2026 — ARC-001, mapa HTTP web por dominio
 
 - [x] El mapa de `src/api.ts` (~1.539) se parte en cuenta, comercio, movilidad y operaciones. El barrel (~124) sólo compone y arma el bootstrap; `createOrder` reutiliza `quoteFoodCheckout` sin `this`. `test:network-resilience` fija techos y `test:web-checkout` lee la cotización en el árbol web, no en una ruta fija.
-- [~] Uber/DoorDash tienen clientes por dominio también en mobile. Flash ahora también en web y mobile; sigue por debajo sin unificar User/Order/Restaurant.
-- [ ] ARC-001 global sigue abierto: contratos compartidos restantes y 251 líneas largas SQL.
+- [~] Uber/DoorDash tienen clientes por dominio también en mobile. Flash ahora también en web y mobile; `User` ya compartido; sigue por debajo Order/Restaurant.
+- [ ] ARC-001 global sigue abierto: Order/Restaurant y 251 líneas largas SQL.
 
 ## Avance 2 de septiembre de 2026 — ARC-001, transporte HTTP web
 
