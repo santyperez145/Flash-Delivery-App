@@ -753,6 +753,8 @@ tokens food/ride/shipment) y `WebLogin` (acceso protegido). El CTA «Ingresar»
 abre el formulario; la portada no tiene `password`. Sigue por debajo: sin quote
 pública anónima, ciudades reales ni badges de store.
 
+### Decisión 2 de septiembre de 2026 — User compartido sin mentir Order/Restaurant
+
 Las plataformas comparables tienen un solo modelo de cuenta entre superficies.
 Flash alineó `User` a la proyección del servidor (`sanitizeUser`/`mapUser`):
 roles del enum PostgreSQL, phone string, status, email/phone verified. También
@@ -766,3 +768,4 @@ desktop. Unificarlos sin cerrar esa brecha reexportaría una mentira compartida.
 
 - [Uber Eats: recorre restaurantes, platos y checkout con precio final](https://help.uber.com/ubereats/restaurants/article/pick-up-order-faq?nodeId=a58f21e8-fc3e-42cb-adfd-92db5024faf5)
 - [Uber: estimar precio antes de confirmar el viaje](https://www.uber.com/global/en/price-estimate/)
+- [Uber.com: portada de conversión separada del acceso](https://www.uber.com/)
