@@ -195,7 +195,7 @@ router.get("/api/operations/users", requireAuth, requireAnyRole("admin"), async 
 router.get(
   "/api/operations/support-tickets",
   requireAuth,
-  requireAnyRole("admin"),
+  requireAnyRole("admin", "support"),
   async (req, res) => {
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50)),
       query = String(req.query.q || "").slice(0, 100),

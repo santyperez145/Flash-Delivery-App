@@ -43,10 +43,185 @@ export async function getPostgresRestaurants({ publicIds = null, ownerPublicId =
       ST_Y(COALESCE(branch.location,m.location)::geometry) AS lat, ST_X(COALESCE(branch.location,m.location)::geometry) AS lng,
       ci.public_id AS item_public_id, ci.name AS item_name, ci.description,
        ci.category, ci.unit_price_cents, COALESCE(inventory.available,ci.available) available, ci.metadata AS item_metadata,
-       (SELECT COALESCE(jsonb_agg(jsonb_build_object('id',g.public_id,'name',g.name,'min',g.minimum_selections,'max',g.maximum_selections,'required',g.minimum_selections>0,'modifiers',(SELECT COALESCE(jsonb_agg(jsonb_build_object('id',mo.public_id,'name',mo.name,'price',mo.price_cents/100.0,'available',mo.available) ORDER BY mo.sort_order,mo.created_at),'[]') FROM catalog_modifiers mo WHERE mo.group_id=g.id)) ORDER BY g.sort_order,g.created_at),'[]') FROM catalog_modifier_groups g WHERE g.catalog_item_id=ci.id AND g.active) modifier_groups,
-       (SELECT COALESCE(jsonb_agg(jsonb_build_object('code',d.code,'name',d.name) ORDER BY d.name),'[]') FROM catalog_item_dietary_labels x JOIN dietary_labels d ON d.code=x.dietary_code WHERE x.catalog_item_id=ci.id AND d.active) dietary_labels,
-       (SELECT COALESCE(jsonb_agg(jsonb_build_object('code',a.code,'name',a.name,'presence',x.presence) ORDER BY a.name),'[]') FROM catalog_item_allergens x JOIN allergens a ON a.code=x.allergen_code WHERE x.catalog_item_id=ci.id AND a.active) allergens,
-      (SELECT jsonb_agg(jsonb_build_object('id',b.public_id,'name',b.name,'address',b.address,'lat',ST_Y(b.location::geometry),'lng',ST_X(b.location::geometry),'open',b.open AND b.status='active' AND app.branch_is_scheduled_open(b.id,now()),'manualOpen',b.open,'status',b.status,'etaMin',b.eta_min,'isPrimary',b.is_primary,'timezone',b.timezone,'weeklyHours',(SELECT COALESCE(jsonb_agg(jsonb_build_object('weekday',h.weekday,'opensAt',to_char(h.opens_at,'HH24:MI'),'closesAt',to_char(h.closes_at,'HH24:MI'),'enabled',h.enabled) ORDER BY h.weekday),'[]') FROM branch_operating_hours h WHERE h.branch_id=b.id),'scheduleExceptions',(SELECT COALESCE(jsonb_agg(jsonb_build_object('date',e.local_date,'isOpen',e.is_open,'opensAt',CASE WHEN e.opens_at IS NULL THEN NULL ELSE to_char(e.opens_at,'HH24:MI') END,'closesAt',CASE WHEN e.closes_at IS NULL THEN NULL ELSE to_char(e.closes_at,'HH24:MI') END,'reason',e.reason) ORDER BY e.local_date),'[]') FROM branch_schedule_exceptions e WHERE e.branch_id=b.id AND e.local_date>=((now() AT TIME ZONE b.timezone)::date-interval '1 day') AND e.local_date<=((now() AT TIME ZONE b.timezone)::date+interval '60 days')),'inventory',(SELECT COALESCE(jsonb_object_agg(c.public_id,jsonb_build_object('available',i.available,'stockQuantity',i.stock_quantity,'version',i.version)),'{}') FROM catalog_branch_inventory i JOIN catalog_items c ON c.id=i.catalog_item_id WHERE i.branch_id=b.id)) ORDER BY b.is_primary DESC,b.created_at) FROM merchant_branches b WHERE b.merchant_id=m.id AND b.status<>'closed') branches
+      (
+        SELECT COALESCE(
+          jsonb_agg(
+            jsonb_build_object(
+              'id',
+              g.public_id,
+              'name',
+              g.name,
+              'min',
+              g.minimum_selections,
+              'max',
+              g.maximum_selections,
+              'required',
+              g.minimum_selections > 0,
+              'modifiers',
+              (
+                SELECT COALESCE(
+                  jsonb_agg(
+                    jsonb_build_object(
+                      'id',
+                      mo.public_id,
+                      'name',
+                      mo.name,
+                      'price',
+                      mo.price_cents / 100.0,
+                      'available',
+                      mo.available
+                    )
+                    ORDER BY mo.sort_order, mo.created_at
+                  ),
+                  '[]'
+                )
+                FROM catalog_modifiers mo
+                WHERE mo.group_id = g.id
+              )
+            )
+            ORDER BY g.sort_order, g.created_at
+          ),
+          '[]'
+        )
+        FROM catalog_modifier_groups g
+        WHERE g.catalog_item_id = ci.id AND g.active
+      ) modifier_groups,
+      (
+        SELECT COALESCE(
+          jsonb_agg(
+            jsonb_build_object('code', d.code, 'name', d.name)
+            ORDER BY d.name
+          ),
+          '[]'
+        )
+        FROM catalog_item_dietary_labels x
+        JOIN dietary_labels d ON d.code = x.dietary_code
+        WHERE x.catalog_item_id = ci.id AND d.active
+      ) dietary_labels,
+      (
+        SELECT COALESCE(
+          jsonb_agg(
+            jsonb_build_object(
+              'code',
+              a.code,
+              'name',
+              a.name,
+              'presence',
+              x.presence
+            )
+            ORDER BY a.name
+          ),
+          '[]'
+        )
+        FROM catalog_item_allergens x
+        JOIN allergens a ON a.code = x.allergen_code
+        WHERE x.catalog_item_id = ci.id AND a.active
+      ) allergens,
+      (
+        SELECT jsonb_agg(
+          jsonb_build_object(
+            'id',
+            b.public_id,
+            'name',
+            b.name,
+            'address',
+            b.address,
+            'lat',
+            ST_Y(b.location::geometry),
+            'lng',
+            ST_X(b.location::geometry),
+            'open',
+            b.open
+              AND b.status = 'active'
+              AND app.branch_is_scheduled_open(b.id, now()),
+            'manualOpen',
+            b.open,
+            'status',
+            b.status,
+            'etaMin',
+            b.eta_min,
+            'isPrimary',
+            b.is_primary,
+            'timezone',
+            b.timezone,
+            'weeklyHours',
+            (
+              SELECT COALESCE(
+                jsonb_agg(
+                  jsonb_build_object(
+                    'weekday',
+                    h.weekday,
+                    'opensAt',
+                    to_char(h.opens_at, 'HH24:MI'),
+                    'closesAt',
+                    to_char(h.closes_at, 'HH24:MI'),
+                    'enabled',
+                    h.enabled
+                  )
+                  ORDER BY h.weekday
+                ),
+                '[]'
+              )
+              FROM branch_operating_hours h
+              WHERE h.branch_id = b.id
+            ),
+            'scheduleExceptions',
+            (
+              SELECT COALESCE(
+                jsonb_agg(
+                  jsonb_build_object(
+                    'date',
+                    e.local_date,
+                    'isOpen',
+                    e.is_open,
+                    'opensAt',
+                    CASE
+                      WHEN e.opens_at IS NULL THEN NULL
+                      ELSE to_char(e.opens_at, 'HH24:MI')
+                    END,
+                    'closesAt',
+                    CASE
+                      WHEN e.closes_at IS NULL THEN NULL
+                      ELSE to_char(e.closes_at, 'HH24:MI')
+                    END,
+                    'reason',
+                    e.reason
+                  )
+                  ORDER BY e.local_date
+                ),
+                '[]'
+              )
+              FROM branch_schedule_exceptions e
+              WHERE e.branch_id = b.id
+                AND e.local_date >= ((now() AT TIME ZONE b.timezone)::date - interval '1 day')
+                AND e.local_date <= ((now() AT TIME ZONE b.timezone)::date + interval '60 days')
+            ),
+            'inventory',
+            (
+              SELECT COALESCE(
+                jsonb_object_agg(
+                  c.public_id,
+                  jsonb_build_object(
+                    'available',
+                    i.available,
+                    'stockQuantity',
+                    i.stock_quantity,
+                    'version',
+                    i.version
+                  )
+                ),
+                '{}'
+              )
+              FROM catalog_branch_inventory i
+              JOIN catalog_items c ON c.id = i.catalog_item_id
+              WHERE i.branch_id = b.id
+            )
+          )
+          ORDER BY b.is_primary DESC, b.created_at
+        )
+        FROM merchant_branches b
+        WHERE b.merchant_id = m.id AND b.status <> 'closed'
+      ) branches
     FROM merchants m
     JOIN users owner ON owner.id = m.owner_id
     LEFT JOIN LATERAL(SELECT * FROM merchant_branches b WHERE b.merchant_id=m.id AND b.is_primary LIMIT 1) branch ON true

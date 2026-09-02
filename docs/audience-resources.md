@@ -1,6 +1,6 @@
 # Recursos segmentados por audiencia
 
-Web y mobile ya no consumen `GET /api/state`. El bootstrap inicial se solicita en `/api/bootstrap/customer`, `/merchant`, `/driver` u `/operations`; el backend valida que el JWT posea exactamente la audiencia solicitada y responde con `Cache-Control: no-store`.
+Web y mobile ya no consumen `GET /api/state`. El bootstrap inicial se solicita en `/api/bootstrap/customer`, `/merchant`, `/driver`, `/operations` o `/support`; el backend valida que el JWT posea exactamente la audiencia solicitada y responde con `Cache-Control: no-store`.
 
 `GET /api/me/activity` es el primer agregado extraído del bootstrap. Lee la participación directamente desde PostgreSQL (`customer_id`, propietario del comercio o usuario del driver), admite `limit` 1–50 y cursor opaco estable por `(created_at,id)`. Devuelve únicamente pedidos, viajes y envíos autorizados con `nextCursor`; un cursor manipulado se rechaza. El bootstrap ya no contiene `orders`, `rides`, `shipments` ni `tips`; los clientes compatibilizan sus vistas componiendo el contexto y la página autorizada.
 
@@ -16,7 +16,7 @@ La app móvil usa este recurso para Actividad y permite cargar páginas anterior
 
 Operaciones obtiene flota, comercios y usuarios desde `GET /api/operations/drivers`, `/restaurants` y `/users`. Requieren sesión administrativa con segundo factor cuando corresponde, usan límite 1–100, búsqueda y cursor estable `(created_at,id)`, y responden `no-store`. El recurso de usuarios excluye hash de contraseña, UUID interno y estado interno de bloqueo; esa sanitización también se aplica a la compatibilidad antigua. El bootstrap `operations` ya no incluye esos agregados.
 
-La mesa de ayuda administrativa usa `GET /api/operations/support-tickets`, ordenada por `(updated_at,id)` descendente y paginada con cursor opaco. Conserva mensajes, asignaciones, escalaciones y estado SLA necesarios para operar, pero queda fuera del bootstrap. El endpoint previo `/api/support/tickets` continúa como recurso propietario del cliente y compatibilidad de las acciones existentes.
+La mesa de ayuda administrativa usa `GET /api/operations/support-tickets`, ordenada por `(updated_at,id)` descendente y paginada con cursor opaco. Conserva mensajes, asignaciones, escalaciones y estado SLA necesarios para operar, pero queda fuera del bootstrap. Un agente con rol `support` lee esa cola y el bootstrap `support`; no enumera usuarios ni el dashboard de administración, y sólo puede editar su propio perfil de agente. El endpoint previo `/api/support/tickets` continúa como recurso propietario del cliente y compatibilidad de las acciones existentes.
 
 Auditoría se consulta en `GET /api/operations/audit-events`, con búsqueda y cursor descendente `(occurred_at,id)`. Zonas y promociones se reutilizan desde `/api/zones` y `/api/promotions` con caché pública acotada de 30 segundos. El escritorio compone esos tres contratos y el bootstrap ya no transporta configuración ni eventos históricos.
 
