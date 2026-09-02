@@ -108,7 +108,7 @@ La matriz vive en `docs/matriz-madurez.md` y se actualiza en el mismo PR que cam
 | Entregable | Ticket | Criterio de cierre |
 | --- | --- | --- |
 | Separación de `src/App.tsx` | ARC-001 | Shell web en 1.274 líneas; cliente delegado y, dentro de él, Wallet, Cuenta, Actividad, Envíos, descubrimiento, restaurante, personalización, carrito/checkout, navegación y los tres trackings tienen límites propios. `CustomerSurface.tsx` queda en 360 líneas. Backoffice: `AdminConsole` es shell. Comercio: `MerchantConsole` es shell (cocina, detalle, catálogo, sucursales, analítica, pulso y liquidaciones en módulos propios). |
-| Separación de `apps/mobile/App.tsx` | ARC-001 | Entrypoints customer/driver/merchant independientes; Actividad, tracking, Cuenta, Envíos y Viajes fuera del coordinador customer |
+| Separación de `apps/mobile/App.tsx` | ARC-001 | Entrypoints customer/driver/merchant independientes; Actividad, tracking, Cuenta, Envíos y Viajes fuera del coordinador customer. Merchant App: `MerchantScreen` es shell (Hoy, Pedidos, Catálogo, Cuenta y detalle en módulos propios). |
 | Descomposición de `server/index.js` | ARC-001 | Controllers separados de use cases y repositories. **9 de 57 grupos extraídos**; el núcleo compartido está completo, así que lo que queda es repetitivo y no de diseño |
 | ~~Reformateo de archivos comprimidos~~ **hecho** | ARC-001 | Línea máxima 4.061 → 206; quedan 262 líneas largas, casi todas SQL |
 | ~~Dispatch v2 etapa 1~~ **hecho** | DSP-001 | `ST_DWithin` + KNN recortan candidatos antes del scoring |

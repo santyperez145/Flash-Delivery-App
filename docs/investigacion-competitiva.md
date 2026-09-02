@@ -288,7 +288,7 @@ Fuentes oficiales adicionales:
 
 Revalidación del 2 de septiembre de 2026 para la consola de comercio:
 
-- DoorDash Merchant Portal y Uber Eats Manager separan live orders, missing item / 86, menú, store hours y payouts. Flash adopta esa frontera en web: cocina, detalle/sustituciones, catálogo, sucursales, analítica y liquidaciones son módulos; el shell sólo navega y hace polling.
+- DoorDash Merchant Portal y Uber Eats Manager separan live orders, missing item / 86, menú, store hours y payouts. Flash adopta esa frontera en web y en Merchant App: cocina/Hoy, detalle/sustituciones, catálogo, sucursales, analítica y liquidaciones son módulos; el shell sólo navega y hace polling.
 - La extracción no crea paridad ficticia. Flash sigue por debajo en POS, prep-time por ítem, evidencia fotográfica de faltantes y liquidación marketplace contra el proveedor real.
 
 Fuentes oficiales:
