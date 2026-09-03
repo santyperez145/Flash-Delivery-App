@@ -101,7 +101,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Imagen productiva non-root | `CI` | Job `container-image` construye la imagen y verifica `uid=999(flash)` |
 | Auditoría de dependencias de desarrollo | `CI` | `test:dependency-gate` cubre cuatro alcances: raíz y móvil, producción y desarrollo |
 | Dependencias de producción acotadas | `CI` | `test:production-deps`: las 20 están importadas por el servidor. Siete paquetes de frente salieron de la imagen: 381 → 303 MiB |
-| Filesystem raíz de sólo lectura | `CI` | El job arranca la imagen con `--read-only` hasta que responde y comprueba que la raíz rechace escrituras. Escribible sólo `/tmp` y el volumen de datos |
+| Filesystem raíz de sólo lectura | `CI` | El job arranca la imagen con `--read-only` hasta que responde y comprueba que la raíz rechace escrituras. Escribible sólo `/tmp` y el volumen de datos (SQLite de respaldo). `store.js` abre SQLite de forma perezosa: con PostgreSQL el import puro no escribe |
 | SBOM de la imagen productiva | `CI` | CycloneDX publicado como artefacto en cada corrida del job `container-image` |
 | Scan de vulnerabilidades de imagen | `CI` | Trivy fijado. Bloquea las HIGH/CRITICAL **arreglables por el equipo**, fuera del npm de la imagen base; lo heredado se informa sin cortar |
 
@@ -136,6 +136,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Zonas de demanda | `CI` | `test:driver-demand` en `ci-critical-flows` |
 | Geocoding | `CI` | Adapter con `test:maps-provider` · producción rechaza instancias públicas · **sin API key habilitada** |
 | Routing | `CI` | Adapter con Routes `TRAFFIC_AWARE` y Route Matrix · **sin API key habilitada** |
+| Tarifa con distancia vial | `CI` | Comida/viaje/envío usan `resolveDrivingRoute` en prod/comercial (`distanceSource: road`); OSM de desarrollo etiqueta `geodesic_scaled` · `test:maps-provider` · **sin API key para calidad/costo reales** |
 | Cotización firmada | `CI` | `test:maps` en `ci-critical-flows` |
 | Dirección validada en checkout de comida | `CI` | Migración 136 + token geográfico ligado al usuario · `test:maps` y `test:postgres` rechazan manipulación y registros legacy · **sin veredicto de deliverability comercial** |
 | Caché, circuit breaker y presupuesto | `CI` | `test:provider-resilience` |
