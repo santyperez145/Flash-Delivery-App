@@ -23,7 +23,7 @@ La Fase 0 está en marcha: ver el [plan de acción](docs/plan-de-accion.md) y el
 | H-05 | INF-001 | **Corregido.** Imagen multi-etapa, `uid=999(flash)` verificado en build real, mismo entrypoint que Compose |
 | H-06 | DSP-001 | **Bloqueado por externo.** Shortlist/stats/radio/manual/boost hechos; falta Route Matrix (API key) y evidencia SLO en prod |
 | H-07 | GEO-001 | **Bloqueado por externo.** Adapter y rechazo de instancias públicas hechos; falta API key del dueño para calidad/costo |
-| H-08 | ARC-001 | **En curso.** 52 contratos compartidos (earnings); store/wallet/catalog partidos; faltan binarios MOB |
+| H-08 | ARC-001 | **En curso.** 54 contratos; auth-session/pricing/wallet partidos; faltan binarios MOB |
 | H-09 | PAY-001 | Mercado Pago integrado pero nunca validado contra el proveedor |
 
 Fuera de los P0, al 28 de agosto **GTM-001 y OPS-001 están cerrados**: los cuatro huecos comerciales medidos contra la competencia, y la operación sin SQL manual. El destino de despliegue quedó decidido en [`docs/despliegue.md`](docs/despliegue.md) y espera una cuenta de nube.

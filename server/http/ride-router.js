@@ -44,7 +44,8 @@ import {
   requireAnyRole,
 } from "./authorization.js";
 import { cancellationSchema } from "./cancellation.js";
-import { getPostgresPricingPlan, getPostgresZonePricing } from "../configuration-repository.js";
+import { getPostgresPricingPlan } from "../pricing-repository.js";
+import { getPostgresZonePricing } from "../configuration-repository.js";
 import { creditDriverEarningsRuntime } from "../driver-earnings.js";
 import { getPostgresDrivers } from "../driver-roster-repository.js";
 import { addTimeline, fallbackRidePricing, readDb } from "../fallback-runtime.js";

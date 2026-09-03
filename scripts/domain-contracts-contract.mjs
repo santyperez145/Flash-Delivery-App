@@ -60,6 +60,8 @@ const SHARED = [
   "DriverEarningsPeriod",
   "DriverEarningsDay",
   "DriverEarnings",
+  "AccountSession",
+  "WalletTransaction",
 ];
 
 /** Tipos que cada superficie extiende con intersección local (no redefinición del núcleo). */
