@@ -70,15 +70,15 @@ export async function runCleanup(ctx) {
       await pool.query("DELETE FROM service_tips WHERE idempotency_key=$1", [ctx.tipKey]);
       await pool.query(
         "DELETE FROM ledger_entries WHERE transaction_id=(SELECT id FROM ledger_transactions WHERE idempotency_key=$1)",
-        [`tip-${tipKey}`],
+        [`tip-${ctx.tipKey}`],
       );
       await pool.query("DELETE FROM ledger_transactions WHERE idempotency_key=$1", [
-        `tip-${tipKey}`,
+        `tip-${ctx.tipKey}`,
       ]);
     }
     for (const transactionKey of [
-      `driver-earning-envio-${proofShipmentId}`,
-      `payment-${proofShipmentKey}`,
+      `driver-earning-envio-${ctx.proofShipmentId}`,
+      `payment-${ctx.proofShipmentKey}`,
     ]) {
       await pool.query(
         "DELETE FROM ledger_entries WHERE transaction_id=(SELECT id FROM ledger_transactions WHERE idempotency_key=$1)",
@@ -99,10 +99,10 @@ export async function runCleanup(ctx) {
   if (ctx.merchantPayoutKey) {
     await pool.query(
       "DELETE FROM ledger_entries WHERE transaction_id=(SELECT id FROM ledger_transactions WHERE idempotency_key=$1)",
-      [`payout-reserve-${merchantPayoutKey}`],
+      [`payout-reserve-${ctx.merchantPayoutKey}`],
     );
     await pool.query("DELETE FROM ledger_transactions WHERE idempotency_key=$1", [
-      `payout-reserve-${merchantPayoutKey}`,
+      `payout-reserve-${ctx.merchantPayoutKey}`,
     ]);
     await pool.query("DELETE FROM payouts WHERE idempotency_key=$1", [ctx.merchantPayoutKey]);
   }
@@ -115,8 +115,8 @@ export async function runCleanup(ctx) {
       await pool.query("DELETE FROM refunds WHERE provider_refund_id=$1", [ctx.orderIssueId]);
       await pool.query("DELETE FROM order_issues WHERE public_id=$1", [ctx.orderIssueId]);
       for (const transactionKey of [
-        `issue-refund-${orderIssueId}`,
-        `issue-reversal-${orderIssueId}`,
+        `issue-refund-${ctx.orderIssueId}`,
+        `issue-reversal-${ctx.orderIssueId}`,
       ]) {
         await pool.query(
           "DELETE FROM ledger_entries WHERE transaction_id=(SELECT id FROM ledger_transactions WHERE idempotency_key=$1)",
@@ -159,8 +159,8 @@ export async function runCleanup(ctx) {
       [ctx.settlementOrderId],
     );
     for (const transactionKey of [
-      `settlement-${settlementOrderId}`,
-      `payment-${settlementOrderKey}`,
+      `settlement-${ctx.settlementOrderId}`,
+      `payment-${ctx.settlementOrderKey}`,
     ]) {
       await pool.query(
         "DELETE FROM ledger_entries WHERE transaction_id=(SELECT id FROM ledger_transactions WHERE idempotency_key=$1)",
