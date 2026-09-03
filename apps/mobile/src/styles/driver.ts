@@ -36,8 +36,8 @@ export const driverStyleDefs = {
     fontWeight: "900",
   },
   kpiGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+    flexDirection: "row" as const,
+    flexWrap: "wrap" as const,
     gap: 10,
   },
   kpi: {

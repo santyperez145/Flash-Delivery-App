@@ -171,7 +171,7 @@ try {
     "approval moves to processing without fabricating provider settlement",
   );
   const imbalance = await pool.query(
-    `SELECT count(*)::int count FROM (SELECT t.id FROM ledger_transactions t JOIN ledger_entries e ON e.transaction_id=t.id WHERE t.idempotency_key=$1 OR t.idempotency_key LIKE $2 GROUP BY t.id ,
+    `SELECT count(*)::int count FROM (SELECT t.id FROM ledger_transactions t JOIN ledger_entries e ON e.transaction_id=t.id WHERE t.idempotency_key=$1 OR t.idempotency_key LIKE $2 GROUP BY t.id 
       HAVING sum(CASE WHEN e.direction='debit' THEN e.amount_cents ELSE -e.amount_cents END)<>0) q`,
     [marker, `payout-%-${marker}%`],
   );

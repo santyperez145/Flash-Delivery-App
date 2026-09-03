@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { config } from "../../server/config.js";
 
 /** @param {import("./context.mjs").PostgresRuntimeContext} ctx */
 export async function runBootstrapCommerceSuite(ctx) {

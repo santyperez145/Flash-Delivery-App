@@ -25,7 +25,7 @@ REVOKE ALL ON driver_dispatch_stats FROM PUBLIC;
 
 DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM pg_roles WHERE rolname='flash_runtime') THEN
-  GRANT SELECT,INSERT,UPDATE,DELETE ON driver_dispatch_stats TO flash_runtime;
+  GRANT SELECT,INSERT,UPDATE ON driver_dispatch_stats TO flash_runtime;
   CREATE POLICY driver_dispatch_stats_runtime_service ON driver_dispatch_stats
     TO flash_runtime USING(true) WITH CHECK(true);
  END IF;
