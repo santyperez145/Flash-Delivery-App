@@ -23,7 +23,7 @@ La Fase 0 está en marcha: ver el [plan de acción](docs/plan-de-accion.md) y el
 | H-05 | INF-001 | **Corregido.** Imagen multi-etapa, `uid=999(flash)` verificado en build real, mismo entrypoint que Compose |
 | H-06 | DSP-001 | **En curso.** Recorte espacial y KNN activos; falta medir el plan y el ETA vial |
 | H-07 | GEO-001 | **En curso.** Adapter con proveedor comercial y producción bloqueada para instancias públicas; falta una API key |
-| H-08 | ARC-001 | **En curso.** Los dos `App.tsx` cumplen el techo de 1.500, `server/index.js` bajó a 33 KB y hay 32 grupos de rutas extraídos sobre 118 módulos de servidor; faltan los entrypoints separados por audiencia |
+| H-08 | ARC-001 | **En curso.** Los dos `App.tsx` cumplen el techo de 1.500; `server/index.js` ~364 líneas (infra en routers); contratos compartidos en 39 tipos; faltan entrypoints/binarios por audiencia (MOB-001) |
 | H-09 | PAY-001 | Mercado Pago integrado pero nunca validado contra el proveedor |
 
 Fuera de los P0, al 28 de agosto **GTM-001 y OPS-001 están cerrados**: los cuatro huecos comerciales medidos contra la competencia, y la operación sin SQL manual. El destino de despliegue quedó decidido en [`docs/despliegue.md`](docs/despliegue.md) y espera una cuenta de nube.

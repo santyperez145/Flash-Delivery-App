@@ -109,7 +109,7 @@ La matriz vive en `docs/matriz-madurez.md` y se actualiza en el mismo PR que cam
 | --- | --- | --- |
 | Separación de `src/App.tsx` | ARC-001 | Shell web de sesión/auth/enrutado; catálogo, carrito, checkout y viajes viven en `useCustomerCommerce`. Cliente HTTP: transporte en `src/api/http.ts`; mapa partido en cuenta/comercio/movilidad/operaciones; el barrel sólo compone. Cliente delegado: Wallet, Cuenta, Actividad, Envíos, descubrimiento, restaurante, personalización, carrito/checkout, navegación y los tres trackings. `CustomerSurface.tsx` queda en 360 líneas. Backoffice: `AdminConsole` es shell. Comercio: `MerchantConsole` es shell. Phone-stage: comercio, conductor y ops en módulos y chunks propios. |
 | Separación de `apps/mobile/App.tsx` | ARC-001 | Entrypoints customer/driver/merchant independientes; Actividad, tracking, Cuenta, Envíos y Viajes fuera del coordinador customer. Merchant App: `MerchantScreen` es shell. Sesión de Comidas en `useCustomerFood`; `CustomerScreen` queda como shell. Cliente HTTP: transporte en `apps/mobile/src/api/http.ts`; mapa partido en cuenta/comercio/movilidad/operaciones; el barrel sólo compone. |
-| Descomposición de `server/index.js` | ARC-001 | Controllers separados de use cases y repositories. **9 de 57 grupos extraídos**; el núcleo compartido está completo, así que lo que queda es repetitivo y no de diseño |
+| Descomposición de `server/index.js` | ARC-001 | Controllers separados de use cases y repositories. **57 de 57 grupos** en routers; `index.js` en 364 líneas (arranque/middleware/montaje + reset) |
 | ~~Reformateo de archivos comprimidos~~ **hecho** | ARC-001 | Línea máxima 4.061 → 206; **0** líneas >200 (bajan de 251); `test:line-length` en cero |
 | ~~Dispatch v2 etapa 1~~ **hecho** | DSP-001 | `ST_DWithin` + KNN recortan candidatos antes del scoring |
 | ~~Dispatch manual Ops~~ **hecho** | DSP-001 | `POST /api/admin/jobs/:id/assign` + panel; motivo/auditoría; `test:postgres` |
@@ -424,7 +424,7 @@ routers dejaron de ser factories porque ya no queda nada que recibir.
 
 Con el núcleo cerrado, cada grupo nuevo fue una extracción y nada más. **Los 57
 grupos están extraídos**, repartidos en 31 routers, y `server/index.js` bajó de
-9.696 a **873 líneas**: el 91 por ciento.
+9.696 a **364 líneas**: el 96 por ciento.
 
 En web, `src/App.tsx` es el shell de sesión, auth y enrutado: catálogo, carrito,
 checkout y viajes viven en `useCustomerCommerce`, y el chrome del phone-stage en
@@ -472,9 +472,9 @@ muerta de `FlashMap`. La segmentación del cliente web está cerrada; ARC-001 si
 abierto por el paquete compartido (35 tipos; menú/sucursales ya alineados) — el
 ratchet de líneas >200 y archivos >1500 quedó en cero.
 
-Las 8 rutas que quedan no son dominio: salud, readiness, el documento OpenAPI,
-el bootstrap por audiencia, las dos de métricas, el 410 que retiró `/api/state`
-y el reset de la plataforma. El archivo es hoy el arranque, el middleware y el
+Las rutas de infraestructura viven en routers dedicados (`platform-status`,
+`readiness`, `bootstrap`, `metrics`). En `index.js` queda el arranque, el
+middleware, el montaje y `POST /api/reset` (demo SQLite). El archivo es hoy el arranque, el middleware y el
 montaje —lo que el ticket pedía que fuera—.
 El paso 5 cerró el núcleo con `http/authentication.js` y `fallback-runtime.js`:
 los tres routers dejaron de ser factories porque ya no queda nada que

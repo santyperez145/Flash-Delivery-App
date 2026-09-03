@@ -2,6 +2,16 @@ import bcrypt from "bcryptjs";
 
 const asset = (id) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=900&q=80`;
 
+// Misma lista que `notificationPreferenceCategories` en store.js — no se importa
+// desde allí para evitar el ciclo store → store-seed → store.
+const notificationPreferenceCategories = [
+  "service_updates",
+  "promotions",
+  "support",
+  "wallet",
+  "account",
+];
+
 export function createSeed(now) {
   const createdAt = now();
   const password = bcrypt.hashSync("demo123", 10);

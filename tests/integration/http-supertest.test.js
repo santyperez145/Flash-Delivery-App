@@ -82,4 +82,10 @@ describe("HTTP surface (supertest)", () => {
     expect(response.status).toBeLessThan(500);
     expect(response.body.ok).toBe(false);
   });
+
+  test("GET /api/bootstrap/customer sin bearer responde 401", async () => {
+    const response = await request(app).get("/api/bootstrap/customer");
+    expect(response.status).toBe(401);
+    expect(response.body.ok).toBe(false);
+  });
 });

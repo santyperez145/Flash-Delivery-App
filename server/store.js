@@ -59,8 +59,6 @@ export const notificationPreferenceCategories = [
 export const createId = (prefix) =>
   `${prefix}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
 
-const asset = (id) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=900&q=80`;
-
 let databaseInstance = null;
 
 function openDatabase() {
