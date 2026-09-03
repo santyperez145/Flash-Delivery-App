@@ -1,5 +1,5 @@
 import { pruneProductEvents } from "../server/product-analytics-repository.js";
-import { pruneLocalProductEvents } from "../server/store.js";
+import { pruneLocalProductEvents } from "../server/store-local-preferences.js";
 import { usesPostgresAuth } from "../server/auth-repository.js";
 import { closePostgres } from "../server/postgres.js";
 const retentionDays = Number(process.env.ANALYTICS_RETENTION_DAYS || 90);
