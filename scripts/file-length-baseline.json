@@ -1,5 +1,3 @@
 {
-  "scripts/postgres-runtime-smoke.mjs": 4767,
-  "server/openapi.js": 2949,
-  "server/store.js": 2212
+  "scripts/postgres-runtime-smoke.mjs": 4767
 }
