@@ -32,7 +32,7 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 
 ## Avance 2 de septiembre de 2026 — ARC-001, RestaurantSummary compartido
 
-- [x] `RestaurantSummary` vive en `@flash/domain-contracts` (31 tipos); web y mobile extienden `Restaurant` con menú/sucursales locales; `MerchantOperationsDashboard` sigue local.
+- [x] `MenuItemSummary` + `RestaurantBranch` viven en `@flash/domain-contracts` (35 tipos); web extiende `MenuItem` con vitrina; mobile usa el núcleo; `MerchantOperationsDashboard` sigue local.
 - [~] Uber/DoorDash unifican también menú/sucursales. Flash no: `MenuItem`/`extras`/`lat`/`lng` web vs menú inline mobile.
 - [ ] ARC-001 global sigue abierto: menú/sucursales unificados y 251 líneas largas SQL.
 

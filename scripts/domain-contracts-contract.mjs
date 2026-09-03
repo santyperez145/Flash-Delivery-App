@@ -38,6 +38,10 @@ const SHARED = [
   "OrderItem",
   "Order",
   "RestaurantSummary",
+  "MenuModifier",
+  "MenuModifierGroup",
+  "MenuItemSummary",
+  "RestaurantBranch",
   "RideStatus",
 ];
 
@@ -96,6 +100,13 @@ assert(
   contains(web, "Restaurant = RestaurantSummary &") &&
     contains(mobile, "Restaurant = RestaurantSummary &"),
   "web and mobile extend shared RestaurantSummary with surface-specific fields",
+);
+assert(
+  contains(web, "MenuItem = MenuItemSummary &") &&
+    contains(mobile, "menu: MenuItemSummary[]") &&
+    contains(web, "branches?: RestaurantBranch[]") &&
+    contains(mobile, "branches?: RestaurantBranch[]"),
+  "web and mobile share MenuItemSummary and RestaurantBranch",
 );
 assert(
   contains(rootPkg, '"@flash/domain-contracts"') &&
