@@ -511,7 +511,7 @@ Perfiles EAS preview y production · signing · TestFlight · internal testing �
 - [ ] Existen tres binarios internos instalables: customer, driver y merchant.
 - [ ] Un crash es visible en Sentry con símbolos resueltos.
 - [ ] El rollback fue probado.
-- [ ] Los permisos de ubicación se explican correctamente al usuario en ambas plataformas.
+- [x] Los permisos de ubicación se explican correctamente al usuario en ambas plataformas. Strings iOS/Android por variante en `app.base.json` / `app.config.js`; rationale in-app vía `explainAndRequestForegroundLocation` antes del diálogo del sistema; `test:mobile-location-permission` en `ci-fast`.
 - [ ] Background location fue probada en dispositivos físicos con development build, no en Expo Go.
 
 ---

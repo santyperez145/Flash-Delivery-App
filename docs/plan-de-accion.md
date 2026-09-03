@@ -167,12 +167,12 @@ Demostrar que un pedido completo, con dinero real de sandbox, atraviesa la plata
 
 - [ ] Un pedido completo se procesa sin una sola intervención SQL manual.
 - [ ] Un reembolso queda conciliado automáticamente.
-- [ ] Un webhook duplicado no duplica asientos en el ledger.
-- [ ] Dos drivers no pueden tomar el mismo trabajo bajo concurrencia forzada.
-- [ ] Una oferta vencida se reasigna sola.
-- [ ] El driver recibe push con la app cerrada o en background, dentro de las limitaciones documentadas del sistema operativo.
+- [x] Un webhook duplicado no duplica asientos en el ledger — cubierto por suites de pago/idempotencia y el smoke postgres de webhooks (`duplicate: true` en el segundo POST).
+- [x] Dos drivers no pueden tomar el mismo trabajo bajo concurrencia forzada — `test:postgres` y carga concurrente en `test:dispatch-plan`.
+- [x] Una oferta vencida se reasigna sola — DSP-001 / worker de dispatch.
+- [ ] El driver recibe push con la app cerrada o en background, dentro de las limitaciones documentadas del sistema operativo. **Bloqueo del dueño:** dispositivo + EAS.
 - [ ] Operaciones resuelve incidentes íntegramente desde el backoffice.
-- [ ] El restore fue probado y su tiempo real cumple el RTO ≤ 60 minutos.
+- [ ] El restore fue probado y su tiempo real cumple el RTO ≤ 60 minutos. **Avanzado:** `test:restore-drill` en cada PR; falta cronometrar RTO en el entorno real.
 
 ---
 

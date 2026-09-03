@@ -14,6 +14,10 @@ const WORKFLOWS_DIR = ".github/workflows";
 // escribir uno, la suite va a una puerta.
 const EXCLUDED = new Map([
   ["test:security", "corre dentro de `npm run check`, que sí está en ci-fast"],
+  [
+    "test:mobile-location-permission",
+    "corre dentro de `test:mobile-build-variants`, que sí está en ci-fast",
+  ],
 ]);
 
 // Nocturnas: tienen puerta —`ci-nightly.yml`— pero no bloquean un merge, y por

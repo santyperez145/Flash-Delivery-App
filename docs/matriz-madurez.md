@@ -165,6 +165,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Variantes customer/driver/merchant | `CI` | `test:mobile-build-variants` |
 | Runtime nativo | `CI` | `test:mobile-native-runtime` |
 | Mapas nativos | `CI` | `test:mobile-maps` en `ci-fast` |
+| Rationale de ubicación (foreground) | `CI` | `test:mobile-location-permission`: strings OS por variante + `explainAndRequestForegroundLocation` en driver/cliente antes del diálogo del sistema |
 | Background location | `IMPL` | **Requiere development build · sin ensayo físico** |
 | Registro de push token | `IMPL` | Sin proveedor de destino |
 | Builds EAS firmados | — | **No existen** — ticket MOB-001 |
