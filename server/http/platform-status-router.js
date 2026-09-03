@@ -1,14 +1,15 @@
 // Rutas de infraestructura del proceso (ARC-001).
 //
-// Salud, OpenAPI y el 410 de `/api/state` no son dominio: son el contrato de
-// arranque y de deprecación del estado global. Quedar en `index.js` mezclaba
-// el cableado del servidor con el montaje de routers de producto.
+// Salud, OpenAPI, el 410 de `/api/state` y el reset de demo SQLite no son
+// dominio de un vertical: son el contrato de arranque y de entorno local.
 import { Router } from "express";
 
 import { config } from "../config.js";
 import { openApiDocument } from "../openapi.js";
-import { getTimestamp } from "../store.js";
+import { getTimestamp, resetDb } from "../store.js";
 import { requireAuth } from "./authentication.js";
+import { requireAnyRole } from "./authorization.js";
+import { publishRealtimeEvent } from "./realtime.js";
 import { fail, ok } from "./responses.js";
 
 export const platformStatusRouter = Router();
@@ -30,4 +31,15 @@ platformStatusRouter.get("/api/openapi.json", (_req, res) => {
 platformStatusRouter.get("/api/state", requireAuth, (_req, res) => {
   res.set("Cache-Control", "no-store");
   return fail(res, 410, "El estado global fue retirado; usa bootstrap y recursos segmentados");
+});
+
+platformStatusRouter.post("/api/reset", requireAuth, requireAnyRole("admin"), async (req, res) => {
+  if (config.databaseUrl)
+    return fail(res, 409, "Reset deshabilitado mientras PostgreSQL es la fuente real");
+  await publishRealtimeEvent({
+    req,
+    type: "platform.reset",
+    action: "platform.reset",
+  });
+  ok(res, { state: resetDb() });
 });

@@ -88,4 +88,10 @@ describe("HTTP surface (supertest)", () => {
     expect(response.status).toBe(401);
     expect(response.body.ok).toBe(false);
   });
+
+  test("POST /api/reset sin bearer responde 401", async () => {
+    const response = await request(app).post("/api/reset");
+    expect(response.status).toBe(401);
+    expect(response.body.ok).toBe(false);
+  });
 });
