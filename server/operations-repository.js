@@ -1,6 +1,6 @@
 // Overview financiero de backoffice (ARC-001).
 //
-// Soporte → `support-repository.js`. Auditoría → `audit-repository.js`.
+// Soporte → `support-repository.js` + `support-agent-repository.js`. Auditoría → `audit-repository.js`.
 // Inbox → `notification-repository.js`. Acá queda el tablero de dinero admin.
 import { postgresPool } from "./postgres.js";
 

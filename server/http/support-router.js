@@ -21,10 +21,9 @@ import {
   addPostgresSupportMessage,
   createPostgresSupportTicket,
   getPostgresSupportTickets,
-  getSupportAgents,
   updatePostgresSupportTicket,
-  updateSupportAgent,
 } from "../support-repository.js";
+import { getSupportAgents, updateSupportAgent } from "../support-agent-repository.js";
 import { recordPostgresAudit } from "../audit-repository.js";
 import { requireAuth } from "./authentication.js";
 import { canManageSupportAgent, isAdmin, requireAnyRole } from "./authorization.js";
