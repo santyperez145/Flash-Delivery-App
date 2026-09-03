@@ -15,7 +15,7 @@
 import { Router } from "express";
 import { z } from "zod";
 
-import { recordPostgresAudit } from "../operations-repository.js";
+import { recordPostgresAudit } from "../audit-repository.js";
 
 import {
   cancelSubscription,

@@ -21,11 +21,11 @@ import {
   addPostgresSupportMessage,
   createPostgresSupportTicket,
   getPostgresSupportTickets,
-  recordPostgresAudit,
-  updatePostgresSupportTicket,
   getSupportAgents,
+  updatePostgresSupportTicket,
   updateSupportAgent,
-} from "../operations-repository.js";
+} from "../support-repository.js";
+import { recordPostgresAudit } from "../audit-repository.js";
 import { requireAuth } from "./authentication.js";
 import { canManageSupportAgent, isAdmin, requireAnyRole } from "./authorization.js";
 import { publishRealtimeEvent } from "./realtime.js";

@@ -57,7 +57,7 @@ import {
   getShipmentProtectionPlan,
   getShipmentServiceConfiguration,
 } from "../shipment-options-repository.js";
-import { recordPostgresAudit } from "../operations-repository.js";
+import { recordPostgresAudit } from "../audit-repository.js";
 import { usesPostgresCommerce } from "../postgres.js";
 import { deliveryProofLimiter } from "./rate-limits.js";
 import { publishRealtimeEvent } from "./realtime.js";

@@ -12,7 +12,7 @@ import {
 } from "./map-cache-repository.js";
 import { mapsProvider } from "./maps-provider.js";
 import { observeProviderCall } from "./observability.js";
-import { recordSystemAudit } from "./operations-repository.js";
+import { recordSystemAudit } from "./audit-repository.js";
 import { ProviderCircuit } from "./provider-resilience.js";
 
 export const mapProviderCircuit = new ProviderCircuit(config.mapProvider);

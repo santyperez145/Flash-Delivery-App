@@ -15,7 +15,7 @@ import { z } from "zod";
 
 import { requireAuth } from "./authentication.js";
 import { isAdmin, requireAnyRole } from "./authorization.js";
-import { recordPostgresAudit } from "../operations-repository.js";
+import { recordPostgresAudit } from "../audit-repository.js";
 import { createOrderIssue, getOrderIssues, resolveOrderIssue } from "../order-issue-repository.js";
 import { usesPostgresCommerce } from "../postgres.js";
 import { publishRealtimeEvent } from "./realtime.js";

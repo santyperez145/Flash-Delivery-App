@@ -705,3 +705,34 @@ export async function processPostgresNotificationBatch({
   }
   return { claimed: claimed.length, outcomes };
 }
+
+// Inbox del cliente (listar / marcar leída). El envío push vive arriba;
+// estas dos lecturas salieron de operations-repository en ARC-001.
+export async function getPostgresNotifications(userPublicId) {
+  const result = await postgresPool.query(
+    `SELECT n.public_id id, n.channel, n.template, n.payload, n.status,
+      n.created_at, n.read_at
+     FROM notifications n
+     JOIN users u ON u.id = n.user_id
+     WHERE u.public_id = $1
+     ORDER BY n.created_at DESC
+     LIMIT 100`,
+    [userPublicId],
+  );
+  return result.rows.map((row) => ({
+    ...row,
+    createdAt: new Date(row.created_at).toISOString(),
+    readAt: row.read_at ? new Date(row.read_at).toISOString() : null,
+  }));
+}
+export async function markPostgresNotificationRead({ publicId, userPublicId }) {
+  const result = await postgresPool.query(
+    `UPDATE notifications n SET status='read',read_at=COALESCE(read_at,now()) FROM users u WHERE n.user_id=u.id AND n.public_id=$1 AND u.public_id=$2 RETURNING n.public_id`,
+    [publicId, userPublicId],
+  );
+  if (!result.rows[0])
+    throw Object.assign(new Error("Notificación no encontrada"), {
+      status: 404,
+    });
+  return getPostgresNotifications(userPublicId);
+}

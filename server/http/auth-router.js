@@ -57,7 +57,7 @@ import {
   getAdminMfaStatus,
   verifyAdminMfa,
 } from "../mfa-repository.js";
-import { recordPostgresAudit } from "../operations-repository.js";
+import { recordPostgresAudit } from "../audit-repository.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";
 import {
   consumeAuthSession,

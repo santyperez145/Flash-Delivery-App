@@ -31,7 +31,7 @@ import {
   getMerchantFinance,
   requestMerchantPayout,
 } from "../merchant-finance-repository.js";
-import { recordPostgresAudit } from "../operations-repository.js";
+import { recordPostgresAudit } from "../audit-repository.js";
 import { getPostgresMerchantActiveOrderPage } from "../order-repository.js";
 import { usesPostgresCommerce } from "../postgres.js";
 import { payoutStepUpLimiter } from "./rate-limits.js";

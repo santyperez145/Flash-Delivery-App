@@ -35,7 +35,7 @@ import { addTimeline, findRestaurant, readDb } from "../fallback-runtime.js";
 import { creditDriverEarningsRuntime } from "../driver-earnings.js";
 import { config } from "../config.js";
 import { cancelMarketplaceOrderAndRefund } from "../marketplace-refund-repository.js";
-import { recordPostgresAudit } from "../operations-repository.js";
+import { recordPostgresAudit } from "../audit-repository.js";
 import { processPostgresOrderMarketplacePayment } from "../order-marketplace-payment-repository.js";
 import {
   assignPostgresOrderDriver,

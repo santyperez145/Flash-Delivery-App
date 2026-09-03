@@ -32,7 +32,8 @@ import { requireAuth } from "./authentication.js";
 import { config } from "../config.js";
 import { accountSnapshot, audit, readDb, scopeStateForRequest } from "../fallback-runtime.js";
 import { getPostgresFavoriteMerchantIds, getPostgresRatings } from "../feedback-repository.js";
-import { getPostgresSupportTickets, recordPostgresAudit } from "../operations-repository.js";
+import { getPostgresSupportTickets } from "../support-repository.js";
+import { recordPostgresAudit } from "../audit-repository.js";
 import {
   confirmPhoneVerification,
   requestPhoneVerification,
