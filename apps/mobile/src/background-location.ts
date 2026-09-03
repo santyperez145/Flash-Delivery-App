@@ -1,4 +1,6 @@
 import * as Location from "expo-location";
+
+import { explainAndRequestForegroundLocation } from "./locationPermission";
 import * as TaskManager from "expo-task-manager";
 import { Platform } from "react-native";
 import { loadMobileSession, saveMobileSession } from "./session-storage";
@@ -73,7 +75,7 @@ export async function getBackgroundLocationState(): Promise<BackgroundLocationSt
 }
 export async function startDriverBackgroundLocation(): Promise<BackgroundLocationState> {
   if (Platform.OS === "web" || !(await TaskManager.isAvailableAsync())) return "foreground_only";
-  const foreground = await Location.requestForegroundPermissionsAsync();
+  const foreground = await explainAndRequestForegroundLocation({ audience: "driver" });
   if (foreground.status !== "granted") return "denied";
   const background = await Location.requestBackgroundPermissionsAsync();
   if (background.status !== "granted") return "foreground_only";

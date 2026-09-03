@@ -11,6 +11,7 @@ import { Alert, Pressable, ScrollView, Share, Text, View } from "react-native";
 
 import { track } from "../analytics";
 import { api } from "../api";
+import { explainAndRequestForegroundLocation } from "../locationPermission";
 import { mobileOrderStatusLabel } from "../format";
 import { styles } from "../styles";
 import { ServiceChatModal } from "../ui";
@@ -432,7 +433,9 @@ export function CustomerScreen({
             runAction(async () => {
               let location: GeoPoint | undefined;
               try {
-                const permission = await Location.requestForegroundPermissionsAsync();
+                const permission = await explainAndRequestForegroundLocation({
+                  audience: "customer",
+                });
                 if (permission.status === "granted") {
                   const current = await Location.getCurrentPositionAsync({
                     accuracy: Location.Accuracy.High,
