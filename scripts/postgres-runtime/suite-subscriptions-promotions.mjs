@@ -3,7 +3,12 @@ import { DISPATCH_BATCH_CLAIM_SQL } from "../../server/dispatch-repository.js";
 
 /** @param {import("./context.mjs").PostgresRuntimeContext} ctx */
 export async function runSubscriptionsPromotionsSuite(ctx) {
-  const { assert, request, readSseUntil, addressValidationToken, pool, base, payload } = ctx;
+  const { assert, request, readSseUntil, addressValidationToken, pool, base } = ctx;
+  // Misma referencia que `ctx.payload`: las aserciones de checkout firman el
+  // token sobre este objeto y lo reutilizan en POST /orders. Reasignar sólo
+  // `ctx.payload` dejaría el local sin quoteToken y el 409 de dirección
+  // alterada se convierte en 400.
+  let payload = ctx.payload;
   // -------------------------------------------------------------------------
   // Suscripcion de Flash (GTM-001).
   //
