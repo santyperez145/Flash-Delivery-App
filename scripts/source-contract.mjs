@@ -148,6 +148,21 @@ export async function readAudienceSource(roots, { exclude = [] } = {}) {
 /** Superficie web: todo `src/`, sea un archivo o cien. */
 export const readWebSource = () => readAudienceSource(["src"]);
 
+/** Hojas de estilo web en el mismo orden que `src/main.tsx`. */
+const WEB_STYLE_FILES = [
+  "src/styles.css",
+  "src/styles/commerce-ops.css",
+  "src/styles/foundation.css",
+  "src/styles/auth.css",
+  "src/styles/states.css",
+  "src/adaptive.css",
+];
+
+export async function readWebStyles() {
+  const partes = await Promise.all(WEB_STYLE_FILES.map((archivo) => fs.readFile(archivo, "utf8")));
+  return { source: partes.join("\n"), files: WEB_STYLE_FILES };
+}
+
 /** Superficie móvil: el entrypoint más su árbol. */
 export const readMobileSource = () =>
   readAudienceSource(["apps/mobile/App.tsx", "apps/mobile/src"]);

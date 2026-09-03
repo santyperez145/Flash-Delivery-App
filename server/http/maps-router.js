@@ -24,7 +24,11 @@ import {
 } from "../map-cache-repository.js";
 import { mapsProvider } from "../maps-provider.js";
 import { issueGeocodeValidation } from "../geocoding-validation.js";
-import { mapProviderCircuit, resolveDrivingRoute } from "../maps-route-service.js";
+import {
+  mapProviderCircuit,
+  noteStaleFallback,
+  resolveDrivingRoute,
+} from "../maps-route-service.js";
 import { observeProviderCall } from "../observability.js";
 import { requireAuth } from "./authentication.js";
 import { fail, ok, parseOrFail } from "./responses.js";
@@ -108,7 +112,12 @@ mapsRouter.get("/api/maps/geocode", requireAuth, async (req, res) => {
           maxStaleSeconds: config.mapProvider.staleCacheSeconds,
         })
       : null;
-    if (stale)
+    if (stale) {
+      await noteStaleFallback({
+        provider: stale.provider,
+        operation: "geocode",
+        cacheKey,
+      });
       return ok(res, {
         results: signedGeocodeResults(stale.payload.results, {
           provider: stale.provider,
@@ -119,6 +128,7 @@ mapsRouter.get("/api/maps/geocode", requireAuth, async (req, res) => {
         cache: "stale",
         degraded: true,
       });
+    }
     return fail(res, 503, "El servicio de geocodificacion no esta disponible");
   }
 });

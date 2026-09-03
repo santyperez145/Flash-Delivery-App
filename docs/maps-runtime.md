@@ -34,13 +34,18 @@ Ambos proveedores devuelven exactamente las mismas claves normalizadas, y el con
 
 ### Requisitos operativos pendientes
 
-API keys restringidas · una clave móvil por plataforma · restricción por bundle ID y package name · cuotas · alertas de costo · métricas de fallback entre proveedores.
+API keys restringidas · una clave móvil por plataforma · restricción por bundle ID y package name · cuotas · ~~alertas de costo~~ · ~~métricas de fallback entre proveedores~~.
+
+**Presupuesto y costo:** `/metrics` expone `flash_map_provider_budget_calls`, `_limit` y `_remaining` por proveedor (geocode y routing por separado cuando difieren, p. ej. `openstreetmap` + `osrm`). Al consumir ≥80% del presupuesto diario (`MAP_PROVIDER_DAILY_BUDGET`) se incrementa `flash_provider_calls_total{operation="budget",outcome="warning"}` una vez por día; al agotarlo, `outcome="exhausted"`.
+
+**Fallback auditable:** cuando geocode o routing devuelven caché envejecida (`degraded: true`), `noteStaleFallback()` incrementa `flash_provider_calls_total{outcome="stale_fallback"}` y escribe `maps.stale_fallback` en `audit_events` con origen `maps-stale-fallback` y hash de clave de caché.
 
 ### Criterios de cierre
 
 - [ ] Ningún checkout usa una dirección ambigua sin validar.
 - [ ] Ninguna tarifa productiva usa distancia geodésica como estimación final.
-- [ ] Los costos por proveedor son visibles y tienen alerta de presupuesto.
+- [x] Los costos por proveedor son visibles y tienen alerta de presupuesto.
+- [x] El fallback entre proveedores es auditable.
 - [x] Cambiar de proveedor no requiere tocar código de dominio.
 - [ ] **Calidad real de rutas y costo por consulta con una API key habilitada.** Es lo único que no se puede verificar sin credenciales.
 

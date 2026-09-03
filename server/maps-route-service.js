@@ -12,9 +12,31 @@ import {
 } from "./map-cache-repository.js";
 import { mapsProvider } from "./maps-provider.js";
 import { observeProviderCall } from "./observability.js";
+import { recordSystemAudit } from "./operations-repository.js";
 import { ProviderCircuit } from "./provider-resilience.js";
 
 export const mapProviderCircuit = new ProviderCircuit(config.mapProvider);
+
+export function mapProviderBudgetSnapshot() {
+  const provider = mapsProvider();
+  const names = [...new Set([provider.routingName, provider.name])];
+  return names.map((name) => ({ provider: name, ...mapProviderCircuit.snapshot(name) }));
+}
+
+export async function noteStaleFallback({ provider, operation, cacheKey }) {
+  observeProviderCall({ provider, operation, outcome: "stale_fallback" });
+  try {
+    await recordSystemAudit({
+      action: "maps.stale_fallback",
+      entityType: "map_provider_cache",
+      entityId: cacheKey?.slice(0, 16) ?? "unknown",
+      origin: "maps-stale-fallback",
+      afterData: { provider, operation, cacheKeyHash: cacheKey ?? null },
+    });
+  } catch {
+    // La observabilidad ya capturó el evento; sin PostgreSQL no bloqueamos la degradación.
+  }
+}
 
 function validateRouteCoords({ fromLat, fromLng, toLat, toLng }) {
   if (![fromLat, fromLng, toLat, toLng].every(Number.isFinite))
@@ -116,13 +138,19 @@ export async function resolveDrivingRoute({ fromLat, fromLng, toLat, toLng }) {
           maxStaleSeconds: config.mapProvider.staleCacheSeconds,
         })
       : null;
-    if (stale)
+    if (stale) {
+      await noteStaleFallback({
+        provider: stale.provider,
+        operation: "route",
+        cacheKey,
+      });
       return {
         route: stale.payload.route,
         provider: stale.provider,
         cache: "stale",
         degraded: true,
       };
+    }
     throw Object.assign(new Error("El servicio de rutas no esta disponible"), { status: 503 });
   }
 }

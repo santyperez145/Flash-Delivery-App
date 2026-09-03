@@ -74,6 +74,7 @@ import {
   startRealtimeListener,
 } from "./http/realtime.js";
 import { mapsRouter } from "./http/maps-router.js";
+import { mapProviderBudgetSnapshot } from "./maps-route-service.js";
 import { rideContextRouter } from "./http/ride-context-router.js";
 import { driverFleetRouter } from "./http/driver-fleet-router.js";
 import { shipmentProtectionRouter } from "./http/shipment-protection-router.js";
@@ -807,6 +808,7 @@ app.get("/api/internal/metrics", async (req, res) => {
       },
       startedAt: processStartedAt,
       realtimeConnections: realtimeClients.size,
+      mapProviderBudget: mapProviderBudgetSnapshot(),
     }),
   );
 });

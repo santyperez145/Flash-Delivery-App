@@ -2,6 +2,7 @@ import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./styles.css";
+import "./styles/commerce-ops.css";
 import "./styles/foundation.css";
 import "./styles/auth.css";
 import "./styles/states.css";
