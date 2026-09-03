@@ -976,7 +976,7 @@ export async function runBootstrapCommerceSuite(ctx) {
       entry.lat !== null &&
       entry.lng !== null,
   );
-  ctx.payload = {
+  const payload = {
     customerId: "usr_customer",
     restaurantId: "rest_roja",
     deliveryAddressId: ctx.checkoutAddress?.id,
@@ -992,6 +992,7 @@ export async function runBootstrapCommerceSuite(ctx) {
       },
     ],
   };
+  ctx.payload = payload;
   assert(ctx.checkoutAddress, "food checkout has a saved geocoded delivery address");
   ctx.unvalidatedAddressId = (
     await pool.query(
