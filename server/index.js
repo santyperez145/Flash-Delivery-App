@@ -8,9 +8,7 @@ import helmet from "helmet";
 import { SpanStatusCode, trace } from "@opentelemetry/api";
 import { config } from "./config.js";
 import { bypassRefusalReason } from "./rls-guard.js";
-import { fail, ok } from "./http/responses.js";
-import { requireAnyRole } from "./http/authorization.js";
-import { requireAuth } from "./http/authentication.js";
+import { fail } from "./http/responses.js";
 import { isSameOrigin, requireTrustedWebOrigin } from "./http/web-origin.js";
 import { backofficeReportsRouter } from "./http/backoffice-reports-router.js";
 import { catalogRouter } from "./http/catalog-router.js";
@@ -32,12 +30,7 @@ import { featureFlagsRouter } from "./http/feature-flags-router.js";
 import { feedbackRouter } from "./http/feedback-router.js";
 import { financialReviewRouter } from "./http/financial-review-router.js";
 import { notificationsRouter } from "./http/notifications-router.js";
-import {
-  publishRealtimeEvent,
-  realtimeClients,
-  realtimeRouter,
-  startRealtimeListener,
-} from "./http/realtime.js";
+import { realtimeClients, realtimeRouter, startRealtimeListener } from "./http/realtime.js";
 import { mapsRouter } from "./http/maps-router.js";
 import { rideContextRouter } from "./http/ride-context-router.js";
 import { driverFleetRouter } from "./http/driver-fleet-router.js";
@@ -61,7 +54,7 @@ import { stopTelemetry } from "./telemetry.js";
 import { createGracefulShutdown } from "./graceful-shutdown.js";
 import { beginDrain } from "./runtime-drain.js";
 import { observeHttpRequest } from "./observability.js";
-import { createId, resetDb } from "./store.js";
+import { createId } from "./store.js";
 
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
@@ -257,17 +250,6 @@ app.use(metricsRouter);
 app.use(financialReviewRouter);
 
 app.use(mapsRouter);
-
-app.post("/api/reset", requireAuth, requireAnyRole("admin"), async (req, res) => {
-  if (config.databaseUrl)
-    return fail(res, 409, "Reset deshabilitado mientras PostgreSQL es la fuente real");
-  await publishRealtimeEvent({
-    req,
-    type: "platform.reset",
-    action: "platform.reset",
-  });
-  ok(res, { state: resetDb() });
-});
 
 if (fs.existsSync(distDir)) {
   app.use(
