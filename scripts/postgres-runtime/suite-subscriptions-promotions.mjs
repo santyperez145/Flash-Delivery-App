@@ -376,9 +376,10 @@ export async function runSubscriptionsPromotionsSuite(ctx) {
     body: JSON.stringify(ctx.payload),
   });
   if (first.status !== 200) console.error("branch checkout diagnostic", first, second);
-  ctx.orderId = first.body.order?.id;
+  const orderId = first.body.order?.id;
+  ctx.orderId = orderId;
   assert(
-    first.status === 200 && ctx.orderId && second.body.order?.id === ctx.orderId,
+    first.status === 200 && orderId && second.body.order?.id === orderId,
     "order idempotency returns one result",
   );
   const count = await pool.query("SELECT count(*)::int AS count FROM jobs WHERE public_id = $1", [
@@ -621,7 +622,8 @@ export async function runSubscriptionsPromotionsSuite(ctx) {
       scheduledFor,
     }),
   });
-  ctx.scheduledRideId = scheduledRide.body.ride?.id;
+  const scheduledRideId = scheduledRide.body.ride?.id;
+  ctx.scheduledRideId = scheduledRideId;
   const scheduledStored = await pool.query(
     `SELECT scheduled_for,
       (SELECT count(*)::int FROM dispatch_offers o WHERE o.job_id=j.id) offers,

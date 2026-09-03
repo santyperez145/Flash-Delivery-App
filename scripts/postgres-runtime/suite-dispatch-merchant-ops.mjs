@@ -208,13 +208,14 @@ export async function runDispatchMerchantOpsSuite(ctx) {
       reason: "Burger sin stock durante preparación",
     }),
   });
-  ctx.substitutionId = proposedSubstitution.body.substitution?.id;
+  const substitutionId = proposedSubstitution.body.substitution?.id;
+  ctx.substitutionId = substitutionId;
   const blockedAdvance = await request(`/orders/${settlementOrderId}/advance`, {
     method: "POST",
     body: "{}",
   });
   assert(
-    proposedSubstitution.status === 201 && ctx.substitutionId && blockedAdvance.status === 409,
+    proposedSubstitution.status === 201 && substitutionId && blockedAdvance.status === 409,
     "merchant proposes a lower-priced in-stock replacement and pending decision blocks order progress",
   );
   ctx.token = ctx.customerToken;
@@ -782,7 +783,7 @@ export async function runDispatchMerchantOpsSuite(ctx) {
     (await pool.query("SELECT online FROM drivers WHERE public_id='drv_nico'")).rows[0]?.online ??
     null;
   await pool.query("UPDATE drivers SET online=false WHERE public_id='drv_nico'");
-  ctx.shipmentPayload = {
+  const shipmentPayload = {
     customerId: "usr_customer",
     pickup: "Defensa 982, San Telmo",
     destination: "Plaza Italia, Buenos Aires",
@@ -797,6 +798,7 @@ export async function runDispatchMerchantOpsSuite(ctx) {
     paymentMethod: "Flash Wallet",
     termsAccepted: true,
   };
+  ctx.shipmentPayload = shipmentPayload;
   const protectedShipmentPayload = {
       ...shipmentPayload,
       declaredValue: 100000,
@@ -840,15 +842,16 @@ export async function runDispatchMerchantOpsSuite(ctx) {
       shipmentLockedQuote.body.quote?.quoteToken,
     "shipment quote returns a versioned signed price lock",
   );
-  ((ctx.slaShipmentPayload = {
+  const slaShipmentPayload = {
     ...shipmentPayload,
     itemCategory: "fragile",
     serviceLevel: "priority",
-  }),
-    (slaShipmentQuote = await request("/shipments/quote", {
-      method: "POST",
-      body: JSON.stringify(ctx.slaShipmentPayload),
-    })));
+  };
+  ctx.slaShipmentPayload = slaShipmentPayload;
+  const slaShipmentQuote = await request("/shipments/quote", {
+    method: "POST",
+    body: JSON.stringify(slaShipmentPayload),
+  });
   assert(
     slaShipmentQuote.status === 200 &&
       slaShipmentQuote.body.quote?.itemCategory === "fragile" &&
