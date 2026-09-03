@@ -2,7 +2,7 @@
 //
 // Preferencias → `store-local-preferences.js`. Sesiones → `store-auth-sessions.js`.
 // Lectores → `store-entity-readers.js`. Replace → `store-replace-transaction.js`.
-// Schema/seed → `store-schema.js` / `store-seed.js`.
+// Schema/seed → `store-schema.js` / `store-seed.js` (+ catalog/mobility fixtures).
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
