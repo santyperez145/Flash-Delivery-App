@@ -21,7 +21,7 @@ La Fase 0 está en marcha: ver el [plan de acción](docs/plan-de-accion.md) y el
 | H-03 | SEC-001 | **Corregido.** Default-deny activo y con puerta CI; queda la verificación de runtime contra PostgreSQL |
 | H-04 | DAT-001 | **En curso.** 109 tablas clasificadas y **69 de 69 `por-usuario` con política**; quedan `FORCE ROW LEVEL SECURITY` en cero y la cola larga de privilegios excedentes |
 | H-05 | INF-001 | **Corregido.** Imagen multi-etapa, `uid=999(flash)` verificado en build real, mismo entrypoint que Compose |
-| H-06 | DSP-001 | **En curso.** Recorte espacial y KNN activos; falta medir el plan y el ETA vial |
+| H-06 | DSP-001 | **Bloqueado por externo.** Shortlist/stats/radio/manual/boost hechos; falta Route Matrix (API key) y evidencia SLO en prod |
 | H-07 | GEO-001 | **En curso.** Adapter con proveedor comercial y producción bloqueada para instancias públicas; falta una API key |
 | H-08 | ARC-001 | **En curso.** Los dos `App.tsx` cumplen el techo de 1.500; `server/index.js` ~350 líneas (sólo montaje); contratos compartidos en 47 tipos (Ride/Shipment); faltan entrypoints/binarios por audiencia (MOB-001) |
 | H-09 | PAY-001 | Mercado Pago integrado pero nunca validado contra el proveedor |

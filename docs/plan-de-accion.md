@@ -113,8 +113,8 @@ La matriz vive en `docs/matriz-madurez.md` y se actualiza en el mismo PR que cam
 | ~~Reformateo de archivos comprimidos~~ **hecho** | ARC-001 | Línea máxima 4.061 → 206; **0** líneas >200 (bajan de 251); `test:line-length` en cero |
 | ~~Dispatch v2 etapa 1~~ **hecho** | DSP-001 | `ST_DWithin` + KNN recortan candidatos antes del scoring |
 | ~~Dispatch manual Ops~~ **hecho** | DSP-001 | `POST /api/admin/jobs/:id/assign` + panel; motivo/auditoría; `test:postgres` |
-| Stats precomputadas + incidentes | DSP-001 | `driver_dispatch_stats` + `incident_score`; Route Matrix sigue bloqueado por API key |
-| SLOs documentados | — | Objetivos técnicos de la auditoría publicados y medibles |
+| ~~Stats precomputadas + incidentes~~ **hecho** | DSP-001 | `driver_dispatch_stats` + `incident_score`; Route Matrix sigue bloqueado por API key |
+| ~~SLOs documentados~~ **hecho** | — | `docs/observability.md` + umbral p95 en `test:dispatch-plan`; falta evidencia en prod |
 
 ### Criterios de salida de la Fase 0
 
@@ -136,7 +136,7 @@ La fase no se declara cerrada hasta que **todos** estos puntos sean verificables
 | Bloqueo | Ticket / criterio | Qué hace falta |
 | --- | --- | --- |
 | Cuenta GCP `southamerica-east1` | Despliegue / cero demo en prod | Crear proyecto y secretos — ver `docs/despliegue.md` |
-| `GOOGLE_MAPS_SERVER_API_KEY` (+ móviles restringidas) | GEO-001 calidad/costo real; cotización vial con evidencia | API key comercial |
+| `GOOGLE_MAPS_SERVER_API_KEY` (+ móviles restringidas) | GEO-001 calidad/costo; DSP-001 Route Matrix; cotización vial | API key comercial |
 | Teléfono Android + iOS + credenciales EAS | NOT-001 push físico | Dispositivos y cuenta Expo |
 | Segundo revisor GitHub | CI-001 pagos/seguridad | Otro humano en el repo / `CODEOWNERS` |
 | Credenciales nightly (sandbox proveedores, EAS) + scope `workflow` para cablear `test:k6-local` | CI-001 nightly | Secrets / token Actions del dueño |
@@ -159,7 +159,7 @@ Demostrar que un pedido completo, con dinero real de sandbox, atraviesa la plata
 
 **Mobile:** app cliente preview · app comercio preview · app driver preview · background GPS probado en varios dispositivos y versiones de sistema operativo · push receipts en producción de prueba · crash reporting.
 
-**Dispatch:** dispatch v2 completo · Route Matrix · prep time del comercio · oleadas de oferta · radio dinámico · protección contra inanición · dispatch manual desde backoffice.
+**Dispatch:** ~~dispatch v2 shortlist/stats/radio/manual/boost~~ **hecho** · Route Matrix (**API key**) · prep time anticipado (**bloqueado** a propósito) · evidencia SLO p95 en prod.
 
 **Operación:** onboarding de comercios · onboarding de drivers · KYC operativo · casos de soporte · chat · evidencia de entrega.
 
@@ -319,7 +319,7 @@ Estado al **25 de agosto de 2026**. Se actualiza en el PR que cambia el estado, 
 | [INF-001](backlog-tecnico.md#inf-001--imagen-productiva-endurecida) | P0 | H-05 | **Cerrado** | 0 |
 | [NOT-001](backlog-tecnico.md#not-001--push-real) | P0 | H-02 | **Bloqueado por externo** | 0 |
 | [GEO-001](backlog-tecnico.md#geo-001--proveedor-de-mapas-comercial) | P0 | H-07 | **En curso** | 0 |
-| [DSP-001](backlog-tecnico.md#dsp-001--dispatch-v2) | P0 | H-06 | **En curso** | 0–1 |
+| [DSP-001](backlog-tecnico.md#dsp-001--dispatch-v2) | P0 | H-06 | **Bloqueado por externo** (Route Matrix + SLO prod) | 0–1 |
 | [PAY-001](backlog-tecnico.md#pay-001--validación-marketplace) | P0 | H-09 | Pendiente | 1 |
 | [MOB-001](backlog-tecnico.md#mob-001--release-engineering) | P0 | — | Pendiente | 1 |
 | [OPS-001](backlog-tecnico.md#ops-001--operación-real) | P1 | — | Pendiente | 2 |
@@ -406,9 +406,10 @@ prueba que el contrato es correcto, **no** que un push llegue a un teléfono ni
 cuánto cuesta una consulta de rutas. Esa es la distancia entre `CI` y `PROV`, y
 es lo que queda bloqueado por credenciales de proveedor.
 
-**DSP-001.** La selección pasó a dos etapas y el recorte espacial existe por
-primera vez. Queda medir el plan con `EXPLAIN ANALYZE` sobre un padrón
-sintético, y el ETA vial, que depende de una API key.
+**DSP-001.** Shortlist espacial, KNN, stats precomputadas, radio dinámico,
+assign manual, boost Flash Más y `EXPLAIN ANALYZE`/carga sobre mil conductores
+están hechos y con puerta. Queda ETA vial (API key del dueño) y evidencia del
+SLO p95 en infraestructura productiva — el umbral ya se afirma en CI local.
 
 **ARC-001.** El reformateo mecánico está hecho: la línea más larga bajó de 4.061
 a 206 caracteres y las líneas largas de 1.543 a 262. Antes de eso hubo que
@@ -423,8 +424,8 @@ registro de clientes SSE). El paso 5 cerró el núcleo con
 routers dejaron de ser factories porque ya no queda nada que recibir.
 
 Con el núcleo cerrado, cada grupo nuevo fue una extracción y nada más. **Los 57
-grupos están extraídos**, repartidos en 31 routers, y `server/index.js` bajó de
-9.696 a **~350 líneas**: el 96 por ciento.
+grupos están extraídos**, repartidos en routers bajo `server/http/`, y
+`server/index.js` bajó de 9.696 a **~350 líneas**: el 96 por ciento.
 
 En web, `src/App.tsx` es el shell de sesión, auth y enrutado: catálogo, carrito,
 checkout y viajes viven en `useCustomerCommerce`, y el chrome del phone-stage en
