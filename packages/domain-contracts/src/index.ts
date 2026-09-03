@@ -2,10 +2,10 @@
 //
 // Sólo entran tipos byte-a-byte iguales y autocontenidos, o la intersección /
 // proyección autoritativa del servidor cuando ambas superficies ya la consumen.
-// `Order`/`OrderItem`, `RestaurantSummary`, `MenuItemSummary` y `RestaurantBranch`
-// son núcleos compartidos; web extiende el ítem con vitrina y mobile reusa el
-// núcleo. Extras del comercio siguen locales (sólo web). `MerchantOperationsDashboardCore`
-// es compartido; cada superficie añade `restaurant: Restaurant` local.
+// `Order`/`OrderItem`, `RestaurantSummary`, `MenuItemSummary`, `RestaurantBranch`,
+// `DriverSummary`/`DriverServiceMode` y `MerchantOperationsDashboardCore` son
+// núcleos compartidos; web/mobile extienden con vitrina, GPS KYC o `Restaurant`
+// local. Extras del comercio siguen locales (sólo web).
 
 export type DietaryPreferences = {
   dietaryLabels: Array<{ code: string; name: string }>;
@@ -411,6 +411,32 @@ export type Order = {
   etaMin: number;
   createdAt?: string;
   items: OrderItem[];
+};
+
+/**
+ * Modo de servicio del conductor — idéntico en web y mobile.
+ */
+export type DriverServiceMode = "delivery" | "ride";
+
+/**
+ * Núcleo de conductor compartido (ARC-001).
+ * Mobile añade vehículo KYC y frescura GPS (source/accuracy).
+ */
+export type DriverSummary = {
+  id: string;
+  userId: string;
+  name: string;
+  online: boolean;
+  serviceModes: DriverServiceMode[];
+  activeService: DriverServiceMode;
+  vehicle: string;
+  plate: string;
+  rating: number;
+  earningsToday: number;
+  location: GeoPoint & {
+    label: string;
+    updatedAt?: string | null;
+  };
 };
 
 /**

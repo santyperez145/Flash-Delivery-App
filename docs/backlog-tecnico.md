@@ -26,7 +26,7 @@ Cinco archivos concentran más de 1,3 MB de código: `apps/mobile/App.tsx` (433 
 3. ~~Crear entrypoints separados customer, driver y merchant en mobile~~ **Hecho**: `metro.config.js` resuelve `./variant-screen` según `EXPO_PUBLIC_APP_VARIANT`, y `test:mobile-variant-bundles` lo verifica empaquetando las tres con `expo export`.
 4. ~~Descomponer `server/index.js`~~ **Hecho**: 57 grupos de rutas en 31 routers bajo `server/http/`. El archivo quedó en 872 líneas con 8 rutas de infraestructura.
 5. ~~Dividir `commerce-repository.js` por subdominio~~ **Hecho**: `catalog-repository.js` (539 líneas, lo que escribe el comercio), `order-repository.js` (1.103, el ciclo del pedido) y `driver-roster-repository.js` (134, el plantel). `usesPostgresCommerce` se mudó a `postgres.js`, que es de quien habla el predicado. La única dependencia entre partes es `mapCatalogItem`: pedidos importa de catálogo —un pedido está hecho de ítems— y nunca al revés.
-6. Crear contratos compartidos en un paquete propio. **Avance:** `@flash/domain-contracts` concentra **36** tipos (`MerchantOperationsDashboardCore` sumado a `MenuItemSummary`/`RestaurantBranch`/`RestaurantSummary`, `Order`/`OrderItem`, `User` y estados). Web/mobile extienden el dashboard con `restaurant: Restaurant` local. `test:domain-contracts` bloquea el merge. Extras del comercio siguen locales.
+6. Crear contratos compartidos en un paquete propio. **Avance:** `@flash/domain-contracts` concentra **38** tipos (`DriverSummary`/`DriverServiceMode` sumados a dashboard/menú/sucursales/`Order`/`User`). Web: `Driver = DriverSummary`; mobile extiende con KYC/GPS. `test:domain-contracts` bloquea el merge. Extras del comercio siguen locales.
 7. Limitar cada archivo a una responsabilidad concreta. **Avance:** backoffice modularizado (`AdminConsole` shell; paneles de dinero y soporte partidos); Driver: `useDriverShift` + paneles (`DriverScreen` cockpit); comercio web: `MerchantConsole` shell con cocina, detalle/sustituciones, catálogo, sucursales, analítica, pulso y liquidaciones en módulos propios; Merchant App: `MerchantScreen` shell con Hoy, Pedidos, Catálogo, Cuenta y detalle. Phone-stage web: `MerchantApp`, `DriverApp`, `OpsApp` y `OpsRail` en módulos y chunks propios. Cuenta mobile: `CustomerAccountScreen` shell con seguridad, referidos, dieta, inbox, soporte, libreta y pagos. Cliente mobile: sesión de Comidas en `useCustomerFood`. Cliente web: sesión de comercio en `useCustomerCommerce`; `src/App.tsx` queda como shell de sesión, auth y enrutado. Cliente HTTP web: transporte en `src/api/http.ts`; mapa partido en cuenta/comercio/movilidad/operaciones; `src/api.ts` sólo compone y arma el bootstrap. Cliente HTTP mobile: el mismo corte —transporte en `apps/mobile/src/api/http.ts`, mapa partido, barrel que sólo compone. **Estilos (sep-2026):** `src/styles.css` bajó a 5.636 con tres hojas nuevas cableadas vía `readWebStyles()`; mobile extrajo `styles/merchant.ts` (472 claves) y dejó `styles.ts` como compositor con re-export intacto; ratchet de archivos >1.500: **21.868 → 19.739** líneas.
 
 ### Criterios de aceptación
@@ -126,9 +126,10 @@ para migrar suites gradualmente.
 
 **Avance del 2-09-2026:** Supertest monta el Express real (`FLASH_HTTP_LISTEN=0`, sin abrir
 puerto) en `tests/integration/http-supertest.test.js`, encadenado en `test:authorization`
-(ci-fast). Vitest quedó **pinneado a 3.2.4**: 4.1.x falla en Node 24 al registrar suites
-(`runner.config` indefinido). k6, cobertura y mutation testing siguen abiertos (k6/EAS
-requieren secrets del dueño).
+(ci-fast): health, OpenAPI, readiness, 401 sin bearer y 404 tipado. Vitest quedó
+**pinneado a 3.2.4**: 4.1.x falla en Node 24 al registrar suites (`runner.config`
+indefinido). k6, cobertura y mutation testing siguen abiertos (k6/EAS requieren
+secrets del dueño).
 
 ### Criterios de aceptación
 

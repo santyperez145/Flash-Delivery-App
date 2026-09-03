@@ -43,6 +43,8 @@ const SHARED = [
   "MenuModifierGroup",
   "MenuItemSummary",
   "RestaurantBranch",
+  "DriverServiceMode",
+  "DriverSummary",
   "RideStatus",
 ];
 
@@ -113,6 +115,13 @@ assert(
   contains(web, "MerchantOperationsDashboard = MerchantOperationsDashboardCore &") &&
     contains(mobile, "MerchantOperationsDashboard = MerchantOperationsDashboardCore &"),
   "web and mobile extend shared MerchantOperationsDashboardCore with local Restaurant",
+);
+assert(
+  contains(web, "Driver = DriverSummary") &&
+    contains(mobile, "Driver = DriverSummary &") &&
+    contains(web, "DriverService = DriverServiceMode") &&
+    contains(mobile, "ServiceMode = DriverServiceMode"),
+  "web and mobile share DriverSummary and DriverServiceMode",
 );
 assert(
   contains(rootPkg, '"@flash/domain-contracts"') &&

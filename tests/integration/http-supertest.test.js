@@ -27,6 +27,31 @@ describe("HTTP surface (supertest)", () => {
     expect(response.headers["x-request-id"]).toMatch(/^[a-zA-Z0-9._:-]{8,128}$/);
   });
 
+  test("GET /api/openapi.json publica OpenAPI 3.x", async () => {
+    const response = await request(app).get("/api/openapi.json");
+    expect(response.status).toBe(200);
+    expect(response.body.openapi).toMatch(/^3\./);
+    expect(response.body.paths["/api/health"]).toBeTruthy();
+    expect(response.body.paths["/api/admin/jobs/{jobId}/assign"]).toBeTruthy();
+  });
+
+  test("GET /api/ready responde contrato de readiness (200 o 503)", async () => {
+    const response = await request(app).get("/api/ready");
+    expect([200, 503]).toContain(response.status);
+    if (response.status === 200) {
+      expect(response.body.ok).toBe(true);
+    } else {
+      expect(response.body.ok).toBe(false);
+      expect(response.body.message).toBeTruthy();
+    }
+  });
+
+  test("ruta autenticada sin bearer responde 401", async () => {
+    const response = await request(app).get("/api/metrics");
+    expect(response.status).toBe(401);
+    expect(response.body.ok).toBe(false);
+  });
+
   test("ruta desconocida bajo /api responde 404 tipado", async () => {
     const response = await request(app).get("/api/ruta-que-no-existe-supertest");
     expect(response.status).toBe(404);
