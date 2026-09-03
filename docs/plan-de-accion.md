@@ -92,7 +92,7 @@ La matriz vive en `docs/matriz-madurez.md` y se actualiza en el mismo PR que cam
 | ~~`ci-critical-flows.yml`~~ **hecho** | CI-001 | Pagos, ledger, webhooks, conciliación, KYC, soporte y safety bloquean el merge · **cuarentena vacía desde el 27-08** |
 | ~~Matriz formal de cobertura RLS~~ **hecho** | DAT-001 | 109 tablas clasificadas y con puerta CI; `FORCE ROW LEVEL SECURITY` sigue pendiente |
 | ~~Pruebas negativas por rol~~ **hecho** | DAT-001 | Las cinco tablas de la deuda cerraron el 27-08: `test:rls-matrix` reporta 69 de 69 y `test:rls` afirma las dos mitades de cada una —el rol auditor no ve nada, y el dueño sí ve lo suyo—. Falta acotar los grants por operación |
-| ~~Vitest + Testcontainers~~ **hecho** | CI-001 | `test:authorization` corre sobre Vitest 4.1; `test:runtime-role-shape` crea además PostGIS 17 aislado, aplica las 136 migraciones y bloquea `ci-postgres` |
+| ~~Vitest + Testcontainers~~ **hecho** | CI-001 | `test:authorization` corre sobre Vitest 4.1; `test:runtime-role-shape` crea además PostGIS 17 aislado, aplica las 137 migraciones y bloquea `ci-postgres` |
 
 #### Semana 3 (8–14 de septiembre) — Proveedores reales
 

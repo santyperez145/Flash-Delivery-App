@@ -85,7 +85,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Capacidad | Estado | Evidencia / bloqueo |
 | --- | --- | --- |
 | PostgreSQL/PostGIS runtime | `CI` | `ci-postgres.yml` levanta PostGIS 17 con roles separados; `test:runtime-role-shape` repite el arranque en un contenedor aislado |
-| 136 migraciones versionadas | `CI` | `ci-postgres.yml` corre desde cero, en Testcontainers y de forma incremental sobre la rama base |
+| 137 migraciones versionadas | `CI` | `ci-postgres.yml` corre desde cero, en Testcontainers y de forma incremental sobre la rama base |
 | Framework estándar de pruebas | `CI` | Vitest 4.1 ejecuta autorización; Testcontainers 12.1 ejecuta migraciones y roles sobre PostGIS efímero · migración gradual restante |
 | Row-Level Security | `CI` | `test:rls` bloquea el merge · **69 de 69** tablas `por-usuario` con política. `shipment_details` y `promotion_redemptions` cerraron el 27-08: la primera guardaba nombre, teléfono y PIN del destinatario sin `ENABLE` |
 | Matriz de clasificación RLS | `CI` | `test:rls-matrix`: las 104 tablas clasificadas, deuda declarada que sólo puede achicarse. Desde el 27/08 también resta los `DROP TABLE`: una clasificación no sobrevive a su tabla |
@@ -131,7 +131,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Aceptación atómica `SKIP LOCKED` | `CI` | `test:postgres` bloquea el merge |
 | Ranking explicable | `CI` | Selección en dos etapas · `test:dispatch-candidates`, carga concurrente en `test:dispatch-plan` y `test:postgres` |
 | Recorte `ST_DWithin` + KNN | `CI` | Etapa 1 sobre el índice GiST parcial · `test:dispatch-plan` (EXPLAIN + carga concurrente) |
-| Stats precomputadas de conductor | — | **No existe** · se recalcula historial de 30 días por oferta |
+| Stats precomputadas de conductor | `CI` | Migración 137 · refresh en accept/reject y batch · `test:dispatch-candidates` |
 | Route Matrix para dispatch | `CI` | `describeRouteMatrix` con contrato verificado · falta conectarla al scoring |
 | Zonas de demanda | `CI` | `test:driver-demand` en `ci-critical-flows` |
 | Geocoding | `CI` | Adapter con `test:maps-provider` · producción rechaza instancias públicas · **sin API key habilitada** |

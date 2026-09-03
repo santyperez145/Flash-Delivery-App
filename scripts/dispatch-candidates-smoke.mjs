@@ -48,9 +48,18 @@ assert.ok(
 );
 ok("la puntuación sólo evalúa los candidatos de la lista corta");
 
-assert.ok(SCORE_SQL.includes("interval '30 days'"), "la etapa 2 conserva el historial");
-assert.ok(SCORE_SQL.includes("score_breakdown") === false);
-ok("la etapa 2 conserva el historial de 30 días, ahora sobre un conjunto acotado");
+assert.ok(SCORE_SQL.includes("driver_dispatch_stats"), "la etapa 2 usa stats precomputadas");
+ok("la etapa 2 lee driver_dispatch_stats en lugar de agregar dispatch_offers");
+
+assert.ok(
+  !SCORE_SQL.includes("interval '30 days'"),
+  "la etapa 2 no recalcula historial en caliente",
+);
+assert.ok(
+  !/LEFT JOIN LATERAL\s*\([\s\S]*dispatch_offers prior/.test(SCORE_SQL),
+  "sin agregado lateral de dispatch_offers",
+);
+ok("la etapa 2 no agrega historial de 30 días por candidato");
 
 // El score no cambia: la optimización decide a cuántos se evalúa, no a quién se
 // le ofrece el trabajo.
@@ -167,3 +176,10 @@ assert.ok(
   `el dispatch dejó de filtrar reservas futuras (${ventanas.length} filtros)`,
 );
 ok("el dispatch sigue sin ofrecer trabajos reservados fuera de ventana");
+
+const { REFRESH_DRIVER_DISPATCH_STATS_SQL } = await import("../server/dispatch-stats.js");
+assert.ok(REFRESH_DRIVER_DISPATCH_STATS_SQL.includes("INSERT INTO driver_dispatch_stats"));
+assert.ok(REFRESH_DRIVER_DISPATCH_STATS_SQL.includes("ON CONFLICT (driver_id, service)"));
+assert.ok(REFRESH_DRIVER_DISPATCH_STATS_SQL.includes("acceptance_rate_30d"));
+assert.ok(REFRESH_DRIVER_DISPATCH_STATS_SQL.includes("percentile_cont(0.5)"));
+ok("el refresh upsertea stats con la misma fórmula de aceptación y mediana de respuesta");

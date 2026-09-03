@@ -84,6 +84,10 @@
       "clase": "por-usuario",
       "rls": true
     },
+    "driver_dispatch_stats": {
+      "clase": "servicio",
+      "rls": true
+    },
     "driver_job_sessions": {
       "clase": "por-usuario",
       "rls": true

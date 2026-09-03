@@ -453,7 +453,7 @@ La suite además afirma que **el propio módulo no vuelve a depender de la base*
 
 El primer límite de integración estándar también quedó activo: la segunda mitad de
 `test:runtime-role-shape` crea PostGIS 17 desde Docker, replica los tres roles de producción y
-aplica las 136 migraciones desde cero. Corre dentro de `ci-postgres`, así que una prueba que sólo
+aplica las 137 migraciones desde cero. Corre dentro de `ci-postgres`, así que una prueba que sólo
 funcionara sobre la base preparada a mano por el workflow ya no podría satisfacer por sí sola el
 criterio.
 
@@ -707,7 +707,7 @@ Séptima entrega de la Fase 0. Cierra el núcleo del hallazgo [H-06](docs/audito
 - [x] **`EXPLAIN ANALYZE` con padrón sintético de al menos 1.000 conductores.** `test:dispatch-plan` explica la consulta real e impone el índice GiST; carga concurrente (`dispatch-load-smoke.mjs` vía `test:dispatch-plan`) ejerce tráfico concurrente sobre el mismo padrón.
 - [ ] **Primera oferta p95 < 5 s en producción.** carga concurrente (`dispatch-load-smoke.mjs` vía `test:dispatch-plan`) afirma el umbral en CI sobre PostgreSQL local; falta evidencia desplegada y Route Matrix en el scoring.
 - [ ] **ETA vial por Route Matrix.** `computeRouteMatrix()` existe y está verificado; falta conectarlo al scoring y **depende de una API key**.
-- [ ] **Stats precomputadas.** Con la lista corta, el historial de 30 días quedó acotado a 30 conductores: dejó de ser corrección para pasar a ser optimización.
+- [x] **Stats precomputadas (`driver_dispatch_stats`).** Migración 137 · refresh out-of-band · scoring sin agregado lateral de 30 días · `test:dispatch-candidates`.
 - [ ] Prep time del comercio y dispatch manual desde backoffice.
 
 ## Avance 26 de agosto de 2026 — tres de cuatro suites fuera de cuarentena
