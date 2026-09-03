@@ -38,6 +38,14 @@ import type {
   DriverSummary,
   DriverVehicle,
   RideStatus,
+  RideService,
+  RideSummary,
+  ShipmentStatus,
+  ShipmentPackageSize,
+  ShipmentProtection,
+  ShipmentItemCategory,
+  ShipmentServiceLevel,
+  ShipmentSummary,
 } from "@flash/domain-contracts";
 
 export type {
@@ -79,11 +87,18 @@ export type {
   DriverSummary,
   DriverVehicle,
   RideStatus,
+  RideService,
+  RideSummary,
+  ShipmentStatus,
+  ShipmentPackageSize,
+  ShipmentProtection,
+  ShipmentItemCategory,
+  ShipmentServiceLevel,
+  ShipmentSummary,
 };
 
 export type Mode = "customer" | "merchant" | "driver";
 export type ServiceMode = DriverServiceMode;
-export type RideService = "economy" | "comfort" | "moto" | "xl";
 
 export type Restaurant = RestaurantSummary & {
   branches?: RestaurantBranch[];
@@ -104,21 +119,8 @@ export type Order = SharedOrder & {
   cancellation?: ServiceCancellation | null;
 };
 
-export type Ride = {
-  id: string;
-  customerId: string;
-  driverId: string | null;
-  status: RideStatus;
-  service?: RideService;
-  pickup: string;
-  destination: string;
-  pickupLocation?: GeoPoint | null;
-  destinationLocation?: GeoPoint | null;
-  distanceKm: number;
-  etaMin?: number;
-  durationMin: number;
-  fare: number;
-  scheduledFor?: string | null;
+/** Viaje mobile: núcleo compartido + cancelación. */
+export type Ride = RideSummary & {
   cancellation?: ServiceCancellation | null;
 };
 
@@ -241,42 +243,7 @@ export type CartLine = {
   note: string;
 };
 
-export type Shipment = {
-  id: string;
-  customerId: string;
-  driverId: string | null;
-  status:
-    | "requested"
-    | "driver_assigned"
-    | "arriving"
-    | "picked_up"
-    | "delivering"
-    | "delivered"
-    | "cancelled";
-  pickup: string;
-  destination: string;
-  pickupLocation?: GeoPoint | null;
-  destinationLocation?: GeoPoint | null;
-  recipientName: string;
-  recipientPhone: string;
-  packageSize: "small" | "medium" | "large";
-  description: string;
-  weightKg: number;
-  deliveryNotes: string;
-  declaredValue?: number;
-  protection?: "none" | "standard";
-  protectionPremium?: number;
-  signatureRequired?: boolean;
-  itemCategory?: "documents" | "standard" | "fragile" | "electronics";
-  serviceLevel?: "economy" | "standard" | "priority" | "express";
-  handlingInstructions?: string;
-  distanceKm: number;
-  etaMin: number;
-  fare: number;
-  deliveryPin?: string;
-  deliveryEvidenceCount?: number;
-  deliveryVerifiedAt?: string | null;
-  timeline?: Array<{ status: string; at: string }>;
+export type Shipment = ShipmentSummary & {
   cancellation?: ServiceCancellation | null;
 };
 

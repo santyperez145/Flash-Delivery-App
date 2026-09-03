@@ -556,3 +556,77 @@ export type RideStatus =
   | "in_progress"
   | "completed"
   | "cancelled";
+
+/** Nivel de servicio de un viaje — idéntico en web y mobile. */
+export type RideService = "economy" | "comfort" | "moto" | "xl";
+
+/**
+ * Núcleo de viaje compartido (ARC-001).
+ * Web añade pago, createdAt y timeline; mobile añade cancelación.
+ */
+export type RideSummary = {
+  id: string;
+  customerId: string;
+  driverId: string | null;
+  status: RideStatus;
+  service: RideService;
+  pickup: string;
+  destination: string;
+  pickupLocation?: GeoPoint | null;
+  destinationLocation?: GeoPoint | null;
+  distanceKm: number;
+  etaMin: number;
+  durationMin: number;
+  fare: number;
+  scheduledFor?: string | null;
+};
+
+/** Ciclo de un envío. */
+export type ShipmentStatus =
+  | "requested"
+  | "driver_assigned"
+  | "arriving"
+  | "picked_up"
+  | "delivering"
+  | "delivered"
+  | "cancelled";
+
+export type ShipmentPackageSize = "small" | "medium" | "large";
+export type ShipmentProtection = "none" | "standard";
+export type ShipmentItemCategory = "documents" | "standard" | "fragile" | "electronics";
+export type ShipmentServiceLevel = "economy" | "standard" | "priority" | "express";
+
+/**
+ * Núcleo de envío compartido (ARC-001).
+ * Mobile añade cancelación de servicio; el resto es byte-a-byte.
+ */
+export type ShipmentSummary = {
+  id: string;
+  customerId: string;
+  driverId: string | null;
+  status: ShipmentStatus;
+  pickup: string;
+  destination: string;
+  pickupLocation?: GeoPoint | null;
+  destinationLocation?: GeoPoint | null;
+  recipientName: string;
+  recipientPhone: string;
+  packageSize: ShipmentPackageSize;
+  description: string;
+  weightKg: number;
+  deliveryNotes: string;
+  declaredValue?: number;
+  protection?: ShipmentProtection;
+  protectionPremium?: number;
+  signatureRequired?: boolean;
+  itemCategory?: ShipmentItemCategory;
+  serviceLevel?: ShipmentServiceLevel;
+  handlingInstructions?: string;
+  distanceKm: number;
+  etaMin: number;
+  fare: number;
+  deliveryPin?: string;
+  deliveryEvidenceCount?: number;
+  deliveryVerifiedAt?: string | null;
+  timeline?: Array<{ status: string; at: string }>;
+};
