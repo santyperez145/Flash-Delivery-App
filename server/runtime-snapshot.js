@@ -14,11 +14,9 @@
 // `NaN` propagado rompería el JSON entero por una división vacía.
 import { usesPostgresCommerce } from "./postgres.js";
 
-import {
-  getPostgresAddresses,
-  getPostgresPaymentMethods,
-  getPostgresUsers,
-} from "./auth-repository.js";
+import { getPostgresAddresses } from "./address-repository.js";
+import { getPostgresUsers } from "./auth-repository.js";
+import { getPostgresPaymentMethods } from "./payment-method-repository.js";
 import { isAdmin } from "./http/authorization.js";
 import { getPostgresRestaurants } from "./catalog-repository.js";
 import { getPostgresPromotions, getPostgresZones } from "./configuration-repository.js";
