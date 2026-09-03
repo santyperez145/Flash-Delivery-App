@@ -1,9 +1,11 @@
 // Contratos de dominio idénticos entre web y mobile (ARC-001 paso 6).
 //
-// Sólo entran tipos byte-a-byte iguales y autocontenidos, o la proyección
-// autoritativa del servidor cuando ambas superficies ya la consumen. Order y
-// Restaurant siguen locales: divergen de verdad (ítems, timeline, menú).
-// MerchantOperationsDashboard sigue local porque referencia Restaurant.
+// Sólo entran tipos byte-a-byte iguales y autocontenidos, o la intersección /
+// proyección autoritativa del servidor cuando ambas superficies ya la consumen.
+// `Order`/`OrderItem` son el núcleo compartido; web y mobile extienden con
+// timeline/tarifas o cancelación. `Restaurant` sigue local: menú, extras y
+// sucursales divergen. MerchantOperationsDashboard sigue local porque referencia
+// `Restaurant` completo.
 
 export type DietaryPreferences = {
   dietaryLabels: Array<{ code: string; name: string }>;
@@ -353,6 +355,36 @@ export type OrderStatus =
   | "delivering"
   | "delivered"
   | "cancelled";
+
+/** Línea de pedido tal como la devuelve el servidor tras checkout/cocina. */
+export type OrderItem = {
+  menuItemId: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  extras: string[];
+  note: string;
+};
+
+/** Núcleo compartido de un pedido de comida entre web y mobile. */
+export type Order = {
+  id: string;
+  customerId: string;
+  restaurantId: string;
+  branchId?: string | null;
+  courierId: string | null;
+  status: OrderStatus;
+  deliveryAddress: string;
+  pickupLocation?: GeoPoint | null;
+  deliveryLocation?: GeoPoint | null;
+  paymentMethod?: string;
+  /** Horario reservado. `null` es «lo antes posible». */
+  scheduledFor?: string | null;
+  total: number;
+  etaMin: number;
+  createdAt?: string;
+  items: OrderItem[];
+};
 
 /** Ciclo de un viaje. */
 export type RideStatus =

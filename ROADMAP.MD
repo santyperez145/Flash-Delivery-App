@@ -26,6 +26,12 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 - [ ] **Candidatas post-Fase 0 (no se implementan aún):** FCM/APNs directos, microservicios/Kubernetes HPA, Redis administrado, WebSockets productivos, IA de producto, dinero productivo Mercado Pago, apps EAS en stores. Bloqueo: dueño (credenciales, gasto, dispositivos, staging).
 - [~] Uber/DoorDash ya operan esas capas en producción. Flash las tiene como deuda nombrada; fingirlas en Fase 0 empeora la métrica de la auditoría.
 
+## Avance 2 de septiembre de 2026 — ARC-001, núcleo Order compartido
+
+- [x] `OrderItem` y el núcleo `Order` viven en `@flash/domain-contracts` (30 tipos); web extiende con timeline/tarifas; mobile con `cancellation` e ítems alineados al servidor.
+- [~] Uber/DoorDash unifican también `Restaurant`. Flash no este corte: menú, `extras` y sucursales siguen divergentes; `RestaurantSummary` pospuesto; `MerchantOperationsDashboard` sigue local.
+- [ ] ARC-001 global sigue abierto: `Restaurant` en domain-contracts y 251 líneas largas SQL.
+
 ## Avance 2 de septiembre de 2026 — ARC-001, User y estados de dominio compartidos
 
 - [x] `User`, `UserRole`, `UserStatus`, `OrderStatus` y `RideStatus` viven en `@flash/domain-contracts`. La forma de `User` es la proyección del servidor (`sanitizeUser`/`mapUser`): phone string, status, email/phone verified. `test:domain-contracts` fija 28 contratos.
@@ -60,6 +66,7 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 
 - [x] Presupuesto de mapas visible en `/metrics` con alerta al 80%; fallback stale auditable (`stale_fallback` + `maps.stale_fallback`).
 - [x] Primer corte de `src/styles.css` (−516 → `commerce-ops.css`); ratchet de archivos >1500 vía `test:line-length`.
+- [x] Segundo corte ARC-001: `styles.css` 7.288 → **5.636** (−1.649 a `phone-stage.css`, `admin-ops.css`, `merchant-desktop.css`); `apps/mobile/src/styles.ts` 4.652 → **4.175** con `styles/merchant.ts`; baseline ratchet **21.868 → 19.739**.
 - [x] Criterios de salida Fase 0 actualizados: variantes mobile y líneas >200 cerrados; monolitos >1500 siguen abiertos.
 - [~] Uber/DoorDash no mezclan CSS de 7k líneas ni tarifas sin presupuesto de mapas. Flash baja el techo.
 - [ ] Bloqueos dueño: API key mapas, EAS/teléfonos, GCP, segundo revisor.

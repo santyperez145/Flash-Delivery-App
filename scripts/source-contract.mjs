@@ -152,6 +152,9 @@ export const readWebSource = () => readAudienceSource(["src"]);
 const WEB_STYLE_FILES = [
   "src/styles.css",
   "src/styles/commerce-ops.css",
+  "src/styles/phone-stage.css",
+  "src/styles/admin-ops.css",
+  "src/styles/merchant-desktop.css",
   "src/styles/foundation.css",
   "src/styles/auth.css",
   "src/styles/states.css",

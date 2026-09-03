@@ -35,8 +35,13 @@ const SHARED = [
   "UserStatus",
   "User",
   "OrderStatus",
+  "OrderItem",
+  "Order",
   "RideStatus",
 ];
+
+/** Tipos que cada superficie extiende con intersección local (no redefinición del núcleo). */
+const SHARED_WITH_LOCAL_EXTENSION = ["Order"];
 
 const assert = (condition, label) => {
   if (!condition) throw new Error(`failed: ${label}`);
@@ -70,13 +75,21 @@ assert(
 assert(
   containsNone(
     web,
-    SHARED.map((name) => `export type ${name} =`),
+    SHARED.filter((name) => !SHARED_WITH_LOCAL_EXTENSION.includes(name)).map(
+      (name) => `export type ${name} =`,
+    ),
   ) &&
     containsNone(
       mobile,
-      SHARED.map((name) => `export type ${name} =`),
+      SHARED.filter((name) => !SHARED_WITH_LOCAL_EXTENSION.includes(name)).map(
+        (name) => `export type ${name} =`,
+      ),
     ),
   "web and mobile no longer redefine the shared contract bodies",
+);
+assert(
+  contains(web, "Order as SharedOrder") && contains(mobile, "Order as SharedOrder"),
+  "web and mobile extend shared Order with surface-specific fields",
 );
 assert(
   contains(rootPkg, '"@flash/domain-contracts"') &&

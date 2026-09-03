@@ -26,6 +26,8 @@ import type {
   UserStatus,
   User,
   OrderStatus,
+  OrderItem,
+  Order as SharedOrder,
   RideStatus,
 } from "@flash/domain-contracts";
 
@@ -57,6 +59,7 @@ export type {
   UserStatus,
   User,
   OrderStatus,
+  OrderItem,
   RideStatus,
 };
 
@@ -145,30 +148,8 @@ export type Driver = {
   };
 };
 
-export type Order = {
-  id: string;
-  customerId: string;
-  restaurantId: string;
-  branchId?: string | null;
-  courierId: string | null;
-  status: OrderStatus;
-  deliveryAddress: string;
-  pickupLocation?: GeoPoint | null;
-  deliveryLocation?: GeoPoint | null;
-  paymentMethod?: string;
-  /** Horario reservado. `null` es «lo antes posible». */
-  scheduledFor?: string | null;
-  total: number;
-  etaMin: number;
-  createdAt?: string;
-  items: Array<{
-    menuItemId?: string;
-    name: string;
-    quantity: number;
-    unitPrice?: number;
-    extras?: string[];
-    note?: string;
-  }>;
+/** Pedido mobile: núcleo compartido + cancelación de servicio. */
+export type Order = SharedOrder & {
   cancellation?: ServiceCancellation | null;
 };
 
