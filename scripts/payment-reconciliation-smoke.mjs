@@ -62,7 +62,8 @@ try {
   ]) {
     const row = (
       await pool.query(
-        `INSERT INTO payment_intents(customer_id,provider,provider_intent_id,status,amount_cents,captured_amount_cents,currency,idempotency_key,provider_payload,created_at,updated_at) VALUES($1,'sandbox',$2,$3,$4,$5,'ARS',$6,$7,now()-$8::interval,now()-$8::interval) RETURNING id`,
+        `INSERT INTO payment_intents(customer_id,provider,provider_intent_id,status,amount_cents,captured_amount_cents,currency,idempotency_key,provider_payload,created_at,updated_at) ,
+          VALUES($1,'sandbox',$2,$3,$4,$5,'ARS',$6,$7,now()-$8::interval,now()-$8::interval) RETURNING id`,
         [
           user.id,
           `${marker}-${fixture.suffix}`,

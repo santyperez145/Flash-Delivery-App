@@ -56,7 +56,8 @@ try {
   await pool.query("INSERT INTO user_roles(user_id,role) VALUES($1,'driver')", [user.id]);
   const driver = (
     await pool.query(
-      `INSERT INTO drivers(public_id,user_id,online,active_mode,service_modes,current_location,location_updated_at,metadata) VALUES($1,$2,false,'ride',ARRAY['delivery','ride']::job_kind[],ST_SetSRID(ST_MakePoint(-58.39,-34.60),4326)::geography,now(),'{"name":"Driver Vehículos"}') RETURNING id`,
+      `INSERT INTO drivers(public_id,user_id,online,active_mode,service_modes,current_location,location_updated_at,metadata) ,
+        VALUES($1,$2,false,'ride',ARRAY['delivery','ride']::job_kind[],ST_SetSRID(ST_MakePoint(-58.39,-34.60),4326)::geography,now(),'{"name":"Driver Vehículos"}') RETURNING id`,
       [driverId, user.id],
     )
   ).rows[0];
@@ -160,7 +161,18 @@ try {
     await dispatchClient.query("UPDATE drivers SET online=false WHERE public_id<>$1", [driverId]);
     const job = (
       await dispatchClient.query(
-        `INSERT INTO jobs(public_id,kind,customer_id,status,pickup_address,pickup_location,dropoff_address,dropoff_location,service_level,quoted_amount_cents,distance_m,estimated_duration_s) SELECT $1,'ride',id,'requested','Origen',ST_SetSRID(ST_MakePoint(-58.39,-34.60),4326)::geography,'Destino',ST_SetSRID(ST_MakePoint(-58.40,-34.61),4326)::geography,'economy',100000,1500,600 FROM users WHERE public_id='usr_customer' RETURNING id`,
+        `INSERT INTO jobs(
+          public_id,kind,customer_id,status,pickup_address,pickup_location,
+          dropoff_address,dropoff_location,service_level,quoted_amount_cents,
+          distance_m,estimated_duration_s
+        ) SELECT $1,'ride',id,'requested','Origen',
+          ST_SetSRID(ST_MakePoint(-58.39,-34.60),4326)::geography,
+          'Destino',
+          ST_SetSRID(ST_MakePoint(-58.40,-34.61),4326)::geography,
+          'economy',
+          100000,
+          1500,
+          600 FROM users WHERE public_id='usr_customer' RETURNING id`,
         [`RIDE-VEH-${stamp}`],
       )
     ).rows[0];

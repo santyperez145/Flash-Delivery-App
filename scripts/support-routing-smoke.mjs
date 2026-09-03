@@ -172,7 +172,9 @@ try {
   ]);
   concurrent.forEach((result) => requestIds.push(result.body.requestId));
   const evidence = await pool.query(
-    `SELECT (SELECT count(*) FROM support_escalation_events e JOIN support_tickets t ON t.id=e.ticket_id WHERE t.public_id=$1 AND e.level=1)::int events,(SELECT count(*) FROM support_messages m JOIN support_tickets t ON t.id=m.ticket_id WHERE t.public_id=$1 AND m.internal AND m.body LIKE 'Escalamiento automático nivel 1:%')::int notes,(SELECT count(*) FROM notifications WHERE payload->>'ticketId'=$1 AND template='support_escalated')::int notifications`,
+    `SELECT (SELECT count(*) FROM support_escalation_events e JOIN support_tickets t ON t.id=e.ticket_id WHERE t.public_id=$1 AND e.level=1)::int events,
+      (SELECT count(*) FROM support_messages m JOIN support_tickets t ON t.id=m.ticket_id WHERE t.public_id=$1 AND m.internal AND m.body LIKE 'Escalamiento automático nivel 1:%')::int notes,
+      (SELECT count(*) FROM notifications WHERE payload->>'ticketId'=$1 AND template='support_escalated')::int notifications`,
     [ticketIds[0]],
   );
   assert(
