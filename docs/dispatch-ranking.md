@@ -6,8 +6,9 @@ Cada oleada consulta candidatos elegibles en PostgreSQL/PostGIS y calcula un sco
 - distancia vial aproximada al pickup mediante PostGIS;
 - carga activa por tipo de servicio;
 - frescura de la última ubicación GPS;
-- tasa de aceptación de ofertas de los últimos 30 días para la misma vertical;
-- velocidad media de respuesta a ofertas aceptadas o rechazadas.
+- tasa de aceptación de ofertas (stats precomputadas, 30 días);
+- mediana de respuesta a ofertas;
+- penalización por incidentes de seguridad reales (no `false_alarm`) en 30 días.
 
 Las ofertas expiradas cuentan como no aceptación; las retiradas por el sistema no penalizan al conductor. Cuando no existe historial se usa un prior neutral de 50% de aceptación y 20 segundos de respuesta, evitando favorecer o castigar cuentas nuevas.
 
