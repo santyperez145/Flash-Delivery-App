@@ -48,6 +48,9 @@ import type {
   ShipmentSummary,
   VerticalService,
   PromotionSummary,
+  DriverEarningsPeriod,
+  DriverEarningsDay,
+  DriverEarnings,
 } from "@flash/domain-contracts";
 
 export type {
@@ -99,6 +102,9 @@ export type {
   ShipmentSummary,
   VerticalService,
   PromotionSummary,
+  DriverEarningsPeriod,
+  DriverEarningsDay,
+  DriverEarnings,
 };
 
 export type Mode = "customer" | "merchant" | "driver";
@@ -126,45 +132,6 @@ export type Order = SharedOrder & {
 /** Viaje mobile: núcleo compartido + cancelación. */
 export type Ride = RideSummary & {
   cancellation?: ServiceCancellation | null;
-};
-
-export type DriverEarningsPeriod = {
-  amount: number;
-  serviceEarnings: number;
-  tips: number;
-  adjustments: number;
-  services: number;
-  onlineSeconds: number | null;
-  activeSeconds: number | null;
-  periodStart: string;
-  periodEnd: string;
-};
-
-export type DriverEarningsDay = Omit<DriverEarningsPeriod, "periodStart" | "periodEnd"> & {
-  date: string;
-};
-
-export type DriverEarnings = {
-  driverId: string;
-  currency: "ARS";
-  timezone: string;
-  source: "postgres-ledger" | "sqlite-test-fallback";
-  walletBalance: number;
-  today: DriverEarningsPeriod;
-  week: DriverEarningsPeriod;
-  days: DriverEarningsDay[];
-  recent: Array<{
-    id: string;
-    category: "food" | "ride" | "shipment" | "tip" | "adjustment";
-    jobId: string | null;
-    description: string;
-    amount: number;
-    createdAt: string;
-  }>;
-  timeTracking:
-    | { status: "available"; source: "postgres-operational-sessions"; observedAt: string }
-    | { status: "unavailable"; reason: "postgres_required" };
-  cashout: { status: "not_configured"; reason: "external_payout_provider_required" };
 };
 
 export type DriverPreferences = {
