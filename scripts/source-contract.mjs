@@ -151,6 +151,8 @@ export const readWebSource = () => readAudienceSource(["src"]);
 /** Hojas de estilo web en el mismo orden que `src/main.tsx`. */
 const WEB_STYLE_FILES = [
   "src/styles.css",
+  "src/styles/customer-food.css",
+  "src/styles/ride-mobility.css",
   "src/styles/commerce-ops.css",
   "src/styles/phone-stage.css",
   "src/styles/admin-ops.css",
