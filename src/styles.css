@@ -584,10 +584,6 @@ img {
   left: 24%;
 }
 
-
-
-
-
 .merchant-hero,
 .driver-card {
   display: grid;
@@ -1119,8 +1115,6 @@ img {
     justify-self: start;
   }
 }
-
-
 
 .merchant-product-entry {
   border-bottom: 1px solid #eceef2;

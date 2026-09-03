@@ -377,7 +377,8 @@ export async function runBootstrapCommerceSuite(ctx) {
   ctx.token = ctx.registeredToken;
   const registeredState = await request("/me");
   assert(
-    registeredState.status === 200 && registeredState.body.account.user?.id === ctx.registeredUserId,
+    registeredState.status === 200 &&
+      registeredState.body.account.user?.id === ctx.registeredUserId,
     "new PostgreSQL user appears in private account context",
   );
   ctx.token = ctx.customerToken;
@@ -575,8 +576,7 @@ export async function runBootstrapCommerceSuite(ctx) {
       workAddress.body.addresses.length === 2,
     "address book persists the signed provider result instead of client-controlled coordinates",
   );
-  ctx.workId = workAddress.body.address.id,
-    homeId = homeAddress.body.address.id;
+  ((ctx.workId = workAddress.body.address.id), (homeId = homeAddress.body.address.id));
   const defaultChanged = await request(`/addresses/${workId}/default`, {
     method: "PATCH",
     body: "{}",

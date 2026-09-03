@@ -836,15 +836,15 @@ export async function runDispatchMerchantOpsSuite(ctx) {
       shipmentLockedQuote.body.quote?.quoteToken,
     "shipment quote returns a versioned signed price lock",
   );
-  ctx.slaShipmentPayload = {
-      ...shipmentPayload,
-      itemCategory: "fragile",
-      serviceLevel: "priority",
-    },
-    slaShipmentQuote = await request("/shipments/quote", {
+  ((ctx.slaShipmentPayload = {
+    ...shipmentPayload,
+    itemCategory: "fragile",
+    serviceLevel: "priority",
+  }),
+    (slaShipmentQuote = await request("/shipments/quote", {
       method: "POST",
       body: JSON.stringify(ctx.slaShipmentPayload),
-    });
+    })));
   assert(
     slaShipmentQuote.status === 200 &&
       slaShipmentQuote.body.quote?.itemCategory === "fragile" &&

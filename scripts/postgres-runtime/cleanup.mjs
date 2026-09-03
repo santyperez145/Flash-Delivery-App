@@ -244,7 +244,9 @@ export async function runCleanup(ctx) {
       [ctx.webhookIds],
     );
   if (ctx.realtimeFixtureIds.length)
-    await pool.query("DELETE FROM realtime_events WHERE public_id=ANY($1)", [ctx.realtimeFixtureIds]);
+    await pool.query("DELETE FROM realtime_events WHERE public_id=ANY($1)", [
+      ctx.realtimeFixtureIds,
+    ]);
   if (ctx.ratingId) {
     await pool.query("DELETE FROM audit_events WHERE entity_type='rating' AND entity_id=$1", [
       ctx.ratingId,
@@ -271,7 +273,9 @@ export async function runCleanup(ctx) {
       "DELETE FROM audit_events WHERE entity_type='support_ticket' AND entity_id=$1",
       [ctx.supportTicketId],
     );
-    await pool.query("DELETE FROM notifications WHERE payload->>'ticketId'=$1", [ctx.supportTicketId]);
+    await pool.query("DELETE FROM notifications WHERE payload->>'ticketId'=$1", [
+      ctx.supportTicketId,
+    ]);
     await pool.query("DELETE FROM support_tickets WHERE public_id=$1", [ctx.supportTicketId]);
   }
   if (ctx.createdPromotionId) {
@@ -296,7 +300,9 @@ export async function runCleanup(ctx) {
     ]);
   if (ctx.registeredRideId) {
     await pool.query("DELETE FROM audit_events WHERE entity_id=$1", [ctx.registeredRideId]);
-    await pool.query("DELETE FROM notifications WHERE payload->>'jobId'=$1", [ctx.registeredRideId]);
+    await pool.query("DELETE FROM notifications WHERE payload->>'jobId'=$1", [
+      ctx.registeredRideId,
+    ]);
     await pool.query("DELETE FROM jobs WHERE public_id=$1", [ctx.registeredRideId]);
   }
   if (ctx.registeredRideKey)

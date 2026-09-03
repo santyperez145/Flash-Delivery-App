@@ -26,6 +26,12 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 - [ ] **Candidatas post-Fase 0 (no se implementan aún):** FCM/APNs directos, microservicios/Kubernetes HPA, Redis administrado, WebSockets productivos, IA de producto, dinero productivo Mercado Pago, apps EAS en stores. Bloqueo: dueño (credenciales, gasto, dispositivos, staging).
 - [~] Uber/DoorDash ya operan esas capas en producción. Flash las tiene como deuda nombrada; fingirlas en Fase 0 empeora la métrica de la auditoría.
 
+## Avance 2 de septiembre de 2026 — ARC-001, RestaurantSummary compartido
+
+- [x] `RestaurantSummary` vive en `@flash/domain-contracts` (31 tipos); web y mobile extienden `Restaurant` con menú/sucursales locales; `MerchantOperationsDashboard` sigue local.
+- [~] Uber/DoorDash unifican también menú/sucursales. Flash no: `MenuItem`/`extras`/`lat`/`lng` web vs menú inline mobile.
+- [ ] ARC-001 global sigue abierto: menú/sucursales unificados y 251 líneas largas SQL.
+
 ## Avance 2 de septiembre de 2026 — ARC-001, núcleo Order compartido
 
 - [x] `OrderItem` y el núcleo `Order` viven en `@flash/domain-contracts` (30 tipos); web extiende con timeline/tarifas; mobile con `cancellation` e ítems alineados al servidor.

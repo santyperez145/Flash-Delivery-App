@@ -37,11 +37,12 @@ const SHARED = [
   "OrderStatus",
   "OrderItem",
   "Order",
+  "RestaurantSummary",
   "RideStatus",
 ];
 
 /** Tipos que cada superficie extiende con intersección local (no redefinición del núcleo). */
-const SHARED_WITH_LOCAL_EXTENSION = ["Order"];
+const SHARED_WITH_LOCAL_EXTENSION = ["Order", "Restaurant"];
 
 const assert = (condition, label) => {
   if (!condition) throw new Error(`failed: ${label}`);
@@ -90,6 +91,11 @@ assert(
 assert(
   contains(web, "Order as SharedOrder") && contains(mobile, "Order as SharedOrder"),
   "web and mobile extend shared Order with surface-specific fields",
+);
+assert(
+  contains(web, "Restaurant = RestaurantSummary &") &&
+    contains(mobile, "Restaurant = RestaurantSummary &"),
+  "web and mobile extend shared RestaurantSummary with surface-specific fields",
 );
 assert(
   contains(rootPkg, '"@flash/domain-contracts"') &&
