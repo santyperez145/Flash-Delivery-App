@@ -26,7 +26,7 @@ import {
   getPostgresShipmentReturns,
   updatePostgresShipmentClaim,
   updatePostgresShipmentReturn,
-} from "../mobility-repository.js";
+} from "../shipment-claims-repository.js";
 import { recordPostgresAudit } from "../operations-repository.js";
 import { usesPostgresCommerce } from "../postgres.js";
 import { requireAuth } from "./authentication.js";

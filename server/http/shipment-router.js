@@ -42,15 +42,17 @@ import {
   resolveQuoteDistanceKm,
 } from "../maps-route-service.js";
 import {
-  addPostgresShipmentDeliveryEvidence,
   createPostgresShipment,
+  getPostgresShipments,
+  setPostgresShipmentStatus,
+} from "../mobility-repository.js";
+import {
+  addPostgresShipmentDeliveryEvidence,
   getPostgresShipmentDeliveryCode,
   getPostgresShipmentDeliveryEvidence,
   getPostgresShipmentDeliveryEvidenceContent,
-  getPostgresShipments,
-  setPostgresShipmentStatus,
   verifyPostgresShipmentDelivery,
-} from "../mobility-repository.js";
+} from "../shipment-delivery-repository.js";
 import {
   getShipmentProtectionPlan,
   getShipmentServiceConfiguration,

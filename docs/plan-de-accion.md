@@ -318,7 +318,7 @@ Estado al **25 de agosto de 2026**. Se actualiza en el PR que cambia el estado, 
 | [DAT-001](backlog-tecnico.md#dat-001--matriz-rls-default-deny) | P0 | H-04 | **Cerrado** | 0 |
 | [INF-001](backlog-tecnico.md#inf-001--imagen-productiva-endurecida) | P0 | H-05 | **Cerrado** | 0 |
 | [NOT-001](backlog-tecnico.md#not-001--push-real) | P0 | H-02 | **Bloqueado por externo** | 0 |
-| [GEO-001](backlog-tecnico.md#geo-001--proveedor-de-mapas-comercial) | P0 | H-07 | **En curso** | 0 |
+| [GEO-001](backlog-tecnico.md#geo-001--proveedor-de-mapas-comercial) | P0 | H-07 | **Bloqueado por externo** (API key comercial + calidad/costo) | 0 |
 | [DSP-001](backlog-tecnico.md#dsp-001--dispatch-v2) | P0 | H-06 | **Bloqueado por externo** (Route Matrix + SLO prod) | 0–1 |
 | [PAY-001](backlog-tecnico.md#pay-001--validación-marketplace) | P0 | H-09 | Pendiente | 1 |
 | [MOB-001](backlog-tecnico.md#mob-001--release-engineering) | P0 | — | Pendiente | 1 |
