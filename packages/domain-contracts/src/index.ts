@@ -4,8 +4,8 @@
 // proyección autoritativa del servidor cuando ambas superficies ya la consumen.
 // `Order`/`OrderItem`, `RestaurantSummary`, `MenuItemSummary` y `RestaurantBranch`
 // son núcleos compartidos; web extiende el ítem con vitrina y mobile reusa el
-// núcleo. Extras del comercio siguen locales (sólo web). MerchantOperationsDashboard
-// sigue local porque referencia `Restaurant` completo.
+// núcleo. Extras del comercio siguen locales (sólo web). `MerchantOperationsDashboardCore`
+// es compartido; cada superficie añade `restaurant: Restaurant` local.
 
 export type DietaryPreferences = {
   dietaryLabels: Array<{ code: string; name: string }>;
@@ -215,6 +215,27 @@ export type MerchantOperationsMetrics = {
   grossSalesToday: number;
   averageTicketToday: number;
   unavailableItems: number;
+};
+
+/**
+ * Núcleo del dashboard merchant sin `restaurant` tipado (ARC-001).
+ * Web/mobile lo extienden con su `Restaurant` local todavía divergente.
+ */
+export type MerchantOperationsDashboardCore = {
+  generatedAt: string;
+  source: "postgres-live-operations" | "sqlite-test-fallback";
+  timezone: string;
+  restaurantId: string;
+  branch: null | {
+    id: string;
+    name: string;
+    timezone: string;
+    open: boolean;
+    manualOpen: boolean;
+    status: "active" | "paused" | "closed";
+    etaMin: number;
+  };
+  metrics: MerchantOperationsMetrics;
 };
 
 export type SubscriptionPlan = {
