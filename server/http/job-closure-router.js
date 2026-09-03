@@ -25,12 +25,12 @@ import { usesPostgresCommerce } from "../postgres.js";
 import { publishRealtimeEvent } from "./realtime.js";
 import { getOrCreatePostgresReceipt } from "../receipt-repository.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";
+import { createPostgresTip } from "../tip-repository.js";
 import {
-  createPostgresTip,
   getTipAdjustments,
   requestTipAdjustment,
   reviewTipAdjustment,
-} from "../tip-repository.js";
+} from "../tip-adjustment-repository.js";
 import { reschedulePostgresJob } from "../schedule-repository.js";
 import { validarHorarioProgramado } from "../scheduling.js";
 
