@@ -19,7 +19,7 @@
 import { Router } from "express";
 import { z } from "zod";
 
-import { getPayoutReviewQueue, reviewMerchantPayout } from "../merchant-finance-repository.js";
+import { getPayoutReviewQueue, reviewMerchantPayout } from "../merchant-payout-repository.js";
 import { recordPostgresAudit } from "../audit-repository.js";
 import {
   getPaymentReconciliation,
