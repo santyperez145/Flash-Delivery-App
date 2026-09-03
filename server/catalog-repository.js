@@ -6,11 +6,10 @@
 // agregados, etiquetas dietarias, sucursales, stock y horarios— y lo lee el
 // resto de la plataforma.
 //
-// `mapCatalogItem` se exporta a propósito. El carrito y el pedido muestran
-// ítems de catálogo, así que `order-repository.js` la importa: los pedidos
-// dependen del catálogo —un pedido está hecho de ítems— y nunca al revés. Si
-// alguna vez este archivo necesita importar de `order-repository.js`, el corte
-// está mal.
+// `mapCatalogItem` se exporta a propósito. El carrito (`cart-repository.js`)
+// muestra ítems de catálogo; los pedidos dependen del catálogo y nunca al
+// revés. Si alguna vez este archivo necesita importar de `order-repository.js`
+// o `cart-repository.js`, el corte está mal.
 import { postgresPool } from "./postgres.js";
 import { pesos } from "./money.js";
 
