@@ -735,7 +735,7 @@ export async function runSubscriptionsPromotionsSuite(ctx) {
   ctx.merchantBalanceBefore = Number(
     (
       await pool.query(
-        `SELECT COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint balance FROM merchants m LEFT JOIN ledger_accounts a ON a.owner_type='merchant' ,
+        `SELECT COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint balance FROM merchants m LEFT JOIN ledger_accounts a ON a.owner_type='merchant'
           AND a.owner_id=m.id AND a.account_type='payable' LEFT JOIN ledger_entries e ON e.account_id=a.id WHERE m.public_id='rest_roja'`,
       )
     ).rows[0].balance,

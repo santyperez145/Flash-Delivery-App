@@ -47,7 +47,7 @@ try {
     intentIds.push(
       (
         await pool.query(
-          `INSERT INTO payment_intents(customer_id,provider,provider_intent_id,status,amount_cents,currency,idempotency_key,failure_code) VALUES($1,'sandbox',$2,'failed',10000,'ARS',$3,'declined') ,
+          `INSERT INTO payment_intents(customer_id,provider,provider_intent_id,status,amount_cents,currency,idempotency_key,failure_code) VALUES($1,'sandbox',$2,'failed',10000,'ARS',$3,'declined')
             RETURNING id`,
           [user.id, `${marker}-${index}`, `${marker}-${index}`],
         )

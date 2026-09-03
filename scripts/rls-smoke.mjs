@@ -602,8 +602,9 @@ try {
     ).rows[0] || null;
   fixtureRideDestinationId = (
     await owner.query(
-      `INSERT INTO ride_destination_history(user_id,address_key,label,formatted_address,location) VALUES($1,$2,'RLS destino','Destino RLS',ST_SetSRID(ST_MakePoint(-58.4,-34.6),4326)::geography) ,
-        RETURNING id`,
+      `INSERT INTO ride_destination_history(user_id,address_key,label,formatted_address,location)
+       VALUES($1,$2,'RLS destino','Destino RLS',ST_SetSRID(ST_MakePoint(-58.4,-34.6),4326)::geography)
+       RETURNING id`,
       [customer.id, `rls-${Date.now()}`],
     )
   ).rows[0].id;
@@ -653,7 +654,7 @@ try {
   ).rows[0];
   fixturePayoutId = (
     await owner.query(
-      `INSERT INTO payouts(public_id,payee_type,payee_id,provider,amount_cents,status,period_start,period_end) VALUES($1,'merchant',$2,'rls_fixture',100,'pending',now()-interval '1 day',now()) ,
+      `INSERT INTO payouts(public_id,payee_type,payee_id,provider,amount_cents,status,period_start,period_end) VALUES($1,'merchant',$2,'rls_fixture',100,'pending',now()-interval '1 day',now())
         RETURNING id`,
       [`PAY-RLS-${Date.now()}`, ownedMerchant.id],
     )

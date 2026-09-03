@@ -57,14 +57,14 @@ try {
       ).rows[0],
       payable = (
         await fixture.query(
-          `INSERT INTO ledger_accounts(owner_type,owner_id,currency,account_type) VALUES('merchant',$1,'ARS','payable') ON CONFLICT(owner_type,owner_id,currency,account_type) DO UPDATE SET ,
+          `INSERT INTO ledger_accounts(owner_type,owner_id,currency,account_type) VALUES('merchant',$1,'ARS','payable') ON CONFLICT(owner_type,owner_id,currency,account_type) DO UPDATE SET
             owner_type=excluded.owner_type RETURNING id`,
           [ids.merchant_id],
         )
       ).rows[0].id,
       clearing = (
         await fixture.query(
-          `INSERT INTO ledger_accounts(owner_type,owner_id,currency,account_type) VALUES('platform',NULL,'ARS','cash_clearing') ON CONFLICT(owner_type,currency,account_type) WHERE owner_id IS NULL ,
+          `INSERT INTO ledger_accounts(owner_type,owner_id,currency,account_type) VALUES('platform',NULL,'ARS','cash_clearing') ON CONFLICT(owner_type,currency,account_type) WHERE owner_id IS NULL
             DO UPDATE SET owner_type=excluded.owner_type RETURNING id`,
         )
       ).rows[0].id,
