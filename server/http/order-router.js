@@ -39,15 +39,13 @@ import { recordPostgresAudit } from "../operations-repository.js";
 import {
   assignPostgresOrderDriver,
   createPostgresOrder,
-  getPostgresCart,
   getPostgresFoodCheckoutQuote,
   getPostgresFoodDeliveryQuote,
   getPostgresOrders,
   processPostgresOrderMarketplacePayment,
-  reorderPostgresOrder,
-  replacePostgresCart,
   setPostgresOrderStatus,
 } from "../order-repository.js";
+import { getPostgresCart, reorderPostgresOrder, replacePostgresCart } from "../cart-repository.js";
 import { usesPostgresCommerce } from "../postgres.js";
 import { validarHorarioProgramado } from "../scheduling.js";
 import { publishRealtimeEvent } from "./realtime.js";
