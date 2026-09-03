@@ -38,10 +38,12 @@ import { z } from "zod";
 import { config } from "../config.js";
 import { processPostgresDispatchBatch } from "../dispatch-repository.js";
 import {
-  getNotificationDeadLetters,
   processPostgresNotificationBatch,
-  replayNotificationDeadLetter,
 } from "../notification-delivery-repository.js";
+import {
+  getNotificationDeadLetters,
+  replayNotificationDeadLetter,
+} from "../notification-dead-letter-repository.js";
 import { processSupportQueue } from "../support-agent-repository.js";
 import { recordPostgresAudit } from "../audit-repository.js";
 import { usesPostgresCommerce } from "../postgres.js";
