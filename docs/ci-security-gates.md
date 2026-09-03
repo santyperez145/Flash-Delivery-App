@@ -55,7 +55,7 @@ El job `migrate-from-base` existe porque **una migración puede pasar desde cero
 siete casos conservan la matriz completa de ownership y MFA, y siguen corriendo en
 `ci-fast`. La segunda mitad de `test:runtime-role-shape` inicia `postgis/postgis:17-3.5` en
 un puerto asignado por Docker, crea `flash_app`, `flash_runtime` y `flash_rls_audit`, ejecuta
-las 136 migraciones con el rol migrador y comprueba PostGIS 3.5 y la ausencia de ownership,
+las 137 migraciones con el rol migrador y comprueba PostGIS 3.5 y la ausencia de ownership,
 `SUPERUSER` y `BYPASSRLS` en runtime y auditoría.
 
 La suite de contenedor corre encadenada a una puerta ya bloqueante del job

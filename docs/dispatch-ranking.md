@@ -40,7 +40,7 @@ Esta etapa **no** toca `dispatch_offers` ni historial. Para eso está la segunda
 
 ### Etapa 2 — puntuación explicable sobre la lista corta
 
-Los componentes del score son exactamente los de antes. **La optimización cambia a cuántos conductores se evalúa, no a quién se le ofrece el trabajo.**
+Los componentes del score son exactamente los de antes. **La optimización cambia a cuántos conductores se evalúa, no a quién se le ofrece el trabajo.** El historial de aceptación y respuesta se lee de `driver_dispatch_stats`, refrescada out-of-band tras accept/reject y periódicamente en el batch worker, en lugar de agregar `dispatch_offers` por candidato.
 
 ### Radio dinámico y protección contra inanición
 
@@ -59,7 +59,7 @@ El radio usado y si hubo expansión quedan en `score_breakdown`, así que una zo
 - [x] Recorte `ST_DWithin` + KNN sobre el índice GiST parcial.
 - [x] Radio dinámico con protección contra inanición, visible en el desglose.
 - [ ] **`EXPLAIN ANALYZE` con un padrón sintético de al menos 1.000 conductores.** El contrato prueba la forma de la consulta; el plan hay que medirlo.
-- [ ] **Stats precomputadas** (`driver_dispatch_stats`). La lista corta ya acota el historial a 30 conductores, así que dejó de ser urgente; pasa a ser optimización, no corrección.
+- [x] **Stats precomputadas** (`driver_dispatch_stats`). Migración 137, refresh out-of-band tras accept/reject y en el batch worker; el scoring lee la tabla en lugar de agregar `dispatch_offers` por oleada. Verificado en `test:dispatch-candidates`.
 - [ ] **ETA vial por Route Matrix.** `computeRouteMatrix()` existe y está verificado en el adapter de mapas; falta conectarlo al scoring y **requiere una API key habilitada**.
 - [ ] Prep time del comercio y dispatch manual desde backoffice.
 - Antes de producción multiciudad deben incorporarse SLA comercial por comercio, tráfico vial actual, límites de equidad y monitoreo de sesgo por zona. Esos factores deben agregarse como componentes versionados, nunca como constantes opacas.

@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { postgresPool } from "./postgres.js";
 import { enqueueNotificationForInternalUser } from "./notification-repository.js";
 import { scoreCandidates, shortlistDrivers } from "./dispatch-candidates.js";
+import { refreshDriverDispatchStats, refreshStaleDispatchStats } from "./dispatch-stats.js";
 
 const offerId = () => `OFR-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
 
@@ -78,6 +79,7 @@ export async function processPostgresDispatchBatch({
   const client = await postgresPool.connect();
   try {
     await client.query("BEGIN");
+    await refreshStaleDispatchStats(client, { olderThanMinutes: 15, limit: 200 });
     const expired = (
       await client.query(
         "UPDATE dispatch_offers SET status='expired',responded_at=now() WHERE status='pending' AND expires_at<=now() RETURNING id",
@@ -158,13 +160,17 @@ export async function getPostgresDispatchOffers(driverPublicId) {
 
 export async function rejectPostgresDispatchOffer({ driverPublicId, offerPublicId }) {
   const result = await postgresPool.query(
-    `UPDATE dispatch_offers o SET status='rejected',responded_at=now() FROM drivers d
-    WHERE o.driver_id=d.id AND d.public_id=$1 AND o.public_id=$2 AND o.status='pending' AND o.expires_at>now() RETURNING o.public_id`,
+    `UPDATE dispatch_offers o SET status='rejected',responded_at=now()
+    FROM drivers d JOIN jobs j ON j.id=o.job_id
+    WHERE o.driver_id=d.id AND d.public_id=$1 AND o.public_id=$2 AND o.status='pending' AND o.expires_at>now()
+    RETURNING o.public_id,o.driver_id,j.kind`,
     [driverPublicId, offerPublicId],
   );
   if (!result.rows[0])
     throw Object.assign(new Error("La oferta no existe o ya venció"), { status: 409 });
-  return result.rows[0].public_id;
+  const row = result.rows[0];
+  await refreshDriverDispatchStats(postgresPool, { driverId: row.driver_id, service: row.kind });
+  return row.public_id;
 }
 
 export async function acceptDispatchOffer(
@@ -215,5 +221,6 @@ export async function acceptDispatchOffer(
     status,
     { offerId: offer.id },
   ]);
+  await refreshDriverDispatchStats(client, { driverId: offer.driver_id, service: offer.kind });
   return changed;
 }
