@@ -30,7 +30,7 @@ import {
   getPostgresPricingChangeRequests,
   reviewPostgresPricingChangeRequest,
 } from "../configuration-repository.js";
-import { recordPostgresAudit } from "../operations-repository.js";
+import { recordPostgresAudit } from "../audit-repository.js";
 import { requireAuth } from "./authentication.js";
 import { requireAnyRole } from "./authorization.js";
 import { publishRealtimeEvent } from "./realtime.js";

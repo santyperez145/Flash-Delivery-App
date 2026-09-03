@@ -36,7 +36,7 @@ import {
   reviewDriverVehicle,
   updateDriverVehicle,
 } from "../driver-vehicle-repository.js";
-import { recordPostgresAudit } from "../operations-repository.js";
+import { recordPostgresAudit } from "../audit-repository.js";
 import { requireAuth } from "./authentication.js";
 import { isAdmin, requireAnyRole } from "./authorization.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";

@@ -24,10 +24,8 @@ import { getPostgresOperationsRestaurantPage } from "../catalog-repository.js";
 import { getPostgresOperationsDriverPage } from "../driver-roster-repository.js";
 import { usesPostgresCommerce } from "../postgres.js";
 import { readDb } from "../fallback-runtime.js";
-import {
-  getPostgresAuditEventPage,
-  getPostgresOperationsSupportTicketPage,
-} from "../operations-repository.js";
+import { getPostgresAuditEventPage } from "../audit-repository.js";
+import { getPostgresOperationsSupportTicketPage } from "../support-repository.js";
 import { sanitizeUser } from "../user-view.js";
 import { getWalletBalances } from "../wallet-repository.js";
 import { getWorkQueueDepths } from "../work-queue-repository.js";

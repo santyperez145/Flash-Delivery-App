@@ -40,7 +40,7 @@ import {
 } from "../catalog-repository.js";
 import { searchPostgresCatalog } from "../catalog-search-repository.js";
 import { findRestaurant, readDb } from "../fallback-runtime.js";
-import { recordPostgresAudit } from "../operations-repository.js";
+import { recordPostgresAudit } from "../audit-repository.js";
 import { usesPostgresCommerce } from "../postgres.js";
 import { createId, getPublicState } from "../store.js";
 import { requireAuth } from "./authentication.js";

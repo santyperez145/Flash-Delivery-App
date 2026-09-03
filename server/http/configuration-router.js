@@ -31,7 +31,7 @@ import {
   updateShipmentItemCategory,
   updateShipmentServiceLevel,
 } from "../shipment-options-repository.js";
-import { recordPostgresAudit } from "../operations-repository.js";
+import { recordPostgresAudit } from "../audit-repository.js";
 import { assessZoneReadiness, getZoneReadiness } from "../zone-readiness-repository.js";
 import { publishRealtimeEvent } from "./realtime.js";
 import { requireAuth } from "./authentication.js";
