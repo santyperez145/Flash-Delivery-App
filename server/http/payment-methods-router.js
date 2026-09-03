@@ -18,7 +18,7 @@ import {
   createSandboxPaymentMethod,
   revokePostgresPaymentMethod,
   setDefaultPostgresPaymentMethod,
-} from "../auth-repository.js";
+} from "../payment-method-repository.js";
 import { config } from "../config.js";
 import { recordPostgresAudit } from "../operations-repository.js";
 import { requireAuth } from "./authentication.js";

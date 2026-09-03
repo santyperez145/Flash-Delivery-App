@@ -22,8 +22,8 @@ import {
   getPostgresAddresses,
   setPostgresDefaultAddress,
   updatePostgresAddress,
-  usesPostgresAuth,
-} from "../auth-repository.js";
+} from "../address-repository.js";
+import { usesPostgresAuth } from "../auth-repository.js";
 import { audit, readDb } from "../fallback-runtime.js";
 import { verifyGeocodeValidation } from "../geocoding-validation.js";
 import { recordPostgresAudit } from "../operations-repository.js";
