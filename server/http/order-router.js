@@ -55,7 +55,7 @@ import { fail, failFrom, ok, parseOrFail } from "./responses.js";
 import { assessTransactionRisk, setRiskEntity } from "../risk-repository.js";
 import { createId, getTimestamp, orderStatuses } from "../store.js";
 import { createLocalNotification } from "../store-local-preferences.js";
-import { cancelOrderAndRefundWallet } from "../wallet-repository.js";
+import { cancelOrderAndRefundWallet } from "../wallet-refund-repository.js";
 
 const orderSchema = z.object({
   customerId: z.string().min(1),

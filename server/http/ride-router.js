@@ -66,7 +66,7 @@ import {
 import { assessTransactionRisk, setRiskEntity } from "../risk-repository.js";
 import { createId, getTimestamp, rideStatuses } from "../store.js";
 import { createLocalNotification } from "../store-local-preferences.js";
-import { cancelMobilityJobAndRefundWallet } from "../wallet-repository.js";
+import { cancelMobilityJobAndRefundWallet } from "../wallet-refund-repository.js";
 
 const rideQuoteSchema = z.object({
   pickup: z.string().min(3, "Origen obligatorio"),
