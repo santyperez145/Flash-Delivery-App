@@ -25,7 +25,7 @@ const REFRESH_DRIVER_DISPATCH_STATS_SQL = `
       ELSE NULL END,
     offers.median_response_seconds,
     jobs.completed_30d,
-    0,
+    LEAST(40, COALESCE(incidents.incident_count, 0) * 10)::numeric,
     jobs.active_count,
     now()
   FROM (
@@ -65,6 +65,17 @@ const REFRESH_DRIVER_DISPATCH_STATS_SQL = `
     FROM jobs j
     WHERE j.driver_id=$1::uuid AND j.kind=$2::job_kind
   ) jobs
+  CROSS JOIN (
+    -- Penalización acotada: 10 puntos por incidente real (no false_alarm) en 30 días
+    -- sobre trabajos de esta vertical. Tope 40 para no anular el resto del score.
+    SELECT count(*)::numeric incident_count
+    FROM ride_safety_incidents i
+    JOIN jobs ij ON ij.id = i.job_id
+    WHERE ij.driver_id = $1::uuid
+      AND ij.kind = $2::job_kind
+      AND i.created_at >= now() - interval '30 days'
+      AND i.status <> 'false_alarm'
+  ) incidents
   ON CONFLICT (driver_id, service) DO UPDATE SET
     acceptance_rate_7d=EXCLUDED.acceptance_rate_7d,
     acceptance_rate_30d=EXCLUDED.acceptance_rate_30d,
@@ -98,7 +109,7 @@ const REFRESH_STALE_DISPATCH_STATS_SQL = `
       ELSE NULL END,
     offers.median_response_seconds,
     jobs.completed_30d,
-    0,
+    LEAST(40, COALESCE(incidents.incident_count, 0) * 10)::numeric,
     jobs.active_count,
     now()
   FROM targets t
@@ -138,6 +149,15 @@ const REFRESH_STALE_DISPATCH_STATS_SQL = `
     FROM jobs j
     WHERE j.driver_id=t.driver_id AND j.kind=t.service
   ) jobs
+  CROSS JOIN LATERAL (
+    SELECT count(*)::numeric incident_count
+    FROM ride_safety_incidents i
+    JOIN jobs ij ON ij.id = i.job_id
+    WHERE ij.driver_id = t.driver_id
+      AND ij.kind = t.service
+      AND i.created_at >= now() - interval '30 days'
+      AND i.status <> 'false_alarm'
+  ) incidents
   ON CONFLICT (driver_id, service) DO UPDATE SET
     acceptance_rate_7d=EXCLUDED.acceptance_rate_7d,
     acceptance_rate_30d=EXCLUDED.acceptance_rate_30d,
