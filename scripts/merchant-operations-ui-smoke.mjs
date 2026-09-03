@@ -63,14 +63,17 @@ const desktopMerchant = section(
 const mobileMerchant = section(mobile, "function MerchantScreen", "function DriverScreen");
 
 assert(
-  containsAll(sharedContracts, ["export type MerchantOperationsMetrics"]) &&
+  containsAll(sharedContracts, [
+    "export type MerchantOperationsMetrics",
+    "export type MerchantOperationsDashboardCore",
+  ]) &&
     containsAll(desktopTypes, [
-      "export type MerchantOperationsDashboard",
+      "MerchantOperationsDashboard = MerchantOperationsDashboardCore &",
       "MerchantOperationsMetrics",
       'from "@flash/domain-contracts"',
     ]) &&
     containsAll(mobileTypes, [
-      "export type MerchantOperationsDashboard",
+      "MerchantOperationsDashboard = MerchantOperationsDashboardCore &",
       "MerchantOperationsMetrics",
       'from "@flash/domain-contracts"',
     ]),

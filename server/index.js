@@ -876,44 +876,50 @@ app.use((error, req, res, _next) => {
 // Antes de escuchar: si el rol de PostgreSQL puede saltear RLS, este proceso no
 // atiende. `/api/ready` ya devolvía 503, pero eso sólo lo saca del balanceador;
 // un proceso que falla readiness sigue respondiendo a quien lo alcance directo.
-const negativa = bypassRefusalReason(await postgresReadiness(), {
-  isProduction: config.isProduction,
-});
-if (negativa) {
-  console.error(`Flash API se niega a arrancar: ${negativa}`);
-  process.exit(1);
-}
+export { app };
 
-const server = app.listen(config.port, config.host, () => {
-  console.log(`Flash API running on http://${config.host}:${config.port}`);
-});
+const shouldListen = process.env.FLASH_HTTP_LISTEN !== "0";
 
-server.on("error", (error) => {
-  console.error("Flash API failed to start", error);
-  process.exitCode = 1;
-});
-
-const shutdown = createGracefulShutdown({
-  server,
-  realtimeClients,
-  stopRealtimeListener,
-  closePostgres,
-  closeRedis,
-  stopTelemetry,
-  graceMs: config.shutdownGraceMs,
-  onDrain: () => {
-    draining = true;
-  },
-});
-
-for (const signal of ["SIGTERM", "SIGINT"])
-  process.once(signal, () => {
-    shutdown(signal)
-      .then(() => process.exit(0))
-      .catch((error) => {
-        console.error(
-          JSON.stringify({ level: "error", event: "shutdown.failed", message: error.message }),
-        );
-        process.exit(1);
-      });
+if (shouldListen) {
+  const negativa = bypassRefusalReason(await postgresReadiness(), {
+    isProduction: config.isProduction,
   });
+  if (negativa) {
+    console.error(`Flash API se niega a arrancar: ${negativa}`);
+    process.exit(1);
+  }
+
+  const server = app.listen(config.port, config.host, () => {
+    console.log(`Flash API running on http://${config.host}:${config.port}`);
+  });
+
+  server.on("error", (error) => {
+    console.error("Flash API failed to start", error);
+    process.exitCode = 1;
+  });
+
+  const shutdown = createGracefulShutdown({
+    server,
+    realtimeClients,
+    stopRealtimeListener,
+    closePostgres,
+    closeRedis,
+    stopTelemetry,
+    graceMs: config.shutdownGraceMs,
+    onDrain: () => {
+      draining = true;
+    },
+  });
+
+  for (const signal of ["SIGTERM", "SIGINT"])
+    process.once(signal, () => {
+      shutdown(signal)
+        .then(() => process.exit(0))
+        .catch((error) => {
+          console.error(
+            JSON.stringify({ level: "error", event: "shutdown.failed", message: error.message }),
+          );
+          process.exit(1);
+        });
+    });
+}

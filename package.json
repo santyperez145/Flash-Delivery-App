@@ -37,7 +37,7 @@
     "preview": "vite preview --host 127.0.0.1",
     "start": "node --env-file-if-exists=.env.local server/start.js",
     "test:security": "node scripts/security-smoke.mjs",
-    "test:authorization": "vitest run tests/unit/authorization.test.js",
+    "test:authorization": "vitest run tests/unit/authorization.test.js tests/integration/http-supertest.test.js",
     "test:domain-purity": "node scripts/domain-purity-contract.mjs",
     "test:domain-contracts": "node scripts/domain-contracts-contract.mjs",
     "test:module-references": "node scripts/module-references-contract.mjs",
@@ -188,10 +188,11 @@
     "qrcode": "^1.5.4",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "supertest": "^7.2.2",
     "terser": "^5.50.0",
     "typescript": "^5.9.2",
     "vite": "^7.1.2",
-    "vitest": "^4.1.11",
+    "vitest": "3.2.4",
     "yaml": "^2.9.0"
   }
 }

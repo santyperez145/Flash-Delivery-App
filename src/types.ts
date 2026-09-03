@@ -15,6 +15,7 @@ import type {
   ServiceTip,
   DispatchScoreBreakdown,
   MerchantOperationsMetrics,
+  MerchantOperationsDashboardCore,
   SubscriptionPlan,
   Subscription,
   GroupOrderParticipant,
@@ -53,6 +54,7 @@ export type {
   ServiceTip,
   DispatchScoreBreakdown,
   MerchantOperationsMetrics,
+  MerchantOperationsDashboardCore,
   SubscriptionPlan,
   Subscription,
   GroupOrderParticipant,
@@ -707,25 +709,9 @@ export type TipAdjustment = {
   reviewedAt: string | null;
 };
 
-/** Dashboard de operaciones del comercio.
- *  Queda local: `restaurant: Restaurant` y `Restaurant` aún diverge entre
- *  web y mobile (ARC-001). No se mueve hasta unificar ese tipo. */
-export type MerchantOperationsDashboard = {
-  generatedAt: string;
-  source: "postgres-live-operations" | "sqlite-test-fallback";
-  timezone: string;
-  restaurantId: string;
-  branch: null | {
-    id: string;
-    name: string;
-    timezone: string;
-    open: boolean;
-    manualOpen: boolean;
-    status: "active" | "paused" | "closed";
-    etaMin: number;
-  };
+/** Dashboard merchant: núcleo compartido + `Restaurant` local (aún diverge). */
+export type MerchantOperationsDashboard = MerchantOperationsDashboardCore & {
   restaurant: Restaurant;
-  metrics: MerchantOperationsMetrics;
 };
 
 export type MerchantFinance = {

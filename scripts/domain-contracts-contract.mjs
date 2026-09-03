@@ -24,6 +24,7 @@ const SHARED = [
   "ServiceTip",
   "DispatchScoreBreakdown",
   "MerchantOperationsMetrics",
+  "MerchantOperationsDashboardCore",
   "SubscriptionPlan",
   "Subscription",
   "GroupOrderParticipant",
@@ -107,6 +108,11 @@ assert(
     contains(web, "branches?: RestaurantBranch[]") &&
     contains(mobile, "branches?: RestaurantBranch[]"),
   "web and mobile share MenuItemSummary and RestaurantBranch",
+);
+assert(
+  contains(web, "MerchantOperationsDashboard = MerchantOperationsDashboardCore &") &&
+    contains(mobile, "MerchantOperationsDashboard = MerchantOperationsDashboardCore &"),
+  "web and mobile extend shared MerchantOperationsDashboardCore with local Restaurant",
 );
 assert(
   contains(rootPkg, '"@flash/domain-contracts"') &&
