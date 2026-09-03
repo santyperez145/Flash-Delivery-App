@@ -79,6 +79,7 @@ import { rideContextRouter } from "./http/ride-context-router.js";
 import { driverFleetRouter } from "./http/driver-fleet-router.js";
 import { shipmentProtectionRouter } from "./http/shipment-protection-router.js";
 import { productAnalyticsRouter } from "./http/product-analytics-router.js";
+import { platformStatusRouter } from "./http/platform-status-router.js";
 import { queueTriggersRouter } from "./http/queue-triggers-router.js";
 import { paymentMethodsRouter } from "./http/payment-methods-router.js";
 import { pricingRouter } from "./http/pricing-router.js";
@@ -93,7 +94,6 @@ import {
   serviceChatLimiter,
 } from "./http/rate-limits.js";
 import { closeRedis, redisClient, redisReadiness } from "./redis.js";
-import { openApiDocument } from "./openapi.js";
 import { closePostgres, postgresPool, postgresReadiness } from "./postgres.js";
 import { getPostgresMerchantDashboard } from "./merchant-dashboard-repository.js";
 import { stopTelemetry } from "./telemetry.js";
@@ -476,19 +476,7 @@ app.use(
 // The database independently locks PIN verification after five failures. This
 // wider edge budget also covers authorized photo upload/download operations.
 
-app.get("/api/health", (_req, res) => {
-  ok(res, {
-    service: "flash-fullstack-api",
-    environment: config.env,
-    storageMode: config.databaseUrl ? "postgres-primary" : "sqlite-demo",
-    timestamp: getTimestamp(),
-  });
-});
-
-app.get("/api/openapi.json", (_req, res) => {
-  res.set("Cache-Control", "public, max-age=300, stale-while-revalidate=900");
-  return res.json(openApiDocument);
-});
+app.use(platformStatusRouter);
 
 app.get("/api/ready", async (_req, res) => {
   try {
@@ -710,11 +698,6 @@ app.use(orderIssuesRouter);
 app.use(backofficeReportsRouter);
 app.use(featureFlagsRouter);
 app.use(productAnalyticsRouter);
-app.get("/api/state", requireAuth, (_req, res) => {
-  res.set("Cache-Control", "no-store");
-  return fail(res, 410, "El estado global fue retirado; usa bootstrap y recursos segmentados");
-});
-
 app.use(paymentMethodsRouter);
 
 app.use(supportRouter);
