@@ -34,6 +34,8 @@ import type {
   MenuModifierGroup,
   MenuItemSummary,
   RestaurantBranch,
+  DriverServiceMode,
+  DriverSummary,
   RideStatus,
 } from "@flash/domain-contracts";
 
@@ -72,12 +74,14 @@ export type {
   MenuModifierGroup,
   MenuItemSummary,
   RestaurantBranch,
+  DriverServiceMode,
+  DriverSummary,
   RideStatus,
 };
 
 export type Mode = "customer" | "merchant" | "driver" | "ops";
 export type Service = "food" | "ride" | "shipment";
-export type DriverService = "delivery" | "ride";
+export type DriverService = DriverServiceMode;
 export type CustomerTab = "home" | "activity" | "wallet" | "profile" | "notifications";
 
 export type Extra = {
@@ -143,24 +147,7 @@ export type Restaurant = RestaurantSummary & {
   branches?: RestaurantBranch[];
 };
 
-export type Driver = {
-  id: string;
-  userId: string;
-  name: string;
-  online: boolean;
-  serviceModes: DriverService[];
-  activeService: DriverService;
-  vehicle: string;
-  plate: string;
-  rating: number;
-  location: {
-    lat: number;
-    lng: number;
-    label: string;
-    updatedAt?: string | null;
-  };
-  earningsToday: number;
-};
+export type Driver = DriverSummary;
 
 export type TimelineEntry<TStatus extends string> = {
   status: TStatus;

@@ -34,6 +34,8 @@ import type {
   MenuModifierGroup,
   MenuItemSummary,
   RestaurantBranch,
+  DriverServiceMode,
+  DriverSummary,
   RideStatus,
 } from "@flash/domain-contracts";
 
@@ -72,11 +74,13 @@ export type {
   MenuModifierGroup,
   MenuItemSummary,
   RestaurantBranch,
+  DriverServiceMode,
+  DriverSummary,
   RideStatus,
 };
 
 export type Mode = "customer" | "merchant" | "driver";
-export type ServiceMode = "delivery" | "ride";
+export type ServiceMode = DriverServiceMode;
 export type RideService = "economy" | "comfort" | "moto" | "xl";
 
 export type Restaurant = RestaurantSummary & {
@@ -84,22 +88,10 @@ export type Restaurant = RestaurantSummary & {
   menu: MenuItemSummary[];
 };
 
-export type Driver = {
-  id: string;
-  userId: string;
-  name: string;
-  online: boolean;
-  serviceModes: ServiceMode[];
-  activeService: ServiceMode;
-  vehicle: string;
-  plate: string;
+export type Driver = DriverSummary & {
   vehicleKind?: "bicycle" | "motorcycle" | "car" | "van" | null;
   vehicleStatus?: "pending" | "approved" | "rejected" | null;
-  rating: number;
-  earningsToday: number;
-  location: GeoPoint & {
-    label: string;
-    updatedAt?: string | null;
+  location: DriverSummary["location"] & {
     source?: "foreground" | "background" | "legacy" | null;
     accuracyM?: number | null;
   };
