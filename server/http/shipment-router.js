@@ -48,11 +48,13 @@ import {
   getPostgresShipmentDeliveryEvidence,
   getPostgresShipmentDeliveryEvidenceContent,
   getPostgresShipments,
-  getShipmentProtectionPlan,
-  getShipmentServiceConfiguration,
   setPostgresShipmentStatus,
   verifyPostgresShipmentDelivery,
 } from "../mobility-repository.js";
+import {
+  getShipmentProtectionPlan,
+  getShipmentServiceConfiguration,
+} from "../shipment-options-repository.js";
 import { recordPostgresAudit } from "../operations-repository.js";
 import { usesPostgresCommerce } from "../postgres.js";
 import { deliveryProofLimiter } from "./rate-limits.js";

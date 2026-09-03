@@ -30,7 +30,7 @@ import {
   getShipmentOptions,
   updateShipmentItemCategory,
   updateShipmentServiceLevel,
-} from "../mobility-repository.js";
+} from "../shipment-options-repository.js";
 import { recordPostgresAudit } from "../operations-repository.js";
 import { assessZoneReadiness, getZoneReadiness } from "../zone-readiness-repository.js";
 import { publishRealtimeEvent } from "./realtime.js";
