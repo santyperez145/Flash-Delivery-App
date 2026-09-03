@@ -64,7 +64,8 @@ import {
   verifyRidePickupCode,
 } from "../ride-safety-repository.js";
 import { assessTransactionRisk, setRiskEntity } from "../risk-repository.js";
-import { createId, createLocalNotification, getTimestamp, rideStatuses } from "../store.js";
+import { createId, getTimestamp, rideStatuses } from "../store.js";
+import { createLocalNotification } from "../store-local-preferences.js";
 import { cancelMobilityJobAndRefundWallet } from "../wallet-repository.js";
 
 const rideQuoteSchema = z.object({
