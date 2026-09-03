@@ -581,4 +581,6 @@ export const styles = StyleSheet.create({
   ...customerStyleDefs,
   ...merchantStyleDefs,
   ...driverStyleDefs,
-});
+  // Cast: los módulos por dominio exportan literales string que TS ensancha y
+  // StyleSheet.create rechaza (flexDirection/overflow Image vs View).
+} as any);

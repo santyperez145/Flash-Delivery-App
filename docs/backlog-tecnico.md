@@ -118,7 +118,7 @@ Adoptar además un framework estándar de pruebas: **Vitest**, **Testcontainers*
 
 **Avance del 29-08:** Vitest 4.1 ya ejecuta el contrato unitario de autorización y
 `@testcontainers/postgresql` 12.1 crea un PostGIS 17 efímero, replica los tres roles sin
-`BYPASSRLS`, aplica las **137 migraciones** desde cero y comprueba extensión y privilegios. La
+`BYPASSRLS`, aplica las **138 migraciones** desde cero y comprueba extensión y privilegios. La
 prueba aislada corre como segunda mitad de `test:runtime-role-shape` dentro del job bloqueante de
 `ci-postgres`; no reemplaza el servicio de CI,
 sino que elimina la dependencia de su preparación manual y deja un punto de partida estándar
