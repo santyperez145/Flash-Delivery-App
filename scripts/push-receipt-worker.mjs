@@ -6,7 +6,7 @@
 //
 // Producción debe programarlo igual que `worker:notifications`.
 import { config } from "../server/config.js";
-import { processPostgresPushReceipts } from "../server/notification-repository.js";
+import { processPostgresPushReceipts } from "../server/notification-delivery-repository.js";
 import { closePostgres } from "../server/postgres.js";
 
 if (config.notificationProvider !== "expo")

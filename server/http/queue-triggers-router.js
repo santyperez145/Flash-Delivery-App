@@ -41,7 +41,7 @@ import {
   getNotificationDeadLetters,
   processPostgresNotificationBatch,
   replayNotificationDeadLetter,
-} from "../notification-repository.js";
+} from "../notification-delivery-repository.js";
 import { processSupportQueue } from "../support-repository.js";
 import { recordPostgresAudit } from "../audit-repository.js";
 import { usesPostgresCommerce } from "../postgres.js";

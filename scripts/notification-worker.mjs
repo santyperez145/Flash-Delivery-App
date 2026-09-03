@@ -1,5 +1,5 @@
 import { config } from "../server/config.js";
-import { processPostgresNotificationBatch } from "../server/notification-repository.js";
+import { processPostgresNotificationBatch } from "../server/notification-delivery-repository.js";
 import { closePostgres } from "../server/postgres.js";
 if (config.notificationProvider === "disabled" && config.emailProvider === "disabled")
   throw new Error("All notification providers are disabled");
