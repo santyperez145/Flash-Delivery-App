@@ -30,7 +30,7 @@ import {
   createPayoutStepUp,
   getMerchantFinance,
   requestMerchantPayout,
-} from "../merchant-finance-repository.js";
+} from "../merchant-payout-repository.js";
 import { recordPostgresAudit } from "../audit-repository.js";
 import { getPostgresMerchantActiveOrderPage } from "../order-repository.js";
 import { usesPostgresCommerce } from "../postgres.js";
