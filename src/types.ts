@@ -46,6 +46,8 @@ import type {
   ShipmentItemCategory,
   ShipmentServiceLevel,
   ShipmentSummary,
+  VerticalService,
+  PromotionSummary,
 } from "@flash/domain-contracts";
 
 export type {
@@ -95,10 +97,12 @@ export type {
   ShipmentItemCategory,
   ShipmentServiceLevel,
   ShipmentSummary,
+  VerticalService,
+  PromotionSummary,
 };
 
 export type Mode = "customer" | "merchant" | "driver" | "ops";
-export type Service = "food" | "ride" | "shipment";
+export type Service = VerticalService;
 export type DriverService = DriverServiceMode;
 export type CustomerTab = "home" | "activity" | "wallet" | "profile" | "notifications";
 
@@ -195,19 +199,7 @@ export type Ride = RideSummary & {
 
 export type Shipment = ShipmentSummary;
 
-export type Promotion = {
-  id: string;
-  code?: string;
-  title: string;
-  description: string;
-  service: Service;
-  discountPercent: number;
-  kind?: "percentage" | "fixed" | "free_delivery" | "wallet_credit";
-  value?: number;
-  maxDiscount?: number;
-  minSubtotal?: number;
-  active: boolean;
-};
+export type Promotion = PromotionSummary;
 
 export type SupportTicket = {
   id: string;
