@@ -540,9 +540,11 @@ Lo que no cubría nadie es lo único que hace que valga la pena: **que el planif
 
 Y trae su otra mitad: con `enable_indexscan` y `enable_bitmapscan` apagados se exige que el mismo plan **deje** de usar el índice. Sin eso, un detector que encuentre cualquier índice en cualquier parte del plan aprobaría siempre.
 
-El tiempo de ejecución **se informa y no se afirma**. El runner comparte CPU y una latencia medida acá sería una puerta intermitente; para eso está `test:performance`, que corre en el nocturno justamente por ese motivo.
+El tiempo de ejecución del plan **se informa y no se afirma** en `test:dispatch-plan`. El runner comparte CPU y una latencia medida ahí sería intermitente.
 
-Todo ocurre dentro de una transacción que termina en `ROLLBACK`: los mil conductores y las sesiones que sus triggers abren desaparecen solas.
+**La carga concurrente** reutiliza el padrón de mil conductores (`dispatch-synthetic-padron.mjs`) y se ejecuta al final de `test:dispatch-plan`: shortlist concurrente, emisión de ofertas, workers en paralelo y aceptación forzada. Afirma p95 ≤ 5 s para la primera oferta y cero dobles asignaciones bajo contención.
+
+Todo ocurre dentro de una transacción que termina en `ROLLBACK` en el plan, o con limpieza por marca en la carga.
 
 ### Cableado de la API
 

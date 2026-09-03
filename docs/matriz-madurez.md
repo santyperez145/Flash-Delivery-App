@@ -129,8 +129,8 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | --- | --- | --- |
 | Ofertas privadas con TTL | `CI` | `test:postgres` bloquea el merge |
 | Aceptación atómica `SKIP LOCKED` | `CI` | `test:postgres` bloquea el merge |
-| Ranking explicable | `CI` | Selección en dos etapas · `test:dispatch-candidates` y `test:postgres` |
-| Recorte `ST_DWithin` + KNN | `CI` | Etapa 1 sobre el índice GiST parcial · **falta `EXPLAIN ANALYZE` con padrón sintético** |
+| Ranking explicable | `CI` | Selección en dos etapas · `test:dispatch-candidates`, carga concurrente en `test:dispatch-plan` y `test:postgres` |
+| Recorte `ST_DWithin` + KNN | `CI` | Etapa 1 sobre el índice GiST parcial · `test:dispatch-plan` (EXPLAIN + carga concurrente) |
 | Stats precomputadas de conductor | — | **No existe** · se recalcula historial de 30 días por oferta |
 | Route Matrix para dispatch | `CI` | `describeRouteMatrix` con contrato verificado · falta conectarla al scoring |
 | Zonas de demanda | `CI` | `test:driver-demand` en `ci-critical-flows` |

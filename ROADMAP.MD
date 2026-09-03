@@ -698,7 +698,8 @@ Séptima entrega de la Fase 0. Cierra el núcleo del hallazgo [H-06](docs/audito
 - [x] **El punto de pickup entra como parámetro, no como columna de un join.** El planificador sólo usa el índice para KNN cuando un operando es constante; si viniera de un join, el recorte existiría en el texto y no en el plan.
 - [x] **Radio dinámico con protección contra inanición.** Un radio fijo deja trabajos sin ofrecer en zonas de baja densidad. La escalera duplica de 8 km a 25 km, y sólo si la lista corta no alcanza. El radio usado y si hubo expansión quedan en `score_breakdown`: una zona que necesita expandir es visible en lugar de degradar en silencio.
 - [x] `test:dispatch-candidates` incluye una **regresión sobre el hallazgo original**, cuya evidencia fue exactamente la ausencia de ambos operadores.
-- [ ] **`EXPLAIN ANALYZE` con padrón sintético de al menos 1.000 conductores.** El contrato prueba la forma de la consulta; el plan hay que medirlo.
+- [x] **`EXPLAIN ANALYZE` con padrón sintético de al menos 1.000 conductores.** `test:dispatch-plan` explica la consulta real e impone el índice GiST; carga concurrente (`dispatch-load-smoke.mjs` vía `test:dispatch-plan`) ejerce tráfico concurrente sobre el mismo padrón.
+- [ ] **Primera oferta p95 < 5 s en producción.** carga concurrente (`dispatch-load-smoke.mjs` vía `test:dispatch-plan`) afirma el umbral en CI sobre PostgreSQL local; falta evidencia desplegada y Route Matrix en el scoring.
 - [ ] **ETA vial por Route Matrix.** `computeRouteMatrix()` existe y está verificado; falta conectarlo al scoring y **depende de una API key**.
 - [ ] **Stats precomputadas.** Con la lista corta, el historial de 30 días quedó acotado a 30 conductores: dejó de ser corrección para pasar a ser optimización.
 - [ ] Prep time del comercio y dispatch manual desde backoffice.

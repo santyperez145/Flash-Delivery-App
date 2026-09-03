@@ -66,4 +66,4 @@ El radio usado y si hubo expansión quedan en `score_breakdown`, así que una zo
 
 ### SLO asociado
 
-Primera oferta de dispatch: **p95 < 5 s**. El plan de consulta debe usar índice GiST, verificado con `EXPLAIN ANALYZE`, y sostenerse en una prueba de carga con un padrón sintético de al menos 1.000 conductores.
+Primera oferta de dispatch: **p95 < 5 s**. El plan de consulta debe usar índice GiST, verificado con `EXPLAIN ANALYZE` (`test:dispatch-plan`), y sostenerse en una prueba de carga con un padrón sintético de al menos 1.000 conductores y oleadas concurrentes (carga concurrente (`dispatch-load-smoke.mjs` vía `test:dispatch-plan`)).
