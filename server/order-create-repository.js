@@ -1,18 +1,18 @@
 // Alta del pedido de comida (ARC-001).
 //
-// Validación de cotización firmada, idempotencia, cobro wallet/MP y retención
-// de propina. Lecturas → `order-repository.js`. Avance/asignación →
-// `order-lifecycle-repository.js`.
+// Orquesta validación, idempotencia, persistencia del job y retención de
+// propina. Precio autoritativo → `order-create-pricing.js`. Cobro wallet/MP →
+// `order-create-checkout-payment.js`. Lecturas → `order-repository.js`.
+// Avance/asignación → `order-lifecycle-repository.js`.
 import crypto from "node:crypto";
 import { postgresPool } from "./postgres.js";
-import { getActiveSubscription, splitOrderDiscounts } from "./subscription-repository.js";
-import { CHECKOUT_TIP_MIN_CENTS, checkoutTipMaxCents, holdCheckoutTip } from "./tip-repository.js";
+import { holdCheckoutTip } from "./tip-repository.js";
 import { enqueueNotificationForInternalUser } from "./notification-repository.js";
 import { pesos } from "./money.js";
-import { marketplacePaymentKey } from "./order-marketplace-payment-repository.js";
 import { config } from "./config.js";
 import { resolveDrivingRoute } from "./maps-route-service.js";
-import { resolveModifierSelection } from "./order-selection.js";
+import { buildCheckoutLineSnapshots, resolveCheckoutTotals } from "./order-create-pricing.js";
+import { settleCheckoutPayment } from "./order-create-checkout-payment.js";
 
 export async function createPostgresOrder({
   publicId,
@@ -169,134 +169,31 @@ export async function createPostgresOrder({
         status: 409,
       });
     }
-    const snapshots = [];
-    for (const entry of items) {
-      const item = await client.query(
-        `SELECT c.*
-         FROM catalog_items c
-         JOIN catalog_branch_inventory i ON i.catalog_item_id = c.id AND i.branch_id = $3
-         WHERE c.public_id = $1 AND c.merchant_id = $2
-           AND c.available AND i.available AND COALESCE(i.stock_quantity, 1) > 0
-         FOR SHARE OF c, i`,
-        [entry.menuItemId, merchant.rows[0].id, merchant.rows[0].branch_id],
-      );
-      if (!item.rows[0]) throw Object.assign(new Error("Producto no disponible"), { status: 409 });
-      const selection = await resolveModifierSelection(client, {
-        catalogItemId: item.rows[0].id,
-        selectedIds: entry.extras || [],
-      });
-      snapshots.push({
-        entry,
-        item: item.rows[0],
-        selection,
-        unitPriceCents: Number(item.rows[0].unit_price_cents) + selection.priceCents,
-      });
-    }
-    const subtotalCents = snapshots.reduce(
-      (sum, { entry, unitPriceCents }) => sum + unitPriceCents * entry.quantity,
-      0,
-    );
-    const deliveryFeeCents = Math.round(Number(lockedQuote.deliveryFee) * 100);
-    const serviceFeeCents = Math.round(serviceFee * 100);
-    let promotion = null,
-      discountCents = 0,
-      subscriptionDiscountCents = 0;
-    if (promotionCode) {
-      promotion = (
-        await client.query(
-          `SELECT * FROM promotions WHERE code=$1 AND active AND now() BETWEEN starts_at AND ends_at FOR UPDATE`,
-          [promotionCode],
-        )
-      ).rows[0];
-      if (!promotion)
-        throw Object.assign(new Error("Promoción inválida o vencida"), { status: 409 });
-      if (promotion.rules?.service && promotion.rules.service !== "food")
-        throw Object.assign(new Error("La promoción no aplica a comida"), { status: 409 });
-      if (subtotalCents < Number(promotion.min_subtotal_cents))
-        throw Object.assign(new Error("No alcanzas el subtotal mínimo de la promoción"), {
-          status: 409,
-        });
-      if (
-        promotion.rules?.paymentMethod === "flash_wallet" &&
-        !String(paymentMethod).toLowerCase().includes("wallet")
-      )
-        throw Object.assign(new Error("La promoción requiere Flash Wallet"), { status: 409 });
-      const usage = (
-        await client.query(
-          `SELECT count(*)::int total,count(*) FILTER(WHERE user_id=$2)::int user_total FROM promotion_redemptions WHERE promotion_id=$1`,
-          [promotion.id, customer.rows[0].id],
-        )
-      ).rows[0];
-      if (promotion.usage_limit !== null && usage.total >= promotion.usage_limit)
-        throw Object.assign(new Error("La promoción agotó su cupo"), { status: 409 });
-      if (usage.user_total >= promotion.per_user_limit)
-        throw Object.assign(new Error("Ya utilizaste esta promoción"), { status: 409 });
-      if (promotion.kind === "percentage")
-        discountCents = Math.round((subtotalCents * promotion.value) / 100);
-      else if (promotion.kind === "fixed") discountCents = promotion.value;
-      else if (promotion.kind === "free_delivery") discountCents = deliveryFeeCents;
-      else if (promotion.kind === "wallet_credit") discountCents = 0;
-      if (promotion.max_discount_cents !== null)
-        discountCents = Math.min(discountCents, Number(promotion.max_discount_cents));
-      discountCents = Math.min(discountCents, subtotalCents + deliveryFeeCents);
-    }
-    // Se relee dentro de la transaccion, no se toma del token: el token dice lo
-    // que se prometio y esto dice lo que corresponde ahora. Si alguien firmara
-    // un token con un beneficio que no le toca, la comparacion de abajo lo
-    // rechaza en vez de aplicarlo.
-    const subscription = await getActiveSubscription(customerPublicId, client);
-    ({ discountCents, subscriptionDiscountCents } = splitOrderDiscounts({
+    const snapshots = await buildCheckoutLineSnapshots(client, {
+      items,
+      merchantId: merchant.rows[0].id,
+      branchId: merchant.rows[0].branch_id,
+    });
+    const {
+      promotion,
       subscription,
       subtotalCents,
       deliveryFeeCents,
-      promotionKind: promotion?.kind || null,
-      promotionDiscountCents: discountCents,
-    }));
-    const totalCents =
-      subtotalCents +
-      deliveryFeeCents +
-      serviceFeeCents -
-      discountCents -
-      subscriptionDiscountCents;
-    if (
-      lockedQuote.total !== undefined &&
-      (Math.round(Number(lockedQuote.subtotal) * 100) !== subtotalCents ||
-        Math.round(Number(lockedQuote.discount || 0) * 100) !== discountCents ||
-        // Se compara aparte y no solo por el total. Dos errores que se cancelan
-        // —una promocion que crece justo lo que el beneficio deja de aplicar—
-        // darian el mismo total y pasarian el control cobrando mal el desglose.
-        Math.round(Number(lockedQuote.subscriptionDiscount || 0) * 100) !==
-          subscriptionDiscountCents ||
-        Math.round(Number(lockedQuote.total) * 100) !== totalCents ||
-        String(lockedQuote.paymentMethod) !== String(paymentMethod) ||
-        String(lockedQuote.promotionCode || "") !== String(promotion?.code || ""))
-    )
-      throw Object.assign(
-        new Error("El precio final cambió; revisa y acepta una nueva cotización"),
-        { status: 409 },
-      );
-    // La propina no viaja en la cotizacion firmada a proposito: cambiarla no
-    // deberia obligar a recotizar el pedido entero, y no hay nada que proteger
-    // firmandola — es plata del cliente hacia el repartidor, no un precio que el
-    // cliente pueda bajar. Lo que si se valida es que este dentro de los topes,
-    // que es lo que atrapa un error de tipeo de tres ceros de mas.
-    if (tipCents) {
-      const topeDePropina = checkoutTipMaxCents(totalCents);
-      if (tipCents < CHECKOUT_TIP_MIN_CENTS)
-        throw Object.assign(
-          new Error(`La propina mínima es $${(CHECKOUT_TIP_MIN_CENTS / 100).toFixed(0)}`),
-          { status: 409 },
-        );
-      if (tipCents > topeDePropina)
-        throw Object.assign(
-          new Error(`La propina máxima para este pedido es $${(topeDePropina / 100).toFixed(0)}`),
-          { status: 409 },
-        );
-    }
-    // **Un solo cargo, no dos.** La propina se cobra junto con el pedido; lo que
-    // se reparte sigue siendo `totalCents`, porque la propina no es del comercio
-    // ni de la plataforma.
-    const chargedCents = totalCents + tipCents;
+      serviceFeeCents,
+      discountCents,
+      subscriptionDiscountCents,
+      totalCents,
+      chargedCents,
+    } = await resolveCheckoutTotals(client, {
+      snapshots,
+      lockedQuote,
+      serviceFee,
+      promotionCode,
+      paymentMethod,
+      customerId: customer.rows[0].id,
+      customerPublicId,
+      tipCents,
+    });
     const travelMinutes = Math.max(8, Math.ceil(Number(address.distance_m) / 350));
     const metadata = {
       subtype: "food_order",
@@ -384,102 +281,22 @@ export async function createPostgresOrder({
         `INSERT INTO promotion_redemptions(promotion_id,user_id,job_id,discount_cents) VALUES($1,$2,$3,$4)`,
         [promotion.id, customer.rows[0].id, job.rows[0].id, discountCents],
       );
-    let paymentStatus = "pending";
-    if (walletPayment) {
-      const walletAccount = await client.query(
-        `SELECT id FROM ledger_accounts WHERE owner_type='user' AND owner_id=$1 AND currency='ARS' AND account_type='wallet' FOR UPDATE`,
-        [customer.rows[0].id],
-      );
-      const walletBalance = walletAccount.rows[0]
-        ? await client.query(
-            `SELECT COALESCE(sum(CASE WHEN direction='credit' THEN amount_cents ELSE -amount_cents END),0)::bigint AS balance FROM ledger_entries WHERE account_id=$1`,
-            [walletAccount.rows[0].id],
-          )
-        : { rows: [] };
-      // Contra `chargedCents` y no contra el total: si el saldo alcanza para el
-      // pedido pero no para la propina, el cobro fallaria a mitad de camino.
-      if (!walletAccount.rows[0] || Number(walletBalance.rows[0]?.balance || 0) < chargedCents) {
-        throw Object.assign(new Error("Saldo insuficiente en Flash Wallet"), { status: 402 });
-      }
-      const clearing =
-        await client.query(`INSERT INTO ledger_accounts(owner_type,owner_id,currency,account_type)
-        VALUES('platform',NULL,'ARS','cash_clearing') ON CONFLICT(owner_type,currency,account_type) WHERE owner_id IS NULL
-        DO UPDATE SET owner_type=EXCLUDED.owner_type RETURNING id`);
-      const paymentTransaction = await client.query(
-        `INSERT INTO ledger_transactions(idempotency_key,kind,actor_id,description,metadata)
-         VALUES($1,'payment',$2,$3,$4) RETURNING id`,
-        [
-          `payment-${idempotencyKey}`,
-          customer.rows[0].id,
-          `Pago pedido ${publicId}`,
-          { jobPublicId: publicId },
-        ],
-      );
-      await client.query(
-        `INSERT INTO ledger_entries(transaction_id,account_id,direction,amount_cents,reference_type,reference_id,metadata) VALUES
-        ($1,$2,'debit',$4,'food_order',$3,$5),($1,$6,'credit',$4,'food_order',$3,$5)`,
-        [
-          paymentTransaction.rows[0].id,
-          walletAccount.rows[0].id,
-          job.rows[0].id,
-          chargedCents,
-          { jobPublicId: publicId },
-          clearing.rows[0].id,
-        ],
-      );
-      await client.query(
-        `INSERT INTO payment_intents(job_id,customer_id,provider,status,amount_cents,captured_amount_cents,currency,idempotency_key,provider_payload)
-        VALUES($1,$2,'flash_wallet','captured',$3,$3,'ARS',$4,$5)`,
-        [
-          job.rows[0].id,
-          customer.rows[0].id,
-          chargedCents,
-          `payment-${idempotencyKey}`,
-          { ledgerTransactionId: paymentTransaction.rows[0].id },
-        ],
-      );
-      paymentStatus = "captured";
-    } else {
-      const merchantCommissionCents = Math.round(
-          (Math.max(0, subtotalCents - discountCents) * Number(merchant.rows[0].commission_bps)) /
-            10000,
-        ),
-        // El envio que regala la suscripcion sale del margen de Flash, no del
-        // comercio: se descuenta de la comision de aplicacion y no de lo que se
-        // le liquida. Sumarlo entero aca le cobraria al comercio un beneficio
-        // que no vendio ni financio.
-        // `+ tipCents`: con split de marketplace el comercio recibe lo cobrado
-        // menos la comision de aplicacion. Sin sumar la propina ahi, la propina
-        // del repartidor terminaria en la cuenta del comercio.
-        applicationFeeCents =
-          deliveryFeeCents -
-          subscriptionDiscountCents +
-          serviceFeeCents +
-          merchantCommissionCents +
-          tipCents;
-      if (applicationFeeCents >= chargedCents)
-        throw Object.assign(new Error("La comisión configurada no permite procesar este pedido"), {
-          status: 409,
-        });
-      await client.query(
-        `INSERT INTO payment_intents(
-          job_id, customer_id, provider, status, amount_cents, captured_amount_cents,
-          currency, idempotency_key, provider_payload
-        ) VALUES ($1, $2, 'mercadopago', 'requires_confirmation', $3, 0, 'ARS', $4, $5)`,
-        [
-          job.rows[0].id,
-          customer.rows[0].id,
-          chargedCents,
-          marketplacePaymentKey(idempotencyKey),
-          {
-            applicationFeeCents,
-            paymentMethodId: providerPayment.paymentMethodId,
-            installments: providerPayment.installments,
-          },
-        ],
-      );
-      paymentStatus = "requires_confirmation";
-    }
+    const paymentStatus = await settleCheckoutPayment(client, {
+      walletPayment,
+      customerId: customer.rows[0].id,
+      jobId: job.rows[0].id,
+      publicId,
+      chargedCents,
+      subtotalCents,
+      discountCents,
+      deliveryFeeCents,
+      subscriptionDiscountCents,
+      serviceFeeCents,
+      tipCents,
+      commissionBps: merchant.rows[0].commission_bps,
+      idempotencyKey,
+      providerPayment,
+    });
     // Retenida, no pagada: en el checkout todavia no hay conductor asignado. Se
     // libera al liquidar el pedido completado, y si el pedido nunca llega a
     // completarse vuelve con el reintegro.
