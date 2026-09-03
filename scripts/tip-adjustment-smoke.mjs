@@ -235,7 +235,7 @@ try {
     "concurrent requests cannot exceed original tip",
   );
   const imbalance = await pool.query(
-    `SELECT count(*)::int count FROM (SELECT t.id FROM ledger_transactions t JOIN ledger_entries e ON e.transaction_id=t.id WHERE t.idempotency_key=$1 OR t.idempotency_key LIKE 'tip-adjustment-%' ,
+    `SELECT count(*)::int count FROM (SELECT t.id FROM ledger_transactions t JOIN ledger_entries e ON e.transaction_id=t.id WHERE (t.idempotency_key=$1 OR t.idempotency_key LIKE 'tip-adjustment-%')
       AND t.metadata->>'tipId'=$2 GROUP BY t.id HAVING sum(CASE WHEN e.direction='debit' THEN e.amount_cents ELSE -e.amount_cents END)<>0) q`,
     [marker, tipId],
   );

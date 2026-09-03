@@ -56,7 +56,7 @@ try {
   await pool.query("INSERT INTO user_roles(user_id,role) VALUES($1,'driver')", [user.id]);
   const driver = (
     await pool.query(
-      `INSERT INTO drivers(public_id,user_id,online,active_mode,service_modes,current_location,location_updated_at,metadata) ,
+      `INSERT INTO drivers(public_id,user_id,online,active_mode,service_modes,current_location,location_updated_at,metadata)
         VALUES($1,$2,false,'ride',ARRAY['delivery','ride']::job_kind[],ST_SetSRID(ST_MakePoint(-58.39,-34.60),4326)::geography,now(),'{"name":"Driver Vehículos"}') RETURNING id`,
       [driverId, user.id],
     )

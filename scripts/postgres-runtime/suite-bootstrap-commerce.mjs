@@ -65,7 +65,7 @@ export async function runBootstrapCommerceSuite(ctx) {
   ctx.customerToken = ctx.token;
   const liveController = new AbortController(),
     liveResponse = await fetch(`${base}/events`, {
-      headers: { Authorization: `Bearer ${customerToken}` },
+      headers: { Authorization: `Bearer ${ctx.customerToken}` },
       signal: liveController.signal,
     }),
     liveReader = liveResponse.body.getReader();
@@ -96,7 +96,7 @@ export async function runBootstrapCommerceSuite(ctx) {
   const replayController = new AbortController(),
     replayResponse = await fetch(`${base}/events`, {
       headers: {
-        Authorization: `Bearer ${customerToken}`,
+        Authorization: `Bearer ${ctx.customerToken}`,
         "Last-Event-ID": String(replayCursor),
       },
       signal: replayController.signal,
