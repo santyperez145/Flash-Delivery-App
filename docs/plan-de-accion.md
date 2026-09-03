@@ -298,12 +298,12 @@ Estado al **25 de agosto de 2026**. Se actualiza en el PR que cambia el estado, 
 
 | Ticket | Prioridad | Hallazgo | Estado | Fase |
 | --- | --- | --- | --- | --- |
-| [SEC-001](backlog-tecnico.md#sec-001--realtime-default-deny) | P0 | H-03 | **En curso** | 0 |
+| [SEC-001](backlog-tecnico.md#sec-001--realtime-default-deny) | P0 | H-03 | **Cerrado** | 0 |
 | [CI-001](backlog-tecnico.md#ci-001--pipeline-productivo) | P0 | H-01 | **En curso** | 0 |
 | [ARC-001](backlog-tecnico.md#arc-001--modularización) | P0 | H-08 | **En curso** | 0 |
-| [DAT-001](backlog-tecnico.md#dat-001--matriz-rls-default-deny) | P0 | H-04 | **En curso** | 0 |
-| [INF-001](backlog-tecnico.md#inf-001--imagen-productiva-endurecida) | P0 | H-05 | **En curso** | 0 |
-| [NOT-001](backlog-tecnico.md#not-001--push-real) | P0 | H-02 | **En curso** | 0 |
+| [DAT-001](backlog-tecnico.md#dat-001--matriz-rls-default-deny) | P0 | H-04 | **Cerrado** | 0 |
+| [INF-001](backlog-tecnico.md#inf-001--imagen-productiva-endurecida) | P0 | H-05 | **Cerrado** | 0 |
+| [NOT-001](backlog-tecnico.md#not-001--push-real) | P0 | H-02 | **Bloqueado por externo** | 0 |
 | [GEO-001](backlog-tecnico.md#geo-001--proveedor-de-mapas-comercial) | P0 | H-07 | **En curso** | 0 |
 | [DSP-001](backlog-tecnico.md#dsp-001--dispatch-v2) | P0 | H-06 | **En curso** | 0–1 |
 | [PAY-001](backlog-tecnico.md#pay-001--validación-marketplace) | P0 | H-09 | Pendiente | 1 |

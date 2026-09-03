@@ -294,8 +294,8 @@ No es prolijidad. Es la falla que explica a las demás. Durante la semana del 25
 - [x] **Existe una puerta que verifica las cifras calculables.** `test:docs-drift` recorre `docs/`, `ROADMAP.MD`, `README.md` y `AGENTS.md`, y compara contra el repositorio el recuento de migraciones y el total de suites. Encontró **16 cifras obsoletas en 9 archivos** en su primera corrida.
 - [x] **La puerta distingue historia de afirmación.** Una cifra fechada —«al 25-08», «el 25 de agosto»— se acepta aunque no coincida. Sin esta mitad, la puerta obligaría a reescribir el registro para que diga lo de hoy, que lo volvería falso. Se verificó con las dos: una cifra errónea sin fecha corta y nombra archivo y línea; la misma con fecha pasa.
 - [x] **La deriva existente está corregida.** Seis afirmaciones vigentes se actualizaron; diez registros históricos recibieron la fecha que les faltaba. El documento de auditoría queda excluido entero: es un registro fechado por construcción.
-- [ ] Las afirmaciones **no numéricas** también se verifican. Hoy nada impide que un documento describa una capacidad que no existe, y ése es el resto de H-10.
-- [ ] `docs/investor-readiness.md` y `docs/deployment-checklist.md` se revisan contra el runtime. La auditoría los señaló por describir SQLite como preocupación de despliegue y PostGIS como pendiente; la deriva numérica ya se corrigió, la prosa no se revisó entera.
+- [x] **Las afirmaciones no numéricas empiezan a verificarse.** `test:docs-drift` rechaza frases que el runtime ya desmiente (H-04 «Abierto», read_only «pendiente», «migrar a Postgres», «push imposible por configuración»). Se amplían de a una cuando el repositorio puede demostrar la falsedad sin adivinar.
+- [x] **`docs/investor-readiness.md` y `docs/deployment-checklist.md` se revisaron contra el runtime** el 2-09-2026: H-04/INF-001 ya no figuran abiertos; push/mapas se nombran como bloqueo externo; Postgres ya no aparece como migración pendiente.
 
 ---
 

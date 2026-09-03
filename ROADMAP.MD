@@ -50,6 +50,13 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 - [~] Uber/DoorDash tienen clientes por dominio. Flash ahora separa red de recursos en web y mobile; `User` ya compartido; sigue por debajo Order/Restaurant.
 - [ ] ARC-001 global sigue abierto: Order/Restaurant y 251 líneas largas SQL.
 
+## Avance 2 de septiembre de 2026 — DOC-001, prosa vs runtime
+
+- [x] `investor-readiness` y `deployment-checklist` alineados con DAT/INF/NOT/GEO. `test:docs-drift` ahora corta frases no numéricas ya desmentidas.
+- [x] SEC-001, DAT-001 e INF-001 pasan a **Cerrado** en el plan; NOT-001 a **Bloqueado por externo** (dispositivo/EAS).
+- [~] Uber/DoorDash no publican checklists que contradicen su propio CI. Flash cierra H-10 en los dos docs nombrados.
+- [ ] ARC-001 sigue con Order/Restaurant locales; CI-001 espera segundo revisor y credenciales nightly.
+
 ## Avance 2 de septiembre de 2026 — ARC-001, ratchet de líneas largas a cero
 
 - [x] SQL partido en tip/risk/zone/catalog/openapi, mobility/operations/order, resto de repos server, router/index y smokes `scripts/`. Líneas >200: **251 → 0**; `test:line-length` fija el techo.
