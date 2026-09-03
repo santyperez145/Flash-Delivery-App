@@ -10,6 +10,7 @@ import "./styles/admin-ops.css";
 import "./styles/admin-shell.css";
 import "./styles/merchant-desktop.css";
 import "./styles/merchant-ops-detail.css";
+import "./styles/pricing.css";
 import "./styles/foundation.css";
 import "./styles/auth.css";
 import "./styles/states.css";

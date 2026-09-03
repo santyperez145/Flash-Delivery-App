@@ -62,6 +62,12 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 - [~] Uber/DoorDash no abren un SQLite de demo al importar el proceso de pagos. Flash deja de hacerlo.
 - [ ] El volumen Compose se conserva para el fallback y para la corrida CI sin `DATABASE_URL`.
 
+## Avance 2 de septiembre de 2026 — estilos bajo 1500 + bloqueos dueño
+
+- [x] `src/styles.css` queda en **1385** líneas (`pricing.css` extraído). Estilos mobile todos ≤1500.
+- [x] Inventario de bloqueos del dueño en `docs/plan-de-accion.md` (GCP, Maps, EAS, 2º revisor).
+- [ ] Monolitos restantes: postgres smoke, openapi, store.
+
 ## Avance 2 de septiembre de 2026 — GEO budget + split styles + file ratchet
 
 - [x] Presupuesto de mapas visible en `/metrics` con alerta al 80%; fallback stale auditable (`stale_fallback` + `maps.stale_fallback`).
