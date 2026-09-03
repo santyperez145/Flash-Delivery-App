@@ -26,6 +26,8 @@ import type {
   UserStatus,
   User,
   OrderStatus,
+  OrderItem,
+  Order as SharedOrder,
   RideStatus,
 } from "@flash/domain-contracts";
 
@@ -57,6 +59,7 @@ export type {
   UserStatus,
   User,
   OrderStatus,
+  OrderItem,
   RideStatus,
 };
 
@@ -217,27 +220,10 @@ export type TimelineEntry<TStatus extends string> = {
   at: string;
 };
 
-export type OrderItem = {
-  menuItemId: string;
-  name: string;
-  quantity: number;
-  unitPrice: number;
-  extras: string[];
-  note: string;
-};
-
-export type Order = {
-  id: string;
-  customerId: string;
-  restaurantId: string;
-  branchId?: string | null;
-  courierId: string | null;
-  status: OrderStatus;
-  deliveryAddress: string;
-  pickupLocation?: GeoPoint | null;
-  deliveryLocation?: GeoPoint | null;
+/** Pedido web: núcleo compartido + desglose de tarifas y timeline de cocina. */
+export type Order = SharedOrder & {
   paymentMethod: string;
-  items: OrderItem[];
+  createdAt: string;
   subtotal: number;
   deliveryFee: number;
   serviceFee: number;
@@ -246,11 +232,6 @@ export type Order = {
   subscriptionDiscount?: number;
   tip?: number;
   promotionCode?: string | null;
-  /** Horario reservado. `null` es «lo antes posible». */
-  scheduledFor?: string | null;
-  total: number;
-  etaMin: number;
-  createdAt: string;
   timeline: TimelineEntry<OrderStatus>[];
 };
 
