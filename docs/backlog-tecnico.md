@@ -383,11 +383,15 @@ Ya existen caché, circuit breaker y presupuesto: se conservan y se conectan al 
 
 ## DSP-001 — Dispatch v2
 
-**Prioridad:** P0 · **Hallazgo:** [H-06](auditoria-2026-08-25.md#h-06--dispatch-sin-recorte-espacial-previo) · **Fase:** 0–1
+**Prioridad:** P0 · **Hallazgo:** [H-06](auditoria-2026-08-25.md#h-06--dispatch-sin-recorte-espacial-previo) · **Fase:** 0–1 · **Estado:** Bloqueado por externo (Route Matrix + evidencia SLO en prod)
 
 ### Contexto
 
-La consulta de candidatos calcula `ST_Distance`, carga activa y agregados de 30 días para cada conductor online del sistema. No hay `ST_DWithin` ni orden KNN `<->` en todo el repositorio.
+Al abrir el ticket la consulta de candidatos calculaba distancia y agregados de
+30 días sobre todo el padrón online, sin `ST_DWithin` ni KNN. Eso ya no es cierto:
+shortlist espacial, stats precomputadas, radio dinámico, boost Flash Más y
+assign manual están en el runtime y en puertas CI. Lo que falta para cerrar el
+ticket es ETA vial (API key) y evidencia del SLO p95 en infraestructura productiva.
 
 ### Trabajo
 
@@ -423,9 +427,10 @@ driver_dispatch_stats
 
 - [x] **Tabla `driver_dispatch_stats` y refresh out-of-band.** Migración 137 · `server/dispatch-stats.js` · refresh tras accept/reject y en `processPostgresDispatchBatch` · scoring lee la tabla · `test:dispatch-candidates`.
 
-Añadir además: oleadas de oferta · radio dinámico · protección contra inanición · prep time del comercio · dispatch manual desde backoffice · Route Matrix para el scoring.
+Añadir además: ~~oleadas de oferta~~ · ~~radio dinámico~~ · ~~protección contra inanición~~ · ~~dispatch manual desde backoffice~~ · ~~prioridad Flash Más en cola~~ · prep time anticipado del comercio (**bloqueado** a propósito: máquinas cocina/logística) · **Route Matrix** para el scoring (**bloqueo del dueño:** API key).
 
 - [x] **Dispatch manual desde backoffice.** `POST /api/admin/jobs/:id/assign` + panel Ops; motivo ≥5; auditoría `dispatch.job_assigned`; misma frontera que el worker (comida en `ready_for_pickup`). Verificado en `test:postgres` / `test:audit-actor` / `test:openapi-contract`.
+- [x] **Oleadas, radio dinámico e inanición.** Escalera 8→25 km en shortlist; desglose con radio usado; worker de ofertas con TTL. Ver `docs/dispatch-ranking.md`.
 - Prep-time anticipado (despachar antes de listo) **bloqueado** hasta separar máquinas cocina/logística (`docs/competitive-research/merchant-live-operations.md`).
 
 ### Criterios de aceptación
