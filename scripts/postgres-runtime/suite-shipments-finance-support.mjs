@@ -52,7 +52,7 @@ export async function runShipmentsFinanceSupportSuite(ctx) {
     "cancellations persist actor reason and exact refund outcome for every vertical",
   );
   const proofPayload = {
-      ...shipmentPayload,
+      ...ctx.shipmentPayload,
       paymentMethod: "Flash Wallet",
       destination: "Obelisco, Buenos Aires",
       destinationCoords: { lat: -34.6037, lng: -58.3816 },
