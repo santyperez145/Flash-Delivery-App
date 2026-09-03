@@ -70,10 +70,14 @@ for (const componente of [
   "freshness_penalty",
   "acceptance_points",
   "response_points",
+  "incident_penalty",
 ]) {
   assert.ok(SCORE_SQL.includes(componente), `falta el componente ${componente}`);
 }
 ok("los componentes del score explicable siguen siendo los mismos");
+
+assert.ok(SCORE_SQL.includes("incident_score") || SCORE_SQL.includes("incident_penalty"));
+ok("el score resta la penalización de incidentes precomputada");
 
 // --- Escalera de radios ------------------------------------------------------
 
@@ -182,4 +186,12 @@ assert.ok(REFRESH_DRIVER_DISPATCH_STATS_SQL.includes("INSERT INTO driver_dispatc
 assert.ok(REFRESH_DRIVER_DISPATCH_STATS_SQL.includes("ON CONFLICT (driver_id, service)"));
 assert.ok(REFRESH_DRIVER_DISPATCH_STATS_SQL.includes("acceptance_rate_30d"));
 assert.ok(REFRESH_DRIVER_DISPATCH_STATS_SQL.includes("percentile_cont(0.5)"));
-ok("el refresh upsertea stats con la misma fórmula de aceptación y mediana de respuesta");
+assert.ok(
+  REFRESH_DRIVER_DISPATCH_STATS_SQL.includes("ride_safety_incidents"),
+  "el refresh debe leer incidentes de seguridad",
+);
+assert.ok(
+  REFRESH_DRIVER_DISPATCH_STATS_SQL.includes("false_alarm"),
+  "los falsos positivos no deben penalizar",
+);
+ok("el refresh upsertea stats con aceptación, mediana e incident_score desde safety");

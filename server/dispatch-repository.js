@@ -39,6 +39,7 @@ export async function createDispatchOffers(client, { jobId, mode, limit = 3, ttl
       freshnessPenalty: Number(candidate.freshness_penalty),
       acceptancePoints: Number(candidate.acceptance_points),
       responsePoints: Number(candidate.response_points),
+      incidentPenalty: Number(candidate.incident_penalty),
       acceptanceRate: Number(candidate.acceptance_rate),
       averageResponseSeconds: Number(candidate.average_response_seconds),
     };

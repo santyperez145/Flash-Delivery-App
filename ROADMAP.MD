@@ -1,3 +1,7 @@
+## Avance 2 de septiembre de 2026 — DSP incident_score
+
+- [x] `incident_score` se calcula desde `ride_safety_incidents` (sin false_alarm) y resta en el score explicable.
+
 # Flash Delivery App Roadmap
 
 > Lineamiento obligatorio para cada entrega: [`docs/product-execution-guidelines.md`](docs/product-execution-guidelines.md). Define investigación competitiva, segmentación, cero hardcodeos productivos, calidad visual, arquitectura, seguridad y definición de terminado.

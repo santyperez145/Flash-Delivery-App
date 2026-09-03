@@ -51,12 +51,14 @@ const SCORE_SQL = `
     CASE WHEN d.location_updated_at < now()-interval '5 minutes' THEN 25 ELSE 0 END freshness_penalty,
     (COALESCE(history.acceptance_rate_30d,.5)-.5)*20 acceptance_points,
     GREATEST(-10, LEAST(10,(20-COALESCE(history.median_response_seconds,20))/2)) response_points,
+    COALESCE(history.incident_score,0) incident_penalty,
     COALESCE(history.acceptance_rate_30d,.5) acceptance_rate,
     COALESCE(history.median_response_seconds,20) average_response_seconds,
     (d.rating*20)-LEAST(ST_Distance(d.current_location,j.pickup_location)/250,40)-(active_jobs.count*15)
       -CASE WHEN d.location_updated_at<now()-interval '5 minutes' THEN 25 ELSE 0 END
       +(COALESCE(history.acceptance_rate_30d,.5)-.5)*20
-      +GREATEST(-10,LEAST(10,(20-COALESCE(history.median_response_seconds,20))/2)) score
+      +GREATEST(-10,LEAST(10,(20-COALESCE(history.median_response_seconds,20))/2))
+      -COALESCE(history.incident_score,0) score
   FROM jobs j
   JOIN drivers d ON d.id = ANY($2::uuid[])
   JOIN vehicles vehicle ON vehicle.driver_id=d.id AND vehicle.active AND vehicle.retired_at IS NULL
