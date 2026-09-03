@@ -290,6 +290,10 @@ const FUERA_DEL_ESQUEMA_POSTGRES = new Set([
   "server/store-auth-sessions.js",
   "server/store-entity-readers.js",
   "server/store-replace-transaction.js",
+  "server/store-seed.js",
+  "server/store-seed-catalog.js",
+  "server/store-seed-mobility.js",
+  "server/store-schema.js",
 ]);
 
 const sinComentariosJs = (fuente) =>
