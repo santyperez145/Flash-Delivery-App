@@ -885,6 +885,11 @@ Pedido de producto: cerrar paridad competitiva con pantallas/admin/config “com
 - [ ] Multi-comercio en un pedido; grocery/kiosco; Destination Mode; CarPlay/Android Auto.
 - [ ] Marketing desktop; personalización con consentimiento; B2B/centros de costo.
 - [ ] KYC biométrico automatizado; playbook de segunda ciudad.
+- [ ] **ETA con banda de confianza compartida** (cliente ↔ comercio ↔ courier): intervalo p50–p90
+  con Route Matrix + prep real del local, degradación honesta sin API key. Medido contra
+  Uber Eats/DoorDash (ETA ranges). Flash hoy muestra punto ETA. **No en freeze** — GEO/DSP/PROV.
+- [ ] **Cocina predictiva solo con telemetría de máquinas** (no heurística falsa): alinea con el
+  bloqueo deliberado de prep anticipado en DSP; candidato post-proveedor cocina.
 
 **Comparación:** Uber/DoorDash/PedidosYa ya tratan POS, personalización, multi-store y safety 24/7 como producto core. Flash tiene el esqueleto de marketplace + admin; queda por debajo en habilitaciones productivas y profundidad operativa, no en “falta de shell”. Inventar pantallas nuevas ahora empeora exactamente la métrica de la auditoría: más superficie de la que se puede validar.
 
