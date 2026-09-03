@@ -50,11 +50,11 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 - [~] Uber/DoorDash tienen clientes por dominio. Flash ahora separa red de recursos en web y mobile; `User` ya compartido; sigue por debajo Order/Restaurant.
 - [ ] ARC-001 global sigue abierto: Order/Restaurant y 251 líneas largas SQL.
 
-## Avance 2 de septiembre de 2026 — ARC-001, ratchet de líneas largas (−171)
+## Avance 2 de septiembre de 2026 — ARC-001, ratchet de líneas largas a cero
 
-- [x] SQL partido en tip/risk/zone/catalog/openapi, mobility/operations/order, y el resto de `server/*-repository.js` (+ 2 queries en router/index). Líneas >200: **251 → ~80**; remanente casi sólo smokes.
-- [~] Uber/DoorDash no publican SQL monolítico en un solo renglón. Flash baja el techo; faltan smokes.
-- [ ] ARC-001 global sigue abierto: Order/Restaurant y smokes >200 chars.
+- [x] SQL partido en tip/risk/zone/catalog/openapi, mobility/operations/order, resto de repos server, router/index y smokes `scripts/`. Líneas >200: **251 → 0**; `test:line-length` fija el techo.
+- [~] Uber/DoorDash no publican SQL monolítico en un solo renglón. Flash cierra el criterio H-08 de longitud de línea.
+- [ ] ARC-001 global sigue abierto: Order/Restaurant en domain-contracts.
 
 ## Avance 2 de septiembre de 2026 — portada pública sin login embebido
 

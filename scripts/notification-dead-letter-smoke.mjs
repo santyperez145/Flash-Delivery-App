@@ -77,7 +77,14 @@ try {
     body: JSON.stringify({ limit: 20 }),
   });
   const stored = await pool.query(
-    `SELECT n.status,n.last_error,d.invalidated_at,d.invalid_reason,d.revoked_at,d.push_token,d.push_token_ciphertext,l.reason FROM notifications n JOIN user_devices d ON d.user_id=n.user_id JOIN notification_dead_letters l ON l.notification_id=n.id WHERE n.public_id=$1`,
+    `SELECT n.status,
+      n.last_error,
+      d.invalidated_at,
+      d.invalid_reason,
+      d.revoked_at,
+      d.push_token,
+      d.push_token_ciphertext,
+      l.reason FROM notifications n JOIN user_devices d ON d.user_id=n.user_id JOIN notification_dead_letters l ON l.notification_id=n.id WHERE n.public_id=$1`,
     [notificationId],
   );
   assert(
@@ -144,7 +151,14 @@ try {
       body: JSON.stringify({ limit: 20 }),
     }),
     final = await pool.query(
-      `SELECT n.status,l.resolved_at,(SELECT count(*) FROM notification_deliveries d WHERE d.notification_id=n.id AND d.status='delivered')::int delivered FROM notifications n JOIN notification_dead_letters l ON l.notification_id=n.id WHERE n.public_id=$1`,
+      `SELECT n.status,
+        l.resolved_at,
+        (SELECT count(*) FROM notification_deliveries d
+          WHERE d.notification_id=n.id AND d.status='delivered'
+        )::int delivered
+      FROM notifications n
+      JOIN notification_dead_letters l ON l.notification_id=n.id
+      WHERE n.public_id=$1`,
       [notificationId],
     );
   assert(

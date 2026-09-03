@@ -515,7 +515,10 @@ try {
   token = registeredToken;
   const isolatedFoodPreferences = await request("/dietary-preferences");
   const preferenceRows = await pool.query(
-    "SELECT u.public_id,p.hide_incompatible,(SELECT count(*) FROM user_avoided_allergens a WHERE a.user_id=u.id)::int avoided FROM users u JOIN user_dietary_profiles p ON p.user_id=u.id WHERE u.public_id='usr_customer'",
+    `SELECT u.public_id,
+      p.hide_incompatible,
+      (SELECT count(*) FROM user_avoided_allergens a WHERE a.user_id=u.id)::int avoided
+    FROM users u JOIN user_dietary_profiles p ON p.user_id=u.id WHERE u.public_id='usr_customer'`,
   );
   assert(
     invalidFoodPreferences.status === 400 &&
@@ -1029,7 +1032,10 @@ try {
     Number(
       (
         await pool.query(
-          "SELECT m.price_cents FROM catalog_modifiers m JOIN catalog_modifier_groups g ON g.id=m.group_id JOIN catalog_items c ON c.id=g.catalog_item_id WHERE c.public_id='item_burger_brava' AND m.public_id='extra_cheddar'",
+          `SELECT m.price_cents FROM catalog_modifiers m
+          JOIN catalog_modifier_groups g ON g.id=m.group_id
+          JOIN catalog_items c ON c.id=g.catalog_item_id
+          WHERE c.public_id='item_burger_brava' AND m.public_id='extra_cheddar'`,
         )
       ).rows[0]?.price_cents || 0,
     ) / 100;
@@ -1455,7 +1461,13 @@ try {
   ]);
   assert(count.rows[0].count === 1, "order idempotency creates one row");
   const foodRoute = await pool.query(
-    `SELECT ST_Distance(pickup_location,dropoff_location) distance_m,ST_Y(dropoff_location::geometry) lat,ST_X(dropoff_location::geometry) lng,metadata->>'locationEstimated' location_estimated,metadata->>'deliveryAddressId' address_id,metadata->>'quoteId' quote_id,metadata->>'pricingVersion' pricing_version FROM jobs WHERE public_id=$1`,
+    `SELECT ST_Distance(pickup_location,dropoff_location) distance_m,
+      ST_Y(dropoff_location::geometry) lat,
+      ST_X(dropoff_location::geometry) lng,
+      metadata->>'locationEstimated' location_estimated,
+      metadata->>'deliveryAddressId' address_id,
+      metadata->>'quoteId' quote_id,
+      metadata->>'pricingVersion' pricing_version FROM jobs WHERE public_id=$1`,
     [orderId],
   );
   assert(
@@ -1686,7 +1698,13 @@ try {
   });
   scheduledRideId = scheduledRide.body.ride?.id;
   const scheduledStored = await pool.query(
-    "SELECT scheduled_for,(SELECT count(*)::int FROM dispatch_offers o WHERE o.job_id=j.id) offers,(SELECT count(*)::int FROM notifications n WHERE n.user_id=j.customer_id AND n.payload->>'jobId'=j.public_id AND n.template='ride_reminder') reminders FROM jobs j WHERE public_id=$1",
+    `SELECT scheduled_for,
+      (SELECT count(*)::int FROM dispatch_offers o WHERE o.job_id=j.id) offers,
+      (SELECT count(*)::int FROM notifications n
+        WHERE n.user_id=j.customer_id AND n.payload->>'jobId'=j.public_id
+          AND n.template='ride_reminder'
+      ) reminders
+    FROM jobs j WHERE public_id=$1`,
     [scheduledRideId],
   );
   assert(
@@ -1792,7 +1810,8 @@ try {
   const merchantBalanceBefore = Number(
     (
       await pool.query(
-        `SELECT COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint balance FROM merchants m LEFT JOIN ledger_accounts a ON a.owner_type='merchant' AND a.owner_id=m.id AND a.account_type='payable' LEFT JOIN ledger_entries e ON e.account_id=a.id WHERE m.public_id='rest_roja'`,
+        `SELECT COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint balance FROM merchants m LEFT JOIN ledger_accounts a ON a.owner_type='merchant' ,
+          AND a.owner_id=m.id AND a.account_type='payable' LEFT JOIN ledger_entries e ON e.account_id=a.id WHERE m.public_id='rest_roja'`,
       )
     ).rows[0].balance,
   );
@@ -1959,7 +1978,16 @@ try {
       }),
     });
   const dietaryStored = await pool.query(
-    "SELECT (SELECT count(*) FROM catalog_item_dietary_labels d JOIN catalog_items c ON c.id=d.catalog_item_id WHERE c.public_id='item_burger_brava')::int diets,(SELECT count(*) FROM catalog_item_allergens a JOIN catalog_items c ON c.id=a.catalog_item_id WHERE c.public_id='item_burger_brava')::int allergens",
+    `SELECT (
+        SELECT count(*) FROM catalog_item_dietary_labels d
+        JOIN catalog_items c ON c.id=d.catalog_item_id
+        WHERE c.public_id='item_burger_brava'
+      )::int diets,
+      (
+        SELECT count(*) FROM catalog_item_allergens a
+        JOIN catalog_items c ON c.id=a.catalog_item_id
+        WHERE c.public_id='item_burger_brava'
+      )::int allergens`,
   );
   await request("/restaurants/rest_roja/menu/item_burger_brava/dietary", {
     method: "PUT",
@@ -2032,7 +2060,9 @@ try {
     ).rows[0].id,
     overnightResult = (
       await pool.query(
-        "SELECT app.branch_is_scheduled_open($1,'2026-08-17 23:00:00+00') monday,app.branch_is_scheduled_open($1,'2026-08-18 01:00:00+00') carry,app.branch_is_scheduled_open($1,'2026-08-18 03:00:00+00') closed",
+        `SELECT app.branch_is_scheduled_open($1,'2026-08-17 23:00:00+00') monday,
+          app.branch_is_scheduled_open($1,'2026-08-18 01:00:00+00') carry,
+          app.branch_is_scheduled_open($1,'2026-08-18 03:00:00+00') closed`,
         [branchDbId],
       )
     ).rows[0];
@@ -2227,7 +2257,15 @@ try {
     },
   );
   const storedBranch = await pool.query(
-    `SELECT b.open,b.eta_min,i.available,i.stock_quantity,i.version FROM merchant_branches b JOIN catalog_branch_inventory i ON i.branch_id=b.id JOIN catalog_items c ON c.id=i.catalog_item_id WHERE b.public_id='branch_rest_roja' AND c.public_id='item_burger_brava'`,
+    `SELECT b.open,
+      b.eta_min,
+      i.available,
+      i.stock_quantity,
+      i.version
+    FROM merchant_branches b
+    JOIN catalog_branch_inventory i ON i.branch_id=b.id
+    JOIN catalog_items c ON c.id=i.catalog_item_id
+    WHERE b.public_id='branch_rest_roja' AND c.public_id='item_burger_brava'`,
   );
   assert(
     pausedBranch.status === 200 &&
@@ -2470,7 +2508,14 @@ try {
   const merchantBalanceAfter = Number(
     (
       await pool.query(
-        `SELECT COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint balance FROM merchants m JOIN ledger_accounts a ON a.owner_type='merchant' AND a.owner_id=m.id AND a.account_type='payable' LEFT JOIN ledger_entries e ON e.account_id=a.id WHERE m.public_id='rest_roja'`,
+        `SELECT COALESCE(sum(
+          CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END
+        ),0)::bigint balance
+        FROM merchants m
+        JOIN ledger_accounts a
+          ON a.owner_type='merchant' AND a.owner_id=m.id AND a.account_type='payable'
+        LEFT JOIN ledger_entries e ON e.account_id=a.id
+        WHERE m.public_id='rest_roja'`,
       )
     ).rows[0].balance,
   );
@@ -3077,12 +3122,31 @@ try {
     "UPDATE drivers SET online=true,location_updated_at=now(),location_accuracy_m=20,location_source='foreground' WHERE public_id='drv_nico'",
   );
   await pool.query(
-    `INSERT INTO dispatch_offers(public_id,job_id,driver_id,score,status,created_at,expires_at,responded_at) SELECT $1,j.id,d.id,0,'rejected',now()-interval '65 seconds',now()-interval '20 seconds',now()-interval '5 seconds' FROM jobs j CROSS JOIN drivers d WHERE j.public_id=$2 AND d.public_id='drv_nico' ON CONFLICT(job_id,driver_id) DO UPDATE SET status='rejected',created_at=now()-interval '65 seconds',expires_at=now()-interval '20 seconds',responded_at=now()-interval '5 seconds'`,
+    `INSERT INTO dispatch_offers(public_id,job_id,driver_id,score,status,created_at,expires_at,responded_at) SELECT $1,
+      j.id,
+      d.id,
+      0,
+      'rejected',
+      now()-interval '65 seconds',
+      now()-interval '20 seconds',
+      now()-interval '5 seconds' FROM jobs j CROSS JOIN drivers d WHERE j.public_id=$2 AND d.public_id='drv_nico' ON CONFLICT(job_id,driver_id) DO UPDATE SET status='rejected',
+      created_at=now()-interval '65 seconds',
+      expires_at=now()-interval '20 seconds',
+      responded_at=now()-interval '5 seconds'`,
     [`OFR-HISTORY-${Date.now()}`, orderId],
   );
   const expectedNicoHistory = (
     await pool.query(
-      `SELECT count(*) FILTER(WHERE o.status='accepted')::numeric/NULLIF(count(*) FILTER(WHERE o.status IN('accepted','rejected','expired')),0) acceptance_rate,avg(EXTRACT(epoch FROM(o.responded_at-o.created_at))) FILTER(WHERE o.responded_at IS NOT NULL AND o.status IN('accepted','rejected')) response_seconds FROM dispatch_offers o JOIN jobs j ON j.id=o.job_id JOIN drivers d ON d.id=o.driver_id WHERE d.public_id='drv_nico' AND j.kind='delivery' AND o.created_at>=now()-interval '30 days'`,
+      `SELECT count(*) FILTER(WHERE o.status='accepted')::numeric
+        /NULLIF(count(*) FILTER(WHERE o.status IN('accepted','rejected','expired')),0) acceptance_rate,
+        avg(EXTRACT(epoch FROM(o.responded_at-o.created_at))) FILTER(
+          WHERE o.responded_at IS NOT NULL AND o.status IN('accepted','rejected')
+        ) response_seconds
+      FROM dispatch_offers o
+      JOIN jobs j ON j.id=o.job_id
+      JOIN drivers d ON d.id=o.driver_id
+      WHERE d.public_id='drv_nico' AND j.kind='delivery'
+        AND o.created_at>=now()-interval '30 days'`,
     )
   ).rows[0];
   await pool.query(
@@ -3111,7 +3175,9 @@ try {
     [shipmentId],
   );
   const driverAlert = await pool.query(
-    "SELECT count(*)::int count FROM notifications n JOIN users u ON u.id=n.user_id JOIN drivers d ON d.user_id=u.id WHERE d.public_id='drv_nico' AND n.template='dispatch_offer' AND n.payload->>'jobId'=$1",
+    `SELECT count(*)::int count FROM notifications n
+    JOIN users u ON u.id=n.user_id JOIN drivers d ON d.user_id=u.id
+    WHERE d.public_id='drv_nico' AND n.template='dispatch_offer' AND n.payload->>'jobId'=$1`,
     [shipmentId],
   );
   const scoreBreakdown = reassignedOffer.rows[0]?.score_breakdown;
@@ -3525,7 +3591,15 @@ try {
   assert(excessiveTip.status === 409, "tip is capped relative to service fare");
   insufficientTipJobId = `RIDE-TIP-FUNDS-${Date.now()}`;
   await pool.query(
-    `INSERT INTO jobs(public_id,kind,customer_id,driver_id,status,pickup_address,pickup_location,dropoff_address,dropoff_location,service_level,quoted_amount_cents,final_amount_cents,distance_m,estimated_duration_s,metadata) SELECT $1,'ride',u.id,d.id,'completed','A',ST_SetSRID(ST_MakePoint(-58.4,-34.6),4326)::geography,'B',ST_SetSRID(ST_MakePoint(-58.41,-34.61),4326)::geography,'economy',100000,100000,1000,600,'{}' FROM users u CROSS JOIN drivers d WHERE u.public_id=$2 AND d.public_id=$3`,
+    `INSERT INTO jobs(
+      public_id,kind,customer_id,driver_id,status,pickup_address,pickup_location,
+      dropoff_address,dropoff_location,service_level,quoted_amount_cents,
+      final_amount_cents,distance_m,estimated_duration_s,metadata
+    ) SELECT $1,'ride',u.id,d.id,'completed','A',
+      ST_SetSRID(ST_MakePoint(-58.4,-34.6),4326)::geography,'B',
+      ST_SetSRID(ST_MakePoint(-58.41,-34.61),4326)::geography,'economy',
+      100000,100000,1000,600,'{}'
+    FROM users u CROSS JOIN drivers d WHERE u.public_id=$2 AND d.public_id=$3`,
     [insufficientTipJobId, registeredUserId, runtimeDriverId],
   );
   token = registeredToken;
@@ -3569,7 +3643,13 @@ try {
   );
   token = customerToken;
   const walletBalancesBeforeTip = await pool.query(
-    `SELECT u.public_id,COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint balance FROM users u LEFT JOIN ledger_accounts a ON a.owner_type='user' AND a.owner_id=u.id AND a.account_type='wallet' LEFT JOIN ledger_entries e ON e.account_id=a.id WHERE u.public_id=ANY($1) GROUP BY u.public_id`,
+    `SELECT u.public_id,
+      COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint balance
+    FROM users u
+    LEFT JOIN ledger_accounts a
+      ON a.owner_type='user' AND a.owner_id=u.id AND a.account_type='wallet'
+    LEFT JOIN ledger_entries e ON e.account_id=a.id
+    WHERE u.public_id=ANY($1) GROUP BY u.public_id`,
     [["usr_customer", "usr_driver"]],
   );
   tipKey = `tip-${crypto.randomUUID()}`;
@@ -3584,7 +3664,13 @@ try {
       body: JSON.stringify({ amount: 500 }),
     });
   const walletBalancesAfterTip = await pool.query(
-    `SELECT u.public_id,COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint balance FROM users u LEFT JOIN ledger_accounts a ON a.owner_type='user' AND a.owner_id=u.id AND a.account_type='wallet' LEFT JOIN ledger_entries e ON e.account_id=a.id WHERE u.public_id=ANY($1) GROUP BY u.public_id`,
+    `SELECT u.public_id,
+      COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint balance
+    FROM users u
+    LEFT JOIN ledger_accounts a
+      ON a.owner_type='user' AND a.owner_id=u.id AND a.account_type='wallet'
+    LEFT JOIN ledger_entries e ON e.account_id=a.id
+    WHERE u.public_id=ANY($1) GROUP BY u.public_id`,
     [["usr_customer", "usr_driver"]],
   );
   const tipLedger = await pool.query(
@@ -3835,11 +3921,22 @@ try {
     [registeredUserId],
   );
   await pool.query(
-    `INSERT INTO drivers(public_id,user_id,online,active_mode,service_modes,current_location,location_updated_at) SELECT $1,id,true,'ride',ARRAY['ride']::job_kind[],ST_SetSRID(ST_MakePoint(-58.39,-34.60),4326)::geography,now() FROM users WHERE public_id=$2`,
+    `INSERT INTO drivers(public_id,user_id,online,active_mode,service_modes,current_location,location_updated_at) SELECT $1,
+      id,
+      true,
+      'ride',
+      ARRAY['ride']::job_kind[],
+      ST_SetSRID(ST_MakePoint(-58.39,-34.60),4326)::geography,
+      now() FROM users WHERE public_id=$2`,
     [moderationDriverId, registeredUserId],
   );
   await pool.query(
-    `INSERT INTO dispatch_offers(public_id,job_id,driver_id,score,expires_at) SELECT $1,j.id,d.id,100,now()+interval '5 minutes' FROM jobs j CROSS JOIN drivers d WHERE j.public_id=$2 AND d.public_id=$3 ON CONFLICT(job_id,driver_id) DO UPDATE SET status='pending',expires_at=excluded.expires_at`,
+    `INSERT INTO dispatch_offers(public_id,job_id,driver_id,score,expires_at) SELECT $1,
+      j.id,
+      d.id,
+      100,
+      now()+interval '5 minutes' FROM jobs j CROSS JOIN drivers d WHERE j.public_id=$2 AND d.public_id=$3 ON CONFLICT(job_id,driver_id) DO UPDATE SET status='pending',
+      expires_at=excluded.expires_at`,
     [`OFR-MOD-${Date.now()}`, registeredRideId, moderationDriverId],
   );
   const suspendedUser = await request(`/admin/users/${registeredUserId}/status`, {
@@ -3910,7 +4007,8 @@ try {
       Number(
         (
           await pool.query(
-            `SELECT COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint cents FROM ledger_accounts a LEFT JOIN ledger_entries e ON e.account_id=a.id WHERE a.owner_type='platform' AND a.owner_id IS NULL AND a.account_type='revenue'`,
+            `SELECT COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint cents FROM ledger_accounts a LEFT JOIN ledger_entries e ON e.account_id=a.id ,
+              WHERE a.owner_type='platform' AND a.owner_id IS NULL AND a.account_type='revenue'`,
           )
         ).rows[0].cents,
       ) / 100;

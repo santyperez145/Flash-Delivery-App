@@ -57,8 +57,14 @@ try {
       JOIN ledger_entries e ON e.account_id=a.id JOIN ledger_transactions t ON t.id=e.transaction_id WHERE t.status='posted'
     ) SELECT
       COALESCE(sum(signed_cents),0)::bigint wallet_balance,
-      COALESCE(sum(signed_cents) FILTER(WHERE kind IN('driver_earning','merchant_settlement','tip','tip_adjustment') AND created_at >= (date_trunc('day',now() AT TIME ZONE timezone) AT TIME ZONE timezone)),0)::bigint today_amount,
-      COALESCE(sum(signed_cents) FILTER(WHERE kind IN('driver_earning','merchant_settlement','tip','tip_adjustment') AND created_at >= (date_trunc('week',now() AT TIME ZONE timezone) AT TIME ZONE timezone)),0)::bigint week_amount,
+      COALESCE(sum(signed_cents) FILTER(
+        WHERE kind IN('driver_earning','merchant_settlement','tip','tip_adjustment')
+          AND created_at >= (date_trunc('day',now() AT TIME ZONE timezone) AT TIME ZONE timezone)
+      ),0)::bigint today_amount,
+      COALESCE(sum(signed_cents) FILTER(
+        WHERE kind IN('driver_earning','merchant_settlement','tip','tip_adjustment')
+          AND created_at >= (date_trunc('week',now() AT TIME ZONE timezone) AT TIME ZONE timezone)
+      ),0)::bigint week_amount,
       COALESCE(sum(signed_cents) FILTER(WHERE kind='tip' AND created_at >= (date_trunc('day',now() AT TIME ZONE timezone) AT TIME ZONE timezone)),0)::bigint today_tips,
       COALESCE(sum(signed_cents) FILTER(WHERE kind='tip_adjustment' AND created_at >= (date_trunc('day',now() AT TIME ZONE timezone) AT TIME ZONE timezone)),0)::bigint today_adjustments
     FROM scoped`)

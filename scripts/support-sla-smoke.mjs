@@ -64,7 +64,10 @@ try {
     }),
     sideEffects = (
       await pool.query(
-        "SELECT (SELECT count(*)::int FROM support_tickets WHERE public_id=$1) tickets,(SELECT count(*)::int FROM audit_events WHERE entity_type='support_ticket' AND entity_id=$1 AND action='support.created') audits",
+        `SELECT (SELECT count(*)::int FROM support_tickets WHERE public_id=$1) tickets,
+          (SELECT count(*)::int FROM audit_events
+            WHERE entity_type='support_ticket' AND entity_id=$1 AND action='support.created'
+          ) audits`,
         [ticketId],
       )
     ).rows[0];
@@ -102,7 +105,15 @@ try {
     }),
     messageEffects = (
       await pool.query(
-        "SELECT (SELECT count(*)::int FROM support_messages m JOIN support_tickets t ON t.id=m.ticket_id WHERE t.public_id=$1 AND m.body='Aporto más contexto') messages,(SELECT count(*)::int FROM audit_events WHERE entity_type='support_ticket' AND entity_id=$1 AND action='support.message_created') audits",
+        `SELECT (
+            SELECT count(*)::int FROM support_messages m
+            JOIN support_tickets t ON t.id=m.ticket_id
+            WHERE t.public_id=$1 AND m.body='Aporto más contexto'
+          ) messages,
+          (SELECT count(*)::int FROM audit_events
+            WHERE entity_type='support_ticket' AND entity_id=$1
+              AND action='support.message_created'
+          ) audits`,
         [ticketId],
       )
     ).rows[0];
