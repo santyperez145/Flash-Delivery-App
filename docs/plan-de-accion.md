@@ -139,7 +139,7 @@ La fase no se declara cerrada hasta que **todos** estos puntos sean verificables
 | `GOOGLE_MAPS_SERVER_API_KEY` (+ móviles restringidas) | GEO-001 calidad/costo real; cotización vial con evidencia | API key comercial |
 | Teléfono Android + iOS + credenciales EAS | NOT-001 push físico | Dispositivos y cuenta Expo |
 | Segundo revisor GitHub | CI-001 pagos/seguridad | Otro humano en el repo / `CODEOWNERS` |
-| Credenciales nightly (k6 sandbox, EAS builds) | CI-001 nightly | Secrets en Actions |
+| Credenciales nightly (sandbox proveedores, EAS) + scope `workflow` para cablear `test:k6-local` | CI-001 nightly | Secrets / token Actions del dueño |
 
 Sin esos ítems la app **no puede declararse terminada en producción**; el código y las puertas CI sí pueden seguir cerrando todo lo verificable en el repo.
 
@@ -327,7 +327,7 @@ Estado al **25 de agosto de 2026**. Se actualiza en el PR que cambia el estado, 
 
 ### Detalle de lo que está en curso — 26 de agosto de 2026
 
-> **Las tres puertas están en verde.** 106 de 108 suites detrás de una puerta, 104 bloqueantes. Antes de esta entrega, `main` llevaba en rojo desde el 23 de agosto sin que nadie estuviera bloqueado — la prueba práctica de H-01: una puerta que existe pero no se hace cumplir no protege nada.
+> **Las tres puertas están en verde.** 106 de 109 suites detrás de una puerta, 104 bloqueantes. Antes de esta entrega, `main` llevaba en rojo desde el 23 de agosto sin que nadie estuviera bloqueado — la prueba práctica de H-01: una puerta que existe pero no se hace cumplir no protege nada.
 
 **SEC-001.** El fallback fail-open está eliminado. La política de audiencias vive
 ahora en `server/realtime-audience.js`, un módulo sin dependencias, y una entidad
@@ -338,7 +338,7 @@ merge y se verificó que falla ante el defecto. Falta la verificación de runtim
 contra PostgreSQL y el dashboard de la métrica.
 
 **CI-001.** `ci.yml` se dividió en **cuatro workflows**. La cobertura pasó de
-**15 a 106 de 108 suites** detrás de una puerta, 104 de ellas bloqueantes.
+**15 a 106 de 109 suites** detrás de una puerta, 104 de ellas bloqueantes.
 `ci-critical-flows.yml` levanta la API contra PostgreSQL y
 cubre pagos, conciliación, riesgo, payouts, KYC, vehículos, safety, chat,
 soporte y notificaciones.
@@ -369,7 +369,8 @@ que publica no exagere lo que un PR realmente frena.
 La cuarentena quedó **vacía** el 27 de agosto: `test:support-routing` salió y ya
 bloquea. Su causa anotada era falsa —le faltaba la cabecera `Idempotency-Key`,
 así que nunca llegó a probar el ruteo del que la acusaban—. Del nocturno faltan
-carga k6, sandbox de proveedores y builds EAS —los tres necesitan credenciales—
+carga k6 Cloud / sandbox de proveedores y builds EAS —necesitan credenciales—;
+`test:k6-local` ya está en el repo y falta cablearlo al nocturno (scope `workflow`).
 más el restore drill, que hoy es un script PowerShell.
 
 Cerrar tres de las cuatro suites en cuarentena destapó cuatro defectos reales

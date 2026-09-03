@@ -72,6 +72,7 @@
     "test:sensitive-data": "node --env-file-if-exists=.env.local scripts/sensitive-data-smoke.mjs",
     "test:mfa": "node --env-file-if-exists=.env.local scripts/mfa-smoke.mjs",
     "test:performance": "node --env-file-if-exists=.env.local scripts/performance-smoke.mjs",
+    "test:k6-local": "k6 run load/k6-health.js",
     "test:maps": "node --env-file-if-exists=.env.local scripts/maps-smoke.mjs",
     "test:payment-methods": "node --env-file-if-exists=.env.local scripts/payment-methods-smoke.mjs",
     "test:notification-preferences": "node --env-file-if-exists=.env.local scripts/notification-preferences-smoke.mjs",
