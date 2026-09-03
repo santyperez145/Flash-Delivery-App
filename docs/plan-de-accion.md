@@ -327,7 +327,7 @@ Estado al **25 de agosto de 2026**. Se actualiza en el PR que cambia el estado, 
 
 ### Detalle de lo que está en curso — 26 de agosto de 2026
 
-> **Las tres puertas están en verde.** 106 de 107 suites detrás de una puerta, 104 bloqueantes. Antes de esta entrega, `main` llevaba en rojo desde el 23 de agosto sin que nadie estuviera bloqueado — la prueba práctica de H-01: una puerta que existe pero no se hace cumplir no protege nada.
+> **Las tres puertas están en verde.** 106 de 108 suites detrás de una puerta, 104 bloqueantes. Antes de esta entrega, `main` llevaba en rojo desde el 23 de agosto sin que nadie estuviera bloqueado — la prueba práctica de H-01: una puerta que existe pero no se hace cumplir no protege nada.
 
 **SEC-001.** El fallback fail-open está eliminado. La política de audiencias vive
 ahora en `server/realtime-audience.js`, un módulo sin dependencias, y una entidad
@@ -338,7 +338,7 @@ merge y se verificó que falla ante el defecto. Falta la verificación de runtim
 contra PostgreSQL y el dashboard de la métrica.
 
 **CI-001.** `ci.yml` se dividió en **cuatro workflows**. La cobertura pasó de
-**15 a 106 de 107 suites** detrás de una puerta, 104 de ellas bloqueantes.
+**15 a 106 de 108 suites** detrás de una puerta, 104 de ellas bloqueantes.
 `ci-critical-flows.yml` levanta la API contra PostgreSQL y
 cubre pagos, conciliación, riesgo, payouts, KYC, vehículos, safety, chat,
 soporte y notificaciones.
@@ -429,7 +429,8 @@ En web, `src/App.tsx` es el shell de sesión, auth y enrutado: catálogo, carrit
 checkout y viajes viven en `useCustomerCommerce`, y el chrome del phone-stage en
 `AppChrome`. Las cinco audiencias se cargan por separado y el entry inicial se
 mantiene en 67,7 KiB. En mobile, la sesión de Comidas vive en `useCustomerFood`.
-El siguiente corte de ARC-001 son los clientes HTTP y los tipos divergentes,
+El siguiente corte de ARC-001 ya no son los clientes HTTP (partidos) sino seguir
+subiendo intersecciones al paquete compartido y cualquier monolito que reaparezca;
 no sumar condicionales al shell.
 El primer corte interno web movió Wallet a `src/customer/WalletScreen.tsx`:
 `CustomerSurface.tsx` bajó de 3.794 a **3.720 líneas** y una puerta fija el techo
@@ -466,8 +467,9 @@ overflow a 390 × 844.
 El octavo llevó selector de servicio y navegación inferior a
 `CustomerNavigation.tsx` (85 líneas), conservando flags y una Actividad común.
 `CustomerSurface.tsx` quedó en **360 líneas** con ratchet 375 y sin la importación
-muerta de `FlashMap`. La segmentación del cliente web está cerrada; ARC-001 no,
-porque el paquete compartido y 256 líneas largas heredadas siguen pendientes.
+muerta de `FlashMap`. La segmentación del cliente web está cerrada; ARC-001 sigue
+abierto por el paquete compartido (35 tipos; menú/sucursales ya alineados) — el
+ratchet de líneas >200 y archivos >1500 quedó en cero.
 
 Las 8 rutas que quedan no son dominio: salud, readiness, el documento OpenAPI,
 el bootstrap por audiencia, las dos de métricas, el 410 que retiró `/api/state`

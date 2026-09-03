@@ -29,6 +29,10 @@ import type {
   OrderItem,
   Order as SharedOrder,
   RestaurantSummary,
+  MenuModifier,
+  MenuModifierGroup,
+  MenuItemSummary,
+  RestaurantBranch,
   RideStatus,
 } from "@flash/domain-contracts";
 
@@ -62,6 +66,10 @@ export type {
   OrderStatus,
   OrderItem,
   RestaurantSummary,
+  MenuModifier,
+  MenuModifierGroup,
+  MenuItemSummary,
+  RestaurantBranch,
   RideStatus,
 };
 
@@ -76,35 +84,13 @@ export type Extra = {
   price: number;
 };
 
-export type MenuItem = {
-  id: string;
-  name: string;
+/** Ítem de vitrina web: núcleo compartido + presentación de catálogo. */
+export type MenuItem = MenuItemSummary & {
   description: string;
   category: string;
-  price: number;
   rating: number;
   timeMin: number;
   kcal: number;
-  stock: boolean;
-  modifierGroups?: Array<{
-    id: string;
-    name: string;
-    min: number;
-    max: number;
-    required: boolean;
-    modifiers: Array<{
-      id: string;
-      name: string;
-      price: number;
-      available: boolean;
-    }>;
-  }>;
-  dietaryLabels?: Array<{ code: string; name: string }>;
-  allergens?: Array<{
-    code: string;
-    name: string;
-    presence: "contains" | "may_contain";
-  }>;
   image: string;
   tags: string[];
 };
@@ -152,36 +138,7 @@ export type Restaurant = RestaurantSummary & {
   lng?: number | null;
   menu: MenuItem[];
   extras: Extra[];
-  branches?: Array<{
-    id: string;
-    name: string;
-    address: string;
-    lat: number;
-    lng: number;
-    open: boolean;
-    manualOpen: boolean;
-    status: "active" | "paused" | "closed";
-    etaMin: number;
-    isPrimary: boolean;
-    timezone: string;
-    weeklyHours: Array<{
-      weekday: number;
-      opensAt: string;
-      closesAt: string;
-      enabled: boolean;
-    }>;
-    scheduleExceptions: Array<{
-      date: string;
-      isOpen: boolean;
-      opensAt: string | null;
-      closesAt: string | null;
-      reason: string | null;
-    }>;
-    inventory: Record<
-      string,
-      { available: boolean; stockQuantity: number | null; version: number }
-    >;
-  }>;
+  branches?: RestaurantBranch[];
 };
 
 export type Driver = {

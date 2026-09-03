@@ -2,10 +2,10 @@
 //
 // Sólo entran tipos byte-a-byte iguales y autocontenidos, o la intersección /
 // proyección autoritativa del servidor cuando ambas superficies ya la consumen.
-// `Order`/`OrderItem` y `RestaurantSummary` son núcleos compartidos; web y mobile
-// extienden con timeline/tarifas, cancelación o menú/sucursales. Menú, extras y
-// sucursales siguen locales. MerchantOperationsDashboard sigue local porque referencia
-// `Restaurant` completo.
+// `Order`/`OrderItem`, `RestaurantSummary`, `MenuItemSummary` y `RestaurantBranch`
+// son núcleos compartidos; web extiende el ítem con vitrina y mobile reusa el
+// núcleo. Extras del comercio siguen locales (sólo web). MerchantOperationsDashboard
+// sigue local porque referencia `Restaurant` completo.
 
 export type DietaryPreferences = {
   dietaryLabels: Array<{ code: string; name: string }>;
@@ -393,9 +393,75 @@ export type Order = {
 };
 
 /**
+ * Ítem de catálogo: intersección operativa web/mobile (ARC-001).
+ * Web añade rating/ETA/kcal/imagen/tags; mobile consume el núcleo.
+ */
+export type MenuModifier = {
+  id: string;
+  name: string;
+  price: number;
+  available: boolean;
+};
+
+export type MenuModifierGroup = {
+  id: string;
+  name: string;
+  min: number;
+  max: number;
+  required: boolean;
+  modifiers: MenuModifier[];
+};
+
+export type MenuItemSummary = {
+  id: string;
+  name: string;
+  price: number;
+  stock: boolean;
+  description?: string;
+  category?: string;
+  modifierGroups?: MenuModifierGroup[];
+  dietaryLabels?: Array<{ code: string; name: string }>;
+  allergens?: Array<{
+    code: string;
+    name: string;
+    presence: "contains" | "may_contain";
+  }>;
+};
+
+/** Sucursal con horario e inventario por ítem — idéntica en web y mobile. */
+export type RestaurantBranch = {
+  id: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  open: boolean;
+  manualOpen: boolean;
+  status: "active" | "paused" | "closed";
+  etaMin: number;
+  isPrimary: boolean;
+  timezone: string;
+  weeklyHours: Array<{
+    weekday: number;
+    opensAt: string;
+    closesAt: string;
+    enabled: boolean;
+  }>;
+  scheduleExceptions: Array<{
+    date: string;
+    isOpen: boolean;
+    opensAt: string | null;
+    closesAt: string | null;
+    reason: string | null;
+  }>;
+  inventory: Record<string, { available: boolean; stockQuantity: number | null; version: number }>;
+};
+
+/**
  * Proyección de restaurante compartida entre web y mobile (listados, cards, quote).
  *
- * Menú, extras, coordenadas y sucursales viven en la extensión local `Restaurant`.
+ * Menú/sucursales: `MenuItemSummary` y `RestaurantBranch`. Web añade extras,
+ * coordenadas y campos de vitrina del ítem; mobile usa el núcleo del menú.
  */
 export type RestaurantSummary = {
   id: string;
