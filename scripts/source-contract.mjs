@@ -159,6 +159,7 @@ const WEB_STYLE_FILES = [
   "src/styles/admin-shell.css",
   "src/styles/merchant-desktop.css",
   "src/styles/merchant-ops-detail.css",
+  "src/styles/pricing.css",
   "src/styles/foundation.css",
   "src/styles/auth.css",
   "src/styles/states.css",

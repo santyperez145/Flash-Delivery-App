@@ -127,7 +127,19 @@ La fase no se declara cerrada hasta que **todos** estos puntos sean verificables
 - [ ] Cero credenciales demo en cualquier ambiente desplegado. **Bloqueo del dueño:** falta cuenta GCP / entorno.
 - [x] La suite crítica está verde y es bloqueante, y **la cuarentena está vacía desde el 27 de agosto**.
 - [x] La matriz de madurez está publicada y ningún ítem del README la contradice.
-- [ ] Ningún archivo fuente supera 1.500 líneas ni contiene líneas de más de 200 caracteres. **Líneas >200: cerrado (0).** Quedan monolitos >1500: `styles.css`, `styles.ts` mobile, `openapi.js`, `store.js`, smoke postgres.
+- [ ] Ningún archivo fuente supera 1.500 líneas ni contiene líneas de más de 200 caracteres. **Líneas >200: cerrado (0).** Estilos web/mobile bajo 1500. Quedan: `postgres-runtime-smoke.mjs`, `openapi.js`, `store.js`. `test:line-length` fija ambos ratchets.
+
+### Bloqueos del dueño (no los puede cerrar el agente)
+
+| Bloqueo | Ticket / criterio | Qué hace falta |
+| --- | --- | --- |
+| Cuenta GCP `southamerica-east1` | Despliegue / cero demo en prod | Crear proyecto y secretos — ver `docs/despliegue.md` |
+| `GOOGLE_MAPS_SERVER_API_KEY` (+ móviles restringidas) | GEO-001 calidad/costo real; cotización vial con evidencia | API key comercial |
+| Teléfono Android + iOS + credenciales EAS | NOT-001 push físico | Dispositivos y cuenta Expo |
+| Segundo revisor GitHub | CI-001 pagos/seguridad | Otro humano en el repo / `CODEOWNERS` |
+| Credenciales nightly (k6 sandbox, EAS builds) | CI-001 nightly | Secrets en Actions |
+
+Sin esos ítems la app **no puede declararse terminada en producción**; el código y las puertas CI sí pueden seguir cerrando todo lo verificable en el repo.
 
 ---
 

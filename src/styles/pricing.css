@@ -1,0 +1,221 @@
+/* Tarifas y gobernanza de pricing (extraído de styles.css, ARC-001). */
+
+.pricing-governance {
+  grid-template-columns: minmax(0, 1.25fr) minmax(360px, 0.75fr);
+}
+.pricing-service-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 18px 0 12px;
+}
+.pricing-service-tabs button {
+  padding: 9px 14px;
+  border: 1px solid #ded7e3;
+  border-radius: 999px;
+  background: #fff;
+  color: #5f5863;
+  font-weight: 800;
+}
+.pricing-service-tabs button.active {
+  border-color: #7c3cff;
+  background: #7c3cff;
+  color: #fff;
+}
+.pricing-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+.pricing-fields label,
+.pricing-submit label {
+  display: grid;
+  gap: 4px;
+  color: #5f5863;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+.pricing-fields label small {
+  overflow: hidden;
+  color: #9a929e;
+  font-size: 0.62rem;
+  text-overflow: ellipsis;
+}
+.pricing-fields input,
+.pricing-submit input,
+.pricing-request textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd5e2;
+  border-radius: 11px;
+  background: #fff;
+  color: #251f28;
+}
+.pricing-submit {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 10px;
+  align-items: end;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #eee9f0;
+}
+.pricing-submit button,
+.pricing-review-actions button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 11px;
+  background: #17131a;
+  color: #fff;
+  font-weight: 850;
+}
+.pricing-request-list {
+  display: grid;
+  gap: 11px;
+  margin-top: 16px;
+}
+.pricing-request {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid #e5dfe8;
+  border-radius: 16px;
+  background: #fff;
+}
+.pricing-request > div:first-child {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+.pricing-request span {
+  color: #7c3cff;
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.pricing-request b {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #f0ecf4;
+  color: #6e6672;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+}
+.pricing-request.pending b {
+  background: #fff1cc;
+  color: #8a5a00;
+}
+.pricing-request.approved b {
+  background: #e6f3ff;
+  color: #245d88;
+}
+.pricing-request.activated b {
+  background: #dff7e7;
+  color: #176236;
+}
+.pricing-request.rejected b {
+  background: #ffe6e5;
+  color: #9d2924;
+}
+.pricing-request small {
+  color: #7c7480;
+}
+.pricing-request textarea {
+  min-height: 66px;
+  resize: vertical;
+}
+.pricing-review-actions {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
+}
+.pricing-review-actions button:first-child {
+  background: #fff;
+  border: 1px solid #dbcfdc;
+  color: #8c3232;
+}
+@media (max-width: 1180px) {
+  .pricing-governance {
+    grid-template-columns: 1fr;
+  }
+  .pricing-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 680px) {
+  .pricing-fields,
+  .pricing-submit {
+    grid-template-columns: 1fr;
+  }
+}
+.pricing-history {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+}
+.pricing-history > div {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 11px;
+  background: #f6f3f8;
+}
+.pricing-history span {
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+.pricing-history button {
+  padding: 7px 9px;
+  border: 1px solid #dacfe1;
+  border-radius: 9px;
+  background: #fff;
+  color: #63368d;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+.pricing-risk {
+  justify-self: start;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+.pricing-risk.low {
+  background: #e1f7e8;
+  color: #1c6840;
+}
+.pricing-risk.medium {
+  background: #fff1cc;
+  color: #825700;
+}
+.pricing-risk.high {
+  background: #ffe2df;
+  color: #9c2f28;
+}
+.pricing-request.risk-high {
+  border-color: #efaaa4;
+  box-shadow: 0 0 0 2px #fff0ee inset;
+}
+.pricing-warnings {
+  display: grid !important;
+  gap: 4px !important;
+  padding: 9px;
+  border-radius: 10px;
+  background: #fff8ed;
+}
+.pricing-warnings small strong {
+  color: #3f3842;
+}
+@media (max-width: 680px) {
+  .pricing-history > div {
+    grid-template-columns: 1fr auto;
+  }
+  .pricing-history button {
+    grid-column: 1/-1;
+  }
+}
+
