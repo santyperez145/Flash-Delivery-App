@@ -2,8 +2,43 @@ import crypto from "node:crypto";
 import { postgresPool } from "./postgres.js";
 import { enqueueNotificationForInternalUser } from "./notification-repository.js";
 import { scoreCandidates, shortlistDrivers } from "./dispatch-candidates.js";
+import { refreshDriverDispatchStats, refreshStaleDispatchStats } from "./dispatch-stats.js";
 
 const offerId = () => `OFR-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
+
+/**
+ * Reclamo de jobs para una oleada (DSP-001 + GTM Flash Más).
+ *
+ * `dispatch_priority_boost` del plan vigente del cliente reordena la **cola de
+ * jobs**, no el score de conductores: Uber One / DashPass priorizan el pedido
+ * del suscriptor frente al FIFO. Sin suscripción el orden sigue siendo
+ * `created_at`. `FOR UPDATE OF j` evita bloquear filas de suscripción.
+ */
+export const DISPATCH_BATCH_CLAIM_SQL = `
+  SELECT j.id, j.public_id, j.kind,
+    COALESCE((j.metadata->>'dispatchRound')::int, 0) dispatch_round,
+    COALESCE(boost.dispatch_priority_boost, 0) subscription_boost
+  FROM jobs j
+  LEFT JOIN LATERAL (
+    SELECT p.dispatch_priority_boost
+    FROM user_subscriptions s
+    JOIN subscription_plans p ON p.id = s.plan_id
+    WHERE s.user_id = j.customer_id
+      AND s.status = 'active'
+      AND s.current_period_end > now()
+    ORDER BY p.dispatch_priority_boost DESC
+    LIMIT 1
+  ) boost ON true
+  WHERE j.driver_id IS NULL AND j.status NOT IN('completed','cancelled')
+    AND (COALESCE(j.metadata->>'subtype','')<>'food_order' OR j.status='ready_for_pickup')
+    AND (j.scheduled_for IS NULL OR j.scheduled_for<=now()+interval '15 minutes')
+    AND NOT EXISTS(
+      SELECT 1 FROM dispatch_offers o
+      WHERE o.job_id=j.id AND o.status='pending' AND o.expires_at>now())
+    AND COALESCE((j.metadata->>'dispatchNextAttemptAt')::timestamptz,'epoch')<=now()
+  ORDER BY COALESCE(boost.dispatch_priority_boost, 0) DESC, j.created_at
+  FOR UPDATE OF j SKIP LOCKED
+  LIMIT $1`;
 
 export async function createDispatchOffers(client, { jobId, mode, limit = 3, ttlSeconds = 45 }) {
   // Las compuertas del trabajo se evalúan una sola vez, no por candidato.
@@ -38,6 +73,7 @@ export async function createDispatchOffers(client, { jobId, mode, limit = 3, ttl
       freshnessPenalty: Number(candidate.freshness_penalty),
       acceptancePoints: Number(candidate.acceptance_points),
       responsePoints: Number(candidate.response_points),
+      incidentPenalty: Number(candidate.incident_penalty),
       acceptanceRate: Number(candidate.acceptance_rate),
       averageResponseSeconds: Number(candidate.average_response_seconds),
     };
@@ -78,23 +114,13 @@ export async function processPostgresDispatchBatch({
   const client = await postgresPool.connect();
   try {
     await client.query("BEGIN");
+    await refreshStaleDispatchStats(client, { olderThanMinutes: 15, limit: 200 });
     const expired = (
       await client.query(
         "UPDATE dispatch_offers SET status='expired',responded_at=now() WHERE status='pending' AND expires_at<=now() RETURNING id",
       )
     ).rowCount;
-    const jobs = (
-      await client.query(
-        `SELECT j.id,j.public_id,j.kind,COALESCE((j.metadata->>'dispatchRound')::int,0) dispatch_round
-      FROM jobs j WHERE j.driver_id IS NULL AND j.status NOT IN('completed','cancelled')
-        AND (COALESCE(j.metadata->>'subtype','')<>'food_order' OR j.status='ready_for_pickup')
-        AND (j.scheduled_for IS NULL OR j.scheduled_for<=now()+interval '15 minutes')
-        AND NOT EXISTS(SELECT 1 FROM dispatch_offers o WHERE o.job_id=j.id AND o.status='pending' AND o.expires_at>now())
-        AND COALESCE((j.metadata->>'dispatchNextAttemptAt')::timestamptz,'epoch')<=now()
-      ORDER BY j.created_at FOR UPDATE SKIP LOCKED LIMIT $1`,
-        [limit],
-      )
-    ).rows;
+    const jobs = (await client.query(DISPATCH_BATCH_CLAIM_SQL, [limit])).rows;
     let offered = 0,
       exhausted = 0;
     for (const job of jobs) {
@@ -158,13 +184,17 @@ export async function getPostgresDispatchOffers(driverPublicId) {
 
 export async function rejectPostgresDispatchOffer({ driverPublicId, offerPublicId }) {
   const result = await postgresPool.query(
-    `UPDATE dispatch_offers o SET status='rejected',responded_at=now() FROM drivers d
-    WHERE o.driver_id=d.id AND d.public_id=$1 AND o.public_id=$2 AND o.status='pending' AND o.expires_at>now() RETURNING o.public_id`,
+    `UPDATE dispatch_offers o SET status='rejected',responded_at=now()
+    FROM drivers d JOIN jobs j ON j.id=o.job_id
+    WHERE o.driver_id=d.id AND d.public_id=$1 AND o.public_id=$2 AND o.status='pending' AND o.expires_at>now()
+    RETURNING o.public_id,o.driver_id,j.kind`,
     [driverPublicId, offerPublicId],
   );
   if (!result.rows[0])
     throw Object.assign(new Error("La oferta no existe o ya venció"), { status: 409 });
-  return result.rows[0].public_id;
+  const row = result.rows[0];
+  await refreshDriverDispatchStats(postgresPool, { driverId: row.driver_id, service: row.kind });
+  return row.public_id;
 }
 
 export async function acceptDispatchOffer(
@@ -215,5 +245,6 @@ export async function acceptDispatchOffer(
     status,
     { offerId: offer.id },
   ]);
+  await refreshDriverDispatchStats(client, { driverId: offer.driver_id, service: offer.kind });
   return changed;
 }

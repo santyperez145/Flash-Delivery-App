@@ -25,7 +25,7 @@ import {
   getFeatureFlags,
   updateFeatureFlag,
 } from "../feature-flag-repository.js";
-import { recordPostgresAudit } from "../operations-repository.js";
+import { recordPostgresAudit } from "../audit-repository.js";
 import { usesPostgresCommerce } from "../postgres.js";
 import { requireAuth } from "./authentication.js";
 import { requireAnyRole } from "./authorization.js";

@@ -286,6 +286,19 @@ Fuentes oficiales adicionales:
 - [Uber Courier: preguntas frecuentes de paquetes](https://help.uber.com/riders/article/courier-package-delivery-faq?nodeId=2f234df8-cdf6-4bf9-81da-8f68b79b35f5)
 - [Uber Connect: seguimiento y comunicación de paquetes](https://www.uber.com/us/en/newsroom/uber-connect-holiday/)
 
+Revalidación del 2 de septiembre de 2026 para la consola de comercio:
+
+- DoorDash Merchant Portal y Uber Eats Manager separan live orders, missing item / 86, menú, store hours y payouts. Flash adopta esa frontera en web y en Merchant App: cocina/Hoy, detalle/sustituciones, catálogo, sucursales, analítica y liquidaciones son módulos; el shell sólo navega y hace polling.
+- En el phone-stage web, comercio, conductor y ops dejan de compartir archivo y chunk: Uber/DoorDash empaquetan por audiencia. Flash iguala esa frontera; el riel contextual sigue siendo forma compartida, no dominio.
+- Cuenta mobile adopta la misma partición que Uber/DoorDash Account: seguridad, pagos, direcciones, dieta, inbox y ayuda son módulos; el shell sólo carga y muestra perfil/suscripción.
+- La extracción no crea paridad ficticia. Flash sigue por debajo en POS, prep-time por ítem, evidencia fotográfica de faltantes y liquidación marketplace contra el proveedor real.
+
+Fuentes oficiales:
+
+- [DoorDash Merchant Portal](https://merchants.doordash.com/en-us/products/merchant-portal)
+- [DoorDash Business Manager](https://merchants.doordash.com/en-us/learning-center/business-manager-app)
+- [Uber Eats — live order tracking](https://help.uber.com/en/merchants-and-restaurants/article/live-order-tracking---faq?nodeId=d006582e-113f-4423-9d33-e938de34b3a2)
+
 Revalidación del 30 de agosto de 2026 para la segmentación de Comidas:
 
 - La guía oficial de Uber Eats mantiene una secuencia explícita de dirección → restaurante → productos → carrito/checkout → revisión → confirmación → tracking. Flash conserva esos límites como módulos de tarea y comparte sólo el estado que cruza Cuenta y Actividad.
@@ -665,3 +678,94 @@ seguro ni habilitación comercial.
 
 - [Uber Eats: una identidad existente de Rides también accede a Eats](https://help.uber.com/ubereats/restaurants/article/how-do-i-create-an-uber-eats-account?nodeId=13daba70-cc3d-4204-9981-1591d7942042)
 - [Uber Courier: opción de paquetes y hub de actividad común](https://help.uber.com/en/riders/article/node-title?nodeId=8fa2306b-c14d-4f0b-9395-4c4523a81e85)
+
+### Decisión 2 de septiembre de 2026 — sesión de Comidas mobile como máquina de estado propia
+
+La guía vigente de Uber Eats conserva una secuencia explícita: descubrir, restaurante,
+personalizar, carrito, revisión con precio autoritativo y confirmación. El patrón relevante
+para ARC-001 no es otra pantalla, sino que esa máquina de estado no viva mezclada con
+Viajes, Envíos, Actividad y Cuenta.
+
+Flash mueve catálogo, favoritos, carrito persistido, quote firmada, propina, horario y
+checkout de grupo a `useCustomerFood`. El coordinador sólo navega verticales y comparte
+dirección/dieta con Cuenta. Sigue por debajo: sin POS, prep-time por ítem, evidencia
+fotográfica de faltantes ni push físico. Ninguna de esas deudas se presenta como cerrada
+por haber extraído el hook.
+
+- [Uber Eats: recorre restaurantes, platos y checkout con precio final](https://help.uber.com/ubereats/restaurants/article/pick-up-order-faq?nodeId=a58f21e8-fc3e-42cb-adfd-92db5024faf5)
+- [Uber Eats: seguimiento desde la lista de pedidos](https://help.uber.com/ubereats/restaurants/article/node-title?nodeId=0341399a-092f-4012-b4c6-478b9906700d)
+
+### Decisión 2 de septiembre de 2026 — sesión de comercio web fuera del shell
+
+Uber Eats y Uber Rides conservan descubrir, carrito, precio autoritativo y cotización de
+viaje como una máquina de estado propia, no como estado del marco de autenticación. El
+patrón relevante para ARC-001 es que `App.tsx` arranque sesión y enrute por audiencia;
+pedir comida o un viaje no debe vivir mezclado con MFA, bootstrap ni el portal desktop.
+
+Flash mueve esa frontera a `useCustomerCommerce`. El origen de un viaje sigue derivando
+una sola vez de la dirección geocodificada propia y una quote se invalida al cambiar
+origen, destino o servicio. Sigue por debajo: tipos User/Order/Restaurant divergentes
+y sin liquidación productiva.
+
+### Decisión 2 de septiembre de 2026 — transporte HTTP separado del mapa de recursos
+
+Las plataformas comparables aíslan timeout, reintento seguro, rotación de sesión y
+evento en vivo del catálogo de llamadas. Mezclar esas dos responsabilidades en un
+solo archivo hace ilegible cualquier incidente de red y bloquea partir el cliente
+por dominio.
+
+Flash mueve esa frontera a `src/api/http.ts`. Las lecturas GET/HEAD/OPTIONS reintentan
+una vez; las mutaciones no. El refresh es single-flight. El mapa de `/orders` y
+`/rides` queda partido por dominio. El mobile hace el mismo corte. Sigue por
+debajo: User/Order/Restaurant siguen divergentes.
+
+### Decisión 2 de septiembre de 2026 — mapa HTTP web por dominio
+
+Uber y DoorDash no mezclan checkout de comida, cotización de viaje y backoffice
+en un solo cliente. Un incidente de quote no debería obligar a leer payouts, y
+un cambio de `/rides` no debería tocar el carrito.
+
+Flash parte el mapa en cuenta, comercio, movilidad y operaciones. `createOrder`
+reutiliza la cotización firmada como función hermana, no vía `this`. El barrel
+sólo compone y arma el bootstrap. El cliente mobile hace el mismo corte. Sigue
+por debajo: User/Order/Restaurant siguen divergentes.
+
+### Decisión 2 de septiembre de 2026 — mapa HTTP mobile por dominio
+
+La variante instalada (cliente, conductor, comercio) no puede compartir un
+cliente de 1.300 líneas: un cambio de quote de comida no debe tocar el turno
+del conductor, y el gate de `allowsVariant` no debe mezclarse con `/rides`.
+
+Flash aísla timeout y refresh en `apps/mobile/src/api/http.ts` y parte el mapa
+igual que en web. Login y restore siguen negando una cuenta sin el rol de la
+variante instalada; el bootstrap pide la audiencia de esa variante, no la
+prioridad de roles. `User` ya es contrato compartido; Order/Restaurant siguen
+divergentes.
+
+### Decisión 2 de septiembre de 2026 — landing sin login embebido
+
+Uber.com separa la portada de conversión del formulario de cuenta. Meter email
+y contraseña en el hero convierte marketing en un panel de IT y baja la
+confianza frente a la competencia.
+
+Flash parte la superficie: `PublicLanding` (nav + hero a sangre + servicios con
+tokens food/ride/shipment) y `WebLogin` (acceso protegido). El CTA «Ingresar»
+abre el formulario; la portada no tiene `password`. Sigue por debajo: sin quote
+pública anónima, ciudades reales ni badges de store.
+
+### Decisión 2 de septiembre de 2026 — User compartido sin mentir Order/Restaurant
+
+Las plataformas comparables tienen un solo modelo de cuenta entre superficies.
+Flash alineó `User` a la proyección del servidor (`sanitizeUser`/`mapUser`):
+roles del enum PostgreSQL, phone string, status, email/phone verified. También
+compartió `OrderStatus` y `RideStatus`, que ya eran literales idénticos.
+
+Order y Restaurant no entraron: mobile modela ítems/menú más flojos que el
+desktop. Unificarlos sin cerrar esa brecha reexportaría una mentira compartida.
+`MerchantOperationsDashboard` sigue local porque referencia `Restaurant`.
+
+- [Uber Base Web: sistema compartido, no un archivo de 1.700 llamadas](https://www.uber.com/us/en/blog/introducing-base-web/)
+
+- [Uber Eats: recorre restaurantes, platos y checkout con precio final](https://help.uber.com/ubereats/restaurants/article/pick-up-order-faq?nodeId=a58f21e8-fc3e-42cb-adfd-92db5024faf5)
+- [Uber: estimar precio antes de confirmar el viaje](https://www.uber.com/global/en/price-estimate/)
+- [Uber.com: portada de conversión separada del acceso](https://www.uber.com/)

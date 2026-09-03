@@ -1,41 +1,85 @@
-.web-auth-shell {
-  display: grid;
-  grid-template-columns: minmax(420px, 1.08fr) minmax(420px, 0.92fr);
-  min-height: 100dvh;
-  overflow: hidden;
-  background: var(--paper-soft);
-}
+/* Portada pública e ingreso web (patrón Uber + identidad Flash).
+ *
+ * La landing no incluye el formulario: el CTA abre la superficie de login.
+ * Sin cotizador anónimo, ciudades inventadas ni métricas de demostración.
+ */
 
-.web-auth-story {
-  position: relative;
-  isolation: isolate;
+.web-auth-shell {
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 40px;
-  min-width: 0;
-  padding: clamp(32px, 5vw, 72px);
-  overflow: hidden;
-  color: #fff;
-  background:
-    radial-gradient(circle at 18% 8%, rgba(255, 106, 33, 0.34), transparent 29rem),
-    radial-gradient(circle at 92% 88%, rgba(8, 122, 80, 0.28), transparent 25rem),
-    linear-gradient(145deg, #17131c 0%, #281b42 54%, #17131c 100%);
+  min-height: 100dvh;
+  overflow: auto;
+  background: var(--paper);
+  color: var(--ink);
 }
 
-.web-auth-story::after {
-  position: absolute;
-  right: -15%;
-  bottom: -26%;
-  z-index: -1;
-  width: 520px;
-  aspect-ratio: 1;
-  content: "";
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 50%;
-  box-shadow:
-    0 0 0 72px rgba(255, 255, 255, 0.025),
-    0 0 0 144px rgba(255, 255, 255, 0.018);
+.web-auth-shell-login {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(124, 60, 255, 0.14), transparent 42%),
+    radial-gradient(circle at 88% 8%, rgba(255, 106, 33, 0.12), transparent 36%), var(--paper-soft);
+}
+
+.web-auth-nav {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  min-height: 64px;
+  padding: 0 clamp(20px, 4vw, 56px);
+  color: #fff;
+  background: var(--ink);
+}
+
+.web-auth-nav nav {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  min-width: 0;
+}
+
+.web-auth-nav nav a,
+.web-auth-nav-cta,
+.web-auth-back {
+  color: inherit;
+  font-size: 0.92rem;
+  font-weight: 650;
+  text-decoration: none;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.web-auth-nav nav a:hover,
+.web-auth-nav-cta:hover,
+.web-auth-back:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.web-auth-nav-cta {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 16px;
+  color: var(--ink);
+  background: #fff;
+  border-radius: 999px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.web-auth-nav-cta:hover {
+  text-decoration: none;
+  background: #f3f0f6;
+}
+
+.web-auth-back {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
 }
 
 .web-auth-brand,
@@ -43,7 +87,13 @@
   display: inline-flex;
   align-items: center;
   gap: 11px;
+  color: inherit;
   font-size: 1.2rem;
+  text-decoration: none;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
 }
 
 .web-auth-mark {
@@ -57,84 +107,268 @@
   box-shadow: 0 14px 30px rgba(255, 106, 33, 0.28);
 }
 
-.web-auth-story-copy {
-  max-width: 680px;
+/* --- Landing ------------------------------------------------------------- */
+
+.flash-landing {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  color: #fff;
+  background: var(--ink);
 }
 
-.web-auth-eyebrow,
-.web-auth-card header > span {
-  color: #c9b7ff;
-  font-size: 0.73rem;
-  font-weight: 900;
-  letter-spacing: 0.1em;
+.flash-landing-hero {
+  display: grid;
+  grid-template-columns: minmax(420px, 1.08fr) minmax(280px, 0.92fr);
+  align-items: center;
+  gap: clamp(28px, 5vw, 64px);
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  padding: clamp(48px, 8vw, 96px) clamp(20px, 4vw, 56px) clamp(56px, 8vw, 100px);
+  background:
+    radial-gradient(ellipse at 70% 20%, rgba(124, 60, 255, 0.35), transparent 55%),
+    radial-gradient(ellipse at 20% 80%, rgba(255, 106, 33, 0.22), transparent 50%), var(--ink);
+}
+
+.flash-landing-hero-copy {
+  max-width: 720px;
+}
+
+.flash-landing-kicker {
+  margin: 0 0 18px;
+  color: #ffb089;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
-.web-auth-story h1 {
+.flash-landing-hero h1 {
   max-width: 12ch;
-  margin: 14px 0 20px;
-  font-size: clamp(2.9rem, 5.4vw, 5.8rem);
-  line-height: 0.96;
-  letter-spacing: -0.065em;
+  margin: 0 0 22px;
+  font-size: clamp(3rem, 6.2vw, 5.8rem);
+  line-height: 0.94;
+  letter-spacing: -0.07em;
 }
 
-.web-auth-story-copy p {
-  max-width: 54ch;
-  margin: 0;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: clamp(1rem, 1.4vw, 1.16rem);
-  line-height: 1.65;
+.flash-landing-lead {
+  max-width: 42ch;
+  margin: 0 0 28px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: clamp(1.05rem, 1.5vw, 1.25rem);
+  line-height: 1.55;
 }
 
-.web-auth-audiences {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+.flash-landing-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.flash-landing-cta-primary,
+.flash-landing-cta-secondary,
+.flash-landing-service-copy button,
+.flash-landing-footer button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   gap: 10px;
-  max-width: 680px;
+  min-height: 52px;
+  padding: 0 22px;
+  font-weight: 850;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  text-decoration: none;
 }
 
-.web-auth-audiences article {
+.flash-landing-cta-primary {
+  color: var(--ink);
+  background: #fff;
+}
+
+.flash-landing-cta-primary:hover {
+  background: #f3f0f6;
+}
+
+.flash-landing-cta-secondary {
+  color: #fff;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.flash-landing-cta-secondary:hover {
+  border-color: #fff;
+}
+
+.flash-landing-hero-visual {
+  position: relative;
+  min-height: 340px;
+}
+
+.flash-landing-orbit {
+  position: absolute;
   display: flex;
   align-items: center;
   gap: 12px;
-  min-width: 0;
-  padding: 14px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: var(--radius-card);
-  backdrop-filter: blur(12px);
+  min-height: 56px;
+  padding: 0 18px 0 14px;
+  color: #fff;
+  font-weight: 800;
+  border-radius: 999px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
 }
 
-.web-auth-audiences article > span {
+.flash-landing-orbit-food {
+  top: 8%;
+  left: 8%;
+  background: var(--food);
+}
+
+.flash-landing-orbit-ride {
+  top: 38%;
+  right: 4%;
+  background: var(--ride);
+}
+
+.flash-landing-orbit-ship {
+  bottom: 18%;
+  left: 18%;
+  background: var(--shipment);
+}
+
+.flash-landing-orbit-bike {
+  bottom: 4%;
+  right: 18%;
+  color: var(--ink);
+  background: #fff;
+}
+
+.flash-landing-services {
   display: grid;
-  flex: 0 0 auto;
-  width: 40px;
-  height: 40px;
-  place-items: center;
-  color: #e7deff;
-  background: rgba(124, 60, 255, 0.22);
-  border-radius: 12px;
+  gap: 0;
+  background: var(--paper);
+  color: var(--ink);
 }
 
-.web-auth-audiences strong,
-.web-auth-audiences small {
-  display: block;
+.flash-landing-service {
+  display: grid;
+  align-items: center;
+  min-height: min(52vh, 420px);
+  padding: clamp(40px, 7vw, 88px) clamp(20px, 4vw, 56px);
+  background:
+    linear-gradient(90deg, var(--paper) 0%, var(--paper) 48%, transparent 100%),
+    var(--tone, var(--paper-soft));
 }
 
-.web-auth-audiences small,
-.web-auth-story-note {
-  margin-top: 3px;
-  color: rgba(255, 255, 255, 0.58);
-  font-size: 0.74rem;
+.flash-landing-service-food {
+  --tone: #fff1e8;
 }
+
+.flash-landing-service-ride {
+  --tone: #f1ebff;
+}
+
+.flash-landing-service-shipment {
+  --tone: #e8f7f1;
+}
+
+.flash-landing-service-copy {
+  width: min(560px, 100%);
+  margin: 0 auto 0 0;
+  display: grid;
+  gap: 14px;
+}
+
+.flash-landing-service-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  min-height: 34px;
+  padding: 0 12px;
+  color: var(--brand);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: rgba(124, 60, 255, 0.1);
+  border-radius: 999px;
+}
+
+.flash-landing-service-food .flash-landing-service-label {
+  color: #c44a10;
+  background: rgba(255, 106, 33, 0.14);
+}
+
+.flash-landing-service-ride .flash-landing-service-label {
+  color: var(--ride);
+  background: rgba(109, 53, 224, 0.12);
+}
+
+.flash-landing-service-shipment .flash-landing-service-label {
+  color: var(--shipment);
+  background: rgba(8, 122, 80, 0.12);
+}
+
+.flash-landing-service h2 {
+  margin: 0;
+  max-width: 14ch;
+  font-size: clamp(2rem, 3.6vw, 3.2rem);
+  line-height: 1;
+  letter-spacing: -0.05em;
+}
+
+.flash-landing-service p {
+  margin: 0;
+  max-width: 42ch;
+  color: var(--ink-soft);
+  font-size: 1.05rem;
+  line-height: 1.55;
+}
+
+.flash-landing-service-copy button {
+  width: fit-content;
+  margin-top: 8px;
+  color: #fff;
+  background: var(--ink);
+}
+
+.flash-landing-service-copy button:hover {
+  background: #2a2430;
+}
+
+.flash-landing-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 28px;
+  padding: 28px clamp(20px, 4vw, 56px);
+  color: rgba(255, 255, 255, 0.7);
+  background: #0e0b12;
+}
+
+.flash-landing-footer strong {
+  color: #fff;
+  font-size: 1.15rem;
+}
+
+.flash-landing-footer button {
+  margin-left: auto;
+  min-height: 44px;
+  color: var(--ink);
+  background: #fff;
+}
+
+/* --- Login --------------------------------------------------------------- */
 
 .web-auth-panel {
   display: grid;
   place-items: center;
-  padding: clamp(24px, 6vw, 88px);
-  background:
-    radial-gradient(circle at 100% 0%, rgba(124, 60, 255, 0.1), transparent 23rem),
-    var(--paper-soft);
+  flex: 1;
+  min-width: 0;
+  padding: clamp(28px, 5vw, 64px) clamp(20px, 4vw, 56px);
 }
 
 .web-auth-card {
@@ -164,6 +398,14 @@
   font-weight: 900;
   background: #e9f6f0;
   border-radius: 999px;
+}
+
+.web-auth-card header > span {
+  color: var(--brand);
+  font-size: 0.73rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
 }
 
 .web-auth-card header span,
@@ -255,13 +497,13 @@
   padding: 0 18px;
   color: #fff;
   font-weight: 900;
-  background: var(--brand);
+  background: var(--ink);
   border: 0;
-  box-shadow: 0 14px 28px rgba(124, 60, 255, 0.22);
+  border-radius: var(--radius-control);
 }
 
 .web-auth-submit:hover:not(:disabled) {
-  background: var(--brand-deep);
+  background: #2a2430;
 }
 
 .web-auth-footnote {
@@ -270,32 +512,56 @@
 }
 
 @media (max-width: 900px) {
-  .web-auth-shell {
-    display: block;
-    overflow: auto;
-    background:
-      radial-gradient(circle at 8% 0%, rgba(255, 106, 33, 0.18), transparent 22rem),
-      var(--paper-soft);
-  }
-
-  .web-auth-story {
+  .web-auth-nav nav {
     display: none;
   }
 
-  .web-auth-panel {
-    min-height: 100dvh;
-    padding: calc(22px + var(--layout-safe-top)) calc(18px + var(--layout-safe-right))
-      calc(22px + var(--layout-safe-bottom)) calc(18px + var(--layout-safe-left));
+  .flash-landing-hero {
+    display: block;
+    padding-top: 36px;
   }
 
-  .web-auth-mobile-brand {
-    display: inline-flex;
+  .flash-landing-hero h1 {
+    max-width: none;
+    font-size: clamp(2.6rem, 11vw, 3.6rem);
+  }
+
+  .flash-landing-hero-visual {
+    display: none;
+  }
+
+  .flash-landing-service {
+    min-height: unset;
+    background: var(--tone, var(--paper-soft));
   }
 }
 
-@media (max-width: 420px) {
+@media (max-width: 620px) {
+  .web-auth-nav {
+    padding: calc(10px + var(--layout-safe-top)) calc(16px + var(--layout-safe-right)) 10px
+      calc(16px + var(--layout-safe-left));
+  }
+
+  .flash-landing-hero,
+  .flash-landing-service,
+  .flash-landing-footer,
+  .web-auth-panel {
+    padding-right: calc(16px + var(--layout-safe-right));
+    padding-left: calc(16px + var(--layout-safe-left));
+  }
+
+  .flash-landing-footer {
+    padding-bottom: calc(24px + var(--layout-safe-bottom));
+  }
+
+  .flash-landing-footer button {
+    width: 100%;
+    margin-left: 0;
+  }
+
   .web-auth-card {
     gap: 18px;
+    width: 100%;
     padding: 24px 20px;
     border-radius: 20px;
   }

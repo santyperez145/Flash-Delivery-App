@@ -48,7 +48,11 @@ try {
   );
   const auditPrivileges = (
     await client.query(
-      `SELECT has_table_privilege(current_user,'audit_events','SELECT') can_read,has_table_privilege(current_user,'audit_events','INSERT') can_insert,has_table_privilege(current_user,'audit_events','UPDATE') can_update,has_table_privilege(current_user,'audit_events','DELETE') can_delete,has_table_privilege(current_user,'audit_events','TRUNCATE') can_truncate`,
+      `SELECT has_table_privilege(current_user,'audit_events','SELECT') can_read,
+        has_table_privilege(current_user,'audit_events','INSERT') can_insert,
+        has_table_privilege(current_user,'audit_events','UPDATE') can_update,
+        has_table_privilege(current_user,'audit_events','DELETE') can_delete,
+        has_table_privilege(current_user,'audit_events','TRUNCATE') can_truncate`,
     )
   ).rows[0];
   assert(
@@ -240,7 +244,15 @@ try {
   );
   const scheduleFunctionAcl = (
     await client.query(
-      `SELECT NOT EXISTS(SELECT 1 FROM pg_proc p CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) acl WHERE p.oid='app.branch_is_scheduled_open(uuid,timestamptz)'::regprocedure AND acl.grantee=0 AND acl.privilege_type='EXECUTE') public_denied,has_function_privilege(current_user,'app.branch_is_scheduled_open(uuid,timestamptz)','EXECUTE') audit_allowed`,
+      `SELECT NOT EXISTS(
+        SELECT 1 FROM pg_proc p
+        CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) acl
+        WHERE p.oid='app.branch_is_scheduled_open(uuid,timestamptz)'::regprocedure
+          AND acl.grantee=0 AND acl.privilege_type='EXECUTE'
+      ) public_denied,
+      has_function_privilege(
+        current_user,'app.branch_is_scheduled_open(uuid,timestamptz)','EXECUTE'
+      ) audit_allowed`,
     )
   ).rows[0];
   assert(
@@ -249,7 +261,9 @@ try {
   );
   const mfaPrivileges = (
     await client.query(
-      `SELECT has_column_privilege(current_user,'user_mfa','enabled','SELECT') metadata,has_column_privilege(current_user,'user_mfa','secret_ciphertext','SELECT') secret,has_column_privilege(current_user,'user_mfa','recovery_code_hashes','SELECT') recovery`,
+      `SELECT has_column_privilege(current_user,'user_mfa','enabled','SELECT') metadata,
+        has_column_privilege(current_user,'user_mfa','secret_ciphertext','SELECT') secret,
+        has_column_privilege(current_user,'user_mfa','recovery_code_hashes','SELECT') recovery`,
     )
   ).rows[0];
   assert(
@@ -276,7 +290,9 @@ try {
   );
   const payoutPrivileges = (
     await client.query(
-      `SELECT has_column_privilege(current_user,'payouts','review_decision','SELECT') review,has_column_privilege(current_user,'payouts','metadata','SELECT') metadata,has_column_privilege(current_user,'payouts','idempotency_key','SELECT') idempotency`,
+      `SELECT has_column_privilege(current_user,'payouts','review_decision','SELECT') review,
+        has_column_privilege(current_user,'payouts','metadata','SELECT') metadata,
+        has_column_privilege(current_user,'payouts','idempotency_key','SELECT') idempotency`,
     )
   ).rows[0];
   assert(
@@ -285,7 +301,10 @@ try {
   );
   const tipAdjustmentPrivileges = (
     await client.query(
-      `SELECT has_column_privilege(current_user,'service_tip_adjustments','status','SELECT') outcome,has_column_privilege(current_user,'service_tip_adjustments','reason','SELECT') reason,has_column_privilege(current_user,'service_tip_adjustments','idempotency_key','SELECT') idempotency,has_table_privilege(current_user,'service_tip_adjustments','UPDATE') can_update`,
+      `SELECT has_column_privilege(current_user,'service_tip_adjustments','status','SELECT') outcome,
+        has_column_privilege(current_user,'service_tip_adjustments','reason','SELECT') reason,
+        has_column_privilege(current_user,'service_tip_adjustments','idempotency_key','SELECT') idempotency,
+        has_table_privilege(current_user,'service_tip_adjustments','UPDATE') can_update`,
     )
   ).rows[0];
   assert(
@@ -297,7 +316,10 @@ try {
   );
   const supportRoutingPrivileges = (
     await client.query(
-      `SELECT has_table_privilege(current_user,'support_agent_profiles','SELECT') profiles,has_table_privilege(current_user,'support_ticket_assignments','SELECT') assignments,has_table_privilege(current_user,'support_escalation_events','SELECT') escalations,has_table_privilege(current_user,'support_agent_profiles','UPDATE') can_update`,
+      `SELECT has_table_privilege(current_user,'support_agent_profiles','SELECT') profiles,
+        has_table_privilege(current_user,'support_ticket_assignments','SELECT') assignments,
+        has_table_privilege(current_user,'support_escalation_events','SELECT') escalations,
+        has_table_privilege(current_user,'support_agent_profiles','UPDATE') can_update`,
     )
   ).rows[0];
   assert(
@@ -309,7 +331,12 @@ try {
   );
   const notificationFailurePrivileges = (
     await client.query(
-      `SELECT has_table_privilege(current_user,'notification_dead_letters','SELECT') dead_letters,has_table_privilege(current_user,'notification_dead_letters','UPDATE') can_update,has_column_privilege(current_user,'user_devices','invalid_reason','SELECT') invalidation,has_column_privilege(current_user,'user_devices','push_token_ciphertext','SELECT') ciphertext,has_column_privilege(current_user,'user_devices','push_token_hash','SELECT') token_hash,has_column_privilege(current_user,'user_devices','device_fingerprint_hash','SELECT') fingerprint`,
+      `SELECT has_table_privilege(current_user,'notification_dead_letters','SELECT') dead_letters,
+        has_table_privilege(current_user,'notification_dead_letters','UPDATE') can_update,
+        has_column_privilege(current_user,'user_devices','invalid_reason','SELECT') invalidation,
+        has_column_privilege(current_user,'user_devices','push_token_ciphertext','SELECT') ciphertext,
+        has_column_privilege(current_user,'user_devices','push_token_hash','SELECT') token_hash,
+        has_column_privilege(current_user,'user_devices','device_fingerprint_hash','SELECT') fingerprint`,
     )
   ).rows[0];
   assert(
@@ -332,7 +359,11 @@ try {
   );
   const vehiclePrivileges = (
     await client.query(
-      `SELECT has_column_privilege(current_user,'vehicles','status','SELECT') posture,has_column_privilege(current_user,'vehicles','plate','SELECT') plate,has_column_privilege(current_user,'vehicles','model','SELECT') model,has_column_privilege(current_user,'vehicles','color','SELECT') color,has_table_privilege(current_user,'vehicles','UPDATE') can_update`,
+      `SELECT has_column_privilege(current_user,'vehicles','status','SELECT') posture,
+        has_column_privilege(current_user,'vehicles','plate','SELECT') plate,
+        has_column_privilege(current_user,'vehicles','model','SELECT') model,
+        has_column_privilege(current_user,'vehicles','color','SELECT') color,
+        has_table_privilege(current_user,'vehicles','UPDATE') can_update`,
     )
   ).rows[0];
   assert(
@@ -354,7 +385,10 @@ try {
   );
   const driverTimePrivileges = (
     await client.query(
-      `SELECT has_column_privilege(current_user,'driver_availability_sessions','started_at','SELECT') availability,has_column_privilege(current_user,'driver_job_sessions','ended_at','SELECT') active_time,has_table_privilege(current_user,'driver_availability_sessions','UPDATE') can_update_availability,has_table_privilege(current_user,'driver_job_sessions','UPDATE') can_update_active`,
+      `SELECT has_column_privilege(current_user,'driver_availability_sessions','started_at','SELECT') availability,
+        has_column_privilege(current_user,'driver_job_sessions','ended_at','SELECT') active_time,
+        has_table_privilege(current_user,'driver_availability_sessions','UPDATE') can_update_availability,
+        has_table_privilege(current_user,'driver_job_sessions','UPDATE') can_update_active`,
     )
   ).rows[0];
   assert(
@@ -366,7 +400,10 @@ try {
   );
   const deliveryEvidencePrivileges = (
     await client.query(
-      `SELECT has_column_privilege(current_user,'shipment_delivery_evidence','content_sha256','SELECT') metadata,has_column_privilege(current_user,'shipment_delivery_evidence','content_ciphertext','SELECT') content,has_column_privilege(current_user,'shipment_delivery_evidence','signer_name','SELECT') signer_identity,has_column_privilege(current_user,'shipment_delivery_evidence','consent_version','SELECT') consent_posture`,
+      `SELECT has_column_privilege(current_user,'shipment_delivery_evidence','content_sha256','SELECT') metadata,
+        has_column_privilege(current_user,'shipment_delivery_evidence','content_ciphertext','SELECT') content,
+        has_column_privilege(current_user,'shipment_delivery_evidence','signer_name','SELECT') signer_identity,
+        has_column_privilege(current_user,'shipment_delivery_evidence','consent_version','SELECT') consent_posture`,
     )
   ).rows[0];
   assert(
@@ -387,7 +424,9 @@ try {
   );
   const trustedContactPrivileges = (
     await client.query(
-      `SELECT has_column_privilege(current_user,'ride_trusted_contacts','phone_last4','SELECT') metadata,has_column_privilege(current_user,'ride_trusted_contacts','phone_ciphertext','SELECT') phone,has_column_privilege(current_user,'ride_trusted_contacts','name','SELECT') identity`,
+      `SELECT has_column_privilege(current_user,'ride_trusted_contacts','phone_last4','SELECT') metadata,
+        has_column_privilege(current_user,'ride_trusted_contacts','phone_ciphertext','SELECT') phone,
+        has_column_privilege(current_user,'ride_trusted_contacts','name','SELECT') identity`,
     )
   ).rows[0];
   assert(
@@ -407,7 +446,10 @@ try {
   );
   const serviceMessagePrivileges = (
     await client.query(
-      `SELECT has_column_privilege(current_user,'service_messages','created_at','SELECT') metadata,has_column_privilege(current_user,'service_messages','body_ciphertext','SELECT') content,has_column_privilege(current_user,'service_messages','body_sha256','SELECT') digest,has_column_privilege(current_user,'service_message_reads','read_at','SELECT') receipt_metadata`,
+      `SELECT has_column_privilege(current_user,'service_messages','created_at','SELECT') metadata,
+        has_column_privilege(current_user,'service_messages','body_ciphertext','SELECT') content,
+        has_column_privilege(current_user,'service_messages','body_sha256','SELECT') digest,
+        has_column_privilege(current_user,'service_message_reads','read_at','SELECT') receipt_metadata`,
     )
   ).rows[0];
   assert(
@@ -419,7 +461,9 @@ try {
   );
   const serviceAttachmentPrivileges = (
     await client.query(
-      `SELECT has_column_privilege(current_user,'service_message_attachments','mime_type','SELECT') metadata,has_column_privilege(current_user,'service_message_attachments','content_ciphertext','SELECT') content,has_column_privilege(current_user,'service_message_attachments','content_sha256','SELECT') digest`,
+      `SELECT has_column_privilege(current_user,'service_message_attachments','mime_type','SELECT') metadata,
+        has_column_privilege(current_user,'service_message_attachments','content_ciphertext','SELECT') content,
+        has_column_privilege(current_user,'service_message_attachments','content_sha256','SELECT') digest`,
     )
   ).rows[0];
   assert(
@@ -430,7 +474,8 @@ try {
   );
   const shipmentClaimPrivileges = (
     await client.query(
-      `SELECT has_column_privilege(current_user,'shipment_protection_claims','status','SELECT') metadata,has_column_privilege(current_user,'shipment_protection_claims','description','SELECT') narrative`,
+      `SELECT has_column_privilege(current_user,'shipment_protection_claims','status','SELECT') metadata,
+        has_column_privilege(current_user,'shipment_protection_claims','description','SELECT') narrative`,
     )
   ).rows[0];
   assert(
@@ -439,7 +484,9 @@ try {
   );
   const shipmentClaimEvidencePrivileges = (
     await client.query(
-      `SELECT has_column_privilege(current_user,'shipment_claim_evidence','mime_type','SELECT') metadata,has_column_privilege(current_user,'shipment_claim_evidence','content_ciphertext','SELECT') ciphertext,has_column_privilege(current_user,'shipment_claim_evidence','content_sha256','SELECT') digest`,
+      `SELECT has_column_privilege(current_user,'shipment_claim_evidence','mime_type','SELECT') metadata,
+        has_column_privilege(current_user,'shipment_claim_evidence','content_ciphertext','SELECT') ciphertext,
+        has_column_privilege(current_user,'shipment_claim_evidence','content_sha256','SELECT') digest`,
     )
   ).rows[0];
   assert(
@@ -450,7 +497,8 @@ try {
   );
   const reconciliationPrivileges = (
     await client.query(
-      `SELECT has_column_privilege(current_user,'payment_reconciliation_cases','status','SELECT') metadata,has_column_privilege(current_user,'payment_reconciliation_cases','details','SELECT') details`,
+      `SELECT has_column_privilege(current_user,'payment_reconciliation_cases','status','SELECT') metadata,
+        has_column_privilege(current_user,'payment_reconciliation_cases','details','SELECT') details`,
     )
   ).rows[0];
   assert(
@@ -486,7 +534,8 @@ try {
   );
   const verificationPrivileges = (
     await client.query(
-      `SELECT has_column_privilege(current_user,'email_verification_challenges','expires_at','SELECT') metadata,has_column_privilege(current_user,'email_verification_challenges','code_hash','SELECT') secret`,
+      `SELECT has_column_privilege(current_user,'email_verification_challenges','expires_at','SELECT') metadata,
+        has_column_privilege(current_user,'email_verification_challenges','code_hash','SELECT') secret`,
     )
   ).rows[0];
   assert(
@@ -539,7 +588,9 @@ try {
       )
     ).rows[0] || null;
   await owner.query(
-    "INSERT INTO user_notification_preferences(user_id,category,push_enabled,email_enabled) VALUES($1,'account',false,false) ON CONFLICT(user_id,category) DO UPDATE SET push_enabled=false,email_enabled=false",
+    `INSERT INTO user_notification_preferences(user_id,category,push_enabled,email_enabled)
+    VALUES($1,'account',false,false)
+    ON CONFLICT(user_id,category) DO UPDATE SET push_enabled=false,email_enabled=false`,
     [customer.id],
   );
   fixtureDietaryPreference =
@@ -551,7 +602,9 @@ try {
     ).rows[0] || null;
   fixtureRideDestinationId = (
     await owner.query(
-      `INSERT INTO ride_destination_history(user_id,address_key,label,formatted_address,location) VALUES($1,$2,'RLS destino','Destino RLS',ST_SetSRID(ST_MakePoint(-58.4,-34.6),4326)::geography) RETURNING id`,
+      `INSERT INTO ride_destination_history(user_id,address_key,label,formatted_address,location)
+       VALUES($1,$2,'RLS destino','Destino RLS',ST_SetSRID(ST_MakePoint(-58.4,-34.6),4326)::geography)
+       RETURNING id`,
       [customer.id, `rls-${Date.now()}`],
     )
   ).rows[0].id;
@@ -564,7 +617,12 @@ try {
   await owner.query("DELETE FROM job_cancellations WHERE public_id LIKE 'CAN-RLS-INVALID-%'");
   const fixtureJob = (
       await owner.query(
-        "SELECT j.id FROM jobs j WHERE j.customer_id=$1 AND NOT EXISTS(SELECT 1 FROM service_tips t WHERE t.job_id=j.id) AND NOT EXISTS(SELECT 1 FROM service_receipts r WHERE r.job_id=j.id) AND NOT EXISTS(SELECT 1 FROM job_cancellations c WHERE c.job_id=j.id) LIMIT 1",
+        `SELECT j.id FROM jobs j
+        WHERE j.customer_id=$1
+          AND NOT EXISTS(SELECT 1 FROM service_tips t WHERE t.job_id=j.id)
+          AND NOT EXISTS(SELECT 1 FROM service_receipts r WHERE r.job_id=j.id)
+          AND NOT EXISTS(SELECT 1 FROM job_cancellations c WHERE c.job_id=j.id)
+        LIMIT 1`,
         [customer.id],
       )
     ).rows[0],
@@ -596,7 +654,8 @@ try {
   ).rows[0];
   fixturePayoutId = (
     await owner.query(
-      `INSERT INTO payouts(public_id,payee_type,payee_id,provider,amount_cents,status,period_start,period_end) VALUES($1,'merchant',$2,'rls_fixture',100,'pending',now()-interval '1 day',now()) RETURNING id`,
+      `INSERT INTO payouts(public_id,payee_type,payee_id,provider,amount_cents,status,period_start,period_end) VALUES($1,'merchant',$2,'rls_fixture',100,'pending',now()-interval '1 day',now())
+        RETURNING id`,
       [`PAY-RLS-${Date.now()}`, ownedMerchant.id],
     )
   ).rows[0].id;
@@ -615,13 +674,23 @@ try {
   );
   fixtureAvailabilitySessionId = (
     await owner.query(
-      "INSERT INTO driver_availability_sessions(driver_id,service_mode,started_at,ended_at,start_reason,end_reason) VALUES($1,'delivery',now()-interval '2 minutes',now()-interval '1 minute','driver_online','offline') RETURNING id",
+      `INSERT INTO driver_availability_sessions(
+        driver_id,service_mode,started_at,ended_at,start_reason,end_reason
+      ) VALUES(
+        $1,'delivery',now()-interval '2 minutes',now()-interval '1 minute',
+        'driver_online','offline'
+      ) RETURNING id`,
       [driver.id],
     )
   ).rows[0].id;
   fixtureJobSessionId = (
     await owner.query(
-      "INSERT INTO driver_job_sessions(driver_id,job_id,service_mode,started_at,ended_at,start_reason,end_reason) VALUES($1,$2,'delivery',now()-interval '2 minutes',now()-interval '1 minute','offer_accepted','completed') RETURNING id",
+      `INSERT INTO driver_job_sessions(
+        driver_id,job_id,service_mode,started_at,ended_at,start_reason,end_reason
+      ) VALUES(
+        $1,$2,'delivery',now()-interval '2 minutes',now()-interval '1 minute',
+        'offer_accepted','completed'
+      ) RETURNING id`,
       [driver.id, fixtureJob.id],
     )
   ).rows[0].id;
@@ -646,7 +715,13 @@ try {
   ).rows[0].id;
   fixtureReceiptId = (
     await owner.query(
-      `INSERT INTO service_receipts(public_id,receipt_number,job_id,customer_id,service_kind,subtotal_cents,total_cents) SELECT $1,$2,j.id,j.customer_id,j.kind,j.quoted_amount_cents,j.quoted_amount_cents FROM jobs j WHERE j.id=$3 RETURNING id`,
+      `INSERT INTO service_receipts(public_id,receipt_number,job_id,customer_id,service_kind,subtotal_cents,total_cents) SELECT $1,
+        $2,
+        j.id,
+        j.customer_id,
+        j.kind,
+        j.quoted_amount_cents,
+        j.quoted_amount_cents FROM jobs j WHERE j.id=$3 RETURNING id`,
       [`RCT-RLS-${Date.now()}`, `FL-RLS-${Date.now()}`, fixtureJob.id],
     )
   ).rows[0].id;
@@ -671,7 +746,8 @@ try {
   ).rows[0].id;
   fixtureOfferId = (
     await owner.query(
-      `INSERT INTO dispatch_offers(public_id,job_id,driver_id,score,expires_at) VALUES($1,$2,$3,99,now()+interval '5 minutes') ON CONFLICT(job_id,driver_id) DO UPDATE SET status='pending',expires_at=excluded.expires_at RETURNING id`,
+      `INSERT INTO dispatch_offers(public_id,job_id,driver_id,score,expires_at) VALUES($1,$2,$3,99,now()+interval '5 minutes') ON CONFLICT(job_id,driver_id) DO UPDATE SET status='pending',
+        expires_at=excluded.expires_at RETURNING id`,
       [`OFR-RLS-${Date.now()}`, fixtureJob.id, driver.id],
     )
   ).rows[0].id;

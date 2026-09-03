@@ -15,6 +15,7 @@ import type {
   ServiceTip,
   DispatchScoreBreakdown,
   MerchantOperationsMetrics,
+  MerchantOperationsDashboardCore,
   SubscriptionPlan,
   Subscription,
   GroupOrderParticipant,
@@ -22,6 +23,36 @@ import type {
   ServiceQuickReply,
   ShipmentClaim,
   DispatchOffer,
+  UserRole,
+  UserStatus,
+  User,
+  OrderStatus,
+  OrderItem,
+  Order as SharedOrder,
+  RestaurantSummary,
+  MenuModifier,
+  MenuModifierGroup,
+  MenuItemSummary,
+  RestaurantBranch,
+  DriverServiceMode,
+  DriverSummary,
+  DriverVehicle,
+  RideStatus,
+  RideService,
+  RideSummary,
+  ShipmentStatus,
+  ShipmentPackageSize,
+  ShipmentProtection,
+  ShipmentItemCategory,
+  ShipmentServiceLevel,
+  ShipmentSummary,
+  VerticalService,
+  PromotionSummary,
+  DriverEarningsPeriod,
+  DriverEarningsDay,
+  DriverEarnings,
+  AccountSession,
+  WalletTransaction,
 } from "@flash/domain-contracts";
 
 export type {
@@ -41,6 +72,7 @@ export type {
   ServiceTip,
   DispatchScoreBreakdown,
   MerchantOperationsMetrics,
+  MerchantOperationsDashboardCore,
   SubscriptionPlan,
   Subscription,
   GroupOrderParticipant,
@@ -48,43 +80,41 @@ export type {
   ServiceQuickReply,
   ShipmentClaim,
   DispatchOffer,
+  UserRole,
+  UserStatus,
+  User,
+  OrderStatus,
+  OrderItem,
+  RestaurantSummary,
+  MenuModifier,
+  MenuModifierGroup,
+  MenuItemSummary,
+  RestaurantBranch,
+  DriverServiceMode,
+  DriverSummary,
+  DriverVehicle,
+  RideStatus,
+  RideService,
+  RideSummary,
+  ShipmentStatus,
+  ShipmentPackageSize,
+  ShipmentProtection,
+  ShipmentItemCategory,
+  ShipmentServiceLevel,
+  ShipmentSummary,
+  VerticalService,
+  PromotionSummary,
+  DriverEarningsPeriod,
+  DriverEarningsDay,
+  DriverEarnings,
+  AccountSession,
+  WalletTransaction,
 };
 
 export type Mode = "customer" | "merchant" | "driver" | "ops";
-export type UserRole = "customer" | "merchant" | "driver" | "admin" | "support";
-export type Service = "food" | "ride" | "shipment";
-export type DriverService = "delivery" | "ride";
+export type Service = VerticalService;
+export type DriverService = DriverServiceMode;
 export type CustomerTab = "home" | "activity" | "wallet" | "profile" | "notifications";
-export type OrderStatus =
-  | "requested"
-  | "accepted"
-  | "preparing"
-  | "ready_for_pickup"
-  | "courier_assigned"
-  | "picked_up"
-  | "delivering"
-  | "delivered"
-  | "cancelled";
-export type RideStatus =
-  | "requested"
-  | "driver_assigned"
-  | "arriving"
-  | "in_progress"
-  | "completed"
-  | "cancelled";
-
-export type User = {
-  id: string;
-  name: string;
-  email: string;
-  roles: UserRole[];
-  phone: string;
-  wallet: number;
-  defaultAddress?: string;
-  restaurantId?: string;
-  driverId?: string;
-  status?: "active" | "suspended" | "pending";
-};
 
 export type Extra = {
   id: string;
@@ -92,35 +122,13 @@ export type Extra = {
   price: number;
 };
 
-export type MenuItem = {
-  id: string;
-  name: string;
+/** Ítem de vitrina web: núcleo compartido + presentación de catálogo. */
+export type MenuItem = MenuItemSummary & {
   description: string;
   category: string;
-  price: number;
   rating: number;
   timeMin: number;
   kcal: number;
-  stock: boolean;
-  modifierGroups?: Array<{
-    id: string;
-    name: string;
-    min: number;
-    max: number;
-    required: boolean;
-    modifiers: Array<{
-      id: string;
-      name: string;
-      price: number;
-      available: boolean;
-    }>;
-  }>;
-  dietaryLabels?: Array<{ code: string; name: string }>;
-  allergens?: Array<{
-    code: string;
-    name: string;
-    presence: "contains" | "may_contain";
-  }>;
   image: string;
   tags: string[];
 };
@@ -163,102 +171,25 @@ export type RideForm = {
   destinationCoords: GeoPoint | null;
 };
 
-export type Restaurant = {
-  id: string;
-  ownerId: string;
-  name: string;
-  cuisine: string;
-  rating: number;
-  distanceKm: number;
-  etaMin: number;
-  deliveryFee: number;
-  open: boolean;
-  manualOpen?: boolean;
-  image: string;
-  cover: string;
-  badge: string;
-  address: string;
+export type Restaurant = RestaurantSummary & {
   lat?: number | null;
   lng?: number | null;
   menu: MenuItem[];
   extras: Extra[];
-  branches?: Array<{
-    id: string;
-    name: string;
-    address: string;
-    lat: number;
-    lng: number;
-    open: boolean;
-    manualOpen: boolean;
-    status: "active" | "paused" | "closed";
-    etaMin: number;
-    isPrimary: boolean;
-    timezone: string;
-    weeklyHours: Array<{
-      weekday: number;
-      opensAt: string;
-      closesAt: string;
-      enabled: boolean;
-    }>;
-    scheduleExceptions: Array<{
-      date: string;
-      isOpen: boolean;
-      opensAt: string | null;
-      closesAt: string | null;
-      reason: string | null;
-    }>;
-    inventory: Record<
-      string,
-      { available: boolean; stockQuantity: number | null; version: number }
-    >;
-  }>;
+  branches?: RestaurantBranch[];
 };
 
-export type Driver = {
-  id: string;
-  userId: string;
-  name: string;
-  online: boolean;
-  serviceModes: DriverService[];
-  activeService: DriverService;
-  vehicle: string;
-  plate: string;
-  rating: number;
-  location: {
-    lat: number;
-    lng: number;
-    label: string;
-    updatedAt?: string | null;
-  };
-  earningsToday: number;
-};
+export type Driver = DriverSummary;
 
 export type TimelineEntry<TStatus extends string> = {
   status: TStatus;
   at: string;
 };
 
-export type OrderItem = {
-  menuItemId: string;
-  name: string;
-  quantity: number;
-  unitPrice: number;
-  extras: string[];
-  note: string;
-};
-
-export type Order = {
-  id: string;
-  customerId: string;
-  restaurantId: string;
-  branchId?: string | null;
-  courierId: string | null;
-  status: OrderStatus;
-  deliveryAddress: string;
-  pickupLocation?: GeoPoint | null;
-  deliveryLocation?: GeoPoint | null;
+/** Pedido web: núcleo compartido + desglose de tarifas y timeline de cocina. */
+export type Order = SharedOrder & {
   paymentMethod: string;
-  items: OrderItem[];
+  createdAt: string;
   subtotal: number;
   deliveryFee: number;
   serviceFee: number;
@@ -267,85 +198,18 @@ export type Order = {
   subscriptionDiscount?: number;
   tip?: number;
   promotionCode?: string | null;
-  /** Horario reservado. `null` es «lo antes posible». */
-  scheduledFor?: string | null;
-  total: number;
-  etaMin: number;
-  createdAt: string;
   timeline: TimelineEntry<OrderStatus>[];
 };
 
-export type Ride = {
-  id: string;
-  customerId: string;
-  driverId: string | null;
-  status: RideStatus;
-  service: "economy" | "comfort" | "moto" | "xl";
-  pickup: string;
-  destination: string;
-  pickupLocation?: GeoPoint | null;
-  destinationLocation?: GeoPoint | null;
-  distanceKm: number;
-  etaMin: number;
-  durationMin: number;
-  fare: number;
+export type Ride = RideSummary & {
   paymentMethod: string;
-  scheduledFor?: string | null;
   createdAt: string;
   timeline: TimelineEntry<RideStatus>[];
 };
 
-export type Shipment = {
-  id: string;
-  customerId: string;
-  driverId: string | null;
-  status:
-    | "requested"
-    | "driver_assigned"
-    | "arriving"
-    | "picked_up"
-    | "delivering"
-    | "delivered"
-    | "cancelled";
-  pickup: string;
-  destination: string;
-  pickupLocation?: GeoPoint | null;
-  destinationLocation?: GeoPoint | null;
-  recipientName: string;
-  recipientPhone: string;
-  packageSize: "small" | "medium" | "large";
-  description: string;
-  weightKg: number;
-  deliveryNotes: string;
-  declaredValue?: number;
-  protection?: "none" | "standard";
-  protectionPremium?: number;
-  signatureRequired?: boolean;
-  itemCategory?: "documents" | "standard" | "fragile" | "electronics";
-  serviceLevel?: "economy" | "standard" | "priority" | "express";
-  handlingInstructions?: string;
-  distanceKm: number;
-  etaMin: number;
-  fare: number;
-  deliveryPin?: string;
-  deliveryEvidenceCount?: number;
-  deliveryVerifiedAt?: string | null;
-  timeline?: Array<{ status: string; at: string }>;
-};
+export type Shipment = ShipmentSummary;
 
-export type Promotion = {
-  id: string;
-  code?: string;
-  title: string;
-  description: string;
-  service: Service;
-  discountPercent: number;
-  kind?: "percentage" | "fixed" | "free_delivery" | "wallet_credit";
-  value?: number;
-  maxDiscount?: number;
-  minSubtotal?: number;
-  active: boolean;
-};
+export type Promotion = PromotionSummary;
 
 export type SupportTicket = {
   id: string;
@@ -422,15 +286,6 @@ export type PaymentMethod = {
   last4: string;
   balance: number;
   isDefault: boolean;
-};
-
-export type WalletTransaction = {
-  id: string;
-  userId: string;
-  kind: string;
-  amount: number;
-  description: string;
-  createdAt: string;
 };
 
 export type Zone = {
@@ -767,24 +622,6 @@ export type PricingChangeRequest = {
   activatedAt: string | null;
   reviewNote: string | null;
 };
-export type DriverVehicle = {
-  id: string;
-  driverId: string;
-  kind: "bicycle" | "motorcycle" | "car" | "van";
-  model: string;
-  plate: string;
-  color: string | null;
-  seats: number | null;
-  serviceModes: Array<"delivery" | "ride">;
-  active: boolean;
-  status: "pending" | "approved" | "rejected";
-  rejectionReason: string | null;
-  reviewedAt: string | null;
-  retiredAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
 export type TipAdjustment = {
   id: string;
   tipId: string;
@@ -802,25 +639,9 @@ export type TipAdjustment = {
   reviewedAt: string | null;
 };
 
-/** Dashboard de operaciones del comercio.
- *  Queda local: `restaurant: Restaurant` y `Restaurant` aún diverge entre
- *  web y mobile (ARC-001). No se mueve hasta unificar ese tipo. */
-export type MerchantOperationsDashboard = {
-  generatedAt: string;
-  source: "postgres-live-operations" | "sqlite-test-fallback";
-  timezone: string;
-  restaurantId: string;
-  branch: null | {
-    id: string;
-    name: string;
-    timezone: string;
-    open: boolean;
-    manualOpen: boolean;
-    status: "active" | "paused" | "closed";
-    etaMin: number;
-  };
+/** Dashboard merchant: núcleo compartido + `Restaurant` local (aún diverge). */
+export type MerchantOperationsDashboard = MerchantOperationsDashboardCore & {
   restaurant: Restaurant;
-  metrics: MerchantOperationsMetrics;
 };
 
 export type MerchantFinance = {

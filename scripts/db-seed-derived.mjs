@@ -236,6 +236,39 @@ const steps = [
           WHERE j.driver_id IS NOT NULL AND j.status NOT IN('completed','cancelled')
             AND NOT EXISTS(SELECT 1 FROM driver_job_sessions s WHERE s.job_id=j.id AND s.ended_at IS NULL)`,
   },
+  {
+    label: "stats de dispatch para conductores con historial de ofertas",
+    sql: `INSERT INTO driver_dispatch_stats(
+            driver_id, service, acceptance_rate_7d, acceptance_rate_30d, cancellation_rate_30d,
+            median_response_seconds, completed_jobs_30d, incident_score, current_capacity, updated_at)
+          SELECT
+            prior.driver_id,
+            prior_job.kind,
+            count(*) FILTER(WHERE prior.status='accepted' AND prior.created_at>=now()-interval '7 days')::numeric
+              / NULLIF(count(*) FILTER(WHERE prior.status IN('accepted','rejected','expired')
+                AND prior.created_at>=now()-interval '7 days'),0),
+            count(*) FILTER(WHERE prior.status='accepted')::numeric
+              / NULLIF(count(*) FILTER(WHERE prior.status IN('accepted','rejected','expired')),0),
+            NULL,
+            (
+              SELECT percentile_cont(0.5) WITHIN GROUP (
+                ORDER BY EXTRACT(epoch FROM (resp.responded_at-resp.created_at)))
+              FROM dispatch_offers resp
+              JOIN jobs resp_job ON resp_job.id=resp.job_id
+              WHERE resp.driver_id=prior.driver_id AND resp_job.kind=prior_job.kind
+                AND resp.responded_at IS NOT NULL AND resp.status IN('accepted','rejected')
+                AND resp.created_at>=now()-interval '30 days'
+            ),
+            0,
+            0,
+            0,
+            now()
+          FROM dispatch_offers prior
+          JOIN jobs prior_job ON prior_job.id=prior.job_id
+          WHERE prior.created_at>=now()-interval '30 days'
+          GROUP BY prior.driver_id, prior_job.kind
+          ON CONFLICT (driver_id, service) DO NOTHING`,
+  },
 ];
 
 try {

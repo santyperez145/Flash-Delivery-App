@@ -31,32 +31,43 @@ import { config } from "../config.js";
 import { requireAuth } from "./authentication.js";
 import { canActAsCustomer, canActAsDriver, isAdmin, requireAnyRole } from "./authorization.js";
 import { cancellationSchema } from "./cancellation.js";
-import { getPostgresPricingPlan, getPostgresZonePricing } from "../configuration-repository.js";
+import { getPostgresPricingPlan } from "../pricing-repository.js";
+import { getPostgresZonePricing } from "../configuration-repository.js";
 import { creditDriverEarningsRuntime } from "../driver-earnings.js";
 import { getPostgresDrivers } from "../driver-roster-repository.js";
 import { fallbackShipmentPricing, readDb } from "../fallback-runtime.js";
 import { coordinateSchema, distanceBetween } from "../geo.js";
 import {
-  addPostgresShipmentDeliveryEvidence,
+  fetchRoadDistanceKmIfRequired,
+  requiresRoadRouting,
+  resolveQuoteDistanceKm,
+} from "../maps-route-service.js";
+import {
   createPostgresShipment,
+  getPostgresShipments,
+  setPostgresShipmentStatus,
+} from "../mobility-repository.js";
+import {
+  addPostgresShipmentDeliveryEvidence,
   getPostgresShipmentDeliveryCode,
   getPostgresShipmentDeliveryEvidence,
   getPostgresShipmentDeliveryEvidenceContent,
-  getPostgresShipments,
+  verifyPostgresShipmentDelivery,
+} from "../shipment-delivery-repository.js";
+import {
   getShipmentProtectionPlan,
   getShipmentServiceConfiguration,
-  setPostgresShipmentStatus,
-  verifyPostgresShipmentDelivery,
-} from "../mobility-repository.js";
-import { recordPostgresAudit } from "../operations-repository.js";
+} from "../shipment-options-repository.js";
+import { recordPostgresAudit } from "../audit-repository.js";
 import { usesPostgresCommerce } from "../postgres.js";
 import { deliveryProofLimiter } from "./rate-limits.js";
 import { publishRealtimeEvent } from "./realtime.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";
 import { assessTransactionRisk, setRiskEntity } from "../risk-repository.js";
 import { shipmentProtectionRouter } from "./shipment-protection-router.js";
-import { createId, createLocalNotification, getTimestamp, shipmentStatuses } from "../store.js";
-import { cancelMobilityJobAndRefundWallet } from "../wallet-repository.js";
+import { createId, getTimestamp, shipmentStatuses } from "../store.js";
+import { createLocalNotification } from "../store-local-preferences.js";
+import { cancelMobilityJobAndRefundWallet } from "../wallet-refund-repository.js";
 
 const shipmentQuoteSchema = z.object({
   pickup: z.string().min(3, "Origen obligatorio"),
@@ -142,19 +153,32 @@ function calculateShipmentQuote(
     protection = "none",
     protectionPlan = null,
     shipmentServiceConfig = null,
+    roadDistanceKm = null,
+    allowGeodesicFallback = true,
   },
   pricing = fallbackShipmentPricing,
 ) {
   const rules = pricing.config;
   const coordinateDistance = distanceBetween(pickupCoords, destinationCoords);
   const textWeight = `${pickup}${destination}`.length;
-  const distanceKm =
-    coordinateDistance !== null
-      ? Math.max(
-          rules.minDistanceKm,
-          Math.min(rules.maxDistanceKm, coordinateDistance * rules.roadFactor),
-        )
-      : Math.max(2, Math.min(25, 2 + (textWeight % 18) * 0.7));
+  let distanceKm;
+  let distanceSource;
+  let routingMode;
+  if (coordinateDistance !== null) {
+    ({ distanceKm, distanceSource } = resolveQuoteDistanceKm({
+      allowGeodesicFallback,
+      airDistanceM: coordinateDistance * 1000,
+      roadFactor: rules.roadFactor,
+      roadDistanceKm,
+      minDistanceKm: rules.minDistanceKm,
+      maxDistanceKm: rules.maxDistanceKm,
+    }));
+    routingMode = distanceSource === "road" ? "road" : "geodesic_scaled";
+  } else {
+    distanceKm = Math.max(2, Math.min(25, 2 + (textWeight % 18) * 0.7));
+    distanceSource = "text_estimate";
+    routingMode = "text-estimate";
+  }
   const sizeMultiplier = Number(rules.sizeMultipliers[packageSize]);
   const serviceMultiplier = shipmentServiceConfig?.level.transportMultiplier || 1,
     categorySurcharge = shipmentServiceConfig?.category.surcharge || 0,
@@ -210,8 +234,9 @@ function calculateShipmentQuote(
       transportFare,
       protectionPremium,
     },
-    estimated: coordinateDistance === null,
-    routingMode: coordinateDistance === null ? "text-estimate" : "coordinates",
+    estimated: distanceSource !== "road",
+    routingMode,
+    distanceSource,
   };
 }
 
@@ -251,7 +276,8 @@ router.post("/api/shipments/quote", async (req, res) => {
   if (!parsed.ok) return fail(res, 400, parsed.message);
   if (parsed.data.protection === "standard" && parsed.data.declaredValue <= 0)
     return fail(res, 400, "Indicá el valor declarado para contratar protección");
-  const fallbackServiceConfig = {
+  try {
+    const fallbackServiceConfig = {
       category: {
         id: null,
         code: "standard",
@@ -268,8 +294,12 @@ router.post("/api/shipments/quote", async (req, res) => {
         etaMultiplier: 1,
         maximumDistanceKm: null,
       },
-    },
-    [zone, pricing, protectionPlan, shipmentServiceConfig] = usesPostgresCommerce()
+    };
+    const roadDistanceKm = await fetchRoadDistanceKmIfRequired({
+      fromCoords: parsed.data.pickupCoords,
+      toCoords: parsed.data.destinationCoords,
+    });
+    const [zone, pricing, protectionPlan, shipmentServiceConfig] = usesPostgresCommerce()
       ? await Promise.all([
           getPostgresZonePricing(parsed.data.pickupCoords),
           getPostgresPricingPlan("shipment"),
@@ -284,53 +314,64 @@ router.post("/api/shipments/quote", async (req, res) => {
           null,
           fallbackServiceConfig,
         ];
-  if (protectionPlan && parsed.data.declaredValue > protectionPlan.maximumDeclaredValue)
-    return fail(res, 400, "El valor declarado supera el máximo protegible");
-  if (parsed.data.weightKg > shipmentServiceConfig.category.maximumWeightKg)
-    return fail(
-      res,
-      400,
-      `La categoría ${shipmentServiceConfig.category.name} admite hasta ${shipmentServiceConfig.category.maximumWeightKg} kg`,
+    const allowGeodesicFallback = !requiresRoadRouting();
+    if (protectionPlan && parsed.data.declaredValue > protectionPlan.maximumDeclaredValue)
+      return fail(res, 400, "El valor declarado supera el máximo protegible");
+    if (parsed.data.weightKg > shipmentServiceConfig.category.maximumWeightKg)
+      return fail(
+        res,
+        400,
+        `La categoría ${shipmentServiceConfig.category.name} admite hasta ${shipmentServiceConfig.category.maximumWeightKg} kg`,
+      );
+    const quote = calculateShipmentQuote(
+      {
+        ...parsed.data,
+        ...zone,
+        protectionPlan,
+        shipmentServiceConfig,
+        roadDistanceKm,
+        allowGeodesicFallback,
+      },
+      pricing,
     );
-  const quote = calculateShipmentQuote(
-    { ...parsed.data, ...zone, protectionPlan, shipmentServiceConfig },
-    pricing,
-  );
-  if (
-    shipmentServiceConfig.level.maximumDistanceKm &&
-    quote.distanceKm > shipmentServiceConfig.level.maximumDistanceKm
-  )
-    return fail(
-      res,
-      400,
-      `${shipmentServiceConfig.level.name} admite recorridos de hasta ${shipmentServiceConfig.level.maximumDistanceKm} km`,
+    if (
+      shipmentServiceConfig.level.maximumDistanceKm &&
+      quote.distanceKm > shipmentServiceConfig.level.maximumDistanceKm
+    )
+      return fail(
+        res,
+        400,
+        `${shipmentServiceConfig.level.name} admite recorridos de hasta ${shipmentServiceConfig.level.maximumDistanceKm} km`,
+      );
+    const quoteId = createId("QUOTE"),
+      expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    const quoteToken = jwt.sign(
+      {
+        kind: "shipment_quote",
+        quoteId,
+        fare: quote.fare,
+        breakdown: quote.breakdown,
+        pricingVersion: quote.pricingVersion,
+        zoneId: quote.zoneId,
+        pickup: parsed.data.pickup,
+        destination: parsed.data.destination,
+        packageSize: parsed.data.packageSize,
+        weightKg: parsed.data.weightKg,
+        declaredValue: parsed.data.declaredValue,
+        protection: parsed.data.protection,
+        signatureRequired: parsed.data.signatureRequired,
+        itemCategory: parsed.data.itemCategory,
+        serviceLevel: parsed.data.serviceLevel,
+        pickupCoords: parsed.data.pickupCoords || null,
+        destinationCoords: parsed.data.destinationCoords || null,
+      },
+      jwtSecret,
+      { expiresIn: "5m" },
     );
-  const quoteId = createId("QUOTE"),
-    expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-  const quoteToken = jwt.sign(
-    {
-      kind: "shipment_quote",
-      quoteId,
-      fare: quote.fare,
-      breakdown: quote.breakdown,
-      pricingVersion: quote.pricingVersion,
-      zoneId: quote.zoneId,
-      pickup: parsed.data.pickup,
-      destination: parsed.data.destination,
-      packageSize: parsed.data.packageSize,
-      weightKg: parsed.data.weightKg,
-      declaredValue: parsed.data.declaredValue,
-      protection: parsed.data.protection,
-      signatureRequired: parsed.data.signatureRequired,
-      itemCategory: parsed.data.itemCategory,
-      serviceLevel: parsed.data.serviceLevel,
-      pickupCoords: parsed.data.pickupCoords || null,
-      destinationCoords: parsed.data.destinationCoords || null,
-    },
-    jwtSecret,
-    { expiresIn: "5m" },
-  );
-  return ok(res, { quote: { ...quote, quoteId, quoteToken, expiresAt } });
+    return ok(res, { quote: { ...quote, quoteId, quoteToken, expiresAt } });
+  } catch (error) {
+    return failFrom(res, error, "No se pudo cotizar el envío");
+  }
 });
 
 router.post(
@@ -395,12 +436,19 @@ router.post(
         400,
         `La categoría ${shipmentServiceConfig.category.name} admite hasta ${shipmentServiceConfig.category.maximumWeightKg} kg`,
       );
+    const roadDistanceKm = await fetchRoadDistanceKmIfRequired({
+      fromCoords: parsed.data.pickupCoords,
+      toCoords: parsed.data.destinationCoords,
+    });
+    const allowGeodesicFallback = !requiresRoadRouting();
     let quote = calculateShipmentQuote(
       {
         ...parsed.data,
         ...shipmentZone,
         protectionPlan,
         shipmentServiceConfig,
+        roadDistanceKm,
+        allowGeodesicFallback,
       },
       shipmentPricing,
     );

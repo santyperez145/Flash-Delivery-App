@@ -1,13 +1,32 @@
 import fs from "node:fs";
-import { contains, readMobileSource, readWebSource, squeeze } from "./source-contract.mjs";
+import {
+  contains,
+  readMobileSource,
+  readWebSource,
+  readWebStyles,
+  squeeze,
+} from "./source-contract.mjs";
 
 // La fuente se lee por audiencia y no por archivo (ARC-001 paso 8): la mitad del
 // trabajo que queda del ticket es partir `App.tsx`, y un contrato con la ruta
 // fija se rompe —o se vacía— en cuanto un componente cambia de archivo.
 const { source: mobile } = await readMobileSource();
 const customerCoordinator = fs.readFileSync("apps/mobile/src/screens/CustomerScreen.tsx", "utf8");
+const customerFoodSession = fs.readFileSync("apps/mobile/src/screens/useCustomerFood.tsx", "utf8");
 const customerAccount = fs.readFileSync(
   "apps/mobile/src/screens/CustomerAccountScreen.tsx",
+  "utf8",
+);
+const customerAccountAddresses = fs.readFileSync(
+  "apps/mobile/src/screens/CustomerAccountAddresses.tsx",
+  "utf8",
+);
+const customerAccountSecurity = fs.readFileSync(
+  "apps/mobile/src/screens/CustomerAccountSecurity.tsx",
+  "utf8",
+);
+const customerAccountPayments = fs.readFileSync(
+  "apps/mobile/src/screens/CustomerAccountPayments.tsx",
   "utf8",
 );
 const customerShipment = fs.readFileSync(
@@ -20,6 +39,8 @@ const customerIssues = fs.readFileSync(
   "utf8",
 );
 const { source: webApp } = await readWebSource();
+const webAppEntry = fs.readFileSync("src/App.tsx", "utf8");
+const webCustomerCommerce = fs.readFileSync("src/customer/useCustomerCommerce.tsx", "utf8");
 const webCustomerCoordinator = fs.readFileSync("src/customer/CustomerSurface.tsx", "utf8");
 const webWallet = fs.readFileSync("src/customer/WalletScreen.tsx", "utf8");
 const webCustomerProfile = fs.readFileSync("src/customer/CustomerProfileScreen.tsx", "utf8");
@@ -36,7 +57,7 @@ const webFoodDiscovery = fs.readFileSync("src/customer/FoodDiscoveryHome.tsx", "
 const webCustomerNavigation = fs.readFileSync("src/customer/CustomerNavigation.tsx", "utf8");
 const mobilePackage = JSON.parse(fs.readFileSync("apps/mobile/package.json", "utf8"));
 const rootPackage = JSON.parse(fs.readFileSync("package.json", "utf8"));
-const desktop = fs.readFileSync("src/styles.css", "utf8");
+const { source: desktop } = await readWebStyles();
 const foundation = fs.readFileSync("src/styles/foundation.css", "utf8");
 const authStyles = fs.readFileSync("src/styles/auth.css", "utf8");
 const stateStyles = fs.readFileSync("src/styles/states.css", "utf8");
@@ -119,13 +140,20 @@ assert(
 );
 
 assert(
-  customerCoordinator.trimEnd().split(/\r?\n/).length <= 1350 &&
+  customerCoordinator.trimEnd().split(/\r?\n/).length <= 950 &&
+    contains(customerFoodSession, "export function useCustomerFood") &&
+    customerAccount.trimEnd().split(/\r?\n/).length <= 240 &&
     contains(customerCoordinator, "<CustomerAccountScreen") &&
     !contains(customerCoordinator, "Teléfono de seguridad") &&
     contains(customerAccount, "export function CustomerAccountScreen") &&
     contains(customerAccount, "if (!visible) return null") &&
-    contains(customerAccount, "onUseAddress(item.address, point)"),
-  "customer account stays outside the shrinking coordinator and keeps address selection wired",
+    contains(customerAccount, "<CustomerAccountAddresses") &&
+    contains(customerAccount, "<CustomerAccountSecurity") &&
+    contains(customerAccount, "<CustomerAccountPayments") &&
+    contains(customerAccountAddresses, "onUseAddress(item.address, point)") &&
+    contains(customerAccountSecurity, "Teléfono de seguridad") &&
+    contains(customerAccountPayments, "api.createSandboxPaymentMethod"),
+  "customer account stays a shell with security, address and payment modules wired",
 );
 
 assert(
@@ -176,7 +204,8 @@ assert(
 );
 
 assert(
-  contains(entry, 'import "./styles/foundation.css"') &&
+  contains(entry, 'import "./styles/commerce-ops.css"') &&
+    contains(entry, 'import "./styles/foundation.css"') &&
     contains(entry, 'import "./styles/auth.css"') &&
     contains(entry, 'import "./styles/states.css"') &&
     contains(entry, 'import "./adaptive.css"') &&
@@ -196,8 +225,16 @@ assert(
     contains(foundation, "min-height: var(--layout-touch)") &&
     contains(authStyles, "grid-template-columns: minmax(420px, 1.08fr)") &&
     contains(authStyles, "@media (max-width: 900px)") &&
-    contains(authStyles, "min-height: 100dvh"),
-  "web auth and shared surfaces consume the Flash visual system across breakpoints",
+    contains(authStyles, "min-height: 100dvh") &&
+    contains(authStyles, ".web-auth-nav") &&
+    contains(authStyles, ".flash-landing-hero") &&
+    contains(webApp, "Andá a cualquier lado con Flash") &&
+    contains(webApp, "PublicLanding") &&
+    contains(webApp, 'setSurface("login")') &&
+    !contains(webApp, "Pickup location") &&
+    !contains(webApp, "See prices") &&
+    !contains(fs.readFileSync("src/auth/PublicLanding.tsx", "utf8"), 'type="password"'),
+  "web landing follows Uber-style hierarchy without embedding login or fake quotes",
 );
 
 assert(
@@ -208,6 +245,15 @@ assert(
     contains(stateStyles, "min-height: 100dvh") &&
     contains(stateStyles, "var(--layout-safe-bottom)"),
   "loading, error and role boundaries share an adaptive honest-state composition",
+);
+
+assert(
+  webAppEntry.trimEnd().split(/\r?\n/).length <= 720 &&
+    contains(webAppEntry, "useCustomerCommerce") &&
+    contains(webCustomerCommerce, "export function useCustomerCommerce") &&
+    contains(webCustomerCommerce, "const [rideForm") &&
+    !contains(webAppEntry, "const [rideForm"),
+  "web App stays a session shell; food, cart and ride state live in useCustomerCommerce",
 );
 
 assert(

@@ -25,7 +25,14 @@ const map = (row) => ({
   decidedAt: row.decided_at ? new Date(row.decided_at).toISOString() : null,
 });
 
-const select = `SELECT s.*,j.public_id job_public_id,j.customer_id,original.public_id original_public_id,replacement.public_id replacement_public_id FROM order_item_substitutions s JOIN jobs j ON j.id=s.job_id JOIN catalog_items original ON original.id=s.original_catalog_item_id JOIN catalog_items replacement ON replacement.id=s.replacement_catalog_item_id`;
+const select = `
+  SELECT s.*, j.public_id job_public_id, j.customer_id,
+    original.public_id original_public_id, replacement.public_id replacement_public_id
+  FROM order_item_substitutions s
+  JOIN jobs j ON j.id = s.job_id
+  JOIN catalog_items original ON original.id = s.original_catalog_item_id
+  JOIN catalog_items replacement ON replacement.id = s.replacement_catalog_item_id
+`;
 
 export async function proposeOrderSubstitution({
   orderPublicId,
@@ -54,7 +61,9 @@ export async function proposeOrderSubstitution({
       JOIN catalog_branch_inventory original_inventory ON original_inventory.branch_id=j.branch_id AND original_inventory.catalog_item_id=original.id
       JOIN catalog_items replacement ON replacement.merchant_id=m.id AND replacement.public_id=$4
       JOIN catalog_branch_inventory replacement_inventory ON replacement_inventory.branch_id=j.branch_id AND replacement_inventory.catalog_item_id=replacement.id
-      WHERE j.public_id=$1 AND j.kind='delivery' AND j.metadata->>'subtype'='food_order' AND j.status IN('accepted','preparing') AND ($5::boolean OR owner.public_id=$2) AND original.public_id=$3
+      WHERE j.public_id=$1 AND j.kind='delivery' AND j.metadata->>'subtype'='food_order'
+        AND j.status IN('accepted','preparing') AND ($5::boolean OR owner.public_id=$2)
+        AND original.public_id=$3
       FOR UPDATE OF j,ji,original_inventory,replacement_inventory`,
         [orderPublicId, merchantOwnerPublicId, originalMenuItemId, replacementMenuItemId, admin],
       )
@@ -92,8 +101,13 @@ export async function proposeOrderSubstitution({
       });
     const inserted = (
       await client.query(
-        `INSERT INTO order_item_substitutions(public_id,job_id,job_item_id,original_catalog_item_id,replacement_catalog_item_id,proposed_by,quantity,original_unit_price_cents,replacement_unit_price_cents,reason,original_snapshot,replacement_snapshot)
-      SELECT $1,$2,$3,$4,$5,u.id,$6,$7,$8,$9,$10,$11 FROM users u WHERE u.public_id=$12 RETURNING *`,
+        `INSERT INTO order_item_substitutions(
+          public_id, job_id, job_item_id, original_catalog_item_id, replacement_catalog_item_id,
+          proposed_by, quantity, original_unit_price_cents, replacement_unit_price_cents,
+          reason, original_snapshot, replacement_snapshot
+        )
+        SELECT $1, $2, $3, $4, $5, u.id, $6, $7, $8, $9, $10, $11
+        FROM users u WHERE u.public_id=$12 RETURNING *`,
         [
           newId(),
           row.job_id,
@@ -143,7 +157,13 @@ export async function getOrderSubstitutions({ orderPublicId, actorPublicId, role
   const admin = roles.includes("admin"),
     merchant = roles.includes("merchant");
   const result = await postgresPool.query(
-    `${select} JOIN merchants m ON m.id=j.merchant_id JOIN users owner ON owner.id=m.owner_id WHERE j.public_id=$1 AND ($3::boolean OR j.customer_id=(SELECT id FROM users WHERE public_id=$2) OR ($4::boolean AND owner.public_id=$2)) ORDER BY s.created_at DESC`,
+    `${select}
+     JOIN merchants m ON m.id=j.merchant_id
+     JOIN users owner ON owner.id=m.owner_id
+     WHERE j.public_id=$1
+       AND ($3::boolean OR j.customer_id=(SELECT id FROM users WHERE public_id=$2)
+         OR ($4::boolean AND owner.public_id=$2))
+     ORDER BY s.created_at DESC`,
     [orderPublicId, actorPublicId, admin, merchant],
   );
   return result.rows.map(map);
@@ -159,7 +179,11 @@ export async function decideOrderSubstitution({
     await client.query("BEGIN");
     const row = (
       await client.query(
-        `${select} WHERE s.public_id=$1 AND s.status='pending' AND j.customer_id=(SELECT id FROM users WHERE public_id=$2) AND j.status IN('accepted','preparing') FOR UPDATE OF s,j`,
+        `${select}
+         WHERE s.public_id=$1 AND s.status='pending'
+           AND j.customer_id=(SELECT id FROM users WHERE public_id=$2)
+           AND j.status IN('accepted','preparing')
+         FOR UPDATE OF s,j`,
         [substitutionPublicId, customerPublicId],
       )
     ).rows[0];
@@ -190,7 +214,18 @@ export async function decideOrderSubstitution({
         ],
       );
       await client.query(
-        `UPDATE jobs SET quoted_amount_cents=quoted_amount_cents-$2,final_amount_cents=final_amount_cents-$2,metadata=jsonb_set(jsonb_set(metadata,'{subtotal}',to_jsonb((COALESCE((metadata->>'subtotal')::numeric,0)-$2/100.0))),'{discount}',to_jsonb(LEAST(COALESCE((metadata->>'discount')::numeric,0),COALESCE((metadata->>'subtotal')::numeric,0)-$2/100.0))),version=version+1,updated_at=now() WHERE id=$1`,
+        `UPDATE jobs SET
+          quoted_amount_cents=quoted_amount_cents-$2,
+          final_amount_cents=final_amount_cents-$2,
+          metadata=jsonb_set(
+            jsonb_set(metadata,'{subtotal}',to_jsonb((COALESCE((metadata->>'subtotal')::numeric,0)-$2/100.0))),
+            '{discount}',to_jsonb(LEAST(
+              COALESCE((metadata->>'discount')::numeric,0),
+              COALESCE((metadata->>'subtotal')::numeric,0)-$2/100.0
+            ))
+          ),
+          version=version+1, updated_at=now()
+         WHERE id=$1`,
         [row.job_id, refundCents],
       );
       if (refundCents) {
@@ -227,7 +262,11 @@ export async function decideOrderSubstitution({
             )
           ).rows[0];
         await client.query(
-          `INSERT INTO ledger_entries(transaction_id,account_id,direction,amount_cents,reference_type,reference_id,metadata) VALUES($1,$2,'credit',$3,'substitution',$4,$5),($1,$6,'debit',$3,'substitution',$4,$5)`,
+          `INSERT INTO ledger_entries(
+            transaction_id, account_id, direction, amount_cents, reference_type, reference_id, metadata
+          ) VALUES
+            ($1, $2, 'credit', $3, 'substitution', $4, $5),
+            ($1, $6, 'debit', $3, 'substitution', $4, $5)`,
           [
             transaction.id,
             wallet.id,

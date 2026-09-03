@@ -49,14 +49,16 @@ const SCORE_SQL = `
     LEAST(ST_Distance(d.current_location, j.pickup_location)/250, 40) distance_penalty,
     active_jobs.count*15 load_penalty,
     CASE WHEN d.location_updated_at < now()-interval '5 minutes' THEN 25 ELSE 0 END freshness_penalty,
-    (COALESCE(history.acceptance_rate,.5)-.5)*20 acceptance_points,
-    GREATEST(-10, LEAST(10,(20-COALESCE(history.response_seconds,20))/2)) response_points,
-    COALESCE(history.acceptance_rate,.5) acceptance_rate,
-    COALESCE(history.response_seconds,20) average_response_seconds,
+    (COALESCE(history.acceptance_rate_30d,.5)-.5)*20 acceptance_points,
+    GREATEST(-10, LEAST(10,(20-COALESCE(history.median_response_seconds,20))/2)) response_points,
+    COALESCE(history.incident_score,0) incident_penalty,
+    COALESCE(history.acceptance_rate_30d,.5) acceptance_rate,
+    COALESCE(history.median_response_seconds,20) average_response_seconds,
     (d.rating*20)-LEAST(ST_Distance(d.current_location,j.pickup_location)/250,40)-(active_jobs.count*15)
       -CASE WHEN d.location_updated_at<now()-interval '5 minutes' THEN 25 ELSE 0 END
-      +(COALESCE(history.acceptance_rate,.5)-.5)*20
-      +GREATEST(-10,LEAST(10,(20-COALESCE(history.response_seconds,20))/2)) score
+      +(COALESCE(history.acceptance_rate_30d,.5)-.5)*20
+      +GREATEST(-10,LEAST(10,(20-COALESCE(history.median_response_seconds,20))/2))
+      -COALESCE(history.incident_score,0) score
   FROM jobs j
   JOIN drivers d ON d.id = ANY($2::uuid[])
   JOIN vehicles vehicle ON vehicle.driver_id=d.id AND vehicle.active AND vehicle.retired_at IS NULL
@@ -64,15 +66,8 @@ const SCORE_SQL = `
   CROSS JOIN LATERAL(
     SELECT count(*)::numeric count FROM jobs active
     WHERE active.driver_id=d.id AND active.status NOT IN('completed','cancelled')) active_jobs
-  LEFT JOIN LATERAL(
-    SELECT
-      count(*) FILTER(WHERE prior.status='accepted')::numeric
-        /NULLIF(count(*) FILTER(WHERE prior.status IN('accepted','rejected','expired')),0) acceptance_rate,
-      avg(EXTRACT(epoch FROM(prior.responded_at-prior.created_at)))
-        FILTER(WHERE prior.responded_at IS NOT NULL AND prior.status IN('accepted','rejected')) response_seconds
-    FROM dispatch_offers prior JOIN jobs prior_job ON prior_job.id=prior.job_id
-    WHERE prior.driver_id=d.id AND prior_job.kind=$3::job_kind
-      AND prior.created_at>=now()-interval '30 days') history ON true
+  LEFT JOIN driver_dispatch_stats history
+    ON history.driver_id=d.id AND history.service=$3::job_kind
   WHERE j.id=$1
     AND NOT EXISTS(SELECT 1 FROM dispatch_offers prior WHERE prior.job_id=j.id AND prior.driver_id=d.id)
     AND (($3::job_kind='ride' AND NOT EXISTS(

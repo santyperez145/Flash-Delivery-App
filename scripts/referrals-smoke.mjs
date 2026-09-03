@@ -80,7 +80,16 @@ try {
   );
   const jobId = crypto.randomUUID();
   await pool.query(
-    `INSERT INTO jobs(id,public_id,kind,customer_id,status,pickup_address,pickup_location,dropoff_address,dropoff_location,service_level,quoted_amount_cents,final_amount_cents,distance_m,estimated_duration_s,metadata) VALUES($1,$2,'ride',$3,'completed','Origen',ST_SetSRID(ST_MakePoint(-58.38,-34.60),4326)::geography,'Destino',ST_SetSRID(ST_MakePoint(-58.39,-34.61),4326)::geography,'economy',100000,100000,1000,600,'{}')`,
+    `INSERT INTO jobs(
+      id,public_id,kind,customer_id,status,pickup_address,pickup_location,
+      dropoff_address,dropoff_location,service_level,quoted_amount_cents,
+      final_amount_cents,distance_m,estimated_duration_s,metadata
+    ) VALUES(
+      $1,$2,'ride',$3,'completed','Origen',
+      ST_SetSRID(ST_MakePoint(-58.38,-34.60),4326)::geography,'Destino',
+      ST_SetSRID(ST_MakePoint(-58.39,-34.61),4326)::geography,'economy',
+      100000,100000,1000,600,'{}'
+    )`,
     [jobId, `REF-${crypto.randomUUID()}`, rows.rows[0].friend_id],
   );
   await pool.query(
@@ -93,7 +102,11 @@ try {
     "first completed paid job settles the referral atomically",
   );
   const ledger = await pool.query(
-    `SELECT count(*)::int transactions,COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE 0 END),0)::bigint credits FROM ledger_transactions t JOIN ledger_entries e ON e.transaction_id=t.id WHERE t.metadata->>'attributionId'=$1`,
+    `SELECT count(*)::int transactions,
+      COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE 0 END),0)::bigint credits
+    FROM ledger_transactions t
+    JOIN ledger_entries e ON e.transaction_id=t.id
+    WHERE t.metadata->>'attributionId'=$1`,
     [rows.rows[0].id],
   );
   assert(

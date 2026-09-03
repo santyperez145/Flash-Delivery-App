@@ -48,9 +48,18 @@ assert.ok(
 );
 ok("la puntuación sólo evalúa los candidatos de la lista corta");
 
-assert.ok(SCORE_SQL.includes("interval '30 days'"), "la etapa 2 conserva el historial");
-assert.ok(SCORE_SQL.includes("score_breakdown") === false);
-ok("la etapa 2 conserva el historial de 30 días, ahora sobre un conjunto acotado");
+assert.ok(SCORE_SQL.includes("driver_dispatch_stats"), "la etapa 2 usa stats precomputadas");
+ok("la etapa 2 lee driver_dispatch_stats en lugar de agregar dispatch_offers");
+
+assert.ok(
+  !SCORE_SQL.includes("interval '30 days'"),
+  "la etapa 2 no recalcula historial en caliente",
+);
+assert.ok(
+  !/LEFT JOIN LATERAL\s*\([\s\S]*dispatch_offers prior/.test(SCORE_SQL),
+  "sin agregado lateral de dispatch_offers",
+);
+ok("la etapa 2 no agrega historial de 30 días por candidato");
 
 // El score no cambia: la optimización decide a cuántos se evalúa, no a quién se
 // le ofrece el trabajo.
@@ -61,10 +70,14 @@ for (const componente of [
   "freshness_penalty",
   "acceptance_points",
   "response_points",
+  "incident_penalty",
 ]) {
   assert.ok(SCORE_SQL.includes(componente), `falta el componente ${componente}`);
 }
 ok("los componentes del score explicable siguen siendo los mismos");
+
+assert.ok(SCORE_SQL.includes("incident_score") || SCORE_SQL.includes("incident_penalty"));
+ok("el score resta la penalización de incidentes precomputada");
 
 // --- Escalera de radios ------------------------------------------------------
 
@@ -98,7 +111,7 @@ assert.ok(combined.includes("<->"), "el dispatch volvió a quedar sin orden KNN"
 ok("el dispatch no puede volver a quedarse sin recorte espacial");
 
 console.log("\nok - contrato de candidatos de dispatch verificado");
-console.log("     pendiente: EXPLAIN ANALYZE con padrón sintético y ETA vial por Route Matrix");
+console.log("     pendiente: ETA vial por Route Matrix (requiere API key del dueño)");
 
 // --- Reservas: cuándo entra un trabajo a la cola (GTM-001) -------------------
 //
@@ -167,3 +180,39 @@ assert.ok(
   `el dispatch dejó de filtrar reservas futuras (${ventanas.length} filtros)`,
 );
 ok("el dispatch sigue sin ofrecer trabajos reservados fuera de ventana");
+
+const { REFRESH_DRIVER_DISPATCH_STATS_SQL } = await import("../server/dispatch-stats.js");
+assert.ok(REFRESH_DRIVER_DISPATCH_STATS_SQL.includes("INSERT INTO driver_dispatch_stats"));
+assert.ok(REFRESH_DRIVER_DISPATCH_STATS_SQL.includes("ON CONFLICT (driver_id, service)"));
+assert.ok(REFRESH_DRIVER_DISPATCH_STATS_SQL.includes("acceptance_rate_30d"));
+assert.ok(REFRESH_DRIVER_DISPATCH_STATS_SQL.includes("percentile_cont(0.5)"));
+assert.ok(
+  REFRESH_DRIVER_DISPATCH_STATS_SQL.includes("ride_safety_incidents"),
+  "el refresh debe leer incidentes de seguridad",
+);
+assert.ok(
+  REFRESH_DRIVER_DISPATCH_STATS_SQL.includes("false_alarm"),
+  "los falsos positivos no deben penalizar",
+);
+ok("el refresh upsertea stats con aceptación, mediana e incident_score desde safety");
+
+// Flash Más: el boost reordena la cola de jobs del batch, no el score de drivers.
+const { DISPATCH_BATCH_CLAIM_SQL } = await import("../server/dispatch-repository.js");
+assert.ok(
+  DISPATCH_BATCH_CLAIM_SQL.includes("dispatch_priority_boost"),
+  "el reclamo del batch debe leer el boost del plan",
+);
+assert.match(
+  DISPATCH_BATCH_CLAIM_SQL,
+  /ORDER BY COALESCE\(boost\.dispatch_priority_boost,\s*0\) DESC,\s*j\.created_at/s,
+  "suscriptores van antes del FIFO por created_at",
+);
+assert.ok(
+  DISPATCH_BATCH_CLAIM_SQL.includes("FOR UPDATE OF j"),
+  "FOR UPDATE OF j evita bloquear filas de suscripción",
+);
+assert.ok(
+  DISPATCH_BATCH_CLAIM_SQL.includes("current_period_end > now()"),
+  "sólo cuenta el período vigente (incluye cancelado que aún no venció)",
+);
+ok("la cola del batch prioriza dispatch_priority_boost de Flash Más antes del FIFO");

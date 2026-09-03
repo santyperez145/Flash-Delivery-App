@@ -67,6 +67,10 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | --- | --- | --- |
 | Registro y login | `CI` | `test:security` vía `check` sobre el fallback y `test:postgres` sobre PostgreSQL |
 | Access/refresh rotativo | `CI` | `test:web-auth-session` en `ci-fast` |
+| Transporte HTTP web acotado | `CI` | Timeout, refresh y SSE viven en `src/api/http.ts`; `test:network-resilience` fija techo 280 |
+| Mapa HTTP web por dominio | `CI` | Cuenta, comercio, movilidad y operaciones en `src/api/*`; el barrel sólo compone; `test:network-resilience` fija techos |
+| Transporte HTTP mobile acotado | `CI` | Timeout y refresh viven en `apps/mobile/src/api/http.ts`; `test:network-resilience` fija techo 210 |
+| Mapa HTTP mobile por dominio | `CI` | Cuenta, comercio, movilidad y operaciones en `apps/mobile/src/api/*`; el barrel sólo compone; `test:network-resilience` fija techos |
 | Refresh en cookie HttpOnly | `CI` | `test:web-auth-session` en `ci-fast` |
 | Sesiones remotas | `CI` | `test:remote-sessions` en `ci-critical-flows` |
 | Recuperación de contraseña | `CI` | `test:password-recovery` en `ci-critical-flows` |
@@ -81,7 +85,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Capacidad | Estado | Evidencia / bloqueo |
 | --- | --- | --- |
 | PostgreSQL/PostGIS runtime | `CI` | `ci-postgres.yml` levanta PostGIS 17 con roles separados; `test:runtime-role-shape` repite el arranque en un contenedor aislado |
-| 136 migraciones versionadas | `CI` | `ci-postgres.yml` corre desde cero, en Testcontainers y de forma incremental sobre la rama base |
+| 138 migraciones versionadas | `CI` | `ci-postgres.yml` corre desde cero, en Testcontainers y de forma incremental sobre la rama base |
 | Framework estándar de pruebas | `CI` | Vitest 4.1 ejecuta autorización; Testcontainers 12.1 ejecuta migraciones y roles sobre PostGIS efímero · migración gradual restante |
 | Row-Level Security | `CI` | `test:rls` bloquea el merge · **69 de 69** tablas `por-usuario` con política. `shipment_details` y `promotion_redemptions` cerraron el 27-08: la primera guardaba nombre, teléfono y PIN del destinatario sin `ENABLE` |
 | Matriz de clasificación RLS | `CI` | `test:rls-matrix`: las 104 tablas clasificadas, deuda declarada que sólo puede achicarse. Desde el 27/08 también resta los `DROP TABLE`: una clasificación no sobrevive a su tabla |
@@ -97,7 +101,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Imagen productiva non-root | `CI` | Job `container-image` construye la imagen y verifica `uid=999(flash)` |
 | Auditoría de dependencias de desarrollo | `CI` | `test:dependency-gate` cubre cuatro alcances: raíz y móvil, producción y desarrollo |
 | Dependencias de producción acotadas | `CI` | `test:production-deps`: las 20 están importadas por el servidor. Siete paquetes de frente salieron de la imagen: 381 → 303 MiB |
-| Filesystem raíz de sólo lectura | `CI` | El job arranca la imagen con `--read-only` hasta que responde y comprueba que la raíz rechace escrituras. Escribible sólo `/tmp` y el volumen de datos |
+| Filesystem raíz de sólo lectura | `CI` | El job arranca la imagen con `--read-only` hasta que responde y comprueba que la raíz rechace escrituras. Escribible sólo `/tmp` y el volumen de datos (SQLite de respaldo). `store.js` abre SQLite de forma perezosa: con PostgreSQL el import puro no escribe |
 | SBOM de la imagen productiva | `CI` | CycloneDX publicado como artefacto en cada corrida del job `container-image` |
 | Scan de vulnerabilidades de imagen | `CI` | Trivy fijado. Bloquea las HIGH/CRITICAL **arreglables por el equipo**, fuera del npm de la imagen base; lo heredado se informa sin cortar |
 
@@ -125,16 +129,18 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | --- | --- | --- |
 | Ofertas privadas con TTL | `CI` | `test:postgres` bloquea el merge |
 | Aceptación atómica `SKIP LOCKED` | `CI` | `test:postgres` bloquea el merge |
-| Ranking explicable | `CI` | Selección en dos etapas · `test:dispatch-candidates` y `test:postgres` |
-| Recorte `ST_DWithin` + KNN | `CI` | Etapa 1 sobre el índice GiST parcial · **falta `EXPLAIN ANALYZE` con padrón sintético** |
-| Stats precomputadas de conductor | — | **No existe** · se recalcula historial de 30 días por oferta |
+| Ranking explicable | `CI` | Selección en dos etapas · `test:dispatch-candidates`, carga concurrente en `test:dispatch-plan` y `test:postgres` |
+| Recorte `ST_DWithin` + KNN | `CI` | Etapa 1 sobre el índice GiST parcial · `test:dispatch-plan` (EXPLAIN + carga concurrente) |
+| Stats precomputadas de conductor | `CI` | Migración 137 · refresh en accept/reject y batch · `test:dispatch-candidates` |
 | Route Matrix para dispatch | `CI` | `describeRouteMatrix` con contrato verificado · falta conectarla al scoring |
 | Zonas de demanda | `CI` | `test:driver-demand` en `ci-critical-flows` |
 | Geocoding | `CI` | Adapter con `test:maps-provider` · producción rechaza instancias públicas · **sin API key habilitada** |
 | Routing | `CI` | Adapter con Routes `TRAFFIC_AWARE` y Route Matrix · **sin API key habilitada** |
+| Tarifa con distancia vial | `CI` | Comida/viaje/envío usan `resolveDrivingRoute` en prod/comercial (`distanceSource: road`); OSM de desarrollo etiqueta `geodesic_scaled` · `test:maps-provider` · **sin API key para calidad/costo reales** |
 | Cotización firmada | `CI` | `test:maps` en `ci-critical-flows` |
 | Dirección validada en checkout de comida | `CI` | Migración 136 + token geográfico ligado al usuario · `test:maps` y `test:postgres` rechazan manipulación y registros legacy · **sin veredicto de deliverability comercial** |
-| Caché, circuit breaker y presupuesto | `CI` | `test:provider-resilience` |
+| Caché, circuit breaker y presupuesto | `CI` | `test:provider-resilience` · gauges `flash_map_provider_budget_*` y alerta al 80% en `/metrics` |
+| Fallback envejecido auditable | `CI` | `noteStaleFallback` + `maps.stale_fallback` en auditoría · `test:maps-provider` |
 
 ## Realtime y notificaciones
 
@@ -159,13 +165,14 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Variantes customer/driver/merchant | `CI` | `test:mobile-build-variants` |
 | Runtime nativo | `CI` | `test:mobile-native-runtime` |
 | Mapas nativos | `CI` | `test:mobile-maps` en `ci-fast` |
+| Rationale de ubicación (foreground) | `CI` | `test:mobile-location-permission`: strings OS por variante + `explainAndRequestForegroundLocation` en driver/cliente antes del diálogo del sistema |
 | Background location | `IMPL` | **Requiere development build · sin ensayo físico** |
 | Registro de push token | `IMPL` | Sin proveedor de destino |
 | Builds EAS firmados | — | **No existen** — ticket MOB-001 |
 | Crash reporting | — | **No existe** |
 | Entrypoints separados por audiencia | `CI` | `metro.config.js` resuelve la pantalla según `EXPO_PUBLIC_APP_VARIANT`; `test:mobile-variant-bundles` empaqueta las tres y exige que cada bundle Hermes lleve una sola |
 | Variante instalada con fuente única | `CI` | `test:mobile-build-variants`. El runtime la leía del manifiesto de Expo, que en web no llega: el build de conductor pedía rol `customer` y rechazaba al conductor |
-| Segmentación interna de Cliente | `CI` | Cuenta, Actividad, tracking, Viajes, Envíos, resolución de problemas y las cinco tareas de Comidas viven fuera de `CustomerScreen.tsx`; `test:responsive-layout` y `test:mobile-food-design` fijan el coordinador en 1.350 líneas o menos |
+| Segmentación interna de Cliente | `CI` | Cuenta, Actividad, tracking, Viajes, Envíos, resolución de problemas y las cinco tareas de Comidas viven fuera de `CustomerScreen.tsx`; la sesión de Comidas vive en `useCustomerFood`; `test:responsive-layout` y `test:mobile-food-design` fijan el coordinador en 950 líneas o menos |
 
 ## Web y entrega
 
@@ -176,11 +183,11 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Compresión y caché | `CI` | `test:web-delivery` |
 | Contrato responsive | `CI` | `test:responsive-layout` |
 | Segmentación interna de Cliente | `CI` | Wallet, perfil, libreta, dieta, Actividad, Envíos, descubrimiento, restaurante, catálogo/personalización, carrito/checkout, navegación, tarjeta de estado y los tres trackings viven en módulos propios; `test:responsive-layout`, `test:web-checkout` y `test:web-tracking-maps` fijan 375/95/130/155/95/110/690/35/25/575/130/315/165/195/180/340/285 líneas y APIs propietarias. Chromium verifica Cuenta, cotizador, home, restaurante, personalizador, carrito y los tres trackings a 390 × 844; el envío activo faltante se cotiza/crea por API real e idempotente |
-| Contratos compartidos web/móvil | `CI` | `@flash/domain-contracts` con 20 tipos idénticos autocontenidos; `test:domain-contracts` exige paquete, reexport y ausencia de cuerpos duplicados. User/Order/Restaurant siguen divergentes |
+| Contratos compartidos web/móvil | `CI` | `@flash/domain-contracts` con 54 tipos (incluye `AccountSession`, `WalletTransaction`, `DriverEarnings*`, Ride/Shipment/`Order`); `test:domain-contracts` exige paquete, reexport y ausencia de cuerpos duplicados |
 | Auditoría responsive en navegador real | `CI` | `test:responsive-browser` en `ci-nightly.yml`, una corrida por variante. Hasta el 27-08 pasaba sobre la pantalla de login |
 | Degradación explícita sobre el respaldo | `CI` | `test:fallback-degradation`: 54 rutas × 4 audiencias sin 500. Encontró 17 rutas que reventaban con `TypeError` en vez de responder 503 |
 | CSP activa | `LOCAL` | Sin puerta dedicada |
-| Separación por audiencia | `IMPL` | `src/App.tsx` bajó a 1.245 líneas y hay carpetas por audiencia, pero sin puerta que impida volver a mezclarlas — ticket ARC-001 |
+| Separación por audiencia | `CI` | `src/App.tsx` es shell de sesión/auth/enrutado; la sesión de comercio vive en `useCustomerCommerce`; `test:responsive-layout` fija el entry en 720 líneas o menos |
 
 ## Operación y soporte
 

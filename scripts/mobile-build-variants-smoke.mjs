@@ -4,7 +4,10 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url),
   factory = require("../apps/mobile/app.config.js"),
   eas = JSON.parse(fs.readFileSync(new URL("../apps/mobile/eas.json", import.meta.url), "utf8")),
-  api = fs.readFileSync(new URL("../apps/mobile/src/api.ts", import.meta.url), "utf8"),
+  api = [
+    fs.readFileSync(new URL("../apps/mobile/src/api/http.ts", import.meta.url), "utf8"),
+    fs.readFileSync(new URL("../apps/mobile/src/api/account.ts", import.meta.url), "utf8"),
+  ].join("\n"),
   app = fs.readFileSync(new URL("../apps/mobile/App.tsx", import.meta.url), "utf8"),
   metro = fs.readFileSync(new URL("../apps/mobile/metro.config.js", import.meta.url), "utf8"),
   appConfig = fs.readFileSync(new URL("../apps/mobile/app.config.js", import.meta.url), "utf8");
@@ -65,8 +68,8 @@ for (const variant of ["customer", "driver", "merchant"])
     `EAS production profile pins ${variant} variant`,
   );
 assert(
-  api.includes("allowsVariant(session.user)") &&
-    api.includes("allowsVariant(account.account.user)"),
+  contains(api, "allowsVariant(session.user)") &&
+    contains(api, "allowsVariant(account.account.user)"),
   "login and restored sessions are gated by the installed app variant",
 );
 
@@ -95,7 +98,7 @@ assert(
   "the screen is not chosen by role priority, which ignored the installed variant",
 );
 assert(
-  api.includes("user.roles.includes(mobileAppVariant)"),
+  contains(api, "user.roles.includes(mobileAppVariant)"),
   "login still refuses a user without the role the installed variant needs",
 );
 
@@ -126,7 +129,8 @@ assert(
 // de roles. Es el mismo defecto que el PR #23 corrigió en `App.tsx` y que había
 // quedado sin tocar acá.
 assert(
-  contains(api, "activeAudience = mobileAppVariant") &&
+  contains(api, "setActiveAudience(mobileAppVariant)") &&
+    contains(api, 'let activeAudience: "customer" | "merchant" | "driver" = mobileAppVariant') &&
     !contains(api, 'roles.includes("merchant") ? "merchant"'),
   "the bootstrap audience follows the installed variant, not role priority",
 );

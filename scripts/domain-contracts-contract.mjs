@@ -24,6 +24,7 @@ const SHARED = [
   "ServiceTip",
   "DispatchScoreBreakdown",
   "MerchantOperationsMetrics",
+  "MerchantOperationsDashboardCore",
   "SubscriptionPlan",
   "Subscription",
   "GroupOrderParticipant",
@@ -31,7 +32,40 @@ const SHARED = [
   "ServiceQuickReply",
   "ShipmentClaim",
   "DispatchOffer",
+  "UserRole",
+  "UserStatus",
+  "User",
+  "OrderStatus",
+  "OrderItem",
+  "Order",
+  "RestaurantSummary",
+  "MenuModifier",
+  "MenuModifierGroup",
+  "MenuItemSummary",
+  "RestaurantBranch",
+  "DriverServiceMode",
+  "DriverSummary",
+  "DriverVehicle",
+  "RideStatus",
+  "RideService",
+  "RideSummary",
+  "ShipmentStatus",
+  "ShipmentPackageSize",
+  "ShipmentProtection",
+  "ShipmentItemCategory",
+  "ShipmentServiceLevel",
+  "ShipmentSummary",
+  "VerticalService",
+  "PromotionSummary",
+  "DriverEarningsPeriod",
+  "DriverEarningsDay",
+  "DriverEarnings",
+  "AccountSession",
+  "WalletTransaction",
 ];
+
+/** Tipos que cada superficie extiende con intersección local (no redefinición del núcleo). */
+const SHARED_WITH_LOCAL_EXTENSION = ["Order", "Restaurant"];
 
 const assert = (condition, label) => {
   if (!condition) throw new Error(`failed: ${label}`);
@@ -65,13 +99,62 @@ assert(
 assert(
   containsNone(
     web,
-    SHARED.map((name) => `export type ${name} =`),
+    SHARED.filter((name) => !SHARED_WITH_LOCAL_EXTENSION.includes(name)).map(
+      (name) => `export type ${name} =`,
+    ),
   ) &&
     containsNone(
       mobile,
-      SHARED.map((name) => `export type ${name} =`),
+      SHARED.filter((name) => !SHARED_WITH_LOCAL_EXTENSION.includes(name)).map(
+        (name) => `export type ${name} =`,
+      ),
     ),
   "web and mobile no longer redefine the shared contract bodies",
+);
+assert(
+  contains(web, "Order as SharedOrder") && contains(mobile, "Order as SharedOrder"),
+  "web and mobile extend shared Order with surface-specific fields",
+);
+assert(
+  contains(web, "Restaurant = RestaurantSummary &") &&
+    contains(mobile, "Restaurant = RestaurantSummary &"),
+  "web and mobile extend shared RestaurantSummary with surface-specific fields",
+);
+assert(
+  contains(web, "MenuItem = MenuItemSummary &") &&
+    contains(mobile, "menu: MenuItemSummary[]") &&
+    contains(web, "branches?: RestaurantBranch[]") &&
+    contains(mobile, "branches?: RestaurantBranch[]"),
+  "web and mobile share MenuItemSummary and RestaurantBranch",
+);
+assert(
+  contains(web, "MerchantOperationsDashboard = MerchantOperationsDashboardCore &") &&
+    contains(mobile, "MerchantOperationsDashboard = MerchantOperationsDashboardCore &"),
+  "web and mobile extend shared MerchantOperationsDashboardCore with local Restaurant",
+);
+assert(
+  contains(web, "Driver = DriverSummary") &&
+    contains(mobile, "Driver = DriverSummary &") &&
+    contains(web, "DriverService = DriverServiceMode") &&
+    contains(mobile, "ServiceMode = DriverServiceMode") &&
+    contains(web, "DriverVehicle") &&
+    contains(mobile, "DriverVehicle"),
+  "web and mobile share DriverSummary, DriverServiceMode and DriverVehicle",
+);
+assert(
+  contains(web, "Ride = RideSummary &") &&
+    contains(mobile, "Ride = RideSummary &") &&
+    contains(web, "Shipment = ShipmentSummary") &&
+    contains(mobile, "Shipment = ShipmentSummary &") &&
+    contains(web, "RideService") &&
+    contains(mobile, "RideService"),
+  "web and mobile share RideSummary, RideService and ShipmentSummary",
+);
+assert(
+  contains(web, "Service = VerticalService") &&
+    contains(web, "Promotion = PromotionSummary") &&
+    contains(mobile, "Promotion = PromotionSummary &"),
+  "web and mobile share VerticalService and PromotionSummary",
 );
 assert(
   contains(rootPkg, '"@flash/domain-contracts"') &&

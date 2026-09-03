@@ -64,17 +64,49 @@ try {
   const baseline = (
     await pool.query(
       `SELECT
-    count(*) FILTER(WHERE status='completed' AND EXISTS(SELECT 1 FROM job_events e WHERE e.job_id=jobs.id AND e.status='completed' AND e.occurred_at>=date_trunc('day',now() AT TIME ZONE 'America/Argentina/Buenos_Aires') AT TIME ZONE 'America/Argentina/Buenos_Aires'))::int completed,
-    COALESCE(sum(COALESCE(final_amount_cents,quoted_amount_cents)) FILTER(WHERE status='completed' AND EXISTS(SELECT 1 FROM job_events e WHERE e.job_id=jobs.id AND e.status='completed' AND e.occurred_at>=date_trunc('day',now() AT TIME ZONE 'America/Argentina/Buenos_Aires') AT TIME ZONE 'America/Argentina/Buenos_Aires')),0)::bigint sales
+    count(*) FILTER(
+      WHERE status='completed'
+        AND EXISTS(
+          SELECT 1 FROM job_events e
+          WHERE e.job_id=jobs.id AND e.status='completed'
+            AND e.occurred_at>=date_trunc('day',now() AT TIME ZONE 'America/Argentina/Buenos_Aires')
+              AT TIME ZONE 'America/Argentina/Buenos_Aires'
+        )
+    )::int completed,
+    COALESCE(sum(COALESCE(final_amount_cents,quoted_amount_cents)) FILTER(
+      WHERE status='completed'
+        AND EXISTS(
+          SELECT 1 FROM job_events e
+          WHERE e.job_id=jobs.id AND e.status='completed'
+            AND e.occurred_at>=date_trunc('day',now() AT TIME ZONE 'America/Argentina/Buenos_Aires')
+              AT TIME ZONE 'America/Argentina/Buenos_Aires'
+        )
+    ),0)::bigint sales
     FROM jobs WHERE merchant_id=$1 AND kind='delivery' AND metadata->>'subtype'='food_order'`,
       [context.merchant_id],
     )
   ).rows[0];
   const inserted = await pool.query(
-    `INSERT INTO jobs(public_id,kind,customer_id,merchant_id,branch_id,status,pickup_address,pickup_location,dropoff_address,dropoff_location,service_level,quoted_amount_cents,final_amount_cents,distance_m,estimated_duration_s,metadata,merchant_prep_minutes,merchant_ready_due_at)
-    SELECT $1||'-LATE','delivery'::job_kind,$2::uuid,$3::uuid,$4::uuid,'accepted'::job_status,b.address,b.location,'Destino',b.location,'food',250000,250000,1000,1800,'{"subtype":"food_order"}'::jsonb,10::smallint,now()-interval '1 minute' FROM merchant_branches b WHERE b.id=$4::uuid
-    UNION ALL SELECT $1||'-DONE','delivery'::job_kind,$2::uuid,$3::uuid,$4::uuid,'completed'::job_status,b.address,b.location,'Destino',b.location,'food',320000,320000,1000,1800,'{"subtype":"food_order"}'::jsonb,15::smallint,now()-interval '5 minutes' FROM merchant_branches b WHERE b.id=$4::uuid
-    UNION ALL SELECT $1||'-CANCEL','delivery'::job_kind,$2::uuid,$3::uuid,$4::uuid,'cancelled'::job_status,b.address,b.location,'Destino',b.location,'food',180000,180000,1000,1800,'{"subtype":"food_order"}'::jsonb,15::smallint,now()-interval '5 minutes' FROM merchant_branches b WHERE b.id=$4::uuid RETURNING id,status`,
+    `INSERT INTO jobs(
+      public_id,kind,customer_id,merchant_id,branch_id,status,
+      pickup_address,pickup_location,dropoff_address,dropoff_location,
+      service_level,quoted_amount_cents,final_amount_cents,distance_m,
+      estimated_duration_s,metadata,merchant_prep_minutes,merchant_ready_due_at
+    )
+    SELECT $1||'-LATE','delivery'::job_kind,$2::uuid,$3::uuid,$4::uuid,'accepted'::job_status,
+      b.address,b.location,'Destino',b.location,'food',250000,250000,1000,1800,
+      '{"subtype":"food_order"}'::jsonb,10::smallint,now()-interval '1 minute'
+    FROM merchant_branches b WHERE b.id=$4::uuid
+    UNION ALL SELECT $1||'-DONE','delivery'::job_kind,$2::uuid,$3::uuid,$4::uuid,
+      'completed'::job_status,b.address,b.location,'Destino',b.location,'food',
+      320000,320000,1000,1800,'{"subtype":"food_order"}'::jsonb,15::smallint,
+      now()-interval '5 minutes'
+    FROM merchant_branches b WHERE b.id=$4::uuid
+    UNION ALL SELECT $1||'-CANCEL','delivery'::job_kind,$2::uuid,$3::uuid,$4::uuid,
+      'cancelled'::job_status,b.address,b.location,'Destino',b.location,'food',
+      180000,180000,1000,1800,'{"subtype":"food_order"}'::jsonb,15::smallint,
+      now()-interval '5 minutes'
+    FROM merchant_branches b WHERE b.id=$4::uuid RETURNING id,status`,
     [prefix, context.customer_id, context.merchant_id, context.branch_id],
   );
   for (const job of inserted.rows)

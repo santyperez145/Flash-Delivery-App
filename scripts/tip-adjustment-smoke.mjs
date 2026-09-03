@@ -49,12 +49,24 @@ try {
     await client.query("BEGIN");
     const fixture = (
       await client.query(
-        `SELECT j.id job_id,j.customer_id,d.id driver_id,d.user_id driver_user_id,admin.id admin_id,admin.password_hash FROM jobs j JOIN drivers d ON d.id=j.driver_id JOIN users admin ON admin.public_id='usr_admin' WHERE NOT EXISTS(SELECT 1 FROM service_tips t WHERE t.job_id=j.id) LIMIT 1`,
+        `SELECT j.id job_id,
+          j.customer_id,
+          d.id driver_id,
+          d.user_id driver_user_id,
+          admin.id admin_id,
+          admin.password_hash
+        FROM jobs j
+        JOIN drivers d ON d.id=j.driver_id
+        JOIN users admin ON admin.public_id='usr_admin'
+        WHERE NOT EXISTS(SELECT 1 FROM service_tips t WHERE t.job_id=j.id)
+        LIMIT 1`,
       )
     ).rows[0];
     if (!fixture) throw new Error("No hay servicio asignado disponible para fixture de propina");
     const accounts = await client.query(
-        `INSERT INTO ledger_accounts(owner_type,owner_id,currency,account_type) VALUES('user',$1,'ARS','wallet'),('user',$2,'ARS','wallet') ON CONFLICT(owner_type,owner_id,currency,account_type) DO UPDATE SET owner_type=excluded.owner_type RETURNING id,owner_id`,
+        `INSERT INTO ledger_accounts(owner_type,owner_id,currency,account_type) VALUES('user',$1,'ARS','wallet'),
+          ('user',$2,'ARS','wallet') ON CONFLICT(owner_type,owner_id,currency,account_type) DO UPDATE SET owner_type=excluded.owner_type RETURNING id,
+          owner_id`,
         [fixture.customer_id, fixture.driver_user_id],
       ),
       customerAccount = accounts.rows.find(
@@ -144,7 +156,17 @@ try {
   );
 
   const balancesBefore = await pool.query(
-    `SELECT a.owner_id,COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint balance FROM service_tips t JOIN drivers d ON d.id=t.driver_id JOIN ledger_accounts a ON a.owner_type='user' AND a.account_type='wallet' AND a.owner_id IN(t.customer_id,d.user_id) LEFT JOIN ledger_entries e ON e.account_id=a.id WHERE t.public_id=$1 GROUP BY a.owner_id`,
+    `SELECT a.owner_id,
+      COALESCE(sum(
+        CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END
+      ),0)::bigint balance
+    FROM service_tips t
+    JOIN drivers d ON d.id=t.driver_id
+    JOIN ledger_accounts a
+      ON a.owner_type='user' AND a.account_type='wallet'
+        AND a.owner_id IN(t.customer_id,d.user_id)
+    LEFT JOIN ledger_entries e ON e.account_id=a.id
+    WHERE t.public_id=$1 GROUP BY a.owner_id`,
     [tipId],
   );
   token = await login(secondAdminEmail);
@@ -169,7 +191,17 @@ try {
     "independent approval is attributed and idempotent",
   );
   const balancesAfter = await pool.query(
-      `SELECT a.owner_id,COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint balance FROM service_tips t JOIN drivers d ON d.id=t.driver_id JOIN ledger_accounts a ON a.owner_type='user' AND a.account_type='wallet' AND a.owner_id IN(t.customer_id,d.user_id) LEFT JOIN ledger_entries e ON e.account_id=a.id WHERE t.public_id=$1 GROUP BY a.owner_id`,
+      `SELECT a.owner_id,
+        COALESCE(sum(
+          CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END
+        ),0)::bigint balance
+      FROM service_tips t
+      JOIN drivers d ON d.id=t.driver_id
+      JOIN ledger_accounts a
+        ON a.owner_type='user' AND a.account_type='wallet'
+          AND a.owner_id IN(t.customer_id,d.user_id)
+      LEFT JOIN ledger_entries e ON e.account_id=a.id
+      WHERE t.public_id=$1 GROUP BY a.owner_id`,
       [tipId],
     ),
     before = new Map(balancesBefore.rows.map((row) => [String(row.owner_id), Number(row.balance)])),
@@ -203,7 +235,8 @@ try {
     "concurrent requests cannot exceed original tip",
   );
   const imbalance = await pool.query(
-    `SELECT count(*)::int count FROM (SELECT t.id FROM ledger_transactions t JOIN ledger_entries e ON e.transaction_id=t.id WHERE t.idempotency_key=$1 OR t.idempotency_key LIKE 'tip-adjustment-%' AND t.metadata->>'tipId'=$2 GROUP BY t.id HAVING sum(CASE WHEN e.direction='debit' THEN e.amount_cents ELSE -e.amount_cents END)<>0) q`,
+    `SELECT count(*)::int count FROM (SELECT t.id FROM ledger_transactions t JOIN ledger_entries e ON e.transaction_id=t.id WHERE (t.idempotency_key=$1 OR t.idempotency_key LIKE 'tip-adjustment-%')
+      AND t.metadata->>'tipId'=$2 GROUP BY t.id HAVING sum(CASE WHEN e.direction='debit' THEN e.amount_cents ELSE -e.amount_cents END)<>0) q`,
     [marker, tipId],
   );
   assert(

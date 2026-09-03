@@ -34,7 +34,16 @@ export async function assessTransactionRisk({
   if (existing) return mapRisk(existing);
   const facts = (
     await postgresPool.query(
-      `SELECT u.id,u.created_at,(SELECT count(*)::int FROM jobs j WHERE j.customer_id=u.id AND j.created_at>now()-interval '10 minutes') jobs_10m,(SELECT COALESCE(sum(COALESCE(j.final_amount_cents,j.quoted_amount_cents)),0)::bigint FROM jobs j WHERE j.customer_id=u.id AND j.created_at>now()-interval '1 hour') spend_1h,(SELECT count(*)::int FROM payment_intents p WHERE p.customer_id=u.id AND p.status='failed' AND p.updated_at>now()-interval '24 hours') failures_24h FROM users u WHERE u.public_id=$1`,
+      `SELECT u.id, u.created_at,
+        (SELECT count(*)::int FROM jobs j
+          WHERE j.customer_id = u.id AND j.created_at > now() - interval '10 minutes') jobs_10m,
+        (SELECT COALESCE(sum(COALESCE(j.final_amount_cents, j.quoted_amount_cents)), 0)::bigint
+          FROM jobs j
+          WHERE j.customer_id = u.id AND j.created_at > now() - interval '1 hour') spend_1h,
+        (SELECT count(*)::int FROM payment_intents p
+          WHERE p.customer_id = u.id AND p.status = 'failed'
+            AND p.updated_at > now() - interval '24 hours') failures_24h
+       FROM users u WHERE u.public_id = $1`,
       [customerPublicId],
     )
   ).rows[0];
@@ -60,7 +69,11 @@ export async function assessTransactionRisk({
   const decision = score >= 80 ? "block" : score >= 50 ? "review" : "allow",
     row = (
       await postgresPool.query(
-        `INSERT INTO transaction_risk_assessments(public_id,customer_id,service,amount_cents,score,decision,rules,request_id,idempotency_key,entity_public_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+        `INSERT INTO transaction_risk_assessments(
+           public_id, customer_id, service, amount_cents, score, decision, rules,
+           request_id, idempotency_key, entity_public_id
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+         RETURNING *`,
         [
           `RSK-${crypto.randomUUID()}`,
           facts.id,
@@ -86,7 +99,12 @@ export async function setRiskEntity({ assessmentPublicId, entityPublicId }) {
 export async function getTransactionRisks({ limit = 100 } = {}) {
   const rows = (
     await postgresPool.query(
-      `SELECT r.*,u.public_id customer_public_id,reviewer.public_id reviewer_public_id FROM transaction_risk_assessments r JOIN users u ON u.id=r.customer_id LEFT JOIN users reviewer ON reviewer.id=r.reviewed_by ORDER BY r.created_at DESC LIMIT $1`,
+      `SELECT r.*, u.public_id customer_public_id, reviewer.public_id reviewer_public_id
+       FROM transaction_risk_assessments r
+       JOIN users u ON u.id = r.customer_id
+       LEFT JOIN users reviewer ON reviewer.id = r.reviewed_by
+       ORDER BY r.created_at DESC
+       LIMIT $1`,
       [limit],
     )
   ).rows;
@@ -100,7 +118,15 @@ export async function reviewTransactionRisk({
 }) {
   const row = (
     await postgresPool.query(
-      `UPDATE transaction_risk_assessments r SET review_status=$3,review_note=$4,reviewed_at=now(),reviewed_by=reviewer.id FROM users reviewer,users customer WHERE r.public_id=$1 AND reviewer.public_id=$2 AND customer.id=r.customer_id AND r.review_status IS NULL AND r.decision IN('review','block') RETURNING r.*,customer.public_id customer_public_id,reviewer.public_id reviewer_public_id`,
+      `UPDATE transaction_risk_assessments r
+       SET review_status = $3, review_note = $4, reviewed_at = now(), reviewed_by = reviewer.id
+       FROM users reviewer, users customer
+       WHERE r.public_id = $1
+         AND reviewer.public_id = $2
+         AND customer.id = r.customer_id
+         AND r.review_status IS NULL
+         AND r.decision IN ('review', 'block')
+       RETURNING r.*, customer.public_id customer_public_id, reviewer.public_id reviewer_public_id`,
       [assessmentPublicId, actorPublicId, reviewStatus, reviewNote],
     )
   ).rows[0];

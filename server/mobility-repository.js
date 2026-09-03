@@ -1,464 +1,47 @@
+// Envíos (shipments): listar, crear y avanzar estado (ARC-001).
+//
+// Viajes → `ride-repository.js`. Opciones → `shipment-options-repository.js`.
+// Claims/devoluciones → `shipment-claims-repository.js`. POD →
+// `shipment-delivery-repository.js`.
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { postgresPool } from "./postgres.js";
 import { captureWalletPayment } from "./wallet-repository.js";
 import { enqueueNotificationForInternalUser } from "./notification-repository.js";
 import { acceptDispatchOffer, createDispatchOffers } from "./dispatch-repository.js";
-import {
-  deriveDeliveryPin,
-  deriveRidePickupPin,
-  decryptShipmentClaimEvidence,
-  encryptShipmentClaimEvidence,
-} from "./secret-envelope.js";
-import { encryptDeliveryProof, decryptDeliveryProof } from "./delivery-proof-envelope.js";
+import { deriveDeliveryPin } from "./secret-envelope.js";
 import { pesos } from "./money.js";
-
-const evidenceId = () =>
-  `POD-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
-const mapDeliveryEvidence = (row) => ({
-  id: row.public_id,
-  shipmentId: row.shipment_public_id,
-  type: row.evidence_type,
-  mimeType: row.mime_type,
-  sha256: row.content_sha256,
-  sizeBytes: Number(row.size_bytes),
-  capturedLocation:
-    row.captured_lat === null || row.captured_lat === undefined
-      ? null
-      : { lat: Number(row.captured_lat), lng: Number(row.captured_lng) },
-  capturedAt: new Date(row.captured_at).toISOString(),
-  createdAt: new Date(row.created_at).toISOString(),
-  signerName: row.signer_name || null,
-  signerRelationship: row.signer_relationship || null,
-  consentVersion: row.consent_version || null,
-});
-const matchesImageMime = (content, mimeType) =>
-  mimeType === "image/jpeg"
-    ? content[0] === 0xff && content[1] === 0xd8 && content[2] === 0xff
-    : mimeType === "image/png"
-      ? content.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
-      : mimeType === "image/webp"
-        ? content.subarray(0, 4).toString("ascii") === "RIFF" &&
-          content.subarray(8, 12).toString("ascii") === "WEBP"
-        : false;
-
-export async function getPostgresRides() {
-  const result = await postgresPool.query(`
-    SELECT j.*, customer.public_id customer_public_id, driver.public_id driver_public_id,
-      ST_Y(j.pickup_location::geometry) pickup_lat, ST_X(j.pickup_location::geometry) pickup_lng,
-      ST_Y(j.dropoff_location::geometry) dropoff_lat, ST_X(j.dropoff_location::geometry) dropoff_lng,
-      (SELECT jsonb_build_object('id',c.public_id,'reason',c.reason_code,'refundAmount',c.refund_amount_cents/100.0,'fee',c.cancellation_fee_cents/100.0,'createdAt',c.created_at) FROM job_cancellations c WHERE c.job_id=j.id) cancellation,
-      COALESCE((SELECT jsonb_agg(jsonb_build_object('status',je.status::text,'at',je.occurred_at) ORDER BY je.occurred_at)
-        FROM job_events je WHERE je.job_id=j.id),'[]') timeline
-    FROM jobs j JOIN users customer ON customer.id=j.customer_id
-    LEFT JOIN drivers driver ON driver.id=j.driver_id WHERE j.kind='ride' ORDER BY j.created_at DESC`);
-  return result.rows.map((row) => ({
-    id: row.public_id,
-    customerId: row.customer_public_id,
-    driverId: row.driver_public_id || null,
-    status: row.status,
-    service: row.service_level,
-    pickup: row.pickup_address,
-    destination: row.dropoff_address,
-    pickupLocation: { lat: Number(row.pickup_lat), lng: Number(row.pickup_lng) },
-    destinationLocation: { lat: Number(row.dropoff_lat), lng: Number(row.dropoff_lng) },
-    distanceKm: Number((row.distance_m / 1000).toFixed(1)),
-    etaMin: Number(row.metadata?.etaMin || 0),
-    durationMin: Math.round(row.estimated_duration_s / 60),
-    fare: pesos(row.final_amount_cents ?? row.quoted_amount_cents),
-    paymentMethod: row.payment_method_label || "",
-    scheduledFor: row.scheduled_for ? new Date(row.scheduled_for).toISOString() : null,
-    createdAt: new Date(row.created_at).toISOString(),
-    timeline: row.timeline || [],
-    cancellation: row.cancellation || null,
-  }));
-}
-
-export async function createPostgresRide({
-  publicId,
-  customerPublicId,
-  pickup,
-  destination,
-  service,
-  pickupCoords,
-  destinationCoords,
-  quote,
-  paymentMethod,
-  idempotencyKey,
-  scheduledFor = null,
-}) {
-  const client = await postgresPool.connect();
-  try {
-    await client.query("BEGIN");
-    const customer = (
-      await client.query("SELECT id FROM users WHERE public_id=$1", [customerPublicId])
-    ).rows[0];
-    if (!customer) throw Object.assign(new Error("Cliente no encontrado"), { status: 404 });
-    if (!pickupCoords || !destinationCoords)
-      throw Object.assign(new Error("Origen y destino deben tener coordenadas reales"), {
-        status: 400,
-      });
-    const hash = crypto
-      .createHash("sha256")
-      .update(
-        JSON.stringify({
-          customerPublicId,
-          pickup,
-          destination,
-          service,
-          pickupCoords,
-          destinationCoords,
-          quote: quote.fare,
-          paymentMethod,
-          scheduledFor,
-        }),
-      )
-      .digest("hex");
-    const claim = await client.query(
-      `INSERT INTO idempotency_keys(key,user_id,request_hash,expires_at) VALUES($1,$2,$3,now()+interval '24 hours') ON CONFLICT DO NOTHING RETURNING key`,
-      [idempotencyKey, customer.id, hash],
-    );
-    if (!claim.rows[0]) {
-      const old = (
-        await client.query("SELECT request_hash,response_body FROM idempotency_keys WHERE key=$1", [
-          idempotencyKey,
-        ])
-      ).rows[0];
-      if (old?.request_hash !== hash)
-        throw Object.assign(new Error("Clave de idempotencia reutilizada con otra solicitud"), {
-          status: 409,
-        });
-      if (old?.response_body?.ride) {
-        await client.query("ROLLBACK");
-        return old.response_body.ride;
-      }
-      throw Object.assign(new Error("Solicitud en proceso"), { status: 409 });
-    }
-    const status = "requested";
-    const inserted = await client.query(
-      `INSERT INTO jobs(public_id,kind,customer_id,driver_id,status,pickup_address,pickup_location,dropoff_address,dropoff_location,
-      service_level,quoted_amount_cents,final_amount_cents,distance_m,estimated_duration_s,payment_method_label,scheduled_for,metadata)
-      VALUES($1,'ride',$2,$3,$4,$5,ST_SetSRID(ST_MakePoint($6,$7),4326)::geography,$8,ST_SetSRID(ST_MakePoint($9,$10),4326)::geography,$11,$12,$12,$13,$14,$15,$16,$17) RETURNING id,created_at`,
-      [
-        publicId,
-        customer.id,
-        null,
-        status,
-        pickup,
-        pickupCoords.lng,
-        pickupCoords.lat,
-        destination,
-        destinationCoords.lng,
-        destinationCoords.lat,
-        service,
-        Math.round(quote.fare * 100),
-        Math.round(quote.distanceKm * 1000),
-        quote.durationMin * 60,
-        paymentMethod,
-        scheduledFor,
-        {
-          etaMin: quote.etaMin,
-          subtype: "passenger_ride",
-          zoneId: quote.zoneId || null,
-          demandMultiplier: quote.breakdown?.demandMultiplier || 1,
-          fareBreakdown: quote.breakdown || {},
-        },
-      ],
-    );
-    await client.query("INSERT INTO job_events(job_id,actor_id,status) VALUES($1,$2,'requested')", [
-      inserted.rows[0].id,
-      customer.id,
-    ]);
-    await client.query("INSERT INTO ride_pickup_verifications(job_id,pin_hash) VALUES($1,$2)", [
-      inserted.rows[0].id,
-      await bcrypt.hash(deriveRidePickupPin(publicId), 10),
-    ]);
-    const scheduledDate = scheduledFor ? new Date(scheduledFor) : null;
-    if (!scheduledDate || scheduledDate.getTime() <= Date.now() + 15 * 60 * 1000)
-      await createDispatchOffers(client, { jobId: inserted.rows[0].id, mode: "ride" });
-    await enqueueNotificationForInternalUser(client, {
-      userId: customer.id,
-      template: scheduledDate ? "ride_scheduled" : "ride_status",
-      payload: { kind: "ride", jobId: publicId, status, scheduledFor: scheduledFor || null },
-      deduplicationKey: `ride:${publicId}:${status}`,
-    });
-    if (scheduledDate)
-      await enqueueNotificationForInternalUser(client, {
-        userId: customer.id,
-        template: "ride_reminder",
-        payload: { kind: "ride", jobId: publicId, scheduledFor },
-        deduplicationKey: `ride:${publicId}:reminder`,
-        scheduledAt: new Date(scheduledDate.getTime() - 30 * 60 * 1000),
-      });
-    if (String(paymentMethod).toLowerCase().includes("wallet"))
-      await captureWalletPayment(client, {
-        jobId: inserted.rows[0].id,
-        customerId: customer.id,
-        amountCents: Math.round(quote.fare * 100),
-        idempotencyKey,
-        description: `Viaje ${publicId}`,
-        metadata: { publicId, kind: "ride" },
-      });
-    const ride = {
-      id: publicId,
-      customerId: customerPublicId,
-      driverId: null,
-      status,
-      service,
-      pickup,
-      destination,
-      pickupLocation: pickupCoords,
-      destinationLocation: destinationCoords,
-      distanceKm: quote.distanceKm,
-      etaMin: quote.etaMin,
-      durationMin: quote.durationMin,
-      fare: quote.fare,
-      paymentMethod,
-      scheduledFor: scheduledFor || null,
-      createdAt: new Date(inserted.rows[0].created_at).toISOString(),
-      timeline: [{ status: "requested", at: new Date().toISOString() }],
-    };
-    await client.query(
-      "UPDATE idempotency_keys SET response_status=200,response_body=$2 WHERE key=$1",
-      [idempotencyKey, { ride }],
-    );
-    await client.query("COMMIT");
-    return ride;
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
-}
-
-export async function setPostgresRideStatus(
-  publicId,
-  status,
-  actorPublicId,
-  driverPublicId = null,
-) {
-  const client = await postgresPool.connect();
-  try {
-    await client.query("BEGIN");
-    const actor = (await client.query("SELECT id FROM users WHERE public_id=$1", [actorPublicId]))
-      .rows[0];
-    if (status === "in_progress") {
-      const verification = (
-        await client.query(
-          `SELECT v.verified_at,v.job_id IS NOT NULL verification_required,j.created_at,(SELECT applied_at FROM schema_migrations WHERE version='073_ride_pickup_verification.sql') rollout_at FROM jobs j LEFT JOIN ride_pickup_verifications v ON v.job_id=j.id WHERE j.public_id=$1 AND j.kind='ride' FOR UPDATE OF j`,
-          [publicId],
-        )
-      ).rows[0];
-      const postRollout =
-        verification?.rollout_at &&
-        new Date(verification.created_at) >= new Date(verification.rollout_at);
-      if ((verification?.verification_required || postRollout) && !verification?.verified_at)
-        throw Object.assign(new Error("Verifica el PIN del pasajero antes de iniciar el viaje"), {
-          status: 409,
-        });
-    }
-    let driverId = null;
-    if (driverPublicId)
-      driverId =
-        (
-          await client.query("SELECT id FROM drivers WHERE public_id=$1 AND online", [
-            driverPublicId,
-          ])
-        ).rows[0]?.id || null;
-    const result =
-      driverPublicId && status === "driver_assigned"
-        ? {
-            rows: [
-              await acceptDispatchOffer(client, {
-                jobPublicId: publicId,
-                driverPublicId,
-                actorUserId: actor?.id || null,
-                status,
-              }),
-            ],
-          }
-        : await client.query(
-            `WITH changed AS (UPDATE jobs SET status=$1,driver_id=COALESCE($4,driver_id),version=version+1,updated_at=now(),metadata=CASE WHEN $1::job_status='completed' THEN jsonb_set(metadata,'{etaMin}','0') ELSE metadata END
-    WHERE public_id=$2 AND kind='ride' AND status NOT IN('completed','cancelled') RETURNING id,customer_id) INSERT INTO job_events(job_id,actor_id,status) SELECT id,$3,$1 FROM changed RETURNING job_id`,
-            [status, publicId, actor?.id || null, driverId],
-          );
-    if (!result.rows[0])
-      throw Object.assign(new Error("El viaje no puede cambiar de estado"), { status: 409 });
-    const customer = (
-      await client.query("SELECT customer_id FROM jobs WHERE public_id=$1", [publicId])
-    ).rows[0];
-    await enqueueNotificationForInternalUser(client, {
-      userId: customer.customer_id,
-      template: "ride_status",
-      payload: { kind: "ride", jobId: publicId, status },
-      deduplicationKey: `ride:${publicId}:${status}`,
-    });
-    await client.query("COMMIT");
-    return (await getPostgresRides()).find((ride) => ride.id === publicId);
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
-}
 
 const shipmentApiStatus = (status) => (status === "completed" ? "delivered" : status);
 const shipmentDbStatus = (status) => (status === "delivered" ? "completed" : status);
 
-export async function getShipmentProtectionPlan(code = "standard") {
-  const row = (
-    await postgresPool.query(
-      "SELECT id,code,name,premium_basis_points,minimum_premium_cents,maximum_declared_value_cents,deductible_cents FROM shipment_protection_plans WHERE code=$1 AND active",
-      [code],
-    )
-  ).rows[0];
-  if (!row) throw Object.assign(new Error("Protección no disponible"), { status: 409 });
-  return {
-    id: row.id,
-    code: row.code,
-    name: row.name,
-    premiumRate: Number(row.premium_basis_points) / 10000,
-    minimumPremium: pesos(row.minimum_premium_cents),
-    maximumDeclaredValue: pesos(row.maximum_declared_value_cents),
-    deductible: pesos(row.deductible_cents),
-  };
-}
-export async function getShipmentServiceConfiguration({
-  itemCategory = "standard",
-  serviceLevel = "standard",
-} = {}) {
-  const [categoryResult, levelResult] = await Promise.all([
-      postgresPool.query(
-        "SELECT id,code,name,handling_instructions,surcharge_cents,maximum_weight_grams FROM shipment_item_categories WHERE code=$1 AND active",
-        [itemCategory],
-      ),
-      postgresPool.query(
-        "SELECT id,code,name,transport_multiplier,eta_multiplier,maximum_distance_m FROM shipment_service_levels WHERE code=$1 AND active",
-        [serviceLevel],
-      ),
-    ]),
-    category = categoryResult.rows[0],
-    level = levelResult.rows[0];
-  if (!category)
-    throw Object.assign(new Error("La categoría del paquete no está disponible"), { status: 409 });
-  if (!level)
-    throw Object.assign(new Error("El nivel de servicio no está disponible"), { status: 409 });
-  return {
-    category: {
-      id: category.id,
-      code: category.code,
-      name: category.name,
-      handlingInstructions: category.handling_instructions,
-      surcharge: pesos(category.surcharge_cents),
-      maximumWeightKg: Number(category.maximum_weight_grams) / 1000,
-    },
-    level: {
-      id: level.id,
-      code: level.code,
-      name: level.name,
-      transportMultiplier: Number(level.transport_multiplier),
-      etaMultiplier: Number(level.eta_multiplier),
-      maximumDistanceKm:
-        level.maximum_distance_m === null ? null : Number(level.maximum_distance_m) / 1000,
-    },
-  };
-}
-export async function getShipmentOptions({ includeInactive = false } = {}) {
-  const activeFilter = includeInactive ? "" : "WHERE active",
-    [categories, levels] = await Promise.all([
-      postgresPool.query(
-        `SELECT code,name,handling_instructions,surcharge_cents,maximum_weight_grams,active FROM shipment_item_categories ${activeFilter} ORDER BY created_at`,
-      ),
-      postgresPool.query(
-        `SELECT code,name,transport_multiplier,eta_multiplier,maximum_distance_m,active FROM shipment_service_levels ${activeFilter} ORDER BY transport_multiplier`,
-      ),
-    ]);
-  return {
-    categories: categories.rows.map((row) => ({
-      code: row.code,
-      name: row.name,
-      handlingInstructions: row.handling_instructions,
-      surcharge: pesos(row.surcharge_cents),
-      maximumWeightKg: Number(row.maximum_weight_grams) / 1000,
-      active: row.active,
-    })),
-    serviceLevels: levels.rows.map((row) => ({
-      code: row.code,
-      name: row.name,
-      transportMultiplier: Number(row.transport_multiplier),
-      etaMultiplier: Number(row.eta_multiplier),
-      maximumDistanceKm:
-        row.maximum_distance_m === null ? null : Number(row.maximum_distance_m) / 1000,
-      active: row.active,
-    })),
-  };
-}
-export async function updateShipmentItemCategory(code, patch) {
-  const row = (
-    await postgresPool.query(
-      `UPDATE shipment_item_categories SET name=COALESCE($2,name),handling_instructions=COALESCE($3,handling_instructions),surcharge_cents=COALESCE($4,surcharge_cents),maximum_weight_grams=COALESCE($5,maximum_weight_grams),active=COALESCE($6,active),updated_at=now() WHERE code=$1 RETURNING code,name,handling_instructions,surcharge_cents,maximum_weight_grams,active`,
-      [
-        code,
-        patch.name ?? null,
-        patch.handlingInstructions ?? null,
-        patch.surcharge === undefined ? null : Math.round(patch.surcharge * 100),
-        patch.maximumWeightKg === undefined ? null : Math.round(patch.maximumWeightKg * 1000),
-        patch.active ?? null,
-      ],
-    )
-  ).rows[0];
-  if (!row) throw Object.assign(new Error("Categoría de envío no encontrada"), { status: 404 });
-  return {
-    code: row.code,
-    name: row.name,
-    handlingInstructions: row.handling_instructions,
-    surcharge: pesos(row.surcharge_cents),
-    maximumWeightKg: Number(row.maximum_weight_grams) / 1000,
-    active: row.active,
-  };
-}
-export async function updateShipmentServiceLevel(code, patch) {
-  const hasMaximumDistance = Object.prototype.hasOwnProperty.call(patch, "maximumDistanceKm"),
-    row = (
-      await postgresPool.query(
-        `UPDATE shipment_service_levels SET name=COALESCE($2,name),transport_multiplier=COALESCE($3,transport_multiplier),eta_multiplier=COALESCE($4,eta_multiplier),maximum_distance_m=CASE WHEN $5 THEN $6 ELSE maximum_distance_m END,active=COALESCE($7,active),updated_at=now() WHERE code=$1 RETURNING code,name,transport_multiplier,eta_multiplier,maximum_distance_m,active`,
-        [
-          code,
-          patch.name ?? null,
-          patch.transportMultiplier ?? null,
-          patch.etaMultiplier ?? null,
-          hasMaximumDistance,
-          patch.maximumDistanceKm === null || patch.maximumDistanceKm === undefined
-            ? null
-            : Math.round(patch.maximumDistanceKm * 1000),
-          patch.active ?? null,
-        ],
-      )
-    ).rows[0];
-  if (!row) throw Object.assign(new Error("Nivel de servicio no encontrado"), { status: 404 });
-  return {
-    code: row.code,
-    name: row.name,
-    transportMultiplier: Number(row.transport_multiplier),
-    etaMultiplier: Number(row.eta_multiplier),
-    maximumDistanceKm:
-      row.maximum_distance_m === null ? null : Number(row.maximum_distance_m) / 1000,
-    active: row.active,
-  };
-}
-
 export async function getPostgresShipments() {
-  const result =
-    await postgresPool.query(`SELECT j.*,u.public_id customer_public_id,d.public_id driver_public_id,sd.*,
-    ST_Y(j.pickup_location::geometry) pickup_lat,ST_X(j.pickup_location::geometry) pickup_lng,
-    ST_Y(j.dropoff_location::geometry) dropoff_lat,ST_X(j.dropoff_location::geometry) dropoff_lng,
-    (SELECT jsonb_build_object('id',c.public_id,'reason',c.reason_code,'refundAmount',c.refund_amount_cents/100.0,'fee',c.cancellation_fee_cents/100.0,'createdAt',c.created_at) FROM job_cancellations c WHERE c.job_id=j.id) cancellation,
-    (SELECT count(*)::int FROM shipment_delivery_evidence e WHERE e.job_id=j.id) delivery_evidence_count,
-    COALESCE((SELECT jsonb_agg(jsonb_build_object('status',CASE WHEN je.status='completed' THEN 'delivered' ELSE je.status::text END,'at',je.occurred_at) ORDER BY je.occurred_at) FROM job_events je WHERE je.job_id=j.id),'[]') timeline
-    FROM jobs j JOIN users u ON u.id=j.customer_id JOIN shipment_details sd ON sd.job_id=j.id JOIN shipment_item_categories sic ON sic.id=sd.item_category_id JOIN shipment_service_levels ssl ON ssl.id=sd.service_level_id
-    LEFT JOIN drivers d ON d.id=j.driver_id WHERE j.kind='delivery' AND j.metadata->>'subtype'='shipment' ORDER BY j.created_at DESC`);
+  const result = await postgresPool.query(`
+    SELECT j.*, u.public_id customer_public_id, d.public_id driver_public_id, sd.*,
+      ST_Y(j.pickup_location::geometry) pickup_lat, ST_X(j.pickup_location::geometry) pickup_lng,
+      ST_Y(j.dropoff_location::geometry) dropoff_lat, ST_X(j.dropoff_location::geometry) dropoff_lng,
+      (SELECT jsonb_build_object(
+        'id', c.public_id, 'reason', c.reason_code,
+        'refundAmount', c.refund_amount_cents / 100.0, 'fee', c.cancellation_fee_cents / 100.0,
+        'createdAt', c.created_at
+      ) FROM job_cancellations c WHERE c.job_id = j.id) cancellation,
+      (SELECT count(*)::int FROM shipment_delivery_evidence e WHERE e.job_id = j.id)
+        delivery_evidence_count,
+      COALESCE((
+        SELECT jsonb_agg(jsonb_build_object(
+          'status', CASE WHEN je.status = 'completed' THEN 'delivered' ELSE je.status::text END,
+          'at', je.occurred_at
+        ) ORDER BY je.occurred_at)
+        FROM job_events je WHERE je.job_id = j.id
+      ), '[]') timeline
+    FROM jobs j
+    JOIN users u ON u.id = j.customer_id
+    JOIN shipment_details sd ON sd.job_id = j.id
+    JOIN shipment_item_categories sic ON sic.id = sd.item_category_id
+    JOIN shipment_service_levels ssl ON ssl.id = sd.service_level_id
+    LEFT JOIN drivers d ON d.id = j.driver_id
+    WHERE j.kind = 'delivery' AND j.metadata->>'subtype' = 'shipment'
+    ORDER BY j.created_at DESC`);
   return result.rows.map((row) => ({
     id: row.public_id,
     customerId: row.customer_public_id,
@@ -556,8 +139,18 @@ export async function createPostgresShipment({
     };
     const job = (
       await client.query(
-        `INSERT INTO jobs(public_id,kind,customer_id,driver_id,status,pickup_address,pickup_location,dropoff_address,dropoff_location,service_level,quoted_amount_cents,final_amount_cents,distance_m,estimated_duration_s,payment_method_label,metadata)
-      VALUES($1,'delivery',$2,$3,$4,$5,ST_SetSRID(ST_MakePoint($6,$7),4326)::geography,$8,ST_SetSRID(ST_MakePoint($9,$10),4326)::geography,$16,$11,$11,$12,$13,$14,$15) RETURNING id,created_at`,
+        `INSERT INTO jobs(
+          public_id, kind, customer_id, driver_id, status, pickup_address, pickup_location,
+          dropoff_address, dropoff_location, service_level, quoted_amount_cents,
+          final_amount_cents, distance_m, estimated_duration_s, payment_method_label, metadata
+        )
+        VALUES (
+          $1, 'delivery', $2, $3, $4, $5,
+          ST_SetSRID(ST_MakePoint($6, $7), 4326)::geography, $8,
+          ST_SetSRID(ST_MakePoint($9, $10), 4326)::geography, $16,
+          $11, $11, $12, $13, $14, $15
+        )
+        RETURNING id, created_at`,
         [
           publicId,
           customer.id,
@@ -579,7 +172,12 @@ export async function createPostgresShipment({
       )
     ).rows[0];
     await client.query(
-      `INSERT INTO shipment_details(job_id,recipient_name,recipient_phone,package_size,description,weight_grams,delivery_notes,delivery_pin_hash,terms_accepted_at,declared_value_cents,protection_plan_id,protection_premium_cents,signature_required,item_category_id,service_level_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,now(),$9,$10,$11,$12,$13,$14)`,
+      `INSERT INTO shipment_details(
+        job_id, recipient_name, recipient_phone, package_size, description, weight_grams,
+        delivery_notes, delivery_pin_hash, terms_accepted_at, declared_value_cents,
+        protection_plan_id, protection_premium_cents, signature_required,
+        item_category_id, service_level_id
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now(), $9, $10, $11, $12, $13, $14)`,
       [
         job.id,
         data.recipientName,
@@ -666,219 +264,6 @@ export async function createPostgresShipment({
   }
 }
 
-const mapShipmentReturn = (row) => ({
-  id: row.public_id,
-  shipmentId: row.shipment_public_id,
-  reason: row.reason,
-  status: row.status,
-  resolutionNote: row.resolution_note || null,
-  createdAt: new Date(row.created_at).toISOString(),
-  updatedAt: new Date(row.updated_at).toISOString(),
-});
-export async function getPostgresShipmentReturns({ customerPublicId, includeAll = false }) {
-  const result = await postgresPool.query(
-    `SELECT r.*,j.public_id shipment_public_id FROM shipment_return_requests r JOIN jobs j ON j.id=r.job_id JOIN users u ON u.id=r.requested_by WHERE $2::boolean OR u.public_id=$1 ORDER BY r.created_at DESC`,
-    [customerPublicId, includeAll],
-  );
-  return result.rows.map(mapShipmentReturn);
-}
-export async function createPostgresShipmentReturn({ shipmentPublicId, customerPublicId, reason }) {
-  const result = await postgresPool.query(
-    `INSERT INTO shipment_return_requests(public_id,job_id,requested_by,reason) SELECT $1,j.id,u.id,$4 FROM jobs j JOIN users u ON u.id=j.customer_id WHERE j.public_id=$2 AND u.public_id=$3 AND j.metadata->>'subtype'='shipment' AND j.status='completed' AND j.updated_at>=now()-interval '7 days' RETURNING *`,
-    [`RET-${crypto.randomUUID()}`, shipmentPublicId, customerPublicId, reason],
-  );
-  if (!result.rows[0])
-    throw Object.assign(new Error("Envío no encontrado o fuera de la ventana de devolución"), {
-      status: 404,
-    });
-  return mapShipmentReturn({ ...result.rows[0], shipment_public_id: shipmentPublicId });
-}
-export async function updatePostgresShipmentReturn({ returnPublicId, status, resolutionNote }) {
-  const result = await postgresPool.query(
-    `UPDATE shipment_return_requests SET status=$2,resolution_note=$3,updated_at=now() WHERE public_id=$1 AND (($2='approved' AND status='requested') OR ($2='rejected' AND status='requested') OR ($2='in_transit' AND status='approved') OR ($2='completed' AND status='in_transit')) RETURNING *`,
-    [returnPublicId, status, resolutionNote || null],
-  );
-  if (!result.rows[0])
-    throw Object.assign(new Error("La devolución no admite esa transición"), { status: 409 });
-  const shipment = (
-    await postgresPool.query("SELECT public_id FROM jobs WHERE id=$1", [result.rows[0].job_id])
-  ).rows[0];
-  return mapShipmentReturn({ ...result.rows[0], shipment_public_id: shipment.public_id });
-}
-const mapClaimEvidence = (row) => ({
-  id: row.public_id,
-  fileName: row.file_name,
-  mimeType: row.mime_type,
-  sha256: row.content_sha256,
-  sizeBytes: Number(row.size_bytes),
-  createdAt: new Date(row.created_at).toISOString(),
-});
-const mapShipmentClaim = (row) => ({
-  id: row.public_id,
-  shipmentId: row.shipment_public_id,
-  claimType: row.claim_type,
-  description: row.description,
-  requestedAmount: pesos(row.requested_amount_cents),
-  eligibleAmount: pesos(row.eligible_amount_cents),
-  approvedAmount: row.approved_amount_cents === null ? null : pesos(row.approved_amount_cents),
-  status: row.status,
-  resolutionNote: row.resolution_note || null,
-  evidence: Array.isArray(row.evidence)
-    ? row.evidence.map((entry) => ({
-        id: entry.id,
-        fileName: entry.fileName,
-        mimeType: entry.mimeType,
-        sha256: entry.sha256,
-        sizeBytes: Number(entry.sizeBytes),
-        createdAt: new Date(entry.createdAt).toISOString(),
-      }))
-    : [],
-  createdAt: new Date(row.created_at).toISOString(),
-  updatedAt: new Date(row.updated_at).toISOString(),
-});
-export async function getPostgresShipmentClaims({ customerPublicId, includeAll = false }) {
-  const rows = (
-    await postgresPool.query(
-      `SELECT c.*,j.public_id shipment_public_id,COALESCE((SELECT jsonb_agg(jsonb_build_object('id',e.public_id,'fileName',e.file_name,'mimeType',e.mime_type,'sha256',e.content_sha256,'sizeBytes',e.size_bytes,'createdAt',e.created_at) ORDER BY e.created_at) FROM shipment_claim_evidence e WHERE e.claim_id=c.id),'[]'::jsonb) evidence FROM shipment_protection_claims c JOIN jobs j ON j.id=c.job_id JOIN users u ON u.id=c.customer_id WHERE $2::boolean OR u.public_id=$1 ORDER BY c.created_at DESC`,
-      [customerPublicId, includeAll],
-    )
-  ).rows;
-  return rows.map(mapShipmentClaim);
-}
-export async function createPostgresShipmentClaim({
-  shipmentPublicId,
-  customerPublicId,
-  claimType,
-  description,
-  requestedAmount,
-}) {
-  const id = `CLM-${crypto.randomUUID()}`,
-    result = await postgresPool.query(
-      `INSERT INTO shipment_protection_claims(public_id,job_id,customer_id,claim_type,description,requested_amount_cents,eligible_amount_cents)
- SELECT $1,j.id,j.customer_id,$4,$5,$6,LEAST($6,GREATEST(0,sd.declared_value_cents-p.deductible_cents)) FROM jobs j JOIN users u ON u.id=j.customer_id JOIN shipment_details sd ON sd.job_id=j.id JOIN shipment_protection_plans p ON p.id=sd.protection_plan_id
- WHERE j.public_id=$2 AND u.public_id=$3 AND j.metadata->>'subtype'='shipment' AND j.status IN('completed','cancelled') AND j.updated_at>=now()-interval '7 days' RETURNING *`,
-      [
-        id,
-        shipmentPublicId,
-        customerPublicId,
-        claimType,
-        description,
-        Math.round(requestedAmount * 100),
-      ],
-    );
-  if (!result.rows[0])
-    throw Object.assign(new Error("Envío sin cobertura elegible o fuera del plazo de 7 días"), {
-      status: 404,
-    });
-  return mapShipmentClaim({ ...result.rows[0], shipment_public_id: shipmentPublicId });
-}
-export async function updatePostgresShipmentClaim({
-  claimPublicId,
-  actorPublicId,
-  status,
-  resolutionNote,
-  approvedAmount,
-}) {
-  const current = (
-    await postgresPool.query("SELECT * FROM shipment_protection_claims WHERE public_id=$1", [
-      claimPublicId,
-    ])
-  ).rows[0];
-  if (!current) throw Object.assign(new Error("Siniestro no encontrado"), { status: 404 });
-  const allowed = {
-    submitted: ["under_review", "rejected"],
-    under_review: ["approved", "rejected"],
-    approved: ["settlement_pending"],
-    settlement_pending: ["settled"],
-  };
-  if (!allowed[current.status]?.includes(status))
-    throw Object.assign(new Error("El siniestro no admite esa transición"), { status: 409 });
-  const approvedCents =
-    status === "approved"
-      ? Math.round(Number(approvedAmount) * 100)
-      : current.approved_amount_cents;
-  if (
-    status === "approved" &&
-    (!approvedCents || approvedCents > Number(current.eligible_amount_cents))
-  )
-    throw Object.assign(new Error("El monto aprobado debe respetar el máximo elegible"), {
-      status: 400,
-    });
-  const row = (
-      await postgresPool.query(
-        `UPDATE shipment_protection_claims SET status=$2,resolution_note=$3,approved_amount_cents=$4,reviewed_by=(SELECT id FROM users WHERE public_id=$5),reviewed_at=now(),updated_at=now() WHERE public_id=$1 RETURNING *`,
-        [claimPublicId, status, resolutionNote || null, approvedCents, actorPublicId],
-      )
-    ).rows[0],
-    job = (await postgresPool.query("SELECT public_id FROM jobs WHERE id=$1", [row.job_id]))
-      .rows[0];
-  return mapShipmentClaim({ ...row, shipment_public_id: job.public_id });
-}
-const claimEvidenceMime = (content, mime) =>
-  mime === "image/jpeg"
-    ? content[0] === 0xff && content[1] === 0xd8 && content[2] === 0xff
-    : mime === "image/png"
-      ? content.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
-      : mime === "application/pdf"
-        ? content.subarray(0, 5).toString("ascii") === "%PDF-"
-        : false;
-export async function addPostgresShipmentClaimEvidence({
-  claimPublicId,
-  actorPublicId,
-  fileName,
-  mimeType,
-  contentBase64,
-  includeAll = false,
-}) {
-  const content = Buffer.from(contentBase64, "base64"),
-    normalized = content.toString("base64").replace(/=+$/, "");
-  if (
-    !content.length ||
-    content.length > 768000 ||
-    normalized !== contentBase64.replace(/\s/g, "").replace(/=+$/, "") ||
-    !claimEvidenceMime(content, mimeType)
-  )
-    throw Object.assign(new Error("Evidencia inválida, demasiado grande o con MIME incorrecto"), {
-      status: 400,
-    });
-  const result = await postgresPool.query(
-    `INSERT INTO shipment_claim_evidence(public_id,claim_id,uploaded_by,file_name,mime_type,content_ciphertext,content_sha256,size_bytes) SELECT $1,c.id,actor.id,$4,$5,$6,$7,$8 FROM shipment_protection_claims c JOIN users owner ON owner.id=c.customer_id JOIN users actor ON actor.public_id=$3 WHERE c.public_id=$2 AND ($9::boolean OR owner.public_id=$3) AND c.status IN('submitted','under_review') RETURNING *`,
-    [
-      `CEV-${crypto.randomUUID()}`,
-      claimPublicId,
-      actorPublicId,
-      fileName.replace(/[\\/\0]/g, "_").slice(0, 160),
-      mimeType,
-      encryptShipmentClaimEvidence(content),
-      crypto.createHash("sha256").update(content).digest("hex"),
-      content.length,
-      includeAll,
-    ],
-  );
-  if (!result.rows[0])
-    throw Object.assign(new Error("Siniestro no encontrado o cerrado para evidencia"), {
-      status: 404,
-    });
-  return mapClaimEvidence(result.rows[0]);
-}
-export async function getPostgresShipmentClaimEvidenceContent({
-  evidencePublicId,
-  actorPublicId,
-  includeAll = false,
-}) {
-  const row = (
-    await postgresPool.query(
-      `SELECT e.*,owner.public_id owner_public_id FROM shipment_claim_evidence e JOIN shipment_protection_claims c ON c.id=e.claim_id JOIN users owner ON owner.id=c.customer_id WHERE e.public_id=$1 AND ($3::boolean OR owner.public_id=$2)`,
-      [evidencePublicId, actorPublicId, includeAll],
-    )
-  ).rows[0];
-  if (!row) throw Object.assign(new Error("Evidencia no encontrada"), { status: 404 });
-  return {
-    evidence: mapClaimEvidence(row),
-    contentBase64: decryptShipmentClaimEvidence(row.content_ciphertext).toString("base64"),
-  };
-}
-
 export async function setPostgresShipmentStatus(
   publicId,
   status,
@@ -911,7 +296,18 @@ export async function setPostgresShipmentStatus(
             ],
           }
         : await client.query(
-            `WITH changed AS(UPDATE jobs SET status=$1,driver_id=COALESCE($4,driver_id),version=version+1,updated_at=now(),metadata=CASE WHEN $1::job_status='completed' THEN jsonb_set(metadata,'{etaMin}','0') ELSE metadata END WHERE public_id=$2 AND metadata->>'subtype'='shipment' AND status NOT IN('completed','cancelled') RETURNING id,customer_id) INSERT INTO job_events(job_id,actor_id,status) SELECT id,$3,$1 FROM changed RETURNING job_id`,
+            `WITH changed AS (
+              UPDATE jobs SET status = $1, driver_id = COALESCE($4, driver_id), version = version + 1,
+                updated_at = now(),
+                metadata = CASE WHEN $1::job_status = 'completed'
+                  THEN jsonb_set(metadata, '{etaMin}', '0') ELSE metadata END
+              WHERE public_id = $2 AND metadata->>'subtype' = 'shipment'
+                AND status NOT IN ('completed', 'cancelled')
+              RETURNING id, customer_id
+            )
+            INSERT INTO job_events (job_id, actor_id, status)
+            SELECT id, $3, $1 FROM changed
+            RETURNING job_id`,
             [shipmentDbStatus(status), publicId, actor?.id || null, driverId],
           );
     if (!changed.rows[0])
@@ -929,263 +325,6 @@ export async function setPostgresShipmentStatus(
     return (await getPostgresShipments()).find((entry) => entry.id === publicId);
   } catch (error) {
     await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
-}
-
-export async function getPostgresShipmentDeliveryCode({
-  publicId,
-  customerPublicId,
-  admin = false,
-}) {
-  const result = await postgresPool.query(
-    `SELECT j.status,u.public_id customer_public_id FROM jobs j JOIN users u ON u.id=j.customer_id WHERE j.public_id=$1 AND j.metadata->>'subtype'='shipment'`,
-    [publicId],
-  );
-  const job = result.rows[0];
-  if (!job) throw Object.assign(new Error("Envío no encontrado"), { status: 404 });
-  if (!admin && job.customer_public_id !== customerPublicId)
-    throw Object.assign(new Error("No puedes consultar este código"), { status: 403 });
-  if (["completed", "cancelled"].includes(job.status))
-    throw Object.assign(new Error("El código ya no está disponible"), { status: 409 });
-  return deriveDeliveryPin(publicId);
-}
-
-const evidenceSelect = `SELECT e.*,j.public_id shipment_public_id,j.customer_id,d.user_id driver_user_id,ST_Y(e.captured_location::geometry) captured_lat,ST_X(e.captured_location::geometry) captured_lng FROM shipment_delivery_evidence e JOIN jobs j ON j.id=e.job_id LEFT JOIN drivers d ON d.id=j.driver_id`;
-
-export async function addPostgresShipmentDeliveryEvidence({
-  publicId,
-  actorPublicId,
-  type,
-  mimeType,
-  contentBase64,
-  capturedAt,
-  location,
-  signerName,
-  signerRelationship,
-  consentVersion,
-  admin = false,
-}) {
-  const content = Buffer.from(contentBase64, "base64");
-  if (!content.length || content.length > 1500000)
-    throw Object.assign(new Error("La evidencia debe pesar entre 1 byte y 1,5 MB"), {
-      status: 400,
-    });
-  const normalized = content.toString("base64").replace(/=+$/, ""),
-    input = contentBase64.replace(/\s/g, "").replace(/=+$/g, "");
-  if (normalized !== input)
-    throw Object.assign(new Error("Contenido base64 inválido"), { status: 400 });
-  if (!matchesImageMime(content, mimeType))
-    throw Object.assign(new Error("El contenido no coincide con el tipo de imagen declarado"), {
-      status: 400,
-    });
-  const client = await postgresPool.connect();
-  try {
-    await client.query("BEGIN");
-    const actor = (await client.query("SELECT id FROM users WHERE public_id=$1", [actorPublicId]))
-      .rows[0];
-    const job = (
-      await client.query(
-        `SELECT j.id,j.status,d.user_id driver_user_id FROM jobs j LEFT JOIN drivers d ON d.id=j.driver_id WHERE j.public_id=$1 AND j.metadata->>'subtype'='shipment' FOR UPDATE OF j`,
-        [publicId],
-      )
-    ).rows[0];
-    if (!job) throw Object.assign(new Error("Envío no encontrado"), { status: 404 });
-    if (!admin && job.driver_user_id !== actor?.id)
-      throw Object.assign(new Error("Sólo el repartidor asignado puede registrar evidencia"), {
-        status: 403,
-      });
-    if (job.status !== "delivering")
-      throw Object.assign(new Error("La evidencia se registra al llegar al destino"), {
-        status: 409,
-      });
-    const id = evidenceId(),
-      hash = crypto.createHash("sha256").update(content).digest("hex");
-    const row = (
-      await client.query(
-        `INSERT INTO shipment_delivery_evidence(public_id,job_id,created_by,evidence_type,mime_type,content_ciphertext,content_sha256,size_bytes,captured_location,captured_at,signer_name,signer_relationship,consent_version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,CASE WHEN $9::double precision IS NULL THEN NULL ELSE ST_SetSRID(ST_MakePoint($10,$9),4326)::geography END,$11,$12,$13,$14) ON CONFLICT(job_id,evidence_type) DO UPDATE SET public_id=excluded.public_id,created_by=excluded.created_by,mime_type=excluded.mime_type,content_ciphertext=excluded.content_ciphertext,content_sha256=excluded.content_sha256,size_bytes=excluded.size_bytes,captured_location=excluded.captured_location,captured_at=excluded.captured_at,signer_name=excluded.signer_name,signer_relationship=excluded.signer_relationship,consent_version=excluded.consent_version,created_at=now() RETURNING *`,
-        [
-          id,
-          job.id,
-          actor.id,
-          type,
-          mimeType,
-          encryptDeliveryProof(content),
-          hash,
-          content.length,
-          location?.lat ?? null,
-          location?.lng ?? null,
-          capturedAt || new Date(),
-          signerName || null,
-          signerRelationship || null,
-          consentVersion || null,
-        ],
-      )
-    ).rows[0];
-    await client.query("COMMIT");
-    return mapDeliveryEvidence({
-      ...row,
-      shipment_public_id: publicId,
-      captured_lat: location?.lat ?? null,
-      captured_lng: location?.lng ?? null,
-    });
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
-  } finally {
-    client.release();
-  }
-}
-
-export async function getPostgresShipmentDeliveryEvidence({
-  publicId,
-  actorPublicId,
-  admin = false,
-}) {
-  const result = await postgresPool.query(
-    `${evidenceSelect} WHERE j.public_id=$1 AND j.metadata->>'subtype'='shipment' ORDER BY e.created_at`,
-    [publicId],
-  );
-  if (!result.rows.length) {
-    const job = (
-      await postgresPool.query(
-        `SELECT j.customer_id,d.user_id driver_user_id FROM jobs j LEFT JOIN drivers d ON d.id=j.driver_id WHERE j.public_id=$1 AND j.metadata->>'subtype'='shipment'`,
-        [publicId],
-      )
-    ).rows[0];
-    if (!job) throw Object.assign(new Error("Envío no encontrado"), { status: 404 });
-    const actor = (
-      await postgresPool.query("SELECT id FROM users WHERE public_id=$1", [actorPublicId])
-    ).rows[0];
-    if (!admin && job.customer_id !== actor?.id && job.driver_user_id !== actor?.id)
-      throw Object.assign(new Error("No puedes consultar esta evidencia"), { status: 403 });
-    return [];
-  }
-  const actor = (
-    await postgresPool.query("SELECT id FROM users WHERE public_id=$1", [actorPublicId])
-  ).rows[0];
-  const first = result.rows[0];
-  if (!admin && first.customer_id !== actor?.id && first.driver_user_id !== actor?.id)
-    throw Object.assign(new Error("No puedes consultar esta evidencia"), { status: 403 });
-  return result.rows.map(mapDeliveryEvidence);
-}
-
-export async function getPostgresShipmentDeliveryEvidenceContent({
-  evidencePublicId,
-  actorPublicId,
-  admin = false,
-}) {
-  const row = (
-    await postgresPool.query(`${evidenceSelect} WHERE e.public_id=$1`, [evidencePublicId])
-  ).rows[0];
-  if (!row) throw Object.assign(new Error("Evidencia no encontrada"), { status: 404 });
-  const actor = (
-    await postgresPool.query("SELECT id FROM users WHERE public_id=$1", [actorPublicId])
-  ).rows[0];
-  if (!admin && row.customer_id !== actor?.id && row.driver_user_id !== actor?.id)
-    throw Object.assign(new Error("No puedes consultar esta evidencia"), { status: 403 });
-  return {
-    evidence: mapDeliveryEvidence(row),
-    contentBase64: decryptDeliveryProof(row.content_ciphertext).toString("base64"),
-  };
-}
-
-export async function verifyPostgresShipmentDelivery({
-  publicId,
-  actorPublicId,
-  pin,
-  admin = false,
-}) {
-  const client = await postgresPool.connect();
-  try {
-    await client.query("BEGIN");
-    const result = await client.query(
-      `SELECT j.id,j.status,j.customer_id,j.driver_id,sd.delivery_pin_hash,sd.delivery_pin_failed_attempts,sd.delivery_pin_locked_until,sd.signature_required,d.user_id driver_user_id,u.public_id driver_user_public_id FROM jobs j JOIN shipment_details sd ON sd.job_id=j.id LEFT JOIN drivers d ON d.id=j.driver_id LEFT JOIN users u ON u.id=d.user_id WHERE j.public_id=$1 AND j.metadata->>'subtype'='shipment' FOR UPDATE OF j,sd`,
-      [publicId],
-    );
-    const job = result.rows[0];
-    if (!job) throw Object.assign(new Error("Envío no encontrado"), { status: 404 });
-    if (!admin && job.driver_user_public_id !== actorPublicId)
-      throw Object.assign(new Error("No puedes verificar este envío"), { status: 403 });
-    if (job.status !== "delivering")
-      throw Object.assign(new Error("El envío debe estar en camino para verificarlo"), {
-        status: 409,
-      });
-    const evidenceCounts = (
-        await client.query(
-          "SELECT count(*) FILTER(WHERE evidence_type='photo')::int photo_count,count(*) FILTER(WHERE evidence_type='signature')::int signature_count FROM shipment_delivery_evidence WHERE job_id=$1",
-          [job.id],
-        )
-      ).rows[0],
-      photoCount = Number(evidenceCounts.photo_count),
-      signatureCount = Number(evidenceCounts.signature_count);
-    if (photoCount < 1)
-      throw Object.assign(new Error("Tomá una foto de entrega antes de validar el PIN"), {
-        status: 409,
-      });
-    if (job.signature_required && signatureCount < 1)
-      throw Object.assign(
-        new Error("Este envío requiere la firma del receptor antes de validar el PIN"),
-        { status: 409 },
-      );
-    if (job.delivery_pin_locked_until && new Date(job.delivery_pin_locked_until) > new Date()) {
-      await client.query("COMMIT");
-      return {
-        verified: false,
-        lockedUntil: new Date(job.delivery_pin_locked_until).toISOString(),
-        attemptsRemaining: 0,
-      };
-    }
-    const actor = (await client.query("SELECT id FROM users WHERE public_id=$1", [actorPublicId]))
-      .rows[0];
-    if (!bcrypt.compareSync(String(pin), job.delivery_pin_hash)) {
-      const attempts = Math.min(5, Number(job.delivery_pin_failed_attempts) + 1),
-        lockedUntil = attempts >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : null;
-      await client.query(
-        "UPDATE shipment_details SET delivery_pin_failed_attempts=$2,delivery_pin_locked_until=$3 WHERE job_id=$1",
-        [job.id, attempts, lockedUntil],
-      );
-      await client.query("COMMIT");
-      return {
-        verified: false,
-        attemptsRemaining: Math.max(0, 5 - attempts),
-        lockedUntil: lockedUntil?.toISOString() || null,
-      };
-    }
-    const verifiedAt = new Date(),
-      proofType = job.signature_required ? "pin+photo+signature" : "pin+photo",
-      evidenceCount = photoCount + signatureCount;
-    await client.query(
-      "UPDATE shipment_details SET delivery_pin_failed_attempts=0,delivery_pin_locked_until=NULL,delivery_verified_at=$2,delivery_verified_by=$3 WHERE job_id=$1",
-      [job.id, verifiedAt, actor?.id || null],
-    );
-    await client.query(
-      `UPDATE jobs SET status='completed',version=version+1,updated_at=now(),metadata=jsonb_set(metadata,'{deliveryProof}',$2::jsonb,true) WHERE id=$1`,
-      [
-        job.id,
-        JSON.stringify({ type: proofType, verifiedAt: verifiedAt.toISOString(), evidenceCount }),
-      ],
-    );
-    await client.query(
-      "INSERT INTO job_events(job_id,actor_id,status,payload) VALUES($1,$2,'completed',$3)",
-      [job.id, actor?.id || null, { proofType, evidenceCount }],
-    );
-    await enqueueNotificationForInternalUser(client, {
-      userId: job.customer_id,
-      template: "shipment_status",
-      payload: { kind: "shipment", jobId: publicId, status: "delivered", proofType },
-      deduplicationKey: `shipment:${publicId}:delivered`,
-    });
-    await client.query("COMMIT");
-    return {
-      verified: true,
-      shipment: (await getPostgresShipments()).find((entry) => entry.id === publicId),
-      proofType,
-    };
-  } catch (error) {
-    await client.query("ROLLBACK").catch(() => undefined);
     throw error;
   } finally {
     client.release();

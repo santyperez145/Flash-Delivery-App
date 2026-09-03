@@ -14,18 +14,18 @@
 // `NaN` propagado rompería el JSON entero por una división vacía.
 import { usesPostgresCommerce } from "./postgres.js";
 
-import {
-  getPostgresAddresses,
-  getPostgresPaymentMethods,
-  getPostgresUsers,
-} from "./auth-repository.js";
+import { getPostgresAddresses } from "./address-repository.js";
+import { getPostgresUsers } from "./auth-repository.js";
+import { getPostgresPaymentMethods } from "./payment-method-repository.js";
 import { isAdmin } from "./http/authorization.js";
 import { getPostgresRestaurants } from "./catalog-repository.js";
 import { getPostgresPromotions, getPostgresZones } from "./configuration-repository.js";
 import { getPostgresDrivers } from "./driver-roster-repository.js";
 import { getPostgresFavoriteMerchantIds, getPostgresRatings } from "./feedback-repository.js";
-import { getPostgresRides, getPostgresShipments } from "./mobility-repository.js";
-import { getPostgresAuditEvents, getPostgresSupportTickets } from "./operations-repository.js";
+import { getPostgresRides } from "./ride-repository.js";
+import { getPostgresShipments } from "./mobility-repository.js";
+import { getPostgresAuditEvents } from "./audit-repository.js";
+import { getPostgresSupportTickets } from "./support-repository.js";
 import { getPostgresOrders } from "./order-repository.js";
 import { getPublicState, getTimestamp } from "./store.js";
 import { getPostgresTips } from "./tip-repository.js";

@@ -30,7 +30,7 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import pg from "pg";
-import { recordPostgresAudit, recordSystemAudit } from "../server/operations-repository.js";
+import { recordPostgresAudit, recordSystemAudit } from "../server/audit-repository.js";
 
 // ---------------------------------------------------------------------------
 // La otra mitad del criterio: **actor y motivo** (ticket OPS-001).
@@ -82,6 +82,7 @@ const DECISIONES_OPERATIVAS = new Set([
   // y sin rastro.
   "merchant.status_changed",
   "dispatch.job_released",
+  "dispatch.job_assigned",
 ]);
 
 // Nombres aceptables para el motivo dentro de `afterData`.

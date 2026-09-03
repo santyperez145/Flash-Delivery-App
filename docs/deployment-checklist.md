@@ -1,18 +1,21 @@
 # Deployment checklist
 
-Revisado el **25 de agosto de 2026** contra los hallazgos de [`docs/auditoria-2026-08-25.md`](auditoria-2026-08-25.md). Sustituye la versión del 14 de agosto, que todavía trataba SQLite como preocupación de despliegue.
+Revisado el **2 de septiembre de 2026** contra el runtime y los tickets P0. Sustituye
+afirmaciones del 25-08 que seguían tratando H-04/INF-001 como abiertos cuando sus
+criterios de código ya estaban cerrados.
 
 ## Bloqueadores de despliegue vigentes
 
 Ninguno de estos puntos puede quedar abierto en un ambiente que reciba tráfico real.
 
-| Bloqueador | Hallazgo | Estado |
-| --- | --- | --- |
-| ~~La imagen corre como root y arranca un entrypoint distinto al de Compose~~ | [H-05](auditoria-2026-08-25.md#h-05--la-imagen-docker-no-corresponde-al-arranque-real-y-corre-como-root) | **Cerrado** |
-| CI no ejecuta migraciones, RLS, pagos ni dispatch | [H-01](auditoria-2026-08-25.md#h-01--ci-no-ejecuta-el-86-de-su-propia-matriz-de-pruebas) | **Cerrado**; la cuarentena quedó vacía el 27-08 |
-| 20 tablas sin política RLS y grants `ON ALL TABLES` | [H-04](auditoria-2026-08-25.md#h-04--20-tablas-sin-política-rls-y-cero-force-row-level-security) | Abierto |
-| Push imposible en producción por configuración | [H-02](auditoria-2026-08-25.md#h-02--push-productivo-es-imposible-por-configuración) | Abierto |
-| Geocoding y routing apuntan a servicios públicos | [H-07](auditoria-2026-08-25.md#h-07--proveedores-de-mapas-públicos-por-defecto) | Abierto |
+| Bloqueador                                                                   | Hallazgo                                                                                                 | Estado                                                                                                                                                    |
+| ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ~~La imagen corre como root y arranca un entrypoint distinto al de Compose~~ | [H-05](auditoria-2026-08-25.md#h-05--la-imagen-docker-no-corresponde-al-arranque-real-y-corre-como-root) | **Cerrado** ([INF-001](backlog-tecnico.md#inf-001--imagen-productiva-endurecida))                                                                         |
+| ~~CI no ejecuta migraciones, RLS, pagos ni dispatch~~                        | [H-01](auditoria-2026-08-25.md#h-01--ci-no-ejecuta-el-86-de-su-propia-matriz-de-pruebas)                 | **Cerrado**; cuarentena vacía                                                                                                                             |
+| ~~20 tablas sin política RLS y grants `ON ALL TABLES`~~                      | [H-04](auditoria-2026-08-25.md#h-04--20-tablas-sin-política-rls-y-cero-force-row-level-security)         | **Cerrado** ([DAT-001](backlog-tecnico.md#dat-001--matriz-rls-default-deny)); `test:rls-matrix` / `test:grant-scope`                                      |
+| Push productivo sin evidencia en dispositivo físico                          | [H-02](auditoria-2026-08-25.md#h-02--push-productivo-es-imposible-por-configuración)                     | **Código cerrado** (`NOTIFICATION_PROVIDER=expo`); falta teléfono + EAS ([NOT-001](backlog-tecnico.md#not-001--push-real))                                |
+| Geocoding/routing comerciales sin API key                                    | [H-07](auditoria-2026-08-25.md#h-07--proveedores-de-mapas-públicos-por-defecto)                          | **Parcial**: adapter y rechazo de instancias públicas listos; falta clave del dueño ([GEO-001](backlog-tecnico.md#geo-001--proveedor-de-mapas-comercial)) |
+| Sin cuenta cloud / entorno desplegado                                        | —                                                                                                        | **Bloqueo del dueño**: destino GCP `southamerica-east1` decidido; falta cuenta                                                                            |
 
 ## Imagen de contenedor
 
@@ -31,12 +34,12 @@ El job `container-image` de `ci-fast.yml` construye la imagen en cada PR y verif
 - [x] Copiar sólo `dist`, `server`, `database` y `scripts`.
 - [x] Usuario y grupo `flash` no privilegiados, con `USER flash` — verificado: `uid=999(flash)`.
 - [x] `CMD ["node", "server/start.js"]`.
-- [~] `/tmp` como tmpfs listo. Filesystem raíz de sólo lectura: **pendiente**, necesita una corrida real.
-- [x] Capabilities eliminadas (`cap_drop: ALL`) y sin escalada de privilegios. Perfil seccomp propio: pendiente.
-- [ ] Secrets montados, nunca horneados en la imagen.
-- [ ] Sin puertos públicos para Redis ni PostgreSQL.
-- [ ] Scan de imagen, SBOM y firma en el pipeline.
-- [ ] Deploy inmutable.
+- [x] Filesystem raíz de sólo lectura: `read_only: true` en Compose y corrida real en CI (`--read-only` + `touch` fallido). Escribible declarado: `/tmp` y `/app/server/data` (SQLite de respaldo, apertura **perezosa** en `store.js`; con PostgreSQL el import puro no escribe).
+- [x] Capabilities eliminadas (`cap_drop: ALL`) y `no-new-privileges`. Perfil seccomp propio: pendiente (no bloquea INF-001).
+- [x] SBOM CycloneDX y scan Trivy en el job `container-image` (bloquea CVEs del árbol propio).
+- [ ] Secrets montados, nunca horneados en la imagen (entorno desplegado).
+- [ ] Sin puertos públicos para Redis ni PostgreSQL (entorno desplegado).
+- [ ] Firma de imagen y deploy inmutable (entorno desplegado).
 
 Verificación mínima:
 
@@ -51,7 +54,7 @@ Detalle en el ticket [INF-001](backlog-tecnico.md#inf-001--imagen-productiva-end
 ## Antes del deploy
 
 - [ ] `npm run check` pasa.
-- [ ] La suite crítica completa pasa y es bloqueante en CI.
+- [x] La suite crítica completa pasa y es bloqueante en CI.
 - [ ] `NODE_ENV=production`.
 - [ ] `JWT_SECRET` fuerte y distinto al demo.
 - [ ] `MFA_ENCRYPTION_KEY` independiente y presente.
@@ -70,17 +73,17 @@ Detalle en el ticket [INF-001](backlog-tecnico.md#inf-001--imagen-productiva-end
 - [ ] Credenciales separadas por ambiente.
 - [ ] Permisos de GitHub Actions revisados.
 - [x] Roles PostgreSQL separados: owner/migrador, runtime y auditor; ninguno con `BYPASSRLS`.
-- [ ] Grants explícitos por tabla, no `ON ALL TABLES`.
+- [x] Grants explícitos por tabla: se retiró `ON ALL TABLES` y el DML sin uso; lo vigilan `test:grant-scope` y `test:runtime-write-scope`.
 
 ## Datos
 
-- [ ] Base transaccional productiva: PostgreSQL 17.
-- [ ] Geoespacial productivo: PostGIS.
+- [ ] Base transaccional **desplegada** en producción: PostgreSQL 17 (el runtime del repo ya es Postgres/PostGIS; falta el entorno).
+- [ ] Geoespacial **desplegado** en producción: PostGIS.
 - [ ] Backups automáticos diarios.
 - [ ] **Restore probado y cronometrado** contra el objetivo RTO ≤ 60 minutos y RPO ≤ 15 minutos.
-- [ ] Auditoría append-only para acciones administrativas, con verificación de la cadena de hashes.
-- [ ] Ledger append-only para pagos y liquidaciones.
-- [ ] Matriz RLS completa: toda tabla clasificada como `por-usuario`, `global-lectura`, `servicio-append-only` o `interna`.
+- [x] Auditoría append-only para acciones administrativas, con verificación de la cadena de hashes (código + suites).
+- [x] Ledger append-only para pagos y liquidaciones (código + suites).
+- [x] Matriz RLS completa: toda tabla clasificada; `test:rls-matrix` en CI.
 - [ ] Política formal de retención definida.
 
 ## Observabilidad
@@ -124,13 +127,13 @@ los de una sola pasada.
 meta un temporizador dentro del servidor. **Lo que ninguna puerta de este repositorio puede
 verificar es que el entorno los ejecute**, y por eso están acá.
 
-| Comando | Forma | Qué pasa si no corre |
-| --- | --- | --- |
-| `worker:dispatch` | bucle propio, backoff de 0,5 a 3 s | **Un pedido pagado no recibe ninguna oferta de conductor.** |
-| `worker:notifications` | bucle propio | Nada de lo encolado se entrega. |
-| `worker:support` | bucle propio | Ningún ticket escala al vencer su SLA. |
-| `worker:push-receipts` | bucle propio | Cada notificación queda en `sent` para siempre. |
-| `job:payment-reconciliation` | una pasada, cada noche | Las diferencias de pago aparecen igual; cambia cuánto tardan en verse. |
+| Comando                      | Forma                              | Qué pasa si no corre                                                   |
+| ---------------------------- | ---------------------------------- | ---------------------------------------------------------------------- |
+| `worker:dispatch`            | bucle propio, backoff de 0,5 a 3 s | **Un pedido pagado no recibe ninguna oferta de conductor.**            |
+| `worker:notifications`       | bucle propio                       | Nada de lo encolado se entrega.                                        |
+| `worker:support`             | bucle propio                       | Ningún ticket escala al vencer su SLA.                                 |
+| `worker:push-receipts`       | bucle propio                       | Cada notificación queda en `sent` para siempre.                        |
+| `job:payment-reconciliation` | una pasada, cada noche             | Las diferencias de pago aparecen igual; cambia cuánto tardan en verse. |
 
 - [ ] Los cuatro workers supervisados, con reinicio automático y alerta si mueren.
 - [ ] `job:payment-reconciliation` programado.

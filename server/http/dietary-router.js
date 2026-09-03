@@ -22,8 +22,11 @@ import {
   replaceUserDietaryPreferences,
 } from "../dietary-preference-repository.js";
 import { readDb } from "../fallback-runtime.js";
-import { recordPostgresAudit } from "../operations-repository.js";
-import { getLocalDietaryPreferences, replaceLocalDietaryPreferences } from "../store.js";
+import { recordPostgresAudit } from "../audit-repository.js";
+import {
+  getLocalDietaryPreferences,
+  replaceLocalDietaryPreferences,
+} from "../store-local-preferences.js";
 import { requireAuth } from "./authentication.js";
 import { requireAnyRole } from "./authorization.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";

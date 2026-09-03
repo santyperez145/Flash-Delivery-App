@@ -1,10 +1,9 @@
 // El ciclo del pedido de comida por HTTP: carrito, cotización, compra y
 // entrega (ticket ARC-001, paso 2).
 //
-// Es la cara HTTP de `order-repository.js`, extraída con el mismo corte que
-// partió al repositorio: acá el dueño del dato es el cliente y su transacción.
-// Las ocho rutas son una sola historia en orden —armar el carrito, cotizar,
-// comprar, y el pedido avanzando de mano en mano hasta la entrega—.
+// Es la cara HTTP del ciclo de pedido: lecturas en `order-repository.js`,
+// alta en `order-create-repository.js`, avance en `order-lifecycle-repository.js`.
+// El corte HTTP sigue la misma historia: carrito → cotizar → comprar → entregar.
 //
 // Conviven a propósito las dos mitades del tablero: `accept-delivery` y
 // `advance` son el pedido visto por quien lo entrega; el resto, por quien lo
@@ -35,26 +34,27 @@ import { addTimeline, findRestaurant, readDb } from "../fallback-runtime.js";
 import { creditDriverEarningsRuntime } from "../driver-earnings.js";
 import { config } from "../config.js";
 import { cancelMarketplaceOrderAndRefund } from "../marketplace-refund-repository.js";
-import { recordPostgresAudit } from "../operations-repository.js";
+import { recordPostgresAudit } from "../audit-repository.js";
+import { processPostgresOrderMarketplacePayment } from "../order-marketplace-payment-repository.js";
+import { createPostgresOrder } from "../order-create-repository.js";
 import {
   assignPostgresOrderDriver,
-  createPostgresOrder,
-  getPostgresCart,
+  setPostgresOrderStatus,
+} from "../order-lifecycle-repository.js";
+import { getPostgresOrders } from "../order-repository.js";
+import {
   getPostgresFoodCheckoutQuote,
   getPostgresFoodDeliveryQuote,
-  getPostgresOrders,
-  processPostgresOrderMarketplacePayment,
-  reorderPostgresOrder,
-  replacePostgresCart,
-  setPostgresOrderStatus,
-} from "../order-repository.js";
+} from "../order-quote-repository.js";
+import { getPostgresCart, reorderPostgresOrder, replacePostgresCart } from "../cart-repository.js";
 import { usesPostgresCommerce } from "../postgres.js";
 import { validarHorarioProgramado } from "../scheduling.js";
 import { publishRealtimeEvent } from "./realtime.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";
 import { assessTransactionRisk, setRiskEntity } from "../risk-repository.js";
-import { createId, createLocalNotification, getTimestamp, orderStatuses } from "../store.js";
-import { cancelOrderAndRefundWallet } from "../wallet-repository.js";
+import { createId, getTimestamp, orderStatuses } from "../store.js";
+import { createLocalNotification } from "../store-local-preferences.js";
+import { cancelOrderAndRefundWallet } from "../wallet-refund-repository.js";
 
 const orderSchema = z.object({
   customerId: z.string().min(1),

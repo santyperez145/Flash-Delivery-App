@@ -2,7 +2,7 @@
 
 ## Estado al 29 de agosto de 2026
 
-`ci.yml` se dividió en cuatro workflows. La cobertura pasó de 15 a **106 de 107 suites** detrás de una puerta: **104 bloquean el merge**, 2 corren de noche y la cuarentena está vacía.
+`ci.yml` se dividió en cuatro workflows. La cobertura pasó de 15 a **106 de 109 suites** detrás de una puerta: **104 bloquean el merge**, 2 corren de noche y la cuarentena está vacía. `test:k6-local` está escrito; cablearlo al nocturno es bloqueo del dueño (scope `workflow`).
 
 Desde el 27 de agosto la rama `main` **está protegida**: los siete checks son obligatorios, la rama debe estar al día, la historia es lineal y no hay excepción para administradores. Hasta ese día se habían mergeado once PR con CI en verde sin que nada lo exigiera.
 
@@ -18,7 +18,7 @@ Además, `main` llevaba en rojo desde el 23 de agosto sin que nadie estuviera bl
 | `ci-postgres.yml` | Cada PR | PostGIS 17 · roles separados · migraciones desde cero · Testcontainers aislado · migración incremental sobre la base del PR · seeds reproducibles · RLS · cadena de auditoría · aislamiento por ciudad · datos sensibles · idempotencia · comercio, zonas y configuración | **Verde** |
 | `ci-critical-flows.yml` | Cada PR | API levantada contra PostgreSQL · runtime smoke · pagos · conciliación · riesgo · payouts · propinas · KYC · vehículos · ganancias · safety · chat · siniestros · SLA · notificaciones · recursos por audiencia | **Verde** |
 | `local-fallback` (en `ci-fast`) | Cada PR | API sobre el fallback SQLite · contratos que no son los de PostgreSQL | **Verde** |
-| `ci-nightly.yml` | 06:00 UTC y a mano | Auditoría responsive en navegador real, una corrida por variante · latencia de endpoints contra PostgreSQL | **Existe** desde el 27-08. Sin k6, sandbox de proveedores, builds EAS ni restore drill |
+| `ci-nightly.yml` | 06:00 UTC y a mano | Auditoría responsive en navegador real, una corrida por variante · latencia de endpoints contra PostgreSQL | **Existe** desde el 27-08. `test:k6-local` listo en repo; cablear YAML = dueño (`workflow`). Sin sandbox de proveedores ni builds EAS |
 
 ### Qué descubrió cada primera corrida
 
@@ -55,7 +55,7 @@ El job `migrate-from-base` existe porque **una migración puede pasar desde cero
 siete casos conservan la matriz completa de ownership y MFA, y siguen corriendo en
 `ci-fast`. La segunda mitad de `test:runtime-role-shape` inicia `postgis/postgis:17-3.5` en
 un puerto asignado por Docker, crea `flash_app`, `flash_runtime` y `flash_rls_audit`, ejecuta
-las 136 migraciones con el rol migrador y comprueba PostGIS 3.5 y la ausencia de ownership,
+las 138 migraciones con el rol migrador y comprueba PostGIS 3.5 y la ausencia de ownership,
 `SUPERUSER` y `BYPASSRLS` en runtime y auditoría.
 
 La suite de contenedor corre encadenada a una puerta ya bloqueante del job
@@ -540,9 +540,11 @@ Lo que no cubría nadie es lo único que hace que valga la pena: **que el planif
 
 Y trae su otra mitad: con `enable_indexscan` y `enable_bitmapscan` apagados se exige que el mismo plan **deje** de usar el índice. Sin eso, un detector que encuentre cualquier índice en cualquier parte del plan aprobaría siempre.
 
-El tiempo de ejecución **se informa y no se afirma**. El runner comparte CPU y una latencia medida acá sería una puerta intermitente; para eso está `test:performance`, que corre en el nocturno justamente por ese motivo.
+El tiempo de ejecución del plan **se informa y no se afirma** en `test:dispatch-plan`. El runner comparte CPU y una latencia medida ahí sería intermitente.
 
-Todo ocurre dentro de una transacción que termina en `ROLLBACK`: los mil conductores y las sesiones que sus triggers abren desaparecen solas.
+**La carga concurrente** reutiliza el padrón de mil conductores (`dispatch-synthetic-padron.mjs`) y se ejecuta al final de `test:dispatch-plan`: shortlist concurrente, emisión de ofertas, workers en paralelo y aceptación forzada. Afirma p95 ≤ 5 s para la primera oferta y cero dobles asignaciones bajo contención.
+
+Todo ocurre dentro de una transacción que termina en `ROLLBACK` en el plan, o con limpieza por marca en la carga.
 
 ### Cableado de la API
 

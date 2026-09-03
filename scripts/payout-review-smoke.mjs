@@ -57,13 +57,15 @@ try {
       ).rows[0],
       payable = (
         await fixture.query(
-          `INSERT INTO ledger_accounts(owner_type,owner_id,currency,account_type) VALUES('merchant',$1,'ARS','payable') ON CONFLICT(owner_type,owner_id,currency,account_type) DO UPDATE SET owner_type=excluded.owner_type RETURNING id`,
+          `INSERT INTO ledger_accounts(owner_type,owner_id,currency,account_type) VALUES('merchant',$1,'ARS','payable') ON CONFLICT(owner_type,owner_id,currency,account_type) DO UPDATE SET
+            owner_type=excluded.owner_type RETURNING id`,
           [ids.merchant_id],
         )
       ).rows[0].id,
       clearing = (
         await fixture.query(
-          `INSERT INTO ledger_accounts(owner_type,owner_id,currency,account_type) VALUES('platform',NULL,'ARS','cash_clearing') ON CONFLICT(owner_type,currency,account_type) WHERE owner_id IS NULL DO UPDATE SET owner_type=excluded.owner_type RETURNING id`,
+          `INSERT INTO ledger_accounts(owner_type,owner_id,currency,account_type) VALUES('platform',NULL,'ARS','cash_clearing') ON CONFLICT(owner_type,currency,account_type) WHERE owner_id IS NULL
+            DO UPDATE SET owner_type=excluded.owner_type RETURNING id`,
         )
       ).rows[0].id,
       transaction = (
@@ -169,7 +171,8 @@ try {
     "approval moves to processing without fabricating provider settlement",
   );
   const imbalance = await pool.query(
-    `SELECT count(*)::int count FROM (SELECT t.id FROM ledger_transactions t JOIN ledger_entries e ON e.transaction_id=t.id WHERE t.idempotency_key=$1 OR t.idempotency_key LIKE $2 GROUP BY t.id HAVING sum(CASE WHEN e.direction='debit' THEN e.amount_cents ELSE -e.amount_cents END)<>0) q`,
+    `SELECT count(*)::int count FROM (SELECT t.id FROM ledger_transactions t JOIN ledger_entries e ON e.transaction_id=t.id WHERE t.idempotency_key=$1 OR t.idempotency_key LIKE $2 GROUP BY t.id 
+      HAVING sum(CASE WHEN e.direction='debit' THEN e.amount_cents ELSE -e.amount_cents END)<>0) q`,
     [marker, `payout-%-${marker}%`],
   );
   assert(

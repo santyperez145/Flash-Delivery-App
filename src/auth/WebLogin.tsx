@@ -1,15 +1,6 @@
-import {
-  ArrowRight,
-  Bike,
-  Eye,
-  EyeOff,
-  Flame,
-  LockKeyhole,
-  ShieldCheck,
-  Store,
-  UserRound,
-} from "lucide-react";
+import { ArrowLeft, ArrowRight, Eye, EyeOff, Flame, LockKeyhole } from "lucide-react";
 import { useState } from "react";
+import { PublicLanding } from "./PublicLanding";
 
 type WebLoginProps = {
   busy: boolean;
@@ -19,54 +10,42 @@ type WebLoginProps = {
   onMfa: (code: string) => Promise<void>;
 };
 
-const audiences = [
-  { icon: UserRound, label: "Clientes", detail: "Pedidos y seguimiento" },
-  { icon: Store, label: "Comercios", detail: "Cocina, catálogo y ventas" },
-  { icon: Bike, label: "Repartidores", detail: "Demanda, tareas y ganancias" },
-  { icon: ShieldCheck, label: "Operaciones", detail: "Soporte y control" },
-];
-
 export function WebLogin({ busy, error, mfaChallenge, onLogin, onMfa }: WebLoginProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mfaCode, setMfaCode] = useState("");
   const [passwordVisible, setPasswordVisible] = useState(false);
   const isMfa = Boolean(mfaChallenge);
+  const [surface, setSurface] = useState<"landing" | "login">(isMfa ? "login" : "landing");
+
+  if (surface === "landing" && !isMfa) {
+    return <PublicLanding onEnter={() => setSurface("login")} />;
+  }
 
   return (
-    <main className="web-auth-shell">
-      <section className="web-auth-story" aria-label="Flash para cada operación">
-        <div className="web-auth-brand">
+    <main className="web-auth-shell web-auth-shell-login">
+      <header className="web-auth-nav">
+        <button
+          type="button"
+          className="web-auth-brand"
+          onClick={() => {
+            if (!isMfa) setSurface("landing");
+          }}
+        >
           <span className="web-auth-mark" aria-hidden="true">
-            <Flame size={25} strokeWidth={2.4} />
+            <Flame size={22} strokeWidth={2.4} />
           </span>
           <strong>Flash</strong>
-        </div>
-        <div className="web-auth-story-copy">
-          <span className="web-auth-eyebrow">Una plataforma conectada</span>
-          <h1>Todo lo que se mueve, bajo control.</h1>
-          <p>
-            Una sola cuenta para entrar a las herramientas que corresponden a tu rol, con datos y
-            permisos reales.
-          </p>
-        </div>
-        <div className="web-auth-audiences">
-          {audiences.map(({ icon: Icon, label, detail }) => (
-            <article key={label}>
-              <span aria-hidden="true">
-                <Icon size={20} />
-              </span>
-              <div>
-                <strong>{label}</strong>
-                <small>{detail}</small>
-              </div>
-            </article>
-          ))}
-        </div>
-        <small className="web-auth-story-note">Flash Delivery · Acceso por audiencia</small>
-      </section>
+        </button>
+        {!isMfa && (
+          <button type="button" className="web-auth-back" onClick={() => setSurface("landing")}>
+            <ArrowLeft size={18} aria-hidden="true" />
+            Volver
+          </button>
+        )}
+      </header>
 
-      <section className="web-auth-panel">
+      <section className="web-auth-panel" id="ingreso" aria-label="Ingreso">
         <form
           className="web-auth-card"
           onSubmit={(event) => {
@@ -74,23 +53,17 @@ export function WebLogin({ busy, error, mfaChallenge, onLogin, onMfa }: WebLogin
             void (isMfa ? onMfa(mfaCode) : onLogin(email, password));
           }}
         >
-          <div className="web-auth-mobile-brand" aria-hidden="true">
-            <span className="web-auth-mark">
-              <Flame size={22} strokeWidth={2.4} />
-            </span>
-            <strong>Flash</strong>
-          </div>
           <div className="web-auth-secure">
             <LockKeyhole size={14} />
             Acceso protegido
           </div>
           <header>
-            <span>{isMfa ? "Segundo paso" : "Bienvenido"}</span>
-            <h2>{isMfa ? "Verificá tu identidad" : "Ingresá a tu espacio"}</h2>
+            <span>{isMfa ? "Segundo paso" : "Tu cuenta"}</span>
+            <h2>{isMfa ? "Verificá tu identidad" : "Ingresá a Flash"}</h2>
             <p>
               {isMfa
                 ? "Usá el código de tu autenticador o uno de recuperación."
-                : "Accedé con la cuenta asignada a tu operación Flash."}
+                : "Email y contraseña de la cuenta asignada a tu operación."}
             </p>
           </header>
 
@@ -157,7 +130,7 @@ export function WebLogin({ busy, error, mfaChallenge, onLogin, onMfa }: WebLogin
             </div>
           )}
           <button className="web-auth-submit" type="submit" disabled={busy}>
-            <span>{busy ? "Verificando…" : isMfa ? "Verificar acceso" : "Ingresar"}</span>
+            <span>{busy ? "Verificando…" : isMfa ? "Verificar acceso" : "Entrar"}</span>
             {!busy && <ArrowRight size={19} />}
           </button>
           <p className="web-auth-footnote">
