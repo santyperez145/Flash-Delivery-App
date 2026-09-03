@@ -403,8 +403,9 @@ también emite una identidad breve ligada al usuario, persiste proveedor y
 
 Los dos contratos se verifican con `fetch` interceptado, sin credenciales. Eso
 prueba que el contrato es correcto, **no** que un push llegue a un teléfono ni
-cuánto cuesta una consulta de rutas. Esa es la distancia entre `CI` y `PROV`, y
-es lo que queda bloqueado por credenciales de proveedor.
+cuánto cuesta una consulta de rutas. Esa es la distancia entre `CI` y `PROV`.
+GEO-001 y NOT-001 quedan en **Bloqueado por externo** hasta API key comercial /
+dispositivo físico del dueño.
 
 **DSP-001.** Shortlist espacial, KNN, stats precomputadas, radio dinámico,
 assign manual, boost Flash Más y `EXPLAIN ANALYZE`/carga sobre mil conductores
