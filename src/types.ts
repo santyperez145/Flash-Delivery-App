@@ -36,6 +36,7 @@ import type {
   RestaurantBranch,
   DriverServiceMode,
   DriverSummary,
+  DriverVehicle,
   RideStatus,
 } from "@flash/domain-contracts";
 
@@ -76,6 +77,7 @@ export type {
   RestaurantBranch,
   DriverServiceMode,
   DriverSummary,
+  DriverVehicle,
   RideStatus,
 };
 
@@ -661,24 +663,6 @@ export type PricingChangeRequest = {
   activatedAt: string | null;
   reviewNote: string | null;
 };
-export type DriverVehicle = {
-  id: string;
-  driverId: string;
-  kind: "bicycle" | "motorcycle" | "car" | "van";
-  model: string;
-  plate: string;
-  color: string | null;
-  seats: number | null;
-  serviceModes: Array<"delivery" | "ride">;
-  active: boolean;
-  status: "pending" | "approved" | "rejected";
-  rejectionReason: string | null;
-  reviewedAt: string | null;
-  retiredAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
 export type TipAdjustment = {
   id: string;
   tipId: string;

@@ -45,6 +45,7 @@ const SHARED = [
   "RestaurantBranch",
   "DriverServiceMode",
   "DriverSummary",
+  "DriverVehicle",
   "RideStatus",
 ];
 
@@ -120,8 +121,10 @@ assert(
   contains(web, "Driver = DriverSummary") &&
     contains(mobile, "Driver = DriverSummary &") &&
     contains(web, "DriverService = DriverServiceMode") &&
-    contains(mobile, "ServiceMode = DriverServiceMode"),
-  "web and mobile share DriverSummary and DriverServiceMode",
+    contains(mobile, "ServiceMode = DriverServiceMode") &&
+    contains(web, "DriverVehicle") &&
+    contains(mobile, "DriverVehicle"),
+  "web and mobile share DriverSummary, DriverServiceMode and DriverVehicle",
 );
 assert(
   contains(rootPkg, '"@flash/domain-contracts"') &&
