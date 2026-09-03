@@ -352,20 +352,24 @@ export async function runDispatchMerchantOpsSuite(ctx) {
     ).status === 409,
     "un servicio sin conductor no se puede soltar",
   );
-  // Restituir la asignacion para que la liquidacion siga su curso.
-  //
-  // **Por la base y no por el despacho, a proposito.** Volver a ofrecerlo y
-  // aceptarlo dependeria de a que conductor elige el despacho, que es una
-  // decision de cercania y capacidad y no algo que esta prueba controle: el paso
-  // fallaba de forma intermitente por un motivo que no tiene nada que ver con lo
-  // que se esta probando. Lo que se afirma —que soltar funciona— ya se afirmo
-  // arriba contra la API. Esto es preparacion de estado, y para eso el smoke usa
-  // el pool privilegiado en todo el archivo.
-  await pool.query(
-    `UPDATE jobs SET driver_id=(SELECT id FROM drivers WHERE public_id=$2),
-       status='driver_assigned', version=version+1, updated_at=now()
-     WHERE public_id=$1`,
-    [ctx.settlementOrderId, ctx.runtimeDriverId],
+  // Restituir por asignación manual (DSP-001), no por SQL: cierra el camino
+  // que operaciones usa cuando el auto-despacho no alcanza.
+  const asignarSinMotivo = await request(`/admin/jobs/${settlementOrderId}/assign`, {
+    method: "POST",
+    body: JSON.stringify({ driverId: ctx.runtimeDriverId }),
+  });
+  const asignado = await request(`/admin/jobs/${settlementOrderId}/assign`, {
+    method: "POST",
+    body: JSON.stringify({
+      driverId: ctx.runtimeDriverId,
+      reason: "Smoke: reasigna tras soltar para seguir la liquidacion",
+    }),
+  });
+  assert(
+    asignarSinMotivo.status === 400 &&
+      asignado.status === 200 &&
+      asignado.body?.job?.assignedTo === ctx.runtimeDriverId,
+    "asignar a mano exige motivo y deja el courier elegido",
   );
   assert(
     (

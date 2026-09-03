@@ -193,6 +193,12 @@ export type DispatchScoreBreakdown = {
   responsePoints: number;
   acceptanceRate: number;
   averageResponseSeconds: number;
+  /** Penalización por incidentes reales (no false_alarm) en 30 días. */
+  incidentPenalty?: number;
+  /** Radio espacial usado en la oleada (metros). */
+  searchRadiusM?: number;
+  /** True si el radio se expandió respecto del configurado. */
+  radiusExpanded?: boolean;
 };
 
 export type MerchantOperationsMetrics = {

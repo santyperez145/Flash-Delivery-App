@@ -165,6 +165,40 @@ export const commercePaths = {
       },
     },
   },
+  "/api/admin/jobs/{jobId}/assign": {
+    post: {
+      tags: ["Operations"],
+      operationId: "assignJob",
+      summary: "Asignar a mano un conductor a un servicio sin dueño",
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        { name: "jobId", in: "path", required: true, schema: { type: "string", maxLength: 100 } },
+      ],
+      requestBody: body("JobAssignRequest"),
+      responses: {
+        200: success({
+          type: "object",
+          required: ["job"],
+          properties: {
+            job: {
+              type: "object",
+              properties: {
+                id: { type: "string" },
+                kind: { type: "string" },
+                assignedTo: { type: "string" },
+                status: { type: "string" },
+              },
+            },
+          },
+        }),
+        ...bearerErrors,
+        409: {
+          description: "El servicio no es despachable o el conductor no puede tomarlo",
+          content: json,
+        },
+      },
+    },
+  },
   "/api/group-orders": {
     get: {
       tags: ["Commerce"],

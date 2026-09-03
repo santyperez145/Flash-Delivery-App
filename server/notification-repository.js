@@ -19,13 +19,12 @@ import {
 } from "./secret-envelope.js";
 const publicId = (prefix) => `${prefix}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
 const preferenceCategories = ["service_updates", "promotions", "support", "wallet", "account"];
-// `job_released` va nombrada y no por patrón: caería en `account` por descarte
-// —no contiene «status» ni empieza con `ride_`— y es lo contrario de un asunto
-// de cuenta. A un conductor que pierde un trabajo aceptado hay que avisarle por
-// el mismo canal que el resto de las novedades de servicio, o se entera al
-// llegar al local.
+// `job_released` / `job_assigned` van nombradas: caen en `account` por descarte
+// —no contienen «status» ni empiezan con `ride_`— y son novedades de servicio.
+// A un conductor que pierde o recibe un trabajo a mano hay que avisarle por el
+// mismo canal que el resto de las ofertas, o se entera tarde.
 const categoryForTemplate = (template) =>
-  template === "job_released"
+  template === "job_released" || template === "job_assigned"
     ? "service_updates"
     : template.startsWith("support_")
       ? "support"
@@ -39,7 +38,7 @@ const categoryForTemplate = (template) =>
               template.startsWith("ride_")
             ? "service_updates"
             : "account";
-const essentialTemplates = new Set(["dispatch_offer", "security_alert"]);
+const essentialTemplates = new Set(["dispatch_offer", "job_assigned", "security_alert"]);
 let smtpTransport = null;
 
 async function deliverEmail(notification) {

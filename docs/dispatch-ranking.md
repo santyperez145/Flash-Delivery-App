@@ -59,10 +59,10 @@ El radio usado y si hubo expansión quedan en `score_breakdown`, así que una zo
 
 - [x] Recorte `ST_DWithin` + KNN sobre el índice GiST parcial.
 - [x] Radio dinámico con protección contra inanición, visible en el desglose.
-- [ ] **`EXPLAIN ANALYZE` con un padrón sintético de al menos 1.000 conductores.** El contrato prueba la forma de la consulta; el plan hay que medirlo.
+- [x] **`EXPLAIN ANALYZE` con padrón sintético (≥1.000 conductores).** `test:dispatch-plan` importa `SHORTLIST_SQL` real y exige `drivers_available_location_gix`.
 - [x] **Stats precomputadas** (`driver_dispatch_stats`). Migración 137, refresh out-of-band tras accept/reject y en el batch worker; el scoring lee la tabla en lugar de agregar `dispatch_offers` por oleada. Verificado en `test:dispatch-candidates`.
 - [ ] **ETA vial por Route Matrix.** `computeRouteMatrix()` existe y está verificado en el adapter de mapas; falta conectarlo al scoring y **requiere una API key habilitada**.
-- [ ] Prep time del comercio y dispatch manual desde backoffice.
+- [x] **Dispatch manual desde backoffice.** `POST /api/admin/jobs/:id/assign` + panel Ops; motivo y auditoría. Prep-time anticipado sigue bloqueado hasta separar máquinas cocina/logística.
 - Antes de producción multiciudad deben incorporarse SLA comercial por comercio, tráfico vial actual, límites de equidad y monitoreo de sesgo por zona. Esos factores deben agregarse como componentes versionados, nunca como constantes opacas.
 
 ### SLO asociado

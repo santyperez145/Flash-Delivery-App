@@ -100,6 +100,14 @@ export const domainSchemas = {
     required: ["reason"],
     properties: { reason: { type: "string", minLength: 5, maxLength: 500 } },
   },
+  JobAssignRequest: {
+    type: "object",
+    required: ["driverId", "reason"],
+    properties: {
+      driverId: { type: "string", minLength: 3, maxLength: 100 },
+      reason: { type: "string", minLength: 5, maxLength: 500 },
+    },
+  },
   GroupOrderJoinRequest: {
     type: "object",
     required: ["joinCode"],
