@@ -615,10 +615,11 @@ export async function runBootstrapCommerceSuite(ctx) {
     method: "POST",
     body: JSON.stringify({ restaurantId: "rest_roja", spendLimitCents: 900000 }),
   });
-  ctx.grupoPublicId = grupoCreado.body.group?.id;
+  const grupoPublicId = grupoCreado.body.group?.id;
+  ctx.grupoPublicId = grupoPublicId;
   assert(
     grupoCreado.status === 200 &&
-      ctx.grupoPublicId &&
+      grupoPublicId &&
       grupoCreado.body.group.participants.length === 1 &&
       grupoCreado.body.group.participants[0].isHost === true &&
       /^[A-Z0-9]{6}$/.test(grupoCreado.body.group.joinCode || ""),
@@ -785,7 +786,8 @@ export async function runBootstrapCommerceSuite(ctx) {
       lng: -58.4156,
     }),
   });
-  ctx.rideDestinationId = firstRecentDestination.body.destination?.id;
+  const rideDestinationId = firstRecentDestination.body.destination?.id;
+  ctx.rideDestinationId = rideDestinationId;
   const repeatedRecentDestination = await request("/ride-destinations", {
       method: "POST",
       body: JSON.stringify({
@@ -829,7 +831,8 @@ export async function runBootstrapCommerceSuite(ctx) {
         phone: trustedPhone,
       }),
     });
-  ctx.trustedContactId = createdTrustedContact.body.contact?.id;
+  const trustedContactId = createdTrustedContact.body.contact?.id;
+  ctx.trustedContactId = trustedContactId;
   ctx.feedbackAuditRequestIds.push(createdTrustedContact.body.requestId);
   const repeatedTrustedContact = await request("/ride-trusted-contacts", {
       method: "POST",

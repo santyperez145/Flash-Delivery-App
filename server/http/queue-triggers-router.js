@@ -37,9 +37,7 @@ import { z } from "zod";
 
 import { config } from "../config.js";
 import { processPostgresDispatchBatch } from "../dispatch-repository.js";
-import {
-  processPostgresNotificationBatch,
-} from "../notification-delivery-repository.js";
+import { processPostgresNotificationBatch } from "../notification-delivery-repository.js";
 import {
   getNotificationDeadLetters,
   replayNotificationDeadLetter,
