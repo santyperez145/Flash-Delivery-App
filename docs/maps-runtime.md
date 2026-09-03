@@ -6,7 +6,7 @@
 >
 > Ahora `MAPS_PROVIDER=openstreetmap` **hace fallar el arranque en producción**, y existe un adapter con un proveedor comercial detrás.
 >
-> **Sigue abierto:** sin una API key habilitada no se puede verificar la calidad real de las rutas ni el costo por consulta, y ninguna tarifa productiva se calculó todavía con routing vial real. Hallazgo [H-07](auditoria-2026-08-25.md#h-07--proveedores-de-mapas-públicos-por-defecto), ticket [GEO-001](backlog-tecnico.md#geo-001--proveedor-de-mapas-comercial).
+> **Sigue abierto:** sin una API key habilitada no se puede verificar la calidad real de las rutas ni el costo por consulta. Las cotizaciones productivas con coordenadas ya usan routing vial (`distanceSource: road`); desarrollo OSM etiqueta `geodesic_scaled`. Hallazgo [H-07](auditoria-2026-08-25.md#h-07--proveedores-de-mapas-públicos-por-defecto), ticket [GEO-001](backlog-tecnico.md#geo-001--proveedor-de-mapas-comercial).
 
 Los clientes autenticados usan `GET /api/maps/geocode` y `GET /api/maps/route`. Las credenciales del proveedor quedan del lado servidor y mobile recibe puntos, polilínea y pasos normalizados, iguales sea cual sea el proveedor.
 

@@ -33,6 +33,11 @@ import {
 import { pesos } from "./money.js";
 import { mapCatalogItem } from "./catalog-repository.js";
 import { config } from "./config.js";
+import {
+  requiresRoadRouting,
+  resolveDrivingRoute,
+  resolveQuoteDistanceKm,
+} from "./maps-route-service.js";
 
 const marketplacePaymentKey = (value) =>
   `mp-${crypto.createHash("sha256").update(String(value)).digest("hex")}`;
@@ -234,7 +239,8 @@ export async function getPostgresFoodDeliveryQuote({
     getPostgresPricingPlan("food"),
     postgresPool.query(
       `SELECT a.id address_id,a.formatted_address,a.geocoding_provider,a.provider_place_id,a.geocoded_at,ST_Y(a.location::geometry) lat,ST_X(a.location::geometry) lng,
-    m.public_id merchant_id,b.public_id branch_id,ST_Distance(b.location,a.location) air_distance_m,COALESCE(z.delivery_multiplier,1) zone_multiplier,z.public_id zone_id
+    m.public_id merchant_id,b.public_id branch_id,ST_Y(b.location::geometry) branch_lat,ST_X(b.location::geometry) branch_lng,
+    ST_Distance(b.location,a.location) air_distance_m,COALESCE(z.delivery_multiplier,1) zone_multiplier,z.public_id zone_id
     FROM users u JOIN addresses a ON a.user_id=u.id JOIN merchants m ON m.public_id=$2 AND m.status='active'
     JOIN merchant_branches b ON b.merchant_id=m.id AND b.status='active' AND b.open AND app.branch_is_scheduled_open(b.id,now()) AND (($4::text IS NULL AND b.is_primary) OR b.public_id=$4)
     LEFT JOIN LATERAL(SELECT public_id,delivery_multiplier FROM service_zones WHERE active AND ST_Covers(boundary::geometry,b.location::geometry) ORDER BY ST_Area(boundary) LIMIT 1) z ON true
@@ -257,7 +263,23 @@ export async function getPostgresFoodDeliveryQuote({
       { status: 404 },
     );
   const planConfig = plan.config;
-  const distanceKm = (Number(row.air_distance_m) / 1000) * Number(planConfig.roadFactor);
+  const allowGeodesicFallback = !requiresRoadRouting();
+  let roadDistanceKm = null;
+  if (!allowGeodesicFallback) {
+    const routeResult = await resolveDrivingRoute({
+      fromLat: Number(row.branch_lat),
+      fromLng: Number(row.branch_lng),
+      toLat: Number(row.lat),
+      toLng: Number(row.lng),
+    });
+    roadDistanceKm = routeResult.route.distanceKm;
+  }
+  const { distanceKm, distanceSource } = resolveQuoteDistanceKm({
+    allowGeodesicFallback,
+    airDistanceM: Number(row.air_distance_m),
+    roadFactor: Number(planConfig.roadFactor),
+    roadDistanceKm,
+  });
   if (distanceKm > Number(planConfig.maximumDistanceKm))
     throw Object.assign(new Error("La dirección está fuera del radio máximo de entrega"), {
       status: 409,
@@ -282,6 +304,7 @@ export async function getPostgresFoodDeliveryQuote({
     },
     destinationCoords: { lat: Number(row.lat), lng: Number(row.lng) },
     distanceKm: Number(distanceKm.toFixed(2)),
+    distanceSource,
     deliveryFee,
     serviceFee: Number(planConfig.serviceFee),
     roadFactor: Number(planConfig.roadFactor),
@@ -510,7 +533,10 @@ export async function createPostgresOrder({
       });
     const address = (
       await client.query(
-        `SELECT a.id,a.formatted_address,a.location,a.geocoding_provider,a.provider_place_id,a.geocoded_at,ST_Distance(a.location,$3::geography) distance_m
+        `SELECT a.id,a.formatted_address,a.location,a.geocoding_provider,a.provider_place_id,a.geocoded_at,
+        ST_Y(a.location::geometry) lat,ST_X(a.location::geometry) lng,
+        ST_Y($3::geometry) branch_lat,ST_X($3::geometry) branch_lng,
+        ST_Distance(a.location,$3::geography) distance_m
       FROM addresses a JOIN users u ON u.id=a.user_id WHERE a.id=$1 AND u.id=$2 AND a.geocoded_at IS NOT NULL
         AND (NOT $4::boolean OR (a.geocoding_provider=$5 AND a.provider_place_id IS NOT NULL))`,
         [
@@ -536,13 +562,20 @@ export async function createPostgresOrder({
       throw Object.assign(new Error("La dirección cambió; actualiza la cotización"), {
         status: 409,
       });
-    if (
-      !lockedQuote ||
-      Math.abs(
-        (Number(address.distance_m) / 1000) * Number(lockedQuote.roadFactor) -
-          Number(lockedQuote.distanceKm),
-      ) > 0.1
-    )
+    let currentDistanceKm;
+    if (lockedQuote?.distanceSource === "road") {
+      const routeResult = await resolveDrivingRoute({
+        fromLat: Number(address.branch_lat),
+        fromLng: Number(address.branch_lng),
+        toLat: Number(address.lat),
+        toLng: Number(address.lng),
+      });
+      currentDistanceKm = routeResult.route.distanceKm;
+    } else {
+      currentDistanceKm =
+        (Number(address.distance_m) / 1000) * Number(lockedQuote?.roadFactor || 1);
+    }
+    if (!lockedQuote || Math.abs(currentDistanceKm - Number(lockedQuote.distanceKm)) > 0.1)
       throw Object.assign(new Error("La ruta cambió; actualiza la cotización"), { status: 409 });
     const walletPayment = String(paymentMethod).toLowerCase().includes("wallet");
     if (!walletPayment && !providerPayment)
