@@ -57,6 +57,9 @@ const SHARED = [
   "ShipmentSummary",
   "VerticalService",
   "PromotionSummary",
+  "DriverEarningsPeriod",
+  "DriverEarningsDay",
+  "DriverEarnings",
 ];
 
 /** Tipos que cada superficie extiende con intersección local (no redefinición del núcleo). */

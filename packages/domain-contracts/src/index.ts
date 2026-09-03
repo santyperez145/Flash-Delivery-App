@@ -651,3 +651,47 @@ export type PromotionSummary = {
   minSubtotal?: number;
   active: boolean;
 };
+
+/** Periodo de ganancias del conductor — idéntico web/mobile (ARC-001). */
+export type DriverEarningsPeriod = {
+  amount: number;
+  serviceEarnings: number;
+  tips: number;
+  adjustments: number;
+  services: number;
+  onlineSeconds: number | null;
+  activeSeconds: number | null;
+  periodStart: string;
+  periodEnd: string;
+};
+
+export type DriverEarningsDay = Omit<DriverEarningsPeriod, "periodStart" | "periodEnd"> & {
+  date: string;
+};
+
+/**
+ * Liquidación operativa del conductor (Uber/DoorDash: earnings dashboard).
+ * `cashout.not_configured` es honesto hasta PAY/payout productivo.
+ */
+export type DriverEarnings = {
+  driverId: string;
+  currency: "ARS";
+  timezone: string;
+  source: "postgres-ledger" | "sqlite-test-fallback";
+  walletBalance: number;
+  today: DriverEarningsPeriod;
+  week: DriverEarningsPeriod;
+  days: DriverEarningsDay[];
+  recent: Array<{
+    id: string;
+    category: "food" | "ride" | "shipment" | "tip" | "adjustment";
+    jobId: string | null;
+    description: string;
+    amount: number;
+    createdAt: string;
+  }>;
+  timeTracking:
+    | { status: "available"; source: "postgres-operational-sessions"; observedAt: string }
+    | { status: "unavailable"; reason: "postgres_required" };
+  cashout: { status: "not_configured"; reason: "external_payout_provider_required" };
+};

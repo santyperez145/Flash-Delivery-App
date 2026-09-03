@@ -48,6 +48,9 @@ import type {
   ShipmentSummary,
   VerticalService,
   PromotionSummary,
+  DriverEarningsPeriod,
+  DriverEarningsDay,
+  DriverEarnings,
 } from "@flash/domain-contracts";
 
 export type {
@@ -99,6 +102,9 @@ export type {
   ShipmentSummary,
   VerticalService,
   PromotionSummary,
+  DriverEarningsPeriod,
+  DriverEarningsDay,
+  DriverEarnings,
 };
 
 export type Mode = "customer" | "merchant" | "driver" | "ops";
