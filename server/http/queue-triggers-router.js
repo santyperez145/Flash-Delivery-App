@@ -42,7 +42,7 @@ import {
   processPostgresNotificationBatch,
   replayNotificationDeadLetter,
 } from "../notification-delivery-repository.js";
-import { processSupportQueue } from "../support-repository.js";
+import { processSupportQueue } from "../support-agent-repository.js";
 import { recordPostgresAudit } from "../audit-repository.js";
 import { usesPostgresCommerce } from "../postgres.js";
 import { requireAuth } from "./authentication.js";
