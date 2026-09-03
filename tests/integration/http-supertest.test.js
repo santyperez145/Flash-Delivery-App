@@ -58,4 +58,28 @@ describe("HTTP surface (supertest)", () => {
     expect(response.body.ok).toBe(false);
     expect(response.body.message).toMatch(/no encontrada/i);
   });
+
+  test("GET /api/subscription/plans es público (200 con planes o 503 sin Postgres)", async () => {
+    const response = await request(app).get("/api/subscription/plans");
+    expect([200, 503]).toContain(response.status);
+    if (response.status === 200) {
+      expect(Array.isArray(response.body.plans)).toBe(true);
+      expect(response.body.plans.length).toBeGreaterThan(0);
+      expect(response.body.plans[0]).toEqual(
+        expect.objectContaining({
+          planKey: expect.any(String),
+          planName: expect.any(String),
+        }),
+      );
+    } else {
+      expect(response.body.ok).toBe(false);
+    }
+  });
+
+  test("POST /api/auth/login con cuerpo vacío responde 4xx tipado", async () => {
+    const response = await request(app).post("/api/auth/login").send({});
+    expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(response.status).toBeLessThan(500);
+    expect(response.body.ok).toBe(false);
+  });
 });

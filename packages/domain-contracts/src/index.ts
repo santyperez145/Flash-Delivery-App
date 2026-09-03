@@ -440,6 +440,27 @@ export type DriverSummary = {
 };
 
 /**
+ * Vehículo KYC del conductor — idéntico en web (ops) y mobile (cuenta).
+ */
+export type DriverVehicle = {
+  id: string;
+  driverId: string;
+  kind: "bicycle" | "motorcycle" | "car" | "van";
+  model: string;
+  plate: string;
+  color: string | null;
+  seats: number | null;
+  serviceModes: DriverServiceMode[];
+  active: boolean;
+  status: "pending" | "approved" | "rejected";
+  rejectionReason: string | null;
+  reviewedAt: string | null;
+  retiredAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/**
  * Ítem de catálogo: intersección operativa web/mobile (ARC-001).
  * Web añade rating/ETA/kcal/imagen/tags; mobile consume el núcleo.
  */
