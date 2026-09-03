@@ -126,8 +126,8 @@ para migrar suites gradualmente.
 
 **Avance del 2-09-2026:** Supertest monta el Express real (`FLASH_HTTP_LISTEN=0`, sin abrir
 puerto) en `tests/integration/http-supertest.test.js`, encadenado en `test:authorization`
-(ci-fast): health, OpenAPI, readiness, 401, 404, planes públicos, pricing/zones, login/register
-vacíos, features/geocode y método no soportado. Vitest quedó
+(ci-fast): health, OpenAPI, readiness, 401, 404, planes públicos, pricing/zones, catálogo,
+opciones de envío, login/register vacíos, features/geocode y método no soportado. Vitest quedó
 **pinneado a 3.2.4**: 4.1.x falla en Node 24 al registrar suites (`runner.config`
 indefinido). **`test:k6-local`** (`load/k6-health.js`) está listo; cablearlo a
 `ci-nightly.yml` es **bloqueo del dueño** (token GitHub con scope `workflow`). Cobertura

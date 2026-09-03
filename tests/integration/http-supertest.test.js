@@ -141,4 +141,24 @@ describe("HTTP surface (supertest)", () => {
     expect(response.status).toBeGreaterThanOrEqual(400);
     expect(response.status).toBeLessThan(500);
   });
+
+  test("GET /api/catalog/restaurants responde contrato público (200 o 5xx tipado)", async () => {
+    const response = await request(app).get("/api/catalog/restaurants");
+    if (response.status === 200) {
+      expect(Array.isArray(response.body.restaurants)).toBe(true);
+    } else {
+      expect(response.status).toBeGreaterThanOrEqual(400);
+      expect(response.body.ok).toBe(false);
+    }
+  });
+
+  test("GET /api/shipment-options responde 200 con opciones o 503 sin Postgres", async () => {
+    const response = await request(app).get("/api/shipment-options");
+    expect([200, 503]).toContain(response.status);
+    if (response.status === 200) {
+      expect(response.body).toBeTruthy();
+    } else {
+      expect(response.body.ok).toBe(false);
+    }
+  });
 });
