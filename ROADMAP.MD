@@ -380,6 +380,13 @@ Pedido del dueño: cablear absolutamente todo para uso real, con automatizacione
 - [x] `test:maps` y `test:postgres` prueban token de otro usuario, campos manipulados, ausencia de validación y checkout legacy contra PostgreSQL/PostGIS real.
 - [~] Producción exige proveedor comercial y `place_id`, pero la calidad, deliverability y costo reales siguen bloqueados por una API key habilitada. Google Address Validation todavía no está integrado ni debe presentarse como tal.
 
+## Avance 2 de septiembre de 2026 — GEO-001, distancia vial en cotizaciones
+
+- [x] `server/maps-route-service.js` centraliza `resolveDrivingRoute`, circuit breaker compartido y `resolveQuoteDistanceKm`.
+- [x] Cotizaciones de comida, viaje y envío usan routing vial cacheado en producción o con proveedor comercial; desarrollo OSM conserva `geodesic_scaled` en `distanceSource`.
+- [x] `test:maps-provider` verifica que producción rechaza geodésica como fallback tarifario.
+- [~] Calidad real de rutas, costo por consulta y Route Matrix productivo siguen bloqueados por API key habilitada.
+
 ## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 16, servidor y frente
 
 Entregas novena a decimoquinta de la Fase 0. El paso 2 quedó sin registrar acá cuando se publicó, así que esta sección cubre los siete.

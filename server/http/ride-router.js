@@ -30,6 +30,11 @@ import { auditRuntime } from "../audit-trail.js";
 import { findAuthUserByPublicId, usesPostgresAuth } from "../auth-repository.js";
 import { config } from "../config.js";
 import { coordinateSchema, distanceBetween } from "../geo.js";
+import {
+  fetchRoadDistanceKmIfRequired,
+  requiresRoadRouting,
+  resolveQuoteDistanceKm,
+} from "../maps-route-service.js";
 import { requireAuth } from "./authentication.js";
 import {
   canActAsCustomer,
@@ -113,6 +118,8 @@ function calculateRideQuote(
     pickupCoords,
     destinationCoords,
     demandMultiplier = 1,
+    roadDistanceKm = null,
+    allowGeodesicFallback = true,
   },
   pricing = fallbackRidePricing,
 ) {
@@ -123,13 +130,24 @@ function calculateRideQuote(
     serviceMultiplier = Number(rules.serviceMultipliers[normalizedService]);
   const textWeight = `${pickup || ""}${destination || ""}`.length;
   const coordinateDistance = distanceBetween(pickupCoords, destinationCoords);
-  const distanceKm =
-    coordinateDistance !== null
-      ? Math.max(
-          rules.minDistanceKm,
-          Math.min(rules.maxDistanceKm, coordinateDistance * rules.roadFactor),
-        )
-      : Math.max(2.4, Math.min(28, 2.2 + (textWeight % 19) * 0.72));
+  let distanceKm;
+  let distanceSource;
+  let routingMode;
+  if (coordinateDistance !== null) {
+    ({ distanceKm, distanceSource } = resolveQuoteDistanceKm({
+      allowGeodesicFallback,
+      airDistanceM: coordinateDistance * 1000,
+      roadFactor: rules.roadFactor,
+      roadDistanceKm,
+      minDistanceKm: rules.minDistanceKm,
+      maxDistanceKm: rules.maxDistanceKm,
+    }));
+    routingMode = distanceSource === "road" ? "road" : "geodesic_scaled";
+  } else {
+    distanceKm = Math.max(2.4, Math.min(28, 2.2 + (textWeight % 19) * 0.72));
+    distanceSource = "text_estimate";
+    routingMode = "text-estimate";
+  }
   const durationMin = Math.round(rules.durationBaseMin + distanceKm * rules.durationPerKm);
   const baseFare = Number(rules.baseFare);
   const distanceFare = Math.round(distanceKm * rules.distancePerKm);
@@ -156,8 +174,9 @@ function calculateRideQuote(
       serviceMultiplier,
     },
     pricingVersion: pricing.version,
-    estimated: coordinateDistance === null,
-    routingMode: coordinateDistance === null ? "text-estimate" : "coordinates",
+    estimated: distanceSource !== "road",
+    routingMode,
+    distanceSource,
   };
 }
 
@@ -176,7 +195,12 @@ const rideServiceCatalog = {
   },
 };
 
-function calculateRideOptions(db, input, zoneMultiplier = 1, pricing = fallbackRidePricing) {
+async function calculateRideOptions(db, input, zoneMultiplier = 1, pricing = fallbackRidePricing) {
+  const allowGeodesicFallback = !requiresRoadRouting();
+  const roadDistanceKm = await fetchRoadDistanceKmIfRequired({
+    fromCoords: input.pickupCoords,
+    toCoords: input.destinationCoords,
+  });
   const eligibleDrivers = db.drivers.filter(
     (driver) =>
       driver.online &&
@@ -195,7 +219,10 @@ function calculateRideOptions(db, input, zoneMultiplier = 1, pricing = fallbackR
   );
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
   return ["economy", "comfort", "moto", "xl"].map((service) => {
-    const quote = calculateRideQuote({ ...input, service, demandMultiplier }, pricing);
+    const quote = calculateRideQuote(
+      { ...input, service, demandMultiplier, roadDistanceKm, allowGeodesicFallback },
+      pricing,
+    );
     const nearestDistance = eligibleDrivers.reduce((nearest, driver) => {
       const distance = distanceBetween(driver.location, input.pickupCoords);
       return distance === null ? nearest : Math.min(nearest, distance);
@@ -445,60 +472,77 @@ router.post(
 router.post("/api/rides/quote", async (req, res) => {
   const parsed = parseOrFail(rideQuoteSchema, req.body || {});
   if (!parsed.ok) return fail(res, 400, parsed.message);
-  const { pickup, destination, service, pickupCoords, destinationCoords } = parsed.data;
-  const [zone, pricing] = usesPostgresCommerce()
-    ? await Promise.all([getPostgresZonePricing(pickupCoords), getPostgresPricingPlan("ride")])
-    : [{ rideMultiplier: 1, zoneId: null }, fallbackRidePricing];
-  const quote = {
-      ...calculateRideQuote(
+  try {
+    const { pickup, destination, service, pickupCoords, destinationCoords } = parsed.data;
+    const [zone, pricing, roadDistanceKm] = await Promise.all([
+      usesPostgresCommerce()
+        ? getPostgresZonePricing(pickupCoords)
+        : Promise.resolve({ rideMultiplier: 1, zoneId: null }),
+      usesPostgresCommerce()
+        ? getPostgresPricingPlan("ride")
+        : Promise.resolve(fallbackRidePricing),
+      fetchRoadDistanceKmIfRequired({ fromCoords: pickupCoords, toCoords: destinationCoords }),
+    ]);
+    const allowGeodesicFallback = !requiresRoadRouting();
+    const quote = {
+        ...calculateRideQuote(
+          {
+            pickup,
+            destination,
+            service,
+            pickupCoords,
+            destinationCoords,
+            demandMultiplier: zone.rideMultiplier,
+            roadDistanceKm,
+            allowGeodesicFallback,
+          },
+          pricing,
+        ),
+        zoneId: zone.zoneId,
+      },
+      quoteId = createId("QUOTE"),
+      expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+      quoteToken = jwt.sign(
         {
+          kind: "ride_quote",
+          quoteId,
+          service: quote.service,
+          fare: quote.fare,
+          breakdown: quote.breakdown,
+          pricingVersion: quote.pricingVersion,
           pickup,
           destination,
-          service,
-          pickupCoords,
-          destinationCoords,
-          demandMultiplier: zone.rideMultiplier,
+          pickupCoords: pickupCoords || null,
+          destinationCoords: destinationCoords || null,
         },
-        pricing,
-      ),
-      zoneId: zone.zoneId,
-    },
-    quoteId = createId("QUOTE"),
-    expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(),
-    quoteToken = jwt.sign(
-      {
-        kind: "ride_quote",
-        quoteId,
-        service: quote.service,
-        fare: quote.fare,
-        breakdown: quote.breakdown,
-        pricingVersion: quote.pricingVersion,
-        pickup,
-        destination,
-        pickupCoords: pickupCoords || null,
-        destinationCoords: destinationCoords || null,
-      },
-      jwtSecret,
-      { expiresIn: "5m" },
-    );
-  return ok(res, { quote: { ...quote, quoteId, quoteToken, expiresAt } });
+        jwtSecret,
+        { expiresIn: "5m" },
+      );
+    return ok(res, { quote: { ...quote, quoteId, quoteToken, expiresAt } });
+  } catch (error) {
+    return failFrom(res, error, "No se pudo cotizar el viaje");
+  }
 });
 
 router.post("/api/rides/options", async (req, res) => {
   const parsed = parseOrFail(rideQuoteSchema, req.body || {});
   if (!parsed.ok) return fail(res, 400, parsed.message);
-  const db = usesPostgresCommerce() ? {} : readDb();
-  if (usesPostgresCommerce())
-    [db.drivers, db.rides] = await Promise.all([getPostgresDrivers(), getPostgresRides()]);
-  const [zone, pricing] = usesPostgresCommerce()
-    ? await Promise.all([
-        getPostgresZonePricing(parsed.data.pickupCoords),
-        getPostgresPricingPlan("ride"),
-      ])
-    : [{ rideMultiplier: 1 }, fallbackRidePricing];
-  return ok(res, {
-    options: calculateRideOptions(db, parsed.data, zone.rideMultiplier, pricing),
-  });
+  try {
+    const db = usesPostgresCommerce() ? {} : readDb();
+    if (usesPostgresCommerce())
+      [db.drivers, db.rides] = await Promise.all([getPostgresDrivers(), getPostgresRides()]);
+    const [zone, pricing] = usesPostgresCommerce()
+      ? await Promise.all([
+          getPostgresZonePricing(parsed.data.pickupCoords),
+          getPostgresPricingPlan("ride"),
+        ])
+      : [{ rideMultiplier: 1 }, fallbackRidePricing];
+    return ok(res, {
+      options: await calculateRideOptions(db, parsed.data, zone.rideMultiplier, pricing),
+    });
+  } catch (error) {
+    return failFrom(res, error, "No se pudieron calcular las opciones de viaje");
+  }
 });
 
 router.post("/api/rides", requireAuth, requireAnyRole("customer", "admin"), async (req, res) => {
@@ -539,9 +583,14 @@ router.post("/api/rides", requireAuth, requireAnyRole("customer", "admin"), asyn
   }
   if (usesPostgresCommerce() && !quoteToken)
     return fail(res, 400, "Debes cotizar el viaje antes de solicitarlo");
-  const [rideZone, ridePricing] = usesPostgresCommerce()
-    ? await Promise.all([getPostgresZonePricing(pickupCoords), getPostgresPricingPlan("ride")])
-    : [{ rideMultiplier: 1, zoneId: null }, fallbackRidePricing];
+  const [rideZone, ridePricing, roadDistanceKm] = await Promise.all([
+    usesPostgresCommerce()
+      ? getPostgresZonePricing(pickupCoords)
+      : Promise.resolve({ rideMultiplier: 1, zoneId: null }),
+    usesPostgresCommerce() ? getPostgresPricingPlan("ride") : Promise.resolve(fallbackRidePricing),
+    fetchRoadDistanceKmIfRequired({ fromCoords: pickupCoords, toCoords: destinationCoords }),
+  ]);
+  const allowGeodesicFallback = !requiresRoadRouting();
   let quote = {
     ...calculateRideQuote(
       {
@@ -551,6 +600,8 @@ router.post("/api/rides", requireAuth, requireAnyRole("customer", "admin"), asyn
         pickupCoords,
         destinationCoords,
         demandMultiplier: rideZone.rideMultiplier,
+        roadDistanceKm,
+        allowGeodesicFallback,
       },
       ridePricing,
     ),

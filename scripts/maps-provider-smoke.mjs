@@ -222,6 +222,59 @@ config.maps.googleServerApiKey = null;
 assert.throws(() => g.describeRoute(punto), /Falta la API key/);
 ok("sin API key el proveedor falla explícito y no expone la clave");
 
+// --- Distancia tarifaria (GEO-001) -------------------------------------------
+
+const { resolveQuoteDistanceKm, requiresRoadRouting } = await import(
+  "../server/maps-route-service.js"
+);
+
+const road = resolveQuoteDistanceKm({
+  allowGeodesicFallback: false,
+  airDistanceM: 3000,
+  roadFactor: 1.22,
+  roadDistanceKm: 4.8,
+});
+assert.equal(road.distanceSource, "road");
+assert.equal(road.distanceKm, 4.8);
+ok("producción/comercial usa distancia vial cuando está disponible");
+
+assert.throws(
+  () =>
+    resolveQuoteDistanceKm({
+      allowGeodesicFallback: false,
+      airDistanceM: 3000,
+      roadFactor: 1.22,
+      roadDistanceKm: null,
+    }),
+  (error) => error.status === 503,
+);
+ok("producción/comercial rechaza geodésica si falta routing vial");
+
+const geodesic = resolveQuoteDistanceKm({
+  allowGeodesicFallback: true,
+  airDistanceM: 3000,
+  roadFactor: 1.22,
+  roadDistanceKm: null,
+});
+assert.equal(geodesic.distanceSource, "geodesic_scaled");
+assert.ok(Math.abs(geodesic.distanceKm - 3.66) < 0.01);
+ok("desarrollo OSM etiqueta geodesic_scaled cuando no hay ruta");
+
+const capped = resolveQuoteDistanceKm({
+  allowGeodesicFallback: true,
+  airDistanceM: 50000,
+  roadFactor: 1.22,
+  roadDistanceKm: 42,
+  minDistanceKm: 2,
+  maxDistanceKm: 28,
+});
+assert.equal(capped.distanceKm, 28);
+assert.equal(capped.distanceSource, "road");
+ok("viaje/envío aplican topes min/max sobre distancia vial");
+
+assert.equal(typeof requiresRoadRouting(), "boolean");
+ok("requiresRoadRouting expone si el entorno exige routing vial");
+
 console.log("\nok - contrato del adapter cartográfico verificado");
 console.log(
   "     pendiente: calidad real de rutas y costo por consulta con una API key habilitada",

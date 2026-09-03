@@ -364,7 +364,7 @@ Ya existen caché, circuit breaker y presupuesto: se conservan y se conectan al 
 - [x] Producción rechaza el arranque con instancias públicas de la comunidad.
 - [x] `computeRouteMatrix()` existe, con field mask y límite facturable.
 - [x] El checkout de comida sólo acepta una dirección con procedencia firmada por el backend. La migración 136 conserva proveedor, `place_id`, tipo y fecha; el token dura 15 minutos, está ligado al usuario y sus valores sustituyen cualquier texto o coordenada enviados por el cliente. Producción exige proveedor comercial y `place_id`. `test:maps` y `test:postgres` cubren reutilización entre usuarios, manipulación y dirección legacy.
-- [ ] Ninguna tarifa productiva usa distancia geodésica como estimación final.
+- [x] Ninguna tarifa productiva usa distancia geodésica como estimación final cuando hay coordenadas. Comida, viajes y envíos usan `resolveDrivingRoute` (caché + circuit breaker) en producción o con proveedor comercial; desarrollo OSM conserva `geodesic_scaled` etiquetado en `distanceSource`. Sin coordenadas, viaje/envío siguen con heurística textual. Verificado en `test:maps-provider`.
 - [ ] Los costos por proveedor son visibles y tienen alerta de presupuesto.
 - [ ] El fallback entre proveedores es auditable.
 - [ ] Calidad real de rutas y costo por consulta con una API key habilitada.
