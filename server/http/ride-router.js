@@ -48,11 +48,7 @@ import { getPostgresPricingPlan, getPostgresZonePricing } from "../configuration
 import { creditDriverEarningsRuntime } from "../driver-earnings.js";
 import { getPostgresDrivers } from "../driver-roster-repository.js";
 import { addTimeline, fallbackRidePricing, readDb } from "../fallback-runtime.js";
-import {
-  createPostgresRide,
-  getPostgresRides,
-  setPostgresRideStatus,
-} from "../mobility-repository.js";
+import { createPostgresRide, getPostgresRides, setPostgresRideStatus } from "../ride-repository.js";
 import { recordPostgresAudit } from "../operations-repository.js";
 import { usesPostgresCommerce } from "../postgres.js";
 import { validarHorarioProgramado } from "../scheduling.js";

@@ -55,6 +55,8 @@ const SHARED = [
   "ShipmentItemCategory",
   "ShipmentServiceLevel",
   "ShipmentSummary",
+  "VerticalService",
+  "PromotionSummary",
 ];
 
 /** Tipos que cada superficie extiende con intersección local (no redefinición del núcleo). */
@@ -142,6 +144,12 @@ assert(
     contains(web, "RideService") &&
     contains(mobile, "RideService"),
   "web and mobile share RideSummary, RideService and ShipmentSummary",
+);
+assert(
+  contains(web, "Service = VerticalService") &&
+    contains(web, "Promotion = PromotionSummary") &&
+    contains(mobile, "Promotion = PromotionSummary &"),
+  "web and mobile share VerticalService and PromotionSummary",
 );
 assert(
   contains(rootPkg, '"@flash/domain-contracts"') &&

@@ -630,3 +630,24 @@ export type ShipmentSummary = {
   deliveryVerifiedAt?: string | null;
   timeline?: Array<{ status: string; at: string }>;
 };
+
+/** Vertical de producto — idéntico en web y mobile. */
+export type VerticalService = "food" | "ride" | "shipment";
+
+/**
+ * Promoción comercial compartida (ARC-001).
+ * Mobile añade ventana startsAt/endsAt.
+ */
+export type PromotionSummary = {
+  id: string;
+  code?: string;
+  title: string;
+  description: string;
+  service: VerticalService;
+  discountPercent: number;
+  kind?: "percentage" | "fixed" | "free_delivery" | "wallet_credit";
+  value?: number;
+  maxDiscount?: number;
+  minSubtotal?: number;
+  active: boolean;
+};

@@ -1,6 +1,7 @@
 import { postgresPool } from "./postgres.js";
 import { getPostgresOrders } from "./order-repository.js";
-import { getPostgresRides, getPostgresShipments } from "./mobility-repository.js";
+import { getPostgresRides } from "./ride-repository.js";
+import { getPostgresShipments } from "./mobility-repository.js";
 
 const encodeCursor = (row) =>
   Buffer.from(JSON.stringify({ createdAt: row.cursor_created_at, id: row.id })).toString(

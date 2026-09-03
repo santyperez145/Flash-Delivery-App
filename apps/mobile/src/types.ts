@@ -46,6 +46,8 @@ import type {
   ShipmentItemCategory,
   ShipmentServiceLevel,
   ShipmentSummary,
+  VerticalService,
+  PromotionSummary,
 } from "@flash/domain-contracts";
 
 export type {
@@ -95,6 +97,8 @@ export type {
   ShipmentItemCategory,
   ShipmentServiceLevel,
   ShipmentSummary,
+  VerticalService,
+  PromotionSummary,
 };
 
 export type Mode = "customer" | "merchant" | "driver";
@@ -285,18 +289,7 @@ export type ShipmentOptions = {
   }>;
 };
 
-export type Promotion = {
-  id: string;
-  code?: string;
-  title: string;
-  description: string;
-  service: "food" | "ride" | "shipment";
-  discountPercent: number;
-  kind?: "percentage" | "fixed" | "free_delivery" | "wallet_credit";
-  value?: number;
-  maxDiscount?: number;
-  minSubtotal?: number;
-  active: boolean;
+export type Promotion = PromotionSummary & {
   startsAt?: string;
   endsAt?: string;
 };
