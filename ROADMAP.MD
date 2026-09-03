@@ -66,7 +66,9 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 
 - [x] `src/styles.css` queda en **1385** líneas (`pricing.css` extraído). Estilos mobile todos ≤1500.
 - [x] Inventario de bloqueos del dueño en `docs/plan-de-accion.md` (GCP, Maps, EAS, 2º revisor).
-- [ ] Monolitos restantes: postgres smoke, openapi, store.
+- [x] `server/openapi.js` (2949 → compositor **12**) + `server/openapi/*` (máx. **1183** `schemas-domains.js`); tags partidos por dominio.
+- [x] `server/store.js` (2212 → **1198**) + `store-schema.js` **380** + `store-seed.js` **639**; Proxy/lazy DB intacto.
+- [ ] Monolito restante: `scripts/postgres-runtime-smoke.mjs` (**4767**).
 
 ## Avance 2 de septiembre de 2026 — GEO budget + split styles + file ratchet
 
