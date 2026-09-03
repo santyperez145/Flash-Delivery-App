@@ -342,7 +342,7 @@ Captura o registro del dispositivo físico adjunto al PR. **Sin evidencia físic
 
 ## GEO-001 — Proveedor de mapas comercial
 
-**Prioridad:** P0 · **Hallazgo:** [H-07](auditoria-2026-08-25.md#h-07--proveedores-de-mapas-públicos-por-defecto) · **Fase:** 0
+**Prioridad:** P0 · **Hallazgo:** [H-07](auditoria-2026-08-25.md#h-07--proveedores-de-mapas-públicos-por-defecto) · **Fase:** 0 · **Estado:** Bloqueado por externo (API key comercial + evidencia calidad/costo)
 
 ### Contexto
 
