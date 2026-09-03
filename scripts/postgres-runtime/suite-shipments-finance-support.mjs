@@ -1188,7 +1188,9 @@ export async function runShipmentsFinanceSupportSuite(ctx) {
   );
   ctx.token = ctx.customerToken;
   const customerTickets = await request("/support/tickets");
-  const customerTicket = customerTickets.body.tickets.find((entry) => entry.id === ctx.supportTicketId);
+  const customerTicket = customerTickets.body.tickets.find(
+    (entry) => entry.id === ctx.supportTicketId,
+  );
   assert(
     customerTicket.status === "resolved" &&
       !customerTicket.messages.some((entry) => entry.internal),

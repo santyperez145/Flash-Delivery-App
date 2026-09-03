@@ -1,4 +1,12 @@
-import { json, errorResponses, success, bearerErrors, idempotencyHeader, body, operationsPageParameters } from "./primitives.js";
+import {
+  json,
+  errorResponses,
+  success,
+  bearerErrors,
+  idempotencyHeader,
+  body,
+  operationsPageParameters,
+} from "./primitives.js";
 
 export const dispatchOperationsPaths = {
   "/api/driver/offers": {

@@ -28,6 +28,7 @@ import type {
   OrderStatus,
   OrderItem,
   Order as SharedOrder,
+  RestaurantSummary,
   RideStatus,
 } from "@flash/domain-contracts";
 
@@ -60,6 +61,7 @@ export type {
   User,
   OrderStatus,
   OrderItem,
+  RestaurantSummary,
   RideStatus,
 };
 
@@ -145,21 +147,7 @@ export type RideForm = {
   destinationCoords: GeoPoint | null;
 };
 
-export type Restaurant = {
-  id: string;
-  ownerId: string;
-  name: string;
-  cuisine: string;
-  rating: number;
-  distanceKm: number;
-  etaMin: number;
-  deliveryFee: number;
-  open: boolean;
-  manualOpen?: boolean;
-  image: string;
-  cover: string;
-  badge: string;
-  address: string;
+export type Restaurant = RestaurantSummary & {
   lat?: number | null;
   lng?: number | null;
   menu: MenuItem[];

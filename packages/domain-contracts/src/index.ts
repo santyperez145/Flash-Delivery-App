@@ -2,9 +2,9 @@
 //
 // Sólo entran tipos byte-a-byte iguales y autocontenidos, o la intersección /
 // proyección autoritativa del servidor cuando ambas superficies ya la consumen.
-// `Order`/`OrderItem` son el núcleo compartido; web y mobile extienden con
-// timeline/tarifas o cancelación. `Restaurant` sigue local: menú, extras y
-// sucursales divergen. MerchantOperationsDashboard sigue local porque referencia
+// `Order`/`OrderItem` y `RestaurantSummary` son núcleos compartidos; web y mobile
+// extienden con timeline/tarifas, cancelación o menú/sucursales. Menú, extras y
+// sucursales siguen locales. MerchantOperationsDashboard sigue local porque referencia
 // `Restaurant` completo.
 
 export type DietaryPreferences = {
@@ -384,6 +384,28 @@ export type Order = {
   etaMin: number;
   createdAt?: string;
   items: OrderItem[];
+};
+
+/**
+ * Proyección de restaurante compartida entre web y mobile (listados, cards, quote).
+ *
+ * Menú, extras, coordenadas y sucursales viven en la extensión local `Restaurant`.
+ */
+export type RestaurantSummary = {
+  id: string;
+  ownerId: string;
+  name: string;
+  cuisine: string;
+  rating: number;
+  etaMin: number;
+  deliveryFee: number;
+  open: boolean;
+  manualOpen?: boolean;
+  address: string;
+  image: string;
+  cover: string;
+  badge: string;
+  distanceKm: number;
 };
 
 /** Ciclo de un viaje. */

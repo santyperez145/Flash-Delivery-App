@@ -1,4 +1,12 @@
-import { json, errorResponses, success, bearerErrors, idempotencyHeader, body, groupResponse } from "./primitives.js";
+import {
+  json,
+  errorResponses,
+  success,
+  bearerErrors,
+  idempotencyHeader,
+  body,
+  groupResponse,
+} from "./primitives.js";
 
 export const commercePaths = {
   "/api/orders/quote": {

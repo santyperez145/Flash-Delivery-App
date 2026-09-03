@@ -151,7 +151,8 @@ assert(
   "el movil ofrece no dejar propina y calcula los porcentajes sobre el subtotal",
 );
 assert(
-  contains(propinaMovil, "minHeight: 44") || contains(app, "propinaOpcion") && contains(app, "minHeight: 44"),
+  contains(propinaMovil, "minHeight: 44") ||
+    (contains(app, "propinaOpcion") && contains(app, "minHeight: 44")),
   "las opciones de propina son objetivos tactiles de 44px",
 );
 assert(contains(app, "tipCents?: number"), "la propina viaja a la API movil en centavos");

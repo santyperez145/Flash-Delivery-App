@@ -1,4 +1,11 @@
-import { json, errorResponses, success, bearerErrors, idempotencyHeader, body } from "./primitives.js";
+import {
+  json,
+  errorResponses,
+  success,
+  bearerErrors,
+  idempotencyHeader,
+  body,
+} from "./primitives.js";
 
 export const mobilityFinancePaths = {
   "/api/payment-provider/client-configuration": {

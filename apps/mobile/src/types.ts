@@ -28,6 +28,7 @@ import type {
   OrderStatus,
   OrderItem,
   Order as SharedOrder,
+  RestaurantSummary,
   RideStatus,
 } from "@flash/domain-contracts";
 
@@ -60,6 +61,7 @@ export type {
   User,
   OrderStatus,
   OrderItem,
+  RestaurantSummary,
   RideStatus,
 };
 
@@ -67,21 +69,7 @@ export type Mode = "customer" | "merchant" | "driver";
 export type ServiceMode = "delivery" | "ride";
 export type RideService = "economy" | "comfort" | "moto" | "xl";
 
-export type Restaurant = {
-  id: string;
-  ownerId: string;
-  name: string;
-  cuisine: string;
-  rating: number;
-  etaMin: number;
-  deliveryFee: number;
-  open: boolean;
-  manualOpen?: boolean;
-  address: string;
-  image: string;
-  cover: string;
-  badge: string;
-  distanceKm: number;
+export type Restaurant = RestaurantSummary & {
   branches?: Array<{
     id: string;
     name: string;

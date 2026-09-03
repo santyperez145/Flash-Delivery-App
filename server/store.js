@@ -5,7 +5,11 @@ import { fileURLToPath } from "node:url";
 import bcrypt from "bcryptjs";
 import Database from "better-sqlite3";
 import { execSchema, ensureSchemaColumns } from "./store-schema.js";
-import { createSeed, ensureBootstrapSupportUser, ensureLocalNotificationData } from "./store-seed.js";
+import {
+  createSeed,
+  ensureBootstrapSupportUser,
+  ensureLocalNotificationData,
+} from "./store-seed.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -83,7 +87,6 @@ const database = new Proxy(
     },
   },
 );
-
 
 function boolToInt(value) {
   return value ? 1 : 0;
@@ -501,7 +504,6 @@ function replaceTransaction(state) {
   }
   return replaceTransactionFn(state);
 }
-
 
 function seedIfNeeded() {
   execSchema(database);
