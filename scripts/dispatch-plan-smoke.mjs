@@ -23,6 +23,14 @@
 import crypto from "node:crypto";
 import pg from "pg";
 import { SHORTLIST_SQL } from "../server/dispatch-candidates.js";
+import {
+  LISTA_CORTA,
+  PADRON,
+  PICKUP,
+  RADIO_M,
+  pickupGeography,
+  seedSyntheticPadron,
+} from "./dispatch-synthetic-padron.mjs";
 
 const pool = new pg.Pool({
   connectionString: process.env.MIGRATION_DATABASE_URL || process.env.DATABASE_URL,
@@ -30,12 +38,6 @@ const pool = new pg.Pool({
 });
 
 const INDICE = "drivers_available_location_gix";
-const PADRON = 1000;
-const RADIO_M = 8000;
-const LISTA_CORTA = 30;
-// Obelisco, y los conductores repartidos alrededor hasta unos 40 km: más lejos
-// que el radio de búsqueda, para que el filtro espacial tenga algo que filtrar.
-const PICKUP = { lng: -58.3816, lat: -34.6037 };
 
 let fallos = 0;
 const ok = (etiqueta) => console.log(`ok - ${etiqueta}`);
@@ -59,46 +61,14 @@ const cliente = await pool.connect();
 try {
   await cliente.query("BEGIN");
 
-  // --- Padrón sintético ------------------------------------------------------
   const marca = `dispatch-plan-${crypto.randomBytes(4).toString("hex")}`;
-  await cliente.query(
-    `INSERT INTO users(public_id, email, password_hash, name, email_verified_at)
-     SELECT $1 || '-' || i, $1 || '-' || i || '@flash.test', 'x', 'Conductor sintetico ' || i, now()
-     FROM generate_series(1, $2) i`,
-    [marca, PADRON],
-  );
-  await cliente.query(
-    // `public_id` es NOT NULL y sin default desde la migración 007: se deriva
-    // del `public_id` del usuario para que sea único sin coordinar contadores.
-    `INSERT INTO drivers(public_id, user_id, online, active_mode, service_modes, rating,
-                         current_location, location_updated_at, location_accuracy_m)
-     SELECT 'DRV-' || u.public_id, u.id, true, 'delivery', ARRAY['delivery']::job_kind[], 4.5,
-            ST_SetSRID(ST_MakePoint($2 + (random() - 0.5) * 0.8, $3 + (random() - 0.5) * 0.8), 4326)::geography,
-            now(), 20
-     FROM users u WHERE u.public_id LIKE $1 || '-%'`,
-    [marca, PICKUP.lng, PICKUP.lat],
-  );
-  const padron = await cliente.query(
-    "SELECT count(*)::int n FROM drivers d JOIN users u ON u.id = d.user_id WHERE u.public_id LIKE $1 || '-%'",
-    [marca],
-  );
-  comprobar(
-    padron.rows[0].n >= PADRON,
-    `el padrón sintético tiene ${padron.rows[0].n} conductores en línea`,
-  );
+  const { count: padronCount } = await seedSyntheticPadron(cliente, marca);
+  comprobar(padronCount >= PADRON, `el padrón sintético tiene ${padronCount} conductores en línea`);
 
-  // Sin esto el planificador decide con las estadísticas de antes de la carga, y
-  // el plan que se mide no es el que correría con estos datos.
   await cliente.query("ANALYZE drivers");
 
-  const parametros = [
-    `SRID=4326;POINT(${PICKUP.lng} ${PICKUP.lat})`,
-    "delivery",
-    RADIO_M,
-    LISTA_CORTA,
-  ];
+  const parametros = [pickupGeography(), "delivery", RADIO_M, LISTA_CORTA];
 
-  // --- El plan usa el índice -------------------------------------------------
   const explicado = await cliente.query(
     `EXPLAIN (ANALYZE, FORMAT JSON) ${SHORTLIST_SQL}`,
     parametros,
@@ -112,13 +82,8 @@ try {
   );
   console.log(`     plan: ${plan.Plan["Node Type"]} · ${plan["Execution Time"].toFixed(1)} ms`);
   console.log(`     el tiempo se informa y no se afirma: el runner comparte CPU y`);
-  console.log(`     medir latencia acá daría una puerta intermitente. Eso es test:performance.`);
+  console.log(`     medir latencia acá daría una puerta intermitente. Eso es test:dispatch-load.`);
 
-  // --- La otra mitad: la comprobación sabe distinguir ------------------------
-  //
-  // Sin esto, un detector que buscara cualquier índice en cualquier parte del
-  // plan aprobaría siempre. Se le apagan los caminos por índice y se exige que
-  // el mismo plan deje de usarlo.
   await cliente.query("SET LOCAL enable_indexscan = off");
   await cliente.query("SET LOCAL enable_bitmapscan = off");
   const sinIndice = await cliente.query(
@@ -134,7 +99,6 @@ try {
   await cliente.query("SET LOCAL enable_indexscan = on");
   await cliente.query("SET LOCAL enable_bitmapscan = on");
 
-  // --- Y devuelve lo que tiene que devolver ---------------------------------
   const filas = await cliente.query(SHORTLIST_SQL, parametros);
   comprobar(
     filas.rowCount > 0 && filas.rowCount <= LISTA_CORTA,

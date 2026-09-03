@@ -61,7 +61,7 @@
     "test:ci-coverage": "node scripts/ci-coverage-check.mjs",
     "test:postgres": "node --env-file-if-exists=.env.local scripts/postgres-runtime-smoke.mjs",
     "test:api-wiring": "node scripts/api-wiring-contract.mjs",
-    "test:dispatch-plan": "node --env-file-if-exists=.env.local scripts/dispatch-plan-smoke.mjs",
+    "test:dispatch-plan": "node --env-file-if-exists=.env.local scripts/dispatch-plan-smoke.mjs && node --env-file-if-exists=.env.local scripts/dispatch-load-smoke.mjs",
     "test:runtime-role-shape": "node --env-file-if-exists=.env.local scripts/runtime-role-shape-contract.mjs && vitest run tests/integration/postgres-container.test.js --testTimeout=240000 --hookTimeout=240000",
     "test:runtime-write-scope": "node --env-file-if-exists=.env.local scripts/runtime-write-scope.mjs",
     "test:restore-drill": "node --env-file-if-exists=.env.local scripts/restore-drill-smoke.mjs",
