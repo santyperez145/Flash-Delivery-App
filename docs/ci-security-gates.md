@@ -2,7 +2,7 @@
 
 ## Estado al 29 de agosto de 2026
 
-`ci.yml` se dividió en cuatro workflows. La cobertura pasó de 15 a **106 de 108 suites** detrás de una puerta: **104 bloquean el merge**, 2 corren de noche y la cuarentena está vacía.
+`ci.yml` se dividió en cuatro workflows. La cobertura pasó de 15 a **106 de 109 suites** detrás de una puerta: **104 bloquean el merge**, 2 corren de noche y la cuarentena está vacía. `test:k6-local` está escrito; cablearlo al nocturno es bloqueo del dueño (scope `workflow`).
 
 Desde el 27 de agosto la rama `main` **está protegida**: los siete checks son obligatorios, la rama debe estar al día, la historia es lineal y no hay excepción para administradores. Hasta ese día se habían mergeado once PR con CI en verde sin que nada lo exigiera.
 
@@ -18,7 +18,7 @@ Además, `main` llevaba en rojo desde el 23 de agosto sin que nadie estuviera bl
 | `ci-postgres.yml` | Cada PR | PostGIS 17 · roles separados · migraciones desde cero · Testcontainers aislado · migración incremental sobre la base del PR · seeds reproducibles · RLS · cadena de auditoría · aislamiento por ciudad · datos sensibles · idempotencia · comercio, zonas y configuración | **Verde** |
 | `ci-critical-flows.yml` | Cada PR | API levantada contra PostgreSQL · runtime smoke · pagos · conciliación · riesgo · payouts · propinas · KYC · vehículos · ganancias · safety · chat · siniestros · SLA · notificaciones · recursos por audiencia | **Verde** |
 | `local-fallback` (en `ci-fast`) | Cada PR | API sobre el fallback SQLite · contratos que no son los de PostgreSQL | **Verde** |
-| `ci-nightly.yml` | 06:00 UTC y a mano | Auditoría responsive en navegador real, una corrida por variante · latencia de endpoints contra PostgreSQL | **Existe** desde el 27-08. Sin k6, sandbox de proveedores, builds EAS ni restore drill |
+| `ci-nightly.yml` | 06:00 UTC y a mano | Auditoría responsive en navegador real, una corrida por variante · latencia de endpoints contra PostgreSQL | **Existe** desde el 27-08. `test:k6-local` listo en repo; cablear YAML = dueño (`workflow`). Sin sandbox de proveedores ni builds EAS |
 
 ### Qué descubrió cada primera corrida
 
