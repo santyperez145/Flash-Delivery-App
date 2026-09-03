@@ -102,7 +102,7 @@ export function MerchantScreen({
     : null;
   const detailOrder = activeOrders.find((order) => order.id === detailOrderId) || null;
   return (
-    <View style={styles.merchantShell}>
+    <View style={styles.merchantShell} accessibilityLabel="Flash merchant cockpit">
       <ServiceChatModal
         jobId={chatJobId}
         currentUserId={restaurant.ownerId}

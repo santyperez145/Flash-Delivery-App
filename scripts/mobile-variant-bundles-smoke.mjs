@@ -29,7 +29,7 @@ const MOBILE = "apps/mobile";
 const MARCADORES = [
   { variante: "customer", pantalla: "CustomerScreen", marcador: "Activar Seguridad Flash" },
   { variante: "driver", pantalla: "DriverScreen", marcador: "Ubicacion GPS" },
-  { variante: "merchant", pantalla: "MerchantScreen", marcador: "Abierto y recibiendo" },
+  { variante: "merchant", pantalla: "MerchantScreen", marcador: "Flash merchant cockpit" },
 ];
 
 const problemas = [];

@@ -204,11 +204,11 @@ try {
   comprobar(workerOffered > 0, "workers concurrentes emitieron ofertas bajo contención");
 
   const duplicateOffers = await cliente.query(
-    `SELECT job_id, driver_id, count(*)::int n
+    `SELECT o.job_id, o.driver_id, count(*)::int n
      FROM dispatch_offers o
      JOIN jobs j ON j.id = o.job_id
      WHERE j.public_id LIKE $1 || '%'
-     GROUP BY job_id, driver_id
+     GROUP BY o.job_id, o.driver_id
      HAVING count(*) > 1`,
     [marca],
   );
