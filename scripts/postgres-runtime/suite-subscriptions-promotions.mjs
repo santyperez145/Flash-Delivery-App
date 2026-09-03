@@ -244,7 +244,8 @@ export async function runSubscriptionsPromotionsSuite(ctx) {
     (await request("/subscription")).body.subscription === null,
     "el bloque de suscripcion deja al cliente como lo encontro",
   );
-  ctx.payload = { ...payload, quoteToken: ctx.foodQuote.body.quote.quoteToken };
+  payload = { ...payload, quoteToken: ctx.foodQuote.body.quote.quoteToken };
+  ctx.payload = payload;
   const foreignAddressKey = `foreign-address-${crypto.randomUUID()}`;
   const foreignQuote = await request("/orders/quote", {
     method: "POST",
@@ -309,12 +310,13 @@ export async function runSubscriptionsPromotionsSuite(ctx) {
           checkoutQuote.body.quote.subscriptionDiscount,
     "checkout returns an exact signed server-side breakdown",
   );
-  ctx.payload = {
+  payload = {
     ...payload,
     paymentMethodId: ownPaymentId,
     paymentMethod: checkoutQuote.body.quote.paymentMethod,
     quoteToken: checkoutQuote.body.quote.quoteToken,
   };
+  ctx.payload = payload;
   const changedPriceKey = `changed-price-${crypto.randomUUID()}`,
     changedPrice = await request("/orders", {
       method: "POST",
