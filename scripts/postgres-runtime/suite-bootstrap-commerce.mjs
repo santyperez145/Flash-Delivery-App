@@ -577,7 +577,8 @@ export async function runBootstrapCommerceSuite(ctx) {
       workAddress.body.addresses.length === 2,
     "address book persists the signed provider result instead of client-controlled coordinates",
   );
-  ctx.workId = workAddress.body.address.id;
+  const workId = workAddress.body.address.id;
+  ctx.workId = workId;
   const homeId = homeAddress.body.address.id;
   const defaultChanged = await request(`/addresses/${workId}/default`, {
     method: "PATCH",

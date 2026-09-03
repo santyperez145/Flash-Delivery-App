@@ -31,7 +31,7 @@ import {
 } from "../maps-route-service.js";
 import { observeProviderCall } from "../observability.js";
 import { requireAuth } from "./authentication.js";
-import { fail, ok, parseOrFail } from "./responses.js";
+import { fail, failFrom, ok, parseOrFail } from "./responses.js";
 
 function signedGeocodeResults(results, { provider, userPublicId, cache }) {
   return results.map((result) => ({
@@ -142,6 +142,6 @@ mapsRouter.get("/api/maps/route", requireAuth, async (req, res) => {
     const result = await resolveDrivingRoute({ fromLat, fromLng, toLat, toLng });
     return ok(res, result);
   } catch (error) {
-    return fail(res, error.status || 503, error.message);
+    return failFrom(res, error, "No se pudo calcular la ruta");
   }
 });
