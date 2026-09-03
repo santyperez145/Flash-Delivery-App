@@ -457,6 +457,14 @@ export const operationsApi = {
       body: JSON.stringify({ reason }),
     });
   },
+  async assignJob(jobId: string, driverId: string, reason: string) {
+    return request<{
+      job: { id: string; kind: string; assignedTo: string; status: string };
+    }>(`/admin/jobs/${jobId}/assign`, {
+      method: "POST",
+      body: JSON.stringify({ driverId, reason }),
+    });
+  },
   async getWorkQueues() {
     return request<{
       generatedAt: string;

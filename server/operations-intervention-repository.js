@@ -12,6 +12,7 @@
 //
 // Los dos se resolvían con un UPDATE a mano, sin actor, sin motivo y sin rastro.
 import { postgresPool } from "./postgres.js";
+import { refreshDriverDispatchStats } from "./dispatch-stats.js";
 import { enqueueNotificationForInternalUser } from "./notification-repository.js";
 
 /**
@@ -157,6 +158,164 @@ export async function releaseJobFromDriver({ jobPublicId, reason }) {
       kind: trabajo.kind,
       releasedFrom: trabajo.driver_public_id,
       status: estadoDeVuelta,
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Asigna a mano un conductor a un trabajo sin dueño (DSP-001).
+ *
+ * Uber Ops / DoorDash Drive permiten forzar courier cuando el auto-despacho
+ * agota oleadas o hay una escalación. Misma frontera que el despacho automático:
+ * comida sólo desde `ready_for_pickup`, viajes/envíos desde `requested`, ventana
+ * de horario y capacidad activa. No inventa oferta: escribe la asignación,
+ * retira pendientes y deja rastro con motivo.
+ */
+export async function assignJobToDriver({
+  jobPublicId,
+  driverPublicId,
+  reason,
+  actorUserId = null,
+}) {
+  const client = await postgresPool.connect();
+  try {
+    await client.query("BEGIN");
+    const trabajo = (
+      await client.query(
+        `SELECT j.id, j.public_id, j.kind, j.status, j.customer_id, j.driver_id, j.metadata,
+                j.scheduled_for
+         FROM jobs j WHERE j.public_id=$1 FOR UPDATE`,
+        [jobPublicId],
+      )
+    ).rows[0];
+    if (!trabajo) throw Object.assign(new Error("Servicio no encontrado"), { status: 404 });
+    if (trabajo.driver_id)
+      throw Object.assign(new Error("El servicio ya tiene conductor"), { status: 409 });
+    if (["completed", "cancelled"].includes(trabajo.status))
+      throw Object.assign(new Error("El servicio ya terminó"), { status: 409 });
+
+    const esComida = trabajo.metadata?.subtype === "food_order";
+    if (esComida && trabajo.status !== "ready_for_pickup")
+      throw Object.assign(
+        new Error("Un pedido de comida sólo se asigna cuando está listo para retirar"),
+        { status: 409 },
+      );
+    if (!esComida && trabajo.status !== "requested")
+      throw Object.assign(new Error("El servicio no está disponible para despacho"), {
+        status: 409,
+      });
+    if (
+      trabajo.scheduled_for &&
+      new Date(trabajo.scheduled_for).getTime() > Date.now() + 15 * 60_000
+    )
+      throw Object.assign(new Error("El servicio programado todavía no entra en ventana"), {
+        status: 409,
+      });
+
+    const conductor = (
+      await client.query(
+        `SELECT d.id, d.public_id, d.user_id, d.online, d.service_modes
+         FROM drivers d WHERE d.public_id=$1 FOR UPDATE`,
+        [driverPublicId],
+      )
+    ).rows[0];
+    if (!conductor) throw Object.assign(new Error("Conductor no encontrado"), { status: 404 });
+    if (!conductor.online)
+      throw Object.assign(new Error("El conductor no está en línea"), { status: 409 });
+    if (!conductor.service_modes?.includes(trabajo.kind))
+      throw Object.assign(new Error("El conductor no atiende este tipo de servicio"), {
+        status: 409,
+      });
+
+    const vehiculo = (
+      await client.query(
+        `SELECT id FROM vehicles WHERE driver_id=$1 AND active AND retired_at IS NULL
+           AND status='approved' AND $2::job_kind=ANY(service_modes) LIMIT 1`,
+        [conductor.id, trabajo.kind],
+      )
+    ).rows[0];
+    if (!vehiculo)
+      throw Object.assign(new Error("El conductor no tiene vehículo aprobado para este modo"), {
+        status: 409,
+      });
+
+    const activos = Number(
+      (
+        await client.query(
+          `SELECT count(*)::int count FROM jobs
+           WHERE driver_id=$1 AND kind=$2 AND status NOT IN('completed','cancelled')`,
+          [conductor.id, trabajo.kind],
+        )
+      ).rows[0].count,
+    );
+    if ((trabajo.kind === "ride" && activos > 0) || (trabajo.kind === "delivery" && activos >= 2))
+      throw Object.assign(new Error("El conductor alcanzó su capacidad activa"), { status: 409 });
+
+    const cambiado = (
+      await client.query(
+        `UPDATE jobs SET driver_id=$1, status='driver_assigned', version=version+1, updated_at=now(),
+           metadata=(metadata - 'dispatchNextAttemptAt')
+         WHERE id=$2 AND driver_id IS NULL AND status NOT IN('completed','cancelled')
+         RETURNING id`,
+        [conductor.id, trabajo.id],
+      )
+    ).rows[0];
+    if (!cambiado) throw Object.assign(new Error("El servicio ya fue tomado"), { status: 409 });
+
+    await client.query(
+      `UPDATE dispatch_offers SET status='withdrawn',responded_at=now()
+       WHERE job_id=$1 AND status='pending'`,
+      [trabajo.id],
+    );
+    await client.query(
+      `INSERT INTO job_events(job_id,actor_id,status,payload)
+       VALUES($1,$2,'driver_assigned',$3)`,
+      [
+        trabajo.id,
+        actorUserId,
+        {
+          assignedTo: conductor.public_id,
+          reason,
+          origin: "manual_ops",
+        },
+      ],
+    );
+    await enqueueNotificationForInternalUser(client, {
+      userId: conductor.user_id,
+      template: "job_assigned",
+      payload: {
+        kind: trabajo.kind,
+        jobId: trabajo.public_id,
+        status: "driver_assigned",
+        reason,
+      },
+      deduplicationKey: `job_manual_assign:${trabajo.public_id}:${conductor.public_id}`,
+    });
+    await enqueueNotificationForInternalUser(client, {
+      userId: trabajo.customer_id,
+      template: "order_status",
+      payload: {
+        kind: esComida ? "food_order" : trabajo.kind,
+        jobId: trabajo.public_id,
+        status: "driver_assigned",
+      },
+      deduplicationKey: `job_manual_assign_customer:${trabajo.public_id}:${conductor.public_id}`,
+    });
+    await refreshDriverDispatchStats(client, {
+      driverId: conductor.id,
+      service: trabajo.kind,
+    });
+    await client.query("COMMIT");
+    return {
+      id: trabajo.public_id,
+      kind: trabajo.kind,
+      assignedTo: conductor.public_id,
+      status: "driver_assigned",
     };
   } catch (error) {
     await client.query("ROLLBACK");

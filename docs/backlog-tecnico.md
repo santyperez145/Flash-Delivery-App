@@ -417,6 +417,9 @@ driver_dispatch_stats
 
 Añadir además: oleadas de oferta · radio dinámico · protección contra inanición · prep time del comercio · dispatch manual desde backoffice · Route Matrix para el scoring.
 
+- [x] **Dispatch manual desde backoffice.** `POST /api/admin/jobs/:id/assign` + panel Ops; motivo ≥5; auditoría `dispatch.job_assigned`; misma frontera que el worker (comida en `ready_for_pickup`). Verificado en `test:postgres` / `test:audit-actor` / `test:openapi-contract`.
+- Prep-time anticipado (despachar antes de listo) **bloqueado** hasta separar máquinas cocina/logística (`docs/competitive-research/merchant-live-operations.md`).
+
 ### Criterios de aceptación
 
 - [x] El recorte espacial y el orden KNN existen y están cubiertos por una puerta.

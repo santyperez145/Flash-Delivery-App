@@ -82,6 +82,7 @@ const DECISIONES_OPERATIVAS = new Set([
   // y sin rastro.
   "merchant.status_changed",
   "dispatch.job_released",
+  "dispatch.job_assigned",
 ]);
 
 // Nombres aceptables para el motivo dentro de `afterData`.

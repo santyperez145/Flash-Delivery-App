@@ -20,8 +20,12 @@ import { setPostgresUserStatus, usesPostgresAuth } from "../auth-repository.js";
 import { requireAuth } from "./authentication.js";
 import { requireAnyRole } from "./authorization.js";
 import { getPostgresAdminFinancials, recordPostgresAudit } from "../operations-repository.js";
-import { releaseJobFromDriver, setMerchantStatus } from "../operations-intervention-repository.js";
-import { usesPostgresCommerce } from "../postgres.js";
+import {
+  releaseJobFromDriver,
+  assignJobToDriver,
+  setMerchantStatus,
+} from "../operations-intervention-repository.js";
+import { usesPostgresCommerce, postgresPool } from "../postgres.js";
 import { publishRealtimeEvent } from "./realtime.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";
 import { average, loadRuntimeState, metrics, ratio } from "../runtime-snapshot.js";
@@ -40,6 +44,10 @@ const merchantStatusSchema = z.object({
   reason: z.string().trim().min(5).max(500),
 });
 const jobReleaseSchema = z.object({ reason: z.string().trim().min(5).max(500) });
+const jobAssignSchema = z.object({
+  driverId: z.string().trim().min(3).max(100),
+  reason: z.string().trim().min(5).max(500),
+});
 
 const userStatusSchema = z.object({
   status: z.enum(["active", "suspended"]),
@@ -326,6 +334,53 @@ router.post(
       return ok(res, { job });
     } catch (error) {
       return failFrom(res, error, "No se pudo soltar el servicio");
+    }
+  },
+);
+
+/**
+ * Asignación manual desde backoffice (DSP-001).
+ *
+ * Cuando el auto-despacho agota oleadas o hay una escalación, operaciones fuerza
+ * un courier concreto. Misma frontera que el worker: comida listo para retirar,
+ * viajes/envíos en `requested`, capacidad y vehículo aprobado. Motivo obligatorio.
+ */
+router.post(
+  "/api/admin/jobs/:jobId/assign",
+  requireAuth,
+  requireAnyRole("admin", "support"),
+  async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "La intervención de despacho requiere PostgreSQL");
+    const parsed = parseOrFail(jobAssignSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const actor = (
+        await postgresPool.query("SELECT id FROM users WHERE public_id=$1", [req.auth.userId])
+      ).rows[0];
+      const job = await assignJobToDriver({
+        jobPublicId: req.params.jobId,
+        driverPublicId: parsed.data.driverId,
+        reason: parsed.data.reason,
+        actorUserId: actor?.id || null,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "dispatch.job_assigned",
+        entityType: "job",
+        entityId: job.id,
+        requestId: req.requestId,
+        beforeData: { driverId: null },
+        afterData: {
+          status: job.status,
+          driverId: job.assignedTo,
+          reason: parsed.data.reason,
+        },
+      });
+      return ok(res, { job });
+    } catch (error) {
+      return failFrom(res, error, "No se pudo asignar el servicio");
     }
   },
 );

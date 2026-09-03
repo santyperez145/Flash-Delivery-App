@@ -112,6 +112,8 @@ La matriz vive en `docs/matriz-madurez.md` y se actualiza en el mismo PR que cam
 | Descomposición de `server/index.js` | ARC-001 | Controllers separados de use cases y repositories. **9 de 57 grupos extraídos**; el núcleo compartido está completo, así que lo que queda es repetitivo y no de diseño |
 | ~~Reformateo de archivos comprimidos~~ **hecho** | ARC-001 | Línea máxima 4.061 → 206; **0** líneas >200 (bajan de 251); `test:line-length` en cero |
 | ~~Dispatch v2 etapa 1~~ **hecho** | DSP-001 | `ST_DWithin` + KNN recortan candidatos antes del scoring |
+| ~~Dispatch manual Ops~~ **hecho** | DSP-001 | `POST /api/admin/jobs/:id/assign` + panel; motivo/auditoría; `test:postgres` |
+| Stats precomputadas + incidentes | DSP-001 | `driver_dispatch_stats` + `incident_score`; Route Matrix sigue bloqueado por API key |
 | SLOs documentados | — | Objetivos técnicos de la auditoría publicados y medibles |
 
 ### Criterios de salida de la Fase 0

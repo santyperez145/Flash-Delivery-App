@@ -712,7 +712,7 @@ Séptima entrega de la Fase 0. Cierra el núcleo del hallazgo [H-06](docs/audito
 - [ ] **Primera oferta p95 < 5 s en producción.** carga concurrente (`dispatch-load-smoke.mjs` vía `test:dispatch-plan`) afirma el umbral en CI sobre PostgreSQL local; falta evidencia desplegada y Route Matrix en el scoring.
 - [ ] **ETA vial por Route Matrix.** `computeRouteMatrix()` existe y está verificado; falta conectarlo al scoring y **depende de una API key**.
 - [x] **Stats precomputadas (`driver_dispatch_stats`).** Migración 137 · refresh out-of-band · scoring sin agregado lateral de 30 días · `test:dispatch-candidates`.
-- [ ] Prep time del comercio y dispatch manual desde backoffice.
+- [x] Dispatch manual desde backoffice (`POST /api/admin/jobs/:id/assign`). Prep-time anticipado bloqueado hasta separar máquinas cocina/logística.
 
 ## Avance 26 de agosto de 2026 — tres de cuatro suites fuera de cuarentena
 
