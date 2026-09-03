@@ -35,7 +35,7 @@ export async function seedSyntheticPadron(client, marca, { withVehicles = false 
          driver_id, kind, model, plate, color, seats, active, public_id,
          service_modes, status, reviewed_at
        )
-       SELECT d.id, 'motorcycle', 'Synth moto', 'SYN' || replace(u.public_id, '-', ''), 'Gris', 1, true,
+       SELECT d.id, 'motorcycle', 'Synth moto', upper('SYN' || replace(u.public_id, '-', '')), 'Gris', 1, true,
               'VEH-' || replace(u.public_id, '-', ''), ARRAY['delivery']::job_kind[], 'approved', now()
        FROM drivers d
        JOIN users u ON u.id = d.user_id

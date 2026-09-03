@@ -457,7 +457,7 @@ La suite además afirma que **el propio módulo no vuelve a depender de la base*
 
 El primer límite de integración estándar también quedó activo: la segunda mitad de
 `test:runtime-role-shape` crea PostGIS 17 desde Docker, replica los tres roles de producción y
-aplica las 137 migraciones desde cero. Corre dentro de `ci-postgres`, así que una prueba que sólo
+aplica las 138 migraciones desde cero. Corre dentro de `ci-postgres`, así que una prueba que sólo
 funcionara sobre la base preparada a mano por el workflow ya no podría satisfacer por sí sola el
 criterio.
 
