@@ -1,5 +1,11 @@
 import fs from "node:fs";
-import { contains, readMobileSource, readWebSource, squeeze } from "./source-contract.mjs";
+import {
+  contains,
+  readMobileSource,
+  readWebSource,
+  readWebStyles,
+  squeeze,
+} from "./source-contract.mjs";
 
 // La fuente se lee por audiencia y no por archivo (ARC-001 paso 8): la mitad del
 // trabajo que queda del ticket es partir `App.tsx`, y un contrato con la ruta
@@ -51,7 +57,7 @@ const webFoodDiscovery = fs.readFileSync("src/customer/FoodDiscoveryHome.tsx", "
 const webCustomerNavigation = fs.readFileSync("src/customer/CustomerNavigation.tsx", "utf8");
 const mobilePackage = JSON.parse(fs.readFileSync("apps/mobile/package.json", "utf8"));
 const rootPackage = JSON.parse(fs.readFileSync("package.json", "utf8"));
-const desktop = fs.readFileSync("src/styles.css", "utf8");
+const { source: desktop } = await readWebStyles();
 const foundation = fs.readFileSync("src/styles/foundation.css", "utf8");
 const authStyles = fs.readFileSync("src/styles/auth.css", "utf8");
 const stateStyles = fs.readFileSync("src/styles/states.css", "utf8");
@@ -198,7 +204,8 @@ assert(
 );
 
 assert(
-  contains(entry, 'import "./styles/foundation.css"') &&
+  contains(entry, 'import "./styles/commerce-ops.css"') &&
+    contains(entry, 'import "./styles/foundation.css"') &&
     contains(entry, 'import "./styles/auth.css"') &&
     contains(entry, 'import "./styles/states.css"') &&
     contains(entry, 'import "./adaptive.css"') &&

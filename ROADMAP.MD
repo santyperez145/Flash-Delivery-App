@@ -56,6 +56,14 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 - [~] Uber/DoorDash no abren un SQLite de demo al importar el proceso de pagos. Flash deja de hacerlo.
 - [ ] El volumen Compose se conserva para el fallback y para la corrida CI sin `DATABASE_URL`.
 
+## Avance 2 de septiembre de 2026 — GEO budget + split styles + file ratchet
+
+- [x] Presupuesto de mapas visible en `/metrics` con alerta al 80%; fallback stale auditable (`stale_fallback` + `maps.stale_fallback`).
+- [x] Primer corte de `src/styles.css` (−516 → `commerce-ops.css`); ratchet de archivos >1500 vía `test:line-length`.
+- [x] Criterios de salida Fase 0 actualizados: variantes mobile y líneas >200 cerrados; monolitos >1500 siguen abiertos.
+- [~] Uber/DoorDash no mezclan CSS de 7k líneas ni tarifas sin presupuesto de mapas. Flash baja el techo.
+- [ ] Bloqueos dueño: API key mapas, EAS/teléfonos, GCP, segundo revisor.
+
 ## Avance 2 de septiembre de 2026 — DOC-001, prosa vs runtime
 
 - [x] `investor-readiness` y `deployment-checklist` alineados con DAT/INF/NOT/GEO. `test:docs-drift` ahora corta frases no numéricas ya desmentidas.
@@ -385,6 +393,7 @@ Pedido del dueño: cablear absolutamente todo para uso real, con automatizacione
 - [x] `server/maps-route-service.js` centraliza `resolveDrivingRoute`, circuit breaker compartido y `resolveQuoteDistanceKm`.
 - [x] Cotizaciones de comida, viaje y envío usan routing vial cacheado en producción o con proveedor comercial; desarrollo OSM conserva `geodesic_scaled` en `distanceSource`.
 - [x] `test:maps-provider` verifica que producción rechaza geodésica como fallback tarifario.
+- [x] Presupuesto visible en Prometheus (`flash_map_provider_budget_*`) con alerta al 80% y fallback envejecido auditable (`noteStaleFallback`, `maps.stale_fallback`).
 - [~] Calidad real de rutas, costo por consulta y Route Matrix productivo siguen bloqueados por API key habilitada.
 
 ## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 16, servidor y frente

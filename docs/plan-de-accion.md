@@ -120,14 +120,14 @@ La fase no se declara cerrada hasta que **todos** estos puntos sean verificables
 
 - [x] Ningún merge a `main` evita PostgreSQL/PostGIS en CI.
 - [x] Ningún recurso de realtime con entidad desconocida se transmite a todos los roles.
-- [ ] Un push real llega a un dispositivo físico Android y a uno iOS.
-- [ ] Una cotización productiva se calcula con ruta vial de un proveedor comercial.
+- [ ] Un push real llega a un dispositivo físico Android y a uno iOS. **Bloqueo del dueño:** teléfono + credenciales EAS.
+- [ ] Una cotización productiva se calcula con ruta vial de un proveedor comercial. **Código listo** (`distanceSource: road` en prod); falta API key del dueño para evidencia real.
 - [x] La imagen de producción corre como usuario no privilegiado y usa `server/start.js`.
-- [ ] El build de cada variante mobile (customer, driver, merchant) funciona por separado.
-- [ ] Cero credenciales demo en cualquier ambiente desplegado.
+- [x] El build de cada variante mobile (customer, driver, merchant) funciona por separado — `test:mobile-variant-bundles` en `ci-fast`.
+- [ ] Cero credenciales demo en cualquier ambiente desplegado. **Bloqueo del dueño:** falta cuenta GCP / entorno.
 - [x] La suite crítica está verde y es bloqueante, y **la cuarentena está vacía desde el 27 de agosto**.
 - [x] La matriz de madurez está publicada y ningún ítem del README la contradice.
-- [ ] Ningún archivo fuente supera 1.500 líneas ni contiene líneas de más de 200 caracteres.
+- [ ] Ningún archivo fuente supera 1.500 líneas ni contiene líneas de más de 200 caracteres. **Líneas >200: cerrado (0).** Quedan monolitos >1500: `styles.css`, `styles.ts` mobile, `openapi.js`, `store.js`, smoke postgres.
 
 ---
 

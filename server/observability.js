@@ -26,6 +26,13 @@ export function observeProviderCall({ provider, operation, outcome }) {
   const key = `${provider}|${operation}|${outcome}`;
   providerCalls.set(key, (providerCalls.get(key) || 0) + 1);
 }
+/** Lectura de contadores para smokes y contratos; no usar en producción. */
+export function providerCallCounts() {
+  return Object.fromEntries(providerCalls);
+}
+export function resetProviderCallCounts() {
+  providerCalls.clear();
+}
 // `outcome=unclassified` significa que un evento realtime no pudo resolver su
 // audiencia y quedó restringido a operaciones. Es un defecto de clasificación,
 // no un estado normal: debe alertar.
@@ -35,7 +42,13 @@ export function observeRealtimeAudience({ entityType, outcome }) {
 }
 const esc = (value) =>
   String(value).replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
-export function renderPrometheus({ pool, business, startedAt, realtimeConnections = 0 }) {
+export function renderPrometheus({
+  pool,
+  business,
+  startedAt,
+  realtimeConnections = 0,
+  mapProviderBudget = [],
+}) {
   const lines = [
     "# HELP flash_process_uptime_seconds API process uptime.",
     "# TYPE flash_process_uptime_seconds gauge",
@@ -148,6 +161,32 @@ export function renderPrometheus({ pool, business, startedAt, realtimeConnection
     lines.push(
       `flash_provider_calls_total{provider="${esc(provider)}",operation="${esc(operation)}",outcome="${esc(outcome)}"} ${value}`,
     );
+  }
+  if (mapProviderBudget.length) {
+    lines.push(
+      "# HELP flash_map_provider_budget_calls Map provider calls consumed today.",
+      "# TYPE flash_map_provider_budget_calls gauge",
+    );
+    for (const row of mapProviderBudget) {
+      const labels = `provider="${esc(row.provider)}"`;
+      lines.push(`flash_map_provider_budget_calls{${labels}} ${row.calls}`);
+    }
+    lines.push(
+      "# HELP flash_map_provider_budget_limit Map provider daily call budget.",
+      "# TYPE flash_map_provider_budget_limit gauge",
+    );
+    for (const row of mapProviderBudget) {
+      const labels = `provider="${esc(row.provider)}"`;
+      lines.push(`flash_map_provider_budget_limit{${labels}} ${row.dailyBudget}`);
+    }
+    lines.push(
+      "# HELP flash_map_provider_budget_remaining Map provider budget remaining today.",
+      "# TYPE flash_map_provider_budget_remaining gauge",
+    );
+    for (const row of mapProviderBudget) {
+      const labels = `provider="${esc(row.provider)}"`;
+      lines.push(`flash_map_provider_budget_remaining{${labels}} ${row.remaining}`);
+    }
   }
   if (business.pushReceipts !== undefined)
     lines.push(

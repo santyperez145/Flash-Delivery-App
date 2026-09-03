@@ -139,7 +139,8 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Tarifa con distancia vial | `CI` | Comida/viaje/envío usan `resolveDrivingRoute` en prod/comercial (`distanceSource: road`); OSM de desarrollo etiqueta `geodesic_scaled` · `test:maps-provider` · **sin API key para calidad/costo reales** |
 | Cotización firmada | `CI` | `test:maps` en `ci-critical-flows` |
 | Dirección validada en checkout de comida | `CI` | Migración 136 + token geográfico ligado al usuario · `test:maps` y `test:postgres` rechazan manipulación y registros legacy · **sin veredicto de deliverability comercial** |
-| Caché, circuit breaker y presupuesto | `CI` | `test:provider-resilience` |
+| Caché, circuit breaker y presupuesto | `CI` | `test:provider-resilience` · gauges `flash_map_provider_budget_*` y alerta al 80% en `/metrics` |
+| Fallback envejecido auditable | `CI` | `noteStaleFallback` + `maps.stale_fallback` en auditoría · `test:maps-provider` |
 
 ## Realtime y notificaciones
 

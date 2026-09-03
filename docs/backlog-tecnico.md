@@ -365,8 +365,8 @@ Ya existen caché, circuit breaker y presupuesto: se conservan y se conectan al 
 - [x] `computeRouteMatrix()` existe, con field mask y límite facturable.
 - [x] El checkout de comida sólo acepta una dirección con procedencia firmada por el backend. La migración 136 conserva proveedor, `place_id`, tipo y fecha; el token dura 15 minutos, está ligado al usuario y sus valores sustituyen cualquier texto o coordenada enviados por el cliente. Producción exige proveedor comercial y `place_id`. `test:maps` y `test:postgres` cubren reutilización entre usuarios, manipulación y dirección legacy.
 - [x] Ninguna tarifa productiva usa distancia geodésica como estimación final cuando hay coordenadas. Comida, viajes y envíos usan `resolveDrivingRoute` (caché + circuit breaker) en producción o con proveedor comercial; desarrollo OSM conserva `geodesic_scaled` etiquetado en `distanceSource`. Sin coordenadas, viaje/envío siguen con heurística textual. Verificado en `test:maps-provider`.
-- [ ] Los costos por proveedor son visibles y tienen alerta de presupuesto.
-- [ ] El fallback entre proveedores es auditable.
+- [x] Los costos por proveedor son visibles y tienen alerta de presupuesto. `mapProviderBudgetSnapshot()` y gauges Prometheus (`flash_map_provider_budget_*`) exponen llamadas, límite y remanente por proveedor; al 80% del presupuesto diario se emite `flash_provider_calls_total{operation="budget",outcome="warning"}` una vez por día. Verificado en `test:provider-resilience` y `test:maps-provider`.
+- [x] El fallback entre proveedores es auditable. `noteStaleFallback()` registra `stale_fallback` en observabilidad y `maps.stale_fallback` en `audit_events` con hash de caché cuando geocode o routing devuelven respuesta envejecida. Verificado en `test:maps-provider`.
 - [ ] Calidad real de rutas y costo por consulta con una API key habilitada.
 
 ---

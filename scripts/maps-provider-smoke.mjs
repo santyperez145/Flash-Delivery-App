@@ -275,6 +275,55 @@ ok("viaje/envío aplican topes min/max sobre distancia vial");
 assert.equal(typeof requiresRoadRouting(), "boolean");
 ok("requiresRoadRouting expone si el entorno exige routing vial");
 
+// --- Presupuesto y fallback auditable (GEO-001) --------------------------------
+
+const { mapProviderBudgetSnapshot, noteStaleFallback } = await import(
+  "../server/maps-route-service.js"
+);
+const { providerCallCounts, resetProviderCallCounts, renderPrometheus } = await import(
+  "../server/observability.js"
+);
+
+const budgetRows = mapProviderBudgetSnapshot();
+assert.ok(budgetRows.length >= 1);
+for (const row of budgetRows) {
+  assert.equal(typeof row.provider, "string");
+  assert.equal(typeof row.dailyBudget, "number");
+  assert.equal(typeof row.remaining, "number");
+  assert.equal(typeof row.day, "string");
+  assert.equal(typeof row.calls, "number");
+}
+ok("mapProviderBudgetSnapshot expone costo y remanente por proveedor");
+
+const prometheus = renderPrometheus({
+  pool: { totalCount: 0, idleCount: 0, waitingCount: 0 },
+  business: {
+    activeFood: 0,
+    activeRides: 0,
+    activeShipments: 0,
+    openTickets: 0,
+    payments: [],
+    notifications: [],
+    dispatchOffers: [],
+    realtimeEvents: 0,
+  },
+  startedAt: Date.now(),
+  mapProviderBudget: budgetRows,
+});
+assert.match(prometheus, /flash_map_provider_budget_calls\{provider="/);
+assert.match(prometheus, /flash_map_provider_budget_limit\{provider="/);
+assert.match(prometheus, /flash_map_provider_budget_remaining\{provider="/);
+ok("renderPrometheus expone gauges de presupuesto por proveedor");
+
+resetProviderCallCounts();
+await noteStaleFallback({
+  provider: "google",
+  operation: "route",
+  cacheKey: "a".repeat(64),
+});
+assert.equal(providerCallCounts()["google|route|stale_fallback"], 1);
+ok("noteStaleFallback registra stale_fallback en observabilidad");
+
 console.log("\nok - contrato del adapter cartográfico verificado");
 console.log(
   "     pendiente: calidad real de rutas y costo por consulta con una API key habilitada",

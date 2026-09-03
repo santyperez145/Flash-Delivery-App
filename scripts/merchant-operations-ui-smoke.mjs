@@ -4,6 +4,7 @@ import {
   containsNone,
   readMobileSource,
   readWebSource,
+  readWebStyles,
   section,
 } from "./source-contract.mjs";
 
@@ -35,7 +36,7 @@ const [
   fs.readFile("src/types.ts", "utf8"),
   fs.readFile("apps/mobile/src/types.ts", "utf8"),
   fs.readFile("packages/domain-contracts/src/index.ts", "utf8"),
-  fs.readFile("src/styles.css", "utf8"),
+  readWebStyles().then(({ source }) => source),
   fs.readFile("src/merchant/MerchantConsole.tsx", "utf8"),
   fs.readFile("src/merchant/MerchantKitchenPanel.tsx", "utf8"),
   fs.readFile("src/merchant/MerchantFinancePanel.tsx", "utf8"),

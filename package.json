@@ -52,7 +52,7 @@
     "test:realtime-audience": "node scripts/realtime-audience-smoke.mjs",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\" \"server/**/*.js\" \"scripts/**/*.mjs\" \"tests/**/*.js\" \"vitest.config.js\" \"packages/**/*.{ts,tsx,js,json}\" \"apps/mobile/App.tsx\" \"apps/mobile/src/**/*.{ts,tsx}\"",
     "test:format": "prettier --check \"src/**/*.{ts,tsx,css}\" \"server/**/*.js\" \"scripts/**/*.mjs\" \"tests/**/*.js\" \"vitest.config.js\" \"packages/**/*.{ts,tsx,js,json}\" \"apps/mobile/App.tsx\" \"apps/mobile/src/**/*.{ts,tsx}\"",
-    "test:line-length": "node scripts/line-length-ratchet.mjs",
+    "test:line-length": "node scripts/line-length-ratchet.mjs && node scripts/file-length-ratchet.mjs",
     "test:rls-matrix": "node scripts/rls-matrix-check.mjs",
     "test:rls-guard": "node scripts/rls-guard-contract.mjs",
     "test:push-provider": "node scripts/push-provider-smoke.mjs",
