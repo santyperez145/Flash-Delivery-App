@@ -695,3 +695,21 @@ export type DriverEarnings = {
     | { status: "unavailable"; reason: "postgres_required" };
   cashout: { status: "not_configured"; reason: "external_payout_provider_required" };
 };
+
+/** Sesión de cuenta listable (refresh) — idéntico web/mobile. */
+export type AccountSession = {
+  id: string;
+  deviceName: string;
+  createdAt: string;
+  expiresAt: string;
+};
+
+/** Movimiento de Flash Wallet en historial de cliente. */
+export type WalletTransaction = {
+  id: string;
+  userId: string;
+  kind: string;
+  amount: number;
+  description: string;
+  createdAt: string;
+};

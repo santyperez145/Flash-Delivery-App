@@ -5,7 +5,7 @@
 // pedido no arrastra el cálculo de distancia, promociones y suscripción.
 import { postgresPool } from "./postgres.js";
 import { getActiveSubscription, splitOrderDiscounts } from "./subscription-repository.js";
-import { getPostgresPricingPlan } from "./configuration-repository.js";
+import { getPostgresPricingPlan } from "./pricing-repository.js";
 import { pesos } from "./money.js";
 import { config } from "./config.js";
 import {

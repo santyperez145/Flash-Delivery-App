@@ -51,6 +51,8 @@ import type {
   DriverEarningsPeriod,
   DriverEarningsDay,
   DriverEarnings,
+  AccountSession,
+  WalletTransaction,
 } from "@flash/domain-contracts";
 
 export type {
@@ -105,6 +107,8 @@ export type {
   DriverEarningsPeriod,
   DriverEarningsDay,
   DriverEarnings,
+  AccountSession,
+  WalletTransaction,
 };
 
 export type Mode = "customer" | "merchant" | "driver";
@@ -295,12 +299,6 @@ export type PaymentMethod = {
   expiryMonth: number | null;
   expiryYear: number | null;
   isDefault: boolean;
-};
-export type AccountSession = {
-  id: string;
-  deviceName: string;
-  createdAt: string;
-  expiresAt: string;
 };
 export type ReferralSummary = {
   code: string;

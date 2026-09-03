@@ -31,21 +31,23 @@ import { z } from "zod";
 import {
   confirmEmailVerification,
   consumePasswordRecovery,
-  createPostgresSession,
   findAuthUserByEmail,
   findAuthUserByPublicId,
-  getPostgresUserSessions,
   recordPostgresLoginFailure,
   recordPostgresLoginSuccess,
   registerAuthUser,
   requestPasswordRecovery,
   resendEmailVerification,
+  usesPostgresAuth,
+} from "../auth-repository.js";
+import {
+  createPostgresSession,
+  getPostgresUserSessions,
   revokeOtherPostgresSessions,
   revokeOwnedPostgresSession,
   revokePostgresSession,
   rotatePostgresSession,
-  usesPostgresAuth,
-} from "../auth-repository.js";
+} from "../auth-session-repository.js";
 import { requireAuth } from "./authentication.js";
 import { requireTrustedWebOrigin } from "./web-origin.js";
 import { hasRole } from "./authorization.js";
