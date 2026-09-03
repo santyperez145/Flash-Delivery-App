@@ -47,6 +47,14 @@ const SHARED = [
   "DriverSummary",
   "DriverVehicle",
   "RideStatus",
+  "RideService",
+  "RideSummary",
+  "ShipmentStatus",
+  "ShipmentPackageSize",
+  "ShipmentProtection",
+  "ShipmentItemCategory",
+  "ShipmentServiceLevel",
+  "ShipmentSummary",
 ];
 
 /** Tipos que cada superficie extiende con intersección local (no redefinición del núcleo). */
@@ -125,6 +133,15 @@ assert(
     contains(web, "DriverVehicle") &&
     contains(mobile, "DriverVehicle"),
   "web and mobile share DriverSummary, DriverServiceMode and DriverVehicle",
+);
+assert(
+  contains(web, "Ride = RideSummary &") &&
+    contains(mobile, "Ride = RideSummary &") &&
+    contains(web, "Shipment = ShipmentSummary") &&
+    contains(mobile, "Shipment = ShipmentSummary &") &&
+    contains(web, "RideService") &&
+    contains(mobile, "RideService"),
+  "web and mobile share RideSummary, RideService and ShipmentSummary",
 );
 assert(
   contains(rootPkg, '"@flash/domain-contracts"') &&
