@@ -34,17 +34,17 @@ export async function runCleanup(ctx) {
     );
     await pool.query(
       "DELETE FROM ledger_entries WHERE transaction_id=(SELECT id FROM ledger_transactions WHERE idempotency_key=$1)",
-      [`refund-${orderId}`],
+      [`refund-${ctx.orderId}`],
     );
     await pool.query("DELETE FROM ledger_transactions WHERE idempotency_key=$1", [
-      `refund-${orderId}`,
+      `refund-${ctx.orderId}`,
     ]);
     await pool.query(
       "DELETE FROM ledger_entries WHERE transaction_id=(SELECT id FROM ledger_transactions WHERE idempotency_key=$1)",
-      [`payment-${idempotencyKey}`],
+      [`payment-${ctx.idempotencyKey}`],
     );
     await pool.query("DELETE FROM ledger_transactions WHERE idempotency_key=$1", [
-      `payment-${idempotencyKey}`,
+      `payment-${ctx.idempotencyKey}`,
     ]);
     await pool.query("DELETE FROM jobs WHERE public_id = $1", [ctx.orderId]);
   }
