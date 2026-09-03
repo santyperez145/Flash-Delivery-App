@@ -2,6 +2,8 @@ import { lazy, StrictMode, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./styles.css";
+import "./styles/customer-food.css";
+import "./styles/ride-mobility.css";
 import "./styles/commerce-ops.css";
 import "./styles/phone-stage.css";
 import "./styles/admin-ops.css";

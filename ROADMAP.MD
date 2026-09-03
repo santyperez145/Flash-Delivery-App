@@ -67,6 +67,7 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 - [x] Presupuesto de mapas visible en `/metrics` con alerta al 80%; fallback stale auditable (`stale_fallback` + `maps.stale_fallback`).
 - [x] Primer corte de `src/styles.css` (−516 → `commerce-ops.css`); ratchet de archivos >1500 vía `test:line-length`.
 - [x] Segundo corte ARC-001: `styles.css` 7.288 → **5.636** (−1.649 a `phone-stage.css`, `admin-ops.css`, `merchant-desktop.css`); `apps/mobile/src/styles.ts` 4.652 → **4.175** con `styles/merchant.ts`; baseline ratchet **21.868 → 19.739**.
+- [x] Tercer corte ARC-001: `styles.css` 5.636 → **3.629** (−2.007 a `customer-food.css`, `ride-mobility.css`); `apps/mobile/src/styles.ts` 4.175 → **584** con `styles/customer.ts` y `styles/driver.ts` (compositor + spreads).
 - [x] Criterios de salida Fase 0 actualizados: variantes mobile y líneas >200 cerrados; monolitos >1500 siguen abiertos.
 - [~] Uber/DoorDash no mezclan CSS de 7k líneas ni tarifas sin presupuesto de mapas. Flash baja el techo.
 - [ ] Bloqueos dueño: API key mapas, EAS/teléfonos, GCP, segundo revisor.
