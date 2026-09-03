@@ -111,7 +111,7 @@ assert.ok(combined.includes("<->"), "el dispatch volvió a quedar sin orden KNN"
 ok("el dispatch no puede volver a quedarse sin recorte espacial");
 
 console.log("\nok - contrato de candidatos de dispatch verificado");
-console.log("     pendiente: EXPLAIN ANALYZE con padrón sintético y ETA vial por Route Matrix");
+console.log("     pendiente: ETA vial por Route Matrix (requiere API key del dueño)");
 
 // --- Reservas: cuándo entra un trabajo a la cola (GTM-001) -------------------
 //
