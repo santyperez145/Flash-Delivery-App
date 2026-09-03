@@ -581,4 +581,4 @@ export const styles = StyleSheet.create({
   ...customerStyleDefs,
   ...merchantStyleDefs,
   ...driverStyleDefs,
-} as Parameters<typeof StyleSheet.create>[0]);
+});
