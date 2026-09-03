@@ -53,7 +53,8 @@ import { validarHorarioProgramado } from "../scheduling.js";
 import { publishRealtimeEvent } from "./realtime.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";
 import { assessTransactionRisk, setRiskEntity } from "../risk-repository.js";
-import { createId, createLocalNotification, getTimestamp, orderStatuses } from "../store.js";
+import { createId, getTimestamp, orderStatuses } from "../store.js";
+import { createLocalNotification } from "../store-local-preferences.js";
 import { cancelOrderAndRefundWallet } from "../wallet-repository.js";
 
 const orderSchema = z.object({

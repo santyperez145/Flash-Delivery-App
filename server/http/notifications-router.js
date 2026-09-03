@@ -37,7 +37,7 @@ import {
   getLocalNotifications,
   markLocalNotificationRead,
   updateLocalNotificationPreference,
-} from "../store.js";
+} from "../store-local-preferences.js";
 import { requireAuth } from "./authentication.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";
 

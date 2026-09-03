@@ -62,10 +62,9 @@ import { fail, failFrom, ok, parseOrFail } from "./responses.js";
 import {
   consumeAuthSession,
   createAuthSession,
-  createId,
   revokeAuthSession,
-  writeDb,
-} from "../store.js";
+} from "../store-auth-sessions.js";
+import { createId, writeDb } from "../store.js";
 import { publicUser, sanitizeUser } from "../user-view.js";
 
 const loginSchema = z.object({

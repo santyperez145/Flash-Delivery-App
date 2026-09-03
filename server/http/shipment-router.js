@@ -64,7 +64,8 @@ import { publishRealtimeEvent } from "./realtime.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";
 import { assessTransactionRisk, setRiskEntity } from "../risk-repository.js";
 import { shipmentProtectionRouter } from "./shipment-protection-router.js";
-import { createId, createLocalNotification, getTimestamp, shipmentStatuses } from "../store.js";
+import { createId, getTimestamp, shipmentStatuses } from "../store.js";
+import { createLocalNotification } from "../store-local-preferences.js";
 import { cancelMobilityJobAndRefundWallet } from "../wallet-repository.js";
 
 const shipmentQuoteSchema = z.object({
