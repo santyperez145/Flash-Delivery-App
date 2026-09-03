@@ -161,4 +161,22 @@ describe("HTTP surface (supertest)", () => {
       expect(response.body.ok).toBe(false);
     }
   });
+
+  test("GET /api/support/tickets sin bearer responde 401", async () => {
+    const response = await request(app).get("/api/support/tickets");
+    expect(response.status).toBe(401);
+    expect(response.body.ok).toBe(false);
+  });
+
+  test("GET /api/notifications sin bearer responde 401", async () => {
+    const response = await request(app).get("/api/notifications");
+    expect(response.status).toBe(401);
+    expect(response.body.ok).toBe(false);
+  });
+
+  test("GET /api/admin/notifications/dead-letters sin bearer responde 401", async () => {
+    const response = await request(app).get("/api/admin/notifications/dead-letters");
+    expect(response.status).toBe(401);
+    expect(response.body.ok).toBe(false);
+  });
 });
