@@ -19,10 +19,7 @@ import { getPostgresUsers } from "./auth-repository.js";
 import { getPostgresPaymentMethods } from "./payment-method-repository.js";
 import { isAdmin } from "./http/authorization.js";
 import { getPostgresRestaurants } from "./catalog-repository.js";
-import {
-  getPostgresPromotions,
-  getPostgresZones,
-} from "./configuration-repository.js";
+import { getPostgresPromotions, getPostgresZones } from "./configuration-repository.js";
 import { getPostgresDrivers } from "./driver-roster-repository.js";
 import { getPostgresFavoriteMerchantIds, getPostgresRatings } from "./feedback-repository.js";
 import { getPostgresRides } from "./ride-repository.js";
