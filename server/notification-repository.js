@@ -4,7 +4,6 @@
 // `notification-delivery-repository.js`.
 import crypto from "node:crypto";
 import { postgresPool } from "./postgres.js";
-import { config } from "./config.js";
 import { encryptDeviceToken, hashDeviceToken } from "./secret-envelope.js";
 const publicId = (prefix) => `${prefix}-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
 const preferenceCategories = ["service_updates", "promotions", "support", "wallet", "account"];
