@@ -68,7 +68,7 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 - [x] Inventario de bloqueos del dueño en `docs/plan-de-accion.md` (GCP, Maps, EAS, 2º revisor).
 - [x] `server/openapi.js` (2949 → compositor **12**) + `server/openapi/*` (máx. **1183** `schemas-domains.js`); tags partidos por dominio.
 - [x] `server/store.js` (2212 → **1198**) + `store-schema.js` **380** + `store-seed.js` **639**; Proxy/lazy DB intacto.
-- [ ] Monolito restante: `scripts/postgres-runtime-smoke.mjs` (**4767**).
+- [x] `scripts/postgres-runtime-smoke.mjs` (4767 → compositor **17**) + `scripts/postgres-runtime/*` (máx. **1218** `suite-shipments-finance-support.mjs`); cuatro suites + `context.mjs` + `cleanup.mjs`; orden y aserciones intactos.
 
 ## Avance 2 de septiembre de 2026 — GEO budget + split styles + file ratchet
 
@@ -77,7 +77,7 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 - [x] Segundo corte ARC-001: `styles.css` 7.288 → **5.636** (−1.649 a `phone-stage.css`, `admin-ops.css`, `merchant-desktop.css`); `apps/mobile/src/styles.ts` 4.652 → **4.175** con `styles/merchant.ts`; baseline ratchet **21.868 → 19.739**.
 - [x] Tercer corte ARC-001: `styles.css` 5.636 → **3.629** (−2.007 a `customer-food.css`, `ride-mobility.css`); `apps/mobile/src/styles.ts` 4.175 → **584** con `styles/customer.ts` y `styles/driver.ts` (compositor + spreads).
 - [x] Cuarto corte ARC-001: `styles.css` 3.629 → **1.605** (−2.024 a `admin-shell.css`, `merchant-ops-detail.css`); `customer.ts` 2.495 → compositor **12** + `customer-food.ts` **913**, `customer-account.ts` **850**, `customer-tracking.ts` **746** (ningún módulo mobile >1500).
-- [x] Criterios de salida Fase 0 actualizados: variantes mobile y líneas >200 cerrados; monolitos >1500 siguen abiertos.
+- [x] Criterios de salida Fase 0 actualizados: variantes mobile, líneas >200 y archivos >1500 cerrados (ratchet **0**).
 - [~] Uber/DoorDash no mezclan CSS de 7k líneas ni tarifas sin presupuesto de mapas. Flash baja el techo.
 - [ ] Bloqueos dueño: API key mapas, EAS/teléfonos, GCP, segundo revisor.
 

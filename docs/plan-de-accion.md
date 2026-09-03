@@ -127,7 +127,7 @@ La fase no se declara cerrada hasta que **todos** estos puntos sean verificables
 - [ ] Cero credenciales demo en cualquier ambiente desplegado. **Bloqueo del dueño:** falta cuenta GCP / entorno.
 - [x] La suite crítica está verde y es bloqueante, y **la cuarentena está vacía desde el 27 de agosto**.
 - [x] La matriz de madurez está publicada y ningún ítem del README la contradice.
-- [ ] Ningún archivo fuente supera 1.500 líneas ni contiene líneas de más de 200 caracteres. **Líneas >200: cerrado (0).** Estilos web/mobile bajo 1500. Quedan: `postgres-runtime-smoke.mjs`, `openapi.js`, `store.js`. `test:line-length` fija ambos ratchets.
+- [x] Ningún archivo fuente supera 1.500 líneas ni contiene líneas de más de 200 caracteres. **Líneas >200: cerrado (0). Archivos >1500: cerrado (0)** — `postgres-runtime-smoke.mjs` (4767 → **17** compositor) + `scripts/postgres-runtime/*` (máx. **1218**); `openapi.js` y `store.js` ya partidos. `test:line-length` fija ambos ratchets.
 
 ### Bloqueos del dueño (no los puede cerrar el agente)
 
