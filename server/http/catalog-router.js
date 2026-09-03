@@ -26,18 +26,22 @@ import { z } from "zod";
 import { auditRuntime } from "../audit-trail.js";
 import { usesPostgresAuth } from "../auth-repository.js";
 import {
-  createPostgresMenuItem,
   getPostgresRestaurantPage,
   getPostgresRestaurants,
-  replacePostgresBranchSchedule,
+  updatePostgresRestaurant,
+} from "../catalog-repository.js";
+import {
+  createPostgresMenuItem,
   replacePostgresItemDietary,
   replacePostgresItemModifiers,
+  updatePostgresMenuItem,
+} from "../menu-repository.js";
+import {
+  replacePostgresBranchSchedule,
   updatePostgresBranch,
   updatePostgresBranchInventory,
-  updatePostgresMenuItem,
-  updatePostgresRestaurant,
   upsertPostgresBranchScheduleException,
-} from "../catalog-repository.js";
+} from "../branch-repository.js";
 import { searchPostgresCatalog } from "../catalog-search-repository.js";
 import { findRestaurant, readDb } from "../fallback-runtime.js";
 import { recordPostgresAudit } from "../audit-repository.js";

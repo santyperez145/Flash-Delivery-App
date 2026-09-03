@@ -94,4 +94,51 @@ describe("HTTP surface (supertest)", () => {
     expect(response.status).toBe(401);
     expect(response.body.ok).toBe(false);
   });
+
+  test("GET /api/features sin bearer responde 401", async () => {
+    const response = await request(app).get("/api/features");
+    expect(response.status).toBe(401);
+    expect(response.body.ok).toBe(false);
+  });
+
+  test("GET /api/maps/geocode sin bearer responde 401", async () => {
+    const response = await request(app).get("/api/maps/geocode").query({ q: "La Rioja" });
+    expect(response.status).toBe(401);
+    expect(response.body.ok).toBe(false);
+  });
+
+  test("GET /api/pricing responde contrato público (200 o 503)", async () => {
+    const response = await request(app).get("/api/pricing");
+    expect([200, 503]).toContain(response.status);
+    if (response.status === 200) {
+      expect(Array.isArray(response.body.plans)).toBe(true);
+      expect(response.body.plans.length).toBeGreaterThan(0);
+    } else {
+      expect(response.body.ok).toBe(false);
+    }
+  });
+
+  test("GET /api/zones responde contrato público (200 o 503)", async () => {
+    const response = await request(app).get("/api/zones");
+    expect([200, 503]).toContain(response.status);
+    if (response.status === 200) {
+      expect(Array.isArray(response.body.zones)).toBe(true);
+      expect(response.body.city).toBeTruthy();
+    } else {
+      expect(response.body.ok).toBe(false);
+    }
+  });
+
+  test("POST /api/auth/register con cuerpo vacío responde 4xx tipado", async () => {
+    const response = await request(app).post("/api/auth/register").send({});
+    expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(response.status).toBeLessThan(500);
+    expect(response.body.ok).toBe(false);
+  });
+
+  test("método no soportado en health responde 4xx", async () => {
+    const response = await request(app).post("/api/health");
+    expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(response.status).toBeLessThan(500);
+  });
 });
