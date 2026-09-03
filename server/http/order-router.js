@@ -1,10 +1,9 @@
 // El ciclo del pedido de comida por HTTP: carrito, cotización, compra y
 // entrega (ticket ARC-001, paso 2).
 //
-// Es la cara HTTP de `order-repository.js`, extraída con el mismo corte que
-// partió al repositorio: acá el dueño del dato es el cliente y su transacción.
-// Las ocho rutas son una sola historia en orden —armar el carrito, cotizar,
-// comprar, y el pedido avanzando de mano en mano hasta la entrega—.
+// Es la cara HTTP del ciclo de pedido: lecturas en `order-repository.js`,
+// alta en `order-create-repository.js`, avance en `order-lifecycle-repository.js`.
+// El corte HTTP sigue la misma historia: carrito → cotizar → comprar → entregar.
 //
 // Conviven a propósito las dos mitades del tablero: `accept-delivery` y
 // `advance` son el pedido visto por quien lo entrega; el resto, por quien lo
@@ -37,12 +36,12 @@ import { config } from "../config.js";
 import { cancelMarketplaceOrderAndRefund } from "../marketplace-refund-repository.js";
 import { recordPostgresAudit } from "../audit-repository.js";
 import { processPostgresOrderMarketplacePayment } from "../order-marketplace-payment-repository.js";
+import { createPostgresOrder } from "../order-create-repository.js";
 import {
   assignPostgresOrderDriver,
-  createPostgresOrder,
-  getPostgresOrders,
   setPostgresOrderStatus,
-} from "../order-repository.js";
+} from "../order-lifecycle-repository.js";
+import { getPostgresOrders } from "../order-repository.js";
 import {
   getPostgresFoodCheckoutQuote,
   getPostgresFoodDeliveryQuote,
