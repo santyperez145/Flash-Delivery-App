@@ -50,6 +50,12 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 - [~] Uber/DoorDash tienen clientes por dominio. Flash ahora separa red de recursos en web y mobile; `User` ya compartido; sigue por debajo Order/Restaurant.
 - [ ] ARC-001 global sigue abierto: Order/Restaurant y 251 líneas largas SQL.
 
+## Avance 2 de septiembre de 2026 — INF-001, SQLite perezoso
+
+- [x] `server/store.js` abre la base de respaldo sólo en el primer acceso real. Con PostgreSQL, importar el módulo ya no obliga a `/app/server/data` escribible.
+- [~] Uber/DoorDash no abren un SQLite de demo al importar el proceso de pagos. Flash deja de hacerlo.
+- [ ] El volumen Compose se conserva para el fallback y para la corrida CI sin `DATABASE_URL`.
+
 ## Avance 2 de septiembre de 2026 — DOC-001, prosa vs runtime
 
 - [x] `investor-readiness` y `deployment-checklist` alineados con DAT/INF/NOT/GEO. `test:docs-drift` ahora corta frases no numéricas ya desmentidas.

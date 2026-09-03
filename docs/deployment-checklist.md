@@ -34,7 +34,7 @@ El job `container-image` de `ci-fast.yml` construye la imagen en cada PR y verif
 - [x] Copiar sólo `dist`, `server`, `database` y `scripts`.
 - [x] Usuario y grupo `flash` no privilegiados, con `USER flash` — verificado: `uid=999(flash)`.
 - [x] `CMD ["node", "server/start.js"]`.
-- [x] Filesystem raíz de sólo lectura: `read_only: true` en Compose y corrida real en CI (`--read-only` + `touch` fallido). Escribible declarado: `/tmp` y `/app/server/data` (SQLite de respaldo al importar `store.js`).
+- [x] Filesystem raíz de sólo lectura: `read_only: true` en Compose y corrida real en CI (`--read-only` + `touch` fallido). Escribible declarado: `/tmp` y `/app/server/data` (SQLite de respaldo, apertura **perezosa** en `store.js`; con PostgreSQL el import puro no escribe).
 - [x] Capabilities eliminadas (`cap_drop: ALL`) y `no-new-privileges`. Perfil seccomp propio: pendiente (no bloquea INF-001).
 - [x] SBOM CycloneDX y scan Trivy en el job `container-image` (bloquea CVEs del árbol propio).
 - [ ] Secrets montados, nunca horneados en la imagen (entorno desplegado).

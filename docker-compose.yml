@@ -62,14 +62,10 @@ services:
     # declarado abajo, y son dos cosas:
     #
     #   * `/tmp`, para archivos temporales del runtime.
-    #   * `/app/server/data`, porque `server/store.js` abre la base SQLite del
-    #     respaldo **al importarse**, sin mirar si hay PostgreSQL configurado.
-    #     El modo WAL además escribe archivos `-wal` y `-shm` al lado.
-    #
-    # Esa segunda es una consecuencia de cómo arranca el respaldo, no una
-    # necesidad del producto: con `DATABASE_URL` puesto no se usa. Hacer esa
-    # inicialización perezosa eliminaría el único punto de escritura que queda,
-    # y está anotado en INF-001.
+    #   * `/app/server/data`, volumen para el respaldo SQLite cuando no hay
+    #     `DATABASE_URL`. La apertura es perezosa: importar `store.js` no crea
+    #     la base; sólo se abre en el primer acceso real. El modo WAL además
+    #     escribe archivos `-wal` y `-shm` al lado cuando se usa el fallback.
     read_only: true
     tmpfs:
       - /tmp
