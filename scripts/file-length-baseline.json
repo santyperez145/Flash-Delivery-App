@@ -1,7 +1,6 @@
 {
-  "apps/mobile/src/styles/customer.ts": 2495,
   "scripts/postgres-runtime-smoke.mjs": 4767,
   "server/openapi.js": 2949,
   "server/store.js": 2212,
-  "src/styles.css": 3629
+  "src/styles.css": 1605
 }
