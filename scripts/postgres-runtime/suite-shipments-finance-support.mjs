@@ -71,7 +71,8 @@ export async function runShipmentsFinanceSupportSuite(ctx) {
       quoteToken: proofQuote.body.quote?.quoteToken,
     }),
   });
-  ctx.proofShipmentId = proofCreated.body.shipment?.id;
+  const proofShipmentId = proofCreated.body.shipment?.id;
+  ctx.proofShipmentId = proofShipmentId;
   const proofPin = proofCreated.body.shipment?.deliveryPin;
   assert(
     proofCreated.body.shipment?.signatureRequired === true,
@@ -393,7 +394,8 @@ export async function runShipmentsFinanceSupportSuite(ctx) {
     body: JSON.stringify({ amount: 100000 }),
   });
   assert(excessiveTip.status === 409, "tip is capped relative to service fare");
-  ctx.insufficientTipJobId = `RIDE-TIP-FUNDS-${Date.now()}`;
+  const insufficientTipJobId = `RIDE-TIP-FUNDS-${Date.now()}`;
+  ctx.insufficientTipJobId = insufficientTipJobId;
   await pool.query(
     `INSERT INTO jobs(
       public_id,kind,customer_id,driver_id,status,pickup_address,pickup_location,
@@ -456,7 +458,8 @@ export async function runShipmentsFinanceSupportSuite(ctx) {
     WHERE u.public_id=ANY($1) GROUP BY u.public_id`,
     [["usr_customer", "usr_driver"]],
   );
-  ctx.tipKey = `tip-${crypto.randomUUID()}`;
+  const tipKey = `tip-${crypto.randomUUID()}`;
+  ctx.tipKey = tipKey;
   const firstTip = await request(`/jobs/${proofShipmentId}/tips`, {
       method: "POST",
       headers: { "Idempotency-Key": ctx.tipKey },
@@ -607,10 +610,11 @@ export async function runShipmentsFinanceSupportSuite(ctx) {
       body: "Necesito revisar el reintegro de prueba",
     }),
   });
-  ctx.supportTicketId = supportCreated.body.ticket?.id;
+  const supportTicketId = supportCreated.body.ticket?.id;
+  ctx.supportTicketId = supportTicketId;
   assert(
     supportCreated.status === 201 &&
-      ctx.supportTicketId &&
+      supportTicketId &&
       supportCreated.body.ticket.messages?.length === 1,
     "customer creates persistent support ticket",
   );
@@ -654,13 +658,14 @@ export async function runShipmentsFinanceSupportSuite(ctx) {
       requestedRefund: 400,
     }),
   });
-  ctx.orderIssueId = createdIssue.body.issue?.id;
+  const orderIssueId = createdIssue.body.issue?.id;
+  ctx.orderIssueId = orderIssueId;
   const visibleIssue = await request(`/orders/${settlementOrderId}/issues`);
   assert(
     createdIssue.status === 201 &&
-      ctx.orderIssueId &&
+      orderIssueId &&
       visibleIssue.body.issues?.some(
-        (entry) => entry.id === ctx.orderIssueId && entry.status === "open",
+        (entry) => entry.id === orderIssueId && entry.status === "open",
       ),
     "customer reports and reads a persisted food-order incident",
   );
@@ -1125,9 +1130,10 @@ export async function runShipmentsFinanceSupportSuite(ctx) {
       active: true,
     }),
   });
-  ctx.createdPromotionId = createdPromotion.body.promotion?.id;
+  const createdPromotionId = createdPromotion.body.promotion?.id;
+  ctx.createdPromotionId = createdPromotionId;
   assert(
-    createdPromotion.status === 201 && ctx.createdPromotionId,
+    createdPromotion.status === 201 && createdPromotionId,
     "admin creates PostgreSQL promotion",
   );
   const disabledPromotion = await request(`/promotions/${createdPromotionId}`, {
