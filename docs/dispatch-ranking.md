@@ -49,6 +49,10 @@ Un radio fijo deja trabajos sin ofrecer en zonas de baja densidad: el conductor 
 
 El radio usado y si hubo expansión quedan en `score_breakdown`, así que una zona que necesita expandir siempre es visible en lugar de degradar en silencio.
 
+### Prioridad Flash Más (cola de jobs)
+
+`dispatch_priority_boost` del plan vigente del **cliente del job** reordena el reclamo del batch (`DISPATCH_BATCH_CLAIM_SQL`): mayor boost primero, luego `created_at`. No modifica el score entre conductores. Un período cancelado pero aún vigente sigue contando, igual que el envío sin cargo.
+
 ### Qué verifica cada puerta
 
 `npm run test:dispatch-candidates` comprueba la forma de las consultas sin base de datos: que el recorte y el KNN existan, que el operando sea constante, que la etapa 1 no arrastre agregados y que la etapa 2 quede acotada a la lista corta. Incluye una regresión sobre el hallazgo original, cuya evidencia fue exactamente que no había ninguna ocurrencia de `ST_DWithin` ni de `<->`.
@@ -63,6 +67,7 @@ El radio usado y si hubo expansión quedan en `score_breakdown`, así que una zo
 - [x] **Stats precomputadas** (`driver_dispatch_stats`). Migración 137, refresh out-of-band tras accept/reject y en el batch worker; el scoring lee la tabla en lugar de agregar `dispatch_offers` por oleada. Verificado en `test:dispatch-candidates`.
 - [ ] **ETA vial por Route Matrix.** `computeRouteMatrix()` existe y está verificado en el adapter de mapas; falta conectarlo al scoring y **requiere una API key habilitada**.
 - [x] **Dispatch manual desde backoffice.** `POST /api/admin/jobs/:id/assign` + panel Ops; motivo y auditoría. Prep-time anticipado sigue bloqueado hasta separar máquinas cocina/logística.
+- [x] **Prioridad Flash Más en la cola de jobs.** `dispatch_priority_boost` reordena el reclamo del batch; verificado en `test:dispatch-candidates` y suite de suscripciones.
 - Antes de producción multiciudad deben incorporarse SLA comercial por comercio, tráfico vial actual, límites de equidad y monitoreo de sesgo por zona. Esos factores deben agregarse como componentes versionados, nunca como constantes opacas.
 
 ### SLO asociado

@@ -1,9 +1,9 @@
 import crypto from "node:crypto";
-import { processPostgresDispatchBatch } from "../../server/dispatch-repository.js";
+import { DISPATCH_BATCH_CLAIM_SQL } from "../../server/dispatch-repository.js";
 
 /** @param {import("./context.mjs").PostgresRuntimeContext} ctx */
 export async function runSubscriptionsPromotionsSuite(ctx) {
-  const { assert, request, readSseUntil, addressValidationToken, pool, base } = ctx;
+  const { assert, request, readSseUntil, addressValidationToken, pool, base, payload } = ctx;
   // -------------------------------------------------------------------------
   // Suscripcion de Flash (GTM-001).
   //
@@ -147,6 +147,83 @@ export async function runSubscriptionsPromotionsSuite(ctx) {
     ) === 1,
     "reactivar no deja dos periodos superpuestos cobrandose a la vez",
   );
+
+  // Prioridad de dispatch Flash Más: el boost reordena la cola de jobs (DSP-001),
+  // no el score de conductores. Un job más nuevo con boost debe reclamarse antes
+  // que uno viejo sin suscripción. Se valida el ORDER BY en una transacción que
+  // hace rollback: no deja ofertas ni dispatchRound en el estado compartido.
+  await pool.query("UPDATE subscription_plans SET dispatch_priority_boost=50 WHERE key=$1", [
+    planKeySmoke,
+  ]);
+  const suscriptor = (await pool.query("SELECT id FROM users WHERE public_id='usr_customer'"))
+    .rows[0];
+  const otroCliente = (
+    await pool.query(
+      `SELECT u.id FROM users u
+       WHERE u.id<>$1
+         AND NOT EXISTS(
+           SELECT 1 FROM user_subscriptions s
+           WHERE s.user_id=u.id AND s.status='active' AND s.current_period_end>now())
+       LIMIT 1`,
+      [suscriptor.id],
+    )
+  ).rows[0];
+  const sucursal = (
+    await pool.query(
+      `SELECT m.id merchant_id, b.id branch_id, b.location, b.address
+       FROM merchants m JOIN merchant_branches b ON b.merchant_id=m.id
+       WHERE b.is_primary LIMIT 1`,
+    )
+  ).rows[0];
+  assert(otroCliente && sucursal, "hay contraste FIFO y sucursal para el boost de dispatch");
+  const jobFifoId = `JOB-FIFO-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+  const jobBoostId = `JOB-BOOST-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+  await pool.query(
+    `INSERT INTO jobs(
+       public_id, kind, customer_id, merchant_id, branch_id, status,
+       pickup_address, pickup_location, dropoff_address, dropoff_location,
+       service_level, quoted_amount_cents, distance_m, estimated_duration_s,
+       metadata, created_at)
+     VALUES
+       ($1,'delivery',$2,$4,$5,'ready_for_pickup',
+        $6,$7,'Destino FIFO',$7,'food',10000,500,600,
+        '{"subtype":"food_order"}'::jsonb, now()-interval '2 hours'),
+       ($3,'delivery',$8,$4,$5,'ready_for_pickup',
+        $6,$7,'Destino boost',$7,'food',10000,500,600,
+        '{"subtype":"food_order"}'::jsonb, now()-interval '1 minute')`,
+    [
+      jobFifoId,
+      otroCliente.id,
+      jobBoostId,
+      sucursal.merchant_id,
+      sucursal.branch_id,
+      sucursal.address,
+      sucursal.location,
+      suscriptor.id,
+    ],
+  );
+  const claimClient = await pool.connect();
+  try {
+    await claimClient.query("BEGIN");
+    const claimed = (await claimClient.query(DISPATCH_BATCH_CLAIM_SQL, [100])).rows;
+    const idxBoost = claimed.findIndex((row) => row.public_id === jobBoostId);
+    const idxFifo = claimed.findIndex((row) => row.public_id === jobFifoId);
+    assert(
+      idxBoost !== -1 && (idxFifo === -1 || idxBoost < idxFifo),
+      "Flash Más con boost reclama el job antes que el FIFO más viejo sin suscripción",
+    );
+    await claimClient.query("ROLLBACK");
+  } catch (error) {
+    await claimClient.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    claimClient.release();
+  }
+  await pool.query("DELETE FROM jobs WHERE public_id=ANY($1::text[])", [[jobFifoId, jobBoostId]]);
+  await pool.query("UPDATE subscription_plans SET dispatch_priority_boost=5 WHERE key=$1", [
+    planKeySmoke,
+  ]);
+
   // **El bloque devuelve el padron como lo encontro.** Dejar a `usr_customer`
   // suscripto con umbral cero le regala el envio a todas las cotizaciones que
   // siguen en este archivo, y la primera que fallo fue una asercion de desglose

@@ -195,3 +195,24 @@ assert.ok(
   "los falsos positivos no deben penalizar",
 );
 ok("el refresh upsertea stats con aceptación, mediana e incident_score desde safety");
+
+// Flash Más: el boost reordena la cola de jobs del batch, no el score de drivers.
+const { DISPATCH_BATCH_CLAIM_SQL } = await import("../server/dispatch-repository.js");
+assert.ok(
+  DISPATCH_BATCH_CLAIM_SQL.includes("dispatch_priority_boost"),
+  "el reclamo del batch debe leer el boost del plan",
+);
+assert.match(
+  DISPATCH_BATCH_CLAIM_SQL,
+  /ORDER BY COALESCE\(boost\.dispatch_priority_boost,\s*0\) DESC,\s*j\.created_at/s,
+  "suscriptores van antes del FIFO por created_at",
+);
+assert.ok(
+  DISPATCH_BATCH_CLAIM_SQL.includes("FOR UPDATE OF j"),
+  "FOR UPDATE OF j evita bloquear filas de suscripción",
+);
+assert.ok(
+  DISPATCH_BATCH_CLAIM_SQL.includes("current_period_end > now()"),
+  "sólo cuenta el período vigente (incluye cancelado que aún no venció)",
+);
+ok("la cola del batch prioriza dispatch_priority_boost de Flash Más antes del FIFO");
