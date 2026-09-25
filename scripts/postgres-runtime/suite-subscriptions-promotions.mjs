@@ -1,5 +1,8 @@
 import crypto from "node:crypto";
-import { DISPATCH_BATCH_CLAIM_SQL, processPostgresDispatchBatch } from "../../server/dispatch-repository.js";
+import {
+  DISPATCH_BATCH_CLAIM_SQL,
+  processPostgresDispatchBatch,
+} from "../../server/dispatch-repository.js";
 
 /** @param {import("./context.mjs").PostgresRuntimeContext} ctx */
 export async function runSubscriptionsPromotionsSuite(ctx) {

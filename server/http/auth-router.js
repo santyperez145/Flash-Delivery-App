@@ -30,16 +30,18 @@ import { z } from "zod";
 
 import {
   confirmEmailVerification,
-  consumePasswordRecovery,
   findAuthUserByEmail,
   findAuthUserByPublicId,
   recordPostgresLoginFailure,
   recordPostgresLoginSuccess,
   registerAuthUser,
-  requestPasswordRecovery,
   resendEmailVerification,
   usesPostgresAuth,
 } from "../auth-repository.js";
+import {
+  consumePasswordRecovery,
+  requestPasswordRecovery,
+} from "../auth-password-recovery-repository.js";
 import {
   createPostgresSession,
   getPostgresUserSessions,

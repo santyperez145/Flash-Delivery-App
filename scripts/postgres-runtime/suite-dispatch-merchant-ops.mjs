@@ -130,7 +130,7 @@ export async function runDispatchMerchantOpsSuite(ctx) {
   ctx.token = ctx.customerToken;
   const pausedBranchQuote = await request("/orders/quote", {
     method: "POST",
-    body: JSON.stringify({ ...payload, branchId: "branch_rest_roja" }),
+    body: JSON.stringify({ ...ctx.payload, branchId: "branch_rest_roja" }),
   });
   ctx.token = ctx.merchantSubLogin.body.token;
   const restoredBranch = await request("/restaurants/rest_roja/branches/branch_rest_roja", {
