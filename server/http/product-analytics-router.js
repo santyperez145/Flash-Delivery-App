@@ -24,7 +24,7 @@ import { z } from "zod";
 
 import { usesPostgresAuth } from "../auth-repository.js";
 import { getProductMetrics, ingestProductEvents } from "../product-analytics-repository.js";
-import { createLocalProductEvents, getLocalProductMetrics } from "../store.js";
+import { createLocalProductEvents, getLocalProductMetrics } from "../store-local-preferences.js";
 import { requireAuth } from "./authentication.js";
 import { requireAnyRole } from "./authorization.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";

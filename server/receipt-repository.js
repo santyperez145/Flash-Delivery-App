@@ -98,8 +98,13 @@ export async function getOrCreatePostgresReceipt({ jobPublicId, actorPublicId, a
     const publicId = `RCT-${crypto.randomBytes(6).toString("hex").toUpperCase()}`;
     const inserted = (
       await client.query(
-        `INSERT INTO service_receipts(public_id,receipt_number,job_id,customer_id,service_kind,service_subtype,subtotal_cents,discount_cents,delivery_fee_cents,service_fee_cents,total_cents,currency,line_items,payment_summary,metadata)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::jsonb,$14,$15) RETURNING *`,
+        `INSERT INTO service_receipts(
+          public_id, receipt_number, job_id, customer_id, service_kind, service_subtype,
+          subtotal_cents, discount_cents, delivery_fee_cents, service_fee_cents, total_cents,
+          currency, line_items, payment_summary, metadata
+        )
+        VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13::jsonb, $14, $15)
+        RETURNING *`,
         [
           publicId,
           number,

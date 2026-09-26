@@ -67,7 +67,13 @@ export async function upsertCase(
   },
 ) {
   await client.query(
-    `INSERT INTO payment_reconciliation_cases(public_id,fingerprint,provider,case_type,severity,entity_type,entity_id,external_reference,summary,details) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(fingerprint) DO UPDATE SET last_detected_at=now(),summary=EXCLUDED.summary,details=EXCLUDED.details,severity=EXCLUDED.severity,status=CASE WHEN payment_reconciliation_cases.status='ignored' THEN 'ignored' ELSE 'open' END,resolved_by=CASE WHEN payment_reconciliation_cases.status='ignored' THEN payment_reconciliation_cases.resolved_by ELSE NULL END,resolution_note=CASE WHEN payment_reconciliation_cases.status='ignored' THEN payment_reconciliation_cases.resolution_note ELSE NULL END,resolved_at=CASE WHEN payment_reconciliation_cases.status='ignored' THEN payment_reconciliation_cases.resolved_at ELSE NULL END`,
+    `INSERT INTO payment_reconciliation_cases(public_id,fingerprint,provider,case_type,severity,entity_type,entity_id,external_reference,summary,details)
+    VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+    ON CONFLICT(fingerprint) DO UPDATE SET last_detected_at=now(),summary=EXCLUDED.summary,details=EXCLUDED.details,severity=EXCLUDED.severity,
+      status=CASE WHEN payment_reconciliation_cases.status='ignored' THEN 'ignored' ELSE 'open' END,
+      resolved_by=CASE WHEN payment_reconciliation_cases.status='ignored' THEN payment_reconciliation_cases.resolved_by ELSE NULL END,
+      resolution_note=CASE WHEN payment_reconciliation_cases.status='ignored' THEN payment_reconciliation_cases.resolution_note ELSE NULL END,
+      resolved_at=CASE WHEN payment_reconciliation_cases.status='ignored' THEN payment_reconciliation_cases.resolved_at ELSE NULL END`,
     [
       `REC-${crypto.randomUUID()}`,
       fingerprint,
@@ -88,7 +94,8 @@ export async function scanPaymentReconciliation() {
     await client.query("BEGIN");
     const stale = (
       await client.query(
-        `SELECT id,provider,provider_intent_id,status,amount_cents,currency,created_at FROM payment_intents WHERE status IN('requires_confirmation','authorized') AND updated_at<now()-interval '30 minutes'`,
+        `SELECT id,provider,provider_intent_id,status,amount_cents,currency,created_at FROM payment_intents
+        WHERE status IN('requires_confirmation','authorized') AND updated_at<now()-interval '30 minutes'`,
       )
     ).rows;
     for (const row of stale)
@@ -110,7 +117,9 @@ export async function scanPaymentReconciliation() {
       });
     const captureMismatch = (
       await client.query(
-        `SELECT id,provider,provider_intent_id,status,amount_cents,captured_amount_cents,currency FROM payment_intents WHERE (status='captured' AND captured_amount_cents<>amount_cents) OR (status NOT IN('captured','refunded','partially_refunded') AND captured_amount_cents>0)`,
+        `SELECT id,provider,provider_intent_id,status,amount_cents,captured_amount_cents,currency FROM payment_intents
+        WHERE (status='captured' AND captured_amount_cents<>amount_cents)
+          OR (status NOT IN('captured','refunded','partially_refunded') AND captured_amount_cents>0)`,
       )
     ).rows;
     for (const row of captureMismatch)
@@ -132,7 +141,10 @@ export async function scanPaymentReconciliation() {
       });
     const refundMismatch = (
       await client.query(
-        `SELECT p.id,p.provider,p.provider_intent_id,p.captured_amount_cents,p.currency,COALESCE(sum(r.amount_cents) FILTER(WHERE r.status='succeeded'),0)::bigint refunded_cents FROM payment_intents p LEFT JOIN refunds r ON r.payment_intent_id=p.id GROUP BY p.id HAVING COALESCE(sum(r.amount_cents) FILTER(WHERE r.status='succeeded'),0)>p.captured_amount_cents`,
+        `SELECT p.id,p.provider,p.provider_intent_id,p.captured_amount_cents,p.currency,
+          COALESCE(sum(r.amount_cents) FILTER(WHERE r.status='succeeded'),0)::bigint refunded_cents
+        FROM payment_intents p LEFT JOIN refunds r ON r.payment_intent_id=p.id
+        GROUP BY p.id HAVING COALESCE(sum(r.amount_cents) FILTER(WHERE r.status='succeeded'),0)>p.captured_amount_cents`,
       )
     ).rows;
     for (const row of refundMismatch)
@@ -153,7 +165,13 @@ export async function scanPaymentReconciliation() {
       });
     const webhookFailures = (
       await client.query(
-        `SELECT id,provider,provider_event_id,event_type,signature_valid,processing_error,received_at,payload->>'providerIntentId' provider_intent_id FROM webhook_events WHERE (NOT signature_valid OR processing_error IS NOT NULL) OR (signature_valid AND processed_at IS NOT NULL AND payload ? 'providerIntentId' AND NOT EXISTS(SELECT 1 FROM payment_intents p WHERE p.provider=webhook_events.provider AND p.provider_intent_id=webhook_events.payload->>'providerIntentId'))`,
+        `SELECT id,provider,provider_event_id,event_type,signature_valid,processing_error,received_at,
+          payload->>'providerIntentId' provider_intent_id
+        FROM webhook_events
+        WHERE (NOT signature_valid OR processing_error IS NOT NULL)
+          OR (signature_valid AND processed_at IS NOT NULL AND payload ? 'providerIntentId'
+            AND NOT EXISTS(SELECT 1 FROM payment_intents p
+              WHERE p.provider=webhook_events.provider AND p.provider_intent_id=webhook_events.payload->>'providerIntentId'))`,
       )
     ).rows;
     for (const row of webhookFailures) {
@@ -191,12 +209,17 @@ export async function scanPaymentReconciliation() {
 export async function getPaymentReconciliation() {
   const rows = (
     await postgresPool.query(
-      `SELECT c.*,u.public_id resolved_by FROM payment_reconciliation_cases c LEFT JOIN users u ON u.id=c.resolved_by ORDER BY CASE severity WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END,last_detected_at DESC`,
+      `SELECT c.*,u.public_id resolved_by FROM payment_reconciliation_cases c
+      LEFT JOIN users u ON u.id=c.resolved_by
+      ORDER BY CASE severity WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END,last_detected_at DESC`,
     )
   ).rows;
   const summary = (
     await postgresPool.query(
-      `SELECT count(*) FILTER(WHERE status='open')::int open_count,count(*) FILTER(WHERE status='open' AND severity IN('critical','high'))::int urgent_count,count(*) FILTER(WHERE status='resolved')::int resolved_count FROM payment_reconciliation_cases`,
+      `SELECT count(*) FILTER(WHERE status='open')::int open_count,
+        count(*) FILTER(WHERE status='open' AND severity IN('critical','high'))::int urgent_count,
+        count(*) FILTER(WHERE status='resolved')::int resolved_count
+      FROM payment_reconciliation_cases`,
     )
   ).rows[0];
   return {
@@ -216,7 +239,9 @@ export async function resolvePaymentReconciliationCase({
 }) {
   const row = (
     await postgresPool.query(
-      `UPDATE payment_reconciliation_cases c SET status=$3,resolution_note=$4,resolved_at=now(),resolved_by=u.id FROM users u WHERE c.public_id=$1 AND u.public_id=$2 AND c.status='open' RETURNING c.*,(SELECT public_id FROM users WHERE id=c.resolved_by) resolved_by`,
+      `UPDATE payment_reconciliation_cases c SET status=$3,resolution_note=$4,resolved_at=now(),resolved_by=u.id
+      FROM users u WHERE c.public_id=$1 AND u.public_id=$2 AND c.status='open'
+      RETURNING c.*,(SELECT public_id FROM users WHERE id=c.resolved_by) resolved_by`,
       [casePublicId, actorPublicId, status, resolutionNote],
     )
   ).rows[0];

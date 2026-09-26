@@ -5,7 +5,20 @@ import { refreshMercadoPagoCredential } from "./payment-marketplace-provider.js"
 export async function refreshDueMerchantPaymentConnections({ limit = 20 } = {}) {
   const claimed = (
     await postgresPool.query(
-      `WITH due AS (SELECT id FROM merchant_payment_connections WHERE provider='mercadopago' AND revoked_at IS NULL AND refresh_token_ciphertext IS NOT NULL AND (token_expires_at IS NULL OR token_expires_at<now()+interval '30 days') AND refresh_failures<5 AND (refresh_started_at IS NULL OR refresh_started_at<now()-interval '10 minutes') ORDER BY token_expires_at NULLS FIRST FOR UPDATE SKIP LOCKED LIMIT $1) UPDATE merchant_payment_connections c SET refresh_started_at=now(),refresh_last_error=NULL FROM due WHERE c.id=due.id RETURNING c.*`,
+      `WITH due AS (
+         SELECT id FROM merchant_payment_connections
+         WHERE provider='mercadopago' AND revoked_at IS NULL
+           AND refresh_token_ciphertext IS NOT NULL
+           AND (token_expires_at IS NULL OR token_expires_at<now()+interval '30 days')
+           AND refresh_failures<5
+           AND (refresh_started_at IS NULL OR refresh_started_at<now()-interval '10 minutes')
+         ORDER BY token_expires_at NULLS FIRST
+         FOR UPDATE SKIP LOCKED LIMIT $1
+       )
+       UPDATE merchant_payment_connections c
+       SET refresh_started_at=now(), refresh_last_error=NULL
+       FROM due WHERE c.id=due.id
+       RETURNING c.*`,
       [limit],
     )
   ).rows;
@@ -23,7 +36,11 @@ export async function refreshDueMerchantPaymentConnections({ limit = 20 } = {}) 
         ? new Date(Date.now() + credential.expiresIn * 1000)
         : null;
       await postgresPool.query(
-        `UPDATE merchant_payment_connections SET access_token_ciphertext=$2,refresh_token_ciphertext=$3,token_expires_at=$4,scope=$5,live_mode=$6,refresh_started_at=NULL,refresh_last_at=now(),refresh_failures=0,refresh_last_error=NULL,updated_at=now() WHERE id=$1`,
+        `UPDATE merchant_payment_connections SET
+          access_token_ciphertext=$2, refresh_token_ciphertext=$3, token_expires_at=$4,
+          scope=$5, live_mode=$6, refresh_started_at=NULL, refresh_last_at=now(),
+          refresh_failures=0, refresh_last_error=NULL, updated_at=now()
+         WHERE id=$1`,
         [
           connection.id,
           encryptPaymentOAuthToken(credential.accessToken),

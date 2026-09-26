@@ -281,10 +281,20 @@ const TABLAS_EXTERNAS = new Set(["information_schema", "spatial_ref_sys"]);
 // una gramatica SQL a medias.
 const PALABRAS_SQL = new Set(["of", "set", "only", "lateral", "unnest", "values", "skip"]);
 
-// `server/store.js` es el respaldo SQLite y tiene su propio esquema, creado en
-// el mismo archivo. Compararlo contra las migraciones de PostgreSQL reportaria
-// todas sus tablas como inexistentes, que es exactamente al reves.
-const FUERA_DEL_ESQUEMA_POSTGRES = new Set(["server/store.js"]);
+// El respaldo SQLite (`store.js` y sus extracciones) tiene su propio esquema,
+// creado en `store-schema.js`. Compararlo contra las migraciones de PostgreSQL
+// reportaría todas sus tablas como inexistentes, que es exactamente al revés.
+const FUERA_DEL_ESQUEMA_POSTGRES = new Set([
+  "server/store.js",
+  "server/store-local-preferences.js",
+  "server/store-auth-sessions.js",
+  "server/store-entity-readers.js",
+  "server/store-replace-transaction.js",
+  "server/store-seed.js",
+  "server/store-seed-catalog.js",
+  "server/store-seed-mobility.js",
+  "server/store-schema.js",
+]);
 
 const sinComentariosJs = (fuente) =>
   fuente.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/(^|[^:])\/\/[^\n]*/g, "$1 ");

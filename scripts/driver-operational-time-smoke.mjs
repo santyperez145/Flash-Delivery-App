@@ -156,7 +156,9 @@ try {
   const jobs = (
     await pool.query(
       `INSERT INTO jobs(public_id,kind,customer_id,status,pickup_address,pickup_location,dropoff_address,dropoff_location,service_level,quoted_amount_cents,distance_m,estimated_duration_s)
-    SELECT $1 || '-' || sequence,'delivery',customer.id,'requested','Origen',ST_SetSRID(ST_MakePoint(-58.39,-34.60),4326)::geography,'Destino',ST_SetSRID(ST_MakePoint(-58.40,-34.61),4326)::geography,'standard',100000,1500,600
+    SELECT $1 || '-' || sequence,'delivery',customer.id,'requested','Origen',
+      ST_SetSRID(ST_MakePoint(-58.39,-34.60),4326)::geography,'Destino',
+      ST_SetSRID(ST_MakePoint(-58.40,-34.61),4326)::geography,'standard',100000,1500,600
     FROM users customer CROSS JOIN generate_series(1,2) sequence WHERE customer.public_id='usr_customer' RETURNING id`,
       [jobPrefix],
     )

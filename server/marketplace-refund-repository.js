@@ -10,7 +10,10 @@ const refundKey = (value) =>
 const systemAccount = async (client, accountType) =>
   (
     await client.query(
-      `INSERT INTO ledger_accounts(owner_type,owner_id,currency,account_type) VALUES('platform',NULL,'ARS',$1) ON CONFLICT(owner_type,currency,account_type) WHERE owner_id IS NULL DO UPDATE SET owner_type=excluded.owner_type RETURNING id`,
+      `INSERT INTO ledger_accounts(owner_type, owner_id, currency, account_type)
+       VALUES('platform', NULL, 'ARS', $1)
+       ON CONFLICT(owner_type, currency, account_type) WHERE owner_id IS NULL
+       DO UPDATE SET owner_type=excluded.owner_type RETURNING id`,
       [accountType],
     )
   ).rows[0].id;
@@ -23,7 +26,15 @@ export async function cancelMarketplaceOrderAndRefund({
 }) {
   const context = (
     await postgresPool.query(
-      `SELECT j.id job_id,j.customer_id,j.status,p.id payment_id,p.provider_intent_id,p.captured_amount_cents,p.status payment_status,c.access_token_ciphertext,c.revoked_at,u.id actor_id FROM jobs j JOIN payment_intents p ON p.job_id=j.id AND p.provider='mercadopago' JOIN merchants m ON m.id=j.merchant_id LEFT JOIN merchant_payment_connections c ON c.merchant_id=m.id AND c.provider='mercadopago' LEFT JOIN users u ON u.public_id=$2 WHERE j.public_id=$1 AND j.kind='delivery' AND j.metadata->>'subtype'='food_order'`,
+      `SELECT j.id job_id, j.customer_id, j.status,
+         p.id payment_id, p.provider_intent_id, p.captured_amount_cents, p.status payment_status,
+         c.access_token_ciphertext, c.revoked_at, u.id actor_id
+       FROM jobs j
+       JOIN payment_intents p ON p.job_id=j.id AND p.provider='mercadopago'
+       JOIN merchants m ON m.id=j.merchant_id
+       LEFT JOIN merchant_payment_connections c ON c.merchant_id=m.id AND c.provider='mercadopago'
+       LEFT JOIN users u ON u.public_id=$2
+       WHERE j.public_id=$1 AND j.kind='delivery' AND j.metadata->>'subtype'='food_order'`,
       [orderPublicId, actorPublicId],
     )
   ).rows[0];
@@ -40,7 +51,10 @@ export async function cancelMarketplaceOrderAndRefund({
     amountCents = Number(context.captured_amount_cents);
   let claimed = (
     await postgresPool.query(
-      `INSERT INTO refunds(payment_intent_id,requested_by,amount_cents,reason,status,idempotency_key) VALUES($1,$2,$3,$4,'pending',$5) ON CONFLICT(idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING RETURNING id`,
+      `INSERT INTO refunds(
+        payment_intent_id, requested_by, amount_cents, reason, status, idempotency_key
+      ) VALUES($1, $2, $3, $4, 'pending', $5)
+       ON CONFLICT(idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING RETURNING id`,
       [context.payment_id, context.actor_id || null, amountCents, reason, idempotencyKey],
     )
   ).rows[0];

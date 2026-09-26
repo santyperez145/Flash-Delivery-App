@@ -1,5 +1,5 @@
 import { createPool } from "./db-client.mjs";
-import { processPostgresNotificationBatch } from "../server/notification-repository.js";
+import { processPostgresNotificationBatch } from "../server/notification-delivery-repository.js";
 import { closePostgres } from "../server/postgres.js";
 const base = process.env.API_URL || "http://127.0.0.1:4000/api",
   pool = createPool(),

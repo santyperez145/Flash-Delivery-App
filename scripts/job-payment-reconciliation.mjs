@@ -24,7 +24,7 @@
 // filas sin fallar cuando el actor no existía, que es lo que le habría pasado a
 // un trabajo sin sesión: la conciliación habría corrido sin dejar rastro.
 import { scanPaymentReconciliation } from "../server/payment-repository.js";
-import { recordSystemAudit } from "../server/operations-repository.js";
+import { recordSystemAudit } from "../server/audit-repository.js";
 import { postgresPool, usesPostgresCommerce } from "../server/postgres.js";
 
 const ORIGEN = "scheduled-reconciliation";

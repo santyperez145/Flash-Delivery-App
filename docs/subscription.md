@@ -62,18 +62,18 @@ abrir uno cobraría dos veces el mismo tramo.
 
 ## Lo que falta
 
-De los tres beneficios sólo el envío sin cargo se aplica hoy.
-`ride_discount_bps` no, porque `/api/rides/quote` no exige sesión —es un
-estimador público de precio— y personalizarlo ahí cambia el contrato de la ruta.
-`dispatch_priority_boost` tampoco, porque el orden de candidatos lo decide
-[DSP-001](backlog-tecnico.md). Están en la fila del plan y nombrados como
-pendientes, no marcados como hechos.
+De los tres beneficios, envío sin cargo y **prioridad de dispatch** ya se
+aplican. `dispatch_priority_boost` reordena la **cola de jobs** del batch
+(`ORDER BY boost DESC, created_at`) —prioridad del pedido del suscriptor, como
+Uber One / DashPass—, no el score de conductores. `ride_discount_bps` sigue
+sin aplicarse porque `/api/rides/quote` no exige sesión —es un estimador público
+de precio— y personalizarlo ahí cambia el contrato de la ruta.
 
 ## Rutas
 
-| Ruta | Quién | Nota |
-| --- | --- | --- |
-| `GET /api/subscription/plans` | pública | El precio tiene que poder verse antes de crear la cuenta |
-| `GET /api/subscription` | sesión | `null` y no 404: no estar suscripto es una respuesta válida |
-| `POST /api/subscription` | cliente | Alta o reactivación; una segunda alta vigente es 409 |
-| `DELETE /api/subscription` | sesión | Deja de renovar y conserva el período pago |
+| Ruta                          | Quién   | Nota                                                        |
+| ----------------------------- | ------- | ----------------------------------------------------------- |
+| `GET /api/subscription/plans` | pública | El precio tiene que poder verse antes de crear la cuenta    |
+| `GET /api/subscription`       | sesión  | `null` y no 404: no estar suscripto es una respuesta válida |
+| `POST /api/subscription`      | cliente | Alta o reactivación; una segunda alta vigente es 409        |
+| `DELETE /api/subscription`    | sesión  | Deja de renovar y conserva el período pago                  |

@@ -70,10 +70,19 @@ export async function getPostgresMerchantDashboard({
        count(food.id) FILTER (WHERE food.status IN ('accepted','preparing') AND NOT food.en_ventana)::int AS scheduled_ahead,
        count(food.id) FILTER (WHERE food.status IN ('accepted','preparing') AND food.en_ventana AND food.merchant_ready_due_at < now())::int AS late_orders,
        count(food.id) FILTER (WHERE food.status IN ('accepted','preparing') AND food.merchant_ready_due_at IS NULL)::int AS untracked_prep_orders,
-       COALESCE(floor(max(extract(epoch FROM (now()-food.created_at))) FILTER (WHERE food.status IN ('accepted','preparing','ready_for_pickup','driver_assigned','picked_up','delivering') AND food.en_ventana) / 60),0)::int AS oldest_active_minutes,
+       COALESCE(floor(max(extract(epoch FROM (now()-food.created_at))) FILTER (
+         WHERE food.status IN (
+           'accepted','preparing','ready_for_pickup','driver_assigned','picked_up','delivering'
+         ) AND food.en_ventana
+       ) / 60), 0)::int AS oldest_active_minutes,
        count(food.id) FILTER (WHERE food.status='completed' AND food.completed_at >= ((now() AT TIME ZONE selection.timezone)::date AT TIME ZONE selection.timezone))::int AS completed_today,
        count(food.id) FILTER (WHERE food.status='cancelled' AND food.cancelled_at >= ((now() AT TIME ZONE selection.timezone)::date AT TIME ZONE selection.timezone))::int AS cancelled_today,
-       COALESCE(sum(COALESCE(food.final_amount_cents,food.quoted_amount_cents)) FILTER (WHERE food.status='completed' AND food.completed_at >= ((now() AT TIME ZONE selection.timezone)::date AT TIME ZONE selection.timezone)),0)::bigint AS gross_sales_today_cents,
+       COALESCE(sum(COALESCE(food.final_amount_cents, food.quoted_amount_cents)) FILTER (
+         WHERE food.status='completed'
+           AND food.completed_at >= (
+             (now() AT TIME ZONE selection.timezone)::date AT TIME ZONE selection.timezone
+           )
+       ), 0)::bigint AS gross_sales_today_cents,
        (SELECT count(*)::int
         FROM catalog_items item
         LEFT JOIN catalog_branch_inventory inventory

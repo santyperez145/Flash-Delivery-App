@@ -28,11 +28,11 @@ import { getDriverDemandZones } from "../driver-demand-repository.js";
 import { getDriverPreferences, updateDriverPreferences } from "../driver-preference-repository.js";
 import { getPostgresDriverForUser } from "../driver-roster-repository.js";
 import { readDb, scopeStateForRequest } from "../fallback-runtime.js";
-import { recordPostgresAudit } from "../operations-repository.js";
+import { recordPostgresAudit } from "../audit-repository.js";
 import { usesPostgresCommerce } from "../postgres.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";
 import { getPublicState, getTimestamp, writeDb } from "../store.js";
-import { getDriverEarnings } from "../wallet-repository.js";
+import { getDriverEarnings } from "../driver-earnings-repository.js";
 
 const driverPreferenceSchema = z.object({
   navigationProvider: z.enum(["system", "google_maps", "apple_maps"]),

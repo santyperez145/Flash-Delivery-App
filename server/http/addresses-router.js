@@ -22,11 +22,11 @@ import {
   getPostgresAddresses,
   setPostgresDefaultAddress,
   updatePostgresAddress,
-  usesPostgresAuth,
-} from "../auth-repository.js";
+} from "../address-repository.js";
+import { usesPostgresAuth } from "../auth-repository.js";
 import { audit, readDb } from "../fallback-runtime.js";
 import { verifyGeocodeValidation } from "../geocoding-validation.js";
-import { recordPostgresAudit } from "../operations-repository.js";
+import { recordPostgresAudit } from "../audit-repository.js";
 import { createId, writeDb } from "../store.js";
 import { requireAuth } from "./authentication.js";
 import { publishRealtimeEvent } from "./realtime.js";

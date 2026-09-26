@@ -8,6 +8,7 @@ import { Alert, Pressable, ScrollView, Text, TextInput, View } from "react-nativ
 import { track } from "../analytics";
 import { api } from "../api";
 import FlashNativeMap from "../FlashNativeMap";
+import { explainAndRequestForegroundLocation } from "../locationPermission";
 import { money } from "../format";
 import { styles } from "../styles";
 import { ActionButton, NativeMapUnavailable } from "../ui";
@@ -153,7 +154,7 @@ export function CustomerRideScreen({
   const useCurrentLocation = async () => {
     setLocationMessage("Solicitando ubicacion...");
     try {
-      const permission = await Location.requestForegroundPermissionsAsync();
+      const permission = await explainAndRequestForegroundLocation({ audience: "customer" });
       if (permission.status !== "granted") {
         setLocationMessage("Permiso de ubicacion rechazado");
         return;

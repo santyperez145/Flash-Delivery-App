@@ -24,7 +24,7 @@ import { z } from "zod";
 import { usesPostgresCommerce } from "../postgres.js";
 import { requireAuth } from "./authentication.js";
 import { requireAnyRole } from "./authorization.js";
-import { recordPostgresAudit } from "../operations-repository.js";
+import { recordPostgresAudit } from "../audit-repository.js";
 import { serviceChatLimiter } from "./rate-limits.js";
 import { publishRealtimeEvent } from "./realtime.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";

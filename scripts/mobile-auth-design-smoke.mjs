@@ -2,9 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { contains, readMobileSource } from "./source-contract.mjs";
 
-const [app, api, roadmap, research] = await Promise.all([
+const [app, roadmap, research] = await Promise.all([
   readMobileSource().then(({ source }) => source),
-  readFile(new URL("../apps/mobile/src/api.ts", import.meta.url), "utf8"),
   readFile(new URL("../docs/DESIGN_ROADMAP.md", import.meta.url), "utf8"),
   readFile(
     new URL("../docs/competitive-research/mobile-authentication.md", import.meta.url),
@@ -35,7 +34,7 @@ assert.ok(
   "recuperación no debe autocompletar el token de desarrollo",
 );
 assert.ok(
-  contains(api, "await fetchWithTimeout(`${API_BASE}/auth/logout`"),
+  contains(app, "await fetchWithTimeout(`${API_BASE}/auth/logout`"),
   "una sesión de la variante incorrecta debe revocarse",
 );
 assert.ok(

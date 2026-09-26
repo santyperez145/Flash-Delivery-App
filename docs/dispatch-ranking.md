@@ -6,8 +6,9 @@ Cada oleada consulta candidatos elegibles en PostgreSQL/PostGIS y calcula un sco
 - distancia vial aproximada al pickup mediante PostGIS;
 - carga activa por tipo de servicio;
 - frescura de la última ubicación GPS;
-- tasa de aceptación de ofertas de los últimos 30 días para la misma vertical;
-- velocidad media de respuesta a ofertas aceptadas o rechazadas.
+- tasa de aceptación de ofertas (stats precomputadas, 30 días);
+- mediana de respuesta a ofertas;
+- penalización por incidentes de seguridad reales (no `false_alarm`) en 30 días.
 
 Las ofertas expiradas cuentan como no aceptación; las retiradas por el sistema no penalizan al conductor. Cuando no existe historial se usa un prior neutral de 50% de aceptación y 20 segundos de respuesta, evitando favorecer o castigar cuentas nuevas.
 
@@ -40,13 +41,17 @@ Esta etapa **no** toca `dispatch_offers` ni historial. Para eso está la segunda
 
 ### Etapa 2 — puntuación explicable sobre la lista corta
 
-Los componentes del score son exactamente los de antes. **La optimización cambia a cuántos conductores se evalúa, no a quién se le ofrece el trabajo.**
+Los componentes del score son exactamente los de antes. **La optimización cambia a cuántos conductores se evalúa, no a quién se le ofrece el trabajo.** El historial de aceptación y respuesta se lee de `driver_dispatch_stats`, refrescada out-of-band tras accept/reject y periódicamente en el batch worker, en lugar de agregar `dispatch_offers` por candidato.
 
 ### Radio dinámico y protección contra inanición
 
 Un radio fijo deja trabajos sin ofrecer en zonas de baja densidad: el conductor más cercano existe, pero cae fuera del corte. La escalera parte de `DISPATCH_SEARCH_RADIUS_M` (8 km por defecto) y duplica hasta `DISPATCH_MAX_RADIUS_M` (25 km), **sólo si la lista corta no alcanza para llenar las ofertas pedidas**.
 
 El radio usado y si hubo expansión quedan en `score_breakdown`, así que una zona que necesita expandir siempre es visible en lugar de degradar en silencio.
+
+### Prioridad Flash Más (cola de jobs)
+
+`dispatch_priority_boost` del plan vigente del **cliente del job** reordena el reclamo del batch (`DISPATCH_BATCH_CLAIM_SQL`): mayor boost primero, luego `created_at`. No modifica el score entre conductores. Un período cancelado pero aún vigente sigue contando, igual que el envío sin cargo.
 
 ### Qué verifica cada puerta
 
@@ -58,12 +63,13 @@ El radio usado y si hubo expansión quedan en `score_breakdown`, así que una zo
 
 - [x] Recorte `ST_DWithin` + KNN sobre el índice GiST parcial.
 - [x] Radio dinámico con protección contra inanición, visible en el desglose.
-- [ ] **`EXPLAIN ANALYZE` con un padrón sintético de al menos 1.000 conductores.** El contrato prueba la forma de la consulta; el plan hay que medirlo.
-- [ ] **Stats precomputadas** (`driver_dispatch_stats`). La lista corta ya acota el historial a 30 conductores, así que dejó de ser urgente; pasa a ser optimización, no corrección.
+- [x] **`EXPLAIN ANALYZE` con padrón sintético (≥1.000 conductores).** `test:dispatch-plan` importa `SHORTLIST_SQL` real y exige `drivers_available_location_gix`.
+- [x] **Stats precomputadas** (`driver_dispatch_stats`). Migración 137, refresh out-of-band tras accept/reject y en el batch worker; el scoring lee la tabla en lugar de agregar `dispatch_offers` por oleada. Verificado en `test:dispatch-candidates`.
 - [ ] **ETA vial por Route Matrix.** `computeRouteMatrix()` existe y está verificado en el adapter de mapas; falta conectarlo al scoring y **requiere una API key habilitada**.
-- [ ] Prep time del comercio y dispatch manual desde backoffice.
+- [x] **Dispatch manual desde backoffice.** `POST /api/admin/jobs/:id/assign` + panel Ops; motivo y auditoría. Prep-time anticipado sigue bloqueado hasta separar máquinas cocina/logística.
+- [x] **Prioridad Flash Más en la cola de jobs.** `dispatch_priority_boost` reordena el reclamo del batch; verificado en `test:dispatch-candidates` y suite de suscripciones.
 - Antes de producción multiciudad deben incorporarse SLA comercial por comercio, tráfico vial actual, límites de equidad y monitoreo de sesgo por zona. Esos factores deben agregarse como componentes versionados, nunca como constantes opacas.
 
 ### SLO asociado
 
-Primera oferta de dispatch: **p95 < 5 s**. El plan de consulta debe usar índice GiST, verificado con `EXPLAIN ANALYZE`, y sostenerse en una prueba de carga con un padrón sintético de al menos 1.000 conductores.
+Primera oferta de dispatch: **p95 < 5 s**. El plan de consulta debe usar índice GiST, verificado con `EXPLAIN ANALYZE` (`test:dispatch-plan`), y sostenerse en una prueba de carga con un padrón sintético de al menos 1.000 conductores y oleadas concurrentes (carga concurrente (`dispatch-load-smoke.mjs` vía `test:dispatch-plan`)).

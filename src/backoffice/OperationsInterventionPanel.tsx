@@ -13,7 +13,7 @@
 import { useState } from "react";
 
 import { api } from "../api";
-import type { Order, Restaurant } from "../types";
+import type { Driver, Order, Restaurant } from "../types";
 
 // Un servicio se puede soltar sólo antes de que el conductor lo retire. Después
 // tiene la comida encima, y ahí la salida es cancelar o abrir una incidencia:
@@ -178,6 +178,94 @@ export function DispatchReleasePanel({
               }
             >
               Soltar y volver a ofrecer
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/**
+ * Asignación manual (DSP-001): fuerza un conductor cuando el auto-despacho
+ * no alcanza. Sólo pedidos listos sin courier; el servidor vuelve a comprobar
+ * capacidad, vehículo y ventana.
+ */
+export function DispatchManualAssignPanel({
+  orders,
+  drivers,
+  busy,
+  runAction,
+}: {
+  orders: Order[];
+  drivers: Driver[];
+  busy: boolean;
+  runAction: (accion: () => Promise<unknown>, exito: string) => void;
+}) {
+  const [motivos, setMotivos] = useState<Record<string, string>>({});
+  const [elegidos, setElegidos] = useState<Record<string, string>>({});
+  const asignables = orders.filter(
+    (pedido) => !pedido.courierId && pedido.status === "ready_for_pickup",
+  );
+  const online = drivers.filter(
+    (conductor) => conductor.online && conductor.serviceModes.includes("delivery"),
+  );
+
+  if (asignables.length === 0)
+    return (
+      <p className="admin-empty">
+        No hay pedidos listos sin courier. La asignación manual no adelanta cocina: espera listo
+        para retirar.
+      </p>
+    );
+
+  return (
+    <ul className="intervencion-lista">
+      {asignables.map((pedido) => {
+        const motivo = motivos[pedido.id] ?? "";
+        const driverId = elegidos[pedido.id] ?? "";
+        return (
+          <li key={pedido.id}>
+            <div className="intervencion-encabezado">
+              <strong>{pedido.id}</strong>
+              <small>{pedido.deliveryAddress}</small>
+            </div>
+            <label className="intervencion-motivo">
+              <span>Conductor</span>
+              <select
+                value={driverId}
+                disabled={busy || online.length === 0}
+                onChange={(evento) =>
+                  setElegidos((previo) => ({ ...previo, [pedido.id]: evento.target.value }))
+                }
+              >
+                <option value="">Elegir courier online</option>
+                {online.map((conductor) => (
+                  <option key={conductor.id} value={conductor.id}>
+                    {conductor.name} · {conductor.id}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <CampoMotivo
+              etiqueta="Por qué a mano"
+              valor={motivo}
+              disabled={busy}
+              onChange={(valor) => setMotivos((previo) => ({ ...previo, [pedido.id]: valor }))}
+            />
+            <button
+              type="button"
+              disabled={busy || !driverId || motivo.trim().length < 5}
+              onClick={() =>
+                runAction(async () => {
+                  const resultado = await api.assignJob(pedido.id, driverId, motivo.trim());
+                  setMotivos((previo) => ({ ...previo, [pedido.id]: "" }));
+                  setElegidos((previo) => ({ ...previo, [pedido.id]: "" }));
+                  return resultado;
+                }, `${pedido.id} asignado a ${driverId}`)
+              }
+            >
+              Asignar courier
             </button>
           </li>
         );

@@ -92,7 +92,7 @@ La matriz vive en `docs/matriz-madurez.md` y se actualiza en el mismo PR que cam
 | ~~`ci-critical-flows.yml`~~ **hecho** | CI-001 | Pagos, ledger, webhooks, conciliación, KYC, soporte y safety bloquean el merge · **cuarentena vacía desde el 27-08** |
 | ~~Matriz formal de cobertura RLS~~ **hecho** | DAT-001 | 109 tablas clasificadas y con puerta CI; `FORCE ROW LEVEL SECURITY` sigue pendiente |
 | ~~Pruebas negativas por rol~~ **hecho** | DAT-001 | Las cinco tablas de la deuda cerraron el 27-08: `test:rls-matrix` reporta 69 de 69 y `test:rls` afirma las dos mitades de cada una —el rol auditor no ve nada, y el dueño sí ve lo suyo—. Falta acotar los grants por operación |
-| ~~Vitest + Testcontainers~~ **hecho** | CI-001 | `test:authorization` corre sobre Vitest 4.1; `test:runtime-role-shape` crea además PostGIS 17 aislado, aplica las 136 migraciones y bloquea `ci-postgres` |
+| ~~Vitest + Testcontainers~~ **hecho** | CI-001 | `test:authorization` corre sobre Vitest 4.1; `test:runtime-role-shape` crea además PostGIS 17 aislado, aplica las 138 migraciones y bloquea `ci-postgres` |
 
 #### Semana 3 (8–14 de septiembre) — Proveedores reales
 
@@ -107,12 +107,14 @@ La matriz vive en `docs/matriz-madurez.md` y se actualiza en el mismo PR que cam
 
 | Entregable | Ticket | Criterio de cierre |
 | --- | --- | --- |
-| Separación de `src/App.tsx` | ARC-001 | Shell web en 1.274 líneas; cliente delegado y, dentro de él, Wallet, Cuenta, Actividad, Envíos, descubrimiento, restaurante, personalización, carrito/checkout, navegación y los tres trackings tienen límites propios. `CustomerSurface.tsx` queda en 360 líneas. Backoffice: paneles de dinero en `AdminFinancePanels.tsx` |
-| Separación de `apps/mobile/App.tsx` | ARC-001 | Entrypoints customer/driver/merchant independientes; Actividad, tracking, Cuenta, Envíos y Viajes fuera del coordinador customer |
-| Descomposición de `server/index.js` | ARC-001 | Controllers separados de use cases y repositories. **9 de 57 grupos extraídos**; el núcleo compartido está completo, así que lo que queda es repetitivo y no de diseño |
-| ~~Reformateo de archivos comprimidos~~ **hecho** | ARC-001 | Línea máxima 4.061 → 206; quedan 262 líneas largas, casi todas SQL |
+| Separación de `src/App.tsx` | ARC-001 | Shell web de sesión/auth/enrutado; catálogo, carrito, checkout y viajes viven en `useCustomerCommerce`. Cliente HTTP: transporte en `src/api/http.ts`; mapa partido en cuenta/comercio/movilidad/operaciones; el barrel sólo compone. Cliente delegado: Wallet, Cuenta, Actividad, Envíos, descubrimiento, restaurante, personalización, carrito/checkout, navegación y los tres trackings. `CustomerSurface.tsx` queda en 360 líneas. Backoffice: `AdminConsole` es shell. Comercio: `MerchantConsole` es shell. Phone-stage: comercio, conductor y ops en módulos y chunks propios. |
+| Separación de `apps/mobile/App.tsx` | ARC-001 | Entrypoints customer/driver/merchant independientes; Actividad, tracking, Cuenta, Envíos y Viajes fuera del coordinador customer. Merchant App: `MerchantScreen` es shell. Sesión de Comidas en `useCustomerFood`; `CustomerScreen` queda como shell. Cliente HTTP: transporte en `apps/mobile/src/api/http.ts`; mapa partido en cuenta/comercio/movilidad/operaciones; el barrel sólo compone. |
+| Descomposición de `server/index.js` | ARC-001 | Controllers separados de use cases y repositories. **57 de 57 grupos** en routers; `index.js` ~350 líneas (sólo arranque/middleware/montaje) |
+| ~~Reformateo de archivos comprimidos~~ **hecho** | ARC-001 | Línea máxima 4.061 → 206; **0** líneas >200 (bajan de 251); `test:line-length` en cero |
 | ~~Dispatch v2 etapa 1~~ **hecho** | DSP-001 | `ST_DWithin` + KNN recortan candidatos antes del scoring |
-| SLOs documentados | — | Objetivos técnicos de la auditoría publicados y medibles |
+| ~~Dispatch manual Ops~~ **hecho** | DSP-001 | `POST /api/admin/jobs/:id/assign` + panel; motivo/auditoría; `test:postgres` |
+| ~~Stats precomputadas + incidentes~~ **hecho** | DSP-001 | `driver_dispatch_stats` + `incident_score`; Route Matrix sigue bloqueado por API key |
+| ~~SLOs documentados~~ **hecho** | — | `docs/observability.md` + umbral p95 en `test:dispatch-plan`; falta evidencia en prod |
 
 ### Criterios de salida de la Fase 0
 
@@ -120,14 +122,26 @@ La fase no se declara cerrada hasta que **todos** estos puntos sean verificables
 
 - [x] Ningún merge a `main` evita PostgreSQL/PostGIS en CI.
 - [x] Ningún recurso de realtime con entidad desconocida se transmite a todos los roles.
-- [ ] Un push real llega a un dispositivo físico Android y a uno iOS.
-- [ ] Una cotización productiva se calcula con ruta vial de un proveedor comercial.
+- [ ] Un push real llega a un dispositivo físico Android y a uno iOS. **Bloqueo del dueño:** teléfono + credenciales EAS.
+- [ ] Una cotización productiva se calcula con ruta vial de un proveedor comercial. **Código listo** (`distanceSource: road` en prod); falta API key del dueño para evidencia real.
 - [x] La imagen de producción corre como usuario no privilegiado y usa `server/start.js`.
-- [ ] El build de cada variante mobile (customer, driver, merchant) funciona por separado.
-- [ ] Cero credenciales demo en cualquier ambiente desplegado.
+- [x] El build de cada variante mobile (customer, driver, merchant) funciona por separado — `test:mobile-variant-bundles` en `ci-fast`.
+- [ ] Cero credenciales demo en cualquier ambiente desplegado. **Bloqueo del dueño:** falta cuenta GCP / entorno.
 - [x] La suite crítica está verde y es bloqueante, y **la cuarentena está vacía desde el 27 de agosto**.
 - [x] La matriz de madurez está publicada y ningún ítem del README la contradice.
-- [ ] Ningún archivo fuente supera 1.500 líneas ni contiene líneas de más de 200 caracteres.
+- [x] Ningún archivo fuente supera 1.500 líneas ni contiene líneas de más de 200 caracteres. **Líneas >200: cerrado (0). Archivos >1500: cerrado (0)** — `postgres-runtime-smoke.mjs` (4767 → **17** compositor) + `scripts/postgres-runtime/*` (máx. **1218**); `openapi.js` y `store.js` ya partidos. `test:line-length` fija ambos ratchets.
+
+### Bloqueos del dueño (no los puede cerrar el agente)
+
+| Bloqueo | Ticket / criterio | Qué hace falta |
+| --- | --- | --- |
+| Cuenta GCP `southamerica-east1` | Despliegue / cero demo en prod | Crear proyecto y secretos — ver `docs/despliegue.md` |
+| `GOOGLE_MAPS_SERVER_API_KEY` (+ móviles restringidas) | GEO-001 calidad/costo; DSP-001 Route Matrix; cotización vial | API key comercial |
+| Teléfono Android + iOS + credenciales EAS | NOT-001 push físico | Dispositivos y cuenta Expo |
+| Segundo revisor GitHub | CI-001 pagos/seguridad | Otro humano en el repo / `CODEOWNERS` |
+| Credenciales nightly (sandbox proveedores, EAS) + scope `workflow` para cablear `test:k6-local` | CI-001 nightly | Secrets / token Actions del dueño |
+
+Sin esos ítems la app **no puede declararse terminada en producción**; el código y las puertas CI sí pueden seguir cerrando todo lo verificable en el repo.
 
 ---
 
@@ -145,7 +159,7 @@ Demostrar que un pedido completo, con dinero real de sandbox, atraviesa la plata
 
 **Mobile:** app cliente preview · app comercio preview · app driver preview · background GPS probado en varios dispositivos y versiones de sistema operativo · push receipts en producción de prueba · crash reporting.
 
-**Dispatch:** dispatch v2 completo · Route Matrix · prep time del comercio · oleadas de oferta · radio dinámico · protección contra inanición · dispatch manual desde backoffice.
+**Dispatch:** ~~dispatch v2 shortlist/stats/radio/manual/boost~~ **hecho** · Route Matrix (**API key**) · prep time anticipado (**bloqueado** a propósito) · evidencia SLO p95 en prod.
 
 **Operación:** onboarding de comercios · onboarding de drivers · KYC operativo · casos de soporte · chat · evidencia de entrega.
 
@@ -155,12 +169,12 @@ Demostrar que un pedido completo, con dinero real de sandbox, atraviesa la plata
 
 - [ ] Un pedido completo se procesa sin una sola intervención SQL manual.
 - [ ] Un reembolso queda conciliado automáticamente.
-- [ ] Un webhook duplicado no duplica asientos en el ledger.
-- [ ] Dos drivers no pueden tomar el mismo trabajo bajo concurrencia forzada.
-- [ ] Una oferta vencida se reasigna sola.
-- [ ] El driver recibe push con la app cerrada o en background, dentro de las limitaciones documentadas del sistema operativo.
+- [x] Un webhook duplicado no duplica asientos en el ledger — cubierto por suites de pago/idempotencia y el smoke postgres de webhooks (`duplicate: true` en el segundo POST).
+- [x] Dos drivers no pueden tomar el mismo trabajo bajo concurrencia forzada — `test:postgres` y carga concurrente en `test:dispatch-plan`.
+- [x] Una oferta vencida se reasigna sola — DSP-001 / worker de dispatch.
+- [ ] El driver recibe push con la app cerrada o en background, dentro de las limitaciones documentadas del sistema operativo. **Bloqueo del dueño:** dispositivo + EAS.
 - [ ] Operaciones resuelve incidentes íntegramente desde el backoffice.
-- [ ] El restore fue probado y su tiempo real cumple el RTO ≤ 60 minutos.
+- [ ] El restore fue probado y su tiempo real cumple el RTO ≤ 60 minutos. **Avanzado:** `test:restore-drill` en cada PR; falta cronometrar RTO en el entorno real.
 
 ---
 
@@ -298,14 +312,14 @@ Estado al **25 de agosto de 2026**. Se actualiza en el PR que cambia el estado, 
 
 | Ticket | Prioridad | Hallazgo | Estado | Fase |
 | --- | --- | --- | --- | --- |
-| [SEC-001](backlog-tecnico.md#sec-001--realtime-default-deny) | P0 | H-03 | **En curso** | 0 |
+| [SEC-001](backlog-tecnico.md#sec-001--realtime-default-deny) | P0 | H-03 | **Cerrado** | 0 |
 | [CI-001](backlog-tecnico.md#ci-001--pipeline-productivo) | P0 | H-01 | **En curso** | 0 |
 | [ARC-001](backlog-tecnico.md#arc-001--modularización) | P0 | H-08 | **En curso** | 0 |
-| [DAT-001](backlog-tecnico.md#dat-001--matriz-rls-default-deny) | P0 | H-04 | **En curso** | 0 |
-| [INF-001](backlog-tecnico.md#inf-001--imagen-productiva-endurecida) | P0 | H-05 | **En curso** | 0 |
-| [NOT-001](backlog-tecnico.md#not-001--push-real) | P0 | H-02 | **En curso** | 0 |
-| [GEO-001](backlog-tecnico.md#geo-001--proveedor-de-mapas-comercial) | P0 | H-07 | **En curso** | 0 |
-| [DSP-001](backlog-tecnico.md#dsp-001--dispatch-v2) | P0 | H-06 | **En curso** | 0–1 |
+| [DAT-001](backlog-tecnico.md#dat-001--matriz-rls-default-deny) | P0 | H-04 | **Cerrado** | 0 |
+| [INF-001](backlog-tecnico.md#inf-001--imagen-productiva-endurecida) | P0 | H-05 | **Cerrado** | 0 |
+| [NOT-001](backlog-tecnico.md#not-001--push-real) | P0 | H-02 | **Bloqueado por externo** | 0 |
+| [GEO-001](backlog-tecnico.md#geo-001--proveedor-de-mapas-comercial) | P0 | H-07 | **Bloqueado por externo** (API key comercial + calidad/costo) | 0 |
+| [DSP-001](backlog-tecnico.md#dsp-001--dispatch-v2) | P0 | H-06 | **Bloqueado por externo** (Route Matrix + SLO prod) | 0–1 |
 | [PAY-001](backlog-tecnico.md#pay-001--validación-marketplace) | P0 | H-09 | Pendiente | 1 |
 | [MOB-001](backlog-tecnico.md#mob-001--release-engineering) | P0 | — | Pendiente | 1 |
 | [OPS-001](backlog-tecnico.md#ops-001--operación-real) | P1 | — | Pendiente | 2 |
@@ -313,7 +327,7 @@ Estado al **25 de agosto de 2026**. Se actualiza en el PR que cambia el estado, 
 
 ### Detalle de lo que está en curso — 26 de agosto de 2026
 
-> **Las tres puertas están en verde.** 106 de 107 suites detrás de una puerta, 104 bloqueantes. Antes de esta entrega, `main` llevaba en rojo desde el 23 de agosto sin que nadie estuviera bloqueado — la prueba práctica de H-01: una puerta que existe pero no se hace cumplir no protege nada.
+> **Las tres puertas están en verde.** 106 de 109 suites detrás de una puerta, 104 bloqueantes. Antes de esta entrega, `main` llevaba en rojo desde el 23 de agosto sin que nadie estuviera bloqueado — la prueba práctica de H-01: una puerta que existe pero no se hace cumplir no protege nada.
 
 **SEC-001.** El fallback fail-open está eliminado. La política de audiencias vive
 ahora en `server/realtime-audience.js`, un módulo sin dependencias, y una entidad
@@ -324,7 +338,7 @@ merge y se verificó que falla ante el defecto. Falta la verificación de runtim
 contra PostgreSQL y el dashboard de la métrica.
 
 **CI-001.** `ci.yml` se dividió en **cuatro workflows**. La cobertura pasó de
-**15 a 106 de 107 suites** detrás de una puerta, 104 de ellas bloqueantes.
+**15 a 106 de 109 suites** detrás de una puerta, 104 de ellas bloqueantes.
 `ci-critical-flows.yml` levanta la API contra PostgreSQL y
 cubre pagos, conciliación, riesgo, payouts, KYC, vehículos, safety, chat,
 soporte y notificaciones.
@@ -355,7 +369,8 @@ que publica no exagere lo que un PR realmente frena.
 La cuarentena quedó **vacía** el 27 de agosto: `test:support-routing` salió y ya
 bloquea. Su causa anotada era falsa —le faltaba la cabecera `Idempotency-Key`,
 así que nunca llegó a probar el ruteo del que la acusaban—. Del nocturno faltan
-carga k6, sandbox de proveedores y builds EAS —los tres necesitan credenciales—
+carga k6 Cloud / sandbox de proveedores y builds EAS —necesitan credenciales—;
+`test:k6-local` ya está en el repo y falta cablearlo al nocturno (scope `workflow`).
 más el restore drill, que hoy es un script PowerShell.
 
 Cerrar tres de las cuatro suites en cuarentena destapó cuatro defectos reales
@@ -388,12 +403,14 @@ también emite una identidad breve ligada al usuario, persiste proveedor y
 
 Los dos contratos se verifican con `fetch` interceptado, sin credenciales. Eso
 prueba que el contrato es correcto, **no** que un push llegue a un teléfono ni
-cuánto cuesta una consulta de rutas. Esa es la distancia entre `CI` y `PROV`, y
-es lo que queda bloqueado por credenciales de proveedor.
+cuánto cuesta una consulta de rutas. Esa es la distancia entre `CI` y `PROV`.
+GEO-001 y NOT-001 quedan en **Bloqueado por externo** hasta API key comercial /
+dispositivo físico del dueño.
 
-**DSP-001.** La selección pasó a dos etapas y el recorte espacial existe por
-primera vez. Queda medir el plan con `EXPLAIN ANALYZE` sobre un padrón
-sintético, y el ETA vial, que depende de una API key.
+**DSP-001.** Shortlist espacial, KNN, stats precomputadas, radio dinámico,
+assign manual, boost Flash Más y `EXPLAIN ANALYZE`/carga sobre mil conductores
+están hechos y con puerta. Queda ETA vial (API key del dueño) y evidencia del
+SLO p95 en infraestructura productiva — el umbral ya se afirma en CI local.
 
 **ARC-001.** El reformateo mecánico está hecho: la línea más larga bajó de 4.061
 a 206 caracteres y las líneas largas de 1.543 a 262. Antes de eso hubo que
@@ -408,14 +425,16 @@ registro de clientes SSE). El paso 5 cerró el núcleo con
 routers dejaron de ser factories porque ya no queda nada que recibir.
 
 Con el núcleo cerrado, cada grupo nuevo fue una extracción y nada más. **Los 57
-grupos están extraídos**, repartidos en 31 routers, y `server/index.js` bajó de
-9.696 a **873 líneas**: el 91 por ciento.
+grupos están extraídos**, repartidos en routers bajo `server/http/`, y
+`server/index.js` bajó de 9.696 a **~350 líneas**: el 96 por ciento.
 
-En web, `src/App.tsx` bajó a **1.274 líneas** después de extraer el acceso y los
-estados de carga, error y derivación por rol. Las cinco audiencias se cargan por
-separado y el entry inicial se mantiene en 67,7 KiB. En mobile, la presentación
-de Comidas ya está separada por tarea; el siguiente corte vuelve a la mayor
-concentración pendiente de ARC-001, no a sumar condicionales al shell.
+En web, `src/App.tsx` es el shell de sesión, auth y enrutado: catálogo, carrito,
+checkout y viajes viven en `useCustomerCommerce`, y el chrome del phone-stage en
+`AppChrome`. Las cinco audiencias se cargan por separado y el entry inicial se
+mantiene en 67,7 KiB. En mobile, la sesión de Comidas vive en `useCustomerFood`.
+El siguiente corte de ARC-001 ya no son los clientes HTTP (partidos) sino seguir
+subiendo intersecciones al paquete compartido y cualquier monolito que reaparezca;
+no sumar condicionales al shell.
 El primer corte interno web movió Wallet a `src/customer/WalletScreen.tsx`:
 `CustomerSurface.tsx` bajó de 3.794 a **3.720 líneas** y una puerta fija el techo
 en 3.725 sin cambiar la frontera sandbox del dinero.
@@ -451,12 +470,13 @@ overflow a 390 × 844.
 El octavo llevó selector de servicio y navegación inferior a
 `CustomerNavigation.tsx` (85 líneas), conservando flags y una Actividad común.
 `CustomerSurface.tsx` quedó en **360 líneas** con ratchet 375 y sin la importación
-muerta de `FlashMap`. La segmentación del cliente web está cerrada; ARC-001 no,
-porque el paquete compartido y 256 líneas largas heredadas siguen pendientes.
+muerta de `FlashMap`. La segmentación del cliente web está cerrada; ARC-001 sigue
+abierto por el paquete compartido (35 tipos; menú/sucursales ya alineados) — el
+ratchet de líneas >200 y archivos >1500 quedó en cero.
 
-Las 8 rutas que quedan no son dominio: salud, readiness, el documento OpenAPI,
-el bootstrap por audiencia, las dos de métricas, el 410 que retiró `/api/state`
-y el reset de la plataforma. El archivo es hoy el arranque, el middleware y el
+Las rutas de infraestructura viven en routers dedicados (`platform-status`,
+`readiness`, `bootstrap`, `metrics`). `index.js` queda como arranque,
+middleware y montaje, sin handlers de API. El archivo es hoy el arranque, el middleware y el
 montaje —lo que el ticket pedía que fuera—.
 El paso 5 cerró el núcleo con `http/authentication.js` y `fallback-runtime.js`:
 los tres routers dejaron de ser factories porque ya no queda nada que
@@ -504,14 +524,15 @@ propinas; las tres hojas de seguimiento pasaron a
   origen invalida el precio y las maniobras quedan sólo en Driver.
   Comidas se dividió luego en descubrimiento/búsqueda, restaurante/personalización,
   carrito, checkout y pedidos. Los modales de incidencias, devoluciones y siniestros
-  también salieron a un límite tipado. `CustomerScreen.tsx` bajó de 6.241 a 1.321
-  líneas y un contrato fija el techo en 1.350. En web, Wallet salió de
+  también salieron a un límite tipado. `CustomerScreen.tsx` bajó de 6.241 a 908
+  líneas al extraer la sesión de Comidas a `useCustomerFood`; el contrato fija el
+  techo en 950. En web, Wallet salió de
   `CustomerSurface.tsx` a un límite propio y Cuenta siguió a
   `CustomerProfileScreen.tsx`; el coordinador quedó en 3.172 líneas y su ratchet
   en 3.180. También quedó activo un ratchet que impide que el
 problema crezca:
-`test:line-length` fija una línea base vigente de **258 líneas de más de 200
-caracteres en 56 archivos** y sólo admite bajarla.
+`test:line-length` fija una línea base vigente de **0 líneas de más de 200
+caracteres** y sólo admite bajarla (ya no hay margen).
 
 Valores admitidos para **Estado**: `Pendiente` · `En curso` · `Bloqueado por externo` · `Cerrado`.
 

@@ -10,6 +10,7 @@ import { Alert, Linking, Platform } from "react-native";
 
 import { api } from "../api";
 import { getBackgroundLocationState, type BackgroundLocationState } from "../background-location";
+import { explainAndRequestForegroundLocation } from "../locationPermission";
 import { buildExternalNavigationUrl } from "../navigation-links";
 import type {
   AppState,
@@ -229,7 +230,7 @@ export function useDriverShift({
         return;
       }
       setGpsStatus("requesting");
-      const permission = await Location.requestForegroundPermissionsAsync();
+      const permission = await explainAndRequestForegroundLocation({ audience: "driver" });
       if (permission.status !== "granted") {
         setGpsStatus("denied");
         return;

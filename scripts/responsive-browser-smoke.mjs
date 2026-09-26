@@ -103,9 +103,16 @@ async function login(page, url, email, submitLabel) {
     await page.getByPlaceholder("Tu contraseña").fill("demo123");
     await page.getByText("Ingresar", { exact: true }).click();
   } else {
-    await page.getByLabel("Email", { exact: true }).fill(email);
+    // Portada pública ≠ formulario: primero el CTA de la landing.
+    const emailField = page.getByLabel("Email", { exact: true });
+    if (!(await emailField.isVisible().catch(() => false))) {
+      await page.getByRole("button", { name: "Ingresar", exact: true }).first().click();
+    }
+    await emailField.fill(email);
     await page.getByLabel("Contraseña", { exact: true }).fill("demo123");
-    await page.getByText(submitLabel, { exact: true }).click();
+    await page
+      .getByRole("button", { name: submitLabel === "Ingresar" ? "Entrar" : submitLabel })
+      .click();
   }
 }
 

@@ -79,7 +79,16 @@ try {
     await client.query(
       `UPDATE jobs j SET dropoff_address=a.formatted_address,dropoff_location=a.location,distance_m=round(ST_Distance(m.location,a.location)),
       estimated_duration_s=(m.eta_min+greatest(8,ceil(ST_Distance(m.location,a.location)/350)))::int*60,
-      metadata=jsonb_set(jsonb_set(jsonb_set(j.metadata,'{locationEstimated}','false'::jsonb,true),'{deliveryAddressId}',to_jsonb(a.id::text),true),'{etaMin}',to_jsonb((m.eta_min+greatest(8,ceil(ST_Distance(m.location,a.location)/350)))::int),true),updated_at=now()
+      metadata=jsonb_set(
+        jsonb_set(
+          jsonb_set(j.metadata,'{locationEstimated}','false'::jsonb,true),
+          '{deliveryAddressId}',to_jsonb(a.id::text),true
+        ),
+        '{etaMin}',
+        to_jsonb((m.eta_min+greatest(8,ceil(ST_Distance(m.location,a.location)/350)))::int),
+        true
+      ),
+      updated_at=now()
       FROM merchants m,addresses a WHERE j.customer_id=$1 AND j.merchant_id=m.id AND a.user_id=$1 AND a.is_default
         AND j.kind='delivery' AND j.metadata->>'subtype'='food_order'`,
       [user.id],

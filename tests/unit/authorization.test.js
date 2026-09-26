@@ -20,10 +20,6 @@ const { config } = await import("../../server/config.js");
 
 const originalRequireAdminMfa = config.requireAdminMfa;
 
-afterEach(() => {
-  config.requireAdminMfa = originalRequireAdminMfa;
-});
-
 const asUser = ({
   userId = "USR-1",
   roles = [],
@@ -95,6 +91,11 @@ function runMiddleware(middleware, request) {
 }
 
 describe("HTTP authorization", () => {
+  // Vitest 4: hooks tras top-level await deben vivir dentro de `describe`.
+  afterEach(() => {
+    config.requireAdminMfa = originalRequireAdminMfa;
+  });
+
   test("resolves roles and enforces administrative MFA", () => {
     expect(hasRole(anonymous, "customer")).toBe(false);
     expect(hasRole(customer, "customer")).toBe(true);

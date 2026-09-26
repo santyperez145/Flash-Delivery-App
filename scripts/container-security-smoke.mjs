@@ -99,10 +99,9 @@ assert(
 // proceso todavía podía escribir en cualquier parte de su propia imagen.
 //
 // Lo escribible queda declarado y es poco: `/tmp` y `/app/server/data`. El
-// segundo existe porque `server/store.js` abre la base SQLite del respaldo **al
-// importarse**, sin mirar si hay `DATABASE_URL`. Es una consecuencia de cómo
-// arranca el respaldo y no una necesidad del producto: hacer esa inicialización
-// perezosa eliminaría el último punto de escritura.
+// segundo es el volumen del respaldo SQLite cuando no hay `DATABASE_URL`; la
+// apertura es perezosa (importar `store.js` no abre la base). Con PostgreSQL
+// configurado ese fallback no se usa en runtime productivo.
 assert(api?.read_only === true, "el contenedor de la API monta su raíz de sólo lectura");
 assert(
   (api?.tmpfs || []).some((entry) => String(entry).startsWith("/tmp")),

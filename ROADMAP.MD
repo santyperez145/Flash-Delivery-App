@@ -1,3 +1,7 @@
+## Avance 2 de septiembre de 2026 — DSP incident_score
+
+- [x] `incident_score` se calcula desde `ride_safety_incidents` (sin false_alarm) y resta en el score explicable.
+
 # Flash Delivery App Roadmap
 
 > Lineamiento obligatorio para cada entrega: [`docs/product-execution-guidelines.md`](docs/product-execution-guidelines.md). Define investigación competitiva, segmentación, cero hardcodeos productivos, calidad visual, arquitectura, seguridad y definición de terminado.
@@ -25,6 +29,129 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 - [x] **Qué se implementa ahora:** P0 de [`docs/backlog-tecnico.md`](docs/backlog-tecnico.md), empezando por ARC-001 (modularización + contratos). Cada entrega declara contra qué se comparó y dónde Flash sigue por debajo.
 - [ ] **Candidatas post-Fase 0 (no se implementan aún):** FCM/APNs directos, microservicios/Kubernetes HPA, Redis administrado, WebSockets productivos, IA de producto, dinero productivo Mercado Pago, apps EAS en stores. Bloqueo: dueño (credenciales, gasto, dispositivos, staging).
 - [~] Uber/DoorDash ya operan esas capas en producción. Flash las tiene como deuda nombrada; fingirlas en Fase 0 empeora la métrica de la auditoría.
+
+## Avance 2 de septiembre de 2026 — ARC-001, RestaurantSummary compartido
+
+- [x] `DriverSummary` + menú/sucursales/dashboard core en `@flash/domain-contracts` (38 tipos); web/mobile extienden localmente donde diverge.
+- [~] Uber/DoorDash unifican también menú/sucursales. Flash no: `MenuItem`/`extras`/`lat`/`lng` web vs menú inline mobile.
+- [ ] ARC-001 global sigue abierto: menú/sucursales unificados y 251 líneas largas SQL.
+
+## Avance 2 de septiembre de 2026 — ARC-001, núcleo Order compartido
+
+- [x] `OrderItem` y el núcleo `Order` viven en `@flash/domain-contracts` (30 tipos); web extiende con timeline/tarifas; mobile con `cancellation` e ítems alineados al servidor.
+- [~] Uber/DoorDash unifican también `Restaurant`. Flash no este corte: menú, `extras` y sucursales siguen divergentes; `RestaurantSummary` pospuesto; `MerchantOperationsDashboard` sigue local.
+- [ ] ARC-001 global sigue abierto: `Restaurant` en domain-contracts y 251 líneas largas SQL.
+
+## Avance 2 de septiembre de 2026 — ARC-001, User y estados de dominio compartidos
+
+- [x] `User`, `UserRole`, `UserStatus`, `OrderStatus` y `RideStatus` viven en `@flash/domain-contracts`. La forma de `User` es la proyección del servidor (`sanitizeUser`/`mapUser`): phone string, status, email/phone verified. `test:domain-contracts` fija 28 contratos.
+- [~] Uber/DoorDash comparten también Order y Restaurant. Flash no: mobile tiene Order/Restaurant más flojos (ítems opcionales, menú inline); unificarlos ahora mentiría el contrato. `MerchantOperationsDashboard` sigue local por `Restaurant`.
+- [ ] ARC-001 global sigue abierto: Order/Restaurant y 251 líneas largas SQL.
+
+## Avance 2 de septiembre de 2026 — ARC-001, mapa HTTP mobile por dominio
+
+- [x] El cliente de `apps/mobile/src/api.ts` (~1.320) deja timeout y refresh en `http.ts` y parte el mapa en cuenta, comercio, movilidad y operaciones. El barrel (~77) sólo compone y arma el bootstrap; login/restore gatean por la variante instalada. `test:network-resilience` fija techos y las suites de auth/comida/variantes leen el árbol, no una ruta que se vacía.
+- [~] Uber/DoorDash tienen el mismo corte en ambas superficies. Flash ahora también; User ya compartido; sigue por debajo Order/Restaurant.
+- [ ] ARC-001 global sigue abierto: Order/Restaurant y 251 líneas largas SQL.
+
+## Avance 2 de septiembre de 2026 — ARC-001, mapa HTTP web por dominio
+
+- [x] El mapa de `src/api.ts` (~1.539) se parte en cuenta, comercio, movilidad y operaciones. El barrel (~124) sólo compone y arma el bootstrap; `createOrder` reutiliza `quoteFoodCheckout` sin `this`. `test:network-resilience` fija techos y `test:web-checkout` lee la cotización en el árbol web, no en una ruta fija.
+- [~] Uber/DoorDash tienen clientes por dominio también en mobile. Flash ahora también en web y mobile; `User` ya compartido; sigue por debajo Order/Restaurant.
+- [ ] ARC-001 global sigue abierto: Order/Restaurant y 251 líneas largas SQL.
+
+## Avance 2 de septiembre de 2026 — ARC-001, transporte HTTP web
+
+- [x] Timeout, refresh de sesión y SSE salen de `src/api.ts` a `src/api/http.ts`. El mapa de recursos queda en el barrel; `test:network-resilience` fija techo 280 y lee el transporte, no la ruta vieja.
+- [~] Uber/DoorDash tienen clientes por dominio. Flash ahora separa red de recursos en web y mobile; `User` ya compartido; sigue por debajo Order/Restaurant.
+- [ ] ARC-001 global sigue abierto: Order/Restaurant y 251 líneas largas SQL.
+
+## Avance 2 de septiembre de 2026 — INF-001, SQLite perezoso
+
+- [x] `server/store.js` abre la base de respaldo sólo en el primer acceso real. Con PostgreSQL, importar el módulo ya no obliga a `/app/server/data` escribible.
+- [~] Uber/DoorDash no abren un SQLite de demo al importar el proceso de pagos. Flash deja de hacerlo.
+- [ ] El volumen Compose se conserva para el fallback y para la corrida CI sin `DATABASE_URL`.
+
+## Avance 2 de septiembre de 2026 — estilos bajo 1500 + bloqueos dueño
+
+- [x] `src/styles.css` queda en **1385** líneas (`pricing.css` extraído). Estilos mobile todos ≤1500.
+- [x] Inventario de bloqueos del dueño en `docs/plan-de-accion.md` (GCP, Maps, EAS, 2º revisor).
+- [x] `server/openapi.js` (2949 → compositor **12**) + `server/openapi/*` (máx. **1183** `schemas-domains.js`); tags partidos por dominio.
+- [x] `server/store.js` (2212 → **1198**) + `store-schema.js` **380** + `store-seed.js` **639**; Proxy/lazy DB intacto.
+- [x] `scripts/postgres-runtime-smoke.mjs` (4767 → compositor **17**) + `scripts/postgres-runtime/*` (máx. **1218** `suite-shipments-finance-support.mjs`); cuatro suites + `context.mjs` + `cleanup.mjs`; orden y aserciones intactos.
+
+## Avance 2 de septiembre de 2026 — GEO budget + split styles + file ratchet
+
+- [x] Presupuesto de mapas visible en `/metrics` con alerta al 80%; fallback stale auditable (`stale_fallback` + `maps.stale_fallback`).
+- [x] Primer corte de `src/styles.css` (−516 → `commerce-ops.css`); ratchet de archivos >1500 vía `test:line-length`.
+- [x] Segundo corte ARC-001: `styles.css` 7.288 → **5.636** (−1.649 a `phone-stage.css`, `admin-ops.css`, `merchant-desktop.css`); `apps/mobile/src/styles.ts` 4.652 → **4.175** con `styles/merchant.ts`; baseline ratchet **21.868 → 19.739**.
+- [x] Tercer corte ARC-001: `styles.css` 5.636 → **3.629** (−2.007 a `customer-food.css`, `ride-mobility.css`); `apps/mobile/src/styles.ts` 4.175 → **584** con `styles/customer.ts` y `styles/driver.ts` (compositor + spreads).
+- [x] Cuarto corte ARC-001: `styles.css` 3.629 → **1.605** (−2.024 a `admin-shell.css`, `merchant-ops-detail.css`); `customer.ts` 2.495 → compositor **12** + `customer-food.ts` **913**, `customer-account.ts` **850**, `customer-tracking.ts` **746** (ningún módulo mobile >1500).
+- [x] Criterios de salida Fase 0 actualizados: variantes mobile, líneas >200 y archivos >1500 cerrados (ratchet **0**).
+- [~] Uber/DoorDash no mezclan CSS de 7k líneas ni tarifas sin presupuesto de mapas. Flash baja el techo.
+- [ ] Bloqueos dueño: API key mapas, EAS/teléfonos, GCP, segundo revisor.
+
+## Avance 2 de septiembre de 2026 — DOC-001, prosa vs runtime
+
+- [x] `investor-readiness` y `deployment-checklist` alineados con DAT/INF/NOT/GEO. `test:docs-drift` ahora corta frases no numéricas ya desmentidas.
+- [x] SEC-001, DAT-001 e INF-001 pasan a **Cerrado** en el plan; NOT-001 a **Bloqueado por externo** (dispositivo/EAS).
+- [~] Uber/DoorDash no publican checklists que contradicen su propio CI. Flash cierra H-10 en los dos docs nombrados.
+- [ ] ARC-001 sigue con Order/Restaurant locales; CI-001 espera segundo revisor y credenciales nightly.
+
+## Avance 2 de septiembre de 2026 — ARC-001, ratchet de líneas largas a cero
+
+- [x] SQL partido en tip/risk/zone/catalog/openapi, mobility/operations/order, resto de repos server, router/index y smokes `scripts/`. Líneas >200: **251 → 0**; `test:line-length` fija el techo.
+- [~] Uber/DoorDash no publican SQL monolítico en un solo renglón. Flash cierra el criterio H-08 de longitud de línea.
+- [ ] ARC-001 global sigue abierto: Order/Restaurant en domain-contracts.
+
+## Avance 2 de septiembre de 2026 — portada pública sin login embebido
+
+- [x] La landing (`PublicLanding`) es hero a sangre + servicios Flash; el formulario vive en `WebLogin` aparte. CTA «Ingresar» / «Ingresar a Flash» abre el acceso. Sin password en la portada, sin cotizador anónimo.
+- [~] Uber cotiza sin cuenta y tiene ciudades/stores. Flash no: falta quote pública y cobertura real. Inventarlo mentiría el producto.
+- [ ] **Candidata post-Fase 0:** SEO, ciudades reales, badges de store, FoodWagon.
+
+## Avance 2 de septiembre de 2026 — portada pública al patrón Uber
+
+- [x] La superficie de acceso (`WebLogin`) pasa a nav + titular + ingreso real, como uber.com. No hay pickup/dropoff anónimo ni ciudades/comercios de demostración; el CTA es autenticarse.
+- [~] Uber cotiza un viaje sin cuenta. Flash no: falta quote pública, cobertura por zona y stores. Inventarlo en Fase 0 mentiría el producto.
+- [ ] **Candidata post-Fase 0:** landing de adquisición (SEO, ciudades reales, badges de store, FoodWagon). No se implementa hasta cerrar P0.
+
+## Avance 2 de septiembre de 2026 — ARC-001, sesión de comercio web
+
+- [x] `src/App.tsx` (~1.283) deja catálogo, carrito, checkout firmado y cotización de viaje en `useCustomerCommerce`; el chrome del phone-stage vive en `AppChrome`. El entry queda como sesión, auth y enrutado; `test:responsive-layout` fija techo 720 y `test:web-ride-home` vigila el origen geocodificado en el hook.
+- [~] Uber Eats y Uber Rides separan la máquina de estado de pedir del shell de plataforma. Flash ahora también en web; el mapa HTTP ya está partido en web y mobile; `User` ya compartido; sigue por debajo Order/Restaurant.
+- [ ] ARC-001 global sigue abierto: unificar tipos divergentes y 251 líneas largas SQL.
+
+## Avance 2 de septiembre de 2026 — ARC-001, sesión de Comidas mobile
+
+- [x] `CustomerScreen` (~1.321) deja la máquina de estado de Comidas en `useCustomerFood` (catálogo, favoritos, carrito persistido, quote firmada, propina, horario, grupo y checkout). El coordinador conserva verticales, Actividad, Cuenta y tracking; `test:mobile-food-design` y `test:responsive-layout` bajan el techo a 950.
+- [~] Uber Eats separa catálogo, carrito y checkout firmado del shell de cuenta. Flash ahora también en mobile; sigue por debajo sin POS, prep-time por ítem, evidencia fotográfica de faltantes ni push físico.
+- [ ] ARC-001 global sigue abierto: unificar tipos divergentes y 251 líneas largas SQL.
+
+## Avance 2 de septiembre de 2026 — ARC-001, Cuenta mobile por responsabilidad
+
+- [x] `CustomerAccountScreen` (1.079) queda como shell (~220). Seguridad, referidos, dieta, inbox, soporte, libreta y pagos viven en módulos propios; `test:responsive-layout` fija techo y cableado.
+- [~] Uber y DoorDash aíslan security/payments/addresses/help. Flash ahora también en mobile; sigue por debajo sin techo CI de cada panel ni unificar tipos divergentes.
+- [ ] ARC-001 global sigue abierto: unificar tipos divergentes y 251 líneas largas SQL.
+
+## Avance 2 de septiembre de 2026 — ARC-001, phone-stage por audiencia
+
+- [x] `OperationsSurface` (941) deja de mezclar comercio, conductor y ops. Cada audiencia es un módulo y `App.tsx` las carga en chunks separados; primitivas compartidas viven en `ops-primitives.tsx`.
+- [~] Uber/DoorDash empaquetan apps por audiencia. Flash ahora también en el phone-stage web; sigue por debajo sin techo de bundle por chunk ni el corte de `CustomerAccountScreen`.
+- [ ] ARC-001 global sigue abierto: unificar tipos divergentes y 251 líneas largas SQL.
+
+## Avance 2 de septiembre de 2026 — ARC-001, Merchant App por responsabilidad
+
+- [x] `MerchantScreen` (~982) queda como shell de nav/polling. Hoy, Pedidos, Catálogo, Cuenta y el detalle/sustitución viven en módulos propios; `test:merchant-operations-ui` fija techos.
+- [~] DoorDash Business Manager / Uber Eats Manager aíslan Home, live orders, menú y 86-item. Flash ahora también en mobile; sigue por debajo sin POS, prep-time por ítem ni evidencia fotográfica de faltantes.
+- [ ] ARC-001 global sigue abierto: unificar tipos divergentes y 251 líneas largas SQL.
+
+## Avance 2 de septiembre de 2026 — ARC-001, consola de comercio por responsabilidad
+
+- [x] `MerchantConsole` (1.282) queda como shell de nav/polling (~270). Cocina, detalle/sustituciones, catálogo, sucursales, analítica, pulso y liquidaciones viven en módulos propios; `test:merchant-operations-ui` fija techos.
+- [~] DoorDash Merchant Portal / Uber Eats Manager aíslan live orders, 86-item, menú, store hours y payouts. Flash ahora también; sigue por debajo sin POS, prep-time por ítem ni liquidación productiva (PAY-001).
+- [x] Microservicios: **no** en este corte. Uber/DoorDash a esta altura operaban monolito modular + workers. Candidata post-Fase 0 en la decisión del 2-09.
+- [ ] ARC-001 global sigue abierto: unificar tipos divergentes y 251 líneas largas SQL.
 
 ## Avance 2 de septiembre de 2026 — ARC-001, partir paneles de soporte del backoffice
 
@@ -150,7 +277,7 @@ Pedido del dueño: cablear absolutamente todo para uso real, con automatizacione
 - [x] 20 tipos byte-a-byte idénticos y autocontenidos entre web y mobile viven en `packages/domain-contracts` (`@flash/domain-contracts`); `src/types.ts` y `apps/mobile/src/types.ts` los importan y reexportan sin redefinir el cuerpo.
 - [x] `MerchantOperationsDashboard` permanece local: su texto era idéntico, pero referencia `Restaurant`, que diverge entre superficies.
 - [x] Root y mobile declaran la dependencia `file:`; Metro observa el paquete; `test:domain-contracts` bloquea el merge junto a typecheck web/móvil.
-- [~] Uber Eats y DoorDash mantienen un modelo de dominio único entre superficies. Flash comparte el núcleo idéntico, pero sigue por debajo sin unificar User/Order/Restaurant ni el resto de divergencias reales.
+- [~] Uber Eats y DoorDash mantienen un modelo de dominio único entre superficies. Flash comparte `User` y 27 tipos más; sigue por debajo sin unificar Order/Restaurant.
 - [ ] ARC-001 global sigue abierto: unificar tipos divergentes, 251 líneas largas SQL y concentraciones restantes (AdminConsole, DriverScreen).
 
 ## Avance 2 de septiembre de 2026 — ARC-001 pendiente y cierre de IDOR de soporte
@@ -288,6 +415,14 @@ Pedido del dueño: cablear absolutamente todo para uso real, con automatizacione
 - [x] `test:maps` y `test:postgres` prueban token de otro usuario, campos manipulados, ausencia de validación y checkout legacy contra PostgreSQL/PostGIS real.
 - [~] Producción exige proveedor comercial y `place_id`, pero la calidad, deliverability y costo reales siguen bloqueados por una API key habilitada. Google Address Validation todavía no está integrado ni debe presentarse como tal.
 
+## Avance 2 de septiembre de 2026 — GEO-001, distancia vial en cotizaciones
+
+- [x] `server/maps-route-service.js` centraliza `resolveDrivingRoute`, circuit breaker compartido y `resolveQuoteDistanceKm`.
+- [x] Cotizaciones de comida, viaje y envío usan routing vial cacheado en producción o con proveedor comercial; desarrollo OSM conserva `geodesic_scaled` en `distanceSource`.
+- [x] `test:maps-provider` verifica que producción rechaza geodésica como fallback tarifario.
+- [x] Presupuesto visible en Prometheus (`flash_map_provider_budget_*`) con alerta al 80% y fallback envejecido auditable (`noteStaleFallback`, `maps.stale_fallback`).
+- [~] Calidad real de rutas, costo por consulta y Route Matrix productivo siguen bloqueados por API key habilitada.
+
 ## Avance 26 de agosto de 2026 — ARC-001 pasos 2 a 16, servidor y frente
 
 Entregas novena a decimoquinta de la Fase 0. El paso 2 quedó sin registrar acá cuando se publicó, así que esta sección cubre los siete.
@@ -322,7 +457,7 @@ La suite además afirma que **el propio módulo no vuelve a depender de la base*
 
 El primer límite de integración estándar también quedó activo: la segunda mitad de
 `test:runtime-role-shape` crea PostGIS 17 desde Docker, replica los tres roles de producción y
-aplica las 136 migraciones desde cero. Corre dentro de `ci-postgres`, así que una prueba que sólo
+aplica las 138 migraciones desde cero. Corre dentro de `ci-postgres`, así que una prueba que sólo
 funcionara sobre la base preparada a mano por el workflow ya no podría satisfacer por sí sola el
 criterio.
 
@@ -573,10 +708,11 @@ Séptima entrega de la Fase 0. Cierra el núcleo del hallazgo [H-06](docs/audito
 - [x] **El punto de pickup entra como parámetro, no como columna de un join.** El planificador sólo usa el índice para KNN cuando un operando es constante; si viniera de un join, el recorte existiría en el texto y no en el plan.
 - [x] **Radio dinámico con protección contra inanición.** Un radio fijo deja trabajos sin ofrecer en zonas de baja densidad. La escalera duplica de 8 km a 25 km, y sólo si la lista corta no alcanza. El radio usado y si hubo expansión quedan en `score_breakdown`: una zona que necesita expandir es visible en lugar de degradar en silencio.
 - [x] `test:dispatch-candidates` incluye una **regresión sobre el hallazgo original**, cuya evidencia fue exactamente la ausencia de ambos operadores.
-- [ ] **`EXPLAIN ANALYZE` con padrón sintético de al menos 1.000 conductores.** El contrato prueba la forma de la consulta; el plan hay que medirlo.
+- [x] **`EXPLAIN ANALYZE` con padrón sintético de al menos 1.000 conductores.** `test:dispatch-plan` explica la consulta real e impone el índice GiST; carga concurrente (`dispatch-load-smoke.mjs` vía `test:dispatch-plan`) ejerce tráfico concurrente sobre el mismo padrón.
+- [ ] **Primera oferta p95 < 5 s en producción.** carga concurrente (`dispatch-load-smoke.mjs` vía `test:dispatch-plan`) afirma el umbral en CI sobre PostgreSQL local; falta evidencia desplegada y Route Matrix en el scoring.
 - [ ] **ETA vial por Route Matrix.** `computeRouteMatrix()` existe y está verificado; falta conectarlo al scoring y **depende de una API key**.
-- [ ] **Stats precomputadas.** Con la lista corta, el historial de 30 días quedó acotado a 30 conductores: dejó de ser corrección para pasar a ser optimización.
-- [ ] Prep time del comercio y dispatch manual desde backoffice.
+- [x] **Stats precomputadas (`driver_dispatch_stats`).** Migración 137 · refresh out-of-band · scoring sin agregado lateral de 30 días · `test:dispatch-candidates`.
+- [x] Dispatch manual desde backoffice (`POST /api/admin/jobs/:id/assign`). Prep-time anticipado bloqueado hasta separar máquinas cocina/logística.
 
 ## Avance 26 de agosto de 2026 — tres de cuatro suites fuera de cuarentena
 
@@ -749,6 +885,11 @@ Pedido de producto: cerrar paridad competitiva con pantallas/admin/config “com
 - [ ] Multi-comercio en un pedido; grocery/kiosco; Destination Mode; CarPlay/Android Auto.
 - [ ] Marketing desktop; personalización con consentimiento; B2B/centros de costo.
 - [ ] KYC biométrico automatizado; playbook de segunda ciudad.
+- [ ] **ETA con banda de confianza compartida** (cliente ↔ comercio ↔ courier): intervalo p50–p90
+  con Route Matrix + prep real del local, degradación honesta sin API key. Medido contra
+  Uber Eats/DoorDash (ETA ranges). Flash hoy muestra punto ETA. **No en freeze** — GEO/DSP/PROV.
+- [ ] **Cocina predictiva solo con telemetría de máquinas** (no heurística falsa): alinea con el
+  bloqueo deliberado de prep anticipado en DSP; candidato post-proveedor cocina.
 
 **Comparación:** Uber/DoorDash/PedidosYa ya tratan POS, personalización, multi-store y safety 24/7 como producto core. Flash tiene el esqueleto de marketplace + admin; queda por debajo en habilitaciones productivas y profundidad operativa, no en “falta de shell”. Inventar pantallas nuevas ahora empeora exactamente la métrica de la auditoría: más superficie de la que se puede validar.
 
@@ -1125,7 +1266,7 @@ Decisión competitiva: se adopta una bandeja transaccional persistente y prefere
 
 1. [x] **SEC-001:** Todos los consumidores y suites componen recursos segmentados. `/api/me` concentra sólo contexto propio; operaciones usa recursos paginados, configuración usa contratos cacheables y `/api/state` responde `410 Gone`.
 2. [~] **TST-001:** escaneo CI de secretos y gate de dependencias críticas activos; Mercado Pago prueba idempotencia, respuestas mínimas, red, rate limit y errores sanitizados. Faltan contratos de mapas/push y caos sobre infraestructura externa.
-3. [~] **MOB-001:** perfiles EAS Customer, Driver y Merchant, IDs/schemes separados, role gate y permisos mínimos por build listos; faltan credenciales, asociación EAS y builds físicos firmados.
+3. [~] **MOB-001:** perfiles EAS Customer, Driver y Merchant, IDs/schemes separados, role gate, permisos mínimos por build y rationale in-app de ubicación foreground listos; faltan credenciales, asociación EAS, builds físicos firmados y ensayo de background location.
 4. [~] **OBS-001:** OpenTelemetry OTLP instrumenta HTTP/Express/PostgreSQL; CI verifica exportación, SLO/error budget y alertas Prometheus con runbooks. Faltan colector/dashboards/Alertmanager administrados y paging productivo.
 5. [~] **P1-09:** entidad ciudad, asociaciones obligatorias, índices, Buenos Aires beta y contrato público/zonas aislado implementados; faltan RLS transversal por ciudad y playbook antes de habilitar una segunda ciudad.
 6. [ ] **Externos:** PSP, FCM/APNs, staging, seguros y habilitaciones; nunca simular su finalización.

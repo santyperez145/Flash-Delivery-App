@@ -18,7 +18,7 @@ import {
   getPostgresRideDestinations,
   recordPostgresRideDestination,
 } from "../destination-repository.js";
-import { recordPostgresAudit } from "../operations-repository.js";
+import { recordPostgresAudit } from "../audit-repository.js";
 import {
   createPostgresTrustedContact,
   deletePostgresTrustedContact,

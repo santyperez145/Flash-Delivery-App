@@ -153,7 +153,10 @@ export async function updateDriverVehicle({ vehiclePublicId, actorPublicId, role
     };
     assertCompatible(next);
     await client.query(
-      `UPDATE vehicles SET kind=$2,model=$3,plate=$4,color=$5,seats=$6,service_modes=$7::job_kind[],status='pending',rejection_reason=NULL,reviewed_by=NULL,reviewed_at=NULL,updated_at=now() WHERE id=$1`,
+      `UPDATE vehicles SET kind=$2, model=$3, plate=$4, color=$5, seats=$6,
+         service_modes=$7::job_kind[], status='pending', rejection_reason=NULL,
+         reviewed_by=NULL, reviewed_at=NULL, updated_at=now()
+       WHERE id=$1`,
       [
         current.id,
         next.kind,

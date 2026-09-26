@@ -1,4 +1,4 @@
-import { processSupportQueue } from "../server/operations-repository.js";
+import { processSupportQueue } from "../server/support-agent-repository.js";
 import { closePostgres } from "../server/postgres.js";
 
 let stopping = false;

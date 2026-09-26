@@ -1,8 +1,11 @@
 // Contratos de dominio idénticos entre web y mobile (ARC-001 paso 6).
 //
-// Sólo entran tipos byte-a-byte iguales y autocontenidos. User, Order,
-// Restaurant y el resto de divergencias reales se unifican en entregas
-// posteriores; reexportar una mentira compartida sería peor que duplicar.
+// Sólo entran tipos byte-a-byte iguales y autocontenidos, o la intersección /
+// proyección autoritativa del servidor cuando ambas superficies ya la consumen.
+// `Order`/`OrderItem`, `RestaurantSummary`, `MenuItemSummary`, `RestaurantBranch`,
+// `DriverSummary`/`DriverServiceMode` y `MerchantOperationsDashboardCore` son
+// núcleos compartidos; web/mobile extienden con vitrina, GPS KYC o `Restaurant`
+// local. Extras del comercio siguen locales (sólo web).
 
 export type DietaryPreferences = {
   dietaryLabels: Array<{ code: string; name: string }>;
@@ -190,6 +193,12 @@ export type DispatchScoreBreakdown = {
   responsePoints: number;
   acceptanceRate: number;
   averageResponseSeconds: number;
+  /** Penalización por incidentes reales (no false_alarm) en 30 días. */
+  incidentPenalty?: number;
+  /** Radio espacial usado en la oleada (metros). */
+  searchRadiusM?: number;
+  /** True si el radio se expandió respecto del configurado. */
+  radiusExpanded?: boolean;
 };
 
 export type MerchantOperationsMetrics = {
@@ -206,6 +215,27 @@ export type MerchantOperationsMetrics = {
   grossSalesToday: number;
   averageTicketToday: number;
   unavailableItems: number;
+};
+
+/**
+ * Núcleo del dashboard merchant sin `restaurant` tipado (ARC-001).
+ * Web/mobile lo extienden con su `Restaurant` local todavía divergente.
+ */
+export type MerchantOperationsDashboardCore = {
+  generatedAt: string;
+  source: "postgres-live-operations" | "sqlite-test-fallback";
+  timezone: string;
+  restaurantId: string;
+  branch: null | {
+    id: string;
+    name: string;
+    timezone: string;
+    open: boolean;
+    manualOpen: boolean;
+    status: "active" | "paused" | "closed";
+    etaMin: number;
+  };
+  metrics: MerchantOperationsMetrics;
 };
 
 export type SubscriptionPlan = {
@@ -312,4 +342,374 @@ export type DispatchOffer = {
   scoreBreakdown?: DispatchScoreBreakdown;
   expiresAt: string;
   status: "pending";
+};
+
+/** Roles del enum PostgreSQL `user_role`. No incluye roles inventados en OpenAPI. */
+export type UserRole = "customer" | "merchant" | "driver" | "admin" | "support";
+
+/** Estado de cuenta en `users.status`. */
+export type UserStatus = "active" | "suspended" | "pending";
+
+/**
+ * Proyección pública de usuario (`sanitizeUser` / `mapUser`).
+ *
+ * Incluye lo que el servidor expone tras quitar hash, id interno y lock de
+ * login. `phone` es string (puede ser vacío); la verificación vive aparte.
+ */
+export type User = {
+  id: string;
+  name: string;
+  email: string;
+  roles: UserRole[];
+  phone: string;
+  wallet: number;
+  defaultAddress?: string;
+  restaurantId?: string;
+  driverId?: string;
+  status?: UserStatus;
+  emailVerifiedAt?: string | null;
+  phoneVerifiedAt?: string | null;
+};
+
+/** Ciclo de cocina / entrega de un pedido de comida. */
+export type OrderStatus =
+  | "requested"
+  | "accepted"
+  | "preparing"
+  | "ready_for_pickup"
+  | "courier_assigned"
+  | "picked_up"
+  | "delivering"
+  | "delivered"
+  | "cancelled";
+
+/** Línea de pedido tal como la devuelve el servidor tras checkout/cocina. */
+export type OrderItem = {
+  menuItemId: string;
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  extras: string[];
+  note: string;
+};
+
+/** Núcleo compartido de un pedido de comida entre web y mobile. */
+export type Order = {
+  id: string;
+  customerId: string;
+  restaurantId: string;
+  branchId?: string | null;
+  courierId: string | null;
+  status: OrderStatus;
+  deliveryAddress: string;
+  pickupLocation?: GeoPoint | null;
+  deliveryLocation?: GeoPoint | null;
+  paymentMethod?: string;
+  /** Horario reservado. `null` es «lo antes posible». */
+  scheduledFor?: string | null;
+  total: number;
+  etaMin: number;
+  createdAt?: string;
+  items: OrderItem[];
+};
+
+/**
+ * Modo de servicio del conductor — idéntico en web y mobile.
+ */
+export type DriverServiceMode = "delivery" | "ride";
+
+/**
+ * Núcleo de conductor compartido (ARC-001).
+ * Mobile añade vehículo KYC y frescura GPS (source/accuracy).
+ */
+export type DriverSummary = {
+  id: string;
+  userId: string;
+  name: string;
+  online: boolean;
+  serviceModes: DriverServiceMode[];
+  activeService: DriverServiceMode;
+  vehicle: string;
+  plate: string;
+  rating: number;
+  earningsToday: number;
+  location: GeoPoint & {
+    label: string;
+    updatedAt?: string | null;
+  };
+};
+
+/**
+ * Vehículo KYC del conductor — idéntico en web (ops) y mobile (cuenta).
+ */
+export type DriverVehicle = {
+  id: string;
+  driverId: string;
+  kind: "bicycle" | "motorcycle" | "car" | "van";
+  model: string;
+  plate: string;
+  color: string | null;
+  seats: number | null;
+  serviceModes: DriverServiceMode[];
+  active: boolean;
+  status: "pending" | "approved" | "rejected";
+  rejectionReason: string | null;
+  reviewedAt: string | null;
+  retiredAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/**
+ * Ítem de catálogo: intersección operativa web/mobile (ARC-001).
+ * Web añade rating/ETA/kcal/imagen/tags; mobile consume el núcleo.
+ */
+export type MenuModifier = {
+  id: string;
+  name: string;
+  price: number;
+  available: boolean;
+};
+
+export type MenuModifierGroup = {
+  id: string;
+  name: string;
+  min: number;
+  max: number;
+  required: boolean;
+  modifiers: MenuModifier[];
+};
+
+export type MenuItemSummary = {
+  id: string;
+  name: string;
+  price: number;
+  stock: boolean;
+  description?: string;
+  category?: string;
+  modifierGroups?: MenuModifierGroup[];
+  dietaryLabels?: Array<{ code: string; name: string }>;
+  allergens?: Array<{
+    code: string;
+    name: string;
+    presence: "contains" | "may_contain";
+  }>;
+};
+
+/** Sucursal con horario e inventario por ítem — idéntica en web y mobile. */
+export type RestaurantBranch = {
+  id: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  open: boolean;
+  manualOpen: boolean;
+  status: "active" | "paused" | "closed";
+  etaMin: number;
+  isPrimary: boolean;
+  timezone: string;
+  weeklyHours: Array<{
+    weekday: number;
+    opensAt: string;
+    closesAt: string;
+    enabled: boolean;
+  }>;
+  scheduleExceptions: Array<{
+    date: string;
+    isOpen: boolean;
+    opensAt: string | null;
+    closesAt: string | null;
+    reason: string | null;
+  }>;
+  inventory: Record<string, { available: boolean; stockQuantity: number | null; version: number }>;
+};
+
+/**
+ * Proyección de restaurante compartida entre web y mobile (listados, cards, quote).
+ *
+ * Menú/sucursales: `MenuItemSummary` y `RestaurantBranch`. Web añade extras,
+ * coordenadas y campos de vitrina del ítem; mobile usa el núcleo del menú.
+ */
+export type RestaurantSummary = {
+  id: string;
+  ownerId: string;
+  name: string;
+  cuisine: string;
+  rating: number;
+  etaMin: number;
+  deliveryFee: number;
+  open: boolean;
+  manualOpen?: boolean;
+  address: string;
+  image: string;
+  cover: string;
+  badge: string;
+  distanceKm: number;
+};
+
+/** Ciclo de un viaje. */
+export type RideStatus =
+  | "requested"
+  | "driver_assigned"
+  | "arriving"
+  | "in_progress"
+  | "completed"
+  | "cancelled";
+
+/** Nivel de servicio de un viaje — idéntico en web y mobile. */
+export type RideService = "economy" | "comfort" | "moto" | "xl";
+
+/**
+ * Núcleo de viaje compartido (ARC-001).
+ * Web añade pago, createdAt y timeline; mobile añade cancelación.
+ */
+export type RideSummary = {
+  id: string;
+  customerId: string;
+  driverId: string | null;
+  status: RideStatus;
+  service: RideService;
+  pickup: string;
+  destination: string;
+  pickupLocation?: GeoPoint | null;
+  destinationLocation?: GeoPoint | null;
+  distanceKm: number;
+  etaMin: number;
+  durationMin: number;
+  fare: number;
+  scheduledFor?: string | null;
+};
+
+/** Ciclo de un envío. */
+export type ShipmentStatus =
+  | "requested"
+  | "driver_assigned"
+  | "arriving"
+  | "picked_up"
+  | "delivering"
+  | "delivered"
+  | "cancelled";
+
+export type ShipmentPackageSize = "small" | "medium" | "large";
+export type ShipmentProtection = "none" | "standard";
+export type ShipmentItemCategory = "documents" | "standard" | "fragile" | "electronics";
+export type ShipmentServiceLevel = "economy" | "standard" | "priority" | "express";
+
+/**
+ * Núcleo de envío compartido (ARC-001).
+ * Mobile añade cancelación de servicio; el resto es byte-a-byte.
+ */
+export type ShipmentSummary = {
+  id: string;
+  customerId: string;
+  driverId: string | null;
+  status: ShipmentStatus;
+  pickup: string;
+  destination: string;
+  pickupLocation?: GeoPoint | null;
+  destinationLocation?: GeoPoint | null;
+  recipientName: string;
+  recipientPhone: string;
+  packageSize: ShipmentPackageSize;
+  description: string;
+  weightKg: number;
+  deliveryNotes: string;
+  declaredValue?: number;
+  protection?: ShipmentProtection;
+  protectionPremium?: number;
+  signatureRequired?: boolean;
+  itemCategory?: ShipmentItemCategory;
+  serviceLevel?: ShipmentServiceLevel;
+  handlingInstructions?: string;
+  distanceKm: number;
+  etaMin: number;
+  fare: number;
+  deliveryPin?: string;
+  deliveryEvidenceCount?: number;
+  deliveryVerifiedAt?: string | null;
+  timeline?: Array<{ status: string; at: string }>;
+};
+
+/** Vertical de producto — idéntico en web y mobile. */
+export type VerticalService = "food" | "ride" | "shipment";
+
+/**
+ * Promoción comercial compartida (ARC-001).
+ * Mobile añade ventana startsAt/endsAt.
+ */
+export type PromotionSummary = {
+  id: string;
+  code?: string;
+  title: string;
+  description: string;
+  service: VerticalService;
+  discountPercent: number;
+  kind?: "percentage" | "fixed" | "free_delivery" | "wallet_credit";
+  value?: number;
+  maxDiscount?: number;
+  minSubtotal?: number;
+  active: boolean;
+};
+
+/** Periodo de ganancias del conductor — idéntico web/mobile (ARC-001). */
+export type DriverEarningsPeriod = {
+  amount: number;
+  serviceEarnings: number;
+  tips: number;
+  adjustments: number;
+  services: number;
+  onlineSeconds: number | null;
+  activeSeconds: number | null;
+  periodStart: string;
+  periodEnd: string;
+};
+
+export type DriverEarningsDay = Omit<DriverEarningsPeriod, "periodStart" | "periodEnd"> & {
+  date: string;
+};
+
+/**
+ * Liquidación operativa del conductor (Uber/DoorDash: earnings dashboard).
+ * `cashout.not_configured` es honesto hasta PAY/payout productivo.
+ */
+export type DriverEarnings = {
+  driverId: string;
+  currency: "ARS";
+  timezone: string;
+  source: "postgres-ledger" | "sqlite-test-fallback";
+  walletBalance: number;
+  today: DriverEarningsPeriod;
+  week: DriverEarningsPeriod;
+  days: DriverEarningsDay[];
+  recent: Array<{
+    id: string;
+    category: "food" | "ride" | "shipment" | "tip" | "adjustment";
+    jobId: string | null;
+    description: string;
+    amount: number;
+    createdAt: string;
+  }>;
+  timeTracking:
+    | { status: "available"; source: "postgres-operational-sessions"; observedAt: string }
+    | { status: "unavailable"; reason: "postgres_required" };
+  cashout: { status: "not_configured"; reason: "external_payout_provider_required" };
+};
+
+/** Sesión de cuenta listable (refresh) — idéntico web/mobile. */
+export type AccountSession = {
+  id: string;
+  deviceName: string;
+  createdAt: string;
+  expiresAt: string;
+};
+
+/** Movimiento de Flash Wallet en historial de cliente. */
+export type WalletTransaction = {
+  id: string;
+  userId: string;
+  kind: string;
+  amount: number;
+  description: string;
+  createdAt: string;
 };

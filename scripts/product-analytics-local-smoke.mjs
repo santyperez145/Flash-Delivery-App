@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { spawn } from "node:child_process";
-import { deleteLocalProductEvents } from "../server/store.js";
+import { deleteLocalProductEvents } from "../server/store-local-preferences.js";
 import { waitForHealthy } from "./wait-for-api.mjs";
 
 const port = 4213;

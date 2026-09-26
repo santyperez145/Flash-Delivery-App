@@ -6,6 +6,7 @@ import { contains, readMobileSource } from "./source-contract.mjs";
 // fija se rompe —o se vacía— en cuanto un componente cambia de archivo.
 const { source: app } = await readMobileSource();
 const customerCoordinator = fs.readFileSync("apps/mobile/src/screens/CustomerScreen.tsx", "utf8");
+const customerFoodSession = fs.readFileSync("apps/mobile/src/screens/useCustomerFood.tsx", "utf8");
 const foodCheckout = fs.readFileSync(
   "apps/mobile/src/screens/CustomerFoodCheckoutScreen.tsx",
   "utf8",
@@ -14,7 +15,6 @@ const foodRestaurant = fs.readFileSync(
   "apps/mobile/src/screens/CustomerFoodRestaurantScreen.tsx",
   "utf8",
 );
-const api = fs.readFileSync("apps/mobile/src/api.ts", "utf8");
 const types = fs.readFileSync("apps/mobile/src/types.ts", "utf8");
 const design = fs.readFileSync("apps/mobile/src/design-system.ts", "utf8");
 const roadmap = fs.readFileSync("docs/DESIGN_ROADMAP.md", "utf8");
@@ -39,7 +39,7 @@ assert(
 );
 assert(
   contains(app, "activeFoodPromotion") &&
-    contains(api, 'request<{promotions:import("./types").Promotion[]}>("/promotions")'),
+    contains(app, 'request<{promotions:import("../types").Promotion[]}>("/promotions")'),
   "promotion banner must consume the promotions contract",
 );
 assert(
@@ -48,7 +48,7 @@ assert(
 );
 assert(
   contains(app, "toggleFavorite") &&
-    contains(api, "/favorites/${restaurantId}") &&
+    contains(app, "/favorites/${restaurantId}") &&
     contains(types, "favoriteRestaurantIds?: string[]"),
   "favorite controls must persist through the authenticated API",
 );
@@ -104,7 +104,8 @@ assert(
   "order activity must translate backend status into an actionable customer card",
 );
 assert(
-  customerCoordinator.trimEnd().split(/\r?\n/).length <= 1350 &&
+  customerCoordinator.trimEnd().split(/\r?\n/).length <= 950 &&
+    contains(customerFoodSession, "export function useCustomerFood") &&
     [
       "CustomerFoodBrowseScreen",
       "CustomerFoodRestaurantScreen",
@@ -151,10 +152,10 @@ assert(
 );
 assert(
   contains(propinaMovil, "minHeight: 44") ||
-    contains(fs.readFileSync("apps/mobile/src/styles.ts", "utf8"), "minHeight: 44"),
+    (contains(app, "propinaOpcion") && contains(app, "minHeight: 44")),
   "las opciones de propina son objetivos tactiles de 44px",
 );
-assert(contains(api, "tipCents?: number"), "la propina viaja a la API movil en centavos");
+assert(contains(app, "tipCents?: number"), "la propina viaja a la API movil en centavos");
 
 // **Los topes de reserva del cliente son los del servidor.** Mismo riesgo que
 // con la propina: los dos clientes duplican la ventana para no ofrecer un

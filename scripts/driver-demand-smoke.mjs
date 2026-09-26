@@ -62,8 +62,41 @@ try {
   ).rows[0];
   const expected = await pool.query(
     `SELECT z.public_id,
-    (SELECT count(*)::int FROM jobs j WHERE j.city_id=$1 AND j.kind=$2::job_kind AND j.driver_id IS NULL AND j.status NOT IN('completed','cancelled') AND (COALESCE(j.metadata->>'subtype','')<>'food_order' OR j.status='ready_for_pickup') AND (j.scheduled_for IS NULL OR j.scheduled_for<=now()+interval '15 minutes') AND ST_Covers(z.boundary::geometry,j.pickup_location::geometry)) open_jobs,
-    (SELECT count(*)::int FROM drivers candidate JOIN driver_compliance compliance ON compliance.driver_id=candidate.id AND compliance.status='approved' WHERE candidate.city_id=$1 AND candidate.online AND candidate.active_mode=$2::job_kind AND $2::job_kind=ANY(candidate.service_modes) AND candidate.current_location IS NOT NULL AND candidate.location_updated_at>=now()-interval '5 minutes' AND COALESCE(candidate.location_accuracy_m,999)<=100 AND ST_Covers(z.boundary::geometry,candidate.current_location::geometry) AND EXISTS(SELECT 1 FROM vehicles vehicle WHERE vehicle.driver_id=candidate.id AND vehicle.active AND vehicle.retired_at IS NULL AND vehicle.status='approved' AND $2::job_kind=ANY(vehicle.service_modes)) AND (($2::job_kind='ride' AND NOT EXISTS(SELECT 1 FROM jobs active WHERE active.driver_id=candidate.id AND active.kind='ride' AND active.status NOT IN('completed','cancelled'))) OR ($2::job_kind<>'ride' AND (SELECT count(*) FROM jobs active WHERE active.driver_id=candidate.id AND active.kind=$2::job_kind AND active.status NOT IN('completed','cancelled'))<2))) eligible_drivers
+    (SELECT count(*)::int FROM jobs j
+      WHERE j.city_id=$1 AND j.kind=$2::job_kind AND j.driver_id IS NULL
+        AND j.status NOT IN('completed','cancelled')
+        AND (COALESCE(j.metadata->>'subtype','')<>'food_order' OR j.status='ready_for_pickup')
+        AND (j.scheduled_for IS NULL OR j.scheduled_for<=now()+interval '15 minutes')
+        AND ST_Covers(z.boundary::geometry,j.pickup_location::geometry)
+    ) open_jobs,
+    (SELECT count(*)::int FROM drivers candidate
+      JOIN driver_compliance compliance
+        ON compliance.driver_id=candidate.id AND compliance.status='approved'
+      WHERE candidate.city_id=$1 AND candidate.online AND candidate.active_mode=$2::job_kind
+        AND $2::job_kind=ANY(candidate.service_modes)
+        AND candidate.current_location IS NOT NULL
+        AND candidate.location_updated_at>=now()-interval '5 minutes'
+        AND COALESCE(candidate.location_accuracy_m,999)<=100
+        AND ST_Covers(z.boundary::geometry,candidate.current_location::geometry)
+        AND EXISTS(
+          SELECT 1 FROM vehicles vehicle
+          WHERE vehicle.driver_id=candidate.id AND vehicle.active
+            AND vehicle.retired_at IS NULL AND vehicle.status='approved'
+            AND $2::job_kind=ANY(vehicle.service_modes)
+        )
+        AND (
+          ($2::job_kind='ride' AND NOT EXISTS(
+            SELECT 1 FROM jobs active
+            WHERE active.driver_id=candidate.id AND active.kind='ride'
+              AND active.status NOT IN('completed','cancelled')
+          ))
+          OR ($2::job_kind<>'ride' AND (
+            SELECT count(*) FROM jobs active
+            WHERE active.driver_id=candidate.id AND active.kind=$2::job_kind
+              AND active.status NOT IN('completed','cancelled')
+          )<2)
+        )
+    ) eligible_drivers
     FROM service_zones z WHERE z.city_id=$1 AND z.active`,
     [profile.city_id, profile.active_mode],
   );

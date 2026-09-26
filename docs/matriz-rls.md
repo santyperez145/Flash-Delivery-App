@@ -62,7 +62,7 @@ La migración `114_promotion_redemptions_rls.sql` la cerró el mismo día. Dice 
 
 El vínculo es directo por `user_id`, así que la política es la de `addresses_owner`. **Lo delicado no fue la forma sino a quién debía alcanzar.**
 
-Tres consultas del runtime cuentan filas de todos los usuarios a propósito: `order-repository.js` resuelve el cupo global con `count(*) total, count(*) FILTER(WHERE user_id=$2) user_total`, y `configuration-repository.js` publica `usage_count` por promoción con `postgresPool.query` directo, sin contexto de usuario.
+Tres consultas del runtime cuentan filas de todos los usuarios a propósito: `order-create-repository.js` resuelve el cupo global con `count(*) total, count(*) FILTER(WHERE user_id=$2) user_total`, y `configuration-repository.js` publica `usage_count` por promoción con `postgresPool.query` directo, sin contexto de usuario.
 
 Si la política alcanzara al runtime, el efecto no sería un error visible sino algo peor: **una promoción con tope de 100 no se agotaría nunca**, porque cada persona contaría sólo sus propias redenciones. Un descuento sin tope efectivo es dinero.
 

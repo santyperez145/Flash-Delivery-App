@@ -1,3 +1,5 @@
+import { observeProviderCall } from "./observability.js";
+
 const dayKey = (timestamp) => new Date(timestamp).toISOString().slice(0, 10);
 
 export class ProviderCircuit {
@@ -12,6 +14,7 @@ export class ProviderCircuit {
     this.dailyBudget = dailyBudget;
     this.now = now;
     this.states = new Map();
+    this.budgetAlerts = new Set();
   }
 
   state(provider) {
@@ -26,13 +29,33 @@ export class ProviderCircuit {
     return current;
   }
 
+  checkBudgetAlert(provider) {
+    const current = this.state(provider);
+    if (current.calls / this.dailyBudget < 0.8) return false;
+    const alertKey = `${provider}|${current.day}|warning`;
+    if (this.budgetAlerts.has(alertKey)) return false;
+    this.budgetAlerts.add(alertKey);
+    observeProviderCall({ provider, operation: "budget", outcome: "warning" });
+    return true;
+  }
+
+  noteBudgetExhausted(provider) {
+    const current = this.state(provider);
+    const alertKey = `${provider}|${current.day}|exhausted`;
+    if (this.budgetAlerts.has(alertKey)) return;
+    this.budgetAlerts.add(alertKey);
+    observeProviderCall({ provider, operation: "budget", outcome: "exhausted" });
+  }
+
   async execute({ provider, operation, timeoutMs, call }) {
     const current = this.state(provider);
     const timestamp = this.now();
-    if (current.calls >= this.dailyBudget)
+    if (current.calls >= this.dailyBudget) {
+      this.noteBudgetExhausted(provider);
       throw Object.assign(new Error(`Presupuesto diario agotado para ${provider}`), {
         code: "provider_budget_exhausted",
       });
+    }
     if (current.openedAt !== null) {
       if (timestamp - current.openedAt < this.resetMs || current.probeInFlight)
         throw Object.assign(new Error(`Circuito abierto para ${provider}`), {
@@ -41,6 +64,7 @@ export class ProviderCircuit {
       current.probeInFlight = true;
     }
     current.calls += 1;
+    this.checkBudgetAlert(provider);
     const startedAt = this.now();
     try {
       const response = await call(AbortSignal.timeout(timeoutMs));
@@ -63,6 +87,9 @@ export class ProviderCircuit {
   snapshot(provider) {
     const state = this.state(provider);
     return {
+      dailyBudget: this.dailyBudget,
+      remaining: Math.max(0, this.dailyBudget - state.calls),
+      day: state.day,
       calls: state.calls,
       failures: state.failures,
       status: state.openedAt === null ? "closed" : "open",

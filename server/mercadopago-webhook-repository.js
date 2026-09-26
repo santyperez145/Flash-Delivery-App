@@ -16,7 +16,11 @@ export async function enqueueMercadoPagoWebhook({
 }) {
   const row = (
     await postgresPool.query(
-      `INSERT INTO mercadopago_webhook_inbox(notification_id,resource_id,request_id,topic,action,live_mode,occurred_at,payload) VALUES($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT(notification_id) DO UPDATE SET request_id=mercadopago_webhook_inbox.request_id RETURNING id,status,(xmax=0) inserted`,
+      `INSERT INTO mercadopago_webhook_inbox(
+        notification_id, resource_id, request_id, topic, action, live_mode, occurred_at, payload
+      ) VALUES($1, $2, $3, $4, $5, $6, $7, $8)
+       ON CONFLICT(notification_id) DO UPDATE SET request_id=mercadopago_webhook_inbox.request_id
+       RETURNING id, status, (xmax=0) inserted`,
       [
         notificationId,
         resourceId,
@@ -39,7 +43,12 @@ async function reconcilePaymentSnapshot(snapshot, connection) {
     await client.query("BEGIN");
     const row = (
       await client.query(
-        `SELECT p.*,j.id job_id,j.public_id job_public_id,j.status job_status,j.customer_id,j.merchant_id FROM payment_intents p JOIN jobs j ON j.id=p.job_id WHERE p.provider='mercadopago' AND j.public_id=$1 AND j.merchant_id=$2 FOR UPDATE OF p,j`,
+        `SELECT p.*, j.id job_id, j.public_id job_public_id, j.status job_status,
+           j.customer_id, j.merchant_id
+         FROM payment_intents p
+         JOIN jobs j ON j.id=p.job_id
+         WHERE p.provider='mercadopago' AND j.public_id=$1 AND j.merchant_id=$2
+         FOR UPDATE OF p,j`,
         [snapshot.externalReference, connection.merchant_id],
       )
     ).rows[0];
@@ -153,7 +162,20 @@ async function reconcilePaymentSnapshot(snapshot, connection) {
 export async function processMercadoPagoWebhookBatch({ limit = 20 } = {}) {
   const claimed = (
     await postgresPool.query(
-      `WITH candidates AS (SELECT id FROM mercadopago_webhook_inbox WHERE (status='queued' OR (status='failed' AND attempts<5) OR (status='processing' AND attempts<5 AND processing_started_at<now()-interval '10 minutes')) ORDER BY received_at FOR UPDATE SKIP LOCKED LIMIT $1) UPDATE mercadopago_webhook_inbox i SET status='processing',attempts=attempts+1,processing_started_at=now(),last_error=NULL FROM candidates WHERE i.id=candidates.id RETURNING i.*`,
+      `WITH candidates AS (
+         SELECT id FROM mercadopago_webhook_inbox
+         WHERE (status='queued'
+           OR (status='failed' AND attempts<5)
+           OR (status='processing' AND attempts<5
+             AND processing_started_at<now()-interval '10 minutes'))
+         ORDER BY received_at
+         FOR UPDATE SKIP LOCKED LIMIT $1
+       )
+       UPDATE mercadopago_webhook_inbox i
+       SET status='processing', attempts=attempts+1,
+         processing_started_at=now(), last_error=NULL
+       FROM candidates WHERE i.id=candidates.id
+       RETURNING i.*`,
       [limit],
     )
   ).rows;

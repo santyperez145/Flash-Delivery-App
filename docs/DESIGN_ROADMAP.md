@@ -165,8 +165,9 @@ prueba física pendiente conserva `[~]`.
 - [~] Operaciones: recursos, mapas, soporte, riesgo, conciliación, pricing,
   promociones, zonas, auditoría y configuración con permisos reales.
 - [~] Tracking público: token temporal, estado, ETA y revocación.
-- [ ] Marketing desktop: adoptar jerarquía FoodWagon con propuesta Flash,
-  cobertura real, comercios, seguridad y CTA; no inventar ciudades o métricas.
+- [~] Marketing desktop: portada pública tipo Uber (nav, hero a sangre, CTAs) con
+  identidad Flash; el login es una superficie aparte. Sin cotizador anónimo ni
+  métricas inventadas. Adquisición con ciudades, stores y SEO queda post-Fase 0.
 
 ## Secuencia de ejecución
 

@@ -5,7 +5,6 @@ import { contains, containsAll, containsNone, readWebSource, section } from "./s
 // trabajo que queda del ticket es partir `App.tsx`, y un contrato con la ruta
 // fija se rompe —o se vacía— en cuanto un componente cambia de archivo.
 const { source: app } = await readWebSource();
-const api = await fs.readFile("src/api.ts", "utf8");
 const coordinator = await fs.readFile("src/customer/CustomerSurface.tsx", "utf8");
 const foodCart = await fs.readFile("src/customer/FoodCartScreen.tsx", "utf8");
 const quantityCounter = await fs.readFile("src/customer/QuantityCounter.tsx", "utf8");
@@ -70,7 +69,7 @@ assert(
   "checkout expone vencimiento y versión de precio",
 );
 assert(
-  contains(api, "payload.quoteToken || (await this.quoteFoodCheckout"),
+  contains(app, "payload.quoteToken || (await quoteFoodCheckout"),
   "cliente API reutiliza la cotización aceptada y conserva fallback seguro",
 );
 assert(
@@ -108,7 +107,7 @@ assert(
   "la web ofrece no dejar propina y calcula los porcentajes sobre el subtotal",
 );
 assert(
-  contains(checkoutFuente, "tipCents,") && contains(api, "tipCents?: number"),
+  contains(checkoutFuente, "tipCents,") && contains(app, "tipCents?: number"),
   "la propina elegida viaja a la API en centavos",
 );
 

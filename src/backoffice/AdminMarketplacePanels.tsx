@@ -9,7 +9,11 @@ import { api } from "../api";
 import { initials } from "../format";
 import type { AppState, Order, Ride } from "../types";
 import { AdminLiveGrid } from "./AdminOverviewBoards";
-import { DispatchReleasePanel, MerchantSuspensionPanel } from "./OperationsInterventionPanel";
+import {
+  DispatchManualAssignPanel,
+  DispatchReleasePanel,
+  MerchantSuspensionPanel,
+} from "./OperationsInterventionPanel";
 import { DriverCompliancePanel } from "./AdminTrustPanels";
 
 type RunAction = (action: () => Promise<unknown>, success: string) => void;
@@ -45,6 +49,15 @@ export function AdminDispatchPanel({
       <section className="admin-card">
         <AdminSectionHeader title="Soltar un servicio trabado" action="Vuelve al despacho" />
         <DispatchReleasePanel orders={orders} busy={busy} runAction={runAction} />
+      </section>
+      <section className="admin-card">
+        <AdminSectionHeader title="Asignación manual" action="Cuando el auto-despacho no alcanza" />
+        <DispatchManualAssignPanel
+          orders={orders}
+          drivers={state.drivers}
+          busy={busy}
+          runAction={runAction}
+        />
       </section>
     </>
   );

@@ -41,8 +41,17 @@ try {
     )
   ).rows[0];
   await pool.query(
-    `INSERT INTO jobs(public_id,kind,customer_id,driver_id,status,pickup_address,pickup_location,dropoff_address,dropoff_location,service_level,quoted_amount_cents,final_amount_cents,distance_m,estimated_duration_s)
-   VALUES($1,'ride',$2,$3,'in_progress','Obelisco',ST_SetSRID(ST_MakePoint(-58.3816,-34.6037),4326)::geography,'Aeroparque',ST_SetSRID(ST_MakePoint(-58.4156,-34.5592),4326)::geography,'economy',850000,850000,7200,1500)`,
+    `INSERT INTO jobs(
+      public_id,kind,customer_id,driver_id,status,pickup_address,pickup_location,
+      dropoff_address,dropoff_location,service_level,quoted_amount_cents,
+      final_amount_cents,distance_m,estimated_duration_s
+    )
+   VALUES(
+     $1,'ride',$2,$3,'in_progress','Obelisco',
+     ST_SetSRID(ST_MakePoint(-58.3816,-34.6037),4326)::geography,'Aeroparque',
+     ST_SetSRID(ST_MakePoint(-58.4156,-34.5592),4326)::geography,'economy',
+     850000,850000,7200,1500
+   )`,
     [rideId, ids.customer_id, ids.driver_id],
   );
   const forbidden = await request(`/rides/${rideId}/tracking-links`, driver.token, {

@@ -97,7 +97,10 @@ export async function submitDriverDocument({
       ],
     );
     await client.query(
-      `INSERT INTO driver_compliance(driver_id,status,submitted_at,updated_at) VALUES($1,'in_review',now(),now()) ON CONFLICT(driver_id) DO UPDATE SET status='in_review',submitted_at=now(),reviewed_at=NULL,reviewed_by=NULL,rejection_reason=NULL,updated_at=now()`,
+      `INSERT INTO driver_compliance(driver_id, status, submitted_at, updated_at)
+       VALUES($1, 'in_review', now(), now())
+       ON CONFLICT(driver_id) DO UPDATE SET status='in_review', submitted_at=now(),
+         reviewed_at=NULL, reviewed_by=NULL, rejection_reason=NULL, updated_at=now()`,
       [driver.id],
     );
     await client.query("UPDATE drivers SET online=false WHERE id=$1", [driver.id]);
@@ -141,7 +144,11 @@ export async function reviewDriverDocument({
     let complianceStatus = "rejected";
     if (status === "approved") {
       const approved = await client.query(
-        `SELECT count(DISTINCT document_type)::int count FROM driver_documents WHERE driver_id=$1 AND status='approved' AND (expires_at IS NULL OR expires_at>=current_date) AND document_type=ANY($2)`,
+        `SELECT count(DISTINCT document_type)::int count
+         FROM driver_documents
+         WHERE driver_id=$1 AND status='approved'
+           AND (expires_at IS NULL OR expires_at>=current_date)
+           AND document_type=ANY($2)`,
         [document.driver_id, requiredTypes],
       );
       complianceStatus = approved.rows[0].count === requiredTypes.length ? "approved" : "in_review";

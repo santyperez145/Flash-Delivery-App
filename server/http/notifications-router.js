@@ -25,21 +25,19 @@ import { readDb } from "../fallback-runtime.js";
 import {
   getPostgresDevices,
   getPostgresNotificationPreferences,
+  getPostgresNotifications,
+  markPostgresNotificationRead,
   registerPostgresDevice,
   revokePostgresDevice,
   updatePostgresNotificationPreference,
 } from "../notification-repository.js";
-import {
-  getPostgresNotifications,
-  markPostgresNotificationRead,
-  recordPostgresAudit,
-} from "../operations-repository.js";
+import { recordPostgresAudit } from "../audit-repository.js";
 import {
   getLocalNotificationPreferences,
   getLocalNotifications,
   markLocalNotificationRead,
   updateLocalNotificationPreference,
-} from "../store.js";
+} from "../store-local-preferences.js";
 import { requireAuth } from "./authentication.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";
 

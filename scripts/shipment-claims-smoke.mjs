@@ -41,7 +41,28 @@ try {
   );
   await pool.query("DELETE FROM jobs WHERE public_id LIKE 'SHIP-CLAIM-%'");
   await pool.query(
-    `WITH inserted AS (INSERT INTO jobs(public_id,kind,customer_id,status,pickup_address,pickup_location,dropoff_address,dropoff_location,service_level,quoted_amount_cents,final_amount_cents,distance_m,estimated_duration_s,metadata,updated_at) SELECT $1,'delivery',u.id,'completed','A',ST_SetSRID(ST_MakePoint(-58.39,-34.60),4326)::geography,'B',ST_SetSRID(ST_MakePoint(-58.40,-34.61),4326)::geography,'standard',100000,100000,1000,600,'{"subtype":"shipment"}',now() FROM users u WHERE u.public_id='usr_customer' RETURNING id) INSERT INTO shipment_details(job_id,recipient_name,recipient_phone,package_size,description,weight_grams,delivery_pin_hash,terms_accepted_at,declared_value_cents,protection_plan_id,protection_premium_cents,item_category_id,service_level_id) SELECT i.id,'Receptor','+5491100000000','small','Fixture protegido',500,'hash',now(),1000000,p.id,50000,c.id,l.id FROM inserted i CROSS JOIN shipment_protection_plans p CROSS JOIN shipment_item_categories c CROSS JOIN shipment_service_levels l WHERE p.code='standard' AND c.code='standard' AND l.code='standard'`,
+    `WITH inserted AS (
+      INSERT INTO jobs(
+        public_id,kind,customer_id,status,pickup_address,pickup_location,
+        dropoff_address,dropoff_location,service_level,quoted_amount_cents,
+        final_amount_cents,distance_m,estimated_duration_s,metadata,updated_at
+      ) SELECT $1,'delivery',u.id,'completed','A',
+        ST_SetSRID(ST_MakePoint(-58.39,-34.60),4326)::geography,'B',
+        ST_SetSRID(ST_MakePoint(-58.40,-34.61),4326)::geography,'standard',
+        100000,100000,1000,600,'{"subtype":"shipment"}',now()
+      FROM users u WHERE u.public_id='usr_customer' RETURNING id
+    )
+    INSERT INTO shipment_details(
+      job_id,recipient_name,recipient_phone,package_size,description,weight_grams,
+      delivery_pin_hash,terms_accepted_at,declared_value_cents,protection_plan_id,
+      protection_premium_cents,item_category_id,service_level_id
+    ) SELECT i.id,'Receptor','+5491100000000','small','Fixture protegido',500,
+      'hash',now(),1000000,p.id,50000,c.id,l.id
+    FROM inserted i
+    CROSS JOIN shipment_protection_plans p
+    CROSS JOIN shipment_item_categories c
+    CROSS JOIN shipment_service_levels l
+    WHERE p.code='standard' AND c.code='standard' AND l.code='standard'`,
     [jobId],
   );
   const customer = await login("cliente@flash.app"),

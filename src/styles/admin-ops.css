@@ -1,0 +1,543 @@
+/* Admin/backoffice ops panels (ARC-001). */
+/* Cola de devoluciones de envío (ARC-001, cableado de la API).
+
+   El estado va con color propio porque una devolución abierta y una cerrada se
+   leen distinto de un vistazo, y quien atiende la cola mira eso primero. */
+.devoluciones {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.devoluciones li {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.devoluciones li:last-child {
+  border-bottom: none;
+}
+
+.devolucion-encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.devoluciones p {
+  margin: 6px 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.devolucion-nota {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+}
+
+.devolucion-estado {
+  flex: none;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: var(--paper-soft);
+  color: var(--ink-soft);
+}
+
+.estado-requested {
+  background: #fff6f2;
+  color: var(--accent-deep);
+}
+
+.estado-completed {
+  background: #eaf8f1;
+  color: #0b6b45;
+}
+
+.devoluciones input {
+  width: 100%;
+  min-height: var(--layout-touch);
+  margin-bottom: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.devolucion-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.devolucion-acciones button {
+  min-height: var(--layout-touch);
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  cursor: pointer;
+}
+
+/* Palancas de demanda: promociones y multiplicadores de zona (ARC-001).
+
+   Las dos mueven dinero. El botón de aplicar queda deshabilitado hasta que hay
+   un cambio real, y el valor vigente se muestra al lado del campo: sin eso, un
+   número solo no dice si se está subiendo o bajando. */
+/* El selector de ciudad sólo aparece con más de una habilitada: un desplegable
+   de un solo elemento es ruido que además sugiere una elección que no existe. */
+.zona-ciudad {
+  display: block;
+  margin-bottom: 14px;
+}
+
+.zona-ciudad span {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.zona-ciudad select {
+  width: 100%;
+  min-height: var(--layout-touch);
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.demanda-promos,
+.demanda-zonas {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.demanda-promos li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.demanda-promos li:last-child,
+.demanda-zonas li:last-child {
+  border-bottom: none;
+}
+
+.demanda-promos p {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.demanda-promos button {
+  flex: none;
+  min-height: var(--layout-touch);
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  cursor: pointer;
+}
+
+.promo-activa {
+  border-color: var(--mint);
+  color: #0b6b45;
+  background: #eaf8f1;
+}
+
+.promo-pausada {
+  color: var(--ink-soft);
+  background: var(--paper-soft);
+}
+
+.demanda-zonas li {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.zona-encabezado {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.zona-encabezado small {
+  color: var(--muted);
+}
+
+.zona-campos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.zona-campos label span {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.zona-campos label small {
+  color: var(--muted);
+}
+
+.zona-campos select,
+.zona-campos input {
+  width: 100%;
+  min-height: var(--layout-touch);
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.demanda-zonas button {
+  min-height: var(--layout-touch);
+  padding: 0 18px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  color: var(--accent-deep);
+  background: var(--paper);
+  cursor: pointer;
+}
+
+.demanda-zonas button:disabled {
+  border-color: var(--line);
+  color: var(--muted);
+  cursor: default;
+}
+
+@media (max-width: 720px) {
+  .zona-campos {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Tableros de producto y operación (ARC-001, cableado de la API).
+
+   El embudo, los flags y el go/no-go de zona comparten la caja `admin-card`,
+   así que acá sólo va lo propio de cada uno. */
+.admin-empty {
+  margin: 0;
+  padding: 14px 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.producto-ventana {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.producto-ventana button {
+  min-height: var(--layout-touch);
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.producto-ventana button.activo {
+  border-color: var(--accent);
+  color: var(--accent-deep);
+  background: #fff6f2;
+}
+
+/* Tres pasos en fila: la caída entre uno y otro es la lectura, y una lista
+   vertical la esconde detrás del scroll. */
+.producto-pasos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.producto-pasos li {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper-soft);
+}
+
+.producto-pasos strong {
+  display: block;
+  font-size: 22px;
+  color: var(--ink);
+}
+
+.producto-pasos span {
+  display: block;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.producto-pasos small {
+  display: block;
+  margin-top: 4px;
+  color: var(--accent-deep);
+}
+
+.producto-flags {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.producto-flags li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.producto-flags li:last-child {
+  border-bottom: none;
+}
+
+.producto-flags p {
+  margin: 2px 0;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.producto-flags small {
+  color: var(--muted);
+}
+
+.producto-flags button {
+  flex: none;
+  min-height: var(--layout-touch);
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  cursor: pointer;
+}
+
+.flag-encendido {
+  border-color: var(--mint);
+  color: #0b6b45;
+  background: #eaf8f1;
+}
+
+.flag-apagado {
+  color: var(--ink-soft);
+  background: var(--paper-soft);
+}
+
+.producto-zona label {
+  display: block;
+  margin-bottom: 12px;
+}
+
+.producto-zona label span {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.producto-zona select {
+  width: 100%;
+  min-height: var(--layout-touch);
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+}
+
+.zona-go,
+.zona-nogo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-weight: 600;
+}
+
+.zona-go {
+  color: #0b6b45;
+}
+
+.zona-nogo {
+  color: var(--accent-deep);
+}
+
+.producto-chequeos {
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+
+/* La barra de color a la izquierda dice si cumple; el número al lado dice por
+   cuánto. Sin el número, saber que una zona no está lista no es accionable. */
+.producto-chequeos li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0 8px 10px;
+  border-left: 3px solid var(--line);
+  font-size: 13px;
+}
+
+.producto-chequeos li.cumple {
+  border-left-color: var(--mint);
+}
+
+.producto-chequeos li.falla {
+  border-left-color: var(--accent);
+}
+
+.producto-chequeos small {
+  flex: none;
+  color: var(--muted);
+}
+
+.producto-zona > button {
+  min-height: var(--layout-touch);
+  padding: 0 18px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  color: var(--accent-deep);
+  background: var(--paper);
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .producto-pasos {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Salud de la clasificación de audiencias realtime (SEC-001).
+
+   Dos estados con peso visual muy distinto a propósito. En reposo es una línea
+   discreta que confirma que se está mirando; con hallazgos se pone en el color
+   de acento y ocupa lugar. Un panel que se ve igual con cero que con veinte
+   enseña a no mirarlo. */
+.ops-audience {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  padding: 12px;
+  font-size: 13px;
+}
+
+.ops-audience-idle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-soft);
+}
+
+.ops-audience-idle svg {
+  color: var(--mint);
+  flex: none;
+}
+
+.ops-audience-alert {
+  border-color: var(--accent);
+  background: #fff6f2;
+}
+
+.ops-audience-alert header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent-deep);
+}
+
+.ops-audience-alert header svg {
+  flex: none;
+}
+
+.ops-audience-alert p {
+  margin: 8px 0 0;
+  color: var(--ink-soft);
+}
+
+.ops-audience-alert ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--ink);
+}
+
+.ops-audience-alert code {
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.ops-audience-alert details {
+  margin-top: 8px;
+}
+
+.ops-audience-alert summary {
+  cursor: pointer;
+  color: var(--ink-soft);
+  min-height: var(--layout-touch);
+  display: flex;
+  align-items: center;
+}
+
+.ops-risk-board {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.promise-grid article,
+.driver-ops-grid article,
+.ops-risk-board article {
+  min-height: 76px;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.promise-grid svg,
+.driver-ops-grid svg {
+  color: var(--accent);
+}
+
+.promise-grid strong,
+.promise-grid span,
+.driver-ops-grid strong,
+.driver-ops-grid span,
+.ops-risk-board strong,
+.ops-risk-board span,
+.ops-risk-board small {
+  display: block;
+}
+
+.promise-grid strong,
+.driver-ops-grid strong,
+.ops-risk-board strong {
+  margin-top: 7px;
+  color: var(--ink);
+  font-size: 0.86rem;
+}
+
+.promise-grid span,
+.driver-ops-grid span,
+.ops-risk-board small {
+  margin-top: 3px;
+  color: var(--ink-soft);
+  font-size: 0.74rem;
+}

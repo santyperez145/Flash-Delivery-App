@@ -45,9 +45,17 @@ try {
   await pool.query("DELETE FROM notifications WHERE payload->>'jobId' LIKE 'RIDE-CHAT-%'");
   await pool.query("DELETE FROM jobs WHERE public_id LIKE 'RIDE-CHAT-%'");
   await pool.query(
-    `INSERT INTO jobs(public_id,kind,customer_id,driver_id,status,pickup_address,pickup_location,dropoff_address,dropoff_location,service_level,quoted_amount_cents,final_amount_cents,distance_m,estimated_duration_s,metadata)
-    SELECT $1,'ride',customer.id,driver.id,'driver_assigned','Origen',ST_SetSRID(ST_MakePoint(-58.39,-34.60),4326)::geography,'Destino',ST_SetSRID(ST_MakePoint(-58.40,-34.61),4326)::geography,'economy',100000,100000,1500,600,'{}'::jsonb
-    FROM users customer CROSS JOIN drivers driver WHERE customer.public_id='usr_customer' AND driver.public_id='drv_lautaro'`,
+    `INSERT INTO jobs(
+      public_id,kind,customer_id,driver_id,status,pickup_address,pickup_location,
+      dropoff_address,dropoff_location,service_level,quoted_amount_cents,
+      final_amount_cents,distance_m,estimated_duration_s,metadata
+    )
+    SELECT $1,'ride',customer.id,driver.id,'driver_assigned','Origen',
+      ST_SetSRID(ST_MakePoint(-58.39,-34.60),4326)::geography,'Destino',
+      ST_SetSRID(ST_MakePoint(-58.40,-34.61),4326)::geography,'economy',
+      100000,100000,1500,600,'{}'::jsonb
+    FROM users customer CROSS JOIN drivers driver
+    WHERE customer.public_id='usr_customer' AND driver.public_id='drv_lautaro'`,
     [jobId],
   );
   const customerToken = await login("cliente@flash.app"),
@@ -169,7 +177,10 @@ try {
   token = customerToken;
   const after = await request(`/jobs/${jobId}/messages`),
     stored = await pool.query(
-      `SELECT sm.body_ciphertext,sm.body_sha256,r.read_at,reader.public_id reader_id FROM service_messages sm JOIN service_message_reads r ON r.message_id=sm.id JOIN users reader ON reader.id=r.user_id WHERE sm.public_id=$1`,
+      `SELECT sm.body_ciphertext,
+        sm.body_sha256,
+        r.read_at,
+        reader.public_id reader_id FROM service_messages sm JOIN service_message_reads r ON r.message_id=sm.id JOIN users reader ON reader.id=r.user_id WHERE sm.public_id=$1`,
       [created.body.message.id],
     ),
     notification = await pool.query(

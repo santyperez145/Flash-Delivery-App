@@ -4,6 +4,7 @@ import {
   containsNone,
   readMobileSource,
   readWebSource,
+  readWebStyles,
   section,
 } from "./source-contract.mjs";
 
@@ -13,22 +14,43 @@ import {
 const [
   { source: desktop },
   { source: mobile },
-  desktopApi,
   desktopTypes,
-  mobileApi,
   mobileTypes,
   sharedContracts,
   styles,
+  merchantConsole,
+  merchantKitchen,
+  merchantFinance,
+  merchantOrderDetail,
+  mobileMerchantScreen,
+  mobileMerchantToday,
+  mobileMerchantOrders,
+  mobileMerchantDetail,
+  compactMerchant,
+  compactDriver,
+  compactOps,
+  appEntry,
 ] = await Promise.all([
   readWebSource(),
   readMobileSource(),
-  fs.readFile("src/api.ts", "utf8"),
   fs.readFile("src/types.ts", "utf8"),
-  fs.readFile("apps/mobile/src/api.ts", "utf8"),
   fs.readFile("apps/mobile/src/types.ts", "utf8"),
   fs.readFile("packages/domain-contracts/src/index.ts", "utf8"),
-  fs.readFile("src/styles.css", "utf8"),
+  readWebStyles().then(({ source }) => source),
+  fs.readFile("src/merchant/MerchantConsole.tsx", "utf8"),
+  fs.readFile("src/merchant/MerchantKitchenPanel.tsx", "utf8"),
+  fs.readFile("src/merchant/MerchantFinancePanel.tsx", "utf8"),
+  fs.readFile("src/merchant/MerchantOrderDetail.tsx", "utf8"),
+  fs.readFile("apps/mobile/src/screens/MerchantScreen.tsx", "utf8"),
+  fs.readFile("apps/mobile/src/screens/MerchantTodayPanel.tsx", "utf8"),
+  fs.readFile("apps/mobile/src/screens/MerchantStoreOrders.tsx", "utf8"),
+  fs.readFile("apps/mobile/src/screens/MerchantOrderDetailModal.tsx", "utf8"),
+  fs.readFile("src/operations/MerchantApp.tsx", "utf8"),
+  fs.readFile("src/operations/DriverApp.tsx", "utf8"),
+  fs.readFile("src/operations/OpsApp.tsx", "utf8"),
+  fs.readFile("src/App.tsx", "utf8"),
 ]);
+const lineCount = (source) => source.trimEnd().split(/\r?\n/).length;
 const assert = (condition, label) => {
   if (!condition) throw new Error(`failed: ${label}`);
   console.log(`ok - ${label}`);
@@ -41,29 +63,32 @@ const desktopMerchant = section(
 const mobileMerchant = section(mobile, "function MerchantScreen", "function DriverScreen");
 
 assert(
-  containsAll(sharedContracts, ["export type MerchantOperationsMetrics"]) &&
+  containsAll(sharedContracts, [
+    "export type MerchantOperationsMetrics",
+    "export type MerchantOperationsDashboardCore",
+  ]) &&
     containsAll(desktopTypes, [
-      "export type MerchantOperationsDashboard",
+      "MerchantOperationsDashboard = MerchantOperationsDashboardCore &",
       "MerchantOperationsMetrics",
       'from "@flash/domain-contracts"',
     ]) &&
     containsAll(mobileTypes, [
-      "export type MerchantOperationsDashboard",
+      "MerchantOperationsDashboard = MerchantOperationsDashboardCore &",
       "MerchantOperationsMetrics",
       'from "@flash/domain-contracts"',
     ]),
   "desktop and Merchant App share the authoritative operations contract",
 );
 assert(
-  containsAll(desktopApi, ["getMerchantDashboard"]) &&
-    containsAll(mobileApi, ["getMerchantDashboard"]) &&
+  containsAll(desktop, ["getMerchantDashboard"]) &&
+    containsAll(mobile, ["getMerchantDashboard"]) &&
     containsAll(desktopMerchant, ["api.getMerchantDashboard"]) &&
     containsAll(mobileMerchant, ["api.getMerchantDashboard"]),
   "both merchant surfaces consume the private dashboard endpoint",
 );
 assert(
-  containsAll(desktopApi, ["getMerchantActiveOrders"]) &&
-    containsAll(mobileApi, ["getMerchantActiveOrders"]) &&
+  containsAll(desktop, ["getMerchantActiveOrders"]) &&
+    containsAll(mobile, ["getMerchantActiveOrders"]) &&
     containsAll(desktopMerchant, ["merchantActiveOrders"]) &&
     containsAll(mobileMerchant, ["setActiveOrders(queue.orders)"]),
   "desktop and Merchant App render the dedicated active queue instead of a partial activity slice",
@@ -120,6 +145,57 @@ assert(
   "desktop and Merchant App expose a real order detail with persisted substitutions",
 );
 assert(
+  lineCount(merchantConsole) <= 280 &&
+    lineCount(merchantKitchen) <= 130 &&
+    lineCount(merchantFinance) <= 240 &&
+    lineCount(merchantOrderDetail) <= 360 &&
+    containsAll(merchantConsole, [
+      "<MerchantKitchenPanel",
+      "<MerchantFinancePanel",
+      "<MerchantOrderDetailDialog",
+      "<MerchantStoreCatalog",
+      "<MerchantStoreHours",
+      "<MerchantStoreAnalytics",
+      "<MerchantOperationsPulse",
+    ]) &&
+    containsNone(merchantConsole, [
+      "api.proposeOrderSubstitution",
+      "api.getMerchantFinance",
+      "canAdvance={",
+    ]) &&
+    containsAll(merchantKitchen, [
+      'canAdvance={["accepted", "preparing"].includes(order.status)}',
+    ]) &&
+    containsAll(merchantFinance, ["api.getMerchantFinance", "api.authorizeMerchantPayout"]) &&
+    containsAll(merchantOrderDetail, ["api.proposeOrderSubstitution", "api.updateBranchInventory"]),
+  "desktop merchant console stays a navigation shell with ratcheted kitchen, finance and substitution modules",
+);
+assert(
+  lineCount(mobileMerchantScreen) <= 240 &&
+    lineCount(mobileMerchantToday) <= 200 &&
+    lineCount(mobileMerchantOrders) <= 120 &&
+    lineCount(mobileMerchantDetail) <= 450 &&
+    containsAll(mobileMerchantScreen, [
+      "<MerchantTodayPanel",
+      "<MerchantStoreOrders",
+      "<MerchantStoreMenu",
+      "<MerchantStoreAccount",
+      "<MerchantOrderDetailModal",
+    ]) &&
+    containsNone(mobileMerchantScreen, [
+      "api.proposeOrderSubstitution",
+      "grossSalesToday",
+      '["accepted", "preparing"].includes(order.status)',
+    ]) &&
+    containsAll(mobileMerchantToday, ["grossSalesToday", "Última lectura conservada"]) &&
+    containsAll(mobileMerchantOrders, ['["accepted", "preparing"].includes(order.status)']) &&
+    containsAll(mobileMerchantDetail, [
+      "api.proposeOrderSubstitution",
+      "api.updateBranchInventory",
+    ]),
+  "Merchant App stays a navigation shell with ratcheted today, orders and substitution modules",
+);
+assert(
   containsAll(desktop, ["api.updateBranchInventory", "order.branchId"]) &&
     containsAll(mobile, ["api.updateBranchInventory", "order.branchId"]),
   "out-of-stock actions are scoped to the persisted order branch instead of global client state",
@@ -132,4 +208,19 @@ assert(
 assert(
   containsAll(styles, ["merchant-pulse-stages", "@media (max-width: 720px)"]),
   "desktop operations pulse has explicit narrow-layout behavior",
+);
+assert(
+  lineCount(compactMerchant) <= 220 &&
+    lineCount(compactDriver) <= 280 &&
+    lineCount(compactOps) <= 210 &&
+    containsAll(appEntry, [
+      'import("./operations/MerchantApp")',
+      'import("./operations/DriverApp")',
+      'import("./operations/OpsApp")',
+      'import("./operations/OpsRail")',
+    ]) &&
+    containsNone(compactMerchant, ["function DriverApp", "function OpsApp"]) &&
+    containsNone(compactDriver, ["function MerchantApp", "function OpsApp"]) &&
+    containsNone(compactOps, ["function MerchantApp", "function DriverApp"]),
+  "phone-stage web loads merchant, driver and ops from separate audience chunks",
 );

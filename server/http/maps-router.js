@@ -24,15 +24,14 @@ import {
 } from "../map-cache-repository.js";
 import { mapsProvider } from "../maps-provider.js";
 import { issueGeocodeValidation } from "../geocoding-validation.js";
+import {
+  mapProviderCircuit,
+  noteStaleFallback,
+  resolveDrivingRoute,
+} from "../maps-route-service.js";
 import { observeProviderCall } from "../observability.js";
-import { ProviderCircuit } from "../provider-resilience.js";
 import { requireAuth } from "./authentication.js";
-import { fail, ok, parseOrFail } from "./responses.js";
-
-// El circuit breaker del proveedor cartográfico vive con sus rutas: es la única
-// parte del sistema que lo usa, y tenerlo acá evita que su estado —fallos
-// consecutivos, ventana abierta— quede en un archivo que no lo consulta.
-const mapProviderCircuit = new ProviderCircuit(config.mapProvider);
+import { fail, failFrom, ok, parseOrFail } from "./responses.js";
 
 function signedGeocodeResults(results, { provider, userPublicId, cache }) {
   return results.map((result) => ({
@@ -113,7 +112,12 @@ mapsRouter.get("/api/maps/geocode", requireAuth, async (req, res) => {
           maxStaleSeconds: config.mapProvider.staleCacheSeconds,
         })
       : null;
-    if (stale)
+    if (stale) {
+      await noteStaleFallback({
+        provider: stale.provider,
+        operation: "geocode",
+        cacheKey,
+      });
       return ok(res, {
         results: signedGeocodeResults(stale.payload.results, {
           provider: stale.provider,
@@ -124,6 +128,7 @@ mapsRouter.get("/api/maps/geocode", requireAuth, async (req, res) => {
         cache: "stale",
         degraded: true,
       });
+    }
     return fail(res, 503, "El servicio de geocodificacion no esta disponible");
   }
 });
@@ -133,78 +138,10 @@ mapsRouter.get("/api/maps/route", requireAuth, async (req, res) => {
   const fromLng = Number(req.query.fromLng);
   const toLat = Number(req.query.toLat);
   const toLng = Number(req.query.toLng);
-  if (![fromLat, fromLng, toLat, toLng].every(Number.isFinite))
-    return fail(res, 400, "Coordenadas invalidas");
-  if (
-    Math.abs(fromLat) > 90 ||
-    Math.abs(toLat) > 90 ||
-    Math.abs(fromLng) > 180 ||
-    Math.abs(toLng) > 180
-  )
-    return fail(res, 400, "Coordenadas fuera de rango");
-  let cacheKey;
   try {
-    const routeIdentity = [fromLat, fromLng, toLat, toLng]
-      .map((value) => value.toFixed(5))
-      .join(",");
-    const provider = mapsProvider();
-    cacheKey = createMapCacheKey(`${provider.routingName}|driving|${routeIdentity}`);
-    const cached = await getCachedMapResponse({ kind: "route", key: cacheKey });
-    if (cached)
-      return ok(res, {
-        route: cached.payload.route,
-        provider: cached.provider,
-        cache: "hit",
-      });
-    const request = provider.describeRoute({ fromLat, fromLng, toLat, toLng });
-    const { response } = await mapProviderCircuit.execute({
-      provider: provider.routingName,
-      operation: "route",
-      timeoutMs: config.mapProvider.timeoutMs,
-      call: (signal) =>
-        fetch(request.url, {
-          method: request.method ?? "GET",
-          headers: request.headers,
-          body: request.body ? JSON.stringify(request.body) : undefined,
-          signal,
-        }),
-    });
-    observeProviderCall({
-      provider: provider.routingName,
-      operation: "route",
-      outcome: "success",
-    });
-    const payload = await response.json();
-    const normalizedRoute = provider.parseRoute(payload);
-    if (!normalizedRoute) return fail(res, 404, "No se encontro una ruta transitable");
-    await putCachedMapResponse({
-      kind: "route",
-      key: cacheKey,
-      provider: provider.routingName,
-      payload: { route: normalizedRoute },
-      ttlSeconds: config.routingCacheTtlSeconds,
-    });
-    return ok(res, { route: normalizedRoute, provider: provider.routingName, cache: "miss" });
+    const result = await resolveDrivingRoute({ fromLat, fromLng, toLat, toLng });
+    return ok(res, result);
   } catch (error) {
-    observeProviderCall({
-      provider: mapsProvider().routingName,
-      operation: "route",
-      outcome: error.code || "failure",
-    });
-    const stale = cacheKey
-      ? await getStaleCachedMapResponse({
-          kind: "route",
-          key: cacheKey,
-          maxStaleSeconds: config.mapProvider.staleCacheSeconds,
-        })
-      : null;
-    if (stale)
-      return ok(res, {
-        route: stale.payload.route,
-        provider: stale.provider,
-        cache: "stale",
-        degraded: true,
-      });
-    return fail(res, 503, "El servicio de rutas no esta disponible");
+    return failFrom(res, error, "No se pudo calcular la ruta");
   }
 });

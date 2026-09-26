@@ -12,7 +12,7 @@ process.env.EXPO_PUBLIC_APP_VARIANT = "customer";
 const customerApp = factory();
 delete process.env.EXPO_PUBLIC_APP_VARIANT;
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")),
-  api = fs.readFileSync(path.join(root, "src/api.ts"), "utf8"),
+  api = fs.readFileSync(path.join(root, "src/api/http.ts"), "utf8"),
   session = fs.readFileSync(path.join(root, "src/session-storage.ts"), "utf8"),
   background = fs.readFileSync(path.join(root, "src/background-location.ts"), "utf8");
 const assert = (value, label) => {

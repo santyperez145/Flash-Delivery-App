@@ -410,7 +410,9 @@ async function run() {
   });
   assert(
     coordinateQuote.status === 200 &&
-      coordinateQuote.body?.quote?.routingMode === "coordinates" &&
+      ["coordinates", "geodesic_scaled", "road"].includes(
+        coordinateQuote.body?.quote?.routingMode,
+      ) &&
       coordinateQuote.body.quote.quoteToken &&
       coordinateQuote.body.quote.expiresAt,
     "ride quote uses coordinates and returns a signed expiring token",

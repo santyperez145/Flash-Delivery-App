@@ -6,7 +6,7 @@ Fecha de la última revisión: **29 de agosto de 2026**.
 
 ## Resumen actual
 
-Flash es una **plataforma de preproducción avanzada** con cuatro superficies: cliente, comercio, conductor/repartidor y operaciones. El runtime principal es PostgreSQL/PostGIS con 136 migraciones versionadas; SQLite quedó reducido a fallback aislado de tests.
+Flash es una **plataforma de preproducción avanzada** con cuatro superficies: cliente, comercio, conductor/repartidor y operaciones. El runtime principal es PostgreSQL/PostGIS con 138 migraciones versionadas; SQLite quedó reducido a fallback aislado de tests.
 
 **DAT-001 cerró el alcance DML del runtime.** La migración 135 conserva sólo las operaciones observadas por código, upserts, candados y triggers. Los permisos sin uso bajaron de 114 a cero y el contrato bloqueante impide reintroducir las 35 operaciones del último lote.
 

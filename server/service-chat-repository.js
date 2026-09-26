@@ -103,8 +103,10 @@ export async function getServiceMessages({ jobPublicId, userPublicId }) {
     const rows = (
       await client.query(
         `SELECT sm.public_id,j.public_id job_public_id,s.public_id sender_public_id,s.name sender_name,sm.body_ciphertext,sm.created_at,
-  COALESCE((SELECT jsonb_agg(jsonb_build_object('userId',reader.public_id,'readAt',r.read_at) ORDER BY r.read_at) FROM service_message_reads r JOIN users reader ON reader.id=r.user_id WHERE r.message_id=sm.id),'[]'::jsonb) read_by,
-  COALESCE((SELECT jsonb_agg(jsonb_build_object('id',a.public_id,'fileName',a.file_name,'mimeType',a.mime_type,'sizeBytes',a.size_bytes,'createdAt',a.created_at) ORDER BY a.created_at) FROM service_message_attachments a WHERE a.message_id=sm.id),'[]'::jsonb) attachments
+  COALESCE((SELECT jsonb_agg(jsonb_build_object('userId',reader.public_id,'readAt',r.read_at) ORDER BY r.read_at)
+    FROM service_message_reads r JOIN users reader ON reader.id=r.user_id WHERE r.message_id=sm.id),'[]'::jsonb) read_by,
+  COALESCE((SELECT jsonb_agg(jsonb_build_object('id',a.public_id,'fileName',a.file_name,'mimeType',a.mime_type,'sizeBytes',a.size_bytes,'createdAt',a.created_at) ORDER BY a.created_at)
+    FROM service_message_attachments a WHERE a.message_id=sm.id),'[]'::jsonb) attachments
   FROM service_messages sm JOIN jobs j ON j.id=sm.job_id JOIN users s ON s.id=sm.sender_id WHERE j.public_id=$1 ORDER BY sm.created_at,sm.id LIMIT 200`,
         [jobPublicId],
       )
@@ -114,7 +116,8 @@ export async function getServiceMessages({ jobPublicId, userPublicId }) {
       unreadCount: Number(
         (
           await client.query(
-            `SELECT count(*)::int count FROM service_messages sm WHERE sm.job_id=$1 AND sm.sender_id<>$2 AND NOT EXISTS(SELECT 1 FROM service_message_reads r WHERE r.message_id=sm.id AND r.user_id=$2)`,
+            `SELECT count(*)::int count FROM service_messages sm WHERE sm.job_id=$1 AND sm.sender_id<>$2
+            AND NOT EXISTS(SELECT 1 FROM service_message_reads r WHERE r.message_id=sm.id AND r.user_id=$2)`,
             [actor.id, actor.actor_id],
           )
         ).rows[0].count,
@@ -158,7 +161,9 @@ export async function getServiceAttachmentContent({
   try {
     const row = (
       await client.query(
-        `SELECT a.public_id,a.file_name,a.mime_type,a.size_bytes,a.content_ciphertext,j.public_id job_public_id FROM service_message_attachments a JOIN service_messages sm ON sm.id=a.message_id JOIN jobs j ON j.id=sm.job_id WHERE a.public_id=$1`,
+        `SELECT a.public_id,a.file_name,a.mime_type,a.size_bytes,a.content_ciphertext,j.public_id job_public_id
+        FROM service_message_attachments a JOIN service_messages sm ON sm.id=a.message_id JOIN jobs j ON j.id=sm.job_id
+        WHERE a.public_id=$1`,
         [attachmentId],
       )
     ).rows[0];
@@ -295,7 +300,8 @@ export async function createServiceMessage({ jobPublicId, userPublicId, body, at
       );
     await client.query(
       `INSERT INTO notifications(public_id,user_id,channel,template,payload,deduplication_key,status)
-    SELECT 'NTF-'||upper(substr(md5(random()::text||recipient::text),1,8)),recipient,'in_app','service_message',jsonb_build_object('jobId',$1::text,'messageId',$2::text),$2::text||':'||recipient::text,'sent'
+    SELECT 'NTF-'||upper(substr(md5(random()::text||recipient::text),1,8)),recipient,'in_app','service_message',
+      jsonb_build_object('jobId',$1::text,'messageId',$2::text),$2::text||':'||recipient::text,'sent'
     FROM unnest(ARRAY[$3::uuid,$4::uuid,$5::uuid]) recipient WHERE recipient IS NOT NULL AND recipient<>$6 ON CONFLICT DO NOTHING`,
       [jobPublicId, id, job.customer_id, job.driver_user_id, job.merchant_owner_id, job.actor_id],
     );

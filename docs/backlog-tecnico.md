@@ -21,12 +21,13 @@ Cinco archivos concentran más de 1,3 MB de código: `apps/mobile/App.tsx` (433 
 1. **Reformatear primero.** Antes de mover nada, aplicar un formateador con ancho máximo de línea a todo el código fuente. Es un commit mecánico, separado y sin cambios de comportamiento, que hace revisables todos los commits siguientes.
 2. Extraer features de los dos `App.tsx` hacia módulos por dominio. **Parcial**: mobile quedó en 321 líneas y web en 1.274 al mover el acceso real a `auth/WebLogin.tsx` (170 líneas), los estados transversales a `ui/SystemStateScreen.tsx` y convertir Customer, Merchant, Operaciones y Superadmin en límites de carga por audiencia. El entry web bajó de 575,7 a 67,7 KiB. La extracción interna del cliente movió Actividad —grupos, sustituciones, servicios activos, recibos, repetición, reclamos y propinas— a `CustomerActivityScreen.tsx` (586 líneas) sin alterar sus operaciones reales. Las tres hojas de seguimiento viven ahora en `CustomerTrackingSheets.tsx`, su marco en `MobileTaskSheet`, los timelines en `CustomerTrackingProgress.tsx` y la carga vial en `useTrackingRoute.tsx`. La prueba Chromium encontró y cerró un desacople real: Actividad listaba recursos paginados, pero tracking los buscaba sólo en el bootstrap. Comidas, Viajes y Envíos resuelven ahora el elemento seleccionado desde la misma colección paginada y las cards tienen semántica de botón. La ruta de Envíos ya no depende de que cargue la evidencia de entrega. Cuenta —seguridad, sesiones, referidos, preferencias, notificaciones, soporte, direcciones y pagos— vive en `CustomerAccountScreen.tsx`; permanece montada para conservar formularios y sólo devuelve un evento de dirección al coordinador. Envíos vive en `CustomerShipmentScreen.tsx` con cotización, mapa, opciones, protección, firma y creación persistida, conserva el formulario entre pestañas y consume el evento tipado de dirección. Viajes vive en `CustomerRideScreen.tsx` con GPS, destinos, ruta, tarifa adelantada, reserva, contactos y solicitud persistida; invalida precio al cambiar origen y reserva las maniobras para Driver. Comidas quedó segmentada en descubrimiento/búsqueda (505 líneas), restaurante/personalización (443), carrito (326), checkout (237) y pedidos (134). Incidencias de pedido, devoluciones y siniestros quedaron además en un estado discriminado y `CustomerServiceIssueModals.tsx` (340 líneas). `CustomerScreen.tsx` bajó de 6.241 a 1.321 líneas; `test:responsive-layout` fija un techo de 1.350 y verifica el cableado de las tres APIs sin perder el carrito compartido con Actividad ni las preferencias/dirección compartidas con Cuenta. En web, Wallet salió de `CustomerSurface.tsx` a `WalletScreen.tsx`; el coordinador bajó de 3.794 a 3.720 líneas y la misma puerta fija un techo de 3.725, sin alterar los límites ni presentar la carga sandbox como dinero productivo. La matriz Chromium abre además la PWA cliente en 390 × 844 y verifica actividad, overflow y ambos límites sin cargar saldo.
 
-   **Cierre de la segmentación interna web:** Cuenta salió a `CustomerProfileScreen.tsx`; la segunda partición dejó perfil/composición en 124 líneas, libreta geocodificada en 308 y dieta en 160, con techos 130/315/165. Actividad salió después a `CustomerActivityScreen.tsx` (189), la tarjeta común a `CustomerStatusCard.tsx` (67) y los trackings a módulos propios para pedido (179), viaje (333) y envío (282). Envíos completo vive en `ShipmentHome.tsx` (567), conservando opciones, geocoding, quote firmada y creación. Carrito y checkout viven en `FoodCartScreen.tsx` (680), y `QuantityCounter.tsx` (28) y `EmptyState.tsx` (19) son primitivas con límite propio. Restaurante (85), componentes de catálogo (145) y personalizador (101) tienen fronteras separadas; el personalizador se carga directamente desde `App.tsx`. Home/descubrimiento vive en `FoodDiscoveryHome.tsx` (119) y usa la imagen del catálogo en lugar de una promoción fija. Navegación/flags viven en `CustomerNavigation.tsx` (85). `CustomerSurface.tsx` quedó como coordinador en 360 líneas con techo 375. La matriz Chromium abre Cuenta sin escribir, los tres trackings, cotizador, home, restaurante, personalizador y carrito a 390 × 844; provisiona el envío activo faltante por APIs reales, no por SQL ni mocks. Los contratos fuente exigen geocoding, alta/edición, dieta, catálogo, favoritos, modificadores, nota, flags, ruta, PIN, safety, enlace compartible, evidencia, quotes, pago tokenizado y creación en sus dueños concretos. ARC-001 continúa por el paquete compartido y las líneas largas heredadas; este cierre es sólo del cliente web. La consola de comercio bajó al extraer horarios, modificadores y declaración alimentaria a `MerchantCatalogEditors.tsx`.
+   **Cierre de la segmentación interna web:** Cuenta salió a `CustomerProfileScreen.tsx`; la segunda partición dejó perfil/composición en 124 líneas, libreta geocodificada en 308 y dieta en 160, con techos 130/315/165. Actividad salió después a `CustomerActivityScreen.tsx` (189), la tarjeta común a `CustomerStatusCard.tsx` (67) y los trackings a módulos propios para pedido (179), viaje (333) y envío (282). Envíos completo vive en `ShipmentHome.tsx` (567), conservando opciones, geocoding, quote firmada y creación. Carrito y checkout viven en `FoodCartScreen.tsx` (680), y `QuantityCounter.tsx` (28) y `EmptyState.tsx` (19) son primitivas con límite propio. Restaurante (85), componentes de catálogo (145) y personalizador (101) tienen fronteras separadas; el personalizador se carga directamente desde `App.tsx`. Home/descubrimiento vive en `FoodDiscoveryHome.tsx` (119) y usa la imagen del catálogo en lugar de una promoción fija. Navegación/flags viven en `CustomerNavigation.tsx` (85). `CustomerSurface.tsx` quedó como coordinador en 360 líneas con techo 375. La matriz Chromium abre Cuenta sin escribir, los tres trackings, cotizador, home, restaurante, personalizador y carrito a 390 × 844; provisiona el envío activo faltante por APIs reales, no por SQL ni mocks. Los contratos fuente exigen geocoding, alta/edición, dieta, catálogo, favoritos, modificadores, nota, flags, ruta, PIN, safety, enlace compartible, evidencia, quotes, pago tokenizado y creación en sus dueños concretos. ARC-001 continúa por el paquete compartido y las líneas largas heredadas; este cierre es sólo del cliente web. La consola de comercio es shell: horarios/modificadores/dieta en `MerchantCatalogEditors.tsx`; cocina, detalle, catálogo, sucursales, analítica, pulso y finanzas en módulos propios.
+
 3. ~~Crear entrypoints separados customer, driver y merchant en mobile~~ **Hecho**: `metro.config.js` resuelve `./variant-screen` según `EXPO_PUBLIC_APP_VARIANT`, y `test:mobile-variant-bundles` lo verifica empaquetando las tres con `expo export`.
-4. ~~Descomponer `server/index.js`~~ **Hecho**: 57 grupos de rutas en 31 routers bajo `server/http/`. El archivo quedó en 872 líneas con 8 rutas de infraestructura.
-5. ~~Dividir `commerce-repository.js` por subdominio~~ **Hecho**: `catalog-repository.js` (539 líneas, lo que escribe el comercio), `order-repository.js` (1.103, el ciclo del pedido) y `driver-roster-repository.js` (134, el plantel). `usesPostgresCommerce` se mudó a `postgres.js`, que es de quien habla el predicado. La única dependencia entre partes es `mapCatalogItem`: pedidos importa de catálogo —un pedido está hecho de ítems— y nunca al revés.
-6. Crear contratos compartidos en un paquete propio. **Avance:** `@flash/domain-contracts` concentra 23 tipos byte-a-byte idénticos y autocontenidos entre web y mobile (`ServiceQuickReply`, `ShipmentClaim`, `DispatchOffer` sumados al lote previo); ambas superficies los reexportan y `test:domain-contracts` bloquea el merge. `MerchantOperationsDashboard` sigue local porque referencia `Restaurant`, que diverge. User, Order, Restaurant y el resto quedan para cortes posteriores.
-7. Limitar cada archivo a una responsabilidad concreta. **Avance:** backoffice modularizado (`AdminConsole` shell; paneles de dinero y soporte partidos); Driver: `useDriverShift` + paneles (`DriverScreen` cockpit).
+4. ~~Descomponer `server/index.js`~~ **Hecho**: 57 grupos de rutas en routers bajo `server/http/` (incl. `platform-status`, `readiness`, `bootstrap`, `metrics`). El archivo quedó en **~350 líneas**: sólo arranque, middleware y montaje — **cero** `app.get/post` de API.
+5. ~~Dividir `commerce-repository.js` por subdominio~~ **Hecho**: `catalog-repository.js` (~401, restaurantes), `menu-repository.js` (carta/modificadores/dieta), `branch-repository.js` (sucursales/horarios/stock), `order-repository.js` (~143 lecturas), `order-create-repository.js` (~370 orquesta; pricing + checkout-payment partidos), `order-lifecycle-repository.js` (~93 avance/asignación), `order-quote-repository.js`, `order-marketplace-payment-repository.js`, `cart-repository.js` + `order-selection.js` y `driver-roster-repository.js`. `usesPostgresCommerce` vive en `postgres.js`. Pedidos/carrito importan `mapCatalogItem` de catálogo —nunca al revés.
+6. Crear contratos compartidos en un paquete propio. **Avance:** `@flash/domain-contracts` concentra **54** tipos (`AccountSession`/`WalletTransaction`/`DriverEarnings*` + Ride/Shipment/menú/`Order`). Web: `Service = VerticalService`, `Promotion = PromotionSummary`; mobile añade ventana de promo. `test:domain-contracts` bloquea el merge. Extras del comercio siguen locales.
+7. Limitar cada archivo a una responsabilidad concreta. **Avance:** backoffice modularizado (`AdminConsole` shell; paneles de dinero y soporte partidos); Driver: `useDriverShift` + paneles (`DriverScreen` cockpit); comercio web: `MerchantConsole` shell con cocina, detalle/sustituciones, catálogo, sucursales, analítica, pulso y liquidaciones en módulos propios; Merchant App: `MerchantScreen` shell con Hoy, Pedidos, Catálogo, Cuenta y detalle. Phone-stage web: `MerchantApp`, `DriverApp`, `OpsApp` y `OpsRail` en módulos y chunks propios. Cuenta mobile: `CustomerAccountScreen` shell con seguridad, referidos, dieta, inbox, soporte, libreta y pagos. Cliente mobile: sesión de Comidas en `useCustomerFood`. Cliente web: sesión de comercio en `useCustomerCommerce`; `src/App.tsx` queda como shell de sesión, auth y enrutado. Cliente HTTP web: transporte en `src/api/http.ts`; mapa partido en cuenta/comercio/movilidad/operaciones; `src/api.ts` sólo compone y arma el bootstrap. Cliente HTTP mobile: el mismo corte —transporte en `apps/mobile/src/api/http.ts`, mapa partido, barrel que sólo compone. **Estilos (sep-2026):** `src/styles.css` bajó a 5.636 con tres hojas nuevas cableadas vía `readWebStyles()`; mobile extrajo `styles/merchant.ts` (472 claves) y dejó `styles.ts` como compositor con re-export intacto; ratchet de archivos >1.500: **21.868 → 19.739** líneas.
 
 ### Criterios de aceptación
 
@@ -37,13 +38,14 @@ Cinco archivos concentran más de 1,3 MB de código: `apps/mobile/App.tsx` (433 
 - [x] **Una aserción no puede pasar sobre una región vacía.** `section` lanza si el marcador falta o si la región colapsa; `containsNone` se niega a responder por debajo de un piso. Sin eso, partir los dos `App.tsx` apagaba nueve contratos en silencio.
 - [x] **La autorización es un módulo propio, puro y con contrato.** `server/http/authorization.js`, 10 reglas, 81 usos, `test:authorization` en `ci-fast.yml`.
 - [x] **El núcleo compartido de HTTP está extraído.** Respuestas, autorización, autenticación, transporte realtime y runtime del fallback. Un grupo de rutas nuevo no necesita nada de `server/index.js`.
-- [x] **Ningún `App.tsx` supera 1.500 líneas.** `apps/mobile/App.tsx` 15.374 → **321**; `src/App.tsx` 10.553 → **1.274**. En los dos queda sólo el shell.
+- [x] **Ningún `App.tsx` supera 1.500 líneas.** `apps/mobile/App.tsx` 15.374 → **321**; `src/App.tsx` 10.553 → shell de sesión/auth/enrutado, con la sesión de comercio en `useCustomerCommerce`. `test:responsive-layout` fija el techo web en 720.
 - [x] **Ninguna capacidad queda construida y sin cablear.** `test:api-wiring` cruza las 191 rutas del servidor contra los literales de ruta del frente web y móvil. Encontró 16 huérfanas; **quedan cero**, trinquetadas en cero. Dos eran duplicados y se borraron —`GET /api/restaurants` devolvía la tabla entera de comercios sin autenticación ni paginación, esquivando el tope que `test:catalog-pagination` verifica sobre la ruta buena—. Diez se cablearon: el embudo de producto, los flags por audiencia y el go/no-go de zona en la sección **Producto**; las promociones y los multiplicadores de zona en **Tarifas**, con confirmación explícita porque las dos mueven dinero; el registro y la baja de dispositivos en el móvil, que era el eslabón que cortaba la cadena entera de push; y `GET /api/features`, que cierra el control de release: las pestañas de Envíos y Taxi se gobiernan con `shipment_beta` y `public_rides`, verificadas en las dos direcciones. Cablearlo destapó que `public_rides` estaba en `false` mientras la app mostraba Taxi igual —el flag no lo leía nadie—; el dueño confirmó que la movilidad opera y la migración 124 lo enciende, dejando el apagado como decisión de operaciones desde el panel en lugar de un despliegue. El último lote cerró dos colas que se podían mirar y no tocar: las devoluciones de envío se listaban desde el móvil y **nadie podía resolverlas**, y los documentos de conductor se aprobaban o rechazaban **sin poder abrirlos**. El cierre destapó un falso positivo de la propia puerta: `/api/payment-provider/client-configuration` figuraba huérfana y el checkout **ya la llamaba**, con un literal que lleva una plantilla dentro de su interpolación. Casi termino cableando algo cableado. La detección ahora quita las interpolaciones antes de buscar, y se verificó que sigue detectando una ruta nueva sin consumidor. El sentido contrario ya está limpio y la puerta lo vigila: ningún literal del frente apunta a una ruta que no exista.
-- [ ] Ninguna línea de más de 200 caracteres. Quedan **251**, y **250 son SQL en template literals**: la clasificación se hizo el 27 de agosto de 2026 y la única excepción es una descripción larga en `server/openapi.js`. El trinquete `test:line-length` impide que crezcan. Se pospone a propósito frente a DAT-001: reformatear SQL es churn mecánico con riesgo no nulo, y el ratchet ya contiene el daño.
+- [x] **Ninguna línea de más de 200 caracteres.** Techo **251 → 0**; `test:line-length` fija el techo en cero.
+- [x] **Ningún archivo fuente supera 1.500 líneas.** Ratchet de tamaño en cero (estilos, openapi, store, postgres smoke partidos).
 - [x] **Ningún módulo de dominio importa React.** 93 módulos verificados por `test:domain-purity`, en `ci-fast.yml`. La regla es la convención del repositorio: `.ts` es lógica, `.tsx` es presentación. `react-native` no cuenta, porque ahí aporta primitivas de plataforma y no renderizado.
 - [x] **El build de driver no incluye pantallas de comercio.** `metro.config.js` resuelve `./variant-screen` según `EXPO_PUBLIC_APP_VARIANT`, así que las otras dos pantallas quedan sin arista que las alcance. Verificado sobre bytecode Hermes real: `test:mobile-variant-bundles` empaqueta las tres variantes y comprueba la diagonal.
 - [x] **El build de customer no incluye backoffice.** Mismo mecanismo y misma puerta. Los tres bundles bajaron de llevar las 9.715 líneas de las tres pantallas a llevar una: 2,3 MB customer, 2,4 MB driver, 2,1 MB merchant.
-- [x] **`server/index.js` deja de contener lógica de dominio.** 57 de 57 grupos de rutas extraídos a 31 routers en `server/http/`. `index.js` bajó de 9.696 a 873 líneas (−91%) y quedan 8 rutas, todas infraestructura del servidor: salud, readiness, OpenAPI, bootstrap por audiencia, las dos de métricas, el 410 de `/api/state` y el reset de la plataforma. El archivo es hoy el arranque, el middleware y el montaje, que es lo que el ticket pedía.
+- [x] **`server/index.js` deja de contener lógica de dominio.** 57 de 57 grupos de rutas extraídos a routers en `server/http/`. `index.js` bajó de 9.696 a **~350 líneas** (−96%): arranque, middleware y montaje. Salud, readiness, OpenAPI, bootstrap, métricas, el 410 de `/api/state` y el reset SQLite viven en routers de infraestructura.
 - [x] **Ninguna ruta responde 500 sobre el respaldo SQLite.** `test:fallback-degradation` sondea 54 rutas × 4 audiencias en el job `local-fallback`. Encontró 17 rotas —incluido todo el flujo de conductor y la cola administrativa— por llamar a repositorios de PostgreSQL sin guarda. Apareció levantando la app en un navegador: ninguna puerta estática podía verlo, porque el código es estáticamente correcto.
 
 ### Verificación
@@ -58,16 +60,16 @@ Debe devolver vacío. Añadir este control como puerta en `ci-fast.yml`.
 
 El criterio no fue el tamaño del grupo, sino **cuánto núcleo compartido necesita**. Un grupo de rutas dependía de siete cosas que vivían en `server/index.js`; las siete son módulos y **un grupo nuevo ya no necesita nada de ahí**.
 
-| Dependencia | Estado | Quién la necesita |
-| --- | --- | --- |
-| `ok` / `fail` / `parseOrFail` | `http/responses.js` | casi todo handler |
-| autorización (10 predicados + `requireAnyRole`) | `http/authorization.js` | 81 usos |
-| `requireAuth` | `http/authentication.js` | todo grupo autenticado |
-| `publishRealtimeEvent` + registro SSE | `http/realtime.js` | 43 publicaciones |
-| `audit` del fallback SQLite | `fallback-runtime.js` | toda mutación |
-| `readDb` (contabiliza lecturas SQLite) | `fallback-runtime.js` | todo el doble runtime |
-| esquemas Zod (≈20) | en `index.js` | por dominio, viajan con su grupo |
-| `auditRuntime` (auditoría sobre los dos runtimes) | `audit-trail.js` | toda mutación auditada |
+| Dependencia                                       | Estado                   | Quién la necesita                |
+| ------------------------------------------------- | ------------------------ | -------------------------------- |
+| `ok` / `fail` / `parseOrFail`                     | `http/responses.js`      | casi todo handler                |
+| autorización (10 predicados + `requireAnyRole`)   | `http/authorization.js`  | 81 usos                          |
+| `requireAuth`                                     | `http/authentication.js` | todo grupo autenticado           |
+| `publishRealtimeEvent` + registro SSE             | `http/realtime.js`       | 43 publicaciones                 |
+| `audit` del fallback SQLite                       | `fallback-runtime.js`    | toda mutación                    |
+| `readDb` (contabiliza lecturas SQLite)            | `fallback-runtime.js`    | todo el doble runtime            |
+| esquemas Zod (≈20)                                | en `index.js`            | por dominio, viajan con su grupo |
+| `auditRuntime` (auditoría sobre los dos runtimes) | `audit-trail.js`         | toda mutación auditada           |
 
 Extraer un grupo antes que su núcleo funciona —lo demuestra `addresses-router.js`— pero deja una lista de dependencias larga en la factory. **La factory era andamio**: existe para recibir lo que todavía no es un módulo, y se cae sola cuando ya no queda nada que recibir. Esa misma factory pasó de cuatro dependencias a cero en dos pasos, sin que se tocara una sola de sus cinco rutas. Los tres routers se importan y se montan.
 
@@ -116,18 +118,28 @@ Adoptar además un framework estándar de pruebas: **Vitest**, **Testcontainers*
 
 **Avance del 29-08:** Vitest 4.1 ya ejecuta el contrato unitario de autorización y
 `@testcontainers/postgresql` 12.1 crea un PostGIS 17 efímero, replica los tres roles sin
-`BYPASSRLS`, aplica las **136 migraciones** desde cero y comprueba extensión y privilegios. La
+`BYPASSRLS`, aplica las **138 migraciones** desde cero y comprueba extensión y privilegios. La
 prueba aislada corre como segunda mitad de `test:runtime-role-shape` dentro del job bloqueante de
 `ci-postgres`; no reemplaza el servicio de CI,
 sino que elimina la dependencia de su preparación manual y deja un punto de partida estándar
-para migrar suites gradualmente. Supertest, k6, cobertura y mutation testing siguen abiertos.
+para migrar suites gradualmente.
+
+**Avance del 2-09-2026:** Supertest monta el Express real (`FLASH_HTTP_LISTEN=0`, sin abrir
+puerto) en `tests/integration/http-supertest.test.js`, encadenado en `test:authorization`
+(ci-fast): health, OpenAPI, readiness, 401, 404, planes públicos, pricing/zones, catálogo,
+opciones de envío, login/register vacíos, features/geocode, método no soportado, y 401 de
+soporte/inbox/dead-letters (**20** casos). Vitest quedó
+**pinneado a 3.2.4**: 4.1.x falla en Node 24 al registrar suites (`runner.config`
+indefinido). **`test:k6-local`** (`load/k6-health.js`) está listo; cablearlo a
+`ci-nightly.yml` es **bloqueo del dueño** (token GitHub con scope `workflow`). Cobertura
+de líneas, mutation testing, sandbox de proveedores y builds EAS siguen abiertos.
 
 ### Criterios de aceptación
 
-- [x] Un PR queda bloqueado si falla cualquier suite crítica — **106 de 107 suites con puerta, 104 bloqueantes**, 2 nocturnas y cuarentena vacía.
+- [x] Un PR queda bloqueado si falla cualquier suite crítica — **106 de 109 suites con puerta, 104 bloqueantes**, 2 nocturnas y cuarentena vacía (`test:k6-local` exceptuado hasta cablear workflow).
 - [x] Ningún script de riesgo queda fuera de una puerta sin justificación escrita — lo verifica `npm run test:ci-coverage`.
 - [x] **Cerrar las suites en cuarentena.** Las cuatro salieron. `test:postgres`, `test:dietary-local` y `test:notification-local` se cerraron el 26-08 —las dos últimas estaban apuntadas al runtime equivocado, no eran frágiles—. `test:support-routing` salió el 27-08 y su causa anotada resultó falsa: figuraba como «ruteo atómico de un caso de safety a un agente con skill», pero `POST /api/support/tickets` exige una cabecera `Idempotency-Key` y responde 400 sin ella, y la suite no la mandaba en ninguno de sus seis POST. **Nunca llegó a ejercitar el ruteo.** Con la cabecera puesta pasan sus diez afirmaciones sin tocar una línea de producto. Ya es bloqueante y el paso de cuarentena se quitó del workflow.
-- [ ] `ci-nightly.yml`. **Existe desde el 27-08** con la auditoría responsive en Chromium —una corrida por variante—, la latencia de endpoints y la conciliación de pagos programada. Faltan carga k6, sandbox de proveedores y builds EAS, que necesitan credenciales. El restore drill dejó de faltar por otra vía: `scripts/restore-drill.ps1` sigue siendo PowerShell y sigue siendo el ensayo que importa sobre los backups reales, pero `test:restore-drill` corre en cada PR un ensayo distinto —volcar, restaurar y verificar invariantes sobre la copia— que cubre lo que el local no puede cubrir por PR: que el esquema, las políticas y los permisos sobrevivan al viaje por `pg_dump`.
+- [ ] `ci-nightly.yml`. **Existe desde el 27-08** con la auditoría responsive en Chromium —una corrida por variante—, la latencia de endpoints y la conciliación de pagos programada. **`test:k6-local` está escrito** (`load/k6-health.js`); falta que el dueño lo agregue al YAML nocturno (scope `workflow`). Faltan sandbox de proveedores y builds EAS (credenciales). El restore drill dejó de faltar por otra vía: `scripts/restore-drill.ps1` sigue siendo PowerShell y sigue siendo el ensayo que importa sobre los backups reales, pero `test:restore-drill` corre en cada PR un ensayo distinto —volcar, restaurar y verificar invariantes sobre la copia— que cubre lo que el local no puede cubrir por PR: que el esquema, las políticas y los permisos sobrevivan al viaje por `pg_dump`.
 - [x] **La rama `main` está protegida y exige PR** desde el 27-08: los 7 checks son obligatorios, la rama debe estar al día, la historia es lineal y no hay excepción para administradores.
 - [ ] Pagos y seguridad exigen dos aprobaciones (`CODEOWNERS` ya existe; falta más de un revisor).
 - [x] **Los artefactos de test se almacenan y son consultables tras el run.** `ci-critical-flows` guarda la salida de **cada suite en su propio archivo** —treinta y una suites en un solo paso son un muro donde el error que importa queda lejos del final— más el log completo de la API, y `ci-fast` sube el del respaldo SQLite. Se suben **pase o falle** la corrida: guardarlos sólo ante un fallo impide la comparación que más sirve, la de una verde contra una roja. Retención de 14 días. No amplía quién ve qué: un artefacto lo descarga quien ya puede leer el log, que hoy publica un `tail` del mismo archivo; lo que cambia es que deja de estar truncado.
@@ -146,7 +158,7 @@ node -e "const p=require('./package.json'),fs=require('fs');const ci=fs.readdirS
 
 ### Contexto
 
-`server/realtime-repository.js:8` y `:16` devuelven `allRoles` (admin + customer + merchant + driver) cuando el evento no tiene entidad o cuando el `entityType` no está contemplado. Es un patrón *fail-open*: cada tipo de entidad nuevo entra por defecto en el camino inseguro.
+`server/realtime-repository.js:8` y `:16` devuelven `allRoles` (admin + customer + merchant + driver) cuando el evento no tiene entidad o cuando el `entityType` no está contemplado. Es un patrón _fail-open_: cada tipo de entidad nuevo entra por defecto en el camino inseguro.
 
 ### Trabajo
 
@@ -256,7 +268,7 @@ Ampliar `scripts/container-security-smoke.mjs`, que hoy valida principalmente ro
 - [x] El contenedor corre como usuario no root — verificado: `uid=999(flash)`.
 - [x] La imagen productiva no contiene devDependencies ni el árbol de fuentes.
 - [x] El smoke de contenedor valida usuario, entrypoint, etapas y capabilities.
-- [x] **Filesystem raíz de sólo lectura.** `read_only: true` en Compose y **una corrida real en CI**: el job `container-image` arranca la imagen con `--read-only` hasta que responde, y después comprueba que un `touch` sobre la raíz falle —sin eso, el paso pasaría aunque la raíz fuera escribible—. Lo escribible queda declarado: `/tmp` y `/app/server/data`, éste último porque `server/store.js` abre la base SQLite del respaldo al importarse, sin mirar si hay `DATABASE_URL`. Hacer esa inicialización perezosa eliminaría el último punto de escritura.
+- [x] **Filesystem raíz de sólo lectura.** `read_only: true` en Compose y **una corrida real en CI**: el job `container-image` arranca la imagen con `--read-only` hasta que responde, y después comprueba que un `touch` sobre la raíz falle —sin eso, el paso pasaría aunque la raíz fuera escribible—. Lo escribible queda declarado: `/tmp` y `/app/server/data` (este último sólo para el caso de prueba que arranca el respaldo SQLite sin `DATABASE_URL`). **`server/store.js` abre SQLite de forma perezosa** (2-09-2026): importar `createId` u otros exports puros ya no crea `server/data`; con PostgreSQL el runtime productivo no necesita tocar ese volumen.
 - [x] **Dependencias de frontend fuera de la imagen productiva, sin perderlas de la puerta de auditoría.** En ese orden: primero `test:dependency-gate` pasó a auditar cuatro alcances —raíz y móvil, producción y desarrollo— y recién después se movieron los siete paquetes que sólo usa el frente. `test:production-deps` exige que cada dependencia de producción esté importada por `server/` o `scripts/`; hoy son 20 y las 20 lo cumplen. **La imagen bajó de 381 a 303 MiB**, medido por el job `container-image` antes y después.
 - [x] **Existe SBOM y scan de imagen en el pipeline.** El job `container-image` genera un SBOM CycloneDX que publica como artefacto, y escanea con Trivy por imagen fijada —no por una acción del marketplace, que sería código de terceros con el token del workflow—. **Bloquea lo que este equipo puede arreglar**, que no es lo mismo que lo que tiene parche publicado: la puerta falló en su primera corrida con cuatro CVEs altas del npm que trae la imagen base, arreglables upstream pero no acá sin cambiar de base. El scan que corta se salta ese `node_modules` y mira lo que agregamos nosotros; lo heredado se informa sin cortar. Que siga pudiendo fallar tras estrecharle el alcance se verificó con `jsonwebtoken@8.5.1`. `npm audit` reportaba cero mientras Trivy encontraba cuatro: ninguna de las dos sola responde qué se despliega.
 
@@ -294,8 +306,8 @@ No es prolijidad. Es la falla que explica a las demás. Durante la semana del 25
 - [x] **Existe una puerta que verifica las cifras calculables.** `test:docs-drift` recorre `docs/`, `ROADMAP.MD`, `README.md` y `AGENTS.md`, y compara contra el repositorio el recuento de migraciones y el total de suites. Encontró **16 cifras obsoletas en 9 archivos** en su primera corrida.
 - [x] **La puerta distingue historia de afirmación.** Una cifra fechada —«al 25-08», «el 25 de agosto»— se acepta aunque no coincida. Sin esta mitad, la puerta obligaría a reescribir el registro para que diga lo de hoy, que lo volvería falso. Se verificó con las dos: una cifra errónea sin fecha corta y nombra archivo y línea; la misma con fecha pasa.
 - [x] **La deriva existente está corregida.** Seis afirmaciones vigentes se actualizaron; diez registros históricos recibieron la fecha que les faltaba. El documento de auditoría queda excluido entero: es un registro fechado por construcción.
-- [ ] Las afirmaciones **no numéricas** también se verifican. Hoy nada impide que un documento describa una capacidad que no existe, y ése es el resto de H-10.
-- [ ] `docs/investor-readiness.md` y `docs/deployment-checklist.md` se revisan contra el runtime. La auditoría los señaló por describir SQLite como preocupación de despliegue y PostGIS como pendiente; la deriva numérica ya se corrigió, la prosa no se revisó entera.
+- [x] **Las afirmaciones no numéricas empiezan a verificarse.** `test:docs-drift` rechaza frases que el runtime ya desmiente (H-04 «Abierto», read_only «pendiente», «migrar a Postgres», «push imposible por configuración»). Se amplían de a una cuando el repositorio puede demostrar la falsedad sin adivinar.
+- [x] **`docs/investor-readiness.md` y `docs/deployment-checklist.md` se revisaron contra el runtime** el 2-09-2026: H-04/INF-001 ya no figuran abiertos; push/mapas se nombran como bloqueo externo; Postgres ya no aparece como migración pendiente.
 
 ---
 
@@ -332,7 +344,7 @@ Captura o registro del dispositivo físico adjunto al PR. **Sin evidencia físic
 
 ## GEO-001 — Proveedor de mapas comercial
 
-**Prioridad:** P0 · **Hallazgo:** [H-07](auditoria-2026-08-25.md#h-07--proveedores-de-mapas-públicos-por-defecto) · **Fase:** 0
+**Prioridad:** P0 · **Hallazgo:** [H-07](auditoria-2026-08-25.md#h-07--proveedores-de-mapas-públicos-por-defecto) · **Fase:** 0 · **Estado:** Bloqueado por externo (API key comercial + evidencia calidad/costo)
 
 ### Contexto
 
@@ -364,20 +376,24 @@ Ya existen caché, circuit breaker y presupuesto: se conservan y se conectan al 
 - [x] Producción rechaza el arranque con instancias públicas de la comunidad.
 - [x] `computeRouteMatrix()` existe, con field mask y límite facturable.
 - [x] El checkout de comida sólo acepta una dirección con procedencia firmada por el backend. La migración 136 conserva proveedor, `place_id`, tipo y fecha; el token dura 15 minutos, está ligado al usuario y sus valores sustituyen cualquier texto o coordenada enviados por el cliente. Producción exige proveedor comercial y `place_id`. `test:maps` y `test:postgres` cubren reutilización entre usuarios, manipulación y dirección legacy.
-- [ ] Ninguna tarifa productiva usa distancia geodésica como estimación final.
-- [ ] Los costos por proveedor son visibles y tienen alerta de presupuesto.
-- [ ] El fallback entre proveedores es auditable.
+- [x] Ninguna tarifa productiva usa distancia geodésica como estimación final cuando hay coordenadas. Comida, viajes y envíos usan `resolveDrivingRoute` (caché + circuit breaker) en producción o con proveedor comercial; desarrollo OSM conserva `geodesic_scaled` etiquetado en `distanceSource`. Sin coordenadas, viaje/envío siguen con heurística textual. Verificado en `test:maps-provider`.
+- [x] Los costos por proveedor son visibles y tienen alerta de presupuesto. `mapProviderBudgetSnapshot()` y gauges Prometheus (`flash_map_provider_budget_*`) exponen llamadas, límite y remanente por proveedor; al 80% del presupuesto diario se emite `flash_provider_calls_total{operation="budget",outcome="warning"}` una vez por día. Verificado en `test:provider-resilience` y `test:maps-provider`.
+- [x] El fallback entre proveedores es auditable. `noteStaleFallback()` registra `stale_fallback` en observabilidad y `maps.stale_fallback` en `audit_events` con hash de caché cuando geocode o routing devuelven respuesta envejecida. Verificado en `test:maps-provider`.
 - [ ] Calidad real de rutas y costo por consulta con una API key habilitada.
 
 ---
 
 ## DSP-001 — Dispatch v2
 
-**Prioridad:** P0 · **Hallazgo:** [H-06](auditoria-2026-08-25.md#h-06--dispatch-sin-recorte-espacial-previo) · **Fase:** 0–1
+**Prioridad:** P0 · **Hallazgo:** [H-06](auditoria-2026-08-25.md#h-06--dispatch-sin-recorte-espacial-previo) · **Fase:** 0–1 · **Estado:** Bloqueado por externo (Route Matrix + evidencia SLO en prod)
 
 ### Contexto
 
-La consulta de candidatos calcula `ST_Distance`, carga activa y agregados de 30 días para cada conductor online del sistema. No hay `ST_DWithin` ni orden KNN `<->` en todo el repositorio.
+Al abrir el ticket la consulta de candidatos calculaba distancia y agregados de
+30 días sobre todo el padrón online, sin `ST_DWithin` ni KNN. Eso ya no es cierto:
+shortlist espacial, stats precomputadas, radio dinámico, boost Flash Más y
+assign manual están en el runtime y en puertas CI. Lo que falta para cerrar el
+ticket es ETA vial (API key) y evidencia del SLO p95 en infraestructura productiva.
 
 ### Trabajo
 
@@ -411,7 +427,13 @@ driver_dispatch_stats
 - updated_at
 ```
 
-Añadir además: oleadas de oferta · radio dinámico · protección contra inanición · prep time del comercio · dispatch manual desde backoffice · Route Matrix para el scoring.
+- [x] **Tabla `driver_dispatch_stats` y refresh out-of-band.** Migración 137 · `server/dispatch-stats.js` · refresh tras accept/reject y en `processPostgresDispatchBatch` · scoring lee la tabla · `test:dispatch-candidates`.
+
+Añadir además: ~~oleadas de oferta~~ · ~~radio dinámico~~ · ~~protección contra inanición~~ · ~~dispatch manual desde backoffice~~ · ~~prioridad Flash Más en cola~~ · prep time anticipado del comercio (**bloqueado** a propósito: máquinas cocina/logística) · **Route Matrix** para el scoring (**bloqueo del dueño:** API key).
+
+- [x] **Dispatch manual desde backoffice.** `POST /api/admin/jobs/:id/assign` + panel Ops; motivo ≥5; auditoría `dispatch.job_assigned`; misma frontera que el worker (comida en `ready_for_pickup`). Verificado en `test:postgres` / `test:audit-actor` / `test:openapi-contract`.
+- [x] **Oleadas, radio dinámico e inanición.** Escalera 8→25 km en shortlist; desglose con radio usado; worker de ofertas con TTL. Ver `docs/dispatch-ranking.md`.
+- Prep-time anticipado (despachar antes de listo) **bloqueado** hasta separar máquinas cocina/logística (`docs/competitive-research/merchant-live-operations.md`).
 
 ### Criterios de aceptación
 
@@ -420,8 +442,8 @@ Añadir además: oleadas de oferta · radio dinámico · protección contra inan
 - [x] El desglose que explica cada score sigue disponible, ahora con el radio usado.
 - [x] Cero dobles asignaciones bajo concurrencia forzada (`test:postgres`).
 - [x] **El plan de consulta usa índice GiST, verificado con `EXPLAIN ANALYZE`.** `test:dispatch-plan` explica la consulta **real** —importa `SHORTLIST_SQL` del módulo que la ejecuta, porque explicar una copia probaría que la copia usa el índice— y exige `drivers_available_location_gix` en el plan. Corre sobre mil conductores sintéticos por una razón concreta: con los tres del sembrado el planificador elige `Seq Scan` y hace bien, así que explicarla ahí mediría el caso que no importa. Incluye su otra mitad: con `enable_indexscan` apagado se exige que el plan **deje** de usarlo, porque un detector que encuentre cualquier índice en cualquier parte del plan aprobaría siempre.
-- [ ] La primera oferta se emite dentro del SLO de 5 s p95.
-- [ ] Existe una prueba de carga con un padrón sintético de al menos 1.000 conductores. **Avanzado**: el padrón existe y se usa —`test:dispatch-plan` carga mil conductores en línea con posiciones repartidas en unos 40 km y mide el recorte espacial contra ellos—, pero eso es carga de **datos**, no de **tráfico**. Falta ejercitar ofertas concurrentes para sostener el criterio del SLO p95, que sigue abierto por lo mismo.
+- [ ] La primera oferta se emite dentro del SLO de 5 s p95. **Avanzado**: `scripts/dispatch-load-smoke.mjs` (vía `test:dispatch-plan` en `ci-postgres`) mide p95 de la primera oferta sobre mil conductores con oleadas concurrentes y afirma ≤ 5 s; falta evidencia en infraestructura productiva y Route Matrix sigue abierto.
+- [x] Existe una prueba de carga con un padrón sintético de al menos 1.000 conductores. El smoke de carga reutiliza `dispatch-synthetic-padron.mjs`, ejercita shortlist/scoring/ofertas concurrentes, workers en paralelo y refuerza cero dobles asignaciones; corre encadenado en `test:dispatch-plan`.
 - [ ] ETA vial por Route Matrix conectado al scoring — depende de una API key.
 
 ---
@@ -467,10 +489,11 @@ Quedan **cuatro huecos**, y ninguno es de ingeniería: son decisiones de product
 
 ### Criterios de aceptación
 
-- [x] **Existe un producto de suscripción.** *Flash Más*, migración 125. El dueño eligió los tres beneficios: envío sin cargo desde un monto, comisión reducida en viajes y prioridad de dispatch. **Los tres viven en la fila del plan, no en el código**, así que mover el umbral o el precio es un `UPDATE` y no un despliegue; el smoke lo prueba moviendo el umbral por encima y por debajo del subtotal del mismo pedido.
+- [x] **Existe un producto de suscripción.** _Flash Más_, migración 125. El dueño eligió los tres beneficios: envío sin cargo desde un monto, comisión reducida en viajes y prioridad de dispatch. **Los tres viven en la fila del plan, no en el código**, así que mover el umbral o el precio es un `UPDATE` y no un despliegue; el smoke lo prueba moviendo el umbral por encima y por debajo del subtotal del mismo pedido.
   - **Envío sin cargo: entregado y cableado.** Se aplica dentro del cálculo de la cotización, antes de que la ruta firme el token —después de firmar no sobreviviría a la creación del pedido—, se revalida en la creación contra la suscripción releída en la transacción, y se muestra por su nombre en el resumen de web y móvil.
   - **Quién lo paga quedó explícito.** El comercio cobra igual y el conductor cobra el envío completo aunque el cliente no lo haya pagado; la diferencia sale del margen de Flash. Eso obligó a admitir un `platformNet` negativo en la liquidación, acotado exactamente al subsidio otorgado: antes el reparto no cerraba y el pedido moría después de cobrado.
-  - **Comisión reducida en viajes y prioridad de dispatch: en la fila del plan, todavía sin aplicar.** `ride_discount_bps` no se aplica porque `/api/rides/quote` no exige sesión —es un estimador público de precio— y personalizarlo ahí cambia el contrato de la ruta; `dispatch_priority_boost` no se aplica porque el orden de candidatos se decide en [DSP-001](#dsp-001--dispatch-v2). Se dice acá en vez de dejar el criterio marcado como completo.
+  - **Prioridad de dispatch: cableada en la cola de jobs (DSP-001).** `dispatch_priority_boost` del plan vigente reordena el reclamo del batch (`ORDER BY boost DESC, created_at`); no altera el score de conductores. Verificado en `test:dispatch-candidates` y `test:postgres` (suite de suscripciones): un job más nuevo con boost se reclama antes que el FIFO viejo sin suscripción. Periodo cancelado pero vigente sigue contando.
+  - **Comisión reducida en viajes: en la fila del plan, todavía sin aplicar.** `ride_discount_bps` no se aplica porque `/api/rides/quote` no exige sesión —es un estimador público de precio— y personalizarlo ahí cambia el contrato de la ruta.
   - **No cobra.** El cobro recurrente depende de PAY-001, que espera credenciales. `user_subscriptions.billed` distingue un período cobrado de uno otorgado mientras eso no exista, y la respuesta de la API y las dos pantallas lo dicen: «Período bonificado». Un período que se otorga y se llama cobrado es la forma más rápida de tener un problema contable.
 - [x] **La propina se puede dejar en el checkout.** Migración 126. Se cobra junto con el pedido —**un solo cargo**— y queda retenida hasta que hay conductor y el servicio se completa; ahí se libera entera a quien repartió. Si el pedido se reintegra, vuelve con el resto.
   - **El problema no era la pantalla: en el checkout todavía no hay a quién pagarle.** Eso obligó a que una propina pueda existir sin destinatario, que es lo que la migración habilita (`driver_id` y `ledger_transaction_id` pasan a ser opcionales, y `status` distingue `held` de `released` y `refunded`).
@@ -507,7 +530,7 @@ Perfiles EAS preview y production · signing · TestFlight · internal testing �
 - [ ] Existen tres binarios internos instalables: customer, driver y merchant.
 - [ ] Un crash es visible en Sentry con símbolos resueltos.
 - [ ] El rollback fue probado.
-- [ ] Los permisos de ubicación se explican correctamente al usuario en ambas plataformas.
+- [x] Los permisos de ubicación se explican correctamente al usuario en ambas plataformas. Strings iOS/Android por variante en `app.base.json` / `app.config.js`; rationale in-app vía `explainAndRequestForegroundLocation` antes del diálogo del sistema; `test:mobile-location-permission` en `ci-fast`.
 - [ ] Background location fue probada en dispositivos físicos con development build, no en Expo Go.
 
 ---
@@ -571,12 +594,12 @@ OpenAPI completo · SDK generado · API keys · OAuth para partners · webhooks 
 
 No se ejecutan durante el congelamiento. Se registran para no perderlos.
 
-| Ticket | Descripción |
-| --- | --- |
-| **OBS-002** | Colector, dashboards y Alertmanager administrados; paging productivo |
-| **RT-002** | Insertar el evento realtime en la misma transacción de dominio mediante outbox |
-| **RT-003** | WebSocket para presencia bidireccional, chat y tracking de alta frecuencia |
+| Ticket      | Descripción                                                                              |
+| ----------- | ---------------------------------------------------------------------------------------- |
+| **OBS-002** | Colector, dashboards y Alertmanager administrados; paging productivo                     |
+| **RT-002**  | Insertar el evento realtime en la misma transacción de dominio mediante outbox           |
+| **RT-003**  | WebSocket para presencia bidireccional, chat y tracking de alta frecuencia               |
 | **SAF-002** | Safety Operating System: detección de anomalías, incident command, llamadas enmascaradas |
-| **DAT-002** | Rotación de claves y migración a KMS/HSM o Secret Manager administrado |
-| **SEC-002** | Pentest externo y revisión de seguridad independiente |
-| **QC-001** | Quick commerce, picking e inventario masivo — **no antes de la Fase 4** |
+| **DAT-002** | Rotación de claves y migración a KMS/HSM o Secret Manager administrado                   |
+| **SEC-002** | Pentest externo y revisión de seguridad independiente                                    |
+| **QC-001**  | Quick commerce, picking e inventario masivo — **no antes de la Fase 4**                  |

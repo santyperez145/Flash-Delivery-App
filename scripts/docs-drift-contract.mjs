@@ -119,10 +119,60 @@ for (const archivo of (await Promise.all(RAICES.map(documentos))).flat()) {
 
 console.log(`hechos verificados: ${migraciones} migraciones, ${suites} suites`);
 
+// Afirmaciones no numéricas que ya mentían sobre el runtime (resto de H-10 /
+// DOC-001). Sólo se agregan frases cuya falsedad el repo puede demostrar sin
+// adivinar: un checklist que diga «H-04 … Abierto» cuando DAT-001 está cerrado.
+const AFIRMACIONES_PROHIBIDAS = [
+  {
+    archivo: "docs/deployment-checklist.md",
+    patron: /H-04[^\n]*\|\s*Abierto/i,
+    motivo: "DAT-001 cerró la matriz RLS; el checklist no puede listar H-04 como Abierto",
+  },
+  {
+    archivo: "docs/deployment-checklist.md",
+    patron: /Filesystem raíz de sólo lectura:\s*\*\*pendiente\*\*/i,
+    motivo: "INF-001 verificó read_only en CI; no puede figurar como pendiente",
+  },
+  {
+    archivo: "docs/deployment-checklist.md",
+    patron: /Grants explícitos por tabla, no `ON ALL TABLES`\./i,
+    motivo: "esa casilla abierta contradice DAT-001; debe figurar cumplida",
+  },
+  {
+    archivo: "docs/investor-readiness.md",
+    patron: /lista para migrar a Postgres/i,
+    motivo: "el runtime ya es PostgreSQL/PostGIS; no se «migra»",
+  },
+  {
+    archivo: "docs/investor-readiness.md",
+    patron: /Push productivo imposible por configuración/i,
+    motivo: "NOTIFICATION_PROVIDER=expo ya existe; el gap es evidencia física",
+  },
+];
+
+for (const regla of AFIRMACIONES_PROHIBIDAS) {
+  const texto = await fs.readFile(regla.archivo, "utf8").catch(() => null);
+  if (texto == null) continue;
+  if (regla.patron.test(texto)) {
+    desviaciones.push({
+      archivo: regla.archivo,
+      linea: "—",
+      hecho: "afirmación no numérica",
+      dicho: regla.patron.source,
+      real: regla.motivo,
+      texto: regla.motivo,
+    });
+  }
+}
+
 if (desviaciones.length) {
-  console.error(`\n${desviaciones.length} cifra(s) de la documentación ya no son ciertas:\n`);
+  console.error(`\n${desviaciones.length} afirmación(es) de la documentación ya no son ciertas:\n`);
   for (const d of desviaciones) {
-    console.error(`  ${d.archivo}:${d.linea}  «${d.texto}» — hoy son ${d.real}`);
+    if (d.hecho === "afirmación no numérica") {
+      console.error(`  ${d.archivo}  — ${d.texto}`);
+    } else {
+      console.error(`  ${d.archivo}:${d.linea}  «${d.texto}» — hoy son ${d.real}`);
+    }
   }
   console.error("\nSi la cifra describe el estado de hoy, actualizala.");
   console.error("Si describe lo que era cierto en un momento, decí cuándo: «al 25-08» o «el 25");
@@ -130,4 +180,6 @@ if (desviaciones.length) {
   process.exit(1);
 }
 
-console.log("\nok - las cifras verificables de la documentación coinciden con el repositorio");
+console.log(
+  "\nok - las cifras y afirmaciones verificables de la documentación coinciden con el repositorio",
+);

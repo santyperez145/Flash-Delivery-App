@@ -11,7 +11,7 @@
 // usaba quedaba a un `if` de distancia de auditar en el runtime equivocado.
 import { usesPostgresCommerce } from "./postgres.js";
 import { audit } from "./fallback-runtime.js";
-import { recordPostgresAudit } from "./operations-repository.js";
+import { recordPostgresAudit } from "./audit-repository.js";
 import { writeDb } from "./store.js";
 
 /**
