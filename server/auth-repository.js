@@ -6,14 +6,7 @@ import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { postgresPool } from "./postgres.js";
 import { sanitizeUser } from "./user-view.js";
-import { encryptEmailVerificationCode, encryptRecoveryToken } from "./secret-envelope.js";
-
-const tokenHash = (token) => {
-  crypto
-    .createHash("sha256")
-    .update(String(token || ""))
-    .digest("hex");
-};
+import { encryptEmailVerificationCode } from "./secret-envelope.js";
 
 function mapUser(row) {
   if (!row) return null;
