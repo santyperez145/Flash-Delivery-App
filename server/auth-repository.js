@@ -13,8 +13,6 @@ const tokenHash = (token) =>
     .createHash("sha256")
     .update(String(token || ""))
     .digest("hex");
-  }
-}
 
 function mapUser(row) {
   if (!row) return null;
@@ -394,4 +392,3 @@ export async function updatePostgresAuthProfile(publicId, { name, phone, default
   );
   return findAuthUserByPublicId(publicId);
 }
-
