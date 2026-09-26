@@ -8,11 +8,12 @@ import { postgresPool } from "./postgres.js";
 import { sanitizeUser } from "./user-view.js";
 import { encryptEmailVerificationCode, encryptRecoveryToken } from "./secret-envelope.js";
 
-const tokenHash = (token) =>
+const tokenHash = (token) => {
   crypto
     .createHash("sha256")
     .update(String(token || ""))
     .digest("hex");
+};
 
 function mapUser(row) {
   if (!row) return null;
