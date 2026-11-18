@@ -128,3 +128,32 @@ assert.ok(
   "la Wallet no vive dentro de Cuenta",
 );
 ok("la web tiene la misma estructura: inicio, barra, sólo lo que existe y Wallet en Cuenta");
+
+// Buscar desde el inicio empieza de cero, sin comercios no hay buscador, y un
+// resumen de rubros que falló se dice y se puede reintentar. En las dos plataformas.
+const homeMovil = await leer("screens/CustomerHomeScreen.tsx");
+const serviciosMovil = await leer("customer-services.tsx");
+assert.ok(
+  contains(
+    coordinador,
+    'onSearch={() => { // Buscar empieza de cero: una cocina de antes ocultaría lo que coincide. setFoodCategory("Todos"); setFoodQuery("");',
+  ) &&
+    contains(inicioWeb, 'const buscar = () => { setCategory("Todo"); setQuery("");') &&
+    contains(superficie, "onSearch={portada.buscar}"),
+  "buscar desde el inicio arrastra la categoría o la búsqueda anterior",
+);
+const aviso = "{fallo && <AvisoRubros onRetry={reintentar} />}";
+const cuantas = (fuente) => fuente.split(aviso).length - 1;
+for (const [nombre, servicio, home, avisos] of [
+  ["móvil", serviciosMovil, homeMovil, cuantas(homeMovil) + cuantas(barra)],
+  ["web", inicioWeb, inicioWeb, cuantas(inicioWeb)],
+])
+  assert.ok(
+    contains(servicio, 'fallo: rubros === "error",') &&
+      contains(servicio, "reintentar: () => setIntento((n) => n + 1),") &&
+      contains(home, "{hayComercios && (") &&
+      // En el inicio y en Servicios: los dos lugares que ofrecen rubros.
+      avisos === 2,
+    `${nombre}: el buscador aparece sin comercios, o un fallo se ve como disponibilidad`,
+  );
+ok("buscar empieza de cero, sin comercios no hay buscador y un fallo se dice con reintento");

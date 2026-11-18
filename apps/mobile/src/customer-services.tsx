@@ -47,8 +47,10 @@ export function useServiciosDisponibles() {
   // y vacío es otra cosa: no hay comercios, y no se ofrece pedir.
   const [rubros, setRubros] = useState<CatalogVertical[] | "error" | null>(null);
   const [flags, setFlags] = useState<Flags | null>(null);
+  const [intento, setIntento] = useState(0);
   useEffect(() => {
     let vigente = true;
+    setRubros(null);
     api
       .getCatalogVerticals()
       .then((respuesta) => vigente && setRubros(respuesta.verticals))
@@ -59,7 +61,7 @@ export function useServiciosDisponibles() {
     return () => {
       vigente = false;
     };
-  }, []);
+  }, [intento]);
 
   const servicios: ServicioCliente[] = [];
   if (flags?.public_rides?.active ?? true)
@@ -97,5 +99,13 @@ export function useServiciosDisponibles() {
       icono: "cube-outline",
       color: flashDesign.color.shipment,
     });
-  return { servicios, cargando: rubros === null };
+  return {
+    servicios,
+    cargando: rubros === null,
+    // Si el resumen falló, Comida queda con el catálogo ya cargado, pero se dice que
+    // falta información y se ofrece reintentar: no se presenta como disponibilidad.
+    fallo: rubros === "error",
+    reintentar: () => setIntento((n) => n + 1),
+    hayComercios: servicios.some((servicio) => servicio.tipo === "vertical"),
+  };
 }

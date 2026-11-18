@@ -239,7 +239,7 @@ export function CustomerApp(props: {
           user={user}
           features={props.features}
           onOpen={portada.abrir}
-          onSearch={() => portada.abrir("food")}
+          onSearch={portada.buscar}
           onOpenRestaurant={setSelectedRestaurantId}
           onOpenActivity={() => setTab("activity")}
         />

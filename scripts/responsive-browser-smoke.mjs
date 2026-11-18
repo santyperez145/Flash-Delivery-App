@@ -477,7 +477,7 @@ async function auditCompactCustomerSurfaces(browser) {
 
   ok("compact customer wallet renders real activity and enforces money limits");
 
-  await page.getByRole("button", { name: "Perfil", exact: true }).click();
+  await page.getByRole("button", { name: "Cuenta", exact: true }).click();
   await page.getByRole("heading", { name: "Mis direcciones", exact: true }).waitFor();
   await page.getByRole("heading", { name: "Mi alimentación", exact: true }).waitFor();
   await assertNoPageOverflow(page, "compact customer account");

@@ -57,8 +57,10 @@ export function useServiciosWeb(features: Flags) {
   // `null` mientras carga; "error" si el resumen no se pudo leer. Uno leído y vacío
   // es otra cosa: no hay comercios, y no se ofrece pedir.
   const [rubros, setRubros] = useState<CatalogVertical[] | "error" | null>(null);
+  const [intento, setIntento] = useState(0);
   useEffect(() => {
     let vigente = true;
+    setRubros(null);
     api
       .getCatalogVerticals()
       .then((respuesta) => vigente && setRubros(respuesta.verticals))
@@ -66,7 +68,7 @@ export function useServiciosWeb(features: Flags) {
     return () => {
       vigente = false;
     };
-  }, []);
+  }, [intento]);
   const servicios: ServicioWeb[] = [];
   if (features?.public_rides?.active ?? true)
     servicios.push({ tipo: "ride", titulo: "Viaje", detalle: "Auto, moto o XL", icono: Car });
@@ -92,7 +94,27 @@ export function useServiciosWeb(features: Flags) {
       detalle: "Mandá un paquete en el día",
       icono: PackageCheck,
     });
-  return { servicios, cargando: rubros === null };
+  return {
+    servicios,
+    cargando: rubros === null,
+    // Si el resumen falló, Comida queda con el catálogo ya cargado, pero se dice que
+    // falta información y se ofrece reintentar: no se presenta como disponibilidad.
+    fallo: rubros === "error",
+    reintentar: () => setIntento((n) => n + 1),
+    hayComercios: servicios.some((servicio) => servicio.tipo === "vertical"),
+  };
+}
+
+/** El aviso de un resumen de rubros que no se pudo leer. */
+function AvisoRubros({ onRetry }: { onRetry: () => void }) {
+  return (
+    <p className="customer-home-notice" role="alert">
+      No pudimos ver qué hay disponible en tu zona.
+      <button type="button" onClick={onRetry}>
+        Reintentar
+      </button>
+    </p>
+  );
 }
 
 type Abrir = (servicio: Service, vertical?: MerchantVertical) => void;
@@ -115,6 +137,15 @@ export function usePortada({
 }) {
   const [enServicio, setEnServicio] = useState(false);
   const [rubro, setRubro] = useState<MerchantVertical>("restaurant");
+  // Buscar desde el inicio también empieza de cero: la categoría de antes ocultaría
+  // comercios que coinciden con lo que se busca.
+  const buscar = () => {
+    setCategory("Todo");
+    setQuery("");
+    setService("food");
+    setEnServicio(true);
+    setTab("home");
+  };
   const abrir: Abrir = (destino, vertical) => {
     // Entrar a un rubro empieza de cero: la cocina o la búsqueda de otro rubro lo
     // dejarían vacío sin que se vea por qué.
@@ -127,7 +158,7 @@ export function usePortada({
     setEnServicio(true);
     setTab("home");
   };
-  return { enServicio, volver: () => setEnServicio(false), rubro, abrir };
+  return { enServicio, volver: () => setEnServicio(false), rubro, abrir, buscar };
 }
 const abrirCon = (abrir: Abrir) => (servicio: ServicioWeb) =>
   servicio.tipo === "vertical" ? abrir("food", servicio.vertical) : abrir(servicio.tipo);
@@ -149,7 +180,7 @@ export function CustomerHome({
   onOpenRestaurant: (restaurantId: string) => void;
   onOpenActivity: () => void;
 }) {
-  const { servicios } = useServiciosWeb(features);
+  const { servicios, fallo, reintentar, hayComercios } = useServiciosWeb(features);
   const abrir = abrirCon(onOpen);
   const propios = <T extends { customerId: string }>(lista: T[]) =>
     lista.filter((entry) => entry.customerId === user?.id);
@@ -183,9 +214,13 @@ export function CustomerHome({
   return (
     <section className="customer-home" aria-label="Inicio">
       <h1>Hola{user?.name ? `, ${user.name.split(" ")[0]}` : ""}</h1>
-      <button type="button" className="customer-home-search" onClick={onSearch}>
-        <Search size={18} /> Buscar comida, súper o farmacia
-      </button>
+      {/* Sin comercios no hay nada que buscar. */}
+      {hayComercios && (
+        <button type="button" className="customer-home-search" onClick={onSearch}>
+          <Search size={18} /> Buscar comida, súper o farmacia
+        </button>
+      )}
+      {fallo && <AvisoRubros onRetry={reintentar} />}
       {enCurso.length > 0 && (
         <button type="button" className="customer-home-live" onClick={onOpenActivity}>
           <span>
@@ -241,11 +276,12 @@ export function CustomerHome({
 
 /** La pestaña Servicios: todo lo disponible, con qué es cada cosa. */
 export function CustomerServices({ features, onOpen }: { features: Flags; onOpen: Abrir }) {
-  const { servicios, cargando } = useServiciosWeb(features);
+  const { servicios, cargando, fallo, reintentar } = useServiciosWeb(features);
   const abrir = abrirCon(onOpen);
   return (
     <section className="customer-services" aria-label="Servicios">
       <h1>Servicios</h1>
+      {fallo && <AvisoRubros onRetry={reintentar} />}
       <p>
         {cargando ? "Buscando lo disponible en tu zona…" : "Todo lo que podés pedir en tu zona"}
       </p>

@@ -180,3 +180,23 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-control);
 }
+
+.customer-home-notice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+}
+
+.customer-home-notice button {
+  padding: 0;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 800;
+  text-decoration: underline;
+  background: none;
+  border: 0;
+}
