@@ -82,6 +82,7 @@ import { queueTriggersRouter } from "./http/queue-triggers-router.js";
 import { paymentMethodsRouter } from "./http/payment-methods-router.js";
 import { pricingRouter } from "./http/pricing-router.js";
 import { subscriptionRouter } from "./http/subscription-router.js";
+import { legalRouter } from "./http/legal-router.js";
 import { groupOrderRouter } from "./http/group-order-router.js";
 import { supportRouter } from "./http/support-router.js";
 import { configurationRouter } from "./http/configuration-router.js";
@@ -723,6 +724,7 @@ app.use(dietaryRouter);
 app.use(configurationRouter);
 app.use(pricingRouter);
 app.use(subscriptionRouter);
+app.use(legalRouter);
 app.use(groupOrderRouter);
 app.use(feedbackRouter);
 

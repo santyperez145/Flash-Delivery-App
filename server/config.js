@@ -7,6 +7,11 @@ const booleanFromEnv = z.preprocess((value) => {
   if (value.toLowerCase() === "false") return false;
   return value;
 }, z.boolean());
+// Vacía en el .env equivale a no definida: el ejemplo deja la clave a la vista.
+const optionalUrl = z.preprocess(
+  (value) => (value === "" ? undefined : value),
+  z.string().url().optional(),
+);
 
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -109,6 +114,9 @@ const envSchema = z.object({
     .default("http://127.0.0.1:4000/api/payment-provider/mercadopago/callback"),
   PAYMENT_OAUTH_RETURN_URL: z.string().url().default("http://127.0.0.1:5173"),
   MERCADOPAGO_WEBHOOK_SECRET: z.string().min(32).optional(),
+  // LAN-002: los documentos legales los redacta el dueño con asesoría; acá sólo su URL.
+  LEGAL_TERMS_URL: optionalUrl,
+  LEGAL_PRIVACY_URL: optionalUrl,
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -234,6 +242,16 @@ if (
     "Mercado Pago public key, OAuth, webhook credentials and independent encryption key are required",
   );
 
+// Las tiendas exigen una política de privacidad pública, y nadie acepta unos términos
+// que no puede leer: en producción las dos URLs son obligatorias y HTTPS.
+for (const [name, value] of [
+  ["LEGAL_TERMS_URL", env.LEGAL_TERMS_URL],
+  ["LEGAL_PRIVACY_URL", env.LEGAL_PRIVACY_URL],
+]) {
+  if (env.NODE_ENV === "production" && !value?.startsWith("https://"))
+    throw new Error(`${name} must be an HTTPS URL in production`);
+}
+
 export const config = {
   env: env.NODE_ENV,
   isProduction: env.NODE_ENV === "production",
@@ -267,6 +285,7 @@ export const config = {
   recoveryTokenEncryptionKey: env.RECOVERY_TOKEN_ENCRYPTION_KEY,
   emailProvider: env.EMAIL_PROVIDER,
   appPublicUrl: env.APP_PUBLIC_URL,
+  legal: { termsUrl: env.LEGAL_TERMS_URL ?? null, privacyUrl: env.LEGAL_PRIVACY_URL ?? null },
   smtp: {
     host: env.SMTP_HOST,
     port: env.SMTP_PORT,

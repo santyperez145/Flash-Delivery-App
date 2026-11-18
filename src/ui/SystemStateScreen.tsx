@@ -2,6 +2,7 @@ import { ArrowRight, Flame, LogIn, RefreshCw, ShieldCheck, TriangleAlert } from 
 
 import type { User } from "../types";
 import { AccountDeletion } from "./AccountDeletion";
+import { LegalLinks } from "./LegalLinks";
 
 type SystemStateScreenProps = {
   tone: "loading" | "error";
@@ -78,6 +79,7 @@ export function DesktopAccessGate({ user, onLogout }: { user: User | null; onLog
         </div>
         {/* El camino web para eliminar la cuenta, que Google Play exige además
             del de la app: un cliente en escritorio llega acá. */}
+        <LegalLinks />
         <AccountDeletion />
       </section>
     </main>

@@ -45,6 +45,32 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
 
+## Avance 18 de noviembre de 2026 — LAN-002, enlaces legales en la app
+
+Las tiendas exigen que la política de privacidad se pueda abrir desde la app. Además, el
+registro móvil decía «Al continuar aceptás los Términos y reconocés la Política de
+privacidad»: un texto fijo sobre dos documentos que no existen y que no se podían abrir.
+Redactarlos le toca al dueño, con asesoría (ver [`docs/lanzamiento.md`](docs/lanzamiento.md)).
+Ingeniería se ocupa de que lleguen a cada pantalla.
+
+- **Las URLs las da el servidor:** `LEGAL_TERMS_URL` y `LEGAL_PRIVACY_URL`, publicadas en
+  `GET /api/public/legal`. Cambiarlas no exige sacar otra versión en las tiendas.
+- **En producción son obligatorias y HTTPS:** el servidor no arranca sin ellas.
+- **Sin URL no se inventa un enlace.** Cada superficie dice «todavía sin publicar». El
+  registro dice «aceptás» solo cuando existen los dos documentos.
+- **Dónde aparecen:**
+  - el registro móvil;
+  - la cuenta del cliente, del repartidor y del comercio en el móvil;
+  - el perfil web y el acceso web de escritorio.
+- **OpenAPI** documenta ahora `POST /api/me/delete` y `GET /api/public/legal`. Los dos
+  viven en `server/openapi-account.js`, porque `openapi.js` es un monolito de H-08.
+- **Verificación:** `test:legal-links` es nuevo y corre en `ci-fast`.
+  - Ejecuta la configuración real: lee las URLs, rechaza una inválida y trata la vacía como
+    «no publicada».
+  - Vigila la guarda de producción, la ruta, las seis superficies, y que el registro no
+    acepte en nombre de nadie con un documento faltante.
+  - Cada una de sus ocho aserciones falla cuando se rompe lo que vigila.
+
 ## Avance 18 de noviembre de 2026 — Infraestructura GCP en Terraform
 
 Desplegar no puede ser una semana de trabajo el día que exista la cuenta. [`infra/gcp`](infra/gcp/README.md)

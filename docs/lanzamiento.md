@@ -97,8 +97,11 @@ Lo que se puede hacer hoy, en este orden:
      secretos al crear cada revisión.
    - Falta el workflow que publica la imagen y aplica. Se escribe con la cuenta, porque
      necesita la identidad federada de GitHub en el proyecto.
-3. **Enlaces legales en la app** (términos, privacidad) apuntando a las URLs que defina el
-   dueño, con el estado honesto mientras no existan.
+3. ~~**Enlaces legales en la app** (términos, privacidad) apuntando a las URLs que defina el
+   dueño, con el estado honesto mientras no existan.~~ Hecho (LAN-002).
+   - El día que existan los documentos, alcanza con cargar `LEGAL_TERMS_URL` y
+     `LEGAL_PRIVACY_URL` en el servidor.
+   - En producción las dos son obligatorias.
 4. **Paridad que el piloto necesita:** foto al dejar en la puerta (P-02b) y retiro desde el
    móvil (P-11). El resto de [`paridad-competitiva.md`](paridad-competitiva.md) no bloquea
    el piloto.
