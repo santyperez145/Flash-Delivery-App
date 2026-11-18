@@ -45,6 +45,27 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
 
+## Avance 18 de noviembre de 2026 — RES-02, la web del cliente con la misma estructura
+
+- **La web tiene ahora la misma estructura que el móvil.**
+  - Antes tenía el selector Comida · Taxi · Envíos arriba y la barra Inicio · Actividad ·
+    Wallet · Perfil.
+  - Ahora entra al inicio con todos los servicios, y la barra es Inicio · Servicios ·
+    Actividad · Cuenta.
+  - **La Wallet vive dentro de Cuenta**, como en las apps de varios servicios.
+- **Las mismas reglas:**
+  - sólo se ofrece lo que existe;
+  - un catálogo leído y vacío no ofrece pedir;
+  - abrir un rubro reinicia la cocina y la búsqueda.
+- **Sin agrandar archivos protegidos.**
+  - `App.tsx`, monolito de H-08, no se tocó: el estado de portada vive en un hook de
+    `CustomerHome.tsx`.
+  - El coordinador quedó en su techo de 375 líneas.
+  - `FoodDiscoveryHome` quedó en su techo de 130.
+- **Verificación:**
+  - `test:customer-home` cubre ahora las dos plataformas.
+  - Probado en el navegador: inicio, entrar a Comida y volver, y la Wallet desde Cuenta.
+
 ## Avance 18 de noviembre de 2026 — RES-01, inicio del cliente con todos los servicios
 
 El dueño pidió que Flash tenga la misma lógica y el mismo rumbo que Uber, Uber Eats y
