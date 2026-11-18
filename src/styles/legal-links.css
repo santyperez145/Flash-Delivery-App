@@ -15,6 +15,16 @@
   align-items: center;
 }
 
+.legal-links button {
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  background: none;
+  border: 0;
+}
+
 .legal-links a {
   color: inherit;
   font-weight: 600;

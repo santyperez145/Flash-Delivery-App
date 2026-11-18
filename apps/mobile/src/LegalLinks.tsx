@@ -20,16 +20,19 @@ export const getLegalLinks = () => request<EnlacesLegales>("/public/legal");
 function useEnlacesLegales() {
   const [enlaces, setEnlaces] = useState<EnlacesLegales | null>(null);
   const [error, setError] = useState(false);
+  // Cada intento vuelve a pedir: un error no deja la pantalla sin salida.
+  const [intento, setIntento] = useState(0);
   useEffect(() => {
     let vigente = true;
+    setError(false);
     getLegalLinks()
       .then((respuesta) => vigente && setEnlaces(respuesta))
       .catch(() => vigente && setError(true));
     return () => {
       vigente = false;
     };
-  }, []);
-  return { enlaces, error };
+  }, [intento]);
+  return { enlaces, error, reintentar: () => setIntento((n) => n + 1) };
 }
 
 function Enlace({ url, children }: { url: string; children: string }) {
@@ -51,11 +54,14 @@ export function LegalLinks({
   variante?: "lista" | "aceptacion";
   style?: StyleProp<TextStyle>;
 }) {
-  const { enlaces, error } = useEnlacesLegales();
+  const { enlaces, error, reintentar } = useEnlacesLegales();
   if (error)
     return (
-      <Text style={[estilos.texto, style]}>
-        No pudimos cargar los términos y la política de privacidad.
+      <Text style={[estilos.texto, style]} accessibilityRole="alert">
+        No pudimos cargar los términos y la política de privacidad.{" "}
+        <Text style={estilos.enlace} accessibilityRole="button" onPress={reintentar}>
+          Reintentar
+        </Text>
       </Text>
     );
   if (!enlaces) return null;

@@ -69,7 +69,9 @@ const ruta = await leer("server/http/legal-router.js");
 assert.ok(
   contains(ruta, 'legalRouter.get("/api/public/legal", (_req, res) => {') &&
     contains(ruta, "termsUrl: config.legal.termsUrl, privacyUrl: config.legal.privacyUrl") &&
-    contains(await leer("server/index.js"), "app.use(legalRouter);") &&
+    // Montada por el router de identidad: `server/index.js` es un monolito de H-08.
+    contains(await leer("server/http/auth-router.js"), "router.use(legalRouter);") &&
+    !contains(await leer("server/index.js"), "legalRouter") &&
     contains(await leer("server/openapi-account.js"), '"/api/public/legal": {'),
   "la ruta de los enlaces legales no existe, no está montada o no está documentada",
 );
@@ -122,3 +124,13 @@ assert.ok(
   "el enlace web abre otra pestaña con acceso a la que lo abrió",
 );
 ok("sin URL se dice que falta: ni enlace inventado ni aceptación de lo que no existe");
+
+// Un error al cargar tiene salida: las dos plataformas ofrecen reintentar.
+for (const archivo of ["src/ui/LegalLinks.tsx", "apps/mobile/src/LegalLinks.tsx"]) {
+  const fuente = await leer(archivo);
+  assert.ok(
+    contains(fuente, "}, [intento]);") && contains(fuente, "Reintentar"),
+    `${archivo} deja el error sin reintento`,
+  );
+}
+ok("si la carga falla, web y móvil ofrecen reintentar");

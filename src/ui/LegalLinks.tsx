@@ -19,20 +19,28 @@ export const getLegalLinks = () => request<EnlacesLegales>("/public/legal");
 export function LegalLinks() {
   const [enlaces, setEnlaces] = useState<EnlacesLegales | null>(null);
   const [error, setError] = useState(false);
+  // Cada intento vuelve a pedir: un error no deja la pantalla sin salida.
+  const [intento, setIntento] = useState(0);
 
   useEffect(() => {
     let vigente = true;
+    setError(false);
     getLegalLinks()
       .then((respuesta) => vigente && setEnlaces(respuesta))
       .catch(() => vigente && setError(true));
     return () => {
       vigente = false;
     };
-  }, []);
+  }, [intento]);
 
   if (error)
     return (
-      <p className="legal-links">No pudimos cargar los términos y la política de privacidad.</p>
+      <p className="legal-links" role="alert">
+        No pudimos cargar los términos y la política de privacidad.
+        <button type="button" onClick={() => setIntento((n) => n + 1)}>
+          Reintentar
+        </button>
+      </p>
     );
   if (!enlaces) return null;
   const documentos = [
