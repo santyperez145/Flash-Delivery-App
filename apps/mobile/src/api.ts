@@ -19,6 +19,7 @@ import type { AnalyticsEvent } from "./analytics";
 import { loadMobileSession, mobileSessionStorage, saveMobileSession } from "./session-storage";
 import Constants from "expo-constants";
 import { registrarDispositivoParaPush } from "./push-registration";
+import { createCatalogApi } from "./catalog-api";
 
 declare const process: {
   env?: { EXPO_PUBLIC_API_URL?: string; EXPO_PUBLIC_APP_VARIANT?: string };
@@ -164,6 +165,7 @@ async function request<T>(
   return payload as T;
 }
 
+const catalogApi = createCatalogApi(request);
 export const api = {
   async getDriverOffers() {
     return request<{ offers: DispatchOffer[] }>("/driver/offers");
@@ -365,7 +367,7 @@ export const api = {
         audience: string;
       }>(`/bootstrap/${activeAudience}`),
       this.getActivity(undefined, 50),
-      activeAudience === "merchant" ? Promise.resolve(null) : this.getCatalog(undefined, 50),
+      activeAudience === "merchant" ? Promise.resolve(null) : catalogApi.getHome(50),
       activeAudience === "driver" ? this.getCurrentDriver() : Promise.resolve(null),
       activeAudience === "merchant" ? this.getCurrentMerchant() : Promise.resolve(null),
       ["customer", "merchant"].includes(activeAudience)
@@ -458,16 +460,8 @@ export const api = {
       nextCursor: string | null;
     }>(`/me/activity?${params}`);
   },
-  async getCatalog(cursor?: string, limit = 20, query = "") {
-    const params = new URLSearchParams({
-      limit: String(limit),
-      ...(cursor ? { cursor } : {}),
-      ...(query ? { q: query } : {}),
-    });
-    return request<{ restaurants: Restaurant[]; nextCursor: string | null }>(
-      `/catalog/restaurants?${params}`,
-    );
-  },
+  getCatalog: catalogApi.getPage,
+  getCatalogVerticals: catalogApi.getVerticals,
   async getPromotions() {
     return request<{ promotions: import("./types").Promotion[] }>("/promotions");
   },

@@ -25,8 +25,9 @@ ejecutan igual para todos, sin revisiones automáticas de terceros sobre los PRs
 PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda levantado.
 
 - **Por qué se levanta.** Su ventana venció el 20 de septiembre y se siguió aplicando dos
-  meses más; cumplió la parte medible de su objetivo (75 de 107 suites `test:*` en puertas
-  CI bloqueantes, contra 15 de 104 el 25 de agosto); y cuatro de sus cinco criterios de
+  meses más; cumplió la parte medible de su objetivo (107 de 108 suites `test:*` detrás de
+  una puerta CI, 105 bloqueantes, contra 15 de 104 el 25 de agosto); y cuatro de sus cinco
+  criterios de
   salida restantes dependen de credenciales, dispositivos, una cuenta cloud y un segundo
   revisor, que son del dueño. **Un congelamiento cuya salida depende de la acción de otro
   no es un plan, es una espera.**
@@ -43,6 +44,40 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   `economy|comfort|moto|xl`, y `POST /api/orders/:orderId/reorder` está cableado). Es el
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
+
+## Avance 18 de noviembre de 2026 — P-01, rubros de comercio
+
+`merchants.vertical` existía desde la migración 001 con cinco rubros y **ninguna pantalla lo
+mostraba**: un comercio que no era restaurante aparecía mezclado entre las parrillas, o no
+aparecía. PedidosYa y Uber Eats abren su portada con esos accesos.
+
+- **Servidor.** El catálogo publica el rubro, filtra por `?vertical=` en la base (no en el
+  cliente: con miles de comercios, una farmacia en la página 40 no existiría) y rechaza con
+  400 un rubro desconocido. `GET /api/catalog/verticals` dice qué rubros tienen comercios
+  activos, con caché pública.
+- **Web y móvil.** La carga inicial trae una página de cada rubro, y la portada abre con
+  los accesos por rubro; las categorías se reducen a las del rubro elegido y la búsqueda
+  atraviesa todos. El cliente de catálogo vive en su propio módulo (`catalog-api.ts`) para
+  no hacer crecer `api.ts`; web y móvil tienen el mismo, y el contrato verifica que no se
+  separen.
+- **Nada inventado.** Decisión del dueño del 18 de noviembre: «quiero todo real, nada
+  falso». No se siembran comercios ficticios de otros rubros: hoy la base sólo tiene
+  restaurantes, así que **la portada no muestra accesos de rubro hasta que se dé de alta un
+  comercio real** de otro rubro. El seed respeta el rubro de cada comercio en lugar de
+  forzarlo a restaurante.
+- **Verificación.** `test:catalog-verticals` (nuevo, en `ci-fast`), falsificado aserción
+  por aserción. `test:catalog-pagination` contra PostgreSQL crea **su propio** comercio,
+  rotulado «Prueba automática P-01», prueba el filtro en los dos sentidos, el resumen y el
+  400, y lo borra en un `finally`. En el navegador se miró la portada móvil web con las
+  respuestas de rubros **simuladas en el propio navegador**, sólo para ver la pantalla:
+  nada de eso quedó en el código ni en la base.
+- **Corrección propia.** El 17 de noviembre escribí «75 de 107 suites en puertas
+  CI bloqueantes». Era falso: salía de buscar `npm run test:` en los workflows, y esa
+  búsqueda no ve las suites que corren dentro de otras. `test:ci-coverage`, que es la
+  herramienta del repositorio para eso, daba 104 de 107 bloqueantes. Corregido en las
+  reglas del proyecto y acá; con la suite nueva son 105 de 108.
+- **Lo que falta.** Comercios reales de esos rubros —es alta comercial, del dueño—;
+  pasillos y recompra para el súper (P-09); medicamentos (P-10, bloqueo externo).
 
 ## Avance 17 de noviembre de 2026 — GTM-002, retiro en el local
 

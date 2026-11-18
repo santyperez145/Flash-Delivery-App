@@ -1,0 +1,70 @@
+/* Rubros de comercio en la portada (P-01).
+ *
+ * Hoja propia porque `styles.css` es un monolito identificado en el hallazgo
+ * H-08 y ningún cambio lo hace crecer. Sigue la grilla de la categoría: el mismo
+ * desborde horizontal que `.category-rail`, para que el pulgar recorra las dos
+ * barras con el mismo gesto.
+ */
+.vertical-rail {
+  display: flex;
+  gap: 10px;
+  margin: 16px -18px 4px;
+  padding: 0 18px 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.vertical-rail::-webkit-scrollbar {
+  display: none;
+}
+
+.vertical-tile {
+  display: grid;
+  flex: 0 0 auto;
+  justify-items: center;
+  gap: 4px;
+  min-width: 84px;
+  padding: 10px 8px;
+  color: var(--ink);
+  text-align: center;
+  background: var(--paper-soft);
+  border: 1px solid transparent;
+  border-radius: 16px;
+}
+.vertical-tile strong {
+  font-size: 0.8rem;
+}
+.vertical-tile small {
+  color: var(--ink-soft);
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+.vertical-tile.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--paper));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.vertical-tile:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.vertical-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  color: var(--accent);
+  background: var(--paper);
+  border-radius: 12px;
+}
+
+/* Un rubro sin comercios cargados lo dice, en lugar de dejar la sección vacía. */
+.vertical-empty {
+  margin: 4px 0 18px;
+  padding: 14px;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  text-align: center;
+  background: var(--paper-soft);
+  border-radius: 14px;
+}

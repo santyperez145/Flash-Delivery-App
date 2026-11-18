@@ -28,13 +28,14 @@ Ordenado por valor sobre esfuerzo, no por facilidad.
 
 | # | Hueco | Quién lo tiene | Estado real en Flash (verificado) |
 | --- | --- | --- | --- |
-| P-01 | **Verticales no gastronómicas** (super, farmacia, kiosco, retail) | PedidosYa Market, Uber Eats grocery | `merchants.vertical` existe desde la migración 001 con los cinco valores (`restaurant`, `kiosk`, `grocery`, `pharmacy`, `retail`) y **no se proyecta al cliente**: no aparece en `server/catalog-repository.js`, ni en `server/http/catalog-router.js`, ni en `src/types.ts`. Construido en la base, invisible en el producto. |
 | P-02 | **Preferencias de entrega** (dejar en la puerta, instrucciones, sin cubiertos) | Uber Eats, PedidosYa | **No existe.** No hay columna ni campo; los aciertos de `dropoff` en el servidor son geografía (`dropoff_location`, `dropoff_address`), no preferencias. |
 | P-03 | **Lotes de reparto** (dos pedidos cercanos a un repartidor) | Uber Eats, DoorDash | **No existe.** `processPostgresDispatchBatch` es el lote del barrido del despacho, no la agrupación de pedidos en un viaje. Es la palanca más directa sobre el costo por entrega. |
 | P-04 | **Programa de lealtad por pedido** | PedidosYa | Hay referidos con premio real (`referral_campaigns`, acreditado al ledger). **No hay puntos ni beneficios acumulables por pedido.** |
 | P-05 | **Publicidad y posicionamiento de comercios** | Uber Eats, PedidosYa (es su segunda línea de ingreso) | **No existe.** Hay promociones financiadas por el comercio, no inventario publicitario ni posicionamiento pago. |
 | P-06 | **Cuentas corporativas** | Uber for Business, PedidosYa Empresas | **No existe.** Hay suscripción individual (Flash Más) y pedidos grupales, no facturación a una empresa con centros de costo. |
 | P-07 | **Paradas múltiples en un viaje** | Uber | El proveedor de rutas ya acepta waypoints intermedios (`server/maps-provider.js`), el alta de viaje no los expone. |
+| P-09 | **Pasillos y departamentos en el súper** | PedidosYa Market, Uber Eats grocery | La tienda de un súper usa la misma página que un restaurante: sus categorías hacen de pasillos, pero no hay navegación por departamento, ni recompra rápida de la canasta habitual. |
+| P-10 | **Medicamentos de venta libre y bajo receta** | PedidosYa (farmacias habilitadas) | **Bloqueo externo, no de producto.** Exige farmacia habilitada con farmacéutico responsable y, bajo receta, receta electrónica. El rubro farmacia existe; sin habilitación, un comercio de ese rubro sólo puede vender perfumería y cuidado personal. Dueño: alianza con farmacias habilitadas. |
 | P-08 | **Integración POS del comercio** | Uber Eats, PedidosYa | Ticket INT-001 abierto con cinco criterios: sincronización de catálogo, pedidos hacia el POS, stock en dos sentidos, idempotencia de webhooks y portal de errores del partner. Nada de eso depende de un tercero para construirse. |
 
 ## Lo que ya está a la par
@@ -44,6 +45,7 @@ suposición.
 
 | Capacidad | Dónde está |
 | --- | --- |
+| Rubros de comercio: restaurantes, súper, farmacia, kiosco y tiendas (era P-01) | `merchants.vertical` proyectado, `GET /api/catalog/verticals`, filtro `?vertical=` en la base, `VerticalRail` en web y móvil · `test:catalog-verticals` |
 | Retiro en el local | Migración 137, `getPostgresFoodPickupQuote`, `FoodFulfillmentPicker.tsx`, `MerchantPickupSwitch.tsx` |
 | Reordenar un pedido | `POST /api/orders/:orderId/reorder` |
 | Categorías de viaje (economy, comfort, moto, xl) | `rideQuoteSchema` en `server/http/ride-router.js` |

@@ -149,6 +149,11 @@ jobs:
       - name: Dispatch candidate selection contract
         run: npm run test:dispatch-candidates
 
+      # Rubros de comercio (P-01): la lista es una sola en base, servidor,
+      # dominio y portada, y el rubro llega de la base a la pantalla.
+      - name: Catalog verticals contract
+        run: npm run test:catalog-verticals
+
       - name: Payment provider contracts
         run: |
           npm run test:mercadopago-payment

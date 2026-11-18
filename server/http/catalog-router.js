@@ -27,7 +27,9 @@ import { auditRuntime } from "../audit-trail.js";
 import { usesPostgresAuth } from "../auth-repository.js";
 import {
   createPostgresMenuItem,
+  getPostgresCatalogVerticals,
   getPostgresRestaurantPage,
+  MERCHANT_VERTICALS,
   getPostgresRestaurants,
   replacePostgresBranchSchedule,
   replacePostgresItemDietary,
@@ -207,7 +209,12 @@ const router = catalogRouter;
 
 router.get("/api/catalog/restaurants", async (req, res) => {
   const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20)),
-    query = String(req.query.q || "").slice(0, 100);
+    query = String(req.query.q || "").slice(0, 100),
+    vertical = req.query.vertical ? String(req.query.vertical) : null;
+  // Un rubro desconocido es un error del cliente, no una lista vacía: devolver
+  // nada lo haría indistinguible de un rubro sin comercios.
+  if (vertical && !MERCHANT_VERTICALS.includes(vertical))
+    return fail(res, 400, "Rubro de comercio inválido");
   let cursor = null;
   if (req.query.cursor) {
     try {
@@ -224,7 +231,8 @@ router.get("/api/catalog/restaurants", async (req, res) => {
         all = getPublicState()
           .restaurants.filter(
             (item) =>
-              !normalized || `${item.name} ${item.cuisine}`.toLowerCase().includes(normalized),
+              (!vertical || (item.vertical || "restaurant") === vertical) &&
+              (!normalized || `${item.name} ${item.cuisine}`.toLowerCase().includes(normalized)),
           )
           .map(publicRestaurantFallback),
         offset = cursor ? Math.max(0, all.findIndex((item) => item.id === cursor.id) + 1) : 0,
@@ -238,9 +246,30 @@ router.get("/api/catalog/restaurants", async (req, res) => {
             : null;
       return ok(res, { restaurants, nextCursor });
     }
-    return ok(res, await getPostgresRestaurantPage({ limit, cursor, query }));
+    return ok(res, await getPostgresRestaurantPage({ limit, cursor, query, vertical }));
   } catch (error) {
     return failFrom(res, error, "No se pudo cargar el catálogo");
+  }
+});
+
+// Qué rubros tienen comercios (P-01). Pública y con caché como el catálogo:
+// la portada la pide antes de que haya sesión.
+router.get("/api/catalog/verticals", async (_req, res) => {
+  try {
+    res.set("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+    if (usesPostgresCommerce()) return ok(res, { verticals: await getPostgresCatalogVerticals() });
+    const conteo = new Map();
+    for (const item of getPublicState().restaurants) {
+      const rubro = item.vertical || "restaurant";
+      conteo.set(rubro, (conteo.get(rubro) || 0) + 1);
+    }
+    const verticals = MERCHANT_VERTICALS.filter((rubro) => conteo.has(rubro)).map((rubro) => ({
+      vertical: rubro,
+      merchants: conteo.get(rubro),
+    }));
+    return ok(res, { verticals });
+  } catch (error) {
+    return failFrom(res, error, "No se pudieron cargar los rubros");
   }
 });
 

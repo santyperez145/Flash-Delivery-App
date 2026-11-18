@@ -324,7 +324,7 @@ merge y se verificó que falla ante el defecto. Falta la verificación de runtim
 contra PostgreSQL y el dashboard de la métrica.
 
 **CI-001.** `ci.yml` se dividió en **cuatro workflows**. La cobertura pasó de
-**15 a 106 de 107 suites** detrás de una puerta, 104 de ellas bloqueantes.
+**15 a 106 de 107 suites** detrás de una puerta al 26-08, 104 de ellas bloqueantes.
 `ci-critical-flows.yml` levanta la API contra PostgreSQL y
 cubre pagos, conciliación, riesgo, payouts, KYC, vehículos, safety, chat,
 soporte y notificaciones.
