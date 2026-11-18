@@ -224,15 +224,45 @@ console.log(`     invocables como: ${[...new Set(LOTES_DESATENDIDOS.values())].j
 // revisión de las dependencias que trae cada PR, además de estas puertas. Se
 // verifica acá porque borrar un workflow no rompe ninguna prueba: la revisión
 // simplemente deja de ocurrir, en silencio.
-const workflow = (nombre) => fs.readFile(`.github/workflows/${nombre}`, "utf8").catch(() => "");
+//
+// **Se lee la configuración activa, no el texto.** Un paso comentado, o con
+// `if: false`, sigue conteniendo el nombre de la acción: buscar la cadena en el
+// archivo crudo aprobaría una revisión que dejó de ocurrir. Se quitan los
+// comentarios de YAML, se exige cada clave en su lugar —un paso `uses:`, un
+// disparador `pull_request:`— y se rechaza cualquier paso desactivado.
+const sinComentariosYaml = (fuente) =>
+  fuente
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((linea) => linea.replace(/(^|\s)#.*$/, ""))
+    .join("\n");
+const workflow = (nombre) =>
+  fs
+    .readFile(`.github/workflows/${nombre}`, "utf8")
+    .then(sinComentariosYaml)
+    .catch(() => "");
+const usaAccion = (fuente, accion) =>
+  fuente
+    .split("\n")
+    .some((linea) => /^\s*(-\s+)?uses:\s*\S+@\S+\s*$/.test(linea) && linea.includes(`${accion}@`));
+const desactivado = (fuente) =>
+  fuente
+    .split("\n")
+    .some((linea) => /^\s*(-\s+)?if:\s*(false|\$\{\{\s*false\s*\}\})\s*$/.test(linea));
+const clave = (fuente, patron) => fuente.split("\n").some((linea) => patron.test(linea));
 const codeql = await workflow("codeql.yml");
 const dependencias = await workflow("dependency-review.yml");
 const revision = [];
-if (!codeql.includes("github/codeql-action/analyze@") || !codeql.includes("pull_request:"))
+if (
+  !usaAccion(codeql, "github/codeql-action/analyze") ||
+  !clave(codeql, /^\s+pull_request:\s*$/) ||
+  desactivado(codeql)
+)
   revision.push("codeql.yml no analiza cada PR");
 if (
-  !dependencias.includes("actions/dependency-review-action@") ||
-  !dependencias.includes("fail-on-severity: high")
+  !usaAccion(dependencias, "actions/dependency-review-action") ||
+  !clave(dependencias, /^\s+fail-on-severity:\s*high\s*$/) ||
+  desactivado(dependencias)
 )
   revision.push("dependency-review.yml no bloquea dependencias con vulnerabilidades altas");
 // Las excepciones del dueño son una sola lista: lo que se acepta en la auditoría
@@ -242,7 +272,7 @@ const excepciones = JSON.parse(
 )
   .excepciones.map((entrada) => entrada.aviso)
   .sort();
-const permitidos = (dependencias.match(/allow-ghsas:\s*([^\n]*)/)?.[1] || "")
+const permitidos = (dependencias.match(/^\s+allow-ghsas:\s*([^\n]*)$/m)?.[1] || "")
   .split(",")
   .map((aviso) => aviso.trim())
   .filter(Boolean)
