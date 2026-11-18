@@ -1,0 +1,82 @@
+/* Preferencias de entrega en el checkout (P-02).
+ *
+ * Hoja propia porque `styles.css` es un monolito identificado en el hallazgo
+ * H-08. El selector de modo reusa `.payment-choice`; acá sólo lo nuevo.
+ */
+.delivery-preferences {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0 4px;
+}
+
+.delivery-instructions {
+  display: grid;
+  gap: 6px;
+}
+.delivery-instructions > span {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.delivery-instructions textarea {
+  width: 100%;
+  min-height: 56px;
+  padding: 10px 12px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.86rem;
+  resize: vertical;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.delivery-instructions textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.delivery-instructions small {
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+}
+
+.delivery-cutlery {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  font-size: 0.84rem;
+  background: var(--paper-soft);
+  border-radius: 12px;
+}
+
+/* Etiquetas de preferencias en las tarjetas de comercio y repartidor. */
+.delivery-tags {
+  display: grid;
+  gap: 6px;
+}
+.delivery-tag {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 6px 0 0;
+  padding: 6px 10px;
+  color: var(--ink);
+  font-size: 0.8rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  background: var(--paper-soft);
+  border-radius: 10px;
+}
+.delivery-tag svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+.delivery-tag.strong {
+  font-weight: 700;
+  background: color-mix(in srgb, var(--accent) 10%, var(--paper));
+}
+.delivery-tag.muted {
+  color: var(--ink-soft);
+}

@@ -20,7 +20,9 @@ const foodDiscovery = await fs.readFile("src/customer/FoodDiscoveryHome.tsx", "u
 // marcador de cierre anterior se mudó a FoodCardPayment.tsx, que ordena antes,
 // y la región dejaba de terminar en el checkout. Lo que el checkout delega
 // (destino y tarjeta) se afirma sobre su propio archivo.
-const checkout = section(foodCart, "function CartScreen(", "function SummaryBlock(");
+// El resumen de totales salió a FoodCheckoutSummary.tsx: la región va hasta el
+// final del archivo, que ahora termina en el carrito.
+const checkout = section(foodCart, "function CartScreen(");
 if (!checkout) throw new Error("No se encontró el checkout web");
 const assert = (condition, message) => {
   if (!condition) throw new Error(message);
@@ -32,7 +34,8 @@ const assert = (condition, message) => {
 // refactor deja espacio libre para que el monolito vuelva a crecer.
 assert(
   coordinator.trimEnd().split(/\r?\n/).length <= 375 &&
-    foodCart.trimEnd().split(/\r?\n/).length <= 625 &&
+    // 625 → 585 (P-02): el resumen de totales salió a FoodCheckoutSummary.tsx.
+    foodCart.trimEnd().split(/\r?\n/).length <= 585 &&
     fulfillmentPicker.trimEnd().split(/\r?\n/).length <= 175 &&
     cardPayment.trimEnd().split(/\r?\n/).length <= 115 &&
     quantityCounter.trimEnd().split(/\r?\n/).length <= 35 &&

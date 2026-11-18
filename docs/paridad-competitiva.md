@@ -28,7 +28,8 @@ Ordenado por valor sobre esfuerzo, no por facilidad.
 
 | # | Hueco | Quién lo tiene | Estado real en Flash (verificado) |
 | --- | --- | --- | --- |
-| P-02 | **Preferencias de entrega** (dejar en la puerta, instrucciones, sin cubiertos) | Uber Eats, PedidosYa | **No existe.** No hay columna ni campo; los aciertos de `dropoff` en el servidor son geografía (`dropoff_location`, `dropoff_address`), no preferencias. |
+| P-02b | **Foto obligatoria al dejar en la puerta** | DoorDash (obligatoria), Uber | La preferencia existe (P-02) pero el repartidor puede cerrar la entrega sin prueba. Hay evidencia fotográfica para envíos (migraciones 023, 054, 063): falta extenderla a comida, con retención y acceso sólo del cliente. |
+| P-11 | **Retiro en el local desde la app móvil** | Uber Eats, PedidosYa | El servidor y la web lo ofrecen (GTM-002); el checkout móvil todavía no deja elegirlo. |
 | P-03 | **Lotes de reparto** (dos pedidos cercanos a un repartidor) | Uber Eats, DoorDash | **No existe.** `processPostgresDispatchBatch` es el lote del barrido del despacho, no la agrupación de pedidos en un viaje. Es la palanca más directa sobre el costo por entrega. |
 | P-04 | **Programa de lealtad por pedido** | PedidosYa | Hay referidos con premio real (`referral_campaigns`, acreditado al ledger). **No hay puntos ni beneficios acumulables por pedido.** |
 | P-05 | **Publicidad y posicionamiento de comercios** | Uber Eats, PedidosYa (es su segunda línea de ingreso) | **No existe.** Hay promociones financiadas por el comercio, no inventario publicitario ni posicionamiento pago. |
@@ -45,6 +46,7 @@ suposición.
 
 | Capacidad | Dónde está |
 | --- | --- |
+| Preferencias de entrega: en mano o en la puerta, indicaciones y cubiertos (era P-02) | `server/delivery-preferences.js`, checkout web y móvil, etiquetas para cocina y reparto · el comercio ve sólo los cubiertos y el repartidor sin asignar sólo banderas · `test:delivery-preferences`, `test:authorization`, `test:postgres` |
 | Rubros de comercio: restaurantes, súper, farmacia, kiosco y tiendas (era P-01) | `merchants.vertical` proyectado, `GET /api/catalog/verticals`, filtro `?vertical=` en la base, `VerticalRail` en web y móvil · `test:catalog-verticals` |
 | Retiro en el local | Migración 137, `getPostgresFoodPickupQuote`, `FoodFulfillmentPicker.tsx`, `MerchantPickupSwitch.tsx` |
 | Reordenar un pedido | `POST /api/orders/:orderId/reorder` |

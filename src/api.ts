@@ -968,6 +968,7 @@ export const api = {
     deliveryAddressId?: string;
     branchId?: string;
     fulfillment?: "delivery" | "pickup";
+    deliveryPreferences?: import("./types").DeliveryPreferences;
     deliveryAddress: string;
     paymentMethod: string;
     paymentMethodId?: string;
@@ -981,7 +982,6 @@ export const api = {
     scheduledFor?: string;
     items: Array<Pick<CartLine, "quantity" | "extras" | "note"> & { menuItemId: string }>;
   }) {
-    // Sólo en entrega: en retiro no hay dirección y la guarda dejaba el modo inalcanzable.
     if (payload.fulfillment !== "pickup" && !payload.deliveryAddressId)
       throw new Error("Selecciona una dirección guardada antes de confirmar");
     const quoteToken =

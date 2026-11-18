@@ -27,6 +27,8 @@ import {
   canActAsDriver,
   canAdvanceOrder,
   canMutateOrderStatus,
+  hasRole,
+  isAdmin,
   requireAnyRole,
 } from "./authorization.js";
 import { getPostgresRestaurants } from "../catalog-repository.js";
@@ -56,6 +58,20 @@ import { fail, failFrom, ok, parseOrFail } from "./responses.js";
 import { assessTransactionRisk, setRiskEntity } from "../risk-repository.js";
 import { createId, createLocalNotification, getTimestamp, orderStatuses } from "../store.js";
 import { cancelOrderAndRefundWallet } from "../wallet-repository.js";
+import {
+  MAX_INDICACIONES,
+  MODOS_DE_ENTREGA,
+  normalizarPreferencias,
+  vistaParaQuienPide,
+} from "../delivery-preferences.js";
+
+// El pedido que devuelve una acción, recortado según quién la pidió (P-02).
+const vistaDelPedido = (req, order) =>
+  vistaParaQuienPide(order, {
+    privilegiado: isAdmin(req) || hasRole(req, "support"),
+    usuarioId: req.auth?.userId,
+    conductorId: req.auth?.user?.driverId,
+  });
 
 const orderSchema = z.object({
   customerId: z.string().min(1),
@@ -79,6 +95,15 @@ const orderSchema = z.object({
   // misma que usa el alta de viajes.
   scheduledFor: z.string().datetime().optional(),
   fulfillment: z.enum(["delivery", "pickup"]).default("delivery"),
+  // Preferencias de entrega (P-02). Las reglas que dependen del pedido —retiro,
+  // rubro— las aplica `delivery-preferences.js`; acá sólo tipos y largo.
+  deliveryPreferences: z
+    .object({
+      dropoff: z.enum(MODOS_DE_ENTREGA).default("hand_to_me"),
+      instructions: z.string().max(MAX_INDICACIONES).default(""),
+      cutlery: z.boolean().default(false),
+    })
+    .optional(),
   providerPayment: z
     .object({
       cardToken: z
@@ -343,6 +368,7 @@ router.post("/api/orders", requireAuth, requireAnyRole("customer", "admin"), asy
     tipCents,
     scheduledFor,
     fulfillment,
+    deliveryPreferences,
   } = parsed.data;
   if (scheduledFor) {
     const invalido = validarHorarioProgramado(scheduledFor);
@@ -442,6 +468,16 @@ router.post("/api/orders", requireAuth, requireAnyRole("customer", "admin"), asy
     createdAt,
     timeline: [{ status, at: createdAt }],
   };
+  // El respaldo sin PostgreSQL valida igual: una regla que sólo corre en una de
+  // las dos bases es una regla que los tests locales no ven.
+  try {
+    order.deliveryPreferences = normalizarPreferencias(deliveryPreferences, {
+      fulfillment,
+      vertical: restaurant.vertical || "restaurant",
+    });
+  } catch (error) {
+    return failFrom(res, error, "Preferencias de entrega inválidas");
+  }
   if (usesPostgresCommerce()) {
     try {
       order = await createPostgresOrder({
@@ -460,6 +496,7 @@ router.post("/api/orders", requireAuth, requireAnyRole("customer", "admin"), asy
         tipCents,
         scheduledFor: scheduledFor || null,
         fulfillment,
+        deliveryPreferences,
         idempotencyKey,
       });
       if (providerPayment && !String(order.paymentMethod).toLowerCase().includes("wallet"))
@@ -607,7 +644,7 @@ router.post(
       entityId: db.orders[index].id,
       action: "order.status_advanced",
     });
-    return ok(res, { order: db.orders[index], label: orderLabels[next] });
+    return ok(res, { order: vistaDelPedido(req, db.orders[index]), label: orderLabels[next] });
   },
 );
 
@@ -664,5 +701,5 @@ router.patch("/api/orders/:orderId/status", requireAuth, async (req, res) => {
     entityId: db.orders[index].id,
     action: "order.status_set",
   });
-  return ok(res, { order: db.orders[index], label: orderLabels[status] });
+  return ok(res, { order: vistaDelPedido(req, db.orders[index]), label: orderLabels[status] });
 });

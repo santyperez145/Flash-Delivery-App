@@ -154,6 +154,12 @@ jobs:
       - name: Catalog verticals contract
         run: npm run test:catalog-verticals
 
+      # Preferencias de entrega (P-02): conectadas en cada capa, y cada camino
+      # por el que un comercio o un repartidor sin asignar lee un pedido recorta
+      # las indicaciones de la casa del cliente.
+      - name: Delivery preferences contract
+        run: npm run test:delivery-preferences
+
       - name: Payment provider contracts
         run: |
           npm run test:mercadopago-payment

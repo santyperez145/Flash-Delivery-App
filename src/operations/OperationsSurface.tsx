@@ -60,7 +60,9 @@ function describirOferta(oferta: DispatchOffer, ahora: number) {
     ? ` · ${Math.round(oferta.scoreBreakdown.acceptanceRate * 100)}% aceptación`
     : "";
   const restanS = Math.max(0, Math.ceil((new Date(oferta.expiresAt).getTime() - ahora) / 1000));
-  return `${oferta.distanceKm} km · ${oferta.durationMin} min${aceptacion} · vence en ${restanS}s`;
+  // Antes de aceptar se sabe si es sin contacto y si hay indicaciones, no el texto (P-02).
+  const entrega = `${oferta.leaveAtDoor ? " · sin contacto" : ""}${oferta.hasInstructions ? " · con indicaciones" : ""}`;
+  return `${oferta.distanceKm} km · ${oferta.durationMin} min${aceptacion}${entrega} · vence en ${restanS}s`;
 }
 
 export function MerchantApp({
@@ -439,6 +441,7 @@ export function DriverApp({
             driver={driver}
             onAdvance={() => runAction(() => api.advanceOrder(order.id), "Delivery avanzado")}
             busy={busy}
+            preferencias="reparto"
           />
         ))}
         {activeRides.map((ride) => (

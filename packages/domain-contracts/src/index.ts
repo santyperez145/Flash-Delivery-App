@@ -139,6 +139,23 @@ type FoodCheckoutQuoteBase = {
  * a cada pantalla que lea la direccion a decir primero cual de los dos modos
  * esta mostrando.
  */
+/**
+ * Cómo se entrega un pedido de comida (P-02). Modo cerrado —en mano o en la
+ * puerta—, indicaciones para quien reparte y si lleva cubiertos.
+ */
+export type DropoffMode = "hand_to_me" | "leave_at_door";
+export type DeliveryPreferences = {
+  dropoff: DropoffMode;
+  /** Hasta 300 caracteres. Sólo las ven el cliente, quien reparte y operaciones. */
+  instructions: string;
+  cutlery: boolean;
+};
+/**
+ * Lo que llega de un pedido según quién lo mira: el comercio recibe sólo
+ * `cutlery`; un repartidor sin asignar, `dropoff` y `hasInstructions`.
+ */
+export type DeliveryPreferencesView = Partial<DeliveryPreferences> & { hasInstructions?: boolean };
+
 /** Rubro de un comercio: el CHECK de `merchants.vertical` (migración 001). */
 export type MerchantVertical = "restaurant" | "grocery" | "pharmacy" | "kiosk" | "retail";
 
@@ -343,4 +360,7 @@ export type DispatchOffer = {
   scoreBreakdown?: DispatchScoreBreakdown;
   expiresAt: string;
   status: "pending";
+  /** Antes de aceptar: si es sin contacto y si trae indicaciones, nunca el texto (P-02). */
+  leaveAtDoor?: boolean;
+  hasInstructions?: boolean;
 };

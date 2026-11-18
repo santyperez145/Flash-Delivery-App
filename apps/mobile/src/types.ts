@@ -10,6 +10,8 @@ import type {
   FoodCheckoutQuote,
   MerchantVertical,
   CatalogVertical,
+  DeliveryPreferences,
+  DeliveryPreferencesView,
   ShipmentReturn,
   ShipmentClaimEvidence,
   DriverDocument,
@@ -38,6 +40,8 @@ export type {
   FoodCheckoutQuote,
   MerchantVertical,
   CatalogVertical,
+  DeliveryPreferences,
+  DeliveryPreferencesView,
   ShipmentReturn,
   ShipmentClaimEvidence,
   DriverDocument,
@@ -155,6 +159,8 @@ export type Driver = {
 };
 
 export type Order = {
+  /** Recortadas según quién mira: el comercio recibe sólo los cubiertos (P-02). */
+  deliveryPreferences?: DeliveryPreferencesView;
   id: string;
   customerId: string;
   restaurantId: string;

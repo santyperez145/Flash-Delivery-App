@@ -34,6 +34,7 @@ import { api } from "../api";
 import { compactMinutes, money } from "../format";
 import { orderStatusLabel } from "../labels";
 import { AdminKpi, AdminSectionHeader, OrderOpsCard } from "../ui/panels";
+import { DeliveryPreferenceTags } from "../ui/DeliveryPreferenceTags";
 import {
   BranchScheduleEditor,
   DietaryCatalogEditor,
@@ -205,6 +206,9 @@ function MerchantOrderDetailDialog({
               <strong>{order.courierId ? "Asignado" : "Pendiente"}</strong>
             </article>
           </div>
+          {/* Cubiertos (P-02): lo único de las preferencias que le sirve a la
+              cocina, y lo único que el servidor le manda al comercio. */}
+          <DeliveryPreferenceTags preferences={order.deliveryPreferences} audience="cocina" />
           <section className="merchant-order-detail-card">
             <div className="merchant-order-detail-card-title">
               <h3>Productos</h3>
@@ -761,6 +765,7 @@ export function MerchantDesktopConsole({
                     }
                     onDetails={() => setDetailOrderId(order.id)}
                     busy={busy}
+                    preferencias="cocina"
                   />
                 ))}
                 {operationsLoading && !activeOrders.length ? (

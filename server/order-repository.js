@@ -15,6 +15,11 @@
 // `delivered`). Son un par: cada entrada de una es la inversa de la otra, y por
 // eso viven juntas al principio del archivo.
 import crypto from "node:crypto";
+import {
+  normalizarPreferencias,
+  paraElComercio,
+  preferenciasDesdeMetadata,
+} from "./delivery-preferences.js";
 import { postgresPool } from "./postgres.js";
 import { getActiveSubscription, splitOrderDiscounts } from "./subscription-repository.js";
 import { CHECKOUT_TIP_MIN_CENTS, checkoutTipMaxCents, holdCheckoutTip } from "./tip-repository.js";
@@ -118,6 +123,9 @@ function rowsToOrders(rows) {
         // reparto. Sin publicarlo, la autorización no puede distinguir un pedido
         // retirado de uno sin conductor asignado todavía.
         fulfillment: metadata.fulfillment === "pickup" ? "pickup" : "delivery",
+        // Completas: quién ve qué lo recorta cada camino de lectura con
+        // `delivery-preferences.js` (comercio, repartidor sin asignar).
+        deliveryPreferences: preferenciasDesdeMetadata(metadata),
         total: pesos(row.final_amount_cents ?? row.quoted_amount_cents),
         etaMin: Number(metadata.etaMin ?? Math.round(row.estimated_duration_s / 60)),
         createdAt: new Date(row.created_at).toISOString(),
@@ -201,7 +209,12 @@ export async function getPostgresMerchantActiveOrderPage({
   return {
     generatedAt: new Date().toISOString(),
     source: "postgres-live-operations",
-    orders: publicIds.map((id) => byId.get(id)).filter(Boolean),
+    // El comercio ve de las preferencias sólo los cubiertos: las indicaciones
+    // de entrega son de la casa del cliente y para quien reparte.
+    orders: publicIds
+      .map((id) => byId.get(id))
+      .filter(Boolean)
+      .map(paraElComercio),
     hasMore,
   };
 }
@@ -517,6 +530,7 @@ export async function createPostgresOrder({
   tipCents = 0,
   scheduledFor = null,
   fulfillment = "delivery",
+  deliveryPreferences: preferenciasPedidas = null,
   idempotencyKey,
 }) {
   const esRetiro = fulfillment === "pickup";
@@ -619,6 +633,12 @@ export async function createPostgresOrder({
       throw Object.assign(new Error("Un pedido para retirar no lleva propina de reparto"), {
         status: 409,
       });
+    // Preferencias de entrega (P-02): las reglas dependen del modo y del rubro
+    // del comercio, que recién acá se conocen con certeza.
+    const deliveryPreferences = normalizarPreferencias(preferenciasPedidas, {
+      fulfillment,
+      vertical: merchant.rows[0].vertical,
+    });
     const walletPayment = String(paymentMethod).toLowerCase().includes("wallet");
     if (!walletPayment && !providerPayment)
       throw Object.assign(
@@ -644,6 +664,16 @@ export async function createPostgresOrder({
           promotionCode: promotionCode || null,
           items,
           quoteId: lockedQuote.quoteId,
+          // **Todo lo que cambia el pedido guardado entra al hash.** Antes no
+          // entraban propina, horario, modo ni sucursal: el mismo
+          // Idempotency-Key con otra propina devolvía el pedido anterior como si
+          // fuera la respuesta a éste, sin 409. Con dinero de por medio, un
+          // reintento distinto tiene que ser un conflicto, no un eco.
+          tipCents,
+          scheduledFor: scheduledFor || null,
+          fulfillment,
+          branchId: lockedQuote.branchId || null,
+          deliveryPreferences,
         }),
       )
       .digest("hex");
@@ -812,6 +842,7 @@ export async function createPostgresOrder({
       etaMin: merchant.rows[0].branch_eta_min + travelMinutes,
       locationEstimated: false,
       fulfillment,
+      deliveryPreferences,
       // `null` y no la cadena "null": en retiro no hay dirección de cliente, y
       // una cadena con esa palabra se lee después como un identificador roto.
       deliveryAddressId: address.id === null ? null : String(address.id),
@@ -1025,6 +1056,15 @@ export async function createPostgresOrder({
       deliveryFee: metadata.deliveryFee,
       serviceFee,
       discount: metadata.discount,
+      // **La respuesta es también la que se repite en un reintento** (se guarda
+      // en `idempotency_keys`). Omitía modo, propina, horario y beneficio: un
+      // reintento devolvía un pedido de entrega sin propina aunque fuera un
+      // retiro reservado. Va con los mismos campos que la lectura del pedido.
+      subscriptionDiscount: metadata.subscriptionDiscount,
+      tip: metadata.tip,
+      scheduledFor: metadata.scheduledFor,
+      fulfillment,
+      deliveryPreferences,
       promotionCode: metadata.promotionCode,
       total: pesos(totalCents),
       etaMin: metadata.etaMin,

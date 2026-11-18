@@ -25,8 +25,8 @@ ejecutan igual para todos, sin revisiones automáticas de terceros sobre los PRs
 PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda levantado.
 
 - **Por qué se levanta.** Su ventana venció el 20 de septiembre y se siguió aplicando dos
-  meses más; cumplió la parte medible de su objetivo (107 de 108 suites `test:*` detrás de
-  una puerta CI, 105 bloqueantes, contra 15 de 104 el 25 de agosto); y cuatro de sus cinco
+  meses más; cumplió la parte medible de su objetivo (al 18 de noviembre, 107 de 108 suites
+  `test:*` detrás de una puerta CI, 105 bloqueantes, contra 15 de 104 el 25 de agosto); y cuatro de sus cinco
   criterios de
   salida restantes dependen de credenciales, dispositivos, una cuenta cloud y un segundo
   revisor, que son del dueño. **Un congelamiento cuya salida depende de la acción de otro
@@ -44,6 +44,35 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   `economy|comfort|moto|xl`, y `POST /api/orders/:orderId/reorder` está cableado). Es el
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
+
+## Avance 18 de noviembre de 2026 — P-02, preferencias de entrega
+
+Uber Eats y PedidosYa dejan elegir cómo llega el pedido; Flash no tenía ninguna de las tres
+opciones. Ahora el checkout web y el móvil ofrecen **en mano o dejar en la puerta**,
+**indicaciones para quien reparte** (hasta 300 caracteres) e **incluir cubiertos**.
+
+- **Una sola fuente para las reglas.** `server/delivery-preferences.js`, puro y sin base:
+  en retiro no hay modo ni indicaciones; dejar en la puerta se rechaza en farmacia y
+  tiendas; el texto se aplana y se acota. Web y móvil usan los mismos topes y el contrato
+  lo verifica.
+- **Quién ve qué.** El comercio recibe sólo si lleva cubiertos, en su cola, en su actividad
+  y en el estado inicial. Un repartidor sin asignar ve si es sin contacto y si hay
+  indicaciones, nunca el texto. El repartidor asignado, el cliente y operaciones lo ven
+  completo. Es la minimización que aplica Uber.
+- **Dos defectos de dinero encontrados en el camino.** El hash de idempotencia de la
+  creación de pedidos no incluía propina, horario, modo ni sucursal: la misma clave con
+  otra propina devolvía el pedido anterior con 200. Y la respuesta guardada para los
+  reintentos omitía modo, propina, horario y beneficio. Los dos quedaron corregidos, y
+  `test:postgres` prueba el 409.
+- **`openapi.js` bajó 130 líneas.** Documentar el campo nuevo no podía hacer crecer un
+  monolito de H-08: la sección de pedidos grupales pasó a `openapi-group-orders.js`, y el
+  documento publicado es equivalente al anterior más el campo nuevo. Se reubicaron además
+  dos comentarios que un merge viejo había separado de sus rutas.
+- **Verificación.** `test:authorization` prueba las reglas sin base y `test:delivery-preferences`
+  (nuevo, en `ci-fast`) la conexión de cada capa y cada recorte; las dos falsificadas regla
+  por regla. `test:postgres` prueba guardado, reintento, la vista del comercio y el 409.
+- **Lo que falta.** Foto obligatoria al dejar en la puerta (P-02b) y elegir retiro desde el
+  móvil (P-11).
 
 ## Avance 18 de noviembre de 2026 — P-01, rubros de comercio
 

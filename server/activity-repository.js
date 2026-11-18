@@ -1,5 +1,6 @@
 import { postgresPool } from "./postgres.js";
 import { getPostgresOrders } from "./order-repository.js";
+import { paraElComercio } from "./delivery-preferences.js";
 import { getPostgresRides, getPostgresShipments } from "./mobility-repository.js";
 
 const encodeCursor = (row) =>
@@ -19,7 +20,8 @@ export function decodeActivityCursor(value) {
 
 export async function getActivityPage({ userPublicId, roles, limit = 20, cursor = null }) {
   const result = await postgresPool.query(
-    `SELECT j.id,j.public_id,j.kind,j.metadata->>'subtype' subtype,j.created_at,to_char(j.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') cursor_created_at
+    `SELECT j.id,j.public_id,j.kind,j.metadata->>'subtype' subtype,j.created_at,to_char(j.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') cursor_created_at,
+      (j.customer_id=actor.id OR d.user_id=actor.id OR 'admin'=ANY($2::text[])) ve_entrega
     FROM jobs j
     JOIN users actor ON actor.public_id=$1
     LEFT JOIN drivers d ON d.id=j.driver_id
@@ -35,16 +37,23 @@ export async function getActivityPage({ userPublicId, roles, limit = 20, cursor 
   );
   const hasMore = result.rows.length > limit,
     rows = result.rows.slice(0, limit),
-    ids = new Set(rows.map((row) => row.public_id));
+    ids = new Set(rows.map((row) => row.public_id)),
+    veEntrega = new Map(rows.map((row) => [row.public_id, row.ve_entrega === true]));
   const [orders, rides, shipments] = await Promise.all([
     getPostgresOrders(),
     getPostgresRides(),
     getPostgresShipments(),
   ]);
   const resources = new Map([
+    // Quien ve el pedido sólo como comercio ve de las preferencias los
+    // cubiertos: las indicaciones de entrega son para el cliente, quien reparte
+    // y operaciones (P-02).
     ...orders
       .filter((item) => ids.has(item.id))
-      .map((item) => [item.id, { kind: "order", resource: item }]),
+      .map((item) => [
+        item.id,
+        { kind: "order", resource: veEntrega.get(item.id) ? item : paraElComercio(item) },
+      ]),
     ...rides
       .filter((item) => ids.has(item.id))
       .map((item) => [item.id, { kind: "ride", resource: item }]),
