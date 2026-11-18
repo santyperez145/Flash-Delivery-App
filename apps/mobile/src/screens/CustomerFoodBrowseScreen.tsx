@@ -34,6 +34,7 @@ export function CustomerFoodBrowseScreen({
   selectedCategory,
   favoriteRestaurants,
   restaurants,
+  allRestaurants,
   favoriteRestaurantIds,
   favoritePendingId,
   query,
@@ -63,6 +64,8 @@ export function CustomerFoodBrowseScreen({
   selectedCategory: string;
   favoriteRestaurants: Restaurant[];
   restaurants: Restaurant[];
+  /** El catálogo abierto sin filtrar por cocina, para las cocinas de cada rubro. */
+  allRestaurants: Restaurant[];
   favoriteRestaurantIds: string[];
   favoritePendingId: string | null;
   query: string;
@@ -85,7 +88,7 @@ export function CustomerFoodBrowseScreen({
   const itemCount = cart.reduce((sum, line) => sum + line.quantity, 0);
   // Rubros (P-01): la portada muestra el rubro elegido; los favoritos no se
   // filtran, porque guardar una farmacia no la vuelve restaurante.
-  const scope = useVerticalScope({ restaurants, categories });
+  const scope = useVerticalScope({ restaurants, allRestaurants, categories, onSelectCategory });
   restaurants = scope.restaurants;
   categories = scope.categories;
 

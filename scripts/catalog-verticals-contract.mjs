@@ -75,7 +75,7 @@ assert.ok(
 assert.ok(
   contains(
     rail,
-    "const enRubro = (restaurant: Restaurant) => buscando || rubroDe(restaurant) === vertical;",
+    "const enRubro = (restaurant: Restaurant) => buscando || activo === null || rubroDe(restaurant) === activo;",
   ),
   "con una búsqueda escrita, el rubro sigue filtrando",
 );
@@ -116,7 +116,10 @@ assert.ok(
 const portadaMovil = await leer("apps/mobile/src/screens/CustomerFoodBrowseScreen.tsx");
 assert.ok(
   contains(portadaMovil, "<VerticalRail {...scope.rail} />") &&
-    contains(portadaMovil, "useVerticalScope({ restaurants, categories })"),
+    contains(
+      portadaMovil,
+      "useVerticalScope({ restaurants, allRestaurants, categories, onSelectCategory })",
+    ),
   "la portada móvil no muestra los rubros",
 );
 // Web y móvil todavía no comparten un paquete de cliente: los dos clientes de
@@ -134,3 +137,34 @@ assert.equal(
   "el cliente de catálogo móvil se desincronizó del web",
 );
 ok("la app móvil carga cada rubro, muestra sus accesos y pide lo mismo que la web");
+
+// --- Defectos que encontró la revisión del PR ---------------------------------
+// 1. Un catálogo de un solo rubro que no es restaurante quedaba vacío: el rubro
+//    arrancaba en «restaurant» y la barra se oculta con uno solo.
+for (const [nombre, fuente] of [
+  ["web", rail],
+  ["móvil", movilRail],
+]) {
+  assert.ok(
+    contains(
+      fuente,
+      "verticals.some((entry) => entry.vertical === vertical) ? vertical : verticals[0].vertical;",
+    ) && contains(fuente, "activo === null ||"),
+    `la portada ${nombre} no ajusta el rubro activo al resumen`,
+  );
+}
+// 2. En el móvil las categorías son cocinas, no categorías de menú, y se calculan
+//    sobre el catálogo sin filtrar por cocina.
+assert.ok(
+  contains(
+    movilRail,
+    'allRestaurants.filter(delRubro).map((restaurant) => restaurant.cuisine.trim() || "Otros")',
+  ),
+  "la portada móvil filtra las cocinas como si fueran categorías de menú",
+);
+// 3. Cambiar de rubro en el móvil vuelve a «Todos», como en la web.
+assert.ok(
+  contains(movilRail, 'onSelectCategory("Todos");'),
+  "cambiar de rubro en el móvil conserva la cocina anterior",
+);
+ok("el rubro activo existe, las cocinas móviles se respetan y cambiar de rubro limpia la cocina");

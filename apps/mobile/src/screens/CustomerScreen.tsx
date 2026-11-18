@@ -903,6 +903,7 @@ export function CustomerScreen({
               selectedCategory={foodCategory}
               favoriteRestaurants={favoriteRestaurants}
               restaurants={openRestaurants}
+              allRestaurants={state.restaurants.filter((restaurant) => restaurant.open)}
               favoriteRestaurantIds={favoriteRestaurantIds}
               favoritePendingId={favoritePendingId}
               query={foodQuery}

@@ -58,15 +58,25 @@ export function useVerticalScope({
       activo = false;
     };
   }, []);
+  // **El rubro activo tiene que existir en el resumen.** Arranca en
+  // «restaurant», pero un catálogo que sólo tiene farmacias no tiene ese rubro, y
+  // la barra se oculta con uno solo: sin esto la portada quedaba vacía y sin
+  // forma de elegir. Si el resumen falla o no llegó, no se filtra por rubro.
+  const activo: MerchantVertical | null = !verticals.length
+    ? null
+    : verticals.some((entry) => entry.vertical === vertical)
+      ? vertical
+      : verticals[0].vertical;
   const buscando = Boolean(query.trim());
-  const enRubro = (restaurant: Restaurant) => buscando || rubroDe(restaurant) === vertical;
+  const enRubro = (restaurant: Restaurant) =>
+    buscando || activo === null || rubroDe(restaurant) === activo;
   const items = allItems.filter(({ restaurant }) => enRubro(restaurant));
   return {
     // Cambiar de rubro vuelve a «Todo»: una categoría del rubro anterior dejaría
     // la lista vacía sin que se vea por qué.
     rail: {
       verticals,
-      vertical,
+      vertical: activo ?? vertical,
       onChange: (rubro: MerchantVertical) => {
         setVertical(rubro);
         setCategory("Todo");

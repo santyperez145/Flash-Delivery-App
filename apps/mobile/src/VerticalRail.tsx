@@ -31,10 +31,15 @@ export const rubroDe = (restaurant: Restaurant): MerchantVertical =>
  */
 export function useVerticalScope<C extends { name: string }>({
   restaurants,
+  allRestaurants,
   categories,
+  onSelectCategory,
 }: {
   restaurants: Restaurant[];
+  /** El catálogo sin filtrar por cocina: las categorías se calculan sobre él. */
+  allRestaurants: Restaurant[];
   categories: C[];
+  onSelectCategory: (category: string) => void;
 }) {
   const [vertical, setVertical] = useState<MerchantVertical>("restaurant");
   const [verticals, setVerticals] = useState<CatalogVertical[]>([]);
@@ -48,17 +53,38 @@ export function useVerticalScope<C extends { name: string }>({
       activo = false;
     };
   }, []);
-  const visibles = restaurants.filter((restaurant) => rubroDe(restaurant) === vertical);
-  const enRubro = new Set(
-    visibles.flatMap((restaurant) => restaurant.menu.map((item) => item.category)),
+  // **El rubro activo tiene que existir en el resumen.** Arranca en
+  // «restaurant», pero un catálogo que sólo tiene farmacias no tiene ese rubro, y
+  // la barra se oculta con uno solo: sin esto la portada quedaba vacía y sin
+  // forma de elegir. Si el resumen falla o no llegó, no se filtra por rubro.
+  const activo: MerchantVertical | null = !verticals.length
+    ? null
+    : verticals.some((entry) => entry.vertical === vertical)
+      ? vertical
+      : verticals[0].vertical;
+  const delRubro = (restaurant: Restaurant) => activo === null || rubroDe(restaurant) === activo;
+  // En el móvil las categorías de la portada son **cocinas** («Parrilla urbana»),
+  // no categorías de menú: se quedan las cocinas de los comercios del rubro, y se
+  // calculan sobre el catálogo entero, no sobre el ya filtrado por una cocina.
+  const cocinas = new Set(
+    allRestaurants.filter(delRubro).map((restaurant) => restaurant.cuisine.trim() || "Otros"),
   );
+  const rubro = activo ?? "restaurant";
   return {
-    vertical,
-    label: RUBROS[vertical].label,
-    rail: { verticals, vertical, onChange: setVertical },
-    restaurants: visibles,
-    // «Todos» siempre; el resto, sólo las categorías que el rubro elegido tiene.
-    categories: categories.filter((entry) => entry.name === "Todos" || enRubro.has(entry.name)),
+    vertical: rubro,
+    label: RUBROS[rubro].label,
+    rail: {
+      verticals,
+      vertical: rubro,
+      // Cambiar de rubro vuelve a «Todos»: la cocina del rubro anterior dejaría
+      // el nuevo vacío sin que se vea por qué.
+      onChange: (siguiente: MerchantVertical) => {
+        setVertical(siguiente);
+        onSelectCategory("Todos");
+      },
+    },
+    restaurants: restaurants.filter(delRubro),
+    categories: categories.filter((entry) => entry.name === "Todos" || cocinas.has(entry.name)),
   };
 }
 
