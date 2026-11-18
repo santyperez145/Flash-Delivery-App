@@ -33,20 +33,24 @@ export const rubroDe = (restaurant: Restaurant): MerchantVertical =>
  * **Con una búsqueda escrita el rubro deja de filtrar.** Quien busca «hielo»
  * desde Restaurantes quiere el kiosco que lo vende, no una lista vacía.
  */
-export function useVerticalScope({
-  restaurants,
-  allItems,
-  categories,
-  query,
-  setCategory,
-}: {
-  restaurants: Restaurant[];
-  allItems: Array<{ restaurant: Restaurant; item: MenuItem }>;
-  categories: string[];
-  query: string;
-  setCategory: (category: string) => void;
-}) {
-  const [vertical, setVertical] = useState<MerchantVertical>("restaurant");
+export function useVerticalScope(
+  {
+    restaurants,
+    allItems,
+    categories,
+    query,
+    setCategory,
+  }: {
+    restaurants: Restaurant[];
+    allItems: Array<{ restaurant: Restaurant; item: MenuItem }>;
+    categories: string[];
+    query: string;
+    setCategory: (category: string) => void;
+  },
+  /** El rubro con el que se entra: el que se tocó en el inicio (RES-02). */
+  initialVertical: MerchantVertical = "restaurant",
+) {
+  const [vertical, setVertical] = useState<MerchantVertical>(initialVertical);
   const [verticals, setVerticals] = useState<CatalogVertical[]>([]);
   useEffect(() => {
     let activo = true;

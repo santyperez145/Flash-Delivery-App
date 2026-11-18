@@ -1,7 +1,7 @@
 import { Clock3, LocateFixed, ShieldCheck, Sparkles, UserRound } from "lucide-react";
 
 import { money } from "../format";
-import type { MenuItem, Restaurant } from "../types";
+import type { MenuItem, MerchantVertical, Restaurant } from "../types";
 import { SectionTitle } from "../ui/panels";
 import { Beneficios, useSubscription } from "./SubscriptionPanel";
 import { CategoryRail, FoodRow, RestaurantCard, SearchBar } from "./FoodCatalogComponents";
@@ -20,6 +20,7 @@ export function FoodDiscoveryHome({
   onOpenRestaurant,
   onOpenItem,
   onOpenSubscription,
+  initialVertical,
 }: {
   restaurants: Restaurant[];
   allItems: Array<{ restaurant: Restaurant; item: MenuItem }>;
@@ -33,8 +34,12 @@ export function FoodDiscoveryHome({
   onOpenRestaurant: (restaurant: Restaurant) => void;
   onOpenItem: (restaurant: Restaurant, item: MenuItem) => void;
   onOpenSubscription: () => void;
+  initialVertical?: MerchantVertical;
 }) {
-  const scope = useVerticalScope({ restaurants, allItems, categories, query, setCategory });
+  const scope = useVerticalScope(
+    { restaurants, allItems, categories, query, setCategory },
+    initialVertical,
+  );
   restaurants = scope.restaurants;
   allItems = scope.items;
   const featuredRestaurant =

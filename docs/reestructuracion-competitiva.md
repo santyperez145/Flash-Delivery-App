@@ -43,8 +43,16 @@ Sólo se afirma lo que tiene fuente. Lo que no se pudo confirmar se dice.
 
 ### App del cliente (web)
 
-La web todavía usa el esquema anterior: `ServiceToggle` (Comida · Taxi · Envíos) arriba y la
-barra propia. **RES-02** la lleva a la misma estructura que el móvil.
+Usaba el esquema anterior: el selector Comida · Taxi · Envíos arriba y la barra Inicio ·
+Actividad · Wallet · Perfil. **RES-02** la lleva a la misma estructura que el móvil:
+
+- inicio con todos los servicios, lo que está en curso, «¿A dónde vas?» y «Volver a pedir»;
+- barra Inicio · Servicios · Actividad · Cuenta;
+- la Wallet dentro de Cuenta, con el saldo a la vista.
+
+**Pendiente para RES-03:** la portada de comidas de la web abre con una tarjeta de marketing
+(«Comida en minutos», «con backend activo») y cuatro atributos fijos. Uber Eats y PedidosYa
+abren directo en rubros y comercios: se reemplaza por promociones y comercios reales.
 
 ### Repartidor
 
@@ -65,7 +73,7 @@ Flash Negocios tiene Hoy · Pedidos · Catálogo · Cuenta.
 | Fase | Qué | Estado |
 | --- | --- | --- |
 | RES-01 | Inicio con todos los servicios, barra Inicio · Servicios · Actividad · Cuenta, búsqueda arriba, «¿A dónde vas?», en curso y volver a pedir, en el móvil | Hecho |
-| RES-02 | La misma estructura en la web del cliente | Pendiente |
+| RES-02 | La misma estructura en la web del cliente, con la Wallet dentro de Cuenta | Hecho |
 | RES-03 | Inicio personalizado con datos reales: promociones vigentes, horario, favoritos | Pendiente |
 | RES-04 | Servicios por ciudad: «disponible en tu ciudad» según la zona de la dirección | Pendiente |
 | RES-05 | Repartidor: verificar el desglose semanal de ganancias y cerrar lo que falte | Pendiente |

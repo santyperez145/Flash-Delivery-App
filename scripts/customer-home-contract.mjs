@@ -93,3 +93,38 @@ assert.ok(
   "abrir un rubro arrastra la cocina o la búsqueda de otro",
 );
 ok("el destino y el rubro elegidos en el inicio llegan a su servicio");
+
+// --- La web (RES-02): la misma estructura que el móvil ----------------------
+const leerWeb = (ruta) => fs.readFile(`src/customer/${ruta}`, "utf8");
+const superficie = await leerWeb("CustomerSurface.tsx");
+const navegacionWeb = await leerWeb("CustomerNavigation.tsx");
+const inicioWeb = await leerWeb("CustomerHome.tsx");
+assert.ok(
+  contains(superficie, '{tab === "home" && !portada.enServicio && ( <CustomerHome') &&
+    contains(superficie, "<CustomerServices features={props.features} onOpen={portada.abrir} />") &&
+    !contains(superficie, "<ServiceToggle") &&
+    !contains(navegacionWeb, "function ServiceToggle"),
+  "la web no entra al inicio con todos los servicios",
+);
+const rotulosWeb = [...navegacionWeb.matchAll(/label: "([^"]+)"/g)].map((m) => m[1]);
+assert.deepEqual(
+  rotulosWeb,
+  ["Inicio", "Servicios", "Actividad", "Cuenta"],
+  "la barra web no es Inicio · Servicios · Actividad · Cuenta",
+);
+assert.ok(
+  contains(inicioWeb, "if (features?.public_rides?.active ?? true)") &&
+    contains(inicioWeb, "if (features?.shipment_beta?.active ?? true)") &&
+    contains(inicioWeb, "if (rubro.merchants > 0)") &&
+    contains(inicioWeb, 'if (rubros === "error")') &&
+    contains(inicioWeb, 'if (vertical) { setRubro(vertical); setCategory("Todo"); setQuery(""); }'),
+  "la web ofrece lo que no existe, o abre un rubro con filtros de otro",
+);
+assert.ok(
+  contains(
+    superficie,
+    '<WalletLink wallet={user?.wallet ?? 0} onOpen={() => setTab("wallet")} />',
+  ) && contains(navegacionWeb, '(tab === "wallet" && id === "profile")'),
+  "la Wallet no vive dentro de Cuenta",
+);
+ok("la web tiene la misma estructura: inicio, barra, sólo lo que existe y Wallet en Cuenta");

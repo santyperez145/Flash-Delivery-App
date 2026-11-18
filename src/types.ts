@@ -64,7 +64,7 @@ export type Mode = "customer" | "merchant" | "driver" | "ops";
 export type UserRole = "customer" | "merchant" | "driver" | "admin" | "support";
 export type Service = "food" | "ride" | "shipment";
 export type DriverService = "delivery" | "ride";
-export type CustomerTab = "home" | "activity" | "wallet" | "profile" | "notifications";
+export type CustomerTab = "home" | "services" | "activity" | "wallet" | "profile" | "notifications";
 export type OrderStatus =
   | "requested"
   | "accepted"

@@ -12,8 +12,8 @@
 // también las consolas de operaciones, así que salieron antes a
 // [`../ui/panels.tsx`](../ui/panels.tsx). El criterio fue contar usos por zona,
 // no leer nombres.
-import { lazy, Suspense, useState } from "react";
-import { Bell, MapPin, RefreshCw, ShoppingBag } from "lucide-react";
+import { lazy, Suspense } from "react";
+import { RefreshCw } from "lucide-react";
 
 import { api } from "../api";
 import { SubscriptionPanel } from "./SubscriptionPanel";
@@ -25,8 +25,8 @@ import { ShipmentHome } from "./ShipmentHome";
 import { CartScreen } from "./FoodCartScreen";
 import { RestaurantDetail } from "./FoodRestaurantScreen";
 import { FoodDiscoveryHome } from "./FoodDiscoveryHome";
-import { CustomerBottomNav, ServiceToggle } from "./CustomerNavigation";
-import { IconButton } from "../ui/panels";
+import { CustomerBottomNav, CustomerHeader, WalletLink } from "./CustomerNavigation";
+import { CustomerHome, CustomerServices, ServiceBackBar, usePortada } from "./CustomerHome";
 import type {
   AppState,
   CartLine,
@@ -177,6 +177,8 @@ export function CustomerApp(props: {
     dietaryPreferences,
     onDietaryPreferencesChange,
   } = props;
+  // RES-02: «Inicio» es la portada con todos los servicios; tocar uno entra a él.
+  const portada = usePortada({ setService, setTab, setCategory, setQuery });
 
   if (selectedRestaurant) {
     return (
@@ -224,33 +226,36 @@ export function CustomerApp(props: {
 
   return (
     <div className="screen with-nav">
-      <header className="home-header">
-        <div>
-          <span className="muted-label">Enviar a</span>
-          <span className="location-button">
-            <MapPin size={15} /> {user?.defaultAddress || "Definir direccion"}
-          </span>
-        </div>
-        <div className="header-actions">
-          <IconButton
-            icon={Bell}
-            label="Notificaciones"
-            badge={state.notifications.filter((notification) => !notification.readAt).length}
-            onClick={() => setTab("notifications")}
-          />
-          <IconButton
-            icon={ShoppingBag}
-            label="Carrito"
-            badge={cart.reduce((sum, line) => sum + line.quantity, 0)}
-            onClick={() => setCartOpen(true)}
-          />
-        </div>
-      </header>
+      <CustomerHeader
+        address={user?.defaultAddress || ""}
+        unread={state.notifications.filter((notification) => !notification.readAt).length}
+        cartCount={cart.reduce((sum, line) => sum + line.quantity, 0)}
+        onNotifications={() => setTab("notifications")}
+        onCart={() => setCartOpen(true)}
+      />
+      {tab === "home" && !portada.enServicio && (
+        <CustomerHome
+          state={state}
+          user={user}
+          features={props.features}
+          onOpen={portada.abrir}
+          onSearch={() => portada.abrir("food")}
+          onOpenRestaurant={setSelectedRestaurantId}
+          onOpenActivity={() => setTab("activity")}
+        />
+      )}
+      {tab === "services" && <CustomerServices features={props.features} onOpen={portada.abrir} />}
+      {tab === "home" && portada.enServicio && (
+        <ServiceBackBar
+          titulo={service === "ride" ? "Viaje" : service === "shipment" ? "Envíos" : "Comida"}
+          onBack={portada.volver}
+        />
+      )}
 
-      <ServiceToggle service={service} setService={setService} features={props.features} />
-
-      {tab === "home" && service === "food" && (
+      {tab === "home" && portada.enServicio && service === "food" && (
         <FoodDiscoveryHome
+          key={portada.rubro}
+          initialVertical={portada.rubro}
           restaurants={restaurants}
           allItems={allItems}
           query={query}
@@ -270,7 +275,7 @@ export function CustomerApp(props: {
           onOpenSubscription={() => setTab("profile")}
         />
       )}
-      {tab === "home" && service === "ride" && (
+      {tab === "home" && portada.enServicio && service === "ride" && (
         <Suspense
           fallback={
             <div className="ride-map ride-map-empty">
@@ -297,7 +302,7 @@ export function CustomerApp(props: {
           />
         </Suspense>
       )}
-      {tab === "home" && service === "shipment" && (
+      {tab === "home" && portada.enServicio && service === "shipment" && (
         <ShipmentHome state={state} user={user} busy={busy} onCreateShipment={createShipment} />
       )}
       {tab === "activity" && (
@@ -322,6 +327,9 @@ export function CustomerApp(props: {
           transactions={state.walletTransactions.filter((entry) => entry.userId === user?.id)}
           onTopUp={onTopUpWallet}
         />
+      )}
+      {tab === "profile" && (
+        <WalletLink wallet={user?.wallet ?? 0} onOpen={() => setTab("wallet")} />
       )}
       {tab === "profile" && (
         <CustomerProfileScreen
@@ -355,7 +363,13 @@ export function CustomerApp(props: {
           busy={busy}
         />
       )}
-      <CustomerBottomNav tab={tab} onTabChange={setTab} />
+      <CustomerBottomNav
+        tab={tab}
+        onTabChange={(next) => {
+          if (next === "home") portada.volver();
+          setTab(next);
+        }}
+      />
     </div>
   );
 }

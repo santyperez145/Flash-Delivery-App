@@ -432,6 +432,8 @@ async function auditCompactCustomerSurfaces(browser) {
   await assertLocatorInsideViewport(page, quoteShipment, "compact customer shipment quote action");
   ok("compact customer shipment keeps the real quote flow inside the viewport");
 
+  // RES-02: cada servicio se abre desde el inicio; se vuelve con la flecha.
+  await page.getByRole("button", { name: "Volver al inicio", exact: true }).click();
   await page.getByRole("button", { name: "Comida", exact: true }).click();
   await page.locator(".restaurant-card").first().click();
   await page.locator(".detail-screen").waitFor();
@@ -454,7 +456,9 @@ async function auditCompactCustomerSurfaces(browser) {
   await closeCart.click();
   ok("compact customer food cart stays inside the viewport");
 
-  const walletTab = page.getByRole("button", { name: "Wallet", exact: true });
+  // La Wallet vive dentro de Cuenta, como en las apps de varios servicios.
+  await page.getByRole("button", { name: "Cuenta", exact: true }).click();
+  const walletTab = page.getByRole("button", { name: /^Wallet · / });
   await walletTab.waitFor({ timeout: 15_000 });
   await walletTab.click();
 
