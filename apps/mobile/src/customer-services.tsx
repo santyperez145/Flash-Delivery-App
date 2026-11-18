@@ -43,14 +43,16 @@ const RUBROS: Record<MerchantVertical, { titulo: string; detalle: string; icono:
 type Flags = Record<string, { active: boolean }>;
 
 export function useServiciosDisponibles() {
-  const [rubros, setRubros] = useState<CatalogVertical[] | null>(null);
+  // `null` mientras carga; "error" si el resumen no se pudo leer. Un resumen leído
+  // y vacío es otra cosa: no hay comercios, y no se ofrece pedir.
+  const [rubros, setRubros] = useState<CatalogVertical[] | "error" | null>(null);
   const [flags, setFlags] = useState<Flags | null>(null);
   useEffect(() => {
     let vigente = true;
     api
       .getCatalogVerticals()
       .then((respuesta) => vigente && setRubros(respuesta.verticals))
-      .catch(() => vigente && setRubros([]));
+      .catch(() => vigente && setRubros("error"));
     request<{ features: Flags }>("/features")
       .then((respuesta) => vigente && setFlags(respuesta.features))
       .catch(() => vigente && setFlags(null));
@@ -68,7 +70,7 @@ export function useServiciosDisponibles() {
       icono: "car-sport-outline",
       color: flashDesign.color.ride,
     });
-  for (const rubro of rubros ?? [])
+  for (const rubro of Array.isArray(rubros) ? rubros : [])
     if (rubro.merchants > 0)
       servicios.push({
         tipo: "vertical",
@@ -77,9 +79,9 @@ export function useServiciosDisponibles() {
         color: flashDesign.color.food,
         comercios: rubro.merchants,
       });
-  // Sin resumen todavía, o si falló, la comida sigue disponible: es el catálogo
-  // que la app ya tiene cargado.
-  if (!rubros?.length)
+  // Si el resumen falló, la comida sigue disponible: es el catálogo que la app ya
+  // tiene cargado. Si se leyó vacío, no hay comercios que ofrecer.
+  if (rubros === "error")
     servicios.push({
       tipo: "vertical",
       vertical: "restaurant",

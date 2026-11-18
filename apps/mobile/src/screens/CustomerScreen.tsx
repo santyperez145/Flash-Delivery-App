@@ -91,6 +91,15 @@ export function CustomerScreen({
     setCustomerWindow(servicio);
     setSharedView("service");
   };
+  // Entrar a un rubro empieza de cero: la cocina o la búsqueda de otro rubro lo
+  // dejarían vacío sin que se vea por qué.
+  const abrirRubro = (vertical: MerchantVertical) => {
+    setFoodVertical(vertical);
+    setFoodCategory("Todos");
+    setFoodQuery("");
+    setFoodScreen("home");
+    abrirServicio("food");
+  };
   const [foodScreen, setFoodScreen] = useState<
     "home" | "search" | "restaurant" | "cart" | "checkout" | "orders"
   >("home");
@@ -907,11 +916,7 @@ export function CustomerScreen({
               setRideDestination(destino);
               abrirServicio("ride");
             }}
-            onOpenVertical={(vertical) => {
-              setFoodVertical(vertical);
-              setFoodScreen("home");
-              abrirServicio("food");
-            }}
+            onOpenVertical={abrirRubro}
             onOpenShipment={() => abrirServicio("shipment")}
             onOpenRestaurant={(restaurantId) => {
               setSelectedRestaurantId(restaurantId);
@@ -924,11 +929,7 @@ export function CustomerScreen({
         {sharedView === "services" && (
           <CustomerServicesScreen
             onOpenRide={() => abrirServicio("ride")}
-            onOpenVertical={(vertical) => {
-              setFoodVertical(vertical);
-              setFoodScreen("home");
-              abrirServicio("food");
-            }}
+            onOpenVertical={abrirRubro}
             onOpenShipment={() => abrirServicio("shipment")}
           />
         )}

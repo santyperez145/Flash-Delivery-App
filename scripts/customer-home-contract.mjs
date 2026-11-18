@@ -22,7 +22,7 @@ const leer = (ruta) => fs.readFile(`apps/mobile/src/${ruta}`, "utf8");
 const coordinador = await leer("screens/CustomerScreen.tsx");
 const barra = await leer("screens/CustomerTabBar.tsx");
 const inicio = await leer("screens/CustomerHomeScreen.tsx");
-const servicios = await leer("customer-services.ts");
+const servicios = await leer("customer-services.tsx");
 const viaje = await leer("screens/CustomerRideScreen.tsx");
 
 assert.ok(
@@ -47,6 +47,13 @@ assert.ok(
     contains(servicios, "if (rubro.merchants > 0)") &&
     contains(servicios, 'request<{ features: Flags }>("/features")'),
   "el inicio ofrece servicios apagados o rubros sin comercios",
+);
+// Un resumen leído y vacío no ofrece pedir; sólo un resumen que falló cae en el
+// catálogo ya cargado.
+assert.ok(
+  contains(servicios, 'if (rubros === "error")') &&
+    contains(servicios, '.catch(() => vigente && setRubros("error"));'),
+  "un catálogo sin comercios igual ofrece pedir comida",
 );
 ok("sólo se ofrece lo que existe: rubros con comercios y servicios encendidos");
 
@@ -76,5 +83,13 @@ assert.ok(
   contains(coordinador, "initialVertical={foodVertical}") &&
     contains(await leer("VerticalRail.tsx"), "useState<MerchantVertical>(initialVertical)"),
   "el rubro tocado en el inicio no es el que abre la tienda",
+);
+// Entrar a un rubro empieza de cero, desde el inicio y desde Servicios.
+assert.ok(
+  contains(
+    coordinador,
+    'const abrirRubro = (vertical: MerchantVertical) => { setFoodVertical(vertical); setFoodCategory("Todos"); setFoodQuery("");',
+  ) && coordinador.split("onOpenVertical={abrirRubro}").length - 1 === 2,
+  "abrir un rubro arrastra la cocina o la búsqueda de otro",
 );
 ok("el destino y el rubro elegidos en el inicio llegan a su servicio");
