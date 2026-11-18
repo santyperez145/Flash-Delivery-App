@@ -1167,7 +1167,10 @@ export const api = {
       body: JSON.stringify({ status, ...(status === "cancelled" ? { reason } : {}) }),
     });
   },
-  async updateRestaurant(restaurantId: string, payload: { open?: boolean; etaMin?: number }) {
+  async updateRestaurant(
+    restaurantId: string,
+    payload: { open?: boolean; etaMin?: number; pauseMinutes?: number; pauseReason?: string },
+  ) {
     return request(`/restaurants/${restaurantId}`, {
       method: "PATCH",
       body: JSON.stringify(payload),

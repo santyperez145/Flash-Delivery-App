@@ -4637,6 +4637,65 @@ try {
       await pool.query("DELETE FROM users WHERE public_id=$1", [idBorrado]);
     }
   }
+
+  // --- Pausa del comercio con tiempo y motivo (RES-07) -----------------------
+  // Se pausa el comercio de prueba, se mira que el catálogo y la cotización lo
+  // respeten, y se reanuda siempre al final: no queda pausado para el resto.
+  const tokenAntesDeLaPausa = token;
+  try {
+    token = (
+      await request("/auth/login", {
+        method: "POST",
+        body: JSON.stringify({
+          email: "comercio@flash.app",
+          password: "demo123",
+          deviceName: "pausa",
+        }),
+      })
+    ).body.token;
+    const sinMotivo = await request("/restaurants/rest_roja", {
+      method: "PATCH",
+      body: JSON.stringify({ pauseMinutes: 15 }),
+    });
+    const pausa = await request("/restaurants/rest_roja", {
+      method: "PATCH",
+      body: JSON.stringify({ pauseMinutes: 15, pauseReason: "high_demand" }),
+    });
+    const tablero = await request("/merchant/dashboard?restaurantId=rest_roja");
+    token = customerToken;
+    const catalogoPausado = await request("/catalog/restaurants?limit=50");
+    const enPausa = (catalogoPausado.body.restaurants || []).find(
+      (fila) => fila.id === "rest_roja",
+    );
+    assert(
+      sinMotivo.status === 400 &&
+        pausa.status === 200 &&
+        tablero.body.dashboard?.branch?.pauseReason === "high_demand" &&
+        new Date(tablero.body.dashboard?.branch?.pausedUntil).getTime() >
+          Date.now() + 14 * 60_000 &&
+        tablero.body.dashboard?.branch?.open === false &&
+        (!enPausa || enPausa.open === false),
+      `a timed pause needs a reason, closes the branch and shows when it reopens (${JSON.stringify({
+        sinMotivo: sinMotivo.status,
+        pausa: pausa.status,
+        branch: tablero.body.dashboard?.branch,
+        catalogo: enPausa?.open,
+      })})`,
+    );
+    // Vencida, la sucursal vuelve a atender sola: se adelanta el vencimiento.
+    await pool.query(
+      "UPDATE merchant_branches SET paused_until=now()-interval '1 second' WHERE public_id='branch_rest_roja'",
+    );
+    const vencida = (await request("/catalog/restaurants?limit=50")).body.restaurants?.find(
+      (fila) => fila.id === "rest_roja",
+    );
+    assert(vencida?.open === true, "an expired pause reopens the branch without any worker");
+  } finally {
+    await pool.query(
+      "UPDATE merchant_branches SET paused_until=NULL,pause_reason=NULL WHERE public_id='branch_rest_roja'",
+    );
+    token = tokenAntesDeLaPausa;
+  }
 } finally {
   const runtimeJobIds = [
     orderId,
