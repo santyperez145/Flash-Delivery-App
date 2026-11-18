@@ -1,0 +1,33 @@
+/* La web del cliente como sitio (RES-06). Hoja propia: `styles.css` es un monolito
+   de H-08. Una cuenta que sólo pide no ve el marco de staff (panel de marca,
+   barra del teléfono, selector de perfiles): su app ocupa la pantalla, en una
+   columna centrada en escritorio. */
+.app-cliente {
+  padding: 0;
+  background: var(--paper-soft);
+}
+
+.app-cliente .workspace {
+  display: block;
+  max-width: 760px;
+  min-height: 100dvh;
+  margin: 0 auto;
+}
+
+.app-cliente .phone-stage {
+  display: block;
+}
+
+.app-cliente .phone {
+  width: 100%;
+  height: 100dvh;
+  min-height: 100dvh;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* Sin barra de estado ni selector, el contenido usa toda la altura. */
+.app-cliente .phone-content {
+  height: 100%;
+}
