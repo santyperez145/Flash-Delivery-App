@@ -33,7 +33,7 @@ Fuera de los P0, al 28 de agosto **GTM-001 y OPS-001 están cerrados**: los cuat
 
 ---
 
-Cada entrega se rige por [`AGENTS.md`](AGENTS.md) y [`docs/product-execution-guidelines.md`](docs/product-execution-guidelines.md): investigación competitiva verificable, backend autoritativo, cero capacidades productivas hardcodeadas, experiencia visual completa y checks honestos en el roadmap.
+Cada entrega se rige por [`CONTRIBUTING.md`](CONTRIBUTING.md) y [`docs/product-execution-guidelines.md`](docs/product-execution-guidelines.md): investigación competitiva verificable, backend autoritativo, cero capacidades productivas hardcodeadas, experiencia visual completa y checks honestos en el roadmap.
 
 Los tres verticales comparten ahora chat operacional real por servicio: mensajes, confirmaciones y adjuntos persistidos en PostgreSQL, con contenido AES-256-GCM y acceso exclusivo para cliente, conductor asignado y comercio participante. Detalles y garantías en `docs/service-chat.md`.
 
@@ -256,7 +256,7 @@ validación de propiedad por cliente, comercio y driver.
 - **Plan de acción y fases:** `docs/plan-de-accion.md`
 - **Backlog técnico P0/P1:** `docs/backlog-tecnico.md`
 - **Matriz de madurez:** `docs/matriz-madurez.md`
-- **Lineamientos de ejecución:** `AGENTS.md`
+- **Reglas de ingeniería y producto:** `CONTRIBUTING.md`
 
 ### Referencia
 

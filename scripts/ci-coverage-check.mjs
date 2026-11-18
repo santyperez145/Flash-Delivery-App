@@ -217,3 +217,75 @@ console.log(
   `\nok - ${LOTES_DESATENDIDOS.size} lote(s) operativo(s) tienen punto de entrada desatendido`,
 );
 console.log(`     invocables como: ${[...new Set(LOTES_DESATENDIDOS.values())].join(", ")}`);
+
+// --- La revisión de cada cambio es determinística (CONTRIBUTING.md §5) --------
+//
+// Reglas que se ejecutan igual para todos: análisis estático con CodeQL y
+// revisión de las dependencias que trae cada PR, además de estas puertas. Se
+// verifica acá porque borrar un workflow no rompe ninguna prueba: la revisión
+// simplemente deja de ocurrir, en silencio.
+//
+// **Se lee la configuración activa, no el texto.** Un paso comentado, o con
+// `if: false`, sigue conteniendo el nombre de la acción: buscar la cadena en el
+// archivo crudo aprobaría una revisión que dejó de ocurrir. Se quitan los
+// comentarios de YAML, se exige cada clave en su lugar —un paso `uses:`, un
+// disparador `pull_request:`— y se rechaza cualquier paso desactivado.
+const sinComentariosYaml = (fuente) =>
+  fuente
+    .replace(/\r\n/g, "\n")
+    .split("\n")
+    .map((linea) => linea.replace(/(^|\s)#.*$/, ""))
+    .join("\n");
+const workflow = (nombre) =>
+  fs
+    .readFile(`.github/workflows/${nombre}`, "utf8")
+    .then(sinComentariosYaml)
+    .catch(() => "");
+const usaAccion = (fuente, accion) =>
+  fuente
+    .split("\n")
+    .some((linea) => /^\s*(-\s+)?uses:\s*\S+@\S+\s*$/.test(linea) && linea.includes(`${accion}@`));
+const desactivado = (fuente) =>
+  fuente
+    .split("\n")
+    .some((linea) => /^\s*(-\s+)?if:\s*(false|\$\{\{\s*false\s*\}\})\s*$/.test(linea));
+const clave = (fuente, patron) => fuente.split("\n").some((linea) => patron.test(linea));
+const codeql = await workflow("codeql.yml");
+const dependencias = await workflow("dependency-review.yml");
+const revision = [];
+if (
+  !usaAccion(codeql, "github/codeql-action/analyze") ||
+  !clave(codeql, /^\s+pull_request:\s*$/) ||
+  desactivado(codeql)
+)
+  revision.push("codeql.yml no analiza cada PR");
+if (
+  !usaAccion(dependencias, "actions/dependency-review-action") ||
+  !clave(dependencias, /^\s+fail-on-severity:\s*high\s*$/) ||
+  desactivado(dependencias)
+)
+  revision.push("dependency-review.yml no bloquea dependencias con vulnerabilidades altas");
+// Las excepciones del dueño son una sola lista: lo que se acepta en la auditoría
+// del árbol se acepta en la revisión del PR, y nada más.
+const excepciones = JSON.parse(
+  await fs.readFile("scripts/dependency-audit-exceptions.json", "utf8"),
+)
+  .excepciones.map((entrada) => entrada.aviso)
+  .sort();
+const permitidos = (dependencias.match(/^\s+allow-ghsas:\s*([^\n]*)$/m)?.[1] || "")
+  .split(",")
+  .map((aviso) => aviso.trim())
+  .filter(Boolean)
+  .sort();
+if (JSON.stringify(excepciones) !== JSON.stringify(permitidos))
+  revision.push(
+    `las excepciones no coinciden: auditoría [${excepciones}] y revisión del PR [${permitidos}]`,
+  );
+if (revision.length) {
+  console.error("\nLa revisión determinística está incompleta:\n");
+  for (const problema of revision) console.error(`  ${problema}`);
+  process.exit(1);
+}
+console.log(
+  "ok - cada PR pasa por CodeQL y por la revisión de dependencias, con las mismas excepciones",
+);

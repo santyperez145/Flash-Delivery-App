@@ -26,7 +26,7 @@ import path from "node:path";
 // `test:mobile-food-design` al describir los topes de propina.
 const LINEA_BASE = 9;
 const PAQUETE = "package.json";
-const FUENTES = ["docs", "AGENTS.md"];
+const FUENTES = ["docs", "CONTRIBUTING.md"];
 
 async function recorrer(entrada) {
   const stat = await fs.stat(entrada).catch(() => null);
