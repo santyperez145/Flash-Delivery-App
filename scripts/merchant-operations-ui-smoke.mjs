@@ -171,3 +171,9 @@ assert(
     containsAll(mobile, ["pauseReason: reason, }); await loadOperations();"]),
   "the merchant app pauses with reason and duration, resumes early, and keeps the open-ended close",
 );
+// Durante una pausa con tiempo también se puede cerrar sin fecha: si no, habría que
+// reanudar primero, o la pausa reabriría el local sola.
+assert(
+  pausaMovil.split("Cerrar sin fecha").length - 1 === 2,
+  "the open-ended close stays available during a timed pause",
+);

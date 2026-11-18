@@ -66,6 +66,10 @@ export function MerchantPause({
         </Text>
         <Text style={estilos.ayuda}>Vuelve a recibir pedidos solo, a esa hora.</Text>
         <Boton rotulo="Reanudar ahora" principal disabled={busy} onPress={() => onPause(0)} />
+        {/* Cerrar por el día no puede exigir reanudar antes: la pausa reabriría sola. */}
+        <Pressable accessibilityRole="button" disabled={busy} onPress={onToggleOpen}>
+          <Text style={estilos.cerrar}>Cerrar sin fecha</Text>
+        </Pressable>
       </View>
     );
 
