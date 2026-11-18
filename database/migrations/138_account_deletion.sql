@@ -22,7 +22,8 @@
 ALTER TABLE users DROP CONSTRAINT users_status_check;
 ALTER TABLE users ADD CONSTRAINT users_status_check
   CHECK (status IN ('active', 'suspended', 'pending', 'deleted'));
-ALTER TABLE users ADD COLUMN deleted_at timestamptz;
+-- `users.deleted_at` ya existe desde la migración 003 y nada la usaba: el borrado
+-- la escribe por primera vez, en lugar de agregar una segunda columna igual.
 
 CREATE FUNCTION app.delete_customer_account(p_user uuid) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER
