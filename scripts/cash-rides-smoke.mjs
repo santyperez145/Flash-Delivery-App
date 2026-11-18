@@ -63,21 +63,42 @@ try {
   ).rows[0];
 
   // --- 1. Sólo Flash Wallet o efectivo -------------------------------------
-  const otro = await fetch(`${base}/rides`, {
+  // El resto del pedido es válido —clave de idempotencia y cotización firmada—,
+  // así que si la API volviera a aceptar cualquier texto, el viaje se crearía y
+  // esta afirmación fallaría.
+  const opciones = await fetch(`${base}/rides/options`, {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      Authorization: `Bearer ${customer.token}`,
-      "Idempotency-Key": `cash-${marca}`,
-    },
+    headers: { "content-type": "application/json", Authorization: `Bearer ${customer.token}` },
     body: JSON.stringify({
-      customerId: customer.user.id,
       pickup: "Obelisco",
       destination: "Aeroparque",
       service: "economy",
-      paymentMethod: "Tarjeta de un amigo",
+      pickupCoords: { lat: -34.6037, lng: -58.3816 },
+      destinationCoords: { lat: -34.5592, lng: -58.4156 },
     }),
-  });
+  }).then((response) => response.json());
+  const cotizacion = opciones.options?.find((entry) => entry.service === "economy");
+  assert(Boolean(cotizacion?.quoteToken), "la cotización del viaje trae su token firmado");
+  const pedido = (paymentMethod) =>
+    fetch(`${base}/rides`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        Authorization: `Bearer ${customer.token}`,
+        "Idempotency-Key": `cash-rides-${crypto.randomUUID()}`,
+      },
+      body: JSON.stringify({
+        customerId: customer.user.id,
+        pickup: "Obelisco",
+        destination: "Aeroparque",
+        service: "economy",
+        pickupCoords: { lat: -34.6037, lng: -58.3816 },
+        destinationCoords: { lat: -34.5592, lng: -58.4156 },
+        paymentMethod,
+        quoteToken: cotizacion.quoteToken,
+      }),
+    });
+  const otro = await pedido("Tarjeta de un amigo");
   assert(otro.status === 400, "un viaje con otro medio de pago se rechaza");
 
   // --- 2. La liquidación ------------------------------------------------------

@@ -64,7 +64,9 @@ function describirOferta(oferta: DispatchOffer, ahora: number) {
   const restanS = Math.max(0, Math.ceil((new Date(oferta.expiresAt).getTime() - ahora) / 1000));
   // Antes de aceptar se sabe si es sin contacto y si hay indicaciones, no el texto (P-02).
   const entrega = `${oferta.leaveAtDoor ? " · sin contacto" : ""}${oferta.hasInstructions ? " · con indicaciones" : ""}`;
-  return `${oferta.distanceKm} km · ${oferta.durationMin} min${aceptacion}${entrega} · vence en ${restanS}s`;
+  // PAG-01: un viaje en efectivo se cobra en mano; se sabe antes de aceptar.
+  const cobro = oferta.cash ? " · en efectivo" : "";
+  return `${oferta.distanceKm} km · ${oferta.durationMin} min${cobro}${aceptacion}${entrega} · vence en ${restanS}s`;
 }
 
 export function MerchantApp({
@@ -857,6 +859,12 @@ function RideOpsCard({
         <span>{money.format(ride.fare)}</span>
         <span>{driver?.name || "Sin conductor"}</span>
       </div>
+      {/* PAG-01: quien maneja tiene que saber que cobra en mano, y cuánto. */}
+      {ride.paymentMethod === "Efectivo" && (
+        <p className="ride-cash-notice" role="note">
+          Cobrá {money.format(ride.fare)} en efectivo
+        </p>
+      )}
       {canAdvance && (
         <button type="button" onClick={onAdvance} disabled={busy}>
           <Car size={15} /> Avanzar

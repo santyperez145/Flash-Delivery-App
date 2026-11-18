@@ -10,27 +10,48 @@ import fs from "node:fs/promises";
 import { contains } from "./source-contract.mjs";
 
 const leer = (ruta) => fs.readFile(ruta, "utf8");
-const [despacho, viajes, billetera, webViaje, webApp, movilViaje, movilConductor] =
-  await Promise.all(
-    [
-      "server/dispatch-repository.js",
-      "server/http/ride-router.js",
-      "server/wallet-repository.js",
-      "src/RideHome.tsx",
-      "src/App.tsx",
-      "apps/mobile/src/screens/CustomerRideScreen.tsx",
-      "apps/mobile/src/screens/DriverJobCards.tsx",
-    ].map(leer),
-  );
+const [
+  despacho,
+  viajes,
+  billetera,
+  webViaje,
+  webApp,
+  movilViaje,
+  movilConductor,
+  webOps,
+  movilPanel,
+] = await Promise.all(
+  [
+    "server/dispatch-repository.js",
+    "server/http/ride-router.js",
+    "server/wallet-repository.js",
+    "src/RideHome.tsx",
+    "src/App.tsx",
+    "apps/mobile/src/screens/CustomerRideScreen.tsx",
+    "apps/mobile/src/screens/DriverJobCards.tsx",
+    "src/operations/OperationsSurface.tsx",
+    "apps/mobile/src/screens/DriverHomePanel.tsx",
+  ].map(leer),
+);
 
 assert.ok(
-  contains(despacho, "if (job.cash) candidates.rows = (") &&
-    contains(despacho, "(await puedeTomarEfectivo(client, candidate.id)) ? candidate : null") &&
-    contains(despacho, "if (offer.cash && !(await puedeTomarEfectivo(client, offer.driver_id)))") &&
+  // Antes de puntuar: filtrar después del corte dejaba el viaje sin ofertas si los
+  // mejores puntuados debían de más.
+  contains(
+    despacho,
+    "const habilitados = job.cash ? await elegiblesParaEfectivo(client, driverIds) : driverIds;",
+  ) &&
     contains(
       despacho,
-      "(await driverWalletBalanceCents(client, driverId)) > -config.cashDriverDebtLimitCents",
-    ),
+      "await scoreCandidates(client, { jobId, driverIds: habilitados, mode, limit })",
+    ) &&
+    contains(despacho, "if (offer.cash && !(await puedeTomarEfectivo(client, offer.driver_id)))") &&
+    // Deber exactamente el tope todavía se permite.
+    contains(
+      despacho,
+      "(await driverWalletBalanceCents(client, driverId)) >= -config.cashDriverDebtLimitCents",
+    ) &&
+    contains(despacho, "[driverIds, -config.cashDriverDebtLimitCents],"),
   "el despacho ofrece o deja aceptar un viaje en efectivo a quien debe más del tope",
 );
 console.log("ok - quien debe más del tope no recibe ni acepta viajes en efectivo");
@@ -51,7 +72,11 @@ assert.ok(
     contains(webViaje, '(["Flash Wallet", "Efectivo"] as const).map((metodo) => (') &&
     contains(movilViaje, "paymentMethod: pago,") &&
     contains(movilViaje, "<RidePaymentPicker value={pago}") &&
-    contains(movilConductor, 'ride.paymentMethod === "Efectivo" && ('),
+    contains(movilConductor, 'ride.paymentMethod === "Efectivo" && (') &&
+    // También en la consola web del conductor, y en la oferta antes de aceptar.
+    contains(webOps, 'ride.paymentMethod === "Efectivo" && (') &&
+    contains(webOps, 'const cobro = oferta.cash ? " · en efectivo" : "";') &&
+    contains(movilPanel, "{offer.cash && ("),
   "las apps no dejan elegir efectivo, o el conductor no sabe que cobra en mano",
 );
 console.log("ok - web y móvil dejan elegir efectivo, y el conductor ve cuánto cobrar");

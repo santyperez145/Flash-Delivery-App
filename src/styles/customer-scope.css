@@ -501,3 +501,12 @@
   color: var(--ink-soft);
   font-size: 0.88rem;
 }
+
+.ride-cash-notice {
+  margin: 8px 0;
+  padding: 8px 12px;
+  color: var(--shipment);
+  font-weight: 800;
+  background: color-mix(in srgb, var(--shipment) 10%, var(--paper));
+  border-radius: var(--radius-control);
+}

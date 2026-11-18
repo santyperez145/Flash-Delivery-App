@@ -5,9 +5,31 @@ import { scoreCandidates, shortlistDrivers } from "./dispatch-candidates.js";
 import { config } from "./config.js";
 import { CASH_LABEL, driverWalletBalanceCents } from "./wallet-repository.js";
 
-/** PAG-01: ¿el conductor está dentro del tope de deuda por viajes en efectivo? */
+/**
+ * PAG-01: ¿el conductor está dentro del tope de deuda por viajes en efectivo? Deber
+ * exactamente el tope todavía se permite; pasarlo, no.
+ */
 const puedeTomarEfectivo = async (client, driverId) =>
-  (await driverWalletBalanceCents(client, driverId)) > -config.cashDriverDebtLimitCents;
+  (await driverWalletBalanceCents(client, driverId)) >= -config.cashDriverDebtLimitCents;
+
+/** PAG-01: de una lista de conductores, los que pueden tomar un viaje en efectivo. */
+const elegiblesParaEfectivo = async (client, driverIds) =>
+  driverIds.length === 0
+    ? []
+    : (
+        await client.query(
+          `SELECT d.id FROM drivers d
+           LEFT JOIN ledger_accounts a ON a.owner_type='user' AND a.owner_id=d.user_id AND a.account_type='wallet'
+           LEFT JOIN ledger_entries e ON e.account_id=a.id
+           WHERE d.id = ANY($1)
+           GROUP BY d.id
+           HAVING COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0) >= $2`,
+          [driverIds, -config.cashDriverDebtLimitCents],
+        )
+      ).rows
+        .map((row) => row.id)
+        // Se respeta el orden por cercanía de la lista corta.
+        .sort((a, b) => driverIds.indexOf(a) - driverIds.indexOf(b));
 
 const offerId = () => `OFR-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
 
@@ -43,18 +65,15 @@ export async function createDispatchOffers(client, { jobId, mode, limit = 3, ttl
     mode,
     needed: limit,
   });
-  // Etapa 2: puntuación explicable, sólo sobre la lista corta.
-  const candidates = { rows: await scoreCandidates(client, { jobId, driverIds, mode, limit }) };
   // PAG-01: un viaje en efectivo no se le ofrece a quien ya debe más del tope en
-  // comisiones de viajes en efectivo: cobraría otro total en mano.
-  if (job.cash)
-    candidates.rows = (
-      await Promise.all(
-        candidates.rows.map(async (candidate) =>
-          (await puedeTomarEfectivo(client, candidate.id)) ? candidate : null,
-        ),
-      )
-    ).filter(Boolean);
+  // comisiones de viajes en efectivo. Se filtra la lista corta **antes** de puntuar:
+  // filtrar después del corte dejaba el viaje sin ofertas si los mejores puntuados
+  // debían de más, aunque hubiera otros conductores habilitados.
+  const habilitados = job.cash ? await elegiblesParaEfectivo(client, driverIds) : driverIds;
+  // Etapa 2: puntuación explicable, sólo sobre la lista corta.
+  const candidates = {
+    rows: await scoreCandidates(client, { jobId, driverIds: habilitados, mode, limit }),
+  };
 
   const offers = [];
   for (const candidate of candidates.rows) {
@@ -160,14 +179,15 @@ export async function getPostgresDispatchOffers(driverPublicId) {
   );
   const result = await postgresPool.query(
     `SELECT o.public_id,j.public_id job_id,j.kind,j.service_level,j.pickup_address,j.dropoff_address,
-      j.quoted_amount_cents,j.distance_m,j.estimated_duration_s,j.metadata,o.score,o.score_breakdown,o.expires_at,o.status
+      j.quoted_amount_cents,j.distance_m,j.estimated_duration_s,j.metadata,o.score,o.score_breakdown,o.expires_at,o.status,
+      (j.kind='ride' AND j.payment_method_label=$2) cash
     FROM dispatch_offers o JOIN drivers d ON d.id=o.driver_id JOIN jobs j ON j.id=o.job_id
     WHERE d.public_id=$1 AND o.status='pending' AND o.expires_at>now() AND j.driver_id IS NULL AND j.status NOT IN('completed','cancelled')
       AND (COALESCE(j.metadata->>'subtype','')<>'food_order' OR j.status='ready_for_pickup')
       AND COALESCE(j.metadata->>'fulfillment','delivery')<>'pickup'
       AND (j.scheduled_for IS NULL OR j.scheduled_for<=now()+interval '15 minutes')
     ORDER BY o.score DESC,o.expires_at LIMIT 50`,
-    [driverPublicId],
+    [driverPublicId, CASH_LABEL],
   );
   return result.rows.map((row) => ({
     id: row.public_id,
@@ -184,6 +204,8 @@ export async function getPostgresDispatchOffers(driverPublicId) {
     expiresAt: new Date(row.expires_at).toISOString(),
     status: row.status,
     subtype: row.metadata?.subtype || null,
+    // PAG-01: antes de aceptar, quien maneja sabe si cobra en mano.
+    cash: Boolean(row.cash),
     // Antes de aceptar, el repartidor sabe si es sin contacto y si hay
     // indicaciones —como en DoorDash y Uber—, pero no el texto, que es de la
     // casa de alguien y recién lo ve quien acepta (P-02).

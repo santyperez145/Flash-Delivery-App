@@ -6,7 +6,8 @@ Como Uber en Argentina: el pasajero puede pagar el viaje en efectivo al conducto
 
 - **Al pedir,** el pasajero elige Flash Wallet o efectivo, en web y en la app. Con efectivo,
   Flash no cobra nada en el momento.
-- **El conductor ve «Cobrá $ X en efectivo»** en la tarjeta del viaje.
+- **El conductor sabe que cobra en mano** antes de aceptar («Se cobra en efectivo» en la
+  oferta) y durante el viaje («Cobrá $ X en efectivo»), en la app y en la consola web.
 - **Al terminar,** Flash liquida la ganancia del conductor y la comisión igual que en un viaje
   con Wallet (asiento `driver_earning`, con su desglose), y además asienta que el conductor
   cobró el total en mano (`cash_collection`, migración 143), que le debe a la plataforma. Neto,
@@ -14,7 +15,10 @@ Como Uber en Argentina: el pasajero puede pagar el viaje en efectivo al conducto
 - **Tope de deuda.** El saldo puede quedar negativo: es deuda que se netea contra las próximas
   ganancias, como ya pasa con el saldo de un comercio (migración 119). Un conductor que debe
   más de `CASH_DRIVER_DEBT_LIMIT_CENTS` (por omisión 3.000.000 centavos, $ 30.000) **no
-  recibe ofertas de viajes en efectivo ni puede aceptarlas** hasta bajar la deuda.
+  recibe ofertas de viajes en efectivo ni puede aceptarlas** hasta bajar la deuda. Deber
+  exactamente el tope todavía se permite. El filtro corre sobre la lista corta de conductores
+  **antes** de puntuarlos: filtrar después dejaba el viaje sin ofertas si los mejores
+  puntuados debían de más, aunque hubiera otros habilitados.
 - **La API sólo acepta los dos medios.** Antes un viaje aceptaba cualquier texto, y uno que no
   dijera «wallet» se creaba sin cobro.
 

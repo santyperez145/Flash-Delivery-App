@@ -363,6 +363,8 @@ export type DispatchOffer = {
   /** Antes de aceptar: si es sin contacto y si trae indicaciones, nunca el texto (P-02). */
   leaveAtDoor?: boolean;
   hasInstructions?: boolean;
+  /** PAG-01: el viaje se cobra en efectivo. */
+  cash?: boolean;
 };
 
 /** SEG-01: una señal del control del viaje que el pasajero todavía no contestó. */
