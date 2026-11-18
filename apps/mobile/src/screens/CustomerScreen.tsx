@@ -909,6 +909,9 @@ export function CustomerScreen({
             activeRides={activeRides}
             activeShipments={activeShipments}
             onSearch={() => {
+              // Buscar empieza de cero: una cocina de antes ocultaría lo que coincide.
+              setFoodCategory("Todos");
+              setFoodQuery("");
               setFoodScreen("search");
               abrirServicio("food");
             }}

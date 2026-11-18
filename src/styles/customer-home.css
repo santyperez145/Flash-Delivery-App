@@ -1,0 +1,202 @@
+/* Inicio del cliente web (RES-02). Hoja propia: `styles.css` es un monolito de H-08. */
+.customer-home,
+.customer-services {
+  display: grid;
+  gap: 16px;
+  padding: 4px 0 16px;
+}
+
+.customer-home h1,
+.customer-services h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.5rem;
+}
+
+.customer-services p {
+  margin: -8px 0 0;
+  color: var(--ink-soft);
+}
+
+.customer-home-search,
+.customer-home-where {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 16px;
+  color: var(--ink-soft);
+  font: inherit;
+  text-align: left;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.customer-home-where {
+  color: var(--ink);
+  font-weight: 800;
+  background: var(--paper);
+  border-radius: var(--radius-control);
+}
+
+.customer-home-where svg {
+  color: var(--ride);
+}
+
+.customer-home-live {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  color: #fff;
+  font: inherit;
+  text-align: left;
+  background: var(--ink);
+  border: 0;
+  border-radius: var(--radius-card);
+}
+
+.customer-home-live span {
+  display: grid;
+  gap: 2px;
+  font-size: 0.82rem;
+  color: #d9d4dd;
+}
+
+.customer-home-live strong {
+  color: #fff;
+  font-size: 0.95rem;
+}
+
+.customer-home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: 12px;
+}
+
+.customer-home-grid button {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  padding: 12px 4px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: var(--paper-soft);
+  border: 0;
+  border-radius: var(--radius-card);
+}
+
+.customer-home-grid svg {
+  color: var(--food);
+}
+
+.customer-home-again h2 {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+}
+
+.customer-home-again > div {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+}
+
+.customer-home-again button {
+  display: grid;
+  flex: 0 0 132px;
+  gap: 4px;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+  background: none;
+  border: 0;
+}
+
+.customer-home-again img {
+  width: 132px;
+  height: 84px;
+  object-fit: cover;
+  border-radius: var(--radius-control);
+}
+
+.customer-home-again small {
+  color: var(--ink-soft);
+}
+
+.customer-services button {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-height: 72px;
+  padding: 12px;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+}
+
+.customer-services button > span {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+}
+
+.customer-services small {
+  color: var(--ink-soft);
+}
+
+.customer-service-back {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 44px;
+}
+
+.customer-service-back button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  background: none;
+  border: 0;
+}
+
+.customer-wallet-link {
+  width: 100%;
+  min-height: 48px;
+  margin-bottom: 12px;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 800;
+  text-align: left;
+  padding: 0 16px;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+
+.customer-home-notice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+}
+
+.customer-home-notice button {
+  padding: 0;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 800;
+  text-decoration: underline;
+  background: none;
+  border: 0;
+}

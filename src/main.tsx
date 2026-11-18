@@ -10,6 +10,7 @@ import "./styles/verticals.css";
 import "./styles/delivery-preferences.css";
 import "./styles/account-deletion.css";
 import "./styles/legal-links.css";
+import "./styles/customer-home.css";
 import "./adaptive.css";
 
 const publicTrackingToken = window.location.pathname.match(
