@@ -31,6 +31,17 @@ AFTER UPDATE OF status ON users FOR EACH ROW
 WHEN (NEW.status = 'deleted' AND OLD.status IS DISTINCT FROM 'deleted')
 EXECUTE FUNCTION app.redact_deleted_customer_receipts();
 
+-- Las cuentas que se eliminaron con la 138 y antes de esta ya no van a volver a
+-- pasar a `deleted`: sus comprobantes se redactan una vez acá, con la misma regla.
+UPDATE service_receipts r
+   SET metadata = r.metadata
+                  || jsonb_build_object('dropoff', 'Dirección eliminada')
+                  || CASE WHEN j.merchant_id IS NULL
+                          THEN jsonb_build_object('pickup', 'Dirección eliminada')
+                          ELSE '{}'::jsonb END
+  FROM jobs j, users u
+ WHERE j.id = r.job_id AND u.id = r.customer_id AND u.status = 'deleted';
+
 -- **Una cuenta eliminada no vuelve.** La moderación podía pasarla a `active`, y un
 -- JWT de acceso todavía vigente volvía a servir, porque `requireAuth` mira el estado
 -- de la cuenta y no las sesiones revocadas. La base lo impide para cualquier

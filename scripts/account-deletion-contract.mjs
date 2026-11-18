@@ -69,7 +69,14 @@ assert.ok(
       "BEFORE UPDATE OF status ON users FOR EACH ROW WHEN (OLD.status = 'deleted'",
     ) &&
     contains(terminal, "RAISE EXCEPTION 'FLASH_ACCOUNT_DELETED'") &&
-    contains(await leer("server/auth-repository.js"), 'if (target.status === "deleted") throw'),
+    contains(
+      terminal,
+      "FROM jobs j, users u WHERE j.id = r.job_id AND u.id = r.customer_id AND u.status = 'deleted';",
+    ) &&
+    contains(
+      await leer("server/http/admin-router.js"),
+      'if (String(error?.message).includes("FLASH_ACCOUNT_DELETED")) return fail(res, 409,',
+    ),
   "un comprobante conserva la dirección, o una cuenta eliminada se puede reactivar",
 );
 ok("los comprobantes emitidos se redactan y una cuenta eliminada no se reactiva");

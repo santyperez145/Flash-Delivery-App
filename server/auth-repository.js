@@ -248,14 +248,6 @@ export async function setPostgresUserStatus({
       throw Object.assign(new Error("No puedes cambiar el estado de tu propia cuenta"), {
         status: 409,
       });
-    // Una cuenta eliminada por su titular no se modera: no vuelve (migración 139).
-    if (target.status === "deleted")
-      throw Object.assign(
-        new Error("La cuenta fue eliminada por su titular y no se puede reactivar"),
-        {
-          status: 409,
-        },
-      );
     if (target.status === status)
       throw Object.assign(
         new Error(`La cuenta ya está ${status === "active" ? "activa" : "suspendida"}`),
