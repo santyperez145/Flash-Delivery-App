@@ -81,7 +81,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Capacidad | Estado | Evidencia / bloqueo |
 | --- | --- | --- |
 | PostgreSQL/PostGIS runtime | `CI` | `ci-postgres.yml` levanta PostGIS 17 con roles separados; `test:runtime-role-shape` repite el arranque en un contenedor aislado |
-| 139 migraciones versionadas | `CI` | `ci-postgres.yml` corre desde cero, en Testcontainers y de forma incremental sobre la rama base |
+| 140 migraciones versionadas | `CI` | `ci-postgres.yml` corre desde cero, en Testcontainers y de forma incremental sobre la rama base |
 | Framework estándar de pruebas | `CI` | Vitest 4.1 ejecuta autorización; Testcontainers 12.1 ejecuta migraciones y roles sobre PostGIS efímero · migración gradual restante |
 | Row-Level Security | `CI` | `test:rls` bloquea el merge · **69 de 69** tablas `por-usuario` con política. `shipment_details` y `promotion_redemptions` cerraron el 27-08: la primera guardaba nombre, teléfono y PIN del destinatario sin `ENABLE` |
 | Matriz de clasificación RLS | `CI` | `test:rls-matrix`: las 104 tablas clasificadas, deuda declarada que sólo puede achicarse. Desde el 27/08 también resta los `DROP TABLE`: una clasificación no sobrevive a su tabla |
@@ -190,6 +190,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Suscripción (Flash Más) | `CI` | `test:postgres` prueba umbral, alta duplicada, baja que conserva el beneficio y reactivación · `test:marketplace-ledger` prueba quién paga el subsidio · **no cobra**: depende de PAY-001 |
 | Preferencias de entrega (en mano o en la puerta, indicaciones, cubiertos) | `CI` | `test:authorization` prueba las reglas y quién ve qué sin base · `test:delivery-preferences` afirma que cada capa las conecta y que cada lectura de comercio o de repartidor sin asignar las recorta · `test:postgres` prueba que se guardan, que el reintento las devuelve, que el comercio sólo ve los cubiertos y el 409 de idempotencia · **sin foto de prueba** al dejar en la puerta (P-02b) |
 | Inicio con todos los servicios (RES-01/02) | `CI` | `test:customer-home` en móvil y web · probado en el navegador con el respaldo local |
+| Pausa del comercio con tiempo y motivo (RES-07) | `CI` | `test:postgres` pausa, verifica catálogo y panel, y la ve vencer sola · app móvil |
 | Desglose de ganancias por servicio (RES-05) | `CI` | `test:driver-earnings` lo recalcula desde el ledger · viajes y envíos; comida pendiente |
 | Infraestructura GCP (Terraform) | `CI` | `ci-fast` corre `terraform fmt`/`validate` · `test:worker-health` prueba que los workers contestan según su latido y que Terraform les da puerto y liveness · **sin cuenta de GCP: nada desplegado** |
 | Enlaces legales (términos, privacidad) | `CI` | `test:legal-links` ejecuta la configuración y vigila la ruta pública, las seis superficies y la guarda de producción · **los documentos los redacta el dueño con asesoría** |

@@ -138,3 +138,42 @@ assert(
   containsAll(styles, ["merchant-pulse-stages", "@media (max-width: 720px)"]),
   "desktop operations pulse has explicit narrow-layout behavior",
 );
+
+// RES-07: pausa con tiempo y motivo, como Uber Eats Orders. La base la hace valer
+// (vence sola), el servidor exige motivo, y la app ofrece motivo, duración y
+// reanudar, sin perder el cierre sin fecha.
+const pausaMigracion = await fs.readFile("database/migrations/140_branch_timed_pause.sql", "utf8");
+const pausaRuta = await fs.readFile("server/http/catalog-router.js", "utf8");
+const pausaMovil = await fs.readFile("apps/mobile/src/MerchantPause.tsx", "utf8");
+assert(
+  containsAll(pausaMigracion, [
+    "IF EXISTS(SELECT 1 FROM merchant_branches WHERE id=target_branch AND paused_until>at_time) THEN RETURN false; END IF;",
+    "CHECK ((paused_until IS NULL) = (pause_reason IS NULL))",
+  ]),
+  "a timed pause is enforced where every open check already asks, and always carries its reason",
+);
+assert(
+  containsAll(pausaRuta, [
+    ".refine((value) => value.pauseMinutes === 0 || Boolean(value.pauseReason));",
+    'return fail(res, 503, "La pausa con tiempo requiere PostgreSQL");',
+  ]),
+  "the pause endpoint requires a reason and refuses to fake a pause without PostgreSQL",
+);
+assert(
+  containsAll(pausaMovil, [
+    "disabled={busy || !motivo}",
+    'rotulo="Reanudar ahora"',
+    "Cerrar sin fecha",
+    "Vuelve a recibir pedidos solo, a esa hora.",
+  ]) &&
+    containsAll(mobile, ["<MerchantPause", "pauseMinutes: minutes"]) &&
+    // El estado mostrado se recarga apenas la pausa cambia.
+    containsAll(mobile, ["pauseReason: reason, }); await loadOperations();"]),
+  "the merchant app pauses with reason and duration, resumes early, and keeps the open-ended close",
+);
+// Durante una pausa con tiempo también se puede cerrar sin fecha: si no, habría que
+// reanudar primero, o la pausa reabriría el local sola.
+assert(
+  pausaMovil.split("Cerrar sin fecha").length - 1 === 2,
+  "the open-ended close stays available during a timed pause",
+);

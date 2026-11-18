@@ -608,6 +608,9 @@ export type MerchantOperationsDashboard = {
     manualOpen: boolean;
     status: "active" | "paused" | "closed";
     etaMin: number;
+    /** RES-07: pausa temporal vigente y su motivo; vencida, llega en null. */
+    pausedUntil?: string | null;
+    pauseReason?: string | null;
   };
   restaurant: Restaurant;
   metrics: MerchantOperationsMetrics;

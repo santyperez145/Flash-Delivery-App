@@ -752,6 +752,15 @@ seguro ni habilitación comercial.
 - [Uber Eats: una identidad existente de Rides también accede a Eats](https://help.uber.com/ubereats/restaurants/article/how-do-i-create-an-uber-eats-account?nodeId=13daba70-cc3d-4204-9981-1591d7942042)
 - [Uber Courier: opción de paquetes y hub de actividad común](https://help.uber.com/en/riders/article/node-title?nodeId=8fa2306b-c14d-4f0b-9395-4c4523a81e85)
 
+### Decisión 18 de noviembre de 2026 — pausa del comercio con tiempo y motivo
+
+La ayuda oficial de [Uber Eats Orders](https://merchants.ubereats.com/ar/en/resources/learning-center/uber-eats-orders-app/)
+pausa los pedidos con una duración y un motivo, suma un modo ocupado que alarga la
+preparación y pausa sola a la tienda que deja pedidos sin aceptar. Flash adopta la pausa
+con duración y motivo, que vence sola y se aplica donde la base ya decide si una sucursal
+atiende. **Brechas que quedan:** el modo ocupado, la pausa automática y la misma pausa en
+la consola web. De PedidosYa no se encontró documentación oficial de su app de comercios.
+
 ### Decisión 18 de noviembre de 2026 — desglose por servicio de las ganancias Driver
 
 En 2024, Uber anunció para el Driver un desglose semanal de lo que paga el pasajero:

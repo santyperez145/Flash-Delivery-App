@@ -24,6 +24,11 @@ import { Router } from "express";
 import { z } from "zod";
 
 import { auditRuntime } from "../audit-trail.js";
+import {
+  DURACIONES_PAUSA,
+  MOTIVOS_PAUSA,
+  setPostgresMerchantPause,
+} from "../merchant-pause-repository.js";
 import { usesPostgresAuth } from "../auth-repository.js";
 import {
   createPostgresMenuItem,
@@ -308,6 +313,13 @@ router.get(
 // paginación. `test:catalog-pagination` verifica el límite de página sobre la
 // ruta buena, y esta otra lo dejaba sin efecto para quien la conociera.
 
+const pauseSchema = z
+  .object({
+    pauseMinutes: z.number().refine((value) => DURACIONES_PAUSA.includes(value)),
+    pauseReason: z.enum(MOTIVOS_PAUSA).optional(),
+  })
+  .refine((value) => value.pauseMinutes === 0 || Boolean(value.pauseReason));
+
 router.patch(
   "/api/restaurants/:restaurantId",
   requireAuth,
@@ -321,6 +333,17 @@ router.patch(
     if (!canManageRestaurant(req, restaurant))
       return fail(res, 403, "No puedes gestionar este restaurante");
     const body = req.body || {};
+    // RES-07: pausa por un tiempo y con motivo; vence sola. 0 reanuda.
+    let pausa = null;
+    if (body.pauseMinutes !== undefined) {
+      const parsed = pauseSchema.safeParse(body);
+      if (!parsed.success) return fail(res, 400, "Elegí cuánto tiempo pausar y por qué");
+      if (!usesPostgresCommerce()) return fail(res, 503, "La pausa con tiempo requiere PostgreSQL");
+      pausa = await setPostgresMerchantPause(restaurant.id, {
+        minutes: parsed.data.pauseMinutes,
+        reason: parsed.data.pauseReason,
+      });
+    }
     if (usesPostgresCommerce()) {
       restaurant = await updatePostgresRestaurant(restaurant.id, body);
     } else {
@@ -330,6 +353,7 @@ router.patch(
     await auditRuntime(db, req, "restaurant", restaurant.id, "restaurant.updated", {
       open: restaurant.open,
       etaMin: restaurant.etaMin,
+      ...(pausa && { pausedUntil: pausa.pausedUntil, pauseReason: body.pauseReason ?? null }),
     });
     await publishRealtimeEvent({
       req,
