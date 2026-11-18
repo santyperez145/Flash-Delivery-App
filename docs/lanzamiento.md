@@ -102,8 +102,8 @@ Lo que se puede hacer hoy, en este orden:
    - El día que existan los documentos, alcanza con cargar `LEGAL_TERMS_URL` y
      `LEGAL_PRIVACY_URL` en el servidor.
    - En producción las dos son obligatorias.
-4. **Paridad que el piloto necesita:** foto al dejar en la puerta (P-02b) y retiro desde el
-   móvil (P-11). El resto de [`paridad-competitiva.md`](paridad-competitiva.md) no bloquea
+4. **Paridad que el piloto necesita:** foto al dejar en la puerta (P-02b) y ~~retiro desde el
+   móvil (P-11)~~, hecho. El resto de [`paridad-competitiva.md`](paridad-competitiva.md) no bloquea
    el piloto.
 5. **Material de tiendas:** capturas, descripción, clasificación de contenido y formularios
    de datos (Data Safety de Google, etiquetas de privacidad de Apple), a partir de lo que la
