@@ -1479,11 +1479,26 @@ try {
       orderId,
     ])
   ).rows[0].p;
+  // **Comparación sin orden de claves.** PostgreSQL guarda `jsonb` reordenando
+  // las claves (primero las más cortas), y la respuesta del reintento sale de
+  // un `jsonb`: comparar el texto JSON tal cual falla con los mismos datos.
+  const mismoObjeto = (a, b) =>
+    JSON.stringify(Object.entries(a || {}).sort()) ===
+    JSON.stringify(Object.entries(b || {}).sort());
+  const preferenciasOk =
+    mismoObjeto(preferenciasGuardadas, preferenciasP02) &&
+    mismoObjeto(first.body.order.deliveryPreferences, preferenciasP02) &&
+    mismoObjeto(second.body.order.deliveryPreferences, preferenciasP02) &&
+    second.body.order.fulfillment === "delivery";
+  if (!preferenciasOk)
+    console.error("delivery preferences diagnostic", {
+      guardadas: preferenciasGuardadas,
+      primera: first.body.order.deliveryPreferences,
+      reintento: second.body.order.deliveryPreferences,
+      modo: second.body.order.fulfillment,
+    });
   assert(
-    JSON.stringify(preferenciasGuardadas) === JSON.stringify(preferenciasP02) &&
-      JSON.stringify(first.body.order.deliveryPreferences) === JSON.stringify(preferenciasP02) &&
-      JSON.stringify(second.body.order.deliveryPreferences) === JSON.stringify(preferenciasP02) &&
-      second.body.order.fulfillment === "delivery",
+    preferenciasOk,
     "delivery preferences persist and the idempotent replay returns them with the fulfillment mode",
   );
   // El comercio ve sólo los cubiertos: las indicaciones son de la casa del
@@ -1506,7 +1521,7 @@ try {
   assert(
     colaComercio.status === 200 &&
       pedidoEnCola &&
-      JSON.stringify(pedidoEnCola.deliveryPreferences) === JSON.stringify({ cutlery: true }) &&
+      mismoObjeto(pedidoEnCola.deliveryPreferences, { cutlery: true }) &&
       !JSON.stringify(colaComercio.body).includes("Timbre 3B P-02"),
     "the merchant queue shows only cutlery, never the customer's delivery instructions",
   );
