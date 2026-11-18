@@ -45,6 +45,23 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
 
+## Avance 18 de noviembre de 2026 — RES-05, desglose de ganancias del repartidor
+
+- **Qué faltaba.** Uber Driver sumó en 2024 el desglose de lo que paga el pasajero: cuánto
+  le queda a quien maneja y cuánto retiene la plataforma. Flash mostraba totales, días,
+  propinas y ajustes, pero no ese desglose.
+- **Ahora el detalle reciente lo muestra en cada viaje y en cada envío:** «Cobrado · Flash
+  · Para vos».
+  - Sale del mismo asiento contable: el débito de la liquidación y el crédito a la cuenta
+    de ingresos de la plataforma.
+  - No hay estimaciones: si el asiento no lo tiene, no se muestra.
+- **Comida queda afuera, a propósito.** El repartidor cobra dentro de la liquidación del
+  comercio, y el total de ese asiento es el del pedido entero. Mostrarlo como lo pagado por
+  el reparto sería falso.
+- **Verificación.** `test:driver-earnings` recalcula cada desglose en forma independiente
+  desde las partidas de la transacción. Exige además que los movimientos que no son
+  liquidaciones de viajes o envíos no lleven desglose. OpenAPI documenta el campo.
+
 ## Avance 18 de noviembre de 2026 — RES-01, inicio del cliente con todos los servicios
 
 El dueño pidió que Flash tenga la misma lógica y el mismo rumbo que Uber, Uber Eats y

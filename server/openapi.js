@@ -2311,6 +2311,18 @@ Object.assign(openApiDocument.components.schemas, {
       description: { type: "string" },
       amount: { type: "number" },
       createdAt: { type: "string", format: "date-time" },
+      breakdown: {
+        description:
+          "Viajes y envíos: lo cobrado y lo que retuvo Flash, del mismo asiento contable.",
+        oneOf: [
+          { type: "null" },
+          {
+            type: "object",
+            required: ["customerPaid", "platformFee"],
+            properties: { customerPaid: { type: "number" }, platformFee: { type: "number" } },
+          },
+        ],
+      },
     },
   },
   DriverEarnings: {

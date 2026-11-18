@@ -50,8 +50,14 @@ barra propia. **RES-02** la lleva a la misma estructura que el móvil.
 
 Flash Driver ya tiene la estructura de Uber Driver: Mapa · Ganancias · Inbox · Cuenta.
 
-- **Falta verificar** si Ganancias ofrece el desglose semanal de lo que pagó el pasajero.
-  Antes de construirlo se revisa `DriverEarningsPanel.tsx`.
+- **Verificado (RES-05):** Ganancias ya mostraba la semana, los días, las propinas, los
+  ajustes y los movimientos contables.
+- **Faltaba** lo que Uber Driver sumó en 2024: por cada servicio, cuánto pagó el cliente y
+  cuánto retuvo la plataforma. **Ahora cada viaje y cada envío lo muestra**, sacado del
+  mismo asiento contable: «Cobrado · Flash · Para vos».
+- **Comida queda afuera, y es deliberado.** El repartidor cobra dentro de la liquidación del
+  comercio, cuyo total es el del pedido entero. Mostrarlo como «lo que pagó el cliente por
+  tu reparto» sería falso: hace falta separar esa parte en la liquidación.
 
 ### Comercio
 
@@ -68,7 +74,7 @@ Flash Negocios tiene Hoy · Pedidos · Catálogo · Cuenta.
 | RES-02 | La misma estructura en la web del cliente | Pendiente |
 | RES-03 | Inicio personalizado con datos reales: promociones vigentes, horario, favoritos | Pendiente |
 | RES-04 | Servicios por ciudad: «disponible en tu ciudad» según la zona de la dirección | Pendiente |
-| RES-05 | Repartidor: verificar el desglose semanal de ganancias y cerrar lo que falte | Pendiente |
+| RES-05 | Repartidor: desglose por servicio de lo cobrado y lo que retuvo Flash | Hecho en viajes y envíos; comida pendiente |
 
 Las filas de funciones (P-02b, P-03 a P-10) siguen en [`paridad-competitiva.md`](paridad-competitiva.md).
 

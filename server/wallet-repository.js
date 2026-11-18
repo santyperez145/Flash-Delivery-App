@@ -273,6 +273,13 @@ export async function getDriverEarnings(userPublicId) {
     postgresPool.query(
       `SELECT t.id::text,t.kind,t.description,t.created_at,e.direction,e.amount_cents,
          j.kind job_kind,j.metadata->>'subtype' job_subtype,
+         -- RES-05: el desglose sale del mismo asiento. Lo cobrado es el débito de la
+         -- liquidación; lo de Flash, el crédito a la cuenta de ingresos de la plataforma.
+         CASE WHEN t.kind='driver_earning' THEN (SELECT sum(x.amount_cents) FROM ledger_entries x
+           WHERE x.transaction_id=t.id AND x.direction='debit') END settlement_total_cents,
+         CASE WHEN t.kind='driver_earning' THEN (SELECT sum(x.amount_cents) FROM ledger_entries x
+           JOIN ledger_accounts a ON a.id=x.account_id WHERE x.transaction_id=t.id AND x.direction='credit'
+             AND a.owner_type='platform' AND a.account_type='revenue') END platform_cents,
          COALESCE(j.public_id,t.metadata->>'jobId',t.metadata->>'publicId',e.metadata->>'jobPublicId') reference_public_id
        FROM ledger_entries e JOIN ledger_transactions t ON t.id=e.transaction_id
        LEFT JOIN jobs j ON j.id=e.reference_id
@@ -339,6 +346,15 @@ export async function getDriverEarnings(userPublicId) {
       description: row.description,
       amount: signedCents(row) / 100,
       createdAt: new Date(row.created_at).toISOString(),
+      // Sólo viajes y envíos: la ganancia de comida llega dentro de la liquidación del
+      // comercio, cuyo total es el del pedido entero y no lo que pagó el viaje.
+      breakdown:
+        row.kind === "driver_earning" && row.settlement_total_cents !== null
+          ? {
+              customerPaid: Number(row.settlement_total_cents) / 100,
+              platformFee: Number(row.platform_cents || 0) / 100,
+            }
+          : null,
     })),
     timeTracking: {
       status: "available",
