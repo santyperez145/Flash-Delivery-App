@@ -4423,8 +4423,11 @@ try {
       await pool.query("SELECT id FROM users WHERE public_id=$1", [idBorrado])
     ).rows[0].id;
     await pool.query(
-      `INSERT INTO addresses(user_id,label,formatted_address,location,geocoded_at)
-       VALUES($1,'Casa','Calle Falsa 123',ST_SetSRID(ST_MakePoint(-58.43,-34.58),4326)::geography,now())`,
+      // Sin `geocoded_at`: marcarla geocodificada exige los datos del proveedor
+      // (CHECK addresses_validation_complete), y para probar el borrado alcanza
+      // con que la fila exista.
+      `INSERT INTO addresses(user_id,label,formatted_address,location)
+       VALUES($1,'Casa','Calle Falsa 123',ST_SetSRID(ST_MakePoint(-58.43,-34.58),4326)::geography)`,
       [internoBorrado],
     );
     const malaClaveBorrado = await request("/me/delete", {
