@@ -45,9 +45,10 @@ pregunta al pasajero si está todo bien.
 - **Cada aviso se contesta una vez.** La respuesta queda atada al aviso: si después llega
   otro del mismo viaje, se pregunta de nuevo. Un aviso de un viaje que se cerró mientras
   corría el barrido vence antes de avisarse.
-- **El móvil relee el viaje mientras lo sigue.** El seguimiento toma el viaje de la
-  actividad, que el bootstrap no trae: ahora relee su primera página cada 5 segundos.
-  Antes el estado quedaba congelado en lo que se vio al abrir Actividad.
+- **El móvil relee los viajes.** El seguimiento y el inicio toman los viajes de la
+  actividad, que el bootstrap no trae: ahora releen su primera página cada 5 segundos
+  siguiendo un viaje y cada 15 en el inicio. Antes el estado quedaba congelado en lo que
+  se vio al abrir Actividad, y un aviso nuevo no llegaba a la pantalla.
 - **Push con texto.** Al armar esto apareció que todas las push salían sin título ni texto:
   el envío los leía de columnas que la tabla de notificaciones no tiene. Ahora salen del
   `payload`.

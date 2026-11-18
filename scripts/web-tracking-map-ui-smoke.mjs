@@ -99,19 +99,29 @@ assert(
 // en el inicio (un final lejos del destino se pregunta con el viaje cerrado), y el
 // worker de despacho corre el barrido.
 const read = (file) => fs.readFile(file, "utf8");
-const [webBanner, mobileBanner, mobileSheets, mobileHome, ridesHome, worker, webApi, mobileApi] =
-  await Promise.all(
-    [
-      "src/customer/TripCheckBanner.tsx",
-      "apps/mobile/src/TripCheckBanner.tsx",
-      "apps/mobile/src/screens/CustomerTrackingSheets.tsx",
-      "apps/mobile/src/screens/CustomerHomeScreen.tsx",
-      "src/customer/RidesLanding.tsx",
-      "scripts/dispatch-worker.mjs",
-      "src/api.ts",
-      "apps/mobile/src/api.ts",
-    ].map(read),
-  );
+const [
+  webBanner,
+  mobileBanner,
+  mobileSheets,
+  mobileHome,
+  ridesHome,
+  worker,
+  webApi,
+  mobileApi,
+  mobileCoordinator,
+] = await Promise.all(
+  [
+    "src/customer/TripCheckBanner.tsx",
+    "apps/mobile/src/TripCheckBanner.tsx",
+    "apps/mobile/src/screens/CustomerTrackingSheets.tsx",
+    "apps/mobile/src/screens/CustomerHomeScreen.tsx",
+    "src/customer/RidesLanding.tsx",
+    "scripts/dispatch-worker.mjs",
+    "src/api.ts",
+    "apps/mobile/src/api.ts",
+    "apps/mobile/src/screens/CustomerScreen.tsx",
+  ].map(read),
+);
 assert(
   contains(rideTracking, "<TripCheckBanner ride={ride}") &&
     contains(ridesHome, "<TripCheckBanner key={ride.id} ride={ride} />") &&
@@ -126,6 +136,12 @@ assert(
     [webApi, mobileApi].every((source) =>
       contains(source, "`/rides/${rideId}/trip-checks/${checkId}`"),
     ) &&
-    contains(worker, "await processPostgresTripChecks();"),
+    contains(worker, "await processPostgresTripChecks();") &&
+    // El móvil relee la actividad siguiendo un viaje y en el inicio: si no, un aviso
+    // nuevo no llega a la pantalla.
+    contains(
+      mobileCoordinator,
+      'const releerCada = trackingRideId ? 5000 : sharedView === "home" ? 15000 : null;',
+    ),
   "el control del viaje se ve y se contesta en web y móvil, y el worker corre el barrido",
 );
