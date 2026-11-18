@@ -362,3 +362,55 @@
     left: var(--gutter);
   }
 }
+
+/* --- Control del viaje (SEG-01) ----------------------------------------- */
+.trip-check {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  color: var(--ink);
+  background: color-mix(in srgb, #d99a00 12%, var(--paper));
+  border: 1px solid color-mix(in srgb, #d99a00 40%, var(--paper));
+  border-radius: var(--radius-card);
+}
+
+.trip-check > svg {
+  flex: 0 0 auto;
+  color: #b07a00;
+}
+
+.trip-check p {
+  margin: 2px 0 10px;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.trip-check-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.trip-check-actions button {
+  min-height: 40px;
+  padding: 0 16px;
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  background: var(--danger);
+  border: 0;
+  border-radius: 999px;
+}
+
+.trip-check-actions button.secondary {
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+}
+
+.trip-check small {
+  display: block;
+  margin-top: 8px;
+  color: var(--danger);
+}

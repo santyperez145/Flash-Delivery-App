@@ -45,6 +45,30 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
 
+## Avance 18 de noviembre de 2026 — SEG-01, control del viaje
+
+- **Auditoría integral.** [`docs/auditoria-integral-competitiva.md`](docs/auditoria-integral-competitiva.md)
+  mide a Flash contra Uber, Uber Eats y PedidosYa en seguridad, pagos y el resto de los
+  aspectos, con nota por aspecto, y ordena el trabajo. SEG-01 es el primero.
+- **Qué faltaba.** Uber detecta con RideCheck cuando un viaje se detiene, se desvía o
+  termina antes, y le pregunta al pasajero. Flash tenía SOS, PIN y enlace de seguimiento,
+  pero nada miraba el viaje por el pasajero.
+- **Ahora Flash detecta cuatro señales:** parada larga, señal perdida, desvío del
+  corredor y final lejos del destino. El pasajero recibe una push esencial y ve
+  «¿Todo bien?» en web y móvil.
+  - «Estoy bien» cierra el aviso.
+  - «Pedir ayuda» abre un incidente en la misma cola que el SOS.
+- **El corredor no es la ruta**, y se dice: Flash no guarda la geometría vial, así que el
+  margen es amplio y la pantalla dice «se alejó del recorrido».
+- **Problema encontrado de paso:** todas las push salían sin título ni texto, porque se
+  leían de columnas que no existen. Ahora salen del `payload`.
+- **Verificación:**
+  - `test:ride-trip-checks` (nueva, en `ci-critical-flows`) recorre las cuatro señales
+    contra PostgreSQL y la API, y borra lo que crea. No se pudo correr en local, porque
+    no hay credenciales de la base local; corre en el CI.
+  - `test:web-tracking-maps` vigila que el aviso esté en web y móvil y que el worker
+    corra el barrido. Falsificado: cada aserción nueva falla cuando se rompe lo que vigila.
+
 ## Avance 18 de noviembre de 2026 — sin topes de tamaño por archivo
 
 - **Decisión del dueño:** quitar todos los topes de tamaño. Un archivo puede crecer lo que

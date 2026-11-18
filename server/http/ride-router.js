@@ -62,6 +62,7 @@ import {
   revokeRideTrackingLink,
   verifyRidePickupCode,
 } from "../ride-safety-repository.js";
+import { respondToTripCheck } from "../ride-trip-check-repository.js";
 import { assessTransactionRisk, setRiskEntity } from "../risk-repository.js";
 import { createId, createLocalNotification, getTimestamp, rideStatuses } from "../store.js";
 import { cancelMobilityJobAndRefundWallet } from "../wallet-repository.js";
@@ -82,6 +83,13 @@ const rideCreateSchema = rideQuoteSchema.extend({
 });
 const rideTrackingCreateSchema = z.object({
   ttlMinutes: z.coerce.number().int().min(15).max(1440).default(180),
+});
+// SEG-01: la respuesta del pasajero al control del viaje.
+const tripCheckResponseSchema = z.object({
+  response: z.enum(["ok", "help"]),
+  location: z
+    .object({ lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180) })
+    .optional(),
 });
 const rideSafetyIncidentSchema = z.object({
   type: z.enum(["sos", "unsafe_driving", "medical", "harassment", "crash", "other"]),
@@ -373,6 +381,44 @@ router.post(
       return res.status(201).json({ ok: true, requestId: req.requestId, incident });
     } catch (error) {
       return failFrom(res, error, "No se pudo activar Seguridad Flash");
+    }
+  },
+);
+// SEG-01: «Estoy bien» o «Pedir ayuda» ante un aviso del control del viaje.
+router.post(
+  "/api/rides/:rideId/trip-checks/:checkId",
+  requireAuth,
+  requireAnyRole("customer"),
+  async (req, res) => {
+    if (!usesPostgresCommerce()) return fail(res, 503, "El control del viaje requiere PostgreSQL");
+    const parsed = parseOrFail(tripCheckResponseSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      const check = await respondToTripCheck({
+        ridePublicId: req.params.rideId,
+        checkPublicId: req.params.checkId,
+        userPublicId: req.auth.userId,
+        ...parsed.data,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "ride.trip_check_answered",
+        entityType: "ride",
+        entityId: req.params.rideId,
+        requestId: req.requestId,
+        afterData: { checkId: check.id, kind: check.kind, status: check.status },
+      });
+      await publishRealtimeEvent({
+        req,
+        type: "ride.safety",
+        entityType: "ride",
+        entityId: req.params.rideId,
+        action: "ride.trip_check_answered",
+      });
+      return ok(res, { check });
+    } catch (error) {
+      return failFrom(res, error, "No se pudo registrar tu respuesta");
     }
   },
 );

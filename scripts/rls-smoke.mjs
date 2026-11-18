@@ -15,6 +15,7 @@ let fixtureRatingId;
 let fixtureFavorite;
 let fixtureDeviceId;
 let fixtureOfferId;
+let fixtureTripCheckId;
 let fixturePayoutId;
 let fixtureTipId;
 let fixtureTipTransactionId;
@@ -569,6 +570,14 @@ try {
       )
     ).rows[0],
     fixtureMerchant = (await owner.query("SELECT id FROM merchants LIMIT 1")).rows[0];
+  // SEG-01: un aviso del control del viaje del cliente, para probar que la
+  // política discrimina: lo ve quien viaja y nadie más.
+  fixtureTripCheckId = (
+    await owner.query(
+      "INSERT INTO ride_trip_checks(public_id,job_id,kind,status) VALUES($1,$2,'long_stop','expired') RETURNING id",
+      [`TCK-RLS-${Date.now()}`, fixtureJob.id],
+    )
+  ).rows[0].id;
   fixtureServiceMessageId = (
     await owner.query(
       `INSERT INTO service_messages(public_id,job_id,sender_id,body_ciphertext,body_sha256) VALUES($1,$2,$3,'rls-envelope',$4) RETURNING id`,
@@ -713,6 +722,14 @@ try {
   assert(
     customerAddresses.rows.every((row) => row.user_id === customer.id),
     "RLS exposes only the current customer's saved addresses",
+  );
+  assert(
+    (
+      await client.query("SELECT count(*)::int count FROM ride_trip_checks WHERE id=$1", [
+        fixtureTripCheckId,
+      ])
+    ).rows[0].count === 1,
+    "RLS exposes the trip checks of the customer's own rides",
   );
 
   // La otra mitad de la politica de `shipment_details`. Sin esto la prueba de
@@ -898,6 +915,14 @@ try {
     ).rows[0].count === 0,
     "RLS hides the customer receipt from driver",
   );
+  assert(
+    (
+      await client.query("SELECT count(*)::int count FROM ride_trip_checks WHERE id=$1", [
+        fixtureTripCheckId,
+      ])
+    ).rows[0].count === 0,
+    "RLS hides the passenger's trip checks from a driver",
+  );
   // La otra mitad de la politica de `drivers`. Sin esto, la prueba del auditor
   // solo demostraria que la tabla esta cerrada: una politica que niega a todos
   // pasa el test negativo y deja al conductor sin poder verse a si mismo.
@@ -940,6 +965,10 @@ try {
   assert(
     (await client.query("SELECT count(*)::int count FROM addresses")).rows[0].count === 0,
     "RLS hides another customer's saved addresses",
+  );
+  assert(
+    (await client.query("SELECT count(*)::int count FROM ride_trip_checks")).rows[0].count === 0,
+    "RLS hides another customer's trip checks",
   );
   assert(
     (
@@ -1066,6 +1095,8 @@ try {
     "RLS hides another customer's service chat",
   );
 } finally {
+  if (owner && fixtureTripCheckId)
+    await owner.query("DELETE FROM ride_trip_checks WHERE id=$1", [fixtureTripCheckId]);
   if (owner && fixtureDietaryPreference)
     await owner.query("DELETE FROM user_avoided_allergens WHERE user_id=$1 AND allergen_code=$2", [
       fixtureDietaryPreference.user_id,

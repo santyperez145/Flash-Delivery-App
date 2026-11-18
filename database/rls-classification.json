@@ -300,6 +300,10 @@
       "clase": "por-usuario",
       "rls": true
     },
+    "ride_trip_checks": {
+      "clase": "por-usuario",
+      "rls": true
+    },
     "ride_trusted_contacts": {
       "clase": "por-usuario",
       "rls": true

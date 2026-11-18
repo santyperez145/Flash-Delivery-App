@@ -487,12 +487,6 @@ export function CustomerScreen({
   useEffect(() => {
     if (sharedView === "activity") void loadActivity(false);
   }, [sharedView, user.id]);
-  useEffect(() => {
-    if (!trackingRideId) return;
-    void refresh();
-    const timer = setInterval(() => void refresh(), 5000);
-    return () => clearInterval(timer);
-  }, [trackingRideId, refresh]);
   const activityOrders =
     activityItems?.filter((item) => item.kind === "order").map((item) => item.resource as Order) ||
     state.orders;
@@ -513,6 +507,35 @@ export function CustomerScreen({
     (shipment) =>
       shipment.customerId === user.id && !["delivered", "cancelled"].includes(shipment.status),
   );
+  // El seguimiento y el inicio leen los viajes de la actividad, que el bootstrap no
+  // trae: sin releerla, el estado y el control del viaje (SEG-01) quedaban congelados
+  // en lo que se vio al abrir Actividad. Se relee la primera página —cada 5 segundos
+  // siguiendo un viaje, cada 15 en el inicio— y se actualiza cada ítem por id, sin
+  // perder las páginas ya cargadas.
+  const releerCada = trackingRideId ? 5000 : sharedView === "home" ? 15000 : null;
+  useEffect(() => {
+    if (!releerCada) return;
+    const tick = async () => {
+      if (trackingRideId) void refresh();
+      try {
+        const page = await api.getActivity(undefined, 20);
+        setActivityItems((current) => {
+          if (!current) return page.items;
+          const frescos = new Map(page.items.map((item) => [item.id, item]));
+          const conocidos = new Set(current.map((item) => item.id));
+          return [
+            ...page.items.filter((item) => !conocidos.has(item.id)),
+            ...current.map((item) => frescos.get(item.id) ?? item),
+          ];
+        });
+      } catch {
+        // La próxima vuelta reintenta; se sigue con lo último leído.
+      }
+    };
+    void tick();
+    const timer = setInterval(() => void tick(), releerCada);
+    return () => clearInterval(timer);
+  }, [releerCada, trackingRideId, refresh]);
   const [orderSubstitutions, setOrderSubstitutions] = useState<OrderSubstitution[]>([]);
   const activeOrderIds = activeOrders.map((order) => order.id).join(",");
   useEffect(() => {
@@ -908,6 +931,9 @@ export function CustomerScreen({
             orders={activityOrders}
             activeOrders={activeOrders}
             activeRides={activeRides}
+            ridesWithCheck={activityRides.filter(
+              (ride) => ride.customerId === user.id && ride.tripCheck,
+            )}
             activeShipments={activeShipments}
             onSearch={() => {
               // Buscar empieza de cero: una cocina de antes ocultaría lo que coincide.

@@ -4,6 +4,7 @@ import type { AppState, GeoPoint, RideForm, User } from "../types";
 import type { Portada, ServicioWeb } from "./CustomerHome";
 import { useServiciosWeb } from "./CustomerHome";
 import { EnCurso, enCursoDe, Seccion } from "./CustomerHomeFeed";
+import { TripCheckBanner } from "./TripCheckBanner";
 
 // El inicio de Viajes (FE-01), como el de Uber: «¿A dónde vas?» primero, después
 // los lugares guardados y los destinos recientes, que llevan al viaje con el
@@ -101,6 +102,13 @@ export function RidesHome({
           </button>
         )}
       </div>
+      {/* SEG-01: un aviso del control del viaje, también después de terminar (un
+          final lejos del destino se pregunta con el viaje cerrado). */}
+      {state.rides
+        .filter((ride) => ride.customerId === user?.id && ride.tripCheck)
+        .map((ride) => (
+          <TripCheckBanner key={ride.id} ride={ride} />
+        ))}
       <EnCurso items={enCursoDe(state, user?.id, "viajes")} onOpen={onOpenActivity} />
       {lugares.length > 0 && (
         <ul className="rides-places" aria-label="Lugares">
