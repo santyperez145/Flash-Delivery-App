@@ -103,7 +103,16 @@ DECLARE created integer;
 BEGIN
   WITH rides AS (
     SELECT j.id, j.pickup_location, j.dropoff_location,
-      d.current_location, d.location_updated_at, d.last_moved_at
+      d.current_location, d.location_updated_at,
+      -- La parada se cuenta desde que empezó el viaje: la espera en el punto de
+      -- encuentro no es una parada del viaje.
+      greatest(
+        d.last_moved_at,
+        coalesce(
+          (SELECT max(e.occurred_at) FROM job_events e WHERE e.job_id = j.id AND e.status = 'in_progress'),
+          j.created_at
+        )
+      ) AS last_moved_at
     FROM jobs j JOIN drivers d ON d.id = j.driver_id
     WHERE j.kind = 'ride' AND j.status = 'in_progress' AND (only_job IS NULL OR j.id = only_job)
   ),
@@ -148,7 +157,8 @@ BEGIN
 END $$;
 
 -- Al cerrar o cancelar: los avisos abiertos vencen, y un cierre lejos del destino
--- (más de 500 m) abre uno propio, que el pasajero contesta después del viaje.
+-- (más de 500 m, con una ubicación de los últimos 2 minutos) abre uno propio, que el
+-- pasajero contesta después del viaje.
 CREATE OR REPLACE FUNCTION app.ride_trip_checks_on_close() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog, pg_temp AS $$
 DECLARE driver_location geography;
@@ -159,7 +169,10 @@ BEGIN
   END IF;
   UPDATE ride_trip_checks SET status = 'expired' WHERE job_id = NEW.id AND status = 'open';
   IF NEW.status = 'completed' AND OLD.status = 'in_progress' AND NEW.dropoff_location IS NOT NULL THEN
-    SELECT current_location INTO driver_location FROM drivers WHERE id = NEW.driver_id;
+    -- Sólo con una ubicación reciente: una vieja no dice dónde terminó el viaje, y
+    -- con ella un viaje que llegó bien se marcaría como cerrado lejos.
+    SELECT current_location INTO driver_location FROM drivers
+    WHERE id = NEW.driver_id AND location_updated_at > now() - interval '2 minutes';
     IF driver_location IS NOT NULL AND ST_Distance(driver_location, NEW.dropoff_location) > 500 THEN
       INSERT INTO ride_trip_checks(public_id, job_id, kind, location)
       VALUES ('TCK-' || upper(substr(md5(random()::text || NEW.id::text), 1, 10)), NEW.id, 'early_end', driver_location);

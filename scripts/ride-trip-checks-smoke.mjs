@@ -49,6 +49,7 @@ const open = (checks, kind) =>
   checks.find((check) => check.kind === kind && check.status === "open");
 
 let jobId = null,
+  secondJobId = null,
   driverId = null,
   driverBefore = null;
 try {
@@ -81,6 +82,8 @@ try {
       [rideId, ids.customer_id, ids.driver_id],
     )
   ).rows[0].id;
+  // El viaje empezó recién: la espera en el punto de encuentro no es una parada.
+  await pool.query("INSERT INTO job_events(job_id,status) VALUES($1,'in_progress')", [jobId]);
 
   // 1. En el corredor y moviéndose: no hay nada que avisar.
   await pool.query(
@@ -90,10 +93,21 @@ try {
   await processPostgresTripChecks({ onlyJobId: jobId });
   assert((await checksOf(jobId)).length === 0, "un viaje normal no dispara avisos");
 
-  // 2. Detenido hace 10 minutos con GPS vivo: parada larga.
+  // 2. Quieto hace 10 minutos, pero el viaje empezó recién: era la espera en el
+  // punto de encuentro, no una parada del viaje.
   await pool.query(
     "UPDATE drivers SET last_moved_at=now()-interval '10 minutes',location_updated_at=now() WHERE id=$1",
     [driverId],
+  );
+  await processPostgresTripChecks({ onlyJobId: jobId });
+  assert(
+    !(await checksOf(jobId)).some((check) => check.kind === "long_stop"),
+    "esperar al pasajero antes de empezar no cuenta como parada del viaje",
+  );
+  // Con el viaje empezado hace 15 minutos, la misma quietud sí es una parada larga.
+  await pool.query(
+    "UPDATE job_events SET occurred_at=now()-interval '15 minutes' WHERE job_id=$1 AND status='in_progress'",
+    [jobId],
   );
   const vuelta = await processPostgresTripChecks({ onlyJobId: jobId });
   let checks = await checksOf(jobId);
@@ -190,15 +204,69 @@ try {
     "perder la señal del conductor abre un aviso",
   );
 
-  // 7. Cerrar lejos del destino: lo abiertos vencen y se pregunta si llegó bien.
+  // 7. Cerrar lejos del destino, con GPS reciente: los abiertos vencen y se
+  // pregunta si llegó bien.
+  await pool.query("UPDATE drivers SET location_updated_at=now() WHERE id=$1", [driverId]);
   await pool.query("UPDATE jobs SET status='completed' WHERE id=$1", [jobId]);
   checks = await checksOf(jobId);
   assert(
     !checks.some((check) => check.kind === "signal_lost" && check.status === "open"),
     "al cerrar el viaje vencen los avisos abiertos",
   );
-  assert(Boolean(open(checks, "early_end")), "un viaje cerrado lejos del destino abre su aviso");
+  const final = open(checks, "early_end");
+  assert(Boolean(final), "un viaje cerrado lejos del destino abre su aviso");
+
+  // 8. «Pedir ayuda» desde el inicio no manda coordenadas: vale la posición que se
+  // guardó al detectar la señal.
+  const sinCoordenadas = await request(
+    `/rides/${rideId}/trip-checks/${final.public_id}`,
+    customer.token,
+    {
+      method: "POST",
+      body: JSON.stringify({ response: "help" }),
+    },
+  );
+  const ubicado = (
+    await pool.query(
+      "SELECT location IS NOT NULL ubicado FROM ride_safety_incidents WHERE public_id=$1",
+      [sinCoordenadas.body.check?.incidentId],
+    )
+  ).rows[0];
+  assert(
+    sinCoordenadas.status === 200 && ubicado?.ubicado === true,
+    "pedir ayuda sin coordenadas usa la ubicación guardada con el aviso",
+  );
+
+  // 9. Una ubicación vieja no dice dónde terminó el viaje: cerrar con GPS de hace
+  // cinco minutos no marca un final lejos.
+  secondJobId = (
+    await pool.query(
+      `INSERT INTO jobs(public_id,kind,customer_id,driver_id,status,
+        pickup_address,pickup_location,dropoff_address,dropoff_location,
+        service_level,quoted_amount_cents,final_amount_cents,distance_m,estimated_duration_s)
+      VALUES($1,'ride',$2,$3,'in_progress',
+        'Obelisco',ST_SetSRID(ST_MakePoint(-58.3816,-34.6037),4326)::geography,
+        'Aeroparque',ST_SetSRID(ST_MakePoint(-58.4156,-34.5592),4326)::geography,
+        'economy',850000,850000,7200,1500)
+      RETURNING id`,
+      [`${rideId}-B`, ids.customer_id, ids.driver_id],
+    )
+  ).rows[0].id;
+  await pool.query(
+    "UPDATE drivers SET location_updated_at=now()-interval '5 minutes' WHERE id=$1",
+    [driverId],
+  );
+  await pool.query("UPDATE jobs SET status='completed' WHERE id=$1", [secondJobId]);
+  assert(
+    !(await checksOf(secondJobId)).some((check) => check.kind === "early_end"),
+    "un cierre con GPS viejo no se marca como final lejos del destino",
+  );
 } finally {
+  if (secondJobId) {
+    await pool.query("DELETE FROM ride_trip_checks WHERE job_id=$1", [secondJobId]);
+    await pool.query("DELETE FROM job_events WHERE job_id=$1", [secondJobId]);
+    await pool.query("DELETE FROM jobs WHERE id=$1", [secondJobId]);
+  }
   if (jobId) {
     await pool.query(
       "DELETE FROM notifications WHERE deduplication_key LIKE 'trip-check:%' AND payload->>'rideId'=$1",

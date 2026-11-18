@@ -23,10 +23,10 @@ pregunta al pasajero si está todo bien.
 
 | Señal | Cuándo |
 | --- | --- |
-| Parada larga | El auto no se mueve más de 50 m en 5 minutos y el GPS sigue llegando |
+| Parada larga | El auto no se mueve más de 50 m en 5 minutos de viaje y el GPS sigue llegando; la espera en el punto de encuentro no cuenta |
 | Señal perdida | No llega ubicación del conductor hace 3 minutos |
 | Desvío | El auto se aleja del corredor origen-destino más que el mayor entre 1,5 km y el 35 % del largo del viaje |
-| Final lejos del destino | El viaje se cierra a más de 500 m del destino |
+| Final lejos del destino | El viaje se cierra a más de 500 m del destino, con una ubicación de los últimos 2 minutos; con una vieja no se afirma |
 
 - **El corredor no es la ruta.** Flash no guarda la geometría vial del viaje, y una calle
   real nunca es la recta: el margen amplio evita avisar por un desvío normal. Por eso la
@@ -40,11 +40,21 @@ pregunta al pasajero si está todo bien.
 - **Respuesta.** «Estoy bien» cierra el aviso, y esa señal no se vuelve a preguntar antes
   de 10 minutos. «Pedir ayuda» abre un incidente `sos` en la misma cola que el botón SOS,
   con la ubicación del conductor. Sólo contesta quien viaja.
+- **Ubicación del incidente.** Si «Pedir ayuda» llega sin coordenadas (el aviso del
+  inicio no las tiene), vale la posición del conductor guardada al detectar la señal.
+- **Cada aviso se contesta una vez.** La respuesta queda atada al aviso: si después llega
+  otro del mismo viaje, se pregunta de nuevo. Un aviso de un viaje que se cerró mientras
+  corría el barrido vence antes de avisarse.
+- **El móvil relee el viaje mientras lo sigue.** El seguimiento toma el viaje de la
+  actividad, que el bootstrap no trae: ahora relee su primera página cada 5 segundos.
+  Antes el estado quedaba congelado en lo que se vio al abrir Actividad.
 - **Push con texto.** Al armar esto apareció que todas las push salían sin título ni texto:
   el envío los leía de columnas que la tabla de notificaciones no tiene. Ahora salen del
   `payload`.
 
 Validación: `npm run test:ride-trip-checks` arma un viaje propio y recorre las cuatro
-señales, el aviso, quién contesta, el incidente y que una señal contestada no se repita.
+señales, el aviso, quién contesta, el incidente, que una señal contestada no se repita, la
+espera en el punto de encuentro, la ayuda sin coordenadas y el cierre con GPS viejo.
+`test:rls` prueba que el pasajero ve sus avisos y que otro cliente y el conductor no.
 Si falla, el pasajero puede quedar sin aviso en un viaje que se detuvo o se desvió. Corre
 en `ci-critical-flows` y borra todo lo que crea.

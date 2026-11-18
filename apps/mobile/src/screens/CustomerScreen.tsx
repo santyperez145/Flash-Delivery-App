@@ -489,8 +489,25 @@ export function CustomerScreen({
   }, [sharedView, user.id]);
   useEffect(() => {
     if (!trackingRideId) return;
-    void refresh();
-    const timer = setInterval(() => void refresh(), 5000);
+    // El seguimiento lee el viaje de la actividad, que el bootstrap no trae: sin
+    // releerla, el estado y el control del viaje (SEG-01) quedaban congelados en lo
+    // que se vio al abrir Actividad. Se relee la primera página y se actualiza cada
+    // ítem por id, sin perder las páginas ya cargadas.
+    const tick = async () => {
+      void refresh();
+      try {
+        const page = await api.getActivity(undefined, 20);
+        setActivityItems((current) => {
+          if (!current) return page.items;
+          const frescos = new Map(page.items.map((item) => [item.id, item]));
+          return current.map((item) => frescos.get(item.id) ?? item);
+        });
+      } catch {
+        // La próxima vuelta reintenta; el seguimiento sigue con lo último leído.
+      }
+    };
+    void tick();
+    const timer = setInterval(() => void tick(), 5000);
     return () => clearInterval(timer);
   }, [trackingRideId, refresh]);
   const activityOrders =

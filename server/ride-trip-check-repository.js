@@ -51,6 +51,15 @@ export async function processPostgresTripChecks({ limit = 50, onlyJobId = null }
   const client = await postgresPool.connect();
   try {
     await client.query("BEGIN");
+    // Un cierre que se cruzó con el barrido puede dejar un aviso abierto de un viaje
+    // ya terminado: vence acá, antes de avisar. El final lejos del destino es el
+    // único que se pregunta con el viaje cerrado.
+    await client.query(
+      `UPDATE ride_trip_checks c SET status='expired' FROM jobs j
+      WHERE j.id=c.job_id AND c.status='open' AND c.kind<>'early_end' AND j.status<>'in_progress'
+        AND ($1::uuid IS NULL OR c.job_id=$1)`,
+      [onlyJobId],
+    );
     const pending = (
       await client.query(
         `UPDATE ride_trip_checks c SET notified_at=now()
@@ -119,7 +128,8 @@ export async function respondToTripCheck({
     await client.query("BEGIN");
     const check = (
       await client.query(
-        `SELECT c.id,c.kind,c.status,j.id job_id,j.customer_id,u.id user_id
+        `SELECT c.id,c.kind,c.status,j.id job_id,j.customer_id,u.id user_id,
+          ST_Y(c.location::geometry) check_lat,ST_X(c.location::geometry) check_lng
         FROM ride_trip_checks c JOIN jobs j ON j.id=c.job_id
         LEFT JOIN users u ON u.public_id=$3
         WHERE c.public_id=$1 AND j.public_id=$2 AND j.kind='ride' FOR UPDATE OF c`,
@@ -132,6 +142,12 @@ export async function respondToTripCheck({
     if (check.status !== "open")
       throw Object.assign(new Error("Este aviso ya no está abierto"), { status: 409 });
 
+    // Sin coordenadas en el pedido (el aviso del inicio no las tiene), vale la
+    // posición del conductor que se guardó al detectar la señal: el incidente no
+    // llega a operaciones sin ubicación si había una.
+    const lugar =
+      location ??
+      (check.check_lat === null ? null : { lat: check.check_lat, lng: check.check_lng });
     let incidentId = null;
     if (response === "help") {
       incidentId = publicId("SOS");
@@ -145,8 +161,8 @@ export async function respondToTripCheck({
             check.job_id,
             check.user_id,
             `Pidió ayuda desde el control del viaje (${check.kind})`,
-            location?.lat ?? null,
-            location?.lng ?? null,
+            lugar?.lat ?? null,
+            lugar?.lng ?? null,
           ],
         )
       ).rows[0];

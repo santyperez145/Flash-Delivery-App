@@ -26,21 +26,27 @@ export const tripCheckCopy: Record<RideTripCheck["kind"], { title: string; body:
 };
 
 export function TripCheckBanner({ ride, location }: { ride: Ride; location?: GeoPoint }) {
-  const [estado, setEstado] = useState<"idle" | "busy" | "ok" | "help">("idle");
+  // La respuesta se guarda con el aviso al que contesta: si después llega otro aviso
+  // del mismo viaje, se pregunta de nuevo en lugar de quedar oculto.
+  const [respuesta, setRespuesta] = useState<{
+    checkId: string;
+    estado: "busy" | "ok" | "help";
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const check = ride.tripCheck;
+  const estado = check && respuesta?.checkId === check.id ? respuesta.estado : "idle";
   if (!check) return null;
   if (estado === "ok") return null;
   const copy = tripCheckCopy[check.kind];
 
   const contestar = async (response: "ok" | "help") => {
-    setEstado("busy");
+    setRespuesta({ checkId: check.id, estado: "busy" });
     setError(null);
     try {
       await api.answerRideTripCheck(ride.id, check.id, { response, location });
-      setEstado(response);
+      setRespuesta({ checkId: check.id, estado: response });
     } catch (requestError) {
-      setEstado("idle");
+      setRespuesta(null);
       setError(
         requestError instanceof Error ? requestError.message : "No se pudo enviar tu respuesta.",
       );
