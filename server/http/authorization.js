@@ -96,6 +96,15 @@ export function canAdvanceOrder(req, { order, restaurant, nextStatus }) {
   if (isAdmin(req)) return true;
   if (["preparing", "ready_for_pickup"].includes(nextStatus))
     return Boolean(restaurant && canManageRestaurant(req, restaurant));
+  // **Un pedido retirado lo entrega el comercio, no un conductor.** No hay
+  // `courierId` que verificar, así que la regla de reparto lo dejaría sin nadie
+  // habilitado a completarlo: cocinado, listo, y trabado para siempre.
+  //
+  // Sólo `delivered`, y sólo en retiro. `picked_up` y `delivering` siguen siendo
+  // del conductor porque describen un reparto que en retiro no ocurre, y
+  // habilitarlos al comercio le dejaría marcar etapas de un viaje inexistente.
+  if (nextStatus === "delivered" && order.fulfillment === "pickup")
+    return Boolean(restaurant && canManageRestaurant(req, restaurant));
   if (["picked_up", "delivering", "delivered"].includes(nextStatus))
     return Boolean(order.courierId && canActAsDriver(req, order.courierId));
   return false;

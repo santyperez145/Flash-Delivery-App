@@ -42,6 +42,7 @@ import {
   getPostgresCart,
   getPostgresFoodCheckoutQuote,
   getPostgresFoodDeliveryQuote,
+  getPostgresFoodPickupQuote,
   getPostgresOrders,
   processPostgresOrderMarketplacePayment,
   reorderPostgresOrder,
@@ -61,7 +62,8 @@ const orderSchema = z.object({
   restaurantId: z.string().min(1),
   deliveryAddressId: z.string().uuid().optional(),
   branchId: z.string().min(3).max(100).optional(),
-  deliveryAddress: z.string().min(3),
+  // El repositorio la toma de la base en los dos modos; en retiro es la del local.
+  deliveryAddress: z.string().min(3).optional(),
   paymentMethod: z.string().min(2),
   paymentMethodId: z.string().uuid().optional(),
   promotionCode: z.string().trim().min(3).max(40).optional(),
@@ -76,6 +78,7 @@ const orderSchema = z.object({
   // viajes sabían reservar. La ventana la valida `scheduling.js`, que es la
   // misma que usa el alta de viajes.
   scheduledFor: z.string().datetime().optional(),
+  fulfillment: z.enum(["delivery", "pickup"]).default("delivery"),
   providerPayment: z
     .object({
       cardToken: z
@@ -103,11 +106,17 @@ const orderSchema = z.object({
 const foodOrderQuoteSchema = z.object({
   customerId: z.string().min(1),
   restaurantId: z.string().min(1),
-  deliveryAddressId: z.string().uuid(),
+  // Opcional porque en retiro no hay dirección de cliente. El repositorio la
+  // exige cuando el modo es `delivery`, que es donde tiene sentido exigirla.
+  deliveryAddressId: z.string().uuid().optional(),
   branchId: z.string().min(3).max(100).optional(),
   paymentMethod: z.string().min(2).optional(),
   paymentMethodId: z.string().uuid().optional(),
   promotionCode: z.string().trim().min(3).max(40).optional(),
+  // Retiro en el local (GTM-002). `delivery` por omisión: es lo que pide la
+  // enorme mayoría, y hacer explícito el modo normal rompería a todo cliente
+  // que ya cotiza.
+  fulfillment: z.enum(["delivery", "pickup"]).default("delivery"),
   items: z
     .array(
       z.object({
@@ -186,6 +195,12 @@ function calculateOrderTotals(restaurant, items) {
 function nextOrderStatus(order) {
   if (order.status === "accepted") return "preparing";
   if (order.status === "preparing") return "ready_for_pickup";
+  // **Un pedido para retirar se completa en el mostrador.** No hay conductor que
+  // lo retire ni viaje que seguir, así que `ready_for_pickup` es su última etapa
+  // intermedia. Sin esta rama la función devuelve `null` y el pedido queda listo
+  // y trabado para siempre: la ruta responde «no puede avanzar desde este
+  // estado» a comercio, conductor y administración por igual.
+  if (order.status === "ready_for_pickup" && order.fulfillment === "pickup") return "delivered";
   if (order.status === "courier_assigned") return "picked_up";
   if (order.status === "picked_up") return "delivering";
   if (order.status === "delivering") return "delivered";
@@ -281,13 +296,22 @@ router.post(
             paymentMethod: parsed.data.paymentMethod || "Flash Wallet",
             paymentMethodId: parsed.data.paymentMethodId,
             promotionCode: parsed.data.promotionCode,
+            fulfillment: parsed.data.fulfillment,
           })
-        : await getPostgresFoodDeliveryQuote({
-            customerPublicId: parsed.data.customerId,
-            merchantPublicId: parsed.data.restaurantId,
-            deliveryAddressId: parsed.data.deliveryAddressId,
-            branchPublicId: parsed.data.branchId,
-          });
+        : // Sin ítems también manda el modo: firmar una cotización de entrega
+          // para un retiro dejaría el token con un modo que no se pidió.
+          parsed.data.fulfillment === "pickup"
+          ? await getPostgresFoodPickupQuote({
+              customerPublicId: parsed.data.customerId,
+              merchantPublicId: parsed.data.restaurantId,
+              branchPublicId: parsed.data.branchId,
+            })
+          : await getPostgresFoodDeliveryQuote({
+              customerPublicId: parsed.data.customerId,
+              merchantPublicId: parsed.data.restaurantId,
+              deliveryAddressId: parsed.data.deliveryAddressId,
+              branchPublicId: parsed.data.branchId,
+            });
       const quoteId = createId("QUOTE"),
         expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
       const quoteToken = jwt.sign({ kind: "food_quote", quoteId, ...calculated }, jwtSecret, {
@@ -318,6 +342,7 @@ router.post("/api/orders", requireAuth, requireAnyRole("customer", "admin"), asy
     quoteToken,
     tipCents,
     scheduledFor,
+    fulfillment,
   } = parsed.data;
   if (scheduledFor) {
     const invalido = validarHorarioProgramado(scheduledFor);
@@ -346,7 +371,12 @@ router.post("/api/orders", requireAuth, requireAnyRole("customer", "admin"), asy
         lockedQuote.kind !== "food_quote" ||
         lockedQuote.customerId !== customerId ||
         lockedQuote.restaurantId !== restaurantId ||
-        lockedQuote.deliveryAddressId !== deliveryAddressId
+        lockedQuote.deliveryAddressId !== deliveryAddressId ||
+        // **El modo tiene que coincidir con el que se firmo.** Un retiro no
+        // cobra envio ni tarifa de servicio: sin esta comparacion, alguien
+        // cotiza un retiro y crea una entrega con el precio del retiro, y se
+        // lleva el reparto gratis.
+        (lockedQuote.fulfillment || "delivery") !== fulfillment
       )
         return fail(res, 409, "La cotización no corresponde a este pedido");
     } catch (_error) {
@@ -429,6 +459,7 @@ router.post("/api/orders", requireAuth, requireAnyRole("customer", "admin"), asy
         lockedQuote,
         tipCents,
         scheduledFor: scheduledFor || null,
+        fulfillment,
         idempotencyKey,
       });
       if (providerPayment && !String(order.paymentMethod).toLowerCase().includes("wallet"))
@@ -550,7 +581,9 @@ router.post(
       : addTimeline(db.orders[index], next);
     if (next === "delivered") {
       db.orders[index].etaMin = 0;
-      if (!usesPostgresCommerce())
+      // Sin conductor no hay reparto que pagar. El respaldo SQLite acreditaba
+      // contra `courierId`, que en retiro es `null`.
+      if (!usesPostgresCommerce() && db.orders[index].courierId)
         await creditDriverEarningsRuntime(
           db,
           db.orders[index].courierId,

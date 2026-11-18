@@ -40,6 +40,9 @@ const COLAS = [
           FROM jobs j
           WHERE j.driver_id IS NULL AND j.status NOT IN('completed','cancelled')
             AND (COALESCE(j.metadata->>'subtype','')<>'food_order' OR j.status='ready_for_pickup')
+            -- Un retiro listo espera al cliente, no a un conductor: contarlo
+            -- dispararía una alarma de despacho trabado que nadie puede resolver.
+            AND COALESCE(j.metadata->>'fulfillment','delivery')<>'pickup'
             AND (j.scheduled_for IS NULL OR j.scheduled_for<=now()+interval '15 minutes')
             AND NOT EXISTS(SELECT 1 FROM dispatch_offers o
                            WHERE o.job_id=j.id AND o.status='pending' AND o.expires_at>now())`,

@@ -114,6 +114,10 @@ function rowsToOrders(rows) {
         // pero la columna es la que manda para el despacho, y una pantalla que
         // mostrara el metadata podria prometer un horario que el despacho ignora.
         scheduledFor: row.scheduled_for ? new Date(row.scheduled_for).toISOString() : null,
+        // El modo decide quién puede entregarlo, qué muestra la app y si hay
+        // reparto. Sin publicarlo, la autorización no puede distinguir un pedido
+        // retirado de uno sin conductor asignado todavía.
+        fulfillment: metadata.fulfillment === "pickup" ? "pickup" : "delivery",
         total: pesos(row.final_amount_cents ?? row.quoted_amount_cents),
         etaMin: Number(metadata.etaMin ?? Math.round(row.estimated_duration_s / 60)),
         createdAt: new Date(row.created_at).toISOString(),
@@ -270,6 +274,73 @@ export async function getPostgresFoodDeliveryQuote({
   };
 }
 
+/**
+ * Cotización de un pedido para retirar en el local (GTM-002).
+ *
+ * Es una función aparte y no un parámetro opcional de la cotización de entrega
+ * porque **el trabajo de esa función es el precio por distancia**: toma la
+ * dirección del cliente, mide contra la sucursal, aplica el multiplicador de
+ * zona y el plan. En retiro no hay dirección del cliente, no hay distancia y no
+ * hay tarifa de envío. Hacerle opcional la dirección volvería condicional cada
+ * campo que devuelve.
+ *
+ * **Retiro no cobra envío ni tarifa de servicio.** El envío es obvio: Flash no
+ * mueve nada. La tarifa de servicio es una decisión comercial, y la razón está
+ * escrita para que se pueda discutir: cobrarla en un modo donde la plataforma no
+ * presta logística es difícil de justificarle al cliente y es lo que hace que el
+ * retiro no se use. La plataforma sigue ganando la comisión del comercio, y ahí
+ * está la economía del retiro — sin costo de reparto, la contribución por pedido
+ * es estructuralmente mejor que la de una entrega.
+ *
+ * **La sucursal tiene que haberlo habilitado.** `pickup_enabled` está apagado
+ * por omisión: entregar en mano exige mostrador, alguien que atienda y lugar
+ * para esperar, y darlo por supuesto manda clientes a locales que no pueden
+ * recibirlos.
+ */
+export async function getPostgresFoodPickupQuote({
+  customerPublicId,
+  merchantPublicId,
+  branchPublicId,
+}) {
+  const [plan, result] = await Promise.all([
+    getPostgresPricingPlan("food"),
+    postgresPool.query(
+      `SELECT m.public_id merchant_id, m.name merchant_name,
+              b.public_id branch_id, b.address branch_address, b.eta_min,
+              ST_Y(b.location::geometry) lat, ST_X(b.location::geometry) lng
+       FROM users u, merchants m
+       JOIN merchant_branches b ON b.merchant_id=m.id AND b.status='active' AND b.open
+         AND b.pickup_enabled AND app.branch_is_scheduled_open(b.id,now())
+         AND (($3::text IS NULL AND b.is_primary) OR b.public_id=$3)
+       WHERE u.public_id=$1 AND u.status='active'
+         AND m.public_id=$2 AND m.status='active'`,
+      [customerPublicId, merchantPublicId, branchPublicId || null],
+    ),
+  ]);
+  const row = result.rows[0];
+  if (!row)
+    throw Object.assign(new Error("El comercio no ofrece retiro en el local"), { status: 409 });
+  return {
+    customerId: customerPublicId,
+    restaurantId: merchantPublicId,
+    branchId: row.branch_id,
+    fulfillment: "pickup",
+    // **El domicilio del pedido es el del local.** El cliente va ahí, así que es
+    // la dirección que tiene que ver en la app y la que queda en el comprobante.
+    // Dejarlo vacío obligaría a cada pantalla a decidir qué mostrar.
+    pickupAddress: row.branch_address,
+    merchantName: row.merchant_name,
+    pickupCoords: { lat: Number(row.lat), lng: Number(row.lng) },
+    deliveryFee: 0,
+    serviceFee: 0,
+    // Sin reparto, el tiempo es sólo la cocina. Un ETA que sumara viaje
+    // prometería una demora que no existe.
+    etaMin: Number(row.eta_min),
+    pricingVersion: plan.version,
+    currency: plan.currency,
+  };
+}
+
 export async function getPostgresFoodCheckoutQuote({
   customerPublicId,
   merchantPublicId,
@@ -279,13 +350,17 @@ export async function getPostgresFoodCheckoutQuote({
   paymentMethod,
   paymentMethodId,
   promotionCode,
+  fulfillment = "delivery",
 }) {
-  const delivery = await getPostgresFoodDeliveryQuote({
-    customerPublicId,
-    merchantPublicId,
-    deliveryAddressId,
-    branchPublicId,
-  });
+  const esRetiro = fulfillment === "pickup";
+  const delivery = esRetiro
+    ? await getPostgresFoodPickupQuote({ customerPublicId, merchantPublicId, branchPublicId })
+    : await getPostgresFoodDeliveryQuote({
+        customerPublicId,
+        merchantPublicId,
+        deliveryAddressId,
+        branchPublicId,
+      });
   const client = await postgresPool.connect();
   try {
     const context = (
@@ -410,9 +485,14 @@ export async function getPostgresFoodCheckoutQuote({
       subscriptionPlan: subscriptionDiscountCents > 0 ? subscription.planKey : null,
       promotionCode: promotion?.code || null,
       total: pesos(totalCents),
-      etaMin:
-        Number(context.eta_min) +
-        Math.max(8, Math.ceil((Number(delivery.distanceKm) * 1000) / 350)),
+      // Sin reparto el tiempo es solo la cocina. Sumarle viaje prometeria una
+      // demora que no existe — y `distanceKm` no existe en retiro, asi que la
+      // suma daria NaN y el token se firmaria con un ETA invalido.
+      etaMin: esRetiro
+        ? Number(context.eta_min)
+        : Number(context.eta_min) +
+          Math.max(8, Math.ceil((Number(delivery.distanceKm) * 1000) / 350)),
+      fulfillment,
       paymentMethod,
       paymentMethodId: paymentMethodId || null,
     };
@@ -436,8 +516,10 @@ export async function createPostgresOrder({
   lockedQuote,
   tipCents = 0,
   scheduledFor = null,
+  fulfillment = "delivery",
   idempotencyKey,
 }) {
+  const esRetiro = fulfillment === "pickup";
   const client = await postgresPool.connect();
   try {
     await client.query("BEGIN");
@@ -446,7 +528,7 @@ export async function createPostgresOrder({
       [customerPublicId],
     );
     const merchant = await client.query(
-      `SELECT m.*,b.id branch_id,b.public_id branch_public_id,b.address branch_address,b.location branch_location,b.eta_min branch_eta_min FROM merchants m JOIN merchant_branches b ON b.merchant_id=m.id AND b.public_id=$2 AND b.status='active' AND b.open AND app.branch_is_scheduled_open(b.id,now()) WHERE m.public_id=$1 AND m.status='active'`,
+      `SELECT m.*,b.id branch_id,b.public_id branch_public_id,b.address branch_address,b.location branch_location,b.eta_min branch_eta_min,b.pickup_enabled FROM merchants m JOIN merchant_branches b ON b.merchant_id=m.id AND b.public_id=$2 AND b.status='active' AND b.open AND app.branch_is_scheduled_open(b.id,now()) WHERE m.public_id=$1 AND m.status='active'`,
       [merchantPublicId, lockedQuote?.branchId],
     );
     if (!customer.rows[0]) throw Object.assign(new Error("Cliente no encontrado"), { status: 404 });
@@ -469,46 +551,74 @@ export async function createPostgresOrder({
           status: 409,
         });
     }
-    if (!deliveryAddressId)
-      throw Object.assign(new Error("Selecciona una dirección guardada con coordenadas reales"), {
-        status: 400,
-      });
-    const address = (
-      await client.query(
-        `SELECT a.id,a.formatted_address,a.location,a.geocoding_provider,a.provider_place_id,a.geocoded_at,ST_Distance(a.location,$3::geography) distance_m
+    // **El destino de un pedido retirado es el propio local**, así que nada de la
+    // validación de dirección aplica: no hay dirección del cliente que verificar,
+    // ni firma de geocodificación que comparar, ni distancia que pueda cambiar.
+    // Las dos ramas producen la misma forma para que el resto de la función lea
+    // un solo objeto y no tenga que preguntar el modo en cada línea.
+    let address;
+    if (esRetiro) {
+      if (!merchant.rows[0].pickup_enabled)
+        throw Object.assign(new Error("El comercio no ofrece retiro en el local"), {
+          status: 409,
+        });
+      deliveryAddress = merchant.rows[0].branch_address;
+      address = {
+        id: null,
+        formatted_address: merchant.rows[0].branch_address,
+        location: merchant.rows[0].branch_location,
+        distance_m: 0,
+      };
+    } else {
+      if (!deliveryAddressId)
+        throw Object.assign(new Error("Selecciona una dirección guardada con coordenadas reales"), {
+          status: 400,
+        });
+      address = (
+        await client.query(
+          `SELECT a.id,a.formatted_address,a.location,a.geocoding_provider,a.provider_place_id,a.geocoded_at,ST_Distance(a.location,$3::geography) distance_m
       FROM addresses a JOIN users u ON u.id=a.user_id WHERE a.id=$1 AND u.id=$2 AND a.geocoded_at IS NOT NULL
         AND (NOT $4::boolean OR (a.geocoding_provider=$5 AND a.provider_place_id IS NOT NULL))`,
-        [
-          deliveryAddressId,
-          customer.rows[0].id,
-          merchant.rows[0].branch_location,
-          config.isProduction,
-          config.maps.provider,
-        ],
+          [
+            deliveryAddressId,
+            customer.rows[0].id,
+            merchant.rows[0].branch_location,
+            config.isProduction,
+            config.maps.provider,
+          ],
+        )
+      ).rows[0];
+      if (!address)
+        throw Object.assign(
+          new Error("La dirección no pertenece al cliente o necesita volver a validarse"),
+          { status: 404 },
+        );
+      deliveryAddress = address.formatted_address;
+      if (
+        lockedQuote?.addressValidation?.provider !== address.geocoding_provider ||
+        lockedQuote?.addressValidation?.providerPlaceId !== (address.provider_place_id || null) ||
+        lockedQuote?.addressValidation?.validatedAt !== address.geocoded_at.toISOString()
       )
-    ).rows[0];
-    if (!address)
-      throw Object.assign(
-        new Error("La dirección no pertenece al cliente o necesita volver a validarse"),
-        { status: 404 },
-      );
-    deliveryAddress = address.formatted_address;
-    if (
-      lockedQuote?.addressValidation?.provider !== address.geocoding_provider ||
-      lockedQuote?.addressValidation?.providerPlaceId !== (address.provider_place_id || null) ||
-      lockedQuote?.addressValidation?.validatedAt !== address.geocoded_at.toISOString()
-    )
-      throw Object.assign(new Error("La dirección cambió; actualiza la cotización"), {
+        throw Object.assign(new Error("La dirección cambió; actualiza la cotización"), {
+          status: 409,
+        });
+      if (
+        !lockedQuote ||
+        Math.abs(
+          (Number(address.distance_m) / 1000) * Number(lockedQuote.roadFactor) -
+            Number(lockedQuote.distanceKm),
+        ) > 0.1
+      )
+        throw Object.assign(new Error("La ruta cambió; actualiza la cotización"), { status: 409 });
+    }
+    // **Una propina en retiro no tiene a quién ir.** No hay repartidor, así que
+    // quedaría retenida hasta que la liquidación la devuelva. Se rechaza al
+    // confirmar en vez de cobrarla y reintegrarla: un cargo que aparece y
+    // desaparece en el resumen es peor que no haberlo aceptado.
+    if (esRetiro && tipCents > 0)
+      throw Object.assign(new Error("Un pedido para retirar no lleva propina de reparto"), {
         status: 409,
       });
-    if (
-      !lockedQuote ||
-      Math.abs(
-        (Number(address.distance_m) / 1000) * Number(lockedQuote.roadFactor) -
-          Number(lockedQuote.distanceKm),
-      ) > 0.1
-    )
-      throw Object.assign(new Error("La ruta cambió; actualiza la cotización"), { status: 409 });
     const walletPayment = String(paymentMethod).toLowerCase().includes("wallet");
     if (!walletPayment && !providerPayment)
       throw Object.assign(
@@ -684,7 +794,8 @@ export async function createPostgresOrder({
     // se reparte sigue siendo `totalCents`, porque la propina no es del comercio
     // ni de la plataforma.
     const chargedCents = totalCents + tipCents;
-    const travelMinutes = Math.max(8, Math.ceil(Number(address.distance_m) / 350));
+    // En retiro no hay viaje que sumar al tiempo de cocina.
+    const travelMinutes = esRetiro ? 0 : Math.max(8, Math.ceil(Number(address.distance_m) / 350));
     const metadata = {
       subtype: "food_order",
       subtotal: pesos(subtotalCents),
@@ -700,7 +811,10 @@ export async function createPostgresOrder({
       promotionCode: promotion?.code || null,
       etaMin: merchant.rows[0].branch_eta_min + travelMinutes,
       locationEstimated: false,
-      deliveryAddressId: String(address.id),
+      fulfillment,
+      // `null` y no la cadena "null": en retiro no hay dirección de cliente, y
+      // una cadena con esa palabra se lee después como un identificador roto.
+      deliveryAddressId: address.id === null ? null : String(address.id),
       quoteId: lockedQuote.quoteId,
       pricingVersion: lockedQuote.pricingVersion,
       quotedDistanceKm: lockedQuote.distanceKm,
@@ -1092,14 +1206,30 @@ export async function setPostgresOrderStatus(orderPublicId, status, actorPublicI
   try {
     await client.query("BEGIN");
     const actor = await client.query("SELECT id FROM users WHERE public_id = $1", [actorPublicId]);
-    const databaseTarget = databaseStatus(status),
-      expectedStatus = {
-        preparing: "accepted",
-        ready_for_pickup: "preparing",
-        picked_up: "driver_assigned",
-        delivering: "picked_up",
-        completed: "delivering",
-      }[databaseTarget];
+    const databaseTarget = databaseStatus(status);
+    // **Un pedido retirado salta tres estados.** No hay conductor asignado, no
+    // hay retiro del repartidor y no hay reparto: de la cocina pasa a estar
+    // listo, y de listo a entregado cuando el cliente lo levanta del mostrador.
+    // Reusar la tabla de entrega lo dejaria trabado en `ready_for_pickup` para
+    // siempre, esperando un `driver_assigned` que nunca llega.
+    const pedido = (
+      await client.query(
+        "SELECT id, COALESCE(metadata->>'fulfillment','delivery') fulfillment FROM jobs WHERE public_id=$1",
+        [orderPublicId],
+      )
+    ).rows[0];
+    const esRetiro = pedido?.fulfillment === "pickup";
+    const expectedStatus = (
+      esRetiro
+        ? { preparing: "accepted", ready_for_pickup: "preparing", completed: "ready_for_pickup" }
+        : {
+            preparing: "accepted",
+            ready_for_pickup: "preparing",
+            picked_up: "driver_assigned",
+            delivering: "picked_up",
+            completed: "delivering",
+          }
+    )[databaseTarget];
     if (!expectedStatus)
       throw Object.assign(new Error("Transición de pedido no permitida"), { status: 409 });
     const result = await client.query(
@@ -1117,7 +1247,10 @@ export async function setPostgresOrderStatus(orderPublicId, status, actorPublicI
     const customer = (
       await client.query("SELECT customer_id FROM jobs WHERE public_id=$1", [orderPublicId])
     ).rows[0];
-    if (databaseTarget === "ready_for_pickup")
+    // La segunda defensa. El barrido del despacho ya filtra por `fulfillment`,
+    // pero esta llamada crea ofertas directamente sin pasar por el: las dos
+    // tienen que saberlo, o alcanza con que una se olvide.
+    if (databaseTarget === "ready_for_pickup" && !esRetiro)
       await createDispatchOffers(client, { jobId: result.rows[0].job_id, mode: "delivery" });
     if (databaseTarget === "completed")
       await settleCapturedFoodOrder(client, {

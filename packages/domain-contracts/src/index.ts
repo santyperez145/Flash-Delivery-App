@@ -88,16 +88,14 @@ export type UserAddress = {
   isValidated: boolean;
 };
 
-export type FoodCheckoutQuote = {
+/** Lo que las dos formas de recibir un pedido comparten: el precio firmado. */
+type FoodCheckoutQuoteBase = {
   quoteId: string;
   quoteToken: string;
   expiresAt: string;
   customerId: string;
   restaurantId: string;
   branchId: string;
-  deliveryAddressId: string;
-  deliveryAddress: string;
-  distanceKm: number;
   deliveryFee: number;
   serviceFee: number;
   subtotal: number;
@@ -129,6 +127,33 @@ export type FoodCheckoutQuote = {
     note: string;
   }>;
 };
+
+/**
+ * La cotizacion del checkout de comida, en sus dos modos (GTM-002).
+ *
+ * **Es una union discriminada y no un tipo con campos opcionales.** En retiro no
+ * existe direccion del cliente ni distancia: no es que falten, es que no tienen
+ * sentido. Con campos opcionales, `quote.deliveryAddress` compila en los dos
+ * modos y en retiro imprime `undefined` en pantalla — que es exactamente el
+ * defecto que este tipo existe para impedir. Con la union, el compilador obliga
+ * a cada pantalla que lea la direccion a decir primero cual de los dos modos
+ * esta mostrando.
+ */
+export type FoodCheckoutQuote =
+  | (FoodCheckoutQuoteBase & {
+      fulfillment: "delivery";
+      deliveryAddressId: string;
+      deliveryAddress: string;
+      distanceKm: number;
+    })
+  | (FoodCheckoutQuoteBase & {
+      fulfillment: "pickup";
+      /** La direccion del local: es a donde va el cliente, y lo que queda en el
+       *  comprobante. */
+      pickupAddress: string;
+      merchantName: string;
+      pickupCoords: { lat: number; lng: number };
+    });
 
 export type ShipmentReturn = {
   id: string;

@@ -142,6 +142,8 @@ export async function getPostgresRestaurants({ publicIds = null, ownerPublicId =
             b.eta_min,
             'isPrimary',
             b.is_primary,
+            'pickupEnabled',
+            b.pickup_enabled,
             'timezone',
             b.timezone,
             'weeklyHours',
@@ -291,6 +293,10 @@ const publicRestaurant = (restaurant) => ({
     status: branch.status,
     etaMin: branch.etaMin,
     isPrimary: branch.isPrimary,
+    // El cliente necesita saber qué sucursales aceptan retiro **antes** de
+    // elegir el modo: ofrecerlo y que el checkout lo rechace es peor que no
+    // ofrecerlo.
+    pickupEnabled: branch.pickupEnabled === true,
   })),
 });
 export async function getPostgresRestaurantPage({ limit = 20, cursor = null, query = "" } = {}) {
@@ -583,6 +589,9 @@ export async function updatePostgresBranch({
     ["open", "open"],
     ["etaMin", "eta_min"],
     ["status", "status"],
+    // Sin esto el retiro queda inalcanzable: la columna existe, el checkout la
+    // exige, y ninguna ruta la enciende.
+    ["pickupEnabled", "pickup_enabled"],
   ])
     if (changes[key] !== undefined) {
       values.push(changes[key]);

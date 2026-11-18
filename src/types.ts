@@ -193,6 +193,9 @@ export type Restaurant = {
     status: "active" | "paused" | "closed";
     etaMin: number;
     isPrimary: boolean;
+    /** La sucursal acepta que el cliente retire en el local (GTM-002).
+     *  Apagado por omision: exige mostrador y alguien que atienda. */
+    pickupEnabled: boolean;
     timezone: string;
     weeklyHours: Array<{
       weekday: number;
@@ -254,6 +257,9 @@ export type Order = {
   branchId?: string | null;
   courierId: string | null;
   status: OrderStatus;
+  /** Cómo lo recibe el cliente (GTM-002). Decide quién puede completarlo, si
+   *  hay reparto y qué muestra el seguimiento. */
+  fulfillment?: "delivery" | "pickup";
   deliveryAddress: string;
   pickupLocation?: GeoPoint | null;
   deliveryLocation?: GeoPoint | null;
@@ -880,9 +886,31 @@ export type PayoutReview = {
 // Las dos las comparten `App.tsx`, que arma la petición, y la superficie de
 // cliente, que la compone en pantalla.
 
+/** Lo que el checkout de comida manda a cotizar. */
+export type FoodQuotePayload = {
+  customerId: string;
+  restaurantId: string;
+  /** Ausente en retiro: no hay dirección del cliente que medir. */
+  deliveryAddressId?: string;
+  branchId?: string;
+  /** Retiro en el local (GTM-002). Ausente es `delivery`. */
+  fulfillment?: "delivery" | "pickup";
+  paymentMethod: string;
+  paymentMethodId?: string;
+  promotionCode?: string;
+  items: Array<Pick<CartLine, "quantity" | "extras" | "note"> & { menuItemId: string }>;
+};
+
 /** Lo que el checkout de comida confirma: la cotización firmada y su elección. */
 export type FoodCheckoutSelection = {
-  deliveryAddressId: string;
+  /** Como recibe el pedido (GTM-002). Viaja con la eleccion y no se deduce del
+   *  resto porque la creacion del pedido lo compara contra el token firmado: si
+   *  el cliente cotizo un retiro, no puede crear una entrega. */
+  fulfillment: "delivery" | "pickup";
+  /** Ausente en retiro: no hay direccion de cliente a la que llevar nada. */
+  deliveryAddressId?: string;
+  /** En entrega, la direccion del cliente; en retiro, la del local. Siempre hay
+   *  una, porque es la que el comprobante y el seguimiento muestran. */
   deliveryAddress: string;
   paymentMethod: string;
   paymentMethodId?: string;
