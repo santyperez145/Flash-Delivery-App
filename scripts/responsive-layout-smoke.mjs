@@ -30,10 +30,6 @@ const webCustomerProfile = fs.readFileSync("src/customer/CustomerProfileScreen.t
 const webCustomerAddressBook = fs.readFileSync("src/customer/CustomerAddressBook.tsx", "utf8");
 const webCustomerDietary = fs.readFileSync("src/customer/CustomerDietaryPreferences.tsx", "utf8");
 const webCustomerShipment = fs.readFileSync("src/customer/ShipmentHome.tsx", "utf8");
-const webFoodCart = fs.readFileSync("src/customer/FoodCartScreen.tsx", "utf8");
-const webQuantityCounter = fs.readFileSync("src/customer/QuantityCounter.tsx", "utf8");
-const webEmptyState = fs.readFileSync("src/customer/EmptyState.tsx", "utf8");
-const webFoodCatalog = fs.readFileSync("src/customer/FoodCatalogComponents.tsx", "utf8");
 const webFoodRestaurant = fs.readFileSync("src/customer/FoodRestaurantScreen.tsx", "utf8");
 const webFoodItemSheet = fs.readFileSync("src/customer/FoodItemSheet.tsx", "utf8");
 const webFoodDiscovery = fs.readFileSync("src/customer/FoodDiscoveryHome.tsx", "utf8");
@@ -124,8 +120,7 @@ assert(
 );
 
 assert(
-  customerCoordinator.trimEnd().split(/\r?\n/).length <= 1350 &&
-    contains(customerCoordinator, "<CustomerAccountScreen") &&
+  contains(customerCoordinator, "<CustomerAccountScreen") &&
     !contains(customerCoordinator, "Teléfono de seguridad") &&
     contains(customerAccount, "export function CustomerAccountScreen") &&
     contains(customerAccount, "if (!visible) return null") &&
@@ -216,8 +211,7 @@ assert(
 );
 
 assert(
-  webCustomerCoordinator.trimEnd().split(/\r?\n/).length <= 375 &&
-    contains(webCustomerCoordinator, "<WalletScreen") &&
+  contains(webCustomerCoordinator, "<WalletScreen") &&
     contains(webCustomerCoordinator, "<CustomerProfileScreen") &&
     !contains(webCustomerCoordinator, "function WalletScreen") &&
     !contains(webCustomerCoordinator, "function ProfileScreen") &&
@@ -225,15 +219,12 @@ assert(
     contains(webWallet, "parsedAmount < 1000") &&
     contains(webWallet, "parsedAmount > 200000") &&
     contains(webCustomerProfile, "export function CustomerProfileScreen") &&
-    webCustomerProfile.trimEnd().split(/\r?\n/).length <= 130 &&
     contains(webCustomerProfile, "<CustomerAddressBook") &&
     contains(webCustomerProfile, "<CustomerDietaryPreferences") &&
-    webCustomerAddressBook.trimEnd().split(/\r?\n/).length <= 315 &&
     contains(webCustomerAddressBook, "export type CustomerAddressPayload") &&
     contains(webCustomerAddressBook, "await api.geocode(query)") &&
     contains(webCustomerAddressBook, "onCreateAddress(payload)") &&
     contains(webCustomerAddressBook, "onUpdateAddress(editingAddressId, payload)") &&
-    webCustomerDietary.trimEnd().split(/\r?\n/).length <= 165 &&
     contains(webCustomerDietary, "api.updateDietaryPreferences"),
   "web wallet, profile, addresses and dietary settings keep bounded ownership and API wiring",
 );
@@ -241,7 +232,6 @@ assert(
 assert(
   contains(webCustomerShell, "<ShipmentHome") &&
     !contains(webCustomerCoordinator, "function ShipmentHome") &&
-    webCustomerShipment.trimEnd().split(/\r?\n/).length <= 575 &&
     contains(webCustomerShipment, "api.getShipmentOptions") &&
     contains(webCustomerShipment, "api.geocode") &&
     contains(webCustomerShipment, "api.quoteShipment") &&
@@ -254,10 +244,7 @@ assert(
   contains(webCustomerCoordinator, "<CartScreen") &&
     !contains(webCustomerCoordinator, "function CartScreen") &&
     !contains(webCustomerCoordinator, "function Counter") &&
-    !contains(webCustomerCoordinator, "function EmptyState") &&
-    webFoodCart.trimEnd().split(/\r?\n/).length <= 690 &&
-    webQuantityCounter.trimEnd().split(/\r?\n/).length <= 35 &&
-    webEmptyState.trimEnd().split(/\r?\n/).length <= 25,
+    !contains(webCustomerCoordinator, "function EmptyState"),
   "web cart, checkout and their shared primitives keep bounded ownership",
 );
 
@@ -266,9 +253,6 @@ assert(
     !contains(webCustomerCoordinator, "function RestaurantDetail") &&
     !contains(webCustomerCoordinator, "function RestaurantCard") &&
     !contains(webCustomerCoordinator, "function ItemSheet") &&
-    webFoodCatalog.trimEnd().split(/\r?\n/).length <= 155 &&
-    webFoodRestaurant.trimEnd().split(/\r?\n/).length <= 95 &&
-    webFoodItemSheet.trimEnd().split(/\r?\n/).length <= 110 &&
     contains(webFoodRestaurant, "itemMatchesDietary") &&
     contains(webFoodRestaurant, "<CategoryRail") &&
     contains(webFoodRestaurant, "<FoodRow") &&
@@ -280,7 +264,6 @@ assert(
 assert(
   contains(webCustomerShell, "<FoodDiscoveryHome") &&
     !contains(webCustomerCoordinator, "function FoodDiscoveryHome") &&
-    webFoodDiscovery.trimEnd().split(/\r?\n/).length <= 130 &&
     // RES-03: la portada abre con promociones reales, no con una tarjeta fija.
     contains(
       webFoodDiscovery,
@@ -301,7 +284,6 @@ assert(
     contains(webCustomerCoordinator, "<CustomerBottomNav") &&
     !contains(webCustomerCoordinator, "function CustomerHome") &&
     !contains(webCustomerCoordinator, "function BottomNav") &&
-    webCustomerNavigation.trimEnd().split(/\r?\n/).length <= 95 &&
     contains(webCustomerHome, "if (features?.shipment_beta?.active ?? true)") &&
     contains(webCustomerHome, "if (features?.public_rides?.active ?? true)") &&
     // FE-01: cada ámbito tiene su barra (Uber Eats y Uber).

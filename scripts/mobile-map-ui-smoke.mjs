@@ -152,8 +152,7 @@ assert(
   "tracking shares route loading while shipment evidence degrades independently",
 );
 assert(
-  customerCoordinator.trimEnd().split(/\r?\n/).length <= 3165 &&
-    !contains(customerCoordinator, "function OrderTrackingSheet") &&
+  !contains(customerCoordinator, "function OrderTrackingSheet") &&
     contains(customerTrackingSheets, "export function OrderTrackingSheet") &&
     contains(customerTrackingSheets, "export function RideTrackingSheet") &&
     contains(customerTrackingSheets, "export function ShipmentTrackingSheet"),

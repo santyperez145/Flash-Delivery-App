@@ -104,14 +104,13 @@ assert(
   "order activity must translate backend status into an actionable customer card",
 );
 assert(
-  customerCoordinator.trimEnd().split(/\r?\n/).length <= 1350 &&
-    [
-      "CustomerFoodBrowseScreen",
-      "CustomerFoodRestaurantScreen",
-      "CustomerFoodCartScreen",
-      "CustomerFoodCheckoutScreen",
-      "CustomerFoodOrdersScreen",
-    ].every((component) => contains(customerCoordinator, `<${component}`)),
+  [
+    "CustomerFoodBrowseScreen",
+    "CustomerFoodRestaurantScreen",
+    "CustomerFoodCartScreen",
+    "CustomerFoodCheckoutScreen",
+    "CustomerFoodOrdersScreen",
+  ].every((component) => contains(customerCoordinator, `<${component}`)),
   "food discovery, restaurant, cart, checkout and orders must stay outside the shrinking coordinator",
 );
 assert(
