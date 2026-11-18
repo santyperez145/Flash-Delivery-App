@@ -1,0 +1,52 @@
+# Análisis estático de seguridad con CodeQL.
+#
+# Es parte de la revisión determinística de cada cambio (CONTRIBUTING.md §5):
+# reglas que se ejecutan igual para todos y fallan igual para todos. Busca
+# inyecciones, rutas sin validar, secretos expuestos y flujos de datos inseguros
+# en el servidor, la web y la app móvil.
+#
+# Corre en cada PR, en cada push a `main` y una vez por semana, porque las
+# consultas de CodeQL se actualizan y un patrón nuevo puede encontrar algo en
+# código que no cambió.
+name: CodeQL
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  analizar:
+    name: Análisis de seguridad (CodeQL)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Inicializar CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+          # Las consultas extendidas suman las de calidad que tocan seguridad:
+          # comparaciones que nunca se cumplen, código inalcanzable, etc.
+          queries: security-extended
+          config: |
+            paths-ignore:
+              - node_modules
+              - "**/node_modules"
+              - dist
+              - "**/*.test.*"
+
+      - name: Analizar
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript-typescript"

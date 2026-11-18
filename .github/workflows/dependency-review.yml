@@ -1,0 +1,35 @@
+# Revisión de dependencias de cada PR.
+#
+# Parte de la revisión determinística (CONTRIBUTING.md §5). Mira sólo lo que el
+# PR cambia en `package-lock.json` (raíz y móvil): una dependencia nueva o
+# actualizada con una vulnerabilidad alta o crítica conocida bloquea el merge.
+#
+# Complementa a `test:dependency-gate`, que audita el árbol entero. Esta puerta
+# responde otra pregunta: «¿este PR trae algo peligroso?», y la responde en el
+# PR, con el paquete y el aviso señalados.
+name: Revisión de dependencias
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  revisar:
+    name: Dependencias del PR
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Revisar dependencias nuevas o actualizadas
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure
+          # Los mismos avisos exceptuados por el dueño en
+          # scripts/dependency-audit-exceptions.json, con su vencimiento allí.
+          # Una excepción que se agrega en un lado se agrega en el otro.
+          allow-ghsas: GHSA-fc5q-39xc-vjpf

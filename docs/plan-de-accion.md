@@ -521,7 +521,7 @@ Un ticket sólo pasa a `Cerrado` cuando todos sus criterios de aceptación son v
 
 ## 11. Definición de terminado
 
-Aplica a cada PR de la Fase 0 en adelante, y complementa [`AGENTS.md`](../AGENTS.md).
+Aplica a cada PR de la Fase 0 en adelante, y complementa [`CONTRIBUTING.md`](../CONTRIBUTING.md).
 
 1. La capacidad tiene una prueba automatizada proporcional a su riesgo.
 2. Esa prueba corre en una puerta CI bloqueante, o el PR declara explícitamente por qué no puede.
