@@ -2,6 +2,7 @@
 // Se mantiene montada al cambiar de pestaña para no descartar formularios en curso.
 import { useEffect, useState } from "react";
 import { AccountDeletion } from "../AccountDeletion";
+import { LegalLinks } from "../LegalLinks";
 import { Ionicons } from "@expo/vector-icons";
 import { Alert, Pressable, ScrollView, Share, Text, TextInput, View } from "react-native";
 
@@ -1075,6 +1076,7 @@ export function CustomerAccountScreen({
           </Pressable>
         </View>
       </View>
+      <LegalLinks />
       <AccountDeletion onDeleted={onLogout} />
     </>
   );

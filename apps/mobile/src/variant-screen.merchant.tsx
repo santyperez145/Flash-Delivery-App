@@ -8,6 +8,7 @@
 // encabezado de la variante instalada y las otras dos responden `null`.
 import { Pressable, Text, View } from "react-native";
 import { AccountDeletion } from "./AccountDeletion";
+import { LegalLinks } from "./LegalLinks";
 
 import { MerchantScreen } from "./screens/MerchantScreen";
 import { styles } from "./styles";
@@ -52,6 +53,7 @@ export const variantScreen: VariantScreen = ({
       />
       {/* Apple y Google exigen poder eliminar la cuenta desde la app (LAN-001).
           Un comercio tiene liquidaciones, así que esto crea una solicitud. */}
+      <LegalLinks />
       <AccountDeletion onDeleted={logout} />
     </>
   ) : null;

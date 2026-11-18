@@ -60,6 +60,7 @@
     "test:delivery-preferences": "node scripts/delivery-preferences-contract.mjs",
     "test:account-deletion": "node scripts/account-deletion-contract.mjs",
     "test:worker-health": "node scripts/worker-health-smoke.mjs",
+    "test:legal-links": "node scripts/legal-links-contract.mjs",
     "test:dispatch-candidates": "node scripts/dispatch-candidates-smoke.mjs",
     "test:ci-coverage": "node scripts/ci-coverage-check.mjs",
     "test:postgres": "node --env-file-if-exists=.env.local scripts/postgres-runtime-smoke.mjs",

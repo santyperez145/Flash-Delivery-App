@@ -1,4 +1,4 @@
-// Contrato OpenAPI de la cuenta (LAN-001).
+// Contrato OpenAPI de la cuenta y los documentos legales (LAN-001, LAN-002).
 //
 // Vive aparte de `openapi.js` porque ese archivo es un monolito identificado en
 // el hallazgo H-08: recibe los ayudantes del documento en lugar de duplicarlos.
@@ -41,6 +41,26 @@ export function accountPaths({ success, json, errorResponses }) {
             content: json,
           },
           429: { description: "Demasiados intentos de contraseña o de solicitudes", content: json },
+        },
+      },
+    },
+    "/api/public/legal": {
+      get: {
+        tags: ["Auth"],
+        operationId: "getLegalLinks",
+        summary: "URLs de los términos y la política de privacidad",
+        description:
+          "Pública: se muestra antes de tener cuenta. `null` mientras el documento no esté publicado.",
+        responses: {
+          200: success({
+            type: "object",
+            required: ["termsUrl", "privacyUrl"],
+            properties: {
+              termsUrl: { type: ["string", "null"], format: "uri" },
+              privacyUrl: { type: ["string", "null"], format: "uri" },
+            },
+          }),
+          429: errorResponses[429],
         },
       },
     },

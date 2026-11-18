@@ -97,10 +97,25 @@ Lo que se puede hacer hoy, en este orden:
      secretos al crear cada revisión.
    - Falta el workflow que publica la imagen y aplica. Se escribe con la cuenta, porque
      necesita la identidad federada de GitHub en el proyecto.
-3. **Enlaces legales en la app** (términos, privacidad) apuntando a las URLs que defina el
-   dueño, con el estado honesto mientras no existan.
-4. **Paridad que el piloto necesita:** foto al dejar en la puerta (P-02b) y retiro desde el
-   móvil (P-11). El resto de [`paridad-competitiva.md`](paridad-competitiva.md) no bloquea
+3. ~~**Enlaces legales en la app** (términos, privacidad) apuntando a las URLs que defina el
+   dueño, con el estado honesto mientras no existan.~~ Hecho (LAN-002).
+   - El día que existan los documentos, alcanza con cargar `LEGAL_TERMS_URL` y
+     `LEGAL_PRIVACY_URL` en el servidor.
+   - En producción las dos son obligatorias.
+   - **Cómo lo hace la competencia** (consultado el 18-11-2026):
+     - **Uber:** sus [términos](https://www.uber.com/legal/terms/pa/) remiten al aviso de
+       privacidad publicado en uber.com. Su
+       [aviso para adolescentes](https://www.uber.com/global/en/legal/uber-for-teens-privacy-notice/)
+       dice que el Centro de Privacidad se abre desde un menú de Privacidad dentro de las
+       apps.
+     - **PedidosYa:** la [ficha de App Store](https://apps.apple.com/es/app/pedidosya-comida-a-domicilio/id490099807)
+       enlaza la política de privacidad del desarrollador. No se pudo confirmar dónde
+       aparece dentro de la app.
+     - **Lo que falta frente a Uber:** un centro de privacidad propio dentro de la app,
+       donde se ejerzan los derechos desde un lugar único. Hoy Flash tiene el borrado de
+       cuenta y los enlaces, pero no ese centro.
+4. **Paridad que el piloto necesita:** foto al dejar en la puerta (P-02b) y ~~retiro desde el
+   móvil (P-11)~~, hecho. El resto de [`paridad-competitiva.md`](paridad-competitiva.md) no bloquea
    el piloto.
 5. **Material de tiendas:** capturas, descripción, clasificación de contenido y formularios
    de datos (Data Safety de Google, etiquetas de privacidad de Apple), a partir de lo que la

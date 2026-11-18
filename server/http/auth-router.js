@@ -59,6 +59,7 @@ import {
 } from "../mfa-repository.js";
 import { createPostgresSupportTicket, recordPostgresAudit } from "../operations-repository.js";
 import { deletePostgresCustomerAccount } from "../account-deletion-repository.js";
+import { legalRouter } from "./legal-router.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";
 import {
   consumeAuthSession,
@@ -183,6 +184,8 @@ const jwtSecret = config.jwtSecret;
 
 export const authRouter = Router();
 const router = authRouter;
+// Los documentos legales viajan con la identidad, y así `server/index.js` (H-08) no crece.
+router.use(legalRouter);
 
 router.post("/api/auth/login", async (req, res) => {
   const parsed = parseOrFail(loginSchema, req.body || {});

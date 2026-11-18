@@ -20,6 +20,7 @@ import {
 
 import { api, mobileAppVariant } from "../api";
 import { flashDesign } from "../design-system";
+import { LegalLinks } from "../LegalLinks";
 import { styles } from "../styles";
 import type { User } from "../types";
 
@@ -675,9 +676,7 @@ export function LoginScreen({
             !isVerification &&
             recoveryStep === "none" &&
             loginStep === "email") ? (
-            <Text style={styles.loginLegal}>
-              Al continuar aceptás los Términos y reconocés la Política de privacidad de Flash.
-            </Text>
+            <LegalLinks variante="aceptacion" style={styles.loginLegal} />
           ) : null}
         </View>
       </ScrollView>

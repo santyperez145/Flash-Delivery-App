@@ -1,0 +1,33 @@
+/* Enlaces legales (LAN-002). Hoja propia: `styles.css` es un monolito de H-08. */
+.legal-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 18px 0 4px;
+  color: var(--muted, #746e78);
+  font-size: 0.84rem;
+}
+
+.legal-links a,
+.legal-links span {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.legal-links button {
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  background: none;
+  border: 0;
+}
+
+.legal-links a {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

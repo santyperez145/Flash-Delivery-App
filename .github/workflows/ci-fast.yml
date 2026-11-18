@@ -170,6 +170,11 @@ jobs:
       - name: Worker health
         run: npm run test:worker-health
 
+      # Enlaces legales (LAN-002): términos y privacidad en web, en las tres apps y
+      # en el registro; producción no arranca sin las dos URLs en HTTPS.
+      - name: Legal links contract
+        run: npm run test:legal-links
+
       - name: Payment provider contracts
         run: |
           npm run test:mercadopago-payment
