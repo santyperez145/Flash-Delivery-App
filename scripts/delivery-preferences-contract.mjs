@@ -240,7 +240,52 @@ assert.ok(
       await leer("src/operations/OperationsSurface.tsx"),
       "busy={busy || faltaFotoEnPuerta(order)}",
     ) &&
-    contains(await leer("src/operations/DoorPhoto.tsx"), 'capture="environment"'),
+    contains(await leer("src/operations/DoorPhoto.tsx"), 'capture="environment"') &&
+    // Achicada antes de subir: una foto de cámara supera el límite de 1 MB del JSON.
+    contains(
+      await leer("src/operations/DoorPhoto.tsx"),
+      "const contentBase64 = await achicar(archivo);",
+    ),
   "la foto acepta cualquier byte, se pierde al reiniciar la app o la web no la puede sacar",
 );
 ok("dejado en la puerta se cierra con foto cifrada, que ve quien pidió");
+
+// La foto tiene que poder llegar: el límite JSON de las rutas de evidencia es
+// mayor que el global. Se ejecuta el parser real.
+{
+  const express = (await import("express")).default;
+  const { jsonBody } = await import("../server/http/json-body.js");
+  const app = express();
+  app.use(jsonBody);
+  app.use((req, res) => res.json({ bytes: JSON.stringify(req.body).length }));
+  app.use((error, _req, res, _next) => res.status(error.status || 500).end());
+  const servidor = app.listen(0);
+  const puerto = servidor.address().port;
+  const cuerpo = JSON.stringify({ contentBase64: "A".repeat(1_500_000) });
+  const enviar = (ruta) =>
+    fetch(`http://127.0.0.1:${puerto}${ruta}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: cuerpo,
+    }).then((respuesta) => respuesta.status);
+  try {
+    assert.equal(
+      await enviar("/api/orders/ORD-1/delivery-photo"),
+      200,
+      "la foto del pedido no entra",
+    );
+    assert.equal(
+      await enviar("/api/shipments/SHP-1/delivery-evidence"),
+      200,
+      "la evidencia del envío no entra",
+    );
+    assert.equal(
+      await enviar("/api/orders/quote"),
+      413,
+      "el límite grande se aplica a cualquier ruta",
+    );
+  } finally {
+    servidor.close();
+  }
+  ok("las fotos de entrega entran; el resto de la API sigue limitada a 1 MB");
+}

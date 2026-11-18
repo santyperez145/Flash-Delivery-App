@@ -15,23 +15,35 @@ export const faltaFotoEnPuerta = (order: Order) =>
   order.deliveryPreferences?.dropoff === "leave_at_door" &&
   !order.deliveryPhoto;
 
-const subir = (orderId: string, archivo: File) =>
-  new Promise<void>((resolve, reject) => {
-    const lector = new FileReader();
-    lector.onerror = () => reject(new Error("No se pudo leer la foto"));
-    lector.onload = () => {
-      const contentBase64 = String(lector.result).split(",")[1] || "";
-      request(`/orders/${orderId}/delivery-photo`, {
-        method: "POST",
-        body: JSON.stringify({
-          mimeType: archivo.type,
-          contentBase64,
-          capturedAt: new Date().toISOString(),
-        }),
-      }).then(() => resolve(), reject);
-    };
-    lector.readAsDataURL(archivo);
+// Una foto de cámara pesa varios MB y el servidor acepta JSON de hasta 1 MB: se
+// achica en el navegador (lado mayor de 1280 px, JPEG) bajando la calidad hasta que
+// entre con margen. Es lo mismo que hace la app nativa con `quality: 0.55`.
+const LIMITE_BASE64 = 700_000;
+const achicar = async (archivo: File) => {
+  const imagen = await createImageBitmap(archivo);
+  const escala = Math.min(1, 1280 / Math.max(imagen.width, imagen.height));
+  const lienzo = document.createElement("canvas");
+  lienzo.width = Math.round(imagen.width * escala);
+  lienzo.height = Math.round(imagen.height * escala);
+  lienzo.getContext("2d")?.drawImage(imagen, 0, 0, lienzo.width, lienzo.height);
+  for (const calidad of [0.7, 0.55, 0.4, 0.3]) {
+    const base64 = lienzo.toDataURL("image/jpeg", calidad).split(",")[1] || "";
+    if (base64.length <= LIMITE_BASE64) return base64;
+  }
+  throw new Error("La foto es demasiado grande. Probá de nuevo con menos luz o más cerca.");
+};
+
+const subir = async (orderId: string, archivo: File) => {
+  const contentBase64 = await achicar(archivo);
+  await request(`/orders/${orderId}/delivery-photo`, {
+    method: "POST",
+    body: JSON.stringify({
+      mimeType: "image/jpeg",
+      contentBase64,
+      capturedAt: new Date().toISOString(),
+    }),
   });
+};
 
 export function DoorPhoto({
   order,
