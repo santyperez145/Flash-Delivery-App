@@ -220,7 +220,7 @@ export function subscribeToEvents(
   };
 }
 
-async function request<T>(
+export async function request<T>(
   path: string,
   init?: RequestInit,
   retry = true,

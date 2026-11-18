@@ -160,6 +160,11 @@ jobs:
       - name: Delivery preferences contract
         run: npm run test:delivery-preferences
 
+      # Borrado de cuenta (LAN-001): requisito de Apple y Google para publicar.
+      # Vigila que esté ofrecido en web y en las tres apps, y acotado en la base.
+      - name: Account deletion contract
+        run: npm run test:account-deletion
+
       - name: Payment provider contracts
         run: |
           npm run test:mercadopago-payment

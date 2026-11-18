@@ -5,6 +5,7 @@
 // lógica de turno).
 
 import { useEffect, useRef, useState } from "react";
+import { AccountDeletion } from "../AccountDeletion";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 
@@ -121,6 +122,9 @@ export function DriverScreen({
             onPreferencesChange={shift.setDriverPreferences}
           />
         )}
+        {/* Eliminar la cuenta (LAN-001): un repartidor tiene ganancias y pagos,
+            así que esto crea una solicitud a soporte. */}
+        {driverView === "account" && <AccountDeletion onDeleted={onLogout} />}
         {driverView === "earnings" && (
           <DriverEarningsPanel
             driverId={driver.id}

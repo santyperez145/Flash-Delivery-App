@@ -1,0 +1,75 @@
+/* Eliminar la cuenta (LAN-001). Hoja propia: `styles.css` es un monolito de H-08. */
+.account-deletion-open {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  margin: 18px 0 4px;
+  padding: 8px 0;
+  color: var(--danger, #b42318);
+  font-size: 0.86rem;
+  font-weight: 700;
+  background: none;
+  border: 0;
+}
+
+.account-deletion {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0 4px;
+  padding: 14px;
+  background: var(--paper-soft);
+  border: 1px solid color-mix(in srgb, var(--danger, #b42318) 30%, var(--line));
+  border-radius: 14px;
+}
+.account-deletion ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+.account-deletion p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.84rem;
+}
+.account-deletion label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.account-deletion input {
+  padding: 10px 12px;
+  font: inherit;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.account-deletion .account-deletion-error {
+  color: var(--danger, #b42318);
+  font-weight: 700;
+}
+.account-deletion-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.account-deletion-actions button {
+  padding: 9px 14px;
+  font-weight: 700;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.account-deletion-actions button.danger {
+  color: #fff;
+  background: var(--danger, #b42318);
+  border-color: var(--danger, #b42318);
+}
+.account-deletion-actions button:disabled {
+  opacity: 0.55;
+}

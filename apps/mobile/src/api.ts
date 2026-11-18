@@ -131,7 +131,7 @@ async function refreshAccessToken() {
   return true;
 }
 
-async function request<T>(
+export async function request<T>(
   path: string,
   init?: RequestInit,
   retry = true,

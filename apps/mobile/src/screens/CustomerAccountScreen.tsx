@@ -1,6 +1,7 @@
 // Cuenta del cliente (ARC-001): seguridad, soporte, preferencias y medios persistidos.
 // Se mantiene montada al cambiar de pestaña para no descartar formularios en curso.
 import { useEffect, useState } from "react";
+import { AccountDeletion } from "../AccountDeletion";
 import { Ionicons } from "@expo/vector-icons";
 import { Alert, Pressable, ScrollView, Share, Text, TextInput, View } from "react-native";
 
@@ -1074,6 +1075,7 @@ export function CustomerAccountScreen({
           </Pressable>
         </View>
       </View>
+      <AccountDeletion onDeleted={onLogout} />
     </>
   );
 }

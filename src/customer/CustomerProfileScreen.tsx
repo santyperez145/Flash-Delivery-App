@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Check, CreditCard, MapPin, MessageCircle, ShieldCheck, UserRound } from "lucide-react";
+import { AccountDeletion } from "../ui/AccountDeletion";
 
 import { initials } from "../format";
 import type { AppState, DietaryPreferences, User, UserAddress } from "../types";
@@ -119,6 +120,7 @@ export function CustomerProfileScreen({
       >
         <Check size={17} /> Guardar cambios
       </button>
+      <AccountDeletion />
     </div>
   );
 }
