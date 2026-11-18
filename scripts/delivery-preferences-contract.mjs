@@ -183,3 +183,43 @@ assert.ok(
   "la app móvil no le muestra al comercio los cubiertos o al repartidor el modo y las indicaciones",
 );
 ok("la app móvil ofrece las preferencias, las reinicia tras el pedido y las muestra");
+
+// --- P-02b: dejado en la puerta, se cierra con foto ---------------------------
+// DoorDash la exige y Uber Eats la usa. El servidor no deja marcar entregado sin
+// foto (operaciones sí, auditado), sólo el repartidor asignado la sube al llegar,
+// y la ven quien pidió, quien repartió y operaciones.
+const rutaAvance = await leer("server/http/order-router.js");
+const repoFoto = await leer("server/order-delivery-photo-repository.js");
+assert.ok(
+  contains(rutaAvance, 'db.orders[index].deliveryPreferences?.dropoff === "leave_at_door";') &&
+    contains(rutaAvance, "if (enLaPuerta && !isAdmin(req)) {") &&
+    contains(
+      rutaAvance,
+      "if (!(await orderHasDeliveryPhoto(db.orders[index].id))) return fail(res, 409,",
+    ),
+  "un pedido dejado en la puerta se puede cerrar sin foto",
+);
+assert.ok(
+  contains(repoFoto, "if (job.driver_user_id !== actor?.id)") &&
+    contains(repoFoto, 'if (job.status !== "delivering")') &&
+    contains(repoFoto, "encryptDeliveryProof(content)") &&
+    contains(
+      repoFoto,
+      "if (!admin && actor?.id !== job.customer_id && actor?.id !== job.driver_user_id)",
+    ),
+  "la foto la sube cualquiera, fuera de tiempo, sin cifrar, o la ve quien no corresponde",
+);
+const panelRepartidor = await leer("apps/mobile/src/screens/DriverHomePanel.tsx");
+assert.ok(
+  contains(
+    panelRepartidor,
+    "disabled={busy || (fotoEnPuerta && !deliveryEvidenceReady[order.id])}",
+  ) &&
+    contains(panelRepartidor, 'onPress={() => void captureDeliveryEvidence(order.id, "order")}') &&
+    contains(
+      await leer("apps/mobile/src/screens/CustomerTrackingSheets.tsx"),
+      "<OrderDeliveryPhoto orderId={order.id} />",
+    ),
+  "la app no pide la foto antes de cerrar, o el cliente no la puede ver",
+);
+ok("dejado en la puerta se cierra con foto cifrada, que ve quien pidió");

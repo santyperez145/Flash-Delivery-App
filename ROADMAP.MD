@@ -45,6 +45,26 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
 
+## Avance 18 de noviembre de 2026 — P-02b, foto obligatoria al dejar en la puerta
+
+- **Qué faltaba.** El cliente podía pedir que le dejen el pedido en la puerta (P-02), pero
+  quien repartía lo cerraba sin prueba. DoorDash exige la foto y Uber Eats la usa: es lo que
+  contesta «no me llegó».
+- **Ahora, si el pedido va a la puerta, no se cierra sin foto.**
+  - La app del repartidor pide la foto antes de habilitar «entregado».
+  - El servidor rechaza con 409 el cierre sin foto. Operaciones puede cerrar sin ella, y
+    queda auditado.
+- **Reusa la evidencia de los envíos:** misma tabla, mismo cifrado y mismo hash. Sólo la
+  sube el repartidor asignado, y sólo con el pedido en camino.
+- **El cliente la ve** al abrir el seguimiento del pedido entregado. El comercio no.
+- **Verificación:**
+  - `test:postgres` intenta cerrar sin foto (409), sube la foto, cierra el pedido y
+    comprueba que el cliente ve la misma imagen y el comercio recibe 403;
+  - `test:delivery-preferences` vigila la guarda, el repositorio y las dos apps.
+    Falsificado: cada aserción nueva falla cuando se rompe lo que vigila.
+- **OpenAPI** documenta las dos rutas sin agrandar `openapi.js`: las rutas extra se juntan
+  en `server/openapi-paths.js`.
+
 ## Avance 18 de noviembre de 2026 — RES-05, desglose de ganancias del repartidor
 
 - **Qué faltaba.** Uber Driver sumó en 2024 el desglose de lo que paga el pasajero: cuánto

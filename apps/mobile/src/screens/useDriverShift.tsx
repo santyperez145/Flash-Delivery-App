@@ -108,7 +108,12 @@ export function useDriverShift({
     void getBackgroundLocationState().then(setBackgroundGps);
   }, [driver.online]);
 
-  const captureDeliveryEvidence = async (shipmentId: string) => {
+  // Envíos y pedidos dejados en la puerta (P-02b) comparten la captura: cámara,
+  // ubicación y subida cifrada. Cambia sólo a qué trabajo se ata la foto.
+  const captureDeliveryEvidence = async (
+    shipmentId: string,
+    tipo: "shipment" | "order" = "shipment",
+  ) => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
       Alert.alert("Permiso necesario", "Habilitá la cámara para registrar la entrega.");
@@ -136,17 +141,20 @@ export function useDriverShift({
         }).catch(() => null);
         if (current) location = { lat: current.coords.latitude, lng: current.coords.longitude };
       }
-      await api.addShipmentDeliveryEvidence(shipmentId, {
-        type: "photo",
+      const foto = {
         mimeType: (asset.mimeType || "image/jpeg") as "image/jpeg" | "image/png" | "image/webp",
         contentBase64: asset.base64,
         capturedAt: new Date().toISOString(),
         location,
-      });
+      };
+      if (tipo === "order") await api.addOrderDeliveryPhoto(shipmentId, foto);
+      else await api.addShipmentDeliveryEvidence(shipmentId, { type: "photo", ...foto });
       setDeliveryEvidenceReady((current) => ({ ...current, [shipmentId]: true }));
       Alert.alert(
         "Evidencia protegida",
-        "La foto quedó cifrada y vinculada al envío. Ahora pedí el PIN.",
+        tipo === "order"
+          ? "La foto quedó cifrada y vinculada al pedido. Ya podés marcarlo entregado."
+          : "La foto quedó cifrada y vinculada al envío. Ahora pedí el PIN.",
       );
     } catch (error) {
       Alert.alert(

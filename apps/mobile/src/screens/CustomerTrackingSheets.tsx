@@ -18,6 +18,7 @@ import type {
 } from "../types";
 import { CustomerTrackingProgress } from "./CustomerTrackingProgress";
 import { useTrackingRoute } from "./useTrackingRoute";
+import { OrderDeliveryPhoto } from "../OrderDeliveryPhoto";
 
 export function OrderTrackingSheet({
   order,
@@ -105,6 +106,12 @@ export function OrderTrackingSheet({
             : `ETA publicada: ${order.etaMin} min`}
         </Text>
         <CustomerTrackingProgress labels={labels} current={current} activeColor="#ff6a21" />
+        {/* P-02b: dejado en la puerta, el pedido se cerró con foto. */}
+        {order.status === "delivered" &&
+          !retiro &&
+          order.deliveryPreferences?.dropoff === "leave_at_door" && (
+            <OrderDeliveryPhoto orderId={order.id} />
+          )}
       </View>
       <Pressable
         style={styles.orderConfirmationAction}

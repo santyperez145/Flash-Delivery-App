@@ -1,4 +1,4 @@
-import { accountPaths } from "./openapi-account.js";
+import { extraPaths } from "./openapi-paths.js";
 import { driverEarningsSchemas } from "./openapi-driver-earnings.js";
 import { groupOrderPaths } from "./openapi-group-orders.js";
 
@@ -1624,7 +1624,7 @@ openApiDocument.tags.push(
 Object.assign(
   openApiDocument.paths,
   groupOrderPaths({ success, body, bearerErrors, json, groupResponse }),
-  accountPaths({ success, json, errorResponses }),
+  extraPaths({ success, json, errorResponses }),
 );
 
 Object.assign(openApiDocument.components.schemas, {

@@ -769,3 +769,15 @@ adopta la idea, no la presentación.
   se muestra desglose, porque sería falso.
 - **Diferencia con Uber.** Flash no tiene seguros ni cargos aparte del precio: no hay más
   líneas que mostrar, y no se inventan.
+
+### Decisión 18 de noviembre de 2026 — foto obligatoria al dejar en la puerta (P-02b)
+
+DoorDash exige una foto cuando el pedido se deja en la puerta, y Uber Eats la usa como
+prueba de entrega. Flash la exige del lado del servidor: si el cliente eligió «dejar en la
+puerta», el pedido no se cierra sin foto, salvo que lo cierre operaciones, y entonces queda
+auditado.
+
+- La foto se guarda cifrada y con su hash, en la misma evidencia de los envíos.
+- La ven quien pidió, quien repartió y operaciones. El comercio no.
+- **Brecha:** el cliente no recibe la foto por notificación al cerrarse el pedido. La ve al
+  abrir el seguimiento.
