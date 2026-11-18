@@ -1,3 +1,4 @@
+import { accountPaths } from "./openapi-account.js";
 import { groupOrderPaths } from "./openapi-group-orders.js";
 
 const json = { "application/json": { schema: { $ref: "#/components/schemas/Error" } } };
@@ -1622,6 +1623,7 @@ openApiDocument.tags.push(
 Object.assign(
   openApiDocument.paths,
   groupOrderPaths({ success, body, bearerErrors, json, groupResponse }),
+  accountPaths({ success, json, errorResponses }),
 );
 
 Object.assign(openApiDocument.components.schemas, {

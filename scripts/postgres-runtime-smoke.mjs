@@ -4430,6 +4430,19 @@ try {
        VALUES($1,'Casa','Calle Falsa 123',ST_SetSRID(ST_MakePoint(-58.43,-34.58),4326)::geography)`,
       [internoBorrado],
     );
+    // Un viaje terminado, con origen, destino e indicaciones: el borrado tiene que
+    // conservarlo como comprobante y quitarle dónde vive la persona.
+    const insertarViaje = (publicId) =>
+      pool.query(
+        `INSERT INTO jobs(public_id,kind,customer_id,status,pickup_address,pickup_location,dropoff_address,
+           dropoff_location,service_level,quoted_amount_cents,final_amount_cents,distance_m,estimated_duration_s,metadata)
+         VALUES($1,'ride',$2,'completed','Calle Falsa 123',ST_SetSRID(ST_MakePoint(-58.43712,-34.58321),4326)::geography,
+           'Avenida Siempre Viva 742',ST_SetSRID(ST_MakePoint(-58.41234,-34.60987),4326)::geography,'economy',
+           100000,100000,1000,600,'{"deliveryPreferences":{"instructions":"Timbre 3B"}}')`,
+        [publicId, internoBorrado],
+      );
+    const viajeBorrado = `job_borrado_${crypto.randomUUID()}`;
+    await insertarViaje(viajeBorrado);
     const malaClaveBorrado = await request("/me/delete", {
       method: "POST",
       body: JSON.stringify({ password: "otra-clave" }),
@@ -4475,6 +4488,30 @@ try {
         },
       )})`,
     );
+    const viajeConservado = (
+      await pool.query(
+        `SELECT pickup_address,dropoff_address,ST_X(dropoff_location::geometry) x,
+                ST_Y(dropoff_location::geometry) y,metadata FROM jobs WHERE public_id=$1`,
+        [viajeBorrado],
+      )
+    ).rows[0];
+    assert(
+      viajeConservado?.pickup_address === "Dirección eliminada" &&
+        viajeConservado.dropoff_address === "Dirección eliminada" &&
+        Math.abs(viajeConservado.x + 58.41) < 1e-6 &&
+        Math.abs(viajeConservado.y + 34.61) < 1e-6 &&
+        !viajeConservado.metadata?.deliveryPreferences?.instructions,
+      `account deletion keeps the order as a receipt without where the person lives (${JSON.stringify(viajeConservado)})`,
+    );
+    // Un checkout que llegue tarde no crea un pedido para la cuenta eliminada.
+    const pedidoTardio = await insertarViaje(`job_borrado_${crypto.randomUUID()}`).then(
+      () => "",
+      (error) => error.message,
+    );
+    assert(
+      pedidoTardio.includes("FLASH_CUSTOMER_DELETED"),
+      "no order can be created for a deleted account",
+    );
     const reingresoBorrado = await request("/auth/login", {
       method: "POST",
       body: JSON.stringify({ email: correoBorrado, password: "borrado123" }),
@@ -4516,6 +4553,10 @@ try {
   } finally {
     token = tokenAntesDelBorrado;
     if (idBorrado) {
+      await pool.query(
+        "DELETE FROM jobs WHERE customer_id=(SELECT id FROM users WHERE public_id=$1)",
+        [idBorrado],
+      );
       await pool.query(
         "DELETE FROM audit_events WHERE actor_id=(SELECT id FROM users WHERE public_id=$1)",
         [idBorrado],

@@ -78,6 +78,20 @@ Lo que se puede hacer hoy, en este orden:
 
 1. ~~**LAN-001 — Borrado de cuenta desde la app.**~~ Hecho: requisito de Apple y Google para
    publicar.
+   - **Cómo lo hace la competencia** (consultado el 18-11-2026):
+     - **Uber y Uber Eats:** borrar la cuenta la desactiva 30 días, y volver a entrar en ese
+       plazo la recupera; después se borra. Fuentes de terceros coincidentes, como la
+       [guía de IONOS](https://www.ionos.com/digitalguide/online-marketing/social-media/delete-uber-account.md);
+       no se leyó la ayuda oficial.
+     - **PedidosYa:** no se encontró una guía oficial. Reclamos públicos de usuarios en
+       [tuquejasuma.com](https://tuquejasuma.com/pedidos-ya/reclamos/dar-de-baja-la-cuenta)
+       dicen que no hay opción en la app y que se pide a atención al cliente. No es una
+       fuente oficial.
+   - **Flash borra al instante y sin plazo de arrepentimiento.** Cumple lo que piden las
+     tiendas y es más fuerte que pedirlo a soporte.
+   - El plazo de 30 días de Uber evita borrados por error. Es una decisión de producto
+     pendiente: agregarlo exige que la cuenta quede suspendida, no anonimizada, durante el
+     plazo.
 2. **Infraestructura como código para GCP** y el workflow de despliegue, apagado hasta que
    existan las credenciales: el día que se abra la cuenta, desplegar tiene que ser correr un
    comando, no una semana de trabajo.

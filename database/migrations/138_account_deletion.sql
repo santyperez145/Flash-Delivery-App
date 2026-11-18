@@ -27,10 +27,11 @@ ALTER TABLE users ADD CONSTRAINT users_status_check
 
 CREATE FUNCTION app.delete_customer_account(p_user uuid) RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER
--- `search_path` fijo y sin el esquema temporal, como en la migración 129: una
--- función con permisos de su dueño no puede resolver nombres donde otro rol
--- pudo haber creado objetos.
-SET search_path = public, pg_catalog AS $$
+-- `search_path` fijo y con `pg_temp` **al final**: si no se lo nombra, PostgreSQL
+-- busca las tablas en el esquema temporal *antes* que en cualquier otro, y
+-- cualquier rol con permiso TEMP podría tapar `users` con una tabla suya. El final
+-- de esta migración corrige lo mismo en las funciones que ya existían.
+SET search_path = public, pg_catalog, pg_temp AS $$
 DECLARE
   v_saldo bigint;
 BEGIN
@@ -50,6 +51,19 @@ BEGIN
     SELECT 1 FROM jobs WHERE customer_id = p_user AND status NOT IN ('completed', 'cancelled')
   ) THEN
     RAISE EXCEPTION 'FLASH_DELETE_ACTIVE_JOB' USING ERRCODE = 'P0001';
+  END IF;
+
+  -- Un reclamo abierto es plata que todavía se le puede deber: se resuelve antes.
+  IF EXISTS (SELECT 1 FROM order_issues WHERE reporter_id = p_user AND status = 'open')
+     OR EXISTS (
+       SELECT 1 FROM shipment_protection_claims
+        WHERE customer_id = p_user
+          AND status IN ('submitted', 'under_review', 'approved', 'settlement_pending'))
+     OR EXISTS (
+       SELECT 1 FROM shipment_return_requests
+        WHERE requested_by = p_user AND status IN ('requested', 'approved', 'in_transit'))
+  THEN
+    RAISE EXCEPTION 'FLASH_DELETE_OPEN_CLAIM' USING ERRCODE = 'P0001';
   END IF;
 
   -- Saldo en la wallet es plata de la persona: no se borra con la cuenta.
@@ -81,6 +95,8 @@ BEGIN
   DELETE FROM ride_trusted_contacts WHERE user_id = p_user;
   DELETE FROM notifications WHERE user_id = p_user;
   DELETE FROM product_events WHERE user_id = p_user;
+  -- Las respuestas guardadas para reintentos repiten el pedido entero, dirección incluida.
+  DELETE FROM idempotency_keys WHERE user_id = p_user;
 
   -- Lo que tiene historia se cierra, no se borra.
   UPDATE refresh_sessions SET revoked_at = now() WHERE user_id = p_user AND revoked_at IS NULL;
@@ -90,6 +106,37 @@ BEGIN
          updated_at = now()
    WHERE user_id = p_user AND status = 'active';
   UPDATE group_orders SET status = 'cancelled' WHERE host_id = p_user AND status IN ('open', 'locked');
+  -- El código de referido deja de aceptarse, y una recompensa pendiente no se paga
+  -- a una cuenta que ya no existe.
+  UPDATE referral_codes SET disabled_at = COALESCE(disabled_at, now()) WHERE user_id = p_user;
+  UPDATE referral_attributions SET status = 'rejected', rejection_reason = 'account_deleted'
+   WHERE status = 'pending' AND (advocate_user_id = p_user OR referred_user_id = p_user);
+
+  -- Los pedidos se conservan como comprobantes, pero sin dónde vive la persona.
+  -- El destino es suyo siempre; el origen sólo cuando no es un comercio (viajes y
+  -- envíos salen de su casa). La ubicación queda a una grilla de ~1 km, que
+  -- alcanza para las métricas de zona y no señala una puerta.
+  UPDATE jobs
+     SET dropoff_address = 'Dirección eliminada',
+         dropoff_location = ST_SnapToGrid(dropoff_location::geometry, 0.01)::geography,
+         pickup_address = CASE WHEN merchant_id IS NULL THEN 'Dirección eliminada' ELSE pickup_address END,
+         pickup_location = CASE WHEN merchant_id IS NULL
+                                THEN ST_SnapToGrid(pickup_location::geometry, 0.01)::geography
+                                ELSE pickup_location END,
+         metadata = metadata #- '{deliveryPreferences,instructions}',
+         updated_at = now()
+   WHERE customer_id = p_user;
+  -- Quien recibió un envío es un tercero que la persona cargó: tampoco se conserva.
+  UPDATE shipment_details d
+     SET recipient_name = 'Destinatario eliminado',
+         recipient_phone = '',
+         delivery_notes = NULL
+    FROM jobs j
+   WHERE j.id = d.job_id AND j.customer_id = p_user;
+  UPDATE shipment_delivery_evidence e
+     SET signer_name = 'Firmante eliminado'
+    FROM jobs j
+   WHERE j.id = e.job_id AND j.customer_id = p_user AND e.signer_name IS NOT NULL;
 
   -- La identidad: deja de ser alguien. El correo queda único y no entregable
   -- (`.invalid` está reservado para eso); la contraseña, imposible de igualar.
@@ -109,6 +156,35 @@ END;
 $$;
 
 REVOKE EXECUTE ON FUNCTION app.delete_customer_account(uuid) FROM PUBLIC;
+
+-- **Un pedido no se crea para una cuenta eliminada.** El chequeo de pedidos en
+-- curso de arriba no alcanza solo: un checkout que leyó la cuenta antes del
+-- borrado puede insertar su pedido después. Este disparador toma la fila del
+-- cliente con FOR SHARE, que espera al FOR UPDATE del borrado: o el pedido entra
+-- primero y el borrado lo ve y se niega, o el borrado termina primero y el pedido
+-- encuentra la cuenta eliminada.
+CREATE FUNCTION app.reject_job_for_deleted_customer() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public, pg_catalog, pg_temp AS $$
+BEGIN
+  PERFORM 1 FROM users WHERE id = NEW.customer_id AND status <> 'deleted' FOR SHARE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'FLASH_CUSTOMER_DELETED' USING ERRCODE = 'P0001';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+REVOKE EXECUTE ON FUNCTION app.reject_job_for_deleted_customer() FROM PUBLIC;
+CREATE TRIGGER jobs_reject_deleted_customer
+BEFORE INSERT ON jobs FOR EACH ROW
+EXECUTE FUNCTION app.reject_job_for_deleted_customer();
+
+-- Las funciones con permisos de dueño que ya existían tenían el mismo hueco:
+-- `pg_temp` sin nombrar se busca primero.
+ALTER FUNCTION app.is_group_order_member(uuid) SET search_path = public, pg_catalog, pg_temp;
+ALTER FUNCTION app.can_read_group_order_item(uuid) SET search_path = public, pg_catalog, pg_temp;
+ALTER FUNCTION app.chain_audit_event() SET search_path = pg_catalog, public, app, pg_temp;
+ALTER FUNCTION app.audit_chain_invalid_count() SET search_path = pg_catalog, public, app, pg_temp;
 DO $$ BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'flash_runtime') THEN
     GRANT EXECUTE ON FUNCTION app.delete_customer_account(uuid) TO flash_runtime;

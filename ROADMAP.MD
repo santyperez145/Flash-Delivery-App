@@ -71,6 +71,25 @@ bloqueo de lanzamiento, no de paridad. Ver [`docs/lanzamiento.md`](docs/lanzamie
   contraseña existiera, no que cortara el flujo—. `test:postgres` prueba el 403 con otra
   contraseña, la anonimización, el borrado de direcciones, la revocación de sesiones y
   métodos de pago, la auditoría, que no se puede volver a entrar, y la solicitud del comercio.
+- **Lo que corrigió la revisión del PR:**
+  - **La función tocaba una tabla que no existe.** Usaba `user_security_factors`, que la
+    migración 112 eliminó, y PL/pgSQL no valida los nombres al crear la función. El
+    contrato verifica ahora que cada tabla que usa exista en el esquema migrado.
+  - **`pg_temp` al final del `search_path`.** Si no se lo nombra, PostgreSQL busca las
+    tablas primero en el esquema temporal. La 138 lo corrige también en las cuatro
+    funciones con permisos de dueño que ya existían, y el contrato lo exige en todas.
+  - **Mismo contador que el login.** Confirmar la contraseña para borrar suma al contador
+    de intentos del login. Así, un token robado no sirve para adivinar contraseñas sin
+    límite.
+  - **Ningún pedido para una cuenta borrada.** Un disparador sobre `jobs` toma la fila del
+    cliente con FOR SHARE: o el pedido entra antes y el borrado se niega, o el borrado
+    termina antes y el pedido falla.
+  - **Los comprobantes ya no guardan dónde vive la persona.**
+    - Origen y destino de sus pedidos se redactan, con la ubicación a una grilla de ~1 km.
+    - Se borran las indicaciones de entrega, el destinatario de los envíos y las
+      respuestas guardadas para reintentos.
+  - **Más casos que no se borran:** un reclamo o una devolución abierta, como el saldo.
+  - **Referidos:** el código deja de aceptarse, y las recompensas pendientes no se pagan.
 
 ## Avance 18 de noviembre de 2026 — P-02, preferencias de entrega
 

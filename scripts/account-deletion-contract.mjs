@@ -20,11 +20,14 @@ const ok = (mensaje) => console.log(`ok - ${mensaje}`);
 const leer = (ruta) => fs.readFile(ruta, "utf8");
 
 // --- La base: una función, no permisos de borrado para el runtime ------------
-const migracion = await leer("database/migrations/138_account_deletion.sql");
+// Sin comentarios: una sentencia comentada sigue conteniendo su texto, y el
+// contrato la daría por presente. Así lo encontró la falsificación.
+const sinComentarios = (sql) => sql.replace(/--[^\n]*/g, "");
+const migracion = sinComentarios(await leer("database/migrations/138_account_deletion.sql"));
 assert.ok(
   contains(migracion, "CREATE FUNCTION app.delete_customer_account(p_user uuid) RETURNS void") &&
     contains(migracion, "SECURITY DEFINER") &&
-    contains(migracion, "SET search_path = public, pg_catalog AS $$") &&
+    contains(migracion, "SET search_path = public, pg_catalog, pg_temp AS $$") &&
     contains(
       migracion,
       "REVOKE EXECUTE ON FUNCTION app.delete_customer_account(uuid) FROM PUBLIC;",
@@ -34,10 +37,58 @@ assert.ok(
 for (const guarda of [
   "FLASH_DELETE_ROLE",
   "FLASH_DELETE_ACTIVE_JOB",
+  "FLASH_DELETE_OPEN_CLAIM",
   "FLASH_DELETE_WALLET_BALANCE",
 ])
-  assert.ok(contains(migracion, guarda), `la función no protege ${guarda}`);
-ok("la base borra con una función acotada, que protege roles, pedidos en curso y saldo");
+  assert.ok(contains(migracion, `RAISE EXCEPTION '${guarda}'`), `la función no protege ${guarda}`);
+ok("la base borra con una función acotada, que protege roles, pedidos, reclamos y saldo");
+
+// Un checkout que leyó la cuenta antes del borrado no inserta su pedido después.
+assert.ok(
+  contains(
+    migracion,
+    "PERFORM 1 FROM users WHERE id = NEW.customer_id AND status <> 'deleted' FOR SHARE;",
+  ) &&
+    contains(
+      migracion,
+      "CREATE TRIGGER jobs_reject_deleted_customer BEFORE INSERT ON jobs FOR EACH ROW EXECUTE FUNCTION app.reject_job_for_deleted_customer();",
+    ),
+  "un pedido puede crearse para una cuenta que se está eliminando",
+);
+ok("ningún pedido se crea para una cuenta eliminada, ni en plena carrera con el borrado");
+
+// **Toda** función con permisos de dueño nombra `pg_temp` al final: sin nombrarlo,
+// PostgreSQL busca primero las tablas en el esquema temporal de quien la llama.
+// Se mira el último `search_path` que cada migración le fija a cada función.
+const todasLasMigraciones = (await fs.readdir("database/migrations"))
+  .filter((f) => f.endsWith(".sql"))
+  .sort();
+const rutaVigente = new Map();
+const definer = new Set();
+for (const archivo of todasLasMigraciones) {
+  const sql = sinComentarios(await leer(`database/migrations/${archivo}`));
+  for (const m of sql.matchAll(
+    /CREATE (?:OR REPLACE )?FUNCTION (app\.[a-z_]+)\([^)]*\)[\s\S]*?(?:AS \$\$|\$\$;)/g,
+  )) {
+    if (/SECURITY DEFINER/.test(m[0])) definer.add(m[1]);
+    const ruta = m[0].match(/SET search_path\s*=\s*([^\n]+?)\s+AS \$\$/);
+    if (ruta) rutaVigente.set(m[1], ruta[1]);
+  }
+  for (const m of sql.matchAll(/ALTER FUNCTION (app\.[a-z_]+)\([^)]*\) SECURITY DEFINER;/g))
+    definer.add(m[1]);
+  for (const m of sql.matchAll(
+    /ALTER FUNCTION (app\.[a-z_]+)\([^)]*\) SET search_path\s*=\s*([^;]+);/g,
+  ))
+    rutaVigente.set(m[1], m[2]);
+}
+assert.ok(definer.size >= 6, `se encontraron sólo ${definer.size} funciones con permisos de dueño`);
+for (const funcion of definer)
+  assert.match(
+    rutaVigente.get(funcion) || "",
+    /,\s*pg_temp\s*$/,
+    `${funcion} corre con permisos de dueño sin pg_temp al final del search_path`,
+  );
+ok(`las ${definer.size} funciones con permisos de dueño buscan en pg_temp al final`);
 
 // Cada tabla que toca la función existe en el esquema migrado. PL/pgSQL no valida
 // los nombres al crear la función: una tabla borrada por una migración posterior
@@ -79,14 +130,33 @@ assert.ok(
   // cortar el flujo no protege nada. Así lo encontró la falsificación.
   contains(
     repositorio,
-    'if (!(await bcrypt.compare(String(password || ""), usuario.password_hash))) throw Object.assign(new Error("La contraseña no coincide"), { status: 403 });',
+    'if (!(await bcrypt.compare(String(password || ""), usuario.password_hash))) {' +
+      " await recordPostgresLoginFailure(usuario.email);" +
+      ' throw Object.assign(new Error("La contraseña no coincide"), { status: 403 }); }',
   ) &&
+    // El mismo contador que el login: sin él, un token robado prueba contraseñas
+    // acá sin límite.
+    contains(
+      repositorio,
+      "if (usuario.login_locked_until && new Date(usuario.login_locked_until) > new Date()) throw",
+    ) &&
     contains(ruta, 'router.post("/api/me/delete", requireAuth,') &&
     contains(ruta, 'action: "account.deleted",') &&
     contains(ruta, 'action: "account.deletion_requested",'),
   "el borrado no pide la contraseña, no tiene ruta o no queda auditado",
 );
-ok("el servidor pide la contraseña otra vez y audita borrados y solicitudes");
+ok("el servidor pide la contraseña con el bloqueo del login, y audita borrados y solicitudes");
+
+// Documentada, con sus dos respuestas de éxito: quien integre tiene que saber que
+// un comercio no se borra al instante.
+const openapi = await leer("server/openapi-account.js");
+assert.ok(
+  contains(openapi, '"/api/me/delete": {') &&
+    contains(openapi, "202: success(") &&
+    contains(await leer("server/openapi.js"), "accountPaths({ success, json, errorResponses }),"),
+  "el borrado no está documentado en OpenAPI",
+);
+ok("OpenAPI documenta el borrado con su 200 y su 202");
 
 // --- Ofrecido en cada lugar donde alguien administra su cuenta ---------------
 const superficies = [
