@@ -4465,7 +4465,15 @@ try {
         restosBorrado.sesiones === 0 &&
         restosBorrado.pagos === 0 &&
         restosBorrado.auditoria === 1,
-      "account deletion anonymizes the user, removes personal data, revokes sessions and payment methods, and is audited",
+      // El detalle va en la etiqueta: si falla en CI, dice qué parte sin reproducirlo.
+      `account deletion anonymizes the user, removes personal data, revokes sessions and payment methods, and is audited (${JSON.stringify(
+        {
+          status: borrado.status,
+          body: borrado.body,
+          fila: { ...filaBorrada, email: filaBorrada?.email?.replace(/^[^@]+/, "…") },
+          restos: restosBorrado,
+        },
+      )})`,
     );
     const reingresoBorrado = await request("/auth/login", {
       method: "POST",
