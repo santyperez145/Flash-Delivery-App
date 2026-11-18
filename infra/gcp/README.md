@@ -1,8 +1,8 @@
 # Infraestructura de Flash en GCP
 
 El mapeo de [`docs/despliegue.md`](../../docs/despliegue.md) escrito en Terraform. CI lo
-valida en cada PR (job «Infraestructura (Terraform)» de `ci-fast`), así que el día que exista
-la cuenta, desplegar es seguir estos pasos, no escribir la infraestructura.
+valida en cada PR (job «Infraestructura (Terraform)» de `ci-fast`). El día que exista la
+cuenta, desplegar es seguir estos pasos, no escribir la infraestructura.
 
 **Ninguno de estos pasos se ejecutó todavía:** no hay cuenta de GCP. Cuando se corra cada
 uno, se marca en `docs/despliegue.md` con la fecha.
@@ -11,15 +11,21 @@ uno, se marca en `docs/despliegue.md` con la fecha.
 
 | Recurso | Por qué así |
 | --- | --- |
-| Cloud Run `flash-api` con `min_instance_count = 1`, `cpu_idle = false`, `timeout = 3600s` | Las tres trampas del documento de despliegue: el `LISTEN` del realtime muere si la instancia duerme, y el SSE no tolera cortes cada 5 minutos |
-| Siete workers como servicios Cloud Run, una instancia cada uno, sin ingreso externo | Corren en bucle; el despacho y las colas no se reparten entre réplicas |
-| Cloud Run Job de conciliación + Cloud Scheduler a las 4 h | El planificador es del entorno, no un `setInterval` dentro del proceso |
-| Cloud SQL PostgreSQL 17, HA regional, PITR 7 días, protección contra borrado | RPO de 15 minutos; conexión directa por el conector, nunca un pooler en modo transacción |
+| Cloud Run `flash-api`: 1 instancia mínima, CPU siempre, 3600 s de timeout | El `LISTEN` del realtime muere si la instancia duerme; el SSE no tolera cortes cada 5 min |
+| Liveness de la API sobre `/api/ready` | Cloud Run no saca instancias del tráfico: con el realtime caído, reiniciar es lo único |
+| Cinco workers en bucle como servicios, una instancia cada uno, sin ingreso externo | El despacho y las colas no se reparten entre réplicas |
+| Endpoint de salud de cada worker según el latido de su bucle | Cloud Run exige un puerto; un worker trabado contesta 503 y se reinicia |
+| Tres Cloud Run Jobs con Cloud Scheduler | Conciliación a las 4 h, webhooks de Mercado Pago cada minuto, OAuth cada 15 min |
+| Cloud SQL PostgreSQL 17 Enterprise, HA regional, PITR 7 días, protección contra borrado | RPO de 15 minutos; conexión directa por el conector, nunca un pooler |
 | Memorystore Redis 7.2 HA en red privada | `REDIS_REQUIRED` bloquea el arranque sin él |
-| 25 secretos en Secret Manager, **vacíos** | El valor se carga aparte: nunca queda en el estado de Terraform ni en el panel |
+| 25 secretos en Secret Manager, creados **vacíos** | El valor nunca queda en el estado de Terraform ni en el panel |
 | Cuenta de servicio `flash-runtime` con lo mínimo | Cliente de Cloud SQL, lectura de cada secreto, trazas, métricas y logs |
 
 ## Pasos, en orden
+
+El despliegue va en **dos aplicaciones**. Cloud Run lee los secretos al crear cada
+revisión, y `/api/ready` exige la base migrada. Si los servicios se crearan junto con los
+secretos vacíos, la primera aplicación fallaría.
 
 1. **Proyecto y facturación** (dueño). Anotar el `project_id`.
 2. **Bucket del estado**, una sola vez:
@@ -32,40 +38,56 @@ uno, se marca en `docs/despliegue.md` con la fecha.
 
        terraform init -backend-config="bucket=<project_id>-tfstate" -backend-config="prefix=flash"
 
-4. **Primera aplicación**, con un archivo `produccion.tfvars` que **no** se versiona:
+4. **Primera aplicación: la base, la red, Redis, el registro de imágenes y los secretos
+   vacíos.** Se usa un archivo `produccion.tfvars`, que **no** se versiona:
 
-       project_id      = "<project_id>"
-       image           = "southamerica-east1-docker.pkg.dev/<project_id>/flash/api@sha256:<digest>"
-       app_public_url  = "https://<dominio de la web>"
-       api_public_url  = "https://api.<dominio>"
-       cors_origins    = "https://<dominio de la web>,https://negocios.<dominio>"
-       web_map_origins = "https://maps.googleapis.com"
-       smtp_from       = "Flash <no-responder@<dominio>>"
+       project_id        = "<project_id>"
+       app_public_url    = "https://<dominio de la web>"
+       api_public_url    = "https://api.<dominio>"
+       cors_origins      = "https://<dominio de la web>,https://negocios.<dominio>"
+       web_map_origins   = "https://maps.googleapis.com"
+       smtp_from         = "Flash <no-responder@<dominio>>"
+       legal_terms_url   = "https://<dominio>/terminos"
+       legal_privacy_url = "https://<dominio>/privacidad"
 
        terraform apply -var-file=produccion.tfvars
 
-   La primera vez la imagen todavía no existe: se aplica primero con
-   `-target=google_artifact_registry_repository.flash`, CI publica la imagen y después se
-   aplica todo.
+   Con `deploy_services` en `false` (el valor por defecto) no se crea ningún servicio.
 
-5. **Cargar los secretos.** `terraform output secretos_a_cargar` los lista. Cada uno:
+5. **Cargar los secretos.** `terraform output secretos_a_cargar` los lista. Cada uno se
+   carga así:
 
        printf '%s' "<valor>" | gcloud secrets versions add <NOMBRE> --data-file=-
 
-   `DATABASE_URL` usa el socket del conector:
-   `postgresql://flash_runtime:<clave>@/flash?host=/cloudsql/<cloudsql_connection_name>`.
-   Las claves de cifrado son 32 bytes aleatorios en base64 (`openssl rand -base64 32`).
+   - `DATABASE_URL` usa el socket del conector, con `localhost` como host: sin un host, la
+     URL es inválida y `server/config.js` la rechaza:
+     `postgresql://flash_runtime:<clave>@localhost/flash?host=/cloudsql/<cloudsql_connection_name>`.
+   - Las claves de cifrado son 32 bytes aleatorios en base64 (`openssl rand -base64 32`).
+6. **Base:**
+   - crear los tres roles (`flash_app`, `flash_runtime`, `flash_rls_audit`) con
+     `database/docker-init/`;
+   - habilitar PostGIS;
+   - correr las migraciones con `flash_app`.
 
-6. **Base:** crear los tres roles (`flash_app`, `flash_runtime`, `flash_rls_audit`) con
-   `database/docker-init/`, habilitar PostGIS y correr las migraciones con `flash_app`.
    Nunca correr los seeds de desarrollo en producción.
-7. **Verificar** lo que el documento de despliegue exige: `/api/ready` en verde con
-   `realtime.listening` en `true`, y que **un pedido pagado reciba una oferta de despacho
-   sin que nadie toque nada**: es la prueba de que los workers corren, no de que existen.
-8. **Restore drill** cronometrado contra el RTO de 60 minutos.
+7. **Imagen:** CI la publica en `terraform output artifact_registry`. Se anota su digest.
+8. **Segunda aplicación: los servicios.** Se agregan al archivo:
+
+       image           = "southamerica-east1-docker.pkg.dev/<project_id>/flash/api@sha256:<digest>"
+       deploy_services = true
+
+   y se aplica de nuevo. La API rechaza una imagen sin digest.
+9. **Verificar** lo que exige el documento de despliegue:
+   - `/api/ready` en verde, con `realtime.listening` en `true`;
+   - que **un pedido pagado reciba una oferta de despacho sin que nadie toque nada**: es la
+     prueba de que los workers corren, no solo de que existen;
+   - que cada job haya corrido una vez sin fallar (`gcloud run jobs executions list`).
+10. **Restore drill** cronometrado contra el RTO de 60 minutos.
 
 ## Lo que falta y es del dueño
 
-Dominio y su mapeo a Cloud Run, colector de trazas (`OTEL_ENABLED` arranca en `false`
-hasta que exista), y todas las credenciales de terceros de
-[`docs/lanzamiento.md`](../../docs/lanzamiento.md).
+- El dominio y su mapeo a Cloud Run.
+- Los documentos legales: las URLs son obligatorias, porque producción no arranca sin
+  ellas.
+- El colector de trazas: `OTEL_ENABLED` arranca en `false` hasta que exista.
+- Todas las credenciales de terceros de [`docs/lanzamiento.md`](../../docs/lanzamiento.md).

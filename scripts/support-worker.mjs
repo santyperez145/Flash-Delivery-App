@@ -1,6 +1,8 @@
 import { processSupportQueue } from "../server/operations-repository.js";
 import { closePostgres } from "../server/postgres.js";
+import { startWorkerHealth } from "./worker-health.mjs";
 
+const salud = startWorkerHealth({ name: "support" });
 let stopping = false;
 process.on("SIGINT", () => {
   stopping = true;
@@ -10,6 +12,7 @@ process.on("SIGTERM", () => {
 });
 
 do {
+  salud.beat();
   const result = await processSupportQueue({
     limit: Number(process.env.SUPPORT_WORKER_BATCH || 50),
   });
@@ -28,4 +31,5 @@ do {
   );
 } while (!stopping);
 
+await salud.close();
 await closePostgres();

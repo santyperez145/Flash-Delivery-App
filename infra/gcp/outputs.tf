@@ -1,10 +1,10 @@
 output "api_url" {
   description = "URL de la API en Cloud Run. Va detrás del dominio propio una vez mapeado."
-  value       = google_cloud_run_v2_service.api.uri
+  value       = one(google_cloud_run_v2_service.api[*].uri)
 }
 
 output "cloudsql_connection_name" {
-  description = "Para armar DATABASE_URL: postgresql://flash_runtime:CLAVE@/flash?host=/cloudsql/<este valor>"
+  description = "Para armar DATABASE_URL: postgresql://flash_runtime:CLAVE@localhost/flash?host=/cloudsql/<este valor>"
   value       = google_sql_database_instance.flash.connection_name
 }
 

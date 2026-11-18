@@ -1,4 +1,4 @@
-# Cloud Run: la API, los workers y el job de conciliación.
+# Cloud Run: la API, los workers y los lotes programados.
 #
 # Las tres trampas de docs/despliegue.md están acá, en código:
 #   1. `min_instance_count = 1` y `cpu_idle = false`: el `LISTEN flash_realtime`
@@ -8,12 +8,20 @@
 #      pooler en modo transacción: `LISTEN/NOTIFY` no sobrevive a uno.
 #   3. `timeout = "3600s"`: el SSE es de larga duración y cortarlo a los cinco
 #      minutos reconecta a todos los clientes sin necesidad.
+#
+# **Todo lo de este archivo espera a `deploy_services = true`.** Cloud Run lee los
+# secretos al crear la revisión, y la base tiene que tener roles y migraciones
+# para que `/api/ready` dé verde: la primera aplicación crea la base, la red y los
+# secretos vacíos; se cargan los secretos y se migra; recién la segunda despliega.
 
 locals {
   conector_sql = google_sql_database_instance.flash.connection_name
+  # El worker escucha acá sólo para la plataforma: ver scripts/worker-health.mjs.
+  puerto_salud_worker = 8080
 }
 
 resource "google_cloud_run_v2_service" "api" {
+  count    = var.deploy_services ? 1 : 0
   name     = "flash-api"
   location = var.region
   ingress  = "INGRESS_TRAFFIC_ALL"
@@ -79,8 +87,8 @@ resource "google_cloud_run_v2_service" "api" {
         }
       }
 
-      # `/api/ready` saca la instancia del balanceador si el escucha del
-      # realtime no se suscribe: la trampa 1, convertida en falla ruidosa.
+      # `/api/ready` falla si el escucha del realtime no se suscribe: la trampa 1,
+      # convertida en falla ruidosa.
       startup_probe {
         http_get {
           path = "/api/ready"
@@ -88,12 +96,25 @@ resource "google_cloud_run_v2_service" "api" {
         period_seconds    = 10
         failure_threshold = 6
       }
+      # Cloud Run no tiene probe de readiness que saque una instancia del tráfico:
+      # el startup probe deja de correr cuando pasa. Por eso el liveness mira
+      # `/api/ready` y no `/api/health`. Una instancia con el realtime caído se
+      # reinicia en lugar de seguir aceptando clientes que no reciben nada. Dos
+      # minutos de tolerancia, para no reiniciar por un parpadeo de la base.
       liveness_probe {
         http_get {
-          path = "/api/health"
+          path = "/api/ready"
         }
-        period_seconds = 30
+        period_seconds    = 30
+        failure_threshold = 4
       }
+    }
+  }
+
+  lifecycle {
+    precondition {
+      condition     = can(regex("@sha256:[0-9a-f]{64}$", var.image))
+      error_message = "image tiene que ser la imagen que publicó CI, fijada por digest (…@sha256:<digest>)."
     }
   }
 
@@ -102,14 +123,16 @@ resource "google_cloud_run_v2_service" "api" {
 
 # La API es pública: la protegen la autenticación de la app y los límites de tasa.
 resource "google_cloud_run_v2_service_iam_member" "api_publica" {
-  name     = google_cloud_run_v2_service.api.name
+  count    = var.deploy_services ? 1 : 0
+  name     = google_cloud_run_v2_service.api[0].name
   location = var.region
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
 
+# --- Workers en bucle: servicios con una instancia siempre viva --------------
 resource "google_cloud_run_v2_service" "worker" {
-  for_each = local.workers
+  for_each = var.deploy_services ? local.workers : {}
   name     = "flash-worker-${each.key}"
   location = var.region
   # Los workers no reciben tráfico: nadie de afuera puede invocarlos.
@@ -143,6 +166,12 @@ resource "google_cloud_run_v2_service" "worker" {
       image   = var.image
       command = ["node", each.value]
 
+      # Cloud Run exige un puerto que escuche. El worker contesta según el latido
+      # de su bucle, no un 200 fijo: si se traba, el liveness lo reinicia.
+      ports {
+        container_port = local.puerto_salud_worker
+      }
+
       resources {
         cpu_idle = false
         limits = {
@@ -154,6 +183,11 @@ resource "google_cloud_run_v2_service" "worker" {
       volume_mounts {
         name       = "cloudsql"
         mount_path = "/cloudsql"
+      }
+
+      env {
+        name  = "WORKER_HEALTH_PORT"
+        value = tostring(local.puerto_salud_worker)
       }
 
       dynamic "env" {
@@ -176,22 +210,38 @@ resource "google_cloud_run_v2_service" "worker" {
           }
         }
       }
+
+      startup_probe {
+        http_get {
+          path = "/"
+        }
+        period_seconds    = 10
+        failure_threshold = 6
+      }
+      liveness_probe {
+        http_get {
+          path = "/"
+        }
+        period_seconds    = 60
+        failure_threshold = 3
+      }
     }
   }
 
   depends_on = [google_secret_manager_secret_iam_member.runtime]
 }
 
-# --- Conciliación de pagos: un job, disparado por el planificador -------------
-resource "google_cloud_run_v2_job" "conciliacion" {
-  name     = "flash-job-payment-reconciliation"
+# --- Lotes: procesan una tanda y terminan; los dispara el planificador --------
+resource "google_cloud_run_v2_job" "lote" {
+  for_each = var.deploy_services ? local.lotes : {}
+  name     = "flash-job-${each.key}"
   location = var.region
 
   template {
     template {
       service_account = google_service_account.runtime.email
-      timeout         = "1800s"
-      max_retries     = 2
+      timeout         = each.value.timeout
+      max_retries     = each.value.max_retries
 
       volumes {
         name = "cloudsql"
@@ -202,7 +252,7 @@ resource "google_cloud_run_v2_job" "conciliacion" {
 
       containers {
         image   = var.image
-        command = ["node", "scripts/job-payment-reconciliation.mjs"]
+        command = ["node", each.value.script]
 
         volume_mounts {
           name       = "cloudsql"
@@ -242,23 +292,25 @@ resource "google_service_account" "planificador" {
 }
 
 resource "google_cloud_run_v2_job_iam_member" "planificador" {
-  name     = google_cloud_run_v2_job.conciliacion.name
+  for_each = google_cloud_run_v2_job.lote
+  name     = each.value.name
   location = var.region
   role     = "roles/run.invoker"
   member   = "serviceAccount:${google_service_account.planificador.email}"
 }
 
-# Todos los días a las 4 de la mañana de Buenos Aires: después del corte del
-# proveedor y antes de que operaciones empiece el día.
-resource "google_cloud_scheduler_job" "conciliacion" {
-  name      = "flash-payment-reconciliation"
+# El horario es de Buenos Aires: la conciliación corre a las 4, después del corte
+# del proveedor y antes de que operaciones empiece el día.
+resource "google_cloud_scheduler_job" "lote" {
+  for_each  = google_cloud_run_v2_job.lote
+  name      = "flash-${each.key}"
   region    = var.region
-  schedule  = "0 4 * * *"
+  schedule  = local.lotes[each.key].schedule
   time_zone = "America/Argentina/Buenos_Aires"
 
   http_target {
     http_method = "POST"
-    uri         = "https://run.googleapis.com/v2/projects/${var.project_id}/locations/${var.region}/jobs/${google_cloud_run_v2_job.conciliacion.name}:run"
+    uri         = "https://run.googleapis.com/v2/projects/${var.project_id}/locations/${var.region}/jobs/${each.value.name}:run"
     oauth_token {
       service_account_email = google_service_account.planificador.email
     }

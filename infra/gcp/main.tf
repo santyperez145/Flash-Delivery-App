@@ -33,23 +33,51 @@ locals {
     "TWILIO_VERIFY_SERVICE_SID",
   ])
 
-  # Los workers corren en bucle (`scripts/*-worker.mjs`): son servicios con una
-  # instancia siempre viva, no funciones que despiertan con una petición.
+  # Los workers que corren en bucle: servicios con una instancia siempre viva,
+  # que escuchan sólo para informar su latido (scripts/worker-health.mjs).
   workers = {
     dispatch      = "scripts/dispatch-worker.mjs"
     notifications = "scripts/notification-worker.mjs"
     push-receipts = "scripts/push-receipt-worker.mjs"
     pricing       = "scripts/pricing-worker.mjs"
-    mercadopago   = "scripts/mercadopago-webhook-worker.mjs"
-    payment-oauth = "scripts/payment-oauth-refresh-worker.mjs"
     support       = "scripts/support-worker.mjs"
   }
 
+  # Los que procesan una tanda y terminan no son servicios: como servicio, Cloud
+  # Run los reiniciaría al salir, y el ritmo dependería de eso. Son jobs, y el
+  # planificador fija cuándo corren. Si un webhook o una conexión no se pudo
+  # procesar, el script sale con código 2 y la ejecución queda fallida, a la vista.
+  lotes = {
+    payment-reconciliation = {
+      script      = "scripts/job-payment-reconciliation.mjs"
+      schedule    = "0 4 * * *"
+      timeout     = "1800s"
+      max_retries = 2
+    }
+    # Cada minuto: la API sólo encola el aviso de Mercado Pago, así que es la
+    # demora máxima hasta que el pago se refleja. Es el mínimo de Cloud Scheduler.
+    mercadopago-webhooks = {
+      script      = "scripts/mercadopago-webhook-worker.mjs"
+      schedule    = "* * * * *"
+      timeout     = "300s"
+      max_retries = 0
+    }
+    payment-oauth-refresh = {
+      script      = "scripts/payment-oauth-refresh-worker.mjs"
+      schedule    = "*/15 * * * *"
+      timeout     = "600s"
+      max_retries = 0
+    }
+  }
+
   env_publico = merge(var.plain_env, {
-    APP_PUBLIC_URL  = var.app_public_url
-    CORS_ORIGIN     = var.cors_origins
-    WEB_MAP_ORIGINS = var.web_map_origins
-    SMTP_FROM       = var.smtp_from
+    APP_PUBLIC_URL = var.app_public_url
+    # Las tiendas exigen la política de privacidad pública (LAN-002).
+    LEGAL_TERMS_URL   = var.legal_terms_url
+    LEGAL_PRIVACY_URL = var.legal_privacy_url
+    CORS_ORIGIN       = var.cors_origins
+    WEB_MAP_ORIGINS   = var.web_map_origins
+    SMTP_FROM         = var.smtp_from
     # Cloud Run entrega el tráfico en la interfaz del contenedor, no en loopback.
     HOST = "0.0.0.0"
     # Mercado Pago vuelve a la API después de vincular la cuenta del comercio.
@@ -105,6 +133,9 @@ resource "google_sql_database_instance" "flash" {
   deletion_protection = true
 
   settings {
+    # Explícita: PostgreSQL 16+ toma Enterprise Plus por defecto, y los tamaños
+    # `db-custom-*` sólo existen en Enterprise.
+    edition           = "ENTERPRISE"
     tier              = var.database_tier
     availability_type = "REGIONAL"
     disk_autoresize   = true

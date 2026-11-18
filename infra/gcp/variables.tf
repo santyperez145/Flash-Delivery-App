@@ -10,8 +10,33 @@ variable "region" {
 }
 
 variable "image" {
-  description = "Imagen de la API en Artifact Registry, con su digest. La construye y verifica CI; nunca una build local."
+  description = "Imagen de la API en Artifact Registry, con su digest. La construye y verifica CI; nunca una build local. Hace falta recién con deploy_services."
   type        = string
+  default     = ""
+}
+
+variable "deploy_services" {
+  description = "Despliega la API, los workers y los lotes. La primera aplicación va en false: Cloud Run lee los secretos al crear la revisión, y todavía están vacíos."
+  type        = bool
+  default     = false
+}
+
+variable "legal_terms_url" {
+  description = "URL pública de los términos y condiciones (LEGAL_TERMS_URL). La redacta el dueño con asesoría."
+  type        = string
+  validation {
+    condition     = startswith(var.legal_terms_url, "https://")
+    error_message = "legal_terms_url tiene que ser HTTPS: el servidor no arranca en producción sin eso."
+  }
+}
+
+variable "legal_privacy_url" {
+  description = "URL pública de la política de privacidad (LEGAL_PRIVACY_URL). Las tiendas la exigen."
+  type        = string
+  validation {
+    condition     = startswith(var.legal_privacy_url, "https://")
+    error_message = "legal_privacy_url tiene que ser HTTPS: el servidor no arranca en producción sin eso."
+  }
 }
 
 variable "app_public_url" {
