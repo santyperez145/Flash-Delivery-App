@@ -10,6 +10,7 @@
 import crypto from "node:crypto";
 
 import { decryptDeliveryProof, encryptDeliveryProof } from "./delivery-proof-envelope.js";
+import { matchesImageMime } from "./mobility-repository.js";
 import { postgresPool } from "./postgres.js";
 
 const pedido = (client, publicId) =>
@@ -31,6 +32,17 @@ export async function addPostgresOrderDeliveryPhoto({
   const content = Buffer.from(contentBase64, "base64");
   if (!content.length || content.length > 1500000)
     throw Object.assign(new Error("La foto tiene que pesar menos de 1,5 MB"), { status: 400 });
+  // Como la evidencia de los envíos: base64 válido y una imagen de verdad. Sin esto,
+  // cualquier byte cumpliría el requisito de la foto.
+  if (
+    content.toString("base64").replace(/=+$/, "") !==
+    contentBase64.replace(/\s/g, "").replace(/=+$/g, "")
+  )
+    throw Object.assign(new Error("Contenido base64 inválido"), { status: 400 });
+  if (!matchesImageMime(content, mimeType))
+    throw Object.assign(new Error("El contenido no es una imagen del tipo declarado"), {
+      status: 400,
+    });
   const client = await postgresPool.connect();
   try {
     await client.query("BEGIN");

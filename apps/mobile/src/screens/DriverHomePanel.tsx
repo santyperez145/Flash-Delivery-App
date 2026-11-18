@@ -387,23 +387,25 @@ export function DriverHomePanel(props: {
           order.status === "delivering" &&
           order.fulfillment !== "pickup" &&
           order.deliveryPreferences?.dropoff === "leave_at_door";
+        // La foto ya subida cuenta aunque la app se haya reiniciado: lo dice el servidor.
+        const fotoLista = Boolean(deliveryEvidenceReady[order.id] || order.deliveryPhoto);
         return (
           <View key={order.id} style={styles.stack}>
             {fotoEnPuerta && (
               <View style={styles.deliveryProofCard}>
                 <View style={styles.deliveryProofIcon}>
                   <Ionicons
-                    name={deliveryEvidenceReady[order.id] ? "shield-checkmark" : "camera"}
+                    name={fotoLista ? "shield-checkmark" : "camera"}
                     size={22}
                     color="#fff"
                   />
                 </View>
                 <View style={styles.itemCopy}>
                   <Text style={styles.sectionTitle}>
-                    {deliveryEvidenceReady[order.id] ? "Foto protegida" : "Foto en la puerta"}
+                    {fotoLista ? "Foto protegida" : "Foto en la puerta"}
                   </Text>
                   <Text style={styles.cardText}>
-                    {deliveryEvidenceReady[order.id]
+                    {fotoLista
                       ? "Ya podés marcarlo entregado."
                       : "El cliente pidió que lo dejes en la puerta: sacá una foto antes de cerrarlo."}
                   </Text>
@@ -420,7 +422,7 @@ export function DriverHomePanel(props: {
                   <Text style={styles.primaryButtonText}>
                     {deliveryEvidenceUploading === order.id
                       ? "Guardando…"
-                      : deliveryEvidenceReady[order.id]
+                      : fotoLista
                         ? "Repetir"
                         : "Tomar foto"}
                   </Text>
@@ -429,7 +431,7 @@ export function DriverHomePanel(props: {
             )}
             <OrderCard
               order={order}
-              disabled={busy || (fotoEnPuerta && !deliveryEvidenceReady[order.id])}
+              disabled={busy || (fotoEnPuerta && !fotoLista)}
               onPress={() => runAction(() => api.advanceOrder(order.id), "Delivery avanzado")}
               preferencias="reparto"
             />

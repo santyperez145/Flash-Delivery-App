@@ -107,11 +107,9 @@ export function OrderTrackingSheet({
         </Text>
         <CustomerTrackingProgress labels={labels} current={current} activeColor="#ff6a21" />
         {/* P-02b: dejado en la puerta, el pedido se cerró con foto. */}
-        {order.status === "delivered" &&
-          !retiro &&
-          order.deliveryPreferences?.dropoff === "leave_at_door" && (
-            <OrderDeliveryPhoto orderId={order.id} />
-          )}
+        {order.status === "delivered" && order.deliveryPhoto && (
+          <OrderDeliveryPhoto orderId={order.id} />
+        )}
       </View>
       <Pressable
         style={styles.orderConfirmationAction}

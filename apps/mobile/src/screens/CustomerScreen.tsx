@@ -543,6 +543,7 @@ export function CustomerScreen({
         kind: "order" as const,
         label: `Pedido ${order.id}`,
         amount: order.total,
+        deliveryPhoto: order.deliveryPhoto,
       })),
     ...activityRides
       .filter((ride) => ride.customerId === user.id && ride.status === "completed" && ride.driverId)

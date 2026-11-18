@@ -213,13 +213,34 @@ const panelRepartidor = await leer("apps/mobile/src/screens/DriverHomePanel.tsx"
 assert.ok(
   contains(
     panelRepartidor,
-    "disabled={busy || (fotoEnPuerta && !deliveryEvidenceReady[order.id])}",
+    "const fotoLista = Boolean(deliveryEvidenceReady[order.id] || order.deliveryPhoto);",
   ) &&
+    contains(panelRepartidor, "disabled={busy || (fotoEnPuerta && !fotoLista)}") &&
     contains(panelRepartidor, 'onPress={() => void captureDeliveryEvidence(order.id, "order")}') &&
     contains(
       await leer("apps/mobile/src/screens/CustomerTrackingSheets.tsx"),
       "<OrderDeliveryPhoto orderId={order.id} />",
+    ) &&
+    // También desde el historial: es lo que se mira ante un reclamo.
+    contains(
+      await leer("apps/mobile/src/screens/CustomerActivityScreen.tsx"),
+      "{service.deliveryPhoto && <OrderDeliveryPhoto orderId={service.id} />}",
     ),
   "la app no pide la foto antes de cerrar, o el cliente no la puede ver",
+);
+// Sólo una imagen de verdad cumple el requisito; el pedido dice si ya tiene foto
+// (así un reinicio de la app no obliga a sacarla de nuevo), y la web también la saca.
+assert.ok(
+  contains(repoFoto, "if (!matchesImageMime(content, mimeType))") &&
+    contains(
+      await leer("server/order-repository.js"),
+      "deliveryPhoto: Boolean(row.has_delivery_photo),",
+    ) &&
+    contains(
+      await leer("src/operations/OperationsSurface.tsx"),
+      "busy={busy || faltaFotoEnPuerta(order)}",
+    ) &&
+    contains(await leer("src/operations/DoorPhoto.tsx"), 'capture="environment"'),
+  "la foto acepta cualquier byte, se pierde al reiniciar la app o la web no la puede sacar",
 );
 ok("dejado en la puerta se cierra con foto cifrada, que ve quien pidió");

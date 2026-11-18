@@ -126,6 +126,8 @@ function rowsToOrders(rows) {
         // Completas: quién ve qué lo recorta cada camino de lectura con
         // `delivery-preferences.js` (comercio, repartidor sin asignar).
         deliveryPreferences: preferenciasDesdeMetadata(metadata),
+        // P-02b: si ya tiene foto de entrega. Sólo el dato, no la imagen.
+        deliveryPhoto: Boolean(row.has_delivery_photo),
         total: pesos(row.final_amount_cents ?? row.quoted_amount_cents),
         etaMin: Number(metadata.etaMin ?? Math.round(row.estimated_duration_s / 60)),
         createdAt: new Date(row.created_at).toISOString(),
@@ -157,6 +159,7 @@ export async function getPostgresOrders({ publicIds = null } = {}) {
       ST_Y(j.dropoff_location::geometry) dropoff_lat,ST_X(j.dropoff_location::geometry) dropoff_lng,
       merchant.public_id AS merchant_public_id, branch.public_id AS branch_public_id,
       driver.public_id AS driver_public_id,
+      EXISTS(SELECT 1 FROM shipment_delivery_evidence e WHERE e.job_id=j.id AND e.evidence_type='photo') AS has_delivery_photo,
       ji.id AS item_id, ji.name AS item_name, ji.quantity, ji.unit_price_cents,
       ji.customer_note, ji.metadata AS item_metadata, catalog.public_id AS catalog_public_id,
       (SELECT jsonb_build_object('id',c.public_id,'reason',c.reason_code,'refundAmount',c.refund_amount_cents/100.0,'fee',c.cancellation_fee_cents/100.0,'createdAt',c.created_at) FROM job_cancellations c WHERE c.job_id=j.id) cancellation,

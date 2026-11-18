@@ -19,12 +19,15 @@ import type {
   ShipmentClaim,
   ShipmentReturn,
 } from "../types";
+import { OrderDeliveryPhoto } from "../OrderDeliveryPhoto";
 
 type CompletedService = {
   id: string;
   kind: "order" | "ride" | "shipment";
   label: string;
   amount: number;
+  /** P-02b: el pedido se cerró con foto en la puerta. */
+  deliveryPhoto?: boolean;
 };
 
 type RecentCancellation = ServiceCancellation & { label: string };
@@ -463,6 +466,8 @@ function CompletedServiceCard({
       )}
       {service.kind === "order" && (
         <>
+          {/* La foto de la entrega, también después: es lo que se mira ante un reclamo. */}
+          {service.deliveryPhoto && <OrderDeliveryPhoto orderId={service.id} />}
           <Pressable style={styles.reorderButton} disabled={busy} onPress={reorder}>
             <Ionicons name="refresh-outline" size={18} color="#fff" />
             <Text style={styles.reorderButtonText}>Pedir de nuevo</Text>

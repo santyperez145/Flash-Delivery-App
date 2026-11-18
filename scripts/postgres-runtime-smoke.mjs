@@ -2545,7 +2545,8 @@ try {
     method: "POST",
     body: "{}",
   });
-  const bytesFoto = crypto.randomBytes(256);
+  // Cabecera JPEG real: el servidor rechaza lo que no es una imagen.
+  const bytesFoto = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), crypto.randomBytes(252)]);
   const fotoSubida = await request(`/orders/${settlementOrderId}/delivery-photo`, {
     method: "POST",
     body: JSON.stringify({ mimeType: "image/jpeg", contentBase64: bytesFoto.toString("base64") }),

@@ -44,6 +44,7 @@ import type {
   Ride,
   User,
 } from "../types";
+import { DoorPhoto, faltaFotoEnPuerta } from "./DoorPhoto";
 
 /**
  * El subtítulo de una oferta de dispatch: distancia, duración, tasa de
@@ -434,15 +435,18 @@ export function DriverApp({
       <SectionTitle title="Activos" action={money.format(driver.earningsToday)} />
       <div className="activity-stack">
         {activeOrders.map((order) => (
-          <OrderOpsCard
-            key={order.id}
-            order={order}
-            restaurant={state.restaurants.find((entry) => entry.id === order.restaurantId)}
-            driver={driver}
-            onAdvance={() => runAction(() => api.advanceOrder(order.id), "Delivery avanzado")}
-            busy={busy}
-            preferencias="reparto"
-          />
+          <div key={order.id}>
+            {/* P-02b: dejado en la puerta, el cierre espera la foto. */}
+            <DoorPhoto order={order} busy={busy} runAction={runAction} />
+            <OrderOpsCard
+              order={order}
+              restaurant={state.restaurants.find((entry) => entry.id === order.restaurantId)}
+              driver={driver}
+              onAdvance={() => runAction(() => api.advanceOrder(order.id), "Delivery avanzado")}
+              busy={busy || faltaFotoEnPuerta(order)}
+              preferencias="reparto"
+            />
+          </div>
         ))}
         {activeRides.map((ride) => (
           <RideOpsCard
