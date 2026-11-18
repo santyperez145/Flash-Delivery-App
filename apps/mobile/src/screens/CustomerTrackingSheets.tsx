@@ -29,39 +29,50 @@ export function OrderTrackingSheet({
   onClose: () => void;
 }) {
   const { route, routeError, hasMap } = useTrackingRoute({
-    resourceId: order?.id,
+    // Un retiro no tiene reparto: no hay ruta que pedir.
+    resourceId: order?.fulfillment === "pickup" ? undefined : order?.id,
     origin: order?.pickupLocation,
     destination: order?.deliveryLocation,
     errorMessage: "No pudimos cargar la ruta; el estado del pedido sigue actualizado.",
   });
   if (!order) return null;
-  const stages = [
-      "accepted",
-      "preparing",
-      "ready_for_pickup",
-      "courier_assigned",
-      "picked_up",
-      "delivering",
-      "delivered",
-    ],
+  // Retiro en el local (P-11): sus etapas terminan en el mostrador, sin repartidor.
+  const retiro = order.fulfillment === "pickup";
+  const stages = retiro
+      ? ["accepted", "preparing", "ready_for_pickup", "delivered"]
+      : [
+          "accepted",
+          "preparing",
+          "ready_for_pickup",
+          "courier_assigned",
+          "picked_up",
+          "delivering",
+          "delivered",
+        ],
     current = Math.max(0, stages.indexOf(order.status)),
-    labels = [
-      "Confirmado",
-      "Preparando",
-      "Listo",
-      "Repartidor asignado",
-      "Retirado",
-      "En camino",
-      "Entregado",
-    ];
+    labels = retiro
+      ? ["Confirmado", "Preparando", "Listo para retirar", "Retirado"]
+      : [
+          "Confirmado",
+          "Preparando",
+          "Listo",
+          "Repartidor asignado",
+          "Retirado",
+          "En camino",
+          "Entregado",
+        ];
   return (
     <MobileTaskSheet
-      eyebrow="Seguimiento en vivo"
+      eyebrow={retiro ? "Retiro en el local" : "Seguimiento en vivo"}
       title={`Pedido ${order.id}`}
       accessibilityLabel="Seguimiento del pedido"
       onClose={onClose}
     >
-      {hasMap ? (
+      {retiro ? (
+        <Text style={styles.cardText}>
+          Retirás en {order.deliveryAddress} · mostrá el número de pedido
+        </Text>
+      ) : hasMap ? (
         <FlashNativeMap
           origin={order.pickupLocation!}
           destination={order.deliveryLocation!}
@@ -88,7 +99,9 @@ export function OrderTrackingSheet({
         <Text style={styles.foodRestaurantTitle}>{labels[current]}</Text>
         <Text style={styles.cardText}>
           {order.status === "delivered"
-            ? "Tu pedido fue entregado."
+            ? retiro
+              ? "Retiraste tu pedido."
+              : "Tu pedido fue entregado."
             : `ETA publicada: ${order.etaMin} min`}
         </Text>
         <CustomerTrackingProgress labels={labels} current={current} activeColor="#ff6a21" />

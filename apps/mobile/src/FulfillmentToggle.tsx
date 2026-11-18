@@ -19,11 +19,12 @@ export type Fulfillment = "delivery" | "pickup";
  * lo haga. Su id viaja al cotizar, así la que se muestra es la que cotiza.
  */
 export function sucursalConRetiro(restaurant?: Restaurant | null) {
-  return (
-    restaurant?.branches?.find((branch) => branch.isPrimary && branch.pickupEnabled) ||
-    restaurant?.branches?.find((branch) => branch.pickupEnabled) ||
-    null
+  // Sólo una sucursal que hoy puede atender: el servidor cotiza el retiro únicamente
+  // en una activa, abierta y dentro de su horario (`branch.open` ya lo resume).
+  const disponibles = (restaurant?.branches || []).filter(
+    (branch) => branch.pickupEnabled && branch.status === "active" && branch.open,
   );
+  return disponibles.find((branch) => branch.isPrimary) || disponibles[0] || null;
 }
 
 export function FulfillmentToggle({

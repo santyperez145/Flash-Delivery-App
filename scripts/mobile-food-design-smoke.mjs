@@ -84,7 +84,7 @@ assert(
 );
 assert(
   contains(foodCheckout, "servidor vuelve a validar stock") &&
-    contains(foodCheckout, "quote.total + tipCents / 100"),
+    contains(foodCheckout, "quote.total + propina / 100"),
   "checkout must disclose server revalidation and use the authoritative total",
 );
 assert(
@@ -189,8 +189,10 @@ assert(
   const selector = await leerMovil("FulfillmentToggle.tsx");
   assert(
     contains(carrito, "{pickupAddress ? ( <FulfillmentToggle") &&
-      contains(selector, "branch.isPrimary && branch.pickupEnabled"),
-    "the cart offers pickup only where a branch enabled it",
+      // Y sólo en una sucursal que hoy puede atender: el servidor no cotiza una
+      // pausada ni fuera de horario, y la app no ofrece elegir otra.
+      contains(selector, 'branch.pickupEnabled && branch.status === "active" && branch.open'),
+    "the cart offers pickup only at a branch that enabled it and can serve now",
   );
   assert(
     contains(coordinador, 'fulfillment: esRetiro ? "pickup" : "delivery",') &&
@@ -212,6 +214,25 @@ assert(
         '{order.fulfillment !== "pickup" && ( <Pressable style={styles.foodActiveOrderPrimary}',
       ),
     "pickup hides the courier tip and the courier tracking",
+  );
+  // Una propina elegida antes de pasar a retiro no se suma al total que se muestra:
+  // el pedido la manda en cero, y lo mostrado es lo que se cobra.
+  assert(
+    contains(checkout, 'const propina = quote.fulfillment === "pickup" ? 0 : tipCents;') &&
+      contains(checkout, "`Confirmar · ${money.format(quote.total + propina / 100)}`") &&
+      !contains(checkout, "quote.total + tipCents"),
+    "the pickup total shown matches the charge, without a previously chosen tip",
+  );
+  // El seguimiento de un retiro no muestra repartidor ni mapa, venga de donde venga.
+  const seguimiento = await leerMovil("screens/CustomerTrackingSheets.tsx");
+  assert(
+    contains(seguimiento, 'const retiro = order.fulfillment === "pickup";') &&
+      contains(
+        seguimiento,
+        'resourceId: order?.fulfillment === "pickup" ? undefined : order?.id,',
+      ) &&
+      contains(seguimiento, "{retiro ? ( <Text style={styles.cardText}> Retirás en"),
+    "pickup tracking shows courier stages or a map",
   );
   console.log("ok - la app móvil ofrece retiro en el local de punta a punta");
 }
