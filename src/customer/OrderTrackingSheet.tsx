@@ -4,6 +4,7 @@ import { Check, Copy, MapPin, X } from "lucide-react";
 import { api } from "../api";
 import { initials } from "../format";
 import { orderStatusLabel, orderSteps, pickupOrderSteps } from "../labels";
+import { OrderDeliveryCodeView } from "./OrderDeliveryCode";
 import type { Driver, Order, RoadRoute } from "../types";
 
 const FlashMap = lazy(() => import("../maps/FlashMap"));
@@ -146,6 +147,7 @@ export function OrderTrackingSheet({
             <span>{esRetiro ? order.deliveryAddress : routeError}</span>
           </div>
         )}
+        <OrderDeliveryCodeView order={order} />
         <div className="tracking-status-panel">
           <div className="tracking-status-copy">
             <div>

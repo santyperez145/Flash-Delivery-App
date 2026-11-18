@@ -194,6 +194,10 @@
       "clase": "por-usuario",
       "rls": true
     },
+    "order_delivery_codes": {
+      "clase": "por-usuario",
+      "rls": true
+    },
     "order_issues": {
       "clase": "por-usuario",
       "rls": true

@@ -17,7 +17,7 @@ perfecto.
 | Seguridad de la cuenta | 6 | El segundo factor existe sólo para administradores; no hay llaves de acceso (passkeys) |
 | Identidad de conductores y repartidores | 6 | El legajo se valida al alta; no hay verificación periódica con selfie |
 | Fraude y riesgo | 7 | Hay puntaje explicable por transacción; falta la señal de dispositivo |
-| Prueba de entrega | 7 | Foto en la puerta y PIN en envíos; falta el PIN en pedidos de valor alto |
+| Prueba de entrega | 9 | Foto en la puerta, PIN en envíos y código en pedidos de valor alto o con reclamo previo (SEG-03) |
 | Privacidad de contacto | 5 | Chat en la app, pero el teléfono no se enmascara |
 | Pagos: medios | 4 | Sin efectivo, sin dividir la tarifa, sin tarjeta de regalo, sin carga por Rapipago o Pago Fácil |
 | Pagos: cobro real | 3 | Todo listo hasta el borde: faltan las credenciales productivas de Mercado Pago (dueño) |
@@ -34,8 +34,8 @@ perfecto.
 | # | Qué | Quién | Estado en Flash (verificado) |
 | --- | --- | --- | --- |
 | SEG-01 | **Detección de anomalías en el viaje**: desvío de la ruta, parada larga o final antes de destino, con aviso al pasajero y a operaciones | Uber (RideCheck) | **Hecho.** Migración 141, `server/ride-trip-check-repository.js`, aviso en web y móvil · `test:ride-trip-checks`. Ver [`ride-safety.md`](ride-safety.md). |
-| SEG-02 | **Preferencias de seguridad**: activar PIN, compartir viaje o el control de anomalías según horario, lugar o tipo de viaje | Uber (Safety preferences) | **No existe.** El PIN de subida y el enlace de seguimiento existen (`docs/ride-pickup-verification.md`, `docs/ride-safety.md`), pero se activan a mano. |
-| SEG-03 | **PIN de entrega en pedidos** de valor alto o con reclamos previos | Uber Eats | Los **envíos** tienen PIN (`deliveryPin`); los **pedidos de comida** no. |
+| SEG-02 | **Preferencias de seguridad**: activar PIN, compartir viaje o el control de anomalías según horario, lugar o tipo de viaje | Uber (Safety preferences) | **Cubierto en lo que no depende de terceros.** En Flash el PIN de subida es obligatorio en todos los viajes y el control del viaje (SEG-01) está siempre encendido: más estricto que una preferencia. Falta compartir el viaje automáticamente con los contactos, que necesita un proveedor de SMS (dueño). |
+| SEG-03 | **PIN de entrega en pedidos** de valor alto o con reclamos previos | Uber Eats | **Hecho.** Migración 142, `server/order-delivery-code-repository.js`, web y móvil · `test:order-delivery-code`. Ver [`order-delivery-code.md`](order-delivery-code.md). |
 | SEG-04 | **Grabación de audio cifrada** durante el viaje, que sólo se entrega con un reporte | Uber | **No existe.** Necesita permisos de micrófono, cifrado de punta a punta y política de retención: es diseño y legal antes que código. |
 | SEG-05 | **Conductoras con pasajeras** como opción | Uber (Women Rider Preference) | **No existe.** Depende de un dato de género declarado y de la densidad de conductoras: se decide con el piloto. |
 | SEG-06 | **Verificación periódica de identidad del conductor** con selfie | Uber (Real-Time ID Check) | El legajo con identidad, licencia y antecedentes se valida al alta (`docs/driver-kyc.md`); **no hay verificación periódica**. La comparación facial necesita un proveedor (dueño). |
@@ -72,8 +72,8 @@ perfecto.
 Primero lo que protege a la gente y lo que mueve dinero, y dentro de eso lo que no depende de
 un tercero.
 
-1. **SEG-01** (hecho) y **SEG-02**: detección de anomalías en el viaje y preferencias de seguridad.
-2. **SEG-03**: PIN de entrega en pedidos de valor alto.
+1. **SEG-01** (hecho) y **SEG-02** (cubierto salvo lo que necesita SMS): detección de anomalías en el viaje y preferencias de seguridad.
+2. **SEG-03** (hecho): PIN de entrega en pedidos de valor alto.
 3. **PAG-01**: efectivo en viajes, con la comisión descontada del saldo del conductor.
 4. **PAG-02**: dividir la tarifa.
 5. **SEG-08**: segundo factor para clientes y conductores.

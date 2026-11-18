@@ -1240,6 +1240,17 @@ export const api = {
     });
   },
 
+  async getOrderDeliveryCode(orderId: string) {
+    // SEG-03: el código que el cliente le da a quien reparte.
+    return request<{ deliveryCode: string }>(`/orders/${orderId}/delivery-code`);
+  },
+  async verifyOrderDeliveryCode(orderId: string, pin: string) {
+    return request<{ verified: boolean; verifiedAt: string }>(
+      `/orders/${orderId}/delivery-code/verify`,
+      { method: "POST", body: JSON.stringify({ pin }) },
+    );
+  },
+
   async getRidePickupCode(rideId: string) {
     return request<{ pickupCode: string }>(`/rides/${rideId}/pickup-code`);
   },

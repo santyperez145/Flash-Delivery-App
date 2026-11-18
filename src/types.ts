@@ -297,6 +297,8 @@ export type Order = {
   timeline: TimelineEntry<OrderStatus>[];
   /** P-02b: el pedido ya tiene foto de entrega (sólo el dato, no la imagen). */
   deliveryPhoto?: boolean;
+  /** SEG-03: se entrega con código y si ya se verificó (nunca el código). */
+  deliveryCode?: { required: boolean; verified: boolean } | null;
 };
 
 export type Ride = {

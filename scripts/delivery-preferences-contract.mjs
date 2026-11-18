@@ -215,7 +215,10 @@ assert.ok(
     panelRepartidor,
     "const fotoLista = Boolean(deliveryEvidenceReady[order.id] || order.deliveryPhoto);",
   ) &&
-    contains(panelRepartidor, "disabled={busy || (fotoEnPuerta && !fotoLista)}") &&
+    contains(
+      panelRepartidor,
+      "disabled={busy || (fotoEnPuerta && !fotoLista) || faltaCodigoDeEntrega(order)}",
+    ) &&
     contains(panelRepartidor, 'onPress={() => void captureDeliveryEvidence(order.id, "order")}') &&
     contains(
       await leer("apps/mobile/src/screens/CustomerTrackingSheets.tsx"),
@@ -238,7 +241,7 @@ assert.ok(
     ) &&
     contains(
       await leer("src/operations/OperationsSurface.tsx"),
-      "busy={busy || faltaFotoEnPuerta(order)}",
+      "busy={busy || faltaFotoEnPuerta(order) || faltaCodigoDeEntrega(order)}",
     ) &&
     contains(await leer("src/operations/DoorPhoto.tsx"), 'capture="environment"') &&
     // La app nativa también la achica: la calidad de la cámara no limita el peso.
@@ -293,4 +296,69 @@ ok("dejado en la puerta se cierra con foto cifrada, que ve quien pidió");
     servidor.close();
   }
   ok("las fotos de entrega entran; el resto de la API sigue limitada a 1 MB");
+}
+
+// --- SEG-03: código de entrega en pedidos ------------------------------------
+// Se decide al crear el pedido, el servidor no cierra sin él, y las dos apps lo
+// muestran al cliente y se lo piden a quien reparte.
+{
+  const [
+    creacion,
+    avance,
+    codigo,
+    router,
+    webVista,
+    webOps,
+    movilVista,
+    movilRepartidor,
+    movilSeguimiento,
+    webSeguimiento,
+  ] = await Promise.all(
+    [
+      "server/order-repository.js",
+      "server/http/order-router.js",
+      "server/order-delivery-code-repository.js",
+      "server/http/order-delivery-code-router.js",
+      "src/customer/OrderDeliveryCode.tsx",
+      "src/operations/OperationsSurface.tsx",
+      "apps/mobile/src/OrderDeliveryCode.tsx",
+      "apps/mobile/src/screens/DriverHomePanel.tsx",
+      "apps/mobile/src/screens/CustomerTrackingSheets.tsx",
+      "src/customer/OrderTrackingSheet.tsx",
+    ].map(leer),
+  );
+  assert.ok(
+    contains(creacion, "await requireOrderDeliveryCodeIfNeeded(client, {") &&
+      contains(creacion, "pickup: esRetiro,") &&
+      contains(
+        codigo,
+        'if (totalCents >= config.orderDeliveryCodeMinCents) reason = "high_value";',
+      ) &&
+      contains(codigo, "i.status='approved' AND i.created_at > now() - interval '90 days'") &&
+      contains(codigo, "await bcrypt.hash(deriveOrderDeliveryCode(publicId), 10)"),
+    "el código se decide al crear el pedido, por valor o reclamo previo, y se guarda sólo su hash",
+  );
+  assert.ok(
+    contains(avance, "router.use(orderDeliveryCodeRouter);") &&
+      contains(avance, "(await orderNeedsDeliveryCode(db.orders[index].id))") &&
+      contains(router, 'requireAnyRole("customer"),') &&
+      contains(router, 'requireAnyRole("driver"),'),
+    "el pedido no se cierra sin el código, que ve el cliente e ingresa quien reparte",
+  );
+  assert.ok(
+    contains(webSeguimiento, "<OrderDeliveryCodeView order={order} />") &&
+      contains(movilSeguimiento, "<OrderDeliveryCodeView order={order} />") &&
+      contains(
+        webOps,
+        "<OrderDeliveryCodeEntry order={order} busy={busy} runAction={runAction} />",
+      ) &&
+      contains(webOps, "faltaCodigoDeEntrega(order)") &&
+      contains(movilRepartidor, "<OrderDeliveryCodeEntry") &&
+      contains(movilRepartidor, "faltaCodigoDeEntrega(order)") &&
+      [webVista, movilVista].every((fuente) =>
+        contains(fuente, "api.getOrderDeliveryCode(order.id)"),
+      ),
+    "el código se ve y se ingresa en web y móvil",
+  );
+  ok("SEG-03: el código de entrega se decide, se exige y se ve en las dos apps");
 }

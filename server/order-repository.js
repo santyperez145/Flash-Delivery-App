@@ -35,6 +35,7 @@ import {
   createMercadoPagoPayment,
   mercadoPagoFulfillmentDecision,
 } from "./payment-marketplace-provider.js";
+import { requireOrderDeliveryCodeIfNeeded } from "./order-delivery-code-repository.js";
 import { pesos } from "./money.js";
 import { mapCatalogItem } from "./catalog-repository.js";
 import { config } from "./config.js";
@@ -128,6 +129,7 @@ function rowsToOrders(rows) {
         deliveryPreferences: preferenciasDesdeMetadata(metadata),
         // P-02b: si ya tiene foto de entrega. Sólo el dato, no la imagen.
         deliveryPhoto: Boolean(row.has_delivery_photo),
+        deliveryCode: row.delivery_code || null,
         total: pesos(row.final_amount_cents ?? row.quoted_amount_cents),
         etaMin: Number(metadata.etaMin ?? Math.round(row.estimated_duration_s / 60)),
         createdAt: new Date(row.created_at).toISOString(),
@@ -160,6 +162,9 @@ export async function getPostgresOrders({ publicIds = null } = {}) {
       merchant.public_id AS merchant_public_id, branch.public_id AS branch_public_id,
       driver.public_id AS driver_public_id,
       EXISTS(SELECT 1 FROM shipment_delivery_evidence e WHERE e.job_id=j.id AND e.evidence_type='photo') AS has_delivery_photo,
+      -- SEG-03: si se entrega con código y si ya se verificó (nunca el código).
+      (SELECT jsonb_build_object('required',true,'verified',dc.verified_at IS NOT NULL)
+        FROM order_delivery_codes dc WHERE dc.job_id=j.id) AS delivery_code,
       ji.id AS item_id, ji.name AS item_name, ji.quantity, ji.unit_price_cents,
       ji.customer_note, ji.metadata AS item_metadata, catalog.public_id AS catalog_public_id,
       (SELECT jsonb_build_object('id',c.public_id,'reason',c.reason_code,'refundAmount',c.refund_amount_cents/100.0,'fee',c.cancellation_fee_cents/100.0,'createdAt',c.created_at) FROM job_cancellations c WHERE c.job_id=j.id) cancellation,
@@ -894,6 +899,15 @@ export async function createPostgresOrder({
         scheduledFor,
       ],
     );
+    // SEG-03: un pedido de valor alto, o de quien tuvo un reclamo aprobado, se
+    // entrega con código. Se decide acá, en la misma transacción.
+    await requireOrderDeliveryCodeIfNeeded(client, {
+      jobId: job.rows[0].id,
+      publicId,
+      customerId: customer.rows[0].id,
+      totalCents,
+      pickup: esRetiro,
+    });
     for (const { entry, item, selection, unitPriceCents } of snapshots) {
       await client.query(
         `INSERT INTO job_items(job_id, catalog_item_id, name, quantity, unit_price_cents, customer_note, metadata)

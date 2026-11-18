@@ -75,6 +75,13 @@ export function deriveDeliveryPin(publicId) {
     .digest();
   return String(1000 + (digest.readUInt32BE(0) % 9000));
 }
+export function deriveOrderDeliveryCode(publicId) {
+  const digest = crypto
+    .createHmac("sha256", config.deliveryPinSecret)
+    .update(`order-delivery:${publicId}`, "utf8")
+    .digest();
+  return String(1000 + (digest.readUInt32BE(0) % 9000));
+}
 export function deriveRidePickupPin(publicId) {
   const digest = crypto
     .createHmac("sha256", config.deliveryPinSecret)

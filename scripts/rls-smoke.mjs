@@ -16,6 +16,7 @@ let fixtureFavorite;
 let fixtureDeviceId;
 let fixtureOfferId;
 let fixtureTripCheckId;
+let fixtureDeliveryCodeJobId;
 let fixturePayoutId;
 let fixtureTipId;
 let fixtureTipTransactionId;
@@ -572,6 +573,14 @@ try {
     fixtureMerchant = (await owner.query("SELECT id FROM merchants LIMIT 1")).rows[0];
   // SEG-01: un aviso del control del viaje del cliente, para probar que la
   // política discrimina: lo ve quien viaja y nadie más.
+  // SEG-03: el código de entrega lo ven quien pidió y quien reparte; nadie más.
+  fixtureDeliveryCodeJobId =
+    (
+      await owner.query(
+        "INSERT INTO order_delivery_codes(job_id,pin_hash,reason) VALUES($1,'$2a$10$fixture','high_value') ON CONFLICT DO NOTHING RETURNING job_id",
+        [fixtureJob.id],
+      )
+    ).rows[0]?.job_id ?? null;
   fixtureTripCheckId = (
     await owner.query(
       "INSERT INTO ride_trip_checks(public_id,job_id,kind,status) VALUES($1,$2,'long_stop','expired') RETURNING id",
@@ -731,6 +740,15 @@ try {
     ).rows[0].count === 1,
     "RLS exposes the trip checks of the customer's own rides",
   );
+  if (fixtureDeliveryCodeJobId)
+    assert(
+      (
+        await client.query("SELECT count(*)::int count FROM order_delivery_codes WHERE job_id=$1", [
+          fixtureDeliveryCodeJobId,
+        ])
+      ).rows[0].count === 1,
+      "RLS exposes the delivery code state of the customer's own order",
+    );
 
   // La otra mitad de la politica de `shipment_details`. Sin esto la prueba de
   // arriba solo demostraria que la tabla esta cerrada, no que discrimina: una
@@ -971,6 +989,11 @@ try {
     "RLS hides another customer's trip checks",
   );
   assert(
+    (await client.query("SELECT count(*)::int count FROM order_delivery_codes")).rows[0].count ===
+      0,
+    "RLS hides another customer's delivery codes",
+  );
+  assert(
     (
       await client.query("SELECT count(last4)::int count FROM payment_methods WHERE id=$1", [
         fixturePaymentMethodId,
@@ -1095,6 +1118,10 @@ try {
     "RLS hides another customer's service chat",
   );
 } finally {
+  if (owner && fixtureDeliveryCodeJobId)
+    await owner.query("DELETE FROM order_delivery_codes WHERE job_id=$1", [
+      fixtureDeliveryCodeJobId,
+    ]);
   if (owner && fixtureTripCheckId)
     await owner.query("DELETE FROM ride_trip_checks WHERE id=$1", [fixtureTripCheckId]);
   if (owner && fixtureDietaryPreference)
