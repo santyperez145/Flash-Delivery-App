@@ -39,6 +39,38 @@ for (const guarda of [
   assert.ok(contains(migracion, guarda), `la función no protege ${guarda}`);
 ok("la base borra con una función acotada, que protege roles, pedidos en curso y saldo");
 
+// Cada tabla que toca la función existe en el esquema migrado. PL/pgSQL no valida
+// los nombres al crear la función: una tabla borrada por una migración posterior
+// recién falla al borrar una cuenta de verdad. Así pasó con `user_security_factors`,
+// que la 112 eliminó.
+const migraciones = (await fs.readdir("database/migrations"))
+  .filter((f) => f.endsWith(".sql"))
+  .sort();
+const esquema = (await Promise.all(migraciones.map((f) => leer(`database/migrations/${f}`)))).join(
+  "\n",
+);
+const cuerpo = migracion.slice(
+  migracion.indexOf("CREATE FUNCTION app.delete_customer_account"),
+  migracion.indexOf("REVOKE EXECUTE ON FUNCTION app.delete_customer_account"),
+);
+const tablas = [
+  ...new Set(
+    [...cuerpo.matchAll(/\b(?:DELETE FROM|UPDATE|FROM|JOIN)\s+([a-z_]+)\b/g)].map((m) => m[1]),
+  ),
+];
+assert.ok(tablas.length >= 20, `se leyeron sólo ${tablas.length} tablas de la función`);
+for (const tabla of tablas) {
+  assert.ok(
+    new RegExp(`CREATE TABLE (IF NOT EXISTS )?${tabla}[\\s(]`).test(esquema),
+    `la función usa ${tabla}, que ninguna migración crea`,
+  );
+  assert.ok(
+    !new RegExp(`DROP TABLE (IF EXISTS )?${tabla}[\\s;,]`).test(esquema),
+    `la función usa ${tabla}, que una migración elimina`,
+  );
+}
+ok(`las ${tablas.length} tablas que toca el borrado existen en el esquema migrado`);
+
 // --- El servidor: pide la contraseña otra vez y audita -----------------------
 const repositorio = await leer("server/account-deletion-repository.js");
 const ruta = await leer("server/http/auth-router.js");

@@ -77,7 +77,6 @@ BEGIN
   DELETE FROM user_avoided_allergens WHERE user_id = p_user;
   DELETE FROM user_notification_preferences WHERE user_id = p_user;
   DELETE FROM user_mfa WHERE user_id = p_user;
-  DELETE FROM user_security_factors WHERE user_id = p_user;
   DELETE FROM ride_destination_history WHERE user_id = p_user;
   DELETE FROM ride_trusted_contacts WHERE user_id = p_user;
   DELETE FROM notifications WHERE user_id = p_user;
