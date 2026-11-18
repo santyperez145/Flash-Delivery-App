@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useServiciosDisponibles, type ServicioCliente } from "../customer-services";
 import { flashDesign } from "../design-system";
+import { AvisoRubros } from "./CustomerHomeScreen";
 import { styles } from "../styles";
 import type { MerchantVertical } from "../types";
 
@@ -83,7 +84,7 @@ export function CustomerServicesScreen({
   onOpenVertical: (vertical: MerchantVertical) => void;
   onOpenShipment: () => void;
 }) {
-  const { servicios, cargando } = useServiciosDisponibles();
+  const { servicios, cargando, fallo, reintentar } = useServiciosDisponibles();
   const abrir = (servicio: ServicioCliente) =>
     servicio.tipo === "ride"
       ? onOpenRide()
@@ -93,6 +94,7 @@ export function CustomerServicesScreen({
   return (
     <View style={estilos.servicios}>
       <Text style={estilos.titulo}>Servicios</Text>
+      {fallo && <AvisoRubros onRetry={reintentar} />}
       <Text style={estilos.subtitulo}>
         {cargando ? "Buscando lo disponible en tu zona…" : "Todo lo que podés pedir en tu zona"}
       </Text>

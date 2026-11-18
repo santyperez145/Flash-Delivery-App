@@ -57,7 +57,7 @@ export function CustomerHomeScreen({
   onOpenRestaurant: (restaurantId: string) => void;
   onOpenActivity: () => void;
 }) {
-  const { servicios } = useServiciosDisponibles();
+  const { servicios, fallo, reintentar, hayComercios } = useServiciosDisponibles();
   const viajes = servicios.some((servicio) => servicio.tipo === "ride");
   const [destinos, setDestinos] = useState<RideDestination[]>([]);
   useEffect(() => {
@@ -121,15 +121,19 @@ export function CustomerHomeScreen({
         </View>
       </View>
 
-      <Pressable
-        accessibilityRole="search"
-        accessibilityLabel="Buscar comida, súper o farmacia"
-        style={estilos.buscador}
-        onPress={onSearch}
-      >
-        <Ionicons name="search" size={18} color={flashDesign.color.inkSoft} />
-        <Text style={estilos.buscadorTexto}>Buscar comida, súper o farmacia</Text>
-      </Pressable>
+      {/* Sin comercios no hay nada que buscar. */}
+      {hayComercios && (
+        <Pressable
+          accessibilityRole="search"
+          accessibilityLabel="Buscar comida, súper o farmacia"
+          style={estilos.buscador}
+          onPress={onSearch}
+        >
+          <Ionicons name="search" size={18} color={flashDesign.color.inkSoft} />
+          <Text style={estilos.buscadorTexto}>Buscar comida, súper o farmacia</Text>
+        </Pressable>
+      )}
+      {fallo && <AvisoRubros onRetry={reintentar} />}
 
       {enCurso.length > 0 && (
         <Pressable
@@ -233,7 +237,25 @@ export function CustomerHomeScreen({
   );
 }
 
+/** El aviso de un resumen de rubros que no se pudo leer. */
+export function AvisoRubros({ onRetry }: { onRetry: () => void }) {
+  return (
+    <Text style={estilos.aviso} accessibilityRole="alert">
+      No pudimos ver qué hay disponible en tu zona.{" "}
+      <Text style={estilos.avisoAccion} accessibilityRole="button" onPress={onRetry}>
+        Reintentar
+      </Text>
+    </Text>
+  );
+}
+
 const estilos = StyleSheet.create({
+  aviso: {
+    marginHorizontal: flashDesign.space.md,
+    color: flashDesign.color.inkSoft,
+    fontSize: flashDesign.type.metadata,
+  },
+  avisoAccion: { color: flashDesign.color.ink, fontWeight: "800", textDecorationLine: "underline" },
   pantalla: { gap: flashDesign.space.lg, paddingBottom: flashDesign.space.lg },
   encabezado: { gap: 4, paddingHorizontal: flashDesign.space.md, paddingTop: flashDesign.space.md },
   saludo: { color: flashDesign.color.ink, fontSize: flashDesign.type.title, fontWeight: "800" },
