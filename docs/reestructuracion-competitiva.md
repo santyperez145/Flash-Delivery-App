@@ -57,8 +57,22 @@ Flash Driver ya tiene la estructura de Uber Driver: Mapa · Ganancias · Inbox �
 
 Flash Negocios tiene Hoy · Pedidos · Catálogo · Cuenta.
 
-- **Sin fuente** sobre la estructura actual de las apps de comercio de Uber Eats y
-  PedidosYa: no se compara hasta tenerla.
+- **Uber Eats Orders**, según su ayuda oficial
+  ([merchants.ubereats.com](https://merchants.ubereats.com/ar/en/resources/learning-center/uber-eats-orders-app/)):
+  - pausa los pedidos por un tiempo elegido y con motivo, y reanuda sola;
+  - tiene un modo ocupado que suma minutos de preparación;
+  - pausa sola a la tienda que deja pedidos sin aceptar;
+  - cambia la disponibilidad de los platos, aun durante un pedido;
+  - maneja horarios con feriados, una bandeja de mensajes y muestra el repartidor
+    asignado.
+- **Flash Negocios ya tenía:** disponibilidad de platos, horarios con excepciones (en la
+  web) y el repartidor asignado.
+- **RES-07** suma la pausa con tiempo y motivo, que vence sola.
+- **Pendientes:**
+  - el modo ocupado, porque hoy hay un «+5 min» que no se deshace;
+  - la pausa automática por pedidos sin aceptar;
+  - la misma pausa en la consola web.
+- **PedidosYa:** no hay documentación oficial de su app de comercios; no se compara.
 
 ## Fases
 
@@ -68,6 +82,7 @@ Flash Negocios tiene Hoy · Pedidos · Catálogo · Cuenta.
 | RES-02 | La misma estructura en la web del cliente | Pendiente |
 | RES-03 | Inicio personalizado con datos reales: promociones vigentes, horario, favoritos | Pendiente |
 | RES-04 | Servicios por ciudad: «disponible en tu ciudad» según la zona de la dirección | Pendiente |
+| RES-07 | Comercio: pausa con tiempo y motivo que vence sola | Hecho en la app móvil; modo ocupado, pausa automática y web pendientes |
 | RES-05 | Repartidor: verificar el desglose semanal de ganancias y cerrar lo que falte | Pendiente |
 
 Las filas de funciones (P-02b, P-03 a P-10) siguen en [`paridad-competitiva.md`](paridad-competitiva.md).

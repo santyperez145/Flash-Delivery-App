@@ -13,6 +13,8 @@ export async function getPostgresMerchantDashboard({
          m.status AS merchant_status,
          b.id AS branch_id, b.public_id AS branch_public_id, b.name AS branch_name,
          b.timezone, b.open AS manual_open, b.status AS branch_status, b.eta_min,
+         CASE WHEN b.paused_until > now() THEN b.paused_until END AS paused_until,
+         CASE WHEN b.paused_until > now() THEN b.pause_reason END AS pause_reason,
          b.open AND b.status='active' AND app.branch_is_scheduled_open(b.id, now()) AS effective_open
        FROM merchants m
        JOIN users owner ON owner.id=m.owner_id
@@ -86,7 +88,8 @@ export async function getPostgresMerchantDashboard({
      GROUP BY selection.merchant_id, selection.merchant_public_id, selection.merchant_status,
        selection.branch_id,
        selection.branch_public_id, selection.branch_name, selection.timezone,
-       selection.manual_open, selection.branch_status, selection.eta_min, selection.effective_open`,
+       selection.manual_open, selection.branch_status, selection.eta_min, selection.effective_open,
+       selection.paused_until, selection.pause_reason`,
     [actorPublicId, merchantPublicId, admin],
   );
   const row = result.rows[0];
@@ -107,6 +110,9 @@ export async function getPostgresMerchantDashboard({
       manualOpen: row.manual_open,
       status: row.branch_status,
       etaMin: Number(row.eta_min),
+      // RES-07: la pausa vigente y su motivo; vencida, no se informa.
+      pausedUntil: row.paused_until ? new Date(row.paused_until).toISOString() : null,
+      pauseReason: row.pause_reason ?? null,
     },
     // El estado del comercio, no el de la sucursal. Son dos cosas: una sucursal
     // cerrada es una decision del local; un comercio suspendido es una decision

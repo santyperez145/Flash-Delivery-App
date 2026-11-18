@@ -28,6 +28,7 @@ import { mobileOrderStatusLabel, money } from "../format";
 import { styles } from "../styles";
 import { ActionButton, KpiRow, OrderCard, ServiceChatModal } from "../ui";
 import type { MerchantOperationsDashboard, Order, OrderSubstitution, Restaurant } from "../types";
+import { MerchantPause, rotuloMotivo } from "../MerchantPause";
 
 export function MerchantScreen({
   restaurant,
@@ -101,6 +102,7 @@ export function MerchantScreen({
   const manualOpen = operations?.branch?.manualOpen ?? restaurant.manualOpen ?? restaurant.open;
   const effectiveOpen = operations?.branch?.open ?? restaurant.open;
   const etaMin = operations?.branch?.etaMin ?? restaurant.etaMin;
+  const pausedUntil = operations?.branch?.pausedUntil ?? null;
   const updatedAt = operations
     ? new Intl.DateTimeFormat("es-AR", {
         hour: "2-digit",
@@ -162,9 +164,11 @@ export function MerchantScreen({
                   <Text style={styles.heroLabel}>
                     {!manualOpen
                       ? "Pausado por el local"
-                      : effectiveOpen
-                        ? "Abierto y recibiendo"
-                        : "Fuera de horario"}
+                      : pausedUntil
+                        ? `En pausa · ${rotuloMotivo(operations?.branch?.pauseReason)}`
+                        : effectiveOpen
+                          ? "Abierto y recibiendo"
+                          : "Fuera de horario"}
                   </Text>
                 </View>
                 <Text style={styles.heroTitle}>{restaurant.name}</Text>
@@ -261,17 +265,30 @@ export function MerchantScreen({
                   </View>
                 ) : null}
               </View>
+              <MerchantPause
+                pausedUntil={pausedUntil}
+                pauseReason={operations?.branch?.pauseReason ?? null}
+                manualOpen={manualOpen}
+                timezone={operations?.timezone ?? "America/Argentina/Buenos_Aires"}
+                busy={busy}
+                onPause={(minutes, reason) =>
+                  runAction(
+                    () =>
+                      api.updateRestaurant(restaurant.id, {
+                        pauseMinutes: minutes,
+                        pauseReason: reason,
+                      }),
+                    minutes ? "Pedidos en pausa" : "Pedidos reanudados",
+                  )
+                }
+                onToggleOpen={() =>
+                  runAction(
+                    () => api.updateRestaurant(restaurant.id, { open: !manualOpen }),
+                    "Estado actualizado",
+                  )
+                }
+              />
               <View style={styles.actionRow}>
-                <ActionButton
-                  label={manualOpen ? "Pausar pedidos" : "Abrir pedidos"}
-                  disabled={busy}
-                  onPress={() =>
-                    runAction(
-                      () => api.updateRestaurant(restaurant.id, { open: !manualOpen }),
-                      "Estado actualizado",
-                    )
-                  }
-                />
                 <ActionButton
                   label="+5 min ETA"
                   disabled={busy}

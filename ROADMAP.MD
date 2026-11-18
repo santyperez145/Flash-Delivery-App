@@ -45,6 +45,27 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
 
+## Avance 18 de noviembre de 2026 — RES-07, pausa del comercio con tiempo y motivo
+
+- **Qué faltaba.** Uber Eats Orders deja pausar los pedidos por un tiempo y con un motivo,
+  y reanuda solo. Flash Negocios tenía un interruptor: una pausa por un pico de demanda
+  quedaba hasta que alguien se acordara de volver a abrir.
+- **Ahora el comercio elige motivo y duración** (15 min, 30 min, 1 h o 2 h). La app dice
+  hasta qué hora está en pausa y deja reanudar antes. El cierre sin fecha sigue.
+- **La pausa vive en la base.** `app.branch_is_scheduled_open` (migración 140) es donde
+  catálogo, búsqueda, panel, alta del pedido y retiro ya preguntan si una sucursal atiende.
+  Con la pausa adentro, todos la respetan, y al vencer la sucursal vuelve sola, sin un
+  proceso que la reabra.
+- **Pendientes:**
+  - el modo ocupado, porque el «+5 min ETA» actual no se deshace;
+  - la pausa automática por pedidos sin aceptar;
+  - la misma pausa en la consola web.
+- **Verificación:**
+  - `test:postgres` exige el motivo, pausa el comercio de prueba, mira el panel y el
+    catálogo, adelanta el vencimiento y comprueba que reabre solo;
+  - `test:merchant-operations-ui` vigila la función, el motivo obligatorio y la app.
+    Falsificado: cada aserción nueva falla cuando se rompe lo que vigila.
+
 ## Avance 18 de noviembre de 2026 — RES-01, inicio del cliente con todos los servicios
 
 El dueño pidió que Flash tenga la misma lógica y el mismo rumbo que Uber, Uber Eats y
