@@ -82,14 +82,18 @@ export function FoodDiscoveryHome({
       </div>
       <SectionTitle title="Platos de comercios abiertos" />
       <div className="item-list">
-        {allItems.slice(0, 7).map(({ restaurant, item }) => (
-          <FoodRow
-            key={`${restaurant.id}-${item.id}`}
-            item={item}
-            restaurant={restaurant}
-            onClick={() => onOpenItem(restaurant, item)}
-          />
-        ))}
+        {/* El título promete comercios abiertos: los platos de uno cerrado no van. */}
+        {allItems
+          .filter(({ restaurant }) => restaurant.open)
+          .slice(0, 7)
+          .map(({ restaurant, item }) => (
+            <FoodRow
+              key={`${restaurant.id}-${item.id}`}
+              item={item}
+              restaurant={restaurant}
+              onClick={() => onOpenItem(restaurant, item)}
+            />
+          ))}
       </div>
     </>
   );
