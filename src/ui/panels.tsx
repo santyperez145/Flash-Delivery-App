@@ -8,6 +8,7 @@
 // Están acá y no en la consola porque un módulo compartido que importara de
 // vuelta a la consola —o a `App.tsx`— cerraría un ciclo de imports.
 import { ArrowLeft, PackageCheck, ReceiptText } from "lucide-react";
+import { DeliveryPreferenceTags } from "./DeliveryPreferenceTags";
 import type { LucideIcon } from "lucide-react";
 
 import { money } from "../format";
@@ -58,6 +59,7 @@ export function OrderOpsCard({
   canAdvance,
   onDetails,
   busy,
+  preferencias,
 }: {
   order: Order;
   restaurant?: Restaurant;
@@ -66,6 +68,8 @@ export function OrderOpsCard({
   canAdvance?: boolean;
   onDetails?: () => void;
   busy: boolean;
+  /** Qué parte de las preferencias de entrega mostrar (P-02); ninguna si falta. */
+  preferencias?: "cocina" | "reparto";
 }) {
   const showAdvance =
     canAdvance ?? !["ready_for_pickup", "delivered", "cancelled"].includes(order.status);
@@ -77,6 +81,9 @@ export function OrderOpsCard({
       </div>
       <h3>{restaurant?.name || "Restaurante"}</h3>
       <p>{order.items.map((item) => `${item.quantity} ${item.name}`).join(", ")}</p>
+      {preferencias && (
+        <DeliveryPreferenceTags preferences={order.deliveryPreferences} audience={preferencias} />
+      )}
       <div className="work-meta">
         <span>{money.format(order.total)}</span>
         <span>{driver?.name || "Sin repartidor"}</span>

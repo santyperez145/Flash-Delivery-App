@@ -250,6 +250,36 @@ Referencias oficiales usadas para esta comparacion:
 - [DoorDash Merchant Portal](https://merchants.doordash.com/en-us/products/merchant-portal)
 - [DoorDash real-time merchant features](https://about.doordash.com/en-us/news/doordash-empowers-merchants-with-new-real-time-features)
 
+### Decisión 18 de noviembre de 2026 — preferencias de entrega (P-02)
+
+**Comparado contra:** Uber Eats (Order API y centro de ayuda) y DoorDash (Drive API y
+centro de ayuda para repartidores). El centro de ayuda de PedidosYa para clientes no se pudo
+leer (respuesta 403), así que su comportamiento no está verificado en fuente oficial.
+
+**Lo que hacen y Flash adopta.**
+
+- **El modo de entrega es un campo propio, no texto libre.** Uber lo modela como modo de
+  entrega (en la puerta, en mano, en la vereda) y DoorDash como bandera de entrega sin
+  contacto, los dos separados de las indicaciones. Flash: `dropoff` cerrado, `hand_to_me` o
+  `leave_at_door`.
+- **Las indicaciones para quien reparte van aparte de las de la cocina.** Uber separa las
+  notas de entrega de las instrucciones especiales del pedido; DoorDash separa las de
+  retiro de las de entrega. Flash ya tenía notas por ítem para la cocina; las indicaciones
+  de entrega son otro campo, de hasta 300 caracteres.
+- **El comercio no ve las indicaciones.** Uber no le pasa al comercio el objeto de entrega
+  cuando la entrega la coordina la plataforma. Flash: el comercio recibe sólo si lleva
+  cubiertos; un repartidor que todavía no aceptó, sólo si es sin contacto y si hay
+  indicaciones, nunca el texto.
+- **Dejar en la puerta se bloquea por categoría.** Uber lo bloquea en farmacia y
+  electrónica. Flash: no se ofrece en farmacia ni en tiendas.
+
+**Decisión propia, no de la competencia.** Cubiertos, por omisión, no. En Uber el valor
+puede quedar a criterio del comercio, y en DoorDash las fuentes oficiales se contradicen.
+
+**Dónde Flash queda por debajo todavía.** DoorDash exige foto al dejar en la puerta y la
+manda al cliente; Flash todavía no (P-02b). Uber ofrece además la entrega en la vereda.
+DoorDash guarda las indicaciones por dirección; Flash, por pedido.
+
 ### Decisión 18 de noviembre de 2026 — rubros de comercio en la portada (P-01)
 
 **Comparado contra:** PedidosYa, que abre la portada con accesos a Restaurantes, Market,

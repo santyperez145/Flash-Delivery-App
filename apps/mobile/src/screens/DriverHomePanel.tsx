@@ -387,6 +387,7 @@ export function DriverHomePanel(props: {
             order={order}
             disabled={busy}
             onPress={() => runAction(() => api.advanceOrder(order.id), "Delivery avanzado")}
+            preferencias="reparto"
           />
           <Pressable style={styles.shareAction} onPress={() => setChatJobId(order.id)}>
             <Ionicons name="chatbubbles-outline" size={18} color="#7c3cff" />
@@ -599,6 +600,17 @@ export function DriverHomePanel(props: {
             <Text style={styles.helperText}>
               {offer.distanceKm} km · {offer.durationMin} min · puntaje {Math.round(offer.score)}
             </Text>
+            {/* Antes de aceptar: si es sin contacto y si hay indicaciones, nunca el texto (P-02). */}
+            {(offer.leaveAtDoor || offer.hasInstructions) && (
+              <Text style={styles.helperText}>
+                {[
+                  offer.leaveAtDoor && "Dejar en la puerta",
+                  offer.hasInstructions && "Con indicaciones",
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </Text>
+            )}
             {offer.scoreBreakdown && (
               <Text style={styles.helperText}>
                 Historial: {Math.round(offer.scoreBreakdown.acceptanceRate * 100)}% aceptación ·{" "}

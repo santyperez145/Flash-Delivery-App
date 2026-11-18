@@ -3,6 +3,7 @@
 // conserva la coordinación de Comidas durante la extracción.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PREFERENCIAS_INICIALES } from "../DeliveryPreferences";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Location from "expo-location";
@@ -272,6 +273,7 @@ export function CustomerScreen({
   const [foodTipCents, setFoodTipCents] = useState(0);
   // Reserva de horario (GTM-001). `null` es «lo antes posible».
   const [foodScheduledFor, setFoodScheduledFor] = useState<string | null>(null);
+  const [foodPreferences, setFoodPreferences] = useState(PREFERENCIAS_INICIALES);
   // Grupo que se está por confirmar (GTM-001).
   const [pendingGroupId, setPendingGroupId] = useState<string | null>(null);
   const [selectedFoodPaymentId, setSelectedFoodPaymentId] = useState(
@@ -824,6 +826,7 @@ export function CustomerScreen({
         quoteToken: foodCheckoutQuote.quoteToken,
         tipCents: foodTipCents,
         scheduledFor: foodScheduledFor ?? undefined,
+        deliveryPreferences: foodPreferences,
         items: foodCheckoutItems,
       });
       // El grupo se marca con el pedido ya creado. Si esto fallara, el pedido
@@ -842,6 +845,7 @@ export function CustomerScreen({
       // que es reservar sin preguntar.
       setFoodTipCents(0);
       setFoodScheduledFor(null);
+      setFoodPreferences(PREFERENCIAS_INICIALES);
       setFoodScreen("orders");
       track("job_created", "customer_app", { service: "food" });
     }, "Pedido enviado al comercio");
@@ -1015,6 +1019,9 @@ export function CustomerScreen({
               onBack={() => setFoodScreen("cart")}
               onConfirm={createOrder}
               onRefreshQuote={openFoodCheckout}
+              preferences={foodPreferences}
+              onPreferencesChange={setFoodPreferences}
+              vertical={cartRestaurant?.vertical ?? "restaurant"}
             />
 
             <CustomerFoodOrdersScreen

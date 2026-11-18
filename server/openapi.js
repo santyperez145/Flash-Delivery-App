@@ -1,3 +1,5 @@
+import { groupOrderPaths } from "./openapi-group-orders.js";
+
 const json = { "application/json": { schema: { $ref: "#/components/schemas/Error" } } };
 const errorResponses = {
   400: { description: "Solicitud inválida", content: json },
@@ -531,9 +533,6 @@ Object.assign(openApiDocument.paths, {
       responses: { 200: success({ type: "object" }), ...bearerErrors },
     },
   },
-  // Suscripcion de Flash (GTM-001). Va en el contrato publico porque es una
-  // relacion recurrente con la persona: quien integre o audite la API tiene que
-  // poder ver que se cobra, que devuelve y como se da de baja.
   // Mover el horario de un servicio reservado (GTM-001). Vale para pedidos y
   // viajes: los dos son trabajos con horario, y una ruta por servicio serian dos
   // versiones de la misma politica de cuando se puede mover algo.
@@ -580,10 +579,6 @@ Object.assign(openApiDocument.paths, {
       },
     },
   },
-  // Pedidos grupales (GTM-001). Se publica el ciclo entero porque es una
-  // relacion entre varias personas y un comercio: quien integre tiene que poder
-  // ver quien puede hacer que, y sobre todo que **confirmar no vive aca** — el
-  // grupo cerrado se convierte en un pedido normal por /api/orders.
   // Las dos intervenciones de operaciones (OPS-001). Se publican porque son
   // acciones sobre el registro de un tercero: quien audite tiene que poder ver
   // que exigen motivo y que alcance tienen.
@@ -662,145 +657,7 @@ Object.assign(openApiDocument.paths, {
       },
     },
   },
-  "/api/group-orders": {
-    get: {
-      tags: ["Commerce"],
-      operationId: "listGroupOrders",
-      summary: "Listar los pedidos grupales propios abiertos",
-      security: [{ bearerAuth: [] }],
-      responses: {
-        200: success({
-          type: "object",
-          required: ["groups"],
-          properties: {
-            groups: { type: "array", items: { $ref: "#/components/schemas/GroupOrder" } },
-          },
-        }),
-        ...bearerErrors,
-      },
-    },
-    post: {
-      tags: ["Commerce"],
-      operationId: "createGroupOrder",
-      summary: "Abrir un pedido grupal en un comercio",
-      security: [{ bearerAuth: [] }],
-      requestBody: body("GroupOrderCreateRequest"),
-      responses: { 200: success(groupResponse), ...bearerErrors },
-    },
-  },
-  // Sumarse no lleva el id del grupo: quien comparte un enlace comparte el
-  // codigo, no la direccion interna de nada.
-  "/api/group-orders/join": {
-    post: {
-      tags: ["Commerce"],
-      operationId: "joinGroupOrder",
-      summary: "Sumarse a un pedido grupal con su codigo",
-      security: [{ bearerAuth: [] }],
-      requestBody: body("GroupOrderJoinRequest"),
-      responses: {
-        200: success(groupResponse),
-        ...bearerErrors,
-        409: { description: "El grupo ya esta cerrado o vencido", content: json },
-      },
-    },
-  },
-  "/api/group-orders/{groupId}": {
-    parameters: [
-      { name: "groupId", in: "path", required: true, schema: { type: "string", maxLength: 100 } },
-    ],
-    get: {
-      tags: ["Commerce"],
-      operationId: "getGroupOrder",
-      summary: "Ver un pedido grupal del que se forma parte",
-      security: [{ bearerAuth: [] }],
-      // 404 y no 403 para un grupo ajeno: decir «existe pero no es tuyo» ya
-      // filtra que ese codigo corresponde a algo.
-      responses: { 200: success(groupResponse), ...bearerErrors },
-    },
-    patch: {
-      tags: ["Commerce"],
-      operationId: "setGroupOrderStatus",
-      summary: "Cerrar, reabrir o cancelar un pedido grupal",
-      security: [{ bearerAuth: [] }],
-      requestBody: body("GroupOrderStatusRequest"),
-      responses: {
-        200: success(groupResponse),
-        ...bearerErrors,
-        409: { description: "Solo el anfitrion, y solo si sigue abierto", content: json },
-      },
-    },
-  },
-  "/api/group-orders/{groupId}/items": {
-    put: {
-      tags: ["Commerce"],
-      operationId: "setGroupOrderItems",
-      summary: "Reemplazar la canasta propia dentro del grupo",
-      security: [{ bearerAuth: [] }],
-      parameters: [
-        { name: "groupId", in: "path", required: true, schema: { type: "string", maxLength: 100 } },
-      ],
-      requestBody: body("GroupOrderItemsRequest"),
-      responses: {
-        200: success(groupResponse),
-        ...bearerErrors,
-        // El tope de gasto se verifica contra los precios de la base, no contra
-        // los que manda el cliente.
-        409: { description: "Grupo cerrado, vencido, o por encima del tope", content: json },
-      },
-    },
-  },
-  "/api/group-orders/{groupId}/checkout": {
-    get: {
-      tags: ["Commerce"],
-      operationId: "getGroupOrderCheckout",
-      summary: "Obtener los items del grupo juntos, para cotizar y confirmar",
-      security: [{ bearerAuth: [] }],
-      parameters: [
-        { name: "groupId", in: "path", required: true, schema: { type: "string", maxLength: 100 } },
-      ],
-      responses: {
-        200: success({
-          type: "object",
-          required: ["merchantPublicId", "branchPublicId", "items"],
-          properties: {
-            merchantPublicId: { type: "string" },
-            branchPublicId: { type: "string" },
-            // Las lineas vienen sumadas por producto y opciones: dos personas
-            // que piden lo mismo son una linea de cantidad dos, y las notas de
-            // las dos sobreviven.
-            items: {
-              type: "array",
-              items: {
-                type: "object",
-                required: ["menuItemId", "quantity"],
-                properties: {
-                  menuItemId: { type: "string" },
-                  quantity: { type: "integer", minimum: 1 },
-                  extras: { type: "array", items: { type: "string" } },
-                  note: { type: "string", maxLength: 500 },
-                },
-              },
-            },
-          },
-        }),
-        ...bearerErrors,
-        409: { description: "El grupo no esta cerrado o no tiene productos", content: json },
-      },
-    },
-  },
-  "/api/group-orders/{groupId}/placed": {
-    post: {
-      tags: ["Commerce"],
-      operationId: "markGroupOrderPlaced",
-      summary: "Atar el grupo al pedido ya creado",
-      security: [{ bearerAuth: [] }],
-      parameters: [
-        { name: "groupId", in: "path", required: true, schema: { type: "string", maxLength: 100 } },
-      ],
-      requestBody: body("GroupOrderPlacedRequest"),
-      responses: { 200: success(groupResponse), ...bearerErrors },
-    },
-  },
+  // Suscripcion (GTM-001): relacion recurrente; quien integre o audite ve que se cobra, que devuelve y como se da de baja.
   "/api/subscription/plans": {
     get: {
       tags: ["Commerce"],
@@ -1761,6 +1618,12 @@ openApiDocument.tags.push(
   { name: "Merchant Operations", description: "Cola y métricas locales privadas para comercios" },
 );
 
+// Pedidos grupales: su sección vive en `openapi-group-orders.js` (H-08).
+Object.assign(
+  openApiDocument.paths,
+  groupOrderPaths({ success, body, bearerErrors, json, groupResponse }),
+);
+
 Object.assign(openApiDocument.components.schemas, {
   // Los beneficios se publican como valores y no como texto: quien integre tiene
   // que poder calcular el mismo precio que calcula Flash. Un plan descrito en
@@ -1944,16 +1807,23 @@ Object.assign(openApiDocument.components.schemas, {
         properties: {
           deliveryAddress: { type: "string", minLength: 3 },
           quoteToken: { type: "string", minLength: 20, writeOnly: true },
-          // Propina del checkout (GTM-001). **No viaja en la cotizacion
-          // firmada**: cambiarla no deberia obligar a recotizar el pedido
-          // entero, y no hay nada que proteger firmandola —es plata del cliente
-          // hacia quien reparte, no un precio que el cliente pueda bajar—. Los
-          // topes se aplican contra el total del pedido, del lado del servidor.
-          //
-          // Se cobra junto con el pedido, en un solo cargo, y queda retenida
-          // hasta que hay conductor y el servicio se completa. Si el pedido se
-          // reintegra, vuelve entera.
+          // Propina (GTM-001): fuera de la cotizacion firmada, porque no es un precio que el cliente pueda bajar.
+          // Topes contra el total del pedido; se cobra en el mismo cargo, retenida hasta completar, y vuelve entera si se reintegra.
           tipCents: { type: "integer", minimum: 0, maximum: 10000000, default: 0 },
+          // Preferencias de entrega (P-02), tambien fuera de la cotizacion: no cambian el precio. En retiro solo vale
+          // `cutlery`; `leave_at_door` se rechaza en farmacia y tiendas. El comercio recibe solo `cutlery`.
+          deliveryPreferences: {
+            type: "object",
+            properties: {
+              dropoff: {
+                type: "string",
+                enum: ["hand_to_me", "leave_at_door"],
+                default: "hand_to_me",
+              },
+              instructions: { type: "string", maxLength: 300, default: "" },
+              cutlery: { type: "boolean", default: false },
+            },
+          },
           // Reserva de horario (GTM-001). Ausente es «lo antes posible». Los pedidos de comida no
           // se podian programar: `jobs.scheduled_for` existia desde la migracion 001 y solo lo escribia el alta de viajes.
           scheduledFor: { type: "string", format: "date-time" },

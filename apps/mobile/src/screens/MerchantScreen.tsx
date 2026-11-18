@@ -8,6 +8,7 @@
 // comercio» nombra literalmente. Separarla es la condición para poder excluirla.
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { DeliveryPreferenceTags } from "../DeliveryPreferenceTags";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import {
@@ -324,6 +325,7 @@ export function MerchantScreen({
                   <OrderCard
                     order={order}
                     disabled={busy}
+                    preferencias="cocina"
                     onPress={
                       ["accepted", "preparing"].includes(order.status)
                         ? () => runAction(() => api.advanceOrder(order.id), "Pedido avanzado")
@@ -742,6 +744,9 @@ function MerchantOrderDetailModal({
                 </Text>
               </View>
             </View>
+            {/* Cubiertos (P-02): lo único de las preferencias que le sirve a la
+                cocina, y lo único que el servidor le manda al comercio. */}
+            <DeliveryPreferenceTags preferences={order.deliveryPreferences} audience="cocina" />
             <View style={styles.merchantDetailSection}>
               <Text style={styles.sectionTitle}>Productos</Text>
               {order.items.map((item, index) => {

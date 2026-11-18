@@ -167,6 +167,11 @@ export async function getPostgresDispatchOffers(driverPublicId) {
     expiresAt: new Date(row.expires_at).toISOString(),
     status: row.status,
     subtype: row.metadata?.subtype || null,
+    // Antes de aceptar, el repartidor sabe si es sin contacto y si hay
+    // indicaciones —como en DoorDash y Uber—, pero no el texto, que es de la
+    // casa de alguien y recién lo ve quien acepta (P-02).
+    leaveAtDoor: row.metadata?.deliveryPreferences?.dropoff === "leave_at_door",
+    hasInstructions: Boolean(row.metadata?.deliveryPreferences?.instructions),
   }));
 }
 

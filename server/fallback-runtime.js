@@ -15,6 +15,7 @@
 import { createId, getTimestamp, readDb as readStoredDb } from "./store.js";
 import { hasRole, isAdmin } from "./http/authorization.js";
 import { publicUser } from "./user-view.js";
+import { paraElComercio, paraRepartidorSinAsignar } from "./delivery-preferences.js";
 
 // El registro de auditoría del fallback es una ventana, no un historial: la base
 // local es de desarrollo y prueba, y dejar crecer el arreglo sin techo convierte
@@ -102,7 +103,10 @@ export function scopeStateForRequest(state, req) {
   } else if (hasRole(req, "merchant")) {
     scoped.restaurants = state.restaurants.filter((entry) => entry.ownerId === userId);
     const merchantIds = new Set(scoped.restaurants.map((entry) => entry.id));
-    scoped.orders = state.orders.filter((entry) => merchantIds.has(entry.restaurantId));
+    // El comercio ve de las preferencias de entrega sólo los cubiertos (P-02).
+    scoped.orders = state.orders
+      .filter((entry) => merchantIds.has(entry.restaurantId))
+      .map(paraElComercio);
     scoped.rides = [];
     scoped.shipments = [];
     const courierIds = new Set(scoped.orders.map((entry) => entry.courierId).filter(Boolean));
@@ -114,12 +118,14 @@ export function scopeStateForRequest(state, req) {
       .map((entry) =>
         entry.courierId === driverId
           ? entry
-          : {
+          : // Sin asignar: si es sin contacto y si hay indicaciones, para
+            // decidir; nunca el texto, que es de la casa de alguien (P-02).
+            paraRepartidorSinAsignar({
               ...entry,
               customerId: "private",
               deliveryAddress: "Disponible después de aceptar",
               items: entry.items.map((item) => ({ ...item, note: "" })),
-            },
+            }),
       );
     scoped.rides = state.rides
       .filter((entry) => !entry.driverId || entry.driverId === driverId)

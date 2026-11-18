@@ -1434,6 +1434,14 @@ try {
   });
   assert(missingKey.status === 400, "order rejects missing idempotency key");
   idempotencyKey = `runtime-${crypto.randomUUID()}`;
+  // Preferencias de entrega (P-02): el pedido principal las lleva, para probar
+  // que se guardan, que el reintento las devuelve y quién ve qué.
+  const preferenciasP02 = {
+    dropoff: "leave_at_door",
+    instructions: "Timbre 3B P-02",
+    cutlery: true,
+  };
+  payload = { ...payload, deliveryPreferences: preferenciasP02 };
   const first = await request("/orders", {
     method: "POST",
     headers: { "Idempotency-Key": idempotencyKey },
@@ -1454,6 +1462,54 @@ try {
     orderId,
   ]);
   assert(count.rows[0].count === 1, "order idempotency creates one row");
+  // **La misma clave con otra propina es un conflicto, no un eco.** Antes el
+  // hash de idempotencia no incluía propina, horario, modo ni sucursal, y este
+  // pedido devolvía el anterior con 200.
+  const otraPropina = await request("/orders", {
+    method: "POST",
+    headers: { "Idempotency-Key": idempotencyKey },
+    body: JSON.stringify({ ...payload, tipCents: 15000 }),
+  });
+  assert(
+    otraPropina.status === 409,
+    "the same idempotency key with another tip is a 409, not a replay of the first order",
+  );
+  const preferenciasGuardadas = (
+    await pool.query("SELECT metadata->'deliveryPreferences' p FROM jobs WHERE public_id=$1", [
+      orderId,
+    ])
+  ).rows[0].p;
+  assert(
+    JSON.stringify(preferenciasGuardadas) === JSON.stringify(preferenciasP02) &&
+      JSON.stringify(first.body.order.deliveryPreferences) === JSON.stringify(preferenciasP02) &&
+      JSON.stringify(second.body.order.deliveryPreferences) === JSON.stringify(preferenciasP02) &&
+      second.body.order.fulfillment === "delivery",
+    "delivery preferences persist and the idempotent replay returns them with the fulfillment mode",
+  );
+  // El comercio ve sólo los cubiertos: las indicaciones son de la casa del
+  // cliente y para quien reparte.
+  const comercioP02 = await request("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({
+      email: "comercio@flash.app",
+      password: "demo123",
+      deviceName: "postgres-smoke-preferencias",
+    }),
+  });
+  const tokenClienteP02 = token;
+  token = comercioP02.body.token;
+  const colaComercio = await request(
+    `/merchant/orders/active?restaurantId=${encodeURIComponent(payload.restaurantId)}&limit=100`,
+  );
+  token = tokenClienteP02;
+  const pedidoEnCola = colaComercio.body.orders?.find((entry) => entry.id === orderId);
+  assert(
+    colaComercio.status === 200 &&
+      pedidoEnCola &&
+      JSON.stringify(pedidoEnCola.deliveryPreferences) === JSON.stringify({ cutlery: true }) &&
+      !JSON.stringify(colaComercio.body).includes("Timbre 3B P-02"),
+    "the merchant queue shows only cutlery, never the customer's delivery instructions",
+  );
   const foodRoute = await pool.query(
     `SELECT ST_Distance(pickup_location,dropoff_location) distance_m,ST_Y(dropoff_location::geometry) lat,ST_X(dropoff_location::geometry) lng,metadata->>'locationEstimated' location_estimated,metadata->>'deliveryAddressId' address_id,metadata->>'quoteId' quote_id,metadata->>'pricingVersion' pricing_version FROM jobs WHERE public_id=$1`,
     [orderId],

@@ -27,9 +27,11 @@ import type {
 import { TopBar } from "../ui/panels";
 import { EmptyState } from "./EmptyState";
 import { MercadoPagoCardCheckout } from "./FoodCardPayment";
+import { FoodDeliveryPreferences, PREFERENCIAS_INICIALES } from "./FoodDeliveryPreferences";
 import { FoodFulfillmentPicker } from "./FoodFulfillmentPicker";
 import { QuantityCounter } from "./QuantityCounter";
 import { SchedulePicker } from "./SchedulePicker";
+import { SummaryBlock } from "./FoodCheckoutSummary";
 import { TipSelector } from "./TipSelector";
 
 export function CartScreen({
@@ -97,6 +99,9 @@ export function CartScreen({
   // Reserva de horario (GTM-001). `null` es «lo antes posible», que es el camino
   // normal y por eso es el valor inicial.
   const [scheduledFor, setScheduledFor] = useState<string | null>(null);
+  // Preferencias de entrega (P-02). Fuera de la cotización a propósito: no
+  // cambian el precio, y escribir una indicación no tiene que volver a cotizar.
+  const [preferencias, setPreferencias] = useState(PREFERENCIAS_INICIALES);
   const [checkoutQuote, setCheckoutQuote] = useState<FoodCheckoutQuote | null>(null),
     [quoteBusy, setQuoteBusy] = useState(false),
     [quoteError, setQuoteError] = useState(""),
@@ -267,6 +272,9 @@ export function CartScreen({
           // dependa de que el selector se haya ocultado.
           tipCents: 0,
           scheduledFor,
+          // En retiro sólo vale la elección de cubiertos: modo e indicaciones
+          // de reparto no existen, y el servidor rechaza el pedido que las lleve.
+          deliveryPreferences: { ...PREFERENCIAS_INICIALES, cutlery: preferencias.cutlery },
         }
       : selectedAddress
         ? {
@@ -278,6 +286,7 @@ export function CartScreen({
             quoteToken: checkoutQuote.quoteToken,
             tipCents,
             scheduledFor,
+            deliveryPreferences: preferencias,
           }
         : null;
   // Los mismos topes que aplica el servidor. Duplicarlos acá evita ofrecer un
@@ -358,6 +367,13 @@ export function CartScreen({
                 addresses={geocodedAddresses}
                 selectedAddressId={selectedAddressId}
                 onSelectAddress={setSelectedAddressId}
+              />
+              <FoodDeliveryPreferences
+                value={preferencias}
+                onChange={setPreferencias}
+                pickup={esRetiro}
+                vertical={restaurant?.vertical ?? "restaurant"}
+                disabled={busy}
               />
               <div className="checkout-section-heading">
                 <div>
@@ -560,65 +576,5 @@ export function CartScreen({
         </>
       )}
     </div>
-  );
-}
-
-function SummaryBlock({
-  totals,
-}: {
-  totals: {
-    subtotal: number;
-    deliveryFee: number;
-    serviceFee: number;
-    discount?: number;
-    subscriptionDiscount?: number;
-    tip?: number;
-    total: number;
-  };
-}) {
-  return (
-    <section className="summary-block">
-      <div>
-        <span>Subtotal</span>
-        <strong>{money.format(totals.subtotal)}</strong>
-      </div>
-      <div>
-        <span>Envio</span>
-        <strong>{money.format(totals.deliveryFee)}</strong>
-      </div>
-      <div>
-        <span>Servicio</span>
-        <strong>{money.format(totals.serviceFee)}</strong>
-      </div>
-      {!!totals.discount && (
-        <div>
-          <span>Promoción</span>
-          <strong>-{money.format(totals.discount)}</strong>
-        </div>
-      )}
-      {/* Se nombra el beneficio en lugar de sumarlo al descuento. Quien paga una
-          suscripción tiene que ver qué le devolvió en cada pedido: es lo único
-          que sostiene la renovación, y esconderlo en «Promoción» lo borra. */}
-      {!!totals.subscriptionDiscount && (
-        <div className="summary-suscripcion">
-          <span>Envío con Flash Más</span>
-          <strong>-{money.format(totals.subscriptionDiscount)}</strong>
-        </div>
-      )}
-      {/* Suma, no resta. Es la única línea del resumen que sube el total por
-          decisión de la persona, y por eso se muestra por separado: verla dentro
-          del total sin nombrarla es la forma más rápida de que se sienta un
-          cargo que nadie eligió. */}
-      {!!totals.tip && (
-        <div>
-          <span>Propina</span>
-          <strong>{money.format(totals.tip)}</strong>
-        </div>
-      )}
-      <div className="total-line">
-        <span>Total</span>
-        <strong>{money.format(totals.total)}</strong>
-      </div>
-    </section>
   );
 }

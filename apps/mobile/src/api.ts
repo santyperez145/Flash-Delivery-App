@@ -770,6 +770,7 @@ export const api = {
     tipCents?: number;
     /** Reserva de horario en ISO. Ausente es «lo antes posible». */
     scheduledFor?: string;
+    deliveryPreferences?: import("./types").DeliveryPreferences;
     items: Array<{ menuItemId: string; quantity: number; extras: string[]; note: string }>;
   }) {
     if (!payload.deliveryAddressId)

@@ -10,6 +10,9 @@ import type {
   FoodCheckoutQuote,
   MerchantVertical,
   CatalogVertical,
+  DeliveryPreferences,
+  DeliveryPreferencesView,
+  DropoffMode,
   ShipmentReturn,
   ShipmentClaimEvidence,
   DriverDocument,
@@ -38,6 +41,9 @@ export type {
   FoodCheckoutQuote,
   MerchantVertical,
   CatalogVertical,
+  DeliveryPreferences,
+  DeliveryPreferencesView,
+  DropoffMode,
   ShipmentReturn,
   ShipmentClaimEvidence,
   DriverDocument,
@@ -266,6 +272,8 @@ export type Order = {
   /** Cómo lo recibe el cliente (GTM-002). Decide quién puede completarlo, si
    *  hay reparto y qué muestra el seguimiento. */
   fulfillment?: "delivery" | "pickup";
+  /** Recortadas según quién mira: el comercio recibe sólo los cubiertos (P-02). */
+  deliveryPreferences?: DeliveryPreferencesView;
   deliveryAddress: string;
   pickupLocation?: GeoPoint | null;
   deliveryLocation?: GeoPoint | null;
@@ -926,6 +934,8 @@ export type FoodCheckoutSelection = {
   tipCents?: number;
   /** Horario reservado en ISO, o `null` para «lo antes posible». */
   scheduledFor?: string | null;
+  /** Cómo se entrega (P-02): modo, indicaciones y cubiertos. */
+  deliveryPreferences?: DeliveryPreferences;
 };
 
 /** Lo que la pantalla de envíos manda para crear uno. */

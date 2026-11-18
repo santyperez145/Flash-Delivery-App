@@ -37,6 +37,7 @@ import { api } from "./api";
 import { mobileOrderStatusLabel, money } from "./format";
 import { styles } from "./styles";
 import type { Order, ServiceMessage } from "./types";
+import { DeliveryPreferenceTags } from "./DeliveryPreferenceTags";
 export function NativeMapUnavailable({
   message,
   height = 260,
@@ -373,10 +374,13 @@ export function OrderCard({
   order,
   disabled,
   onPress,
+  preferencias,
 }: {
   order: Order;
   disabled?: boolean;
   onPress?: () => void;
+  /** Qué parte de las preferencias de entrega mostrar (P-02); ninguna si falta. */
+  preferencias?: "cocina" | "reparto";
 }) {
   return (
     <View style={styles.card}>
@@ -385,6 +389,9 @@ export function OrderCard({
       <Text style={styles.cardText}>
         {order.items.length} items - {money.format(order.total)}
       </Text>
+      {preferencias && (
+        <DeliveryPreferenceTags preferences={order.deliveryPreferences} audience={preferencias} />
+      )}
       {onPress && <ActionButton label="Avanzar" disabled={disabled} onPress={onPress} />}
     </View>
   );

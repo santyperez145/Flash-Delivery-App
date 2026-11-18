@@ -1,5 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { DeliveryPreferences } from "../DeliveryPreferences";
+import type { DeliveryPreferences as DeliveryPreferencesValue, MerchantVertical } from "../types";
 import { Pressable, Text, View } from "react-native";
 
 import { flashDesign } from "../design-system";
@@ -22,6 +24,9 @@ export function CustomerFoodCheckoutScreen({
   onBack,
   onConfirm,
   onRefreshQuote,
+  preferences,
+  onPreferencesChange,
+  vertical,
 }: {
   visible: boolean;
   quote: FoodCheckoutQuote | null;
@@ -35,6 +40,10 @@ export function CustomerFoodCheckoutScreen({
   onBack: () => void;
   onConfirm: () => void;
   onRefreshQuote: () => void;
+  /** Preferencias de entrega (P-02): fuera de la cotización, no cambian el precio. */
+  preferences: DeliveryPreferencesValue;
+  onPreferencesChange: (value: DeliveryPreferencesValue) => void;
+  vertical: MerchantVertical;
 }) {
   if (!visible || !quote) return null;
 
@@ -215,6 +224,16 @@ export function CustomerFoodCheckoutScreen({
           </Text>
         </View>
       </View>
+      {/* El retiro en el local todavía no se elige en el móvil (ver P-02 en el
+          registro de paridad): si la cotización es de retiro, no hay reparto. */}
+      {quote.fulfillment !== "pickup" && (
+        <DeliveryPreferences
+          value={preferences}
+          onChange={onPreferencesChange}
+          vertical={vertical}
+          disabled={busy}
+        />
+      )}
       <SchedulePicker scheduledFor={scheduledFor} onChange={onScheduleChange} disabled={busy} />
       <TipSelector
         subtotal={quote.subtotal}
