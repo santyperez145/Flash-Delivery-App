@@ -5,6 +5,7 @@
 // `test:postgres` contra PostgreSQL, que ya bloquea el merge.
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
+import { contains, squeeze } from "./source-contract.mjs";
 
 process.env.DISPATCH_SEARCH_RADIUS_M = "8000";
 process.env.DISPATCH_MAX_RADIUS_M = "25000";
@@ -168,68 +169,90 @@ assert.ok(
 );
 ok("el dispatch sigue sin ofrecer trabajos reservados fuera de ventana");
 
-// --- Retiro en el local: nunca entra al despacho (GTM-002) -------------------
+// --- Retiro en el local: nunca espera conductor (GTM-002) --------------------
 //
 // El predicado de comida selecciona por `status='ready_for_pickup'`, que es
 // exactamente el estado al que llega un pedido retirado cuando la cocina
 // termina. Sin el filtro de `fulfillment`, cada pedido que el cliente va a
-// buscar al local se le ofreceria a tres conductores, y el primero que aceptara
-// se llevaria comida que nadie pidio que se mueva.
+// buscar se le ofreceria a tres conductores, la cola de despacho lo contaria
+// como trabado y la demanda le prometeria a un conductor un viaje inexistente.
 //
-// Se cuentan los cuatro sitios y no uno: barrido, candidatos, oferta y
-// aceptacion son cuatro consultas distintas, y una sola sin el filtro vuelve a
-// abrir el agujero.
-const dispatchFuente = await fs.readFile("server/dispatch-repository.js", "utf8");
-const sinComentariosSql = dispatchFuente
-  .replace(/\/\*[\s\S]*?\*\//g, " ")
-  .replace(/(^|[^:])\/\/[^\r\n]*/g, "$1 ");
-const filtrosDeRetiro = (
-  sinComentariosSql.match(/COALESCE\(j\.metadata->>'fulfillment','delivery'\)<>'pickup'/g) || []
-).length;
-const predicadosDeComida = (sinComentariosSql.match(/j\.status='ready_for_pickup'/g) || []).length;
-assert.ok(
-  predicadosDeComida >= 4,
-  `se esperaban al menos 4 predicados de comida y hay ${predicadosDeComida}`,
-);
-assert.equal(
-  filtrosDeRetiro,
-  predicadosDeComida,
-  `cada predicado de comida necesita su filtro de retiro: ${predicadosDeComida} predicados, ${filtrosDeRetiro} filtros`,
-);
-ok("el despacho filtra los pedidos para retirar en las cuatro consultas");
+// Se cuentan todos los sitios y no uno: barrido, candidatos, oferta,
+// aceptacion, cola de trabajo y demanda son seis consultas distintas, y una
+// sola sin el filtro vuelve a abrir el agujero. La comparacion es sin espaciado
+// (`source-contract.mjs`): reformatear el SQL no tiene que romper el contrato.
+const sinComentarios = (fuente) =>
+  fuente
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/(^|[^:])\/\/[^\r\n]*/g, "$1 ")
+    .replace(/--[^\r\n]*/g, " ");
+const ocurrencias = (fuente, aguja) =>
+  squeeze(sinComentarios(fuente)).split(squeeze(aguja)).length - 1;
+const FILTRO_RETIRO = "COALESCE(j.metadata->>'fulfillment','delivery')<>'pickup'";
+const PREDICADO_COMIDA = "j.status='ready_for_pickup'";
+const consultas = {
+  "server/dispatch-repository.js": 4,
+  "server/work-queue-repository.js": 1,
+  "server/driver-demand-repository.js": 1,
+};
+for (const [archivo, minimo] of Object.entries(consultas)) {
+  const fuente = await fs.readFile(archivo, "utf8");
+  const predicados = ocurrencias(fuente, PREDICADO_COMIDA);
+  const filtros = ocurrencias(fuente, FILTRO_RETIRO);
+  assert.ok(
+    predicados >= minimo,
+    `${archivo}: se esperaban ${minimo} predicados de comida y hay ${predicados}`,
+  );
+  assert.equal(
+    filtros,
+    predicados,
+    `${archivo}: cada predicado de comida necesita su filtro de retiro (${predicados} predicados, ${filtros} filtros)`,
+  );
+}
+ok("despacho, cola de trabajo y demanda excluyen los pedidos para retirar");
 
 // La otra mitad: la creacion directa de ofertas tambien lo sabe. El barrido no
 // es el unico camino — `setPostgresOrderStatus` crea ofertas al pasar a listo.
 const pedidosFuente = await fs.readFile("server/order-repository.js", "utf8");
 assert.ok(
-  /if \(databaseTarget === "ready_for_pickup" && !esRetiro\)/.test(pedidosFuente),
+  contains(pedidosFuente, 'if (databaseTarget === "ready_for_pickup" && !esRetiro)'),
   "la creacion directa de ofertas no excluye los pedidos para retirar",
 );
 ok("al marcar listo un pedido retirado no se crean ofertas de reparto");
 
-// **El pedido retirado tiene que poder completarse.** Es la otra mitad de
-// excluirlo del despacho: si nadie lo mueve de `ready_for_pickup`, el retiro
-// termina en un pedido cocinado, pagado y trabado para siempre. `nextOrderStatus`
-// devolvia `null` en ese estado, porque el unico camino previsto era el del
-// conductor.
+// **El pedido retirado tiene que poder completarse.** `nextOrderStatus`
+// devolvia `null` en `ready_for_pickup`, porque el unico camino previsto era el
+// del conductor: el retiro quedaba cocinado, pagado y trabado para siempre.
 const rutaFuente = await fs.readFile("server/http/order-router.js", "utf8");
 assert.ok(
-  /order\.status === "ready_for_pickup" && order\.fulfillment === "pickup"[\s\S]{0,40}return "delivered"/.test(
+  contains(
     rutaFuente,
+    'if (order.status === "ready_for_pickup" && order.fulfillment === "pickup") return "delivered";',
   ),
   "el pedido para retirar no tiene siguiente estado: queda listo y trabado",
 );
 ok("un pedido para retirar avanza de listo a entregado");
 
+// Sin items tambien manda el modo: la ruta firmaba una cotizacion de entrega
+// para un retiro, con un token que no llevaba el modo pedido.
+assert.ok(
+  contains(rutaFuente, 'parsed.data.fulfillment === "pickup" ? await getPostgresFoodPickupQuote({'),
+  "la cotizacion sin items ignora el modo de retiro",
+);
+ok("la cotizacion sin items respeta el retiro");
+
 // Y quien lo completa lo tiene que poder tocar. El servidor ya autoriza al
 // comercio; la consola limitaba la accion a `accepted`/`preparing`.
 const consolaFuente = await fs.readFile("src/merchant/MerchantConsole.tsx", "utf8");
 assert.ok(
-  /order\.fulfillment === "pickup" && order\.status === "ready_for_pickup"/.test(consolaFuente),
+  contains(
+    consolaFuente,
+    '(order.fulfillment === "pickup" && order.status === "ready_for_pickup")',
+  ),
   "la consola del comercio no ofrece entregar un pedido para retirar",
 );
 assert.ok(
-  /<MerchantPickupSwitch/.test(consolaFuente),
+  contains(consolaFuente, "<MerchantPickupSwitch"),
   "la consola del comercio no permite habilitar el retiro",
 );
 ok("el comercio habilita el retiro y entrega el pedido en el mostrador");

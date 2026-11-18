@@ -16,7 +16,11 @@ const foodCatalog = await fs.readFile("src/customer/FoodCatalogComponents.tsx", 
 const foodRestaurant = await fs.readFile("src/customer/FoodRestaurantScreen.tsx", "utf8");
 const foodItemSheet = await fs.readFile("src/customer/FoodItemSheet.tsx", "utf8");
 const foodDiscovery = await fs.readFile("src/customer/FoodDiscoveryHome.tsx", "utf8");
-const checkout = section(app, "function CartScreen(", "type ProviderPaymentInput");
+// El recorte se hace sobre el archivo del carrito y no sobre la web entera: el
+// marcador de cierre anterior se mudó a FoodCardPayment.tsx, que ordena antes,
+// y la región dejaba de terminar en el checkout. Lo que el checkout delega
+// (destino y tarjeta) se afirma sobre su propio archivo.
+const checkout = section(foodCart, "function CartScreen(", "function SummaryBlock(");
 if (!checkout) throw new Error("No se encontró el checkout web");
 const assert = (condition, message) => {
   if (!condition) throw new Error(message);
@@ -63,11 +67,13 @@ assert(
 );
 
 assert(
-  containsNone(checkout, ["Defensa 982", "Dirección pendiente"]),
+  containsNone(checkout, ["Defensa 982", "Dirección pendiente"]) &&
+    containsNone(fulfillmentPicker, ["Defensa 982", "Dirección pendiente"]),
   "checkout web no representa una dirección hardcodeada",
 );
 assert(
-  containsAll(checkout, ['aria-label="Dirección de entrega"', "geocodedAddresses.map"]),
+  containsAll(fulfillmentPicker, ['aria-label="Dirección de entrega"', "geocodedAddresses.map"]) &&
+    contains(checkout, "addresses={geocodedAddresses}"),
   "checkout elige una dirección geocodificada de la cuenta",
 );
 assert(
@@ -186,4 +192,23 @@ assert(
   contains(sucursalWeb, "pickupEnabled: boolean") &&
     contains(sucursalWeb, 'fulfillment: "delivery" | "pickup"'),
   "el contrato del cliente publica el modo y qué sucursales lo aceptan",
+);
+
+// El retiro se habilita sucursal por sucursal. Si la principal no lo ofrece y
+// otra sí, el checkout tiene que ofrecerlo por esa y mandar su id: tomar sólo la
+// principal escondía el retiro de un local que lo había encendido.
+assert(
+  contains(checkout, "restaurant?.branches?.find((branch) => branch.pickupEnabled)") &&
+    contains(checkout, "const checkoutBranch = esRetiro ? pickupBranch : primaryBranch;") &&
+    contains(checkout, "branchId: checkoutBranch?.id"),
+  "el retiro se ofrece por la sucursal que lo habilitó, aunque no sea la principal",
+);
+// Un retiro no tiene repartidor ni viaje: el seguimiento no puede mostrar
+// «Buscando repartidor» ni las etapas de un reparto que no ocurre.
+const seguimiento = await fs.readFile("src/customer/OrderTrackingSheet.tsx", "utf8");
+assert(
+  contains(seguimiento, "const steps = esRetiro ? pickupOrderSteps : orderSteps;") &&
+    contains(seguimiento, "Retirás en el local") &&
+    contains(seguimiento, "!esRetiro && Boolean(order.pickupLocation"),
+  "el seguimiento de un retiro muestra sus propias etapas y no un reparto",
 );

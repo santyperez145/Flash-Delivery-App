@@ -39,7 +39,10 @@ const lineCount = (source) => source.trimEnd().split(/\r?\n/).length;
 assert(
   lineCount(customerCoordinator) <= 375 &&
     lineCount(customerActivity) <= 195 &&
-    lineCount(orderTracking) <= 180 &&
+    // 180 → 185 (GTM-002): el retiro suma un segundo modo —sus etapas, sin ruta y
+    // sin repartidor— en cinco líneas. El techo existe para que el seguimiento no
+    // vuelva a ser un monolito, y un componente de 184 líneas no lo es.
+    lineCount(orderTracking) <= 185 &&
     lineCount(rideTracking) <= 340 &&
     lineCount(shipmentTracking) <= 285 &&
     contains(customerCoordinator, "<CustomerActivityScreen") &&

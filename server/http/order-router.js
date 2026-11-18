@@ -42,6 +42,7 @@ import {
   getPostgresCart,
   getPostgresFoodCheckoutQuote,
   getPostgresFoodDeliveryQuote,
+  getPostgresFoodPickupQuote,
   getPostgresOrders,
   processPostgresOrderMarketplacePayment,
   reorderPostgresOrder,
@@ -61,7 +62,8 @@ const orderSchema = z.object({
   restaurantId: z.string().min(1),
   deliveryAddressId: z.string().uuid().optional(),
   branchId: z.string().min(3).max(100).optional(),
-  deliveryAddress: z.string().min(3),
+  // El repositorio la toma de la base en los dos modos; en retiro es la del local.
+  deliveryAddress: z.string().min(3).optional(),
   paymentMethod: z.string().min(2),
   paymentMethodId: z.string().uuid().optional(),
   promotionCode: z.string().trim().min(3).max(40).optional(),
@@ -296,12 +298,20 @@ router.post(
             promotionCode: parsed.data.promotionCode,
             fulfillment: parsed.data.fulfillment,
           })
-        : await getPostgresFoodDeliveryQuote({
-            customerPublicId: parsed.data.customerId,
-            merchantPublicId: parsed.data.restaurantId,
-            deliveryAddressId: parsed.data.deliveryAddressId,
-            branchPublicId: parsed.data.branchId,
-          });
+        : // Sin ítems también manda el modo: firmar una cotización de entrega
+          // para un retiro dejaría el token con un modo que no se pidió.
+          parsed.data.fulfillment === "pickup"
+          ? await getPostgresFoodPickupQuote({
+              customerPublicId: parsed.data.customerId,
+              merchantPublicId: parsed.data.restaurantId,
+              branchPublicId: parsed.data.branchId,
+            })
+          : await getPostgresFoodDeliveryQuote({
+              customerPublicId: parsed.data.customerId,
+              merchantPublicId: parsed.data.restaurantId,
+              deliveryAddressId: parsed.data.deliveryAddressId,
+              branchPublicId: parsed.data.branchId,
+            });
       const quoteId = createId("QUOTE"),
         expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
       const quoteToken = jwt.sign({ kind: "food_quote", quoteId, ...calculated }, jwtSecret, {

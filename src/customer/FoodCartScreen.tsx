@@ -106,13 +106,16 @@ export function CartScreen({
   // Retiro en el local (GTM-002). Arranca en `delivery` porque es lo que elige
   // la enorme mayoría: el retiro se ofrece, no se asume.
   const [fulfillment, setFulfillment] = useState<"delivery" | "pickup">("delivery");
-  // **La misma sucursal que se le manda al servidor.** La cotización envía
-  // `branches.find(isPrimary)?.id`, y el servidor, cuando no recibe ninguna,
-  // elige la primaria. Derivar acá otra sucursal ofrecería retiro por una que
-  // el checkout no va a usar.
-  const checkoutBranch = restaurant?.branches?.find((branch) => branch.isPrimary) || null;
-  const pickupAvailable = checkoutBranch?.pickupEnabled === true;
+  const primaryBranch = restaurant?.branches?.find((branch) => branch.isPrimary) || null;
+  // El retiro se habilita sucursal por sucursal. Si la principal no lo ofrece y
+  // otra sí, el retiro va a esa: se manda su id explícito, así que la sucursal
+  // que se muestra es la misma que cotiza el servidor.
+  const pickupBranch = primaryBranch?.pickupEnabled
+    ? primaryBranch
+    : restaurant?.branches?.find((branch) => branch.pickupEnabled) || null;
+  const pickupAvailable = Boolean(pickupBranch);
   const esRetiro = fulfillment === "pickup";
+  const checkoutBranch = esRetiro ? pickupBranch : primaryBranch;
   useEffect(() => {
     // Si el local deja de ofrecerlo —o se cambia de local— el modo vuelve a
     // entrega. Quedarse en retiro mostraría un checkout que el servidor rechaza.

@@ -36,6 +36,9 @@ export async function getDriverDemandZones(actorPublicId) {
           WHERE j.city_id=$1 AND j.kind=$2::job_kind AND j.driver_id IS NULL
             AND j.status NOT IN('completed','cancelled')
             AND (COALESCE(j.metadata->>'subtype','')<>'food_order' OR j.status='ready_for_pickup')
+            -- Un retiro no es trabajo para un conductor: mostrarlo como demanda
+            -- promete viajes que no existen.
+            AND COALESCE(j.metadata->>'fulfillment','delivery')<>'pickup'
             AND (j.scheduled_for IS NULL OR j.scheduled_for<=now()+interval '15 minutes')
             AND ST_Covers(z.boundary::geometry,j.pickup_location::geometry)
         ) open_jobs,

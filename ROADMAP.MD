@@ -53,8 +53,14 @@ comida exigía repartidor.** No existía ningún concepto de modo de entrega.
   el token firmado, sin propina en retiro), `test:authorization` (el comercio completa un
   retiro y no un reparto). Las ocho aserciones nuevas se falsificaron rompiendo lo que
   vigilan y se confirmó que fallan.
+- **Lo que encontró la revisión del PR y se cerró en el mismo PR.** La cola de trabajo y la
+  demanda de conductores contaban los retiros listos como trabajo sin asignar (alarma falsa
+  de despacho trabado, viajes inexistentes); la cotización sin ítems firmaba una entrega
+  para un retiro; el retiro de una sucursal que no es la principal quedaba invisible; y el
+  seguimiento mostraba «Buscando repartidor» a quien va a buscar su pedido. Los cuatro
+  tienen su aserción en `test:dispatch-candidates` o `test:web-checkout`, falsificada.
 - **Lo que falta.** Ningún local lo habilitó todavía: la capacidad está en `CI`, no operada.
-  El checkout móvil queda pendiente.
+  El checkout móvil muestra una cotización de retiro, pero todavía no permite elegirlo.
 
 ## Roadmap rector adoptado — 21 de agosto de 2026
 

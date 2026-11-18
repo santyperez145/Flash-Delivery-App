@@ -5,6 +5,7 @@ import "./styles.css";
 import "./styles/foundation.css";
 import "./styles/auth.css";
 import "./styles/states.css";
+import "./styles/pickup.css";
 import "./adaptive.css";
 
 const publicTrackingToken = window.location.pathname.match(

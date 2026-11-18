@@ -61,11 +61,7 @@ export function FoodFulfillmentPicker({
             </div>
             <ShoppingBag size={18} />
           </div>
-          <div
-            className="payment-choice fulfillment-choice"
-            role="radiogroup"
-            aria-label="Modo de entrega"
-          >
+          <div className="payment-choice" role="radiogroup" aria-label="Modo de entrega">
             <button
               type="button"
               role="radio"

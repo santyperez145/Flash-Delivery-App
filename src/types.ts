@@ -886,6 +886,21 @@ export type PayoutReview = {
 // Las dos las comparten `App.tsx`, que arma la petición, y la superficie de
 // cliente, que la compone en pantalla.
 
+/** Lo que el checkout de comida manda a cotizar. */
+export type FoodQuotePayload = {
+  customerId: string;
+  restaurantId: string;
+  /** Ausente en retiro: no hay dirección del cliente que medir. */
+  deliveryAddressId?: string;
+  branchId?: string;
+  /** Retiro en el local (GTM-002). Ausente es `delivery`. */
+  fulfillment?: "delivery" | "pickup";
+  paymentMethod: string;
+  paymentMethodId?: string;
+  promotionCode?: string;
+  items: Array<Pick<CartLine, "quantity" | "extras" | "note"> & { menuItemId: string }>;
+};
+
 /** Lo que el checkout de comida confirma: la cotización firmada y su elección. */
 export type FoodCheckoutSelection = {
   /** Como recibe el pedido (GTM-002). Viaja con la eleccion y no se deduce del

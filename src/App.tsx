@@ -686,15 +686,10 @@ function App() {
       const { order } = await api.createOrder({
         customerId: activeUser.id,
         restaurantId: cartRestaurant.id,
-        deliveryAddressId: checkout.deliveryAddressId,
-        deliveryAddress: checkout.deliveryAddress,
-        fulfillment: checkout.fulfillment,
-        paymentMethod: checkout.paymentMethod,
-        paymentMethodId: checkout.paymentMethodId,
+        // La elección del checkout ya es la carga del pedido: modo, destino, pago y token.
+        ...checkout,
         providerPayment,
         promotionCode: promotionCode.trim() || undefined,
-        quoteToken: checkout.quoteToken,
-        tipCents: checkout.tipCents,
         scheduledFor: checkout.scheduledFor ?? undefined,
         items: cart.map((line) => ({
           menuItemId: line.item.id,
