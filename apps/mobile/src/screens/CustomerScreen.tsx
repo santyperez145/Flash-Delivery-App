@@ -3,6 +3,7 @@
 // conserva la coordinación de Comidas durante la extracción.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { sucursalConRetiro, type Fulfillment } from "../FulfillmentToggle";
 import { PREFERENCIAS_INICIALES } from "../DeliveryPreferences";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
@@ -274,6 +275,8 @@ export function CustomerScreen({
   // Reserva de horario (GTM-001). `null` es «lo antes posible».
   const [foodScheduledFor, setFoodScheduledFor] = useState<string | null>(null);
   const [foodPreferences, setFoodPreferences] = useState(PREFERENCIAS_INICIALES);
+  // Retiro en el local (P-11): el modo se elige en el carrito, antes de cotizar.
+  const [foodFulfillment, setFoodFulfillment] = useState<Fulfillment>("delivery");
   // Grupo que se está por confirmar (GTM-001).
   const [pendingGroupId, setPendingGroupId] = useState<string | null>(null);
   const [selectedFoodPaymentId, setSelectedFoodPaymentId] = useState(
@@ -725,6 +728,9 @@ export function CustomerScreen({
       item.lat !== null &&
       item.lng !== null,
   );
+  const pickupBranch = sucursalConRetiro(cartRestaurant);
+  // Sin sucursal con retiro, el modo elegido no aplica: es entrega.
+  const esRetiro = foodFulfillment === "pickup" && Boolean(pickupBranch);
   const foodCheckoutItems = cart.map((line) => ({
     menuItemId: line.menuItemId,
     quantity: line.quantity,
@@ -733,7 +739,12 @@ export function CustomerScreen({
   }));
 
   const openFoodCheckout = () => {
-    if (!cart.length || !cartRestaurant || !selectedFoodAddress || !selectedFoodPayment) {
+    if (
+      !cart.length ||
+      !cartRestaurant ||
+      (!esRetiro && !selectedFoodAddress) ||
+      !selectedFoodPayment
+    ) {
       Alert.alert(
         "Checkout incompleto",
         "Seleccioná una dirección geocodificada y un método de pago.",
@@ -744,8 +755,11 @@ export function CustomerScreen({
       const result = await api.quoteFoodCheckout({
         customerId: user.id,
         restaurantId: cartRestaurant.id,
-        deliveryAddressId: selectedFoodAddress.id,
-        branchId: cartRestaurant.branches?.find((branch) => branch.isPrimary)?.id,
+        deliveryAddressId: esRetiro ? undefined : selectedFoodAddress?.id,
+        branchId: esRetiro
+          ? pickupBranch?.id
+          : cartRestaurant.branches?.find((branch) => branch.isPrimary)?.id,
+        fulfillment: esRetiro ? "pickup" : "delivery",
         paymentMethod: selectedFoodPayment.label,
         paymentMethodId: selectedFoodPayment.id,
         promotionCode: foodPromotionCode.trim().toUpperCase() || undefined,
@@ -792,19 +806,13 @@ export function CustomerScreen({
     }, "Revisá el pedido del grupo y confirmá");
 
   const createOrder = () => {
-    const selectedDeliveryAddress = state.addresses.find(
-      (item) =>
-        item.userId === user.id &&
-        !item.id.startsWith("profile-") &&
-        item.address === deliveryAddress.trim() &&
-        item.lat !== null &&
-        item.lng !== null,
-    );
+    // **El modo lo dicta la cotización firmada, no el botón:** el servidor compara
+    // el del pedido contra el del token y rechaza el que no coincida.
+    const retiro = foodCheckoutQuote?.fulfillment === "pickup";
     if (
       !cart.length ||
       !cartRestaurant ||
-      !deliveryAddress.trim() ||
-      !selectedDeliveryAddress ||
+      (!retiro && !selectedFoodAddress) ||
       !selectedFoodPayment ||
       !foodCheckoutQuote
     ) {
@@ -818,15 +826,22 @@ export function CustomerScreen({
       const result = await api.createOrder({
         customerId: user.id,
         restaurantId: cartRestaurant.id,
-        deliveryAddressId: selectedDeliveryAddress.id,
-        deliveryAddress: deliveryAddress.trim(),
+        deliveryAddressId: retiro ? undefined : selectedFoodAddress?.id,
+        deliveryAddress:
+          foodCheckoutQuote.fulfillment === "pickup"
+            ? foodCheckoutQuote.pickupAddress
+            : deliveryAddress.trim(),
+        fulfillment: foodCheckoutQuote.fulfillment,
         paymentMethod: selectedFoodPayment.label,
         paymentMethodId: selectedFoodPayment.id,
         promotionCode: foodCheckoutQuote.promotionCode || undefined,
         quoteToken: foodCheckoutQuote.quoteToken,
-        tipCents: foodTipCents,
+        // En retiro no hay propina de reparto ni modo de entrega: sólo cubiertos.
+        tipCents: retiro ? 0 : foodTipCents,
         scheduledFor: foodScheduledFor ?? undefined,
-        deliveryPreferences: foodPreferences,
+        deliveryPreferences: retiro
+          ? { ...PREFERENCIAS_INICIALES, cutlery: foodPreferences.cutlery }
+          : foodPreferences,
         items: foodCheckoutItems,
       });
       // El grupo se marca con el pedido ya creado. Si esto fallara, el pedido
@@ -983,7 +998,10 @@ export function CustomerScreen({
               promotionCode={foodPromotionCode}
               subtotal={cartTotal}
               busy={busy}
-              canCheckout={Boolean(selectedFoodAddress && selectedFoodPayment)}
+              canCheckout={Boolean((esRetiro || selectedFoodAddress) && selectedFoodPayment)}
+              fulfillment={esRetiro ? "pickup" : "delivery"}
+              onFulfillmentChange={setFoodFulfillment}
+              pickupAddress={pickupBranch?.address ?? null}
               onBack={() => setFoodScreen(selectedRestaurant ? "restaurant" : "home")}
               onHome={() => setFoodScreen("home")}
               onOpenRestaurant={(restaurantId) => {

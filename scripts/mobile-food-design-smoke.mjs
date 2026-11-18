@@ -84,7 +84,7 @@ assert(
 );
 assert(
   contains(foodCheckout, "servidor vuelve a validar stock") &&
-    contains(foodCheckout, "quote.total + tipCents / 100"),
+    contains(foodCheckout, "quote.total + propina / 100"),
   "checkout must disclose server revalidation and use the authoritative total",
 );
 assert(
@@ -176,3 +176,63 @@ assert(
   contains(app, "api.rescheduleJob") && contains(app, "SchedulePicker"),
   "el checkout movil reserva horario y la lista de pedidos permite moverlo",
 );
+
+// ---------------------------------------------------------------------------
+// Retiro en el local desde la app (P-11). El servidor y la web lo ofrecían desde
+// GTM-002; la app móvil, que es la superficie principal del cliente, no.
+{
+  const leerMovil = (archivo) => fs.readFileSync(`apps/mobile/src/${archivo}`, "utf8");
+  const coordinador = await leerMovil("screens/CustomerScreen.tsx");
+  const carrito = await leerMovil("screens/CustomerFoodCartScreen.tsx");
+  const checkout = await leerMovil("screens/CustomerFoodCheckoutScreen.tsx");
+  const pedidos = await leerMovil("screens/CustomerFoodOrdersScreen.tsx");
+  const selector = await leerMovil("FulfillmentToggle.tsx");
+  assert(
+    contains(carrito, "{pickupAddress ? ( <FulfillmentToggle") &&
+      // Y sólo en una sucursal que hoy puede atender: el servidor no cotiza una
+      // pausada ni fuera de horario, y la app no ofrece elegir otra.
+      contains(selector, 'branch.pickupEnabled && branch.status === "active" && branch.open'),
+    "the cart offers pickup only at a branch that enabled it and can serve now",
+  );
+  assert(
+    contains(coordinador, 'fulfillment: esRetiro ? "pickup" : "delivery",') &&
+      contains(coordinador, "deliveryAddressId: esRetiro ? undefined : selectedFoodAddress?.id,"),
+    "pickup quotes without a customer address",
+  );
+  // El modo del pedido sale de la cotización firmada, no del botón: el servidor
+  // compara los dos y rechaza el que no coincida.
+  assert(
+    contains(coordinador, 'const retiro = foodCheckoutQuote?.fulfillment === "pickup";') &&
+      contains(coordinador, "fulfillment: foodCheckoutQuote.fulfillment,") &&
+      contains(coordinador, "tipCents: retiro ? 0 : foodTipCents,"),
+    "the order takes its mode from the signed quote and sends no tip on pickup",
+  );
+  assert(
+    contains(checkout, '{quote.fulfillment !== "pickup" && ( <TipSelector') &&
+      contains(
+        pedidos,
+        '{order.fulfillment !== "pickup" && ( <Pressable style={styles.foodActiveOrderPrimary}',
+      ),
+    "pickup hides the courier tip and the courier tracking",
+  );
+  // Una propina elegida antes de pasar a retiro no se suma al total que se muestra:
+  // el pedido la manda en cero, y lo mostrado es lo que se cobra.
+  assert(
+    contains(checkout, 'const propina = quote.fulfillment === "pickup" ? 0 : tipCents;') &&
+      contains(checkout, "`Confirmar · ${money.format(quote.total + propina / 100)}`") &&
+      !contains(checkout, "quote.total + tipCents"),
+    "the pickup total shown matches the charge, without a previously chosen tip",
+  );
+  // El seguimiento de un retiro no muestra repartidor ni mapa, venga de donde venga.
+  const seguimiento = await leerMovil("screens/CustomerTrackingSheets.tsx");
+  assert(
+    contains(seguimiento, 'const retiro = order.fulfillment === "pickup";') &&
+      contains(
+        seguimiento,
+        'resourceId: order?.fulfillment === "pickup" ? undefined : order?.id,',
+      ) &&
+      contains(seguimiento, "{retiro ? ( <Text style={styles.cardText}> Retirás en"),
+    "pickup tracking shows courier stages or a map",
+  );
+  console.log("ok - la app móvil ofrece retiro en el local de punta a punta");
+}

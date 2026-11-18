@@ -144,12 +144,23 @@ export function CustomerActivityScreen({
             </View>
             <View style={styles.itemCopy}>
               <Text style={styles.cardTitle}>Pedido · {order.status}</Text>
-              <Text style={styles.cardText}>{order.deliveryAddress}</Text>
+              <Text style={styles.cardText}>
+                {order.fulfillment === "pickup"
+                  ? `Retirás en ${order.deliveryAddress}`
+                  : order.deliveryAddress}
+              </Text>
               <Text style={styles.totalText}>{money.format(order.total)}</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color="#aaa" />
           </Pressable>
-          <ChatAction label="Chat con comercio y repartidor" onPress={() => onChat(order.id)} />
+          <ChatAction
+            label={
+              order.fulfillment === "pickup"
+                ? "Chat con el comercio"
+                : "Chat con comercio y repartidor"
+            }
+            onPress={() => onChat(order.id)}
+          />
         </View>
       ))}
       {activeRides.map((ride) => (
