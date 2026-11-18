@@ -33,6 +33,7 @@ import {
 } from "../merchant-finance-repository.js";
 import { recordPostgresAudit } from "../operations-repository.js";
 import { getPostgresMerchantActiveOrderPage } from "../order-repository.js";
+import { paraElComercio } from "../delivery-preferences.js";
 import { usesPostgresCommerce } from "../postgres.js";
 import { payoutStepUpLimiter } from "./rate-limits.js";
 import { publishRealtimeEvent } from "./realtime.js";
@@ -91,7 +92,10 @@ router.get(
       ? db.restaurants.find((entry) => entry.id === req.query.restaurantId)
       : db.restaurants.find((entry) => entry.ownerId === req.auth.userId);
     if (!restaurant) return fail(res, 404, "Comercio no encontrado");
-    const orders = db.orders.filter((order) => order.restaurantId === restaurant.id);
+    // El comercio ve de las preferencias de entrega sólo los cubiertos (P-02).
+    const orders = db.orders
+      .filter((order) => order.restaurantId === restaurant.id)
+      .map(paraElComercio);
     const timezone = "America/Argentina/Buenos_Aires";
     const dateKey = (value) =>
       new Intl.DateTimeFormat("en-CA", {
@@ -203,7 +207,7 @@ router.get(
       return ok(res, {
         generatedAt: getTimestamp(),
         source: "sqlite-test-fallback",
-        orders: all.slice(0, limit),
+        orders: all.slice(0, limit).map(paraElComercio),
         hasMore: all.length > limit,
       });
     } catch (error) {

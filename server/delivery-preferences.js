@@ -108,3 +108,21 @@ export function paraRepartidorSinAsignar(order) {
     },
   };
 }
+
+/**
+ * La vista de un pedido para quien lo pidió por una acción (avanzar, cancelar).
+ *
+ * Las lecturas recortan en cada camino; las respuestas de las acciones también
+ * devuelven el pedido, y ahí faltaba el recorte: un comercio que avanzaba un
+ * pedido recibía las indicaciones del cliente. **Por omisión, la vista mínima.**
+ * Completo sólo para operaciones y soporte, el cliente dueño y el repartidor
+ * asignado; cualquier otro —comercio incluido— recibe lo de la cocina.
+ */
+export function vistaParaQuienPide(
+  order,
+  { privilegiado = false, usuarioId = null, conductorId = null } = {},
+) {
+  if (privilegiado || (usuarioId && order.customerId === usuarioId)) return order;
+  if (conductorId && order.courierId === conductorId) return order;
+  return paraElComercio(order);
+}

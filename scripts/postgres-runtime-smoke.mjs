@@ -2413,6 +2413,15 @@ try {
       merchantReady.body.order?.status === "ready_for_pickup",
     "merchant advances paid food through preparation before dispatch",
   );
+  // La respuesta de una acción también recorta (P-02): el comercio que avanza el
+  // pedido recibe los cubiertos, nunca las indicaciones de la casa del cliente.
+  assert(
+    mismoObjeto(merchantPreparing.body.order?.deliveryPreferences, { cutlery: true }) &&
+      mismoObjeto(merchantReady.body.order?.deliveryPreferences, { cutlery: true }) &&
+      !JSON.stringify(merchantPreparing.body).includes("Timbre 3B P-02") &&
+      !JSON.stringify(merchantReady.body).includes("Timbre 3B P-02"),
+    "the merchant's advance responses carry only cutlery, never the delivery instructions",
+  );
   const driverLogin = await request("/auth/login", {
     method: "POST",
     body: JSON.stringify({

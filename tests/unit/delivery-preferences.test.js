@@ -10,6 +10,7 @@ import {
   paraElComercio,
   paraRepartidorSinAsignar,
   preferenciasDesdeMetadata,
+  vistaParaQuienPide,
 } from "../../server/delivery-preferences.js";
 
 const pedido = (deliveryPreferences) => ({ id: "ORD-1", deliveryPreferences });
@@ -119,5 +120,37 @@ describe("quién ve qué", () => {
       paraRepartidorSinAsignar(pedido({ dropoff: "hand_to_me", instructions: "", cutlery: false }))
         .deliveryPreferences,
     ).toEqual({ dropoff: "hand_to_me", hasInstructions: false });
+  });
+});
+
+describe("vista de la respuesta de una acción", () => {
+  const pedidoCompleto = {
+    id: "ORD-9",
+    customerId: "usr_cliente",
+    courierId: "drv_asignado",
+    deliveryPreferences: { dropoff: "leave_at_door", instructions: "Timbre 3B", cutlery: true },
+  };
+
+  it("el cliente dueño, el repartidor asignado y operaciones ven todo", () => {
+    for (const quien of [
+      { usuarioId: "usr_cliente" },
+      { conductorId: "drv_asignado" },
+      { privilegiado: true },
+    ])
+      expect(vistaParaQuienPide(pedidoCompleto, quien).deliveryPreferences.instructions).toBe(
+        "Timbre 3B",
+      );
+  });
+
+  it("cualquier otro —el comercio, otro repartidor, nadie— recibe sólo los cubiertos", () => {
+    for (const quien of [
+      { usuarioId: "usr_comercio" },
+      { usuarioId: "usr_comercio", conductorId: "drv_otro" },
+      {},
+    ]) {
+      const visto = vistaParaQuienPide(pedidoCompleto, quien);
+      expect(visto.deliveryPreferences).toEqual({ cutlery: true });
+      expect(JSON.stringify(visto)).not.toContain("Timbre 3B");
+    }
   });
 });

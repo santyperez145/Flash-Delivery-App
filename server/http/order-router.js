@@ -27,6 +27,8 @@ import {
   canActAsDriver,
   canAdvanceOrder,
   canMutateOrderStatus,
+  hasRole,
+  isAdmin,
   requireAnyRole,
 } from "./authorization.js";
 import { getPostgresRestaurants } from "../catalog-repository.js";
@@ -60,7 +62,16 @@ import {
   MAX_INDICACIONES,
   MODOS_DE_ENTREGA,
   normalizarPreferencias,
+  vistaParaQuienPide,
 } from "../delivery-preferences.js";
+
+// El pedido que devuelve una acción, recortado según quién la pidió (P-02).
+const vistaDelPedido = (req, order) =>
+  vistaParaQuienPide(order, {
+    privilegiado: isAdmin(req) || hasRole(req, "support"),
+    usuarioId: req.auth?.userId,
+    conductorId: req.auth?.user?.driverId,
+  });
 
 const orderSchema = z.object({
   customerId: z.string().min(1),
@@ -633,7 +644,7 @@ router.post(
       entityId: db.orders[index].id,
       action: "order.status_advanced",
     });
-    return ok(res, { order: db.orders[index], label: orderLabels[next] });
+    return ok(res, { order: vistaDelPedido(req, db.orders[index]), label: orderLabels[next] });
   },
 );
 
@@ -690,5 +701,5 @@ router.patch("/api/orders/:orderId/status", requireAuth, async (req, res) => {
     entityId: db.orders[index].id,
     action: "order.status_set",
   });
-  return ok(res, { order: db.orders[index], label: orderLabels[status] });
+  return ok(res, { order: vistaDelPedido(req, db.orders[index]), label: orderLabels[status] });
 });

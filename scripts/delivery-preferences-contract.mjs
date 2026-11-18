@@ -98,7 +98,28 @@ assert.ok(
   ) && !/instructions:\s*row\.metadata/.test(despacho),
   "la oferta de despacho expone el texto de las indicaciones",
 );
-ok("comercio, actividad, estado inicial y ofertas recortan las preferencias");
+// Las respuestas de las acciones también devuelven el pedido: avanzar y cambiar
+// el estado recortan según quién pidió. Lo encontró la revisión del PR: el
+// comercio que avanzaba un pedido recibía las indicaciones del cliente.
+const rutaPedidos = await leer("server/http/order-router.js");
+const respuestasRecortadas =
+  rutaPedidos.match(/order: vistaDelPedido\(req, db\.orders\[index\]\)/g) || [];
+assert.equal(
+  respuestasRecortadas.length,
+  2,
+  "avanzar o cambiar el estado devuelve el pedido sin recortar",
+);
+const comercio = await leer("server/http/merchant-router.js");
+assert.ok(
+  contains(
+    comercio,
+    ".filter((order) => order.restaurantId === restaurant.id) .map(paraElComercio);",
+  ) && contains(comercio, "orders: all.slice(0, limit).map(paraElComercio),"),
+  "el respaldo SQLite del comercio devuelve las preferencias sin recortar",
+);
+ok(
+  "comercio, actividad, estado inicial, ofertas y respuestas de acciones recortan las preferencias",
+);
 
 // --- Las mismas reglas en las tres capas ----------------------------------------
 const { source: web } = await readWebSource();
