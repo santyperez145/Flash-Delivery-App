@@ -25,8 +25,15 @@ import { CustomerFoodCartScreen } from "./CustomerFoodCartScreen";
 import { CustomerFoodCheckoutScreen } from "./CustomerFoodCheckoutScreen";
 import { CustomerFoodOrdersScreen } from "./CustomerFoodOrdersScreen";
 import { CustomerFoodRestaurantScreen } from "./CustomerFoodRestaurantScreen";
+import { CustomerHomeScreen } from "./CustomerHomeScreen";
 import { CustomerRideScreen } from "./CustomerRideScreen";
 import { CustomerShipmentScreen } from "./CustomerShipmentScreen";
+import {
+  CustomerServicesScreen,
+  CustomerTabBar,
+  ServiceBackBar,
+  type VistaCliente,
+} from "./CustomerTabBar";
 import {
   CustomerServiceIssueModals,
   type CustomerServiceIssueState,
@@ -41,6 +48,7 @@ import type {
   DietaryPreferences,
   FoodCheckoutQuote,
   GeoPoint,
+  MerchantVertical,
   MobileCartLine,
   GroupOrder as GroupOrderType,
   Order,
@@ -72,7 +80,26 @@ export function CustomerScreen({
 }) {
   const customerScrollRef = useRef<ScrollView>(null);
   const [customerWindow, setCustomerWindow] = useState<"food" | "ride" | "shipment">("food");
-  const [sharedView, setSharedView] = useState<"service" | "activity" | "account">("service");
+  // RES-01: se entra al inicio con todos los servicios, no a la portada de comidas.
+  const [sharedView, setSharedView] = useState<VistaCliente>("home");
+  const [foodVertical, setFoodVertical] = useState<MerchantVertical>("restaurant");
+  const [rideDestination, setRideDestination] = useState<{
+    address: string;
+    point: GeoPoint | null;
+  } | null>(null);
+  const abrirServicio = (servicio: "food" | "ride" | "shipment") => {
+    setCustomerWindow(servicio);
+    setSharedView("service");
+  };
+  // Entrar a un rubro empieza de cero: la cocina o la búsqueda de otro rubro lo
+  // dejarían vacío sin que se vea por qué.
+  const abrirRubro = (vertical: MerchantVertical) => {
+    setFoodVertical(vertical);
+    setFoodCategory("Todos");
+    setFoodQuery("");
+    setFoodScreen("home");
+    abrirServicio("food");
+  };
   const [foodScreen, setFoodScreen] = useState<
     "home" | "search" | "restaurant" | "cart" | "checkout" | "orders"
   >("home");
@@ -872,46 +899,54 @@ export function CustomerScreen({
         ref={customerScrollRef}
         contentContainerStyle={[styles.stack, styles.customerScrollContent]}
       >
-        <View style={styles.serviceNav}>
-          {(["food", "ride", "shipment"] as const).map((entry) => (
-            <Pressable
-              key={entry}
-              onPress={() => {
-                setCustomerWindow(entry);
-                setSharedView("service");
-              }}
-              style={[
-                styles.serviceNavItem,
-                customerWindow === entry && styles.serviceNavItemActive,
-              ]}
-            >
-              <View
-                style={[
-                  styles.serviceIconBubble,
-                  customerWindow === entry && styles.serviceIconBubbleActive,
-                ]}
-              >
-                <Ionicons
-                  name={entry === "food" ? "fast-food" : entry === "ride" ? "car-sport" : "cube"}
-                  size={20}
-                  color={customerWindow === entry ? "#fff" : "#f4511e"}
-                />
-              </View>
-              <Text
-                style={[
-                  styles.serviceNavText,
-                  customerWindow === entry && styles.serviceNavTextActive,
-                ]}
-              >
-                {entry === "food" ? "Comidas" : entry === "ride" ? "Viajes" : "Envios"}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        {sharedView === "home" && (
+          <CustomerHomeScreen
+            user={user}
+            deliveryAddress={deliveryAddress}
+            restaurants={state.restaurants}
+            orders={activityOrders}
+            activeOrders={activeOrders}
+            activeRides={activeRides}
+            activeShipments={activeShipments}
+            onSearch={() => {
+              setFoodScreen("search");
+              abrirServicio("food");
+            }}
+            onWhereTo={(destino) => {
+              setRideDestination(destino);
+              abrirServicio("ride");
+            }}
+            onOpenVertical={abrirRubro}
+            onOpenShipment={() => abrirServicio("shipment")}
+            onOpenRestaurant={(restaurantId) => {
+              setSelectedRestaurantId(restaurantId);
+              setFoodScreen("restaurant");
+              abrirServicio("food");
+            }}
+            onOpenActivity={() => setSharedView("activity")}
+          />
+        )}
+        {sharedView === "services" && (
+          <CustomerServicesScreen
+            onOpenRide={() => abrirServicio("ride")}
+            onOpenVertical={abrirRubro}
+            onOpenShipment={() => abrirServicio("shipment")}
+          />
+        )}
+        {sharedView === "service" && (
+          <ServiceBackBar
+            titulo={
+              customerWindow === "ride" ? "Viaje" : customerWindow === "shipment" ? "Envíos" : ""
+            }
+            onBack={() => setSharedView("home")}
+          />
+        )}
 
         {sharedView === "service" && customerWindow === "food" && (
           <>
             <CustomerFoodBrowseScreen
+              key={foodVertical}
+              initialVertical={foodVertical}
               screen={foodScreen}
               user={user}
               deliveryAddress={deliveryAddress}
@@ -1077,6 +1112,7 @@ export function CustomerScreen({
           activeRides={activeRides}
           trustedContacts={rideTrustedContacts}
           selectedAddress={rideAddressSelection}
+          selectedDestination={rideDestination}
           onTrustedContactsChange={setRideTrustedContacts}
           onOpenTracking={setTrackingRideId}
           onShareRide={shareRideLive}
@@ -1268,80 +1304,13 @@ export function CustomerScreen({
         }
         onClaimCreated={(claim) => setShipmentClaims((current) => [claim, ...current])}
       />
-      <View style={styles.foodBottomNav}>
-        <Pressable
-          onPress={() => {
-            setSharedView("service");
-            setFoodScreen("home");
-          }}
-          style={styles.foodBottomItem}
-        >
-          <Ionicons
-            name="home-outline"
-            size={21}
-            color={sharedView === "service" && foodScreen === "home" ? "#ff6a21" : "#9c989f"}
-          />
-          <Text
-            style={[
-              styles.foodBottomLabel,
-              sharedView === "service" && foodScreen === "home" && styles.foodBottomLabelActive,
-            ]}
-          >
-            Inicio
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => {
-            setSharedView("service");
-            if (customerWindow === "food") setFoodScreen("search");
-          }}
-          style={styles.foodBottomItem}
-        >
-          <Ionicons
-            name="search-outline"
-            size={21}
-            color={sharedView === "service" && foodScreen === "search" ? "#ff6a21" : "#9c989f"}
-          />
-          <Text
-            style={[
-              styles.foodBottomLabel,
-              sharedView === "service" && foodScreen === "search" && styles.foodBottomLabelActive,
-            ]}
-          >
-            Buscar
-          </Text>
-        </Pressable>
-        <Pressable onPress={() => setSharedView("activity")} style={styles.foodBottomItem}>
-          <Ionicons
-            name="time-outline"
-            size={21}
-            color={sharedView === "activity" ? "#ff6a21" : "#9c989f"}
-          />
-          <Text
-            style={[
-              styles.foodBottomLabel,
-              sharedView === "activity" && styles.foodBottomLabelActive,
-            ]}
-          >
-            Actividad
-          </Text>
-        </Pressable>
-        <Pressable onPress={() => setSharedView("account")} style={styles.foodBottomItem}>
-          <Ionicons
-            name="person-outline"
-            size={21}
-            color={sharedView === "account" ? "#ff6a21" : "#9c989f"}
-          />
-          <Text
-            style={[
-              styles.foodBottomLabel,
-              sharedView === "account" && styles.foodBottomLabelActive,
-            ]}
-          >
-            Cuenta
-          </Text>
-        </Pressable>
-      </View>
+      <CustomerTabBar
+        vista={sharedView}
+        onChange={(vista) => {
+          if (vista === "home") setFoodScreen("home");
+          setSharedView(vista);
+        }}
+      />
     </View>
   );
 }

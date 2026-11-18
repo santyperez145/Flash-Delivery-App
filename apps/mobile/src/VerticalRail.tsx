@@ -34,14 +34,17 @@ export function useVerticalScope<C extends { name: string }>({
   allRestaurants,
   categories,
   onSelectCategory,
+  initialVertical = "restaurant",
 }: {
   restaurants: Restaurant[];
   /** El catálogo sin filtrar por cocina: las categorías se calculan sobre él. */
   allRestaurants: Restaurant[];
   categories: C[];
   onSelectCategory: (category: string) => void;
+  /** El rubro con el que se entra: el que se tocó en el inicio (RES-01). */
+  initialVertical?: MerchantVertical;
 }) {
-  const [vertical, setVertical] = useState<MerchantVertical>("restaurant");
+  const [vertical, setVertical] = useState<MerchantVertical>(initialVertical);
   const [verticals, setVerticals] = useState<CatalogVertical[]>([]);
   useEffect(() => {
     let activo = true;

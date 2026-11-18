@@ -118,7 +118,7 @@ assert.ok(
   contains(portadaMovil, "<VerticalRail {...scope.rail} />") &&
     contains(
       portadaMovil,
-      "useVerticalScope({ restaurants, allRestaurants, categories, onSelectCategory })",
+      "useVerticalScope({ restaurants, allRestaurants, categories, onSelectCategory, initialVertical, })",
     ),
   "la portada móvil no muestra los rubros",
 );

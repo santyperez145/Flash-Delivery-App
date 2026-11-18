@@ -45,6 +45,33 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
 
+## Avance 18 de noviembre de 2026 — RES-01, inicio del cliente con todos los servicios
+
+El dueño pidió que Flash tenga la misma lógica y el mismo rumbo que Uber, Uber Eats y
+PedidosYa, no sólo las mismas funciones. El análisis completo, con fuentes y fases, está en
+[`docs/reestructuracion-competitiva.md`](docs/reestructuracion-competitiva.md).
+
+- **La diferencia más grande era la entrada.** El «Inicio» del cliente era la portada de
+  comidas, con un selector de servicio arriba. Uber, en su rediseño de 2023, puso el inicio
+  como puerta a todos los servicios. Flash hace lo mismo:
+  - buscador arriba;
+  - lo que está en curso, de los tres servicios;
+  - los servicios disponibles;
+  - «¿A dónde vas?» con los destinos recientes;
+  - «Volver a pedir» con los comercios donde ya hubo una entrega.
+- **Barra Inicio · Servicios · Actividad · Cuenta.** La búsqueda deja de ser una pestaña y
+  pasa al inicio. Cada servicio tiene su flecha para volver.
+- **Sólo lo que existe.** Los rubros salen del resumen del catálogo: uno sin comercios no se
+  muestra. Viajes y envíos respetan sus interruptores, que la web ya respetaba y el móvil
+  no.
+- **El coordinador se achicó**, de 1347 a 1315 líneas, y `styles.ts` perdió 34 líneas del
+  selector viejo.
+- **Verificación:**
+  - `test:customer-home` es nuevo, corre en `ci-fast` y fue falsificado: cada una de sus
+    seis aserciones falla cuando se rompe lo que vigila.
+  - Probado en el navegador con el respaldo local: inicio, servicios, entrar a Comida y a
+    Viaje, y volver.
+
 ## Avance 18 de noviembre de 2026 — LAN-002, enlaces legales en la app
 
 Las tiendas exigen que la política de privacidad se pueda abrir desde la app. Además, el
