@@ -764,7 +764,7 @@ function App() {
         service: rideForm.service,
         pickupCoords: rideForm.pickupCoords,
         destinationCoords: rideForm.destinationCoords,
-        paymentMethod: "Flash Wallet",
+        paymentMethod: rideForm.paymentMethod ?? "Flash Wallet",
         quoteToken: quote.quoteToken,
       });
       setTab("activity");

@@ -45,6 +45,29 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
 
+## Avance 18 de noviembre de 2026 — PAG-01, viajes en efectivo
+
+- **Qué faltaba.** Uber en Argentina deja pagar el viaje en efectivo. En Flash, la API
+  aceptaba «Efectivo» pero el viaje no se liquidaba: el conductor no veía su ganancia en el
+  libro y Flash no registraba su comisión. Peor: aceptaba cualquier texto como medio de pago,
+  y uno que no dijera «wallet» se creaba sin cobro.
+- **Ahora el pasajero elige Wallet o efectivo**, en web y en la app, y el conductor ve
+  «Cobrá $ X en efectivo».
+- **Al terminar el viaje se asienta todo.** La ganancia del conductor y la comisión se
+  liquidan como en un viaje con Wallet, y un asiento propio (`cash_collection`, migración 143)
+  registra que cobró el total en mano. Neto, su saldo baja la comisión.
+- **Tope de deuda.** Quien debe más de $ 30.000 (configurable) no recibe ni acepta viajes en
+  efectivo hasta bajarla.
+- **La API sólo acepta Flash Wallet o efectivo.**
+- **De paso:** la tarjeta del viaje en la app del conductor mostraba el estado interno
+  («in_progress»); ahora dice «En viaje».
+- **Verificación:**
+  - `test:cash-rides` (nueva, en `ci-critical-flows`) liquida un viaje en efectivo y prueba
+    los asientos, el saldo, la idempotencia y el tope al aceptar. No se pudo correr en local,
+    porque no hay credenciales de la base local; corre en el CI.
+  - `test:cash-rides-contract` (nueva, en `ci-fast`) vigila el despacho, la API y las dos
+    apps. Falsificado: cada aserción falla cuando se rompe lo que vigila.
+
 ## Avance 18 de noviembre de 2026 — SEG-03, código de entrega en pedidos
 
 - **Qué faltaba.** Uber Eats entrega con PIN los pedidos de valor alto y los de quien

@@ -159,6 +159,8 @@ jobs:
       # las indicaciones de la casa del cliente.
       - name: Delivery preferences contract
         run: npm run test:delivery-preferences
+      - name: Viajes en efectivo (PAG-01)
+        run: npm run test:cash-rides-contract
 
       # Borrado de cuenta (LAN-001): requisito de Apple y Google para publicar.
       # Vigila que esté ofrecido en web y en las tres apps, y acotado en la base.

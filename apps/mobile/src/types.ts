@@ -222,6 +222,8 @@ export type Ride = {
   etaMin?: number;
   durationMin: number;
   fare: number;
+  /** PAG-01: «Flash Wallet» o «Efectivo». */
+  paymentMethod?: string;
   scheduledFor?: string | null;
   cancellation?: ServiceCancellation | null;
 };

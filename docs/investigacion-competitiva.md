@@ -822,3 +822,14 @@ servidor no cierra sin él. Detalle en [`order-delivery-code.md`](order-delivery
 - **Brecha:** el umbral es fijo y no depende del rubro. Uber Eats lo atiende también por
   tipo de artículo (alcohol, tabaco, farmacia); en Flash todavía no hay artículos
   restringidos marcados en el catálogo.
+
+### Decisión 18 de noviembre de 2026 — viajes en efectivo (PAG-01)
+
+Uber en Argentina deja pagar en efectivo: se elige antes de pedir y se le paga al conductor
+al terminar ([Uber Argentina](https://www.uber.com/ar/es/ride/how-it-works/uber-cash)).
+**No se encontró fuente oficial** de cómo Uber cobra la comisión de esos viajes; Flash la
+descuenta del saldo del conductor y corta los viajes en efectivo a quien debe más de un tope.
+Detalle en [`cash-rides.md`](cash-rides.md).
+
+- **Brecha:** el conductor no puede saldar la deuda pagando; se netea contra sus ganancias.
+- **Brecha:** efectivo en pedidos de comida, que exige que el comercio lo acepte.

@@ -2,6 +2,12 @@ import crypto from "node:crypto";
 import { postgresPool } from "./postgres.js";
 import { enqueueNotificationForInternalUser } from "./notification-repository.js";
 import { scoreCandidates, shortlistDrivers } from "./dispatch-candidates.js";
+import { config } from "./config.js";
+import { CASH_LABEL, driverWalletBalanceCents } from "./wallet-repository.js";
+
+/** PAG-01: ¿el conductor está dentro del tope de deuda por viajes en efectivo? */
+const puedeTomarEfectivo = async (client, driverId) =>
+  (await driverWalletBalanceCents(client, driverId)) > -config.cashDriverDebtLimitCents;
 
 const offerId = () => `OFR-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
 
@@ -23,9 +29,10 @@ export async function createDispatchOffers(client, { jobId, mode, limit = 3, ttl
       `SELECT j.id,j.pickup_location::text pickup,
       (COALESCE(j.metadata->>'subtype','')<>'food_order' OR j.status='ready_for_pickup')
       AND COALESCE(j.metadata->>'fulfillment','delivery')<>'pickup' ready,
-      (j.scheduled_for IS NULL OR j.scheduled_for<=now()+interval '15 minutes') in_window
+      (j.scheduled_for IS NULL OR j.scheduled_for<=now()+interval '15 minutes') in_window,
+      (j.kind='ride' AND j.payment_method_label=$2) cash
     FROM jobs j WHERE j.id=$1`,
-      [jobId],
+      [jobId, CASH_LABEL],
     )
   ).rows[0];
   if (!job || !job.pickup || !job.ready || !job.in_window) return [];
@@ -38,6 +45,16 @@ export async function createDispatchOffers(client, { jobId, mode, limit = 3, ttl
   });
   // Etapa 2: puntuación explicable, sólo sobre la lista corta.
   const candidates = { rows: await scoreCandidates(client, { jobId, driverIds, mode, limit }) };
+  // PAG-01: un viaje en efectivo no se le ofrece a quien ya debe más del tope en
+  // comisiones de viajes en efectivo: cobraría otro total en mano.
+  if (job.cash)
+    candidates.rows = (
+      await Promise.all(
+        candidates.rows.map(async (candidate) =>
+          (await puedeTomarEfectivo(client, candidate.id)) ? candidate : null,
+        ),
+      )
+    ).filter(Boolean);
 
   const offers = [];
   for (const candidate of candidates.rows) {
@@ -192,16 +209,24 @@ export async function acceptDispatchOffer(
 ) {
   const offer = (
     await client.query(
-      `SELECT o.id,o.job_id,o.driver_id,j.kind FROM dispatch_offers o JOIN jobs j ON j.id=o.job_id JOIN drivers d ON d.id=o.driver_id
+      `SELECT o.id,o.job_id,o.driver_id,j.kind,(j.kind='ride' AND j.payment_method_label=$3) cash
+    FROM dispatch_offers o JOIN jobs j ON j.id=o.job_id JOIN drivers d ON d.id=o.driver_id
     WHERE j.public_id=$1 AND d.public_id=$2 AND o.status='pending' AND o.expires_at>now()
       AND (COALESCE(j.metadata->>'subtype','')<>'food_order' OR j.status='ready_for_pickup')
       AND COALESCE(j.metadata->>'fulfillment','delivery')<>'pickup'
       AND (j.scheduled_for IS NULL OR j.scheduled_for<=now()+interval '15 minutes') FOR UPDATE OF o`,
-      [jobPublicId, driverPublicId],
+      [jobPublicId, driverPublicId, CASH_LABEL],
     )
   ).rows[0];
   if (!offer) throw Object.assign(new Error("La oferta no existe o venció"), { status: 409 });
   await client.query("SELECT id FROM drivers WHERE id=$1 FOR UPDATE", [offer.driver_id]);
+  if (offer.cash && !(await puedeTomarEfectivo(client, offer.driver_id)))
+    throw Object.assign(
+      new Error(
+        "Tenés comisiones de viajes en efectivo por saldar: no podés tomar otro en efectivo",
+      ),
+      { status: 409 },
+    );
   const active = Number(
     (
       await client.query(

@@ -467,3 +467,37 @@
 .delivery-code-entry button:disabled {
   opacity: 0.45;
 }
+
+/* --- Pago del viaje (PAG-01) -------------------------------------------- */
+.ride-payment {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 12px 0 4px;
+}
+
+.ride-payment button {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 800;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+
+.ride-payment button[aria-checked="true"] {
+  color: #fff;
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.ride-payment-note {
+  margin: 4px 0 8px;
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+}
