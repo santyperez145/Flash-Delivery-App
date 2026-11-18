@@ -751,3 +751,21 @@ seguro ni habilitación comercial.
 
 - [Uber Eats: una identidad existente de Rides también accede a Eats](https://help.uber.com/ubereats/restaurants/article/how-do-i-create-an-uber-eats-account?nodeId=13daba70-cc3d-4204-9981-1591d7942042)
 - [Uber Courier: opción de paquetes y hub de actividad común](https://help.uber.com/en/riders/article/node-title?nodeId=8fa2306b-c14d-4f0b-9395-4c4523a81e85)
+
+### Decisión 18 de noviembre de 2026 — desglose por servicio de las ganancias Driver
+
+En 2024, Uber anunció para el Driver un desglose semanal de lo que paga el pasajero:
+cuánto le queda a quien maneja, el seguro y las comisiones
+([Uber Newsroom, Only on Uber 2024](https://www.uber.com/newsroom/onlyonuber24)). Flash
+adopta la idea, no la presentación.
+
+- **Qué muestra.** Cada viaje y cada envío del detalle reciente dice cuánto se cobró, cuánto
+  retuvo Flash y cuánto quedó para el repartidor.
+- **De dónde sale.** Del mismo asiento contable de doble partida: el débito de la
+  liquidación y el crédito a ingresos de la plataforma. Nada se estima: sin asiento no hay
+  desglose.
+- **Brecha que queda.** Los pedidos de comida le pagan al repartidor dentro de la
+  liquidación del comercio, cuyo total es el del pedido entero. Hasta separar esa parte no
+  se muestra desglose, porque sería falso.
+- **Diferencia con Uber.** Flash no tiene seguros ni cargos aparte del precio: no hay más
+  líneas que mostrar, y no se inventan.
