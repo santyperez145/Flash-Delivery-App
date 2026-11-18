@@ -74,8 +74,8 @@ aparecía. PedidosYa y Uber Eats abren su portada con esos accesos.
 - **Corrección propia.** El 17 de noviembre escribí «75 de 107 suites en puertas
   CI bloqueantes». Era falso: salía de buscar `npm run test:` en los workflows, y esa
   búsqueda no ve las suites que corren dentro de otras. `test:ci-coverage`, que es la
-  herramienta del repositorio para eso, daba 104 de 107 bloqueantes. Corregido en
-  `AGENTS.md` y acá; con la suite nueva son 105 de 108.
+  herramienta del repositorio para eso, daba 104 de 107 bloqueantes. Corregido en las
+  reglas del proyecto y acá; con la suite nueva son 105 de 108.
 - **Lo que falta.** Comercios reales de esos rubros —es alta comercial, del dueño—;
   pasillos y recompra para el súper (P-09); medicamentos (P-10, bloqueo externo).
 
