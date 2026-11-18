@@ -105,6 +105,33 @@ try {
       ),
     "recent detail is bounded and classified without fabricated rows",
   );
+  // RES-05: el desglose de cada viaje o envío sale del mismo asiento contable. Se
+  // recalcula acá, en forma independiente, desde las partidas de la transacción.
+  const asientos = new Map(
+    (
+      await pool.query(
+        `SELECT t.id::text,t.kind,
+           (SELECT sum(x.amount_cents) FROM ledger_entries x WHERE x.transaction_id=t.id AND x.direction='debit')::bigint total,
+           (SELECT COALESCE(sum(x.amount_cents),0) FROM ledger_entries x JOIN ledger_accounts a ON a.id=x.account_id
+             WHERE x.transaction_id=t.id AND x.direction='credit' AND a.owner_type='platform' AND a.account_type='revenue')::bigint plataforma
+         FROM ledger_transactions t WHERE t.id::text=ANY($1)`,
+        [earnings.recent.map((entry) => entry.id)],
+      )
+    ).rows.map((row) => [row.id, row]),
+  );
+  assert(
+    earnings.recent.every((entry) => {
+      const asiento = asientos.get(entry.id);
+      if (asiento?.kind !== "driver_earning") return entry.breakdown === null;
+      return (
+        entry.breakdown?.customerPaid === Number(asiento.total) / 100 &&
+        entry.breakdown.platformFee === Number(asiento.plataforma) / 100 &&
+        Math.abs(entry.amount - (entry.breakdown.customerPaid - entry.breakdown.platformFee)) <
+          0.001
+      );
+    }),
+    "each ride or shipment shows what was charged and what Flash kept, from the same ledger entry",
+  );
   assert(
     earnings.cashout.status === "not_configured" &&
       earnings.cashout.reason === "external_payout_provider_required",

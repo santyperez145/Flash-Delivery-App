@@ -250,6 +250,8 @@ export type DriverEarnings = {
     description: string;
     amount: number;
     createdAt: string;
+    /** Viajes y envíos: lo cobrado y lo que retuvo Flash, del mismo asiento (RES-05). */
+    breakdown?: { customerPaid: number; platformFee: number } | null;
   }>;
   timeTracking:
     | { status: "available"; source: "postgres-operational-sessions"; observedAt: string }

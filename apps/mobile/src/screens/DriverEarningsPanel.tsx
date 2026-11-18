@@ -364,6 +364,13 @@ export function DriverEarningsPanel({
                   {entry.jobId || "Movimiento de cuenta"} ·{" "}
                   {new Date(entry.createdAt).toLocaleString("es-AR")}
                 </Text>
+                {entry.breakdown && (
+                  <Text style={styles.cardText}>
+                    Cobrado {money.format(entry.breakdown.customerPaid)} · Flash{" "}
+                    {money.format(entry.breakdown.platformFee)} · Para vos{" "}
+                    {money.format(entry.amount)}
+                  </Text>
+                )}
               </View>
               <Text
                 style={[
