@@ -132,9 +132,11 @@ todos, no opiniones.
 - **Un contrato que lee código fuente compara con `scripts/source-contract.mjs`**, nunca
   con `String.includes` sobre el texto crudo: una afirmación acoplada al espaciado bloquea
   cualquier refactor en lugar de protegerlo.
-- **Ningún PR hace crecer un archivo monolítico** identificado en el hallazgo H-08 de la
-  auditoría, ni introduce líneas de más de 200 caracteres. Una capacidad que choca con un
-  techo de tamaño parte el archivo; no se deja afuera.
+- **No hay topes de tamaño por archivo.** El dueño los quitó el 18 de noviembre de 2026:
+  un archivo puede crecer lo que la capacidad necesite. Partir un archivo sigue siendo
+  una buena práctica cuando mejora la lectura, no una condición para entregar. Lo que
+  sí se mantiene es el formato: ninguna línea de más de 200 caracteres
+  (`test:line-length`).
 - Entregas lógicas pequeñas. Antes de cada una se sincroniza con `origin/main`; después de
   verificarla, commit descriptivo, push y PR. No se publica una entrega con pruebas
   relevantes fallando.

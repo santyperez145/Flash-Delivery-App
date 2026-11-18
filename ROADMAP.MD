@@ -45,6 +45,22 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
 
+## Avance 18 de noviembre de 2026 — sin topes de tamaño por archivo
+
+- **Decisión del dueño:** quitar todos los topes de tamaño. Un archivo puede crecer lo que
+  la capacidad necesite.
+- **Qué se quitó.**
+  - Las 31 comprobaciones de líneas máximas por archivo, repartidas en cinco contratos:
+    `test:responsive-layout`, `test:web-checkout`, `test:web-tracking-maps`,
+    `test:mobile-food-design` y `test:mobile-maps`.
+  - La regla de CONTRIBUTING.md que prohibía hacer crecer los archivos del hallazgo H-08.
+- **Qué se mantiene, porque no son topes de tamaño:**
+  - Lo que esos contratos vigilan además del tamaño: que cada pantalla viva en su archivo
+    y use la API real.
+  - El formato: Prettier y ninguna línea de más de 200 caracteres (`test:line-length`).
+  - Los límites de dinero y de seguridad: propina máxima, rango de carga de la Wallet,
+    tarjetas por cuenta y rate limits.
+
 ## Avance 18 de noviembre de 2026 — FE-01, Pedidos y Viajes separados, y el sitio del cliente
 
 - **Pedido del dueño.** Un frente al nivel de la competencia, y Pedidos separado de Viajes

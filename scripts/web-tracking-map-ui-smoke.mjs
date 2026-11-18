@@ -35,22 +35,13 @@ assert(
   mapUsages === 5,
   `tracking público, comida, viajes y envíos comparten el mapa interactivo (${mapUsages} usos)`,
 );
-const lineCount = (source) => source.trimEnd().split(/\r?\n/).length;
 assert(
-  lineCount(customerCoordinator) <= 375 &&
-    lineCount(customerActivity) <= 195 &&
-    // 180 → 185 (GTM-002): el retiro suma un segundo modo —sus etapas, sin ruta y
-    // sin repartidor— en cinco líneas. El techo existe para que el seguimiento no
-    // vuelva a ser un monolito, y un componente de 184 líneas no lo es.
-    lineCount(orderTracking) <= 185 &&
-    lineCount(rideTracking) <= 340 &&
-    lineCount(shipmentTracking) <= 285 &&
-    contains(customerCoordinator, "<CustomerActivityScreen") &&
+  contains(customerCoordinator, "<CustomerActivityScreen") &&
     !contains(customerCoordinator, "function OrderTrackingSheet") &&
     contains(customerActivity, "<OrderTrackingSheet") &&
     contains(customerActivity, "<RideTrackingSheet") &&
     contains(customerActivity, "<ShipmentTrackingSheet"),
-  "actividad y cada tracking web conservan límites propios con ratchets de tamaño",
+  "actividad y cada tracking web conservan límites propios",
 );
 assert(
   [orderTracking, rideTracking, shipmentTracking].every(

@@ -11,10 +11,6 @@ const coordinator = await fs.readFile("src/customer/CustomerSurface.tsx", "utf8"
 const homeTab = await fs.readFile("src/customer/CustomerHomeTab.tsx", "utf8");
 const foodCart = await fs.readFile("src/customer/FoodCartScreen.tsx", "utf8");
 const fulfillmentPicker = await fs.readFile("src/customer/FoodFulfillmentPicker.tsx", "utf8");
-const cardPayment = await fs.readFile("src/customer/FoodCardPayment.tsx", "utf8");
-const quantityCounter = await fs.readFile("src/customer/QuantityCounter.tsx", "utf8");
-const emptyState = await fs.readFile("src/customer/EmptyState.tsx", "utf8");
-const foodCatalog = await fs.readFile("src/customer/FoodCatalogComponents.tsx", "utf8");
 const foodRestaurant = await fs.readFile("src/customer/FoodRestaurantScreen.tsx", "utf8");
 const foodItemSheet = await fs.readFile("src/customer/FoodItemSheet.tsx", "utf8");
 const foodDiscovery = await fs.readFile("src/customer/FoodDiscoveryHome.tsx", "utf8");
@@ -31,18 +27,8 @@ const assert = (condition, message) => {
   console.log(`ok - ${message}`);
 };
 
-// El techo del carrito baja de 690 a 625: el modo de entrega y el formulario de
-// tarjeta salieron a sus propios archivos, y un techo que no acompaña al
-// refactor deja espacio libre para que el monolito vuelva a crecer.
 assert(
-  coordinator.trimEnd().split(/\r?\n/).length <= 375 &&
-    // 625 → 585 (P-02): el resumen de totales salió a FoodCheckoutSummary.tsx.
-    foodCart.trimEnd().split(/\r?\n/).length <= 585 &&
-    fulfillmentPicker.trimEnd().split(/\r?\n/).length <= 175 &&
-    cardPayment.trimEnd().split(/\r?\n/).length <= 115 &&
-    quantityCounter.trimEnd().split(/\r?\n/).length <= 35 &&
-    emptyState.trimEnd().split(/\r?\n/).length <= 25 &&
-    contains(coordinator, "<CartScreen") &&
+  contains(coordinator, "<CartScreen") &&
     !contains(coordinator, "function CartScreen") &&
     !contains(foodCart, "function MercadoPagoCardCheckout") &&
     contains(foodCart, "<MercadoPagoCardCheckout") &&
@@ -51,10 +37,7 @@ assert(
 );
 
 assert(
-  foodCatalog.trimEnd().split(/\r?\n/).length <= 155 &&
-    foodRestaurant.trimEnd().split(/\r?\n/).length <= 95 &&
-    foodItemSheet.trimEnd().split(/\r?\n/).length <= 110 &&
-    contains(coordinator, "<RestaurantDetail") &&
+  contains(coordinator, "<RestaurantDetail") &&
     !contains(coordinator, "function RestaurantDetail") &&
     !contains(coordinator, "function ItemSheet") &&
     containsAll(foodRestaurant, ["itemMatchesDietary", "<CategoryRail", "<FoodRow"]) &&
@@ -63,8 +46,7 @@ assert(
 );
 
 assert(
-  foodDiscovery.trimEnd().split(/\r?\n/).length <= 130 &&
-    contains(homeTab, "<FoodDiscoveryHome") &&
+  contains(homeTab, "<FoodDiscoveryHome") &&
     !contains(homeTab, "function FoodDiscoveryHome") &&
     !contains(coordinator, "function FoodDiscoveryHome") &&
     containsAll(foodDiscovery, [
