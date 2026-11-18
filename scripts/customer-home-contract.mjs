@@ -99,18 +99,26 @@ const leerWeb = (ruta) => fs.readFile(`src/customer/${ruta}`, "utf8");
 const superficie = await leerWeb("CustomerSurface.tsx");
 const navegacionWeb = await leerWeb("CustomerNavigation.tsx");
 const inicioWeb = await leerWeb("CustomerHome.tsx");
+const pestanaInicio = await leerWeb("CustomerHomeTab.tsx");
 assert.ok(
-  contains(superficie, '{tab === "home" && !portada.enServicio && ( <CustomerHome') &&
-    contains(superficie, "<CustomerServices features={props.features} onOpen={portada.abrir} />") &&
+  contains(superficie, '{tab === "home" && ( <CustomerHomeTab') &&
+    contains(pestanaInicio, 'return ambito === "pedidos" ? ( <CustomerHome') &&
+    contains(pestanaInicio, "<RidesHome") &&
+    contains(
+      superficie,
+      "<CustomerServices features={props.features} ambito={ambito} onOpen={portada.abrir} />",
+    ) &&
     !contains(superficie, "<ServiceToggle") &&
     !contains(navegacionWeb, "function ServiceToggle"),
-  "la web no entra al inicio con todos los servicios",
+  "la web no entra al inicio de su ámbito",
 );
-const rotulosWeb = [...navegacionWeb.matchAll(/label: "([^"]+)"/g)].map((m) => m[1]);
-assert.deepEqual(
-  rotulosWeb,
-  ["Inicio", "Servicios", "Actividad", "Cuenta"],
-  "la barra web no es Inicio · Servicios · Actividad · Cuenta",
+// FE-01: cada ámbito tiene su barra, como Uber Eats y Uber.
+assert.ok(
+  contains(navegacionWeb, '{ id: "home", label: "Inicio", icon: Home },') &&
+    contains(navegacionWeb, 'label: pedidos ? "Explorar" : "Servicios"') &&
+    contains(navegacionWeb, 'label: pedidos ? "Pedidos" : "Actividad"') &&
+    contains(navegacionWeb, '{ id: "profile", label: "Cuenta", icon: UserRound },'),
+  "la barra web no es la de su ámbito",
 );
 assert.ok(
   contains(inicioWeb, "if (features?.public_rides?.active ?? true)") &&
@@ -120,14 +128,65 @@ assert.ok(
     contains(inicioWeb, 'if (vertical) { setRubro(vertical); setCategory("Todo"); setQuery(""); }'),
   "la web ofrece lo que no existe, o abre un rubro con filtros de otro",
 );
+const billetera = await leerWeb("WalletScreen.tsx");
 assert.ok(
   contains(
     superficie,
     '<WalletLink wallet={user?.wallet ?? 0} onOpen={() => setTab("wallet")} />',
-  ) && contains(navegacionWeb, '(tab === "wallet" && id === "profile")'),
+  ) &&
+    contains(billetera, "export function WalletLink") &&
+    contains(navegacionWeb, '(tab === "wallet" && id === "profile")'),
   "la Wallet no vive dentro de Cuenta",
 );
-ok("la web tiene la misma estructura: inicio, barra, sólo lo que existe y Wallet en Cuenta");
+ok("la web entra al inicio de su ámbito, con su barra, sólo lo que existe y Wallet en Cuenta");
+
+// --- FE-01: Pedidos y Viajes separados ---------------------------------------
+// Como Uber Eats y Uber: cada ámbito ofrece lo suyo, ve lo suyo en curso y en la
+// actividad, y no se mezclan.
+const ambitoWeb = await leerWeb("CustomerScope.tsx");
+const feedWeb = await leerWeb("CustomerHomeFeed.tsx");
+const actividadWeb = await leerWeb("CustomerActivityScreen.tsx");
+assert.ok(
+  contains(
+    inicioWeb,
+    'servicios: servicios.filter( (servicio) => (servicio.tipo === "vertical") === (ambito === "pedidos"), ),',
+  ) &&
+    contains(feedWeb, 'if (ambito === "pedidos") return propios(state.orders)') &&
+    contains(
+      actividadWeb,
+      "state.orders.filter((order) => pedidos && order.customerId === user?.id)",
+    ) &&
+    contains(
+      actividadWeb,
+      "state.rides.filter((ride) => !pedidos && ride.customerId === user?.id)",
+    ) &&
+    contains(superficie, 'onCart={ambito === "pedidos" ? () => setCartOpen(true) : undefined}') &&
+    contains(superficie, '{tab === "activity" && ambito === "pedidos" && ( <GroupOrderPanel'),
+  "Pedidos y Viajes se mezclan: servicios, en curso, actividad o carrito",
+);
+assert.ok(
+  contains(ambitoWeb, 'if (window.location.pathname.startsWith("/viajes")) return "viajes";') &&
+    contains(ambitoWeb, 'if (["/", "/viajes"].includes(window.location.pathname))') &&
+    contains(ambitoWeb, "} catch {"),
+  "el ámbito no tiene su dirección, o falla sin almacenamiento",
+);
+// Calificar lo elige la persona: no se califica con 5 por ella.
+assert.ok(
+  !actividadWeb.includes(", 5)") &&
+    contains(actividadWeb, "runAction(() => api.createRating(jobId, subject, estrellas)"),
+  "la actividad califica con un número fijo",
+);
+ok("Pedidos y Viajes separados: servicios, en curso, actividad, carrito y dirección propios");
+
+// El cliente tiene el sitio también en escritorio, como ubereats.com: la puerta
+// «seguí en la app» queda para el staff que no tiene portal y para quien maneja.
+const app = await fs.readFile("src/App.tsx", "utf8");
+assert.ok(
+  contains(app, "if (isDesktop && !soloCliente) {") &&
+    app.indexOf("const soloCliente") < app.indexOf("if (isDesktop && !soloCliente)"),
+  "el cliente en escritorio choca con la puerta de staff",
+);
+ok("el cliente pide también desde escritorio");
 
 // Buscar desde el inicio empieza de cero, sin comercios no hay buscador, y un
 // resumen de rubros que falló se dice y se puede reintentar. En las dos plataformas.
@@ -139,7 +198,7 @@ assert.ok(
     'onSearch={() => { // Buscar empieza de cero: una cocina de antes ocultaría lo que coincide. setFoodCategory("Todos"); setFoodQuery("");',
   ) &&
     contains(inicioWeb, 'const buscar = () => { setCategory("Todo"); setQuery("");') &&
-    contains(superficie, "onSearch={portada.buscar}"),
+    contains(inicioWeb, "onClick={portada.buscar}"),
   "buscar desde el inicio arrastra la categoría o la búsqueda anterior",
 );
 const aviso = "{fallo && <AvisoRubros onRetry={reintentar} />}";
@@ -178,7 +237,6 @@ assert.ok(
 ok("la hoja del inicio está bien cerrada y los platos son de comercios abiertos");
 
 // --- RES-06: la web del cliente es un sitio, no la maqueta de staff ---------
-const app = await fs.readFile("src/App.tsx", "utf8");
 assert.ok(
   contains(
     app,

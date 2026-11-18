@@ -4,9 +4,9 @@ import {
   Car,
   ChevronLeft,
   ChevronRight,
-  Navigation,
   PackageCheck,
   Pill,
+  RefreshCw,
   Search,
   ShoppingBasket,
   Store,
@@ -20,9 +20,12 @@ import type {
   CatalogVertical,
   CustomerTab,
   MerchantVertical,
+  Restaurant,
   Service,
   User,
 } from "../types";
+import { Cocinas, Comercios, EnCurso, enCursoDe, Promociones } from "./CustomerHomeFeed";
+import type { Ambito } from "./CustomerScope";
 
 // El inicio del cliente en la web (RES-02), con la misma lógica que el móvil
 // (RES-01): la puerta a todos los servicios, con buscador, lo que está en curso,
@@ -53,7 +56,7 @@ const RUBROS: Record<MerchantVertical, { titulo: string; detalle: string; icono:
   retail: { titulo: "Tiendas", detalle: "Comercios de tu zona", icono: Store },
 };
 
-export function useServiciosWeb(features: Flags) {
+export function useServiciosWeb(features: Flags, ambito: Ambito) {
   // `null` mientras carga; "error" si el resumen no se pudo leer. Uno leído y vacío
   // es otra cosa: no hay comercios, y no se ofrece pedir.
   const [rubros, setRubros] = useState<CatalogVertical[] | "error" | null>(null);
@@ -95,7 +98,10 @@ export function useServiciosWeb(features: Flags) {
       icono: PackageCheck,
     });
   return {
-    servicios,
+    // Pedidos ofrece los rubros de comercio; Viajes, viajes y envíos (FE-01).
+    servicios: servicios.filter(
+      (servicio) => (servicio.tipo === "vertical") === (ambito === "pedidos"),
+    ),
     cargando: rubros === null,
     // Si el resumen falló, Comida queda con el catálogo ya cargado, pero se dice que
     // falta información y se ofrece reintentar: no se presenta como disponibilidad.
@@ -137,14 +143,17 @@ export function usePortada({
 }) {
   const [enServicio, setEnServicio] = useState(false);
   const [rubro, setRubro] = useState<MerchantVertical>("restaurant");
+  const entrar = (destino: Service) => {
+    setService(destino);
+    setEnServicio(true);
+    setTab("home");
+  };
   // Buscar desde el inicio también empieza de cero: la categoría de antes ocultaría
   // comercios que coinciden con lo que se busca.
   const buscar = () => {
     setCategory("Todo");
     setQuery("");
-    setService("food");
-    setEnServicio(true);
-    setTab("home");
+    entrar("food");
   };
   const abrir: Abrir = (destino, vertical) => {
     // Entrar a un rubro empieza de cero: la cocina o la búsqueda de otro rubro lo
@@ -154,12 +163,25 @@ export function usePortada({
       setCategory("Todo");
       setQuery("");
     }
-    setService(destino);
-    setEnServicio(true);
-    setTab("home");
+    entrar(destino);
   };
-  return { enServicio, volver: () => setEnServicio(false), rubro, abrir, buscar };
+  /** Una cocina del inicio entra a Comida con esa categoría elegida (FE-01). */
+  const abrirCategoria = (categoria: string) => {
+    setRubro("restaurant");
+    setQuery("");
+    setCategory(categoria);
+    entrar("food");
+  };
+  return {
+    enServicio,
+    volver: () => setEnServicio(false),
+    rubro,
+    abrir,
+    buscar,
+    abrirCategoria,
+  };
 }
+export type Portada = ReturnType<typeof usePortada>;
 const abrirCon = (abrir: Abrir) => (servicio: ServicioWeb) =>
   servicio.tipo === "vertical" ? abrir("food", servicio.vertical) : abrir(servicio.tipo);
 
@@ -167,123 +189,110 @@ export function CustomerHome({
   state,
   user,
   features,
-  onOpen,
-  onSearch,
+  portada,
   onOpenRestaurant,
+  onToggleFavorite,
   onOpenActivity,
 }: {
   state: AppState;
   user: User | null;
   features: Flags;
-  onOpen: Abrir;
-  onSearch: () => void;
+  portada: Portada;
   onOpenRestaurant: (restaurantId: string) => void;
+  onToggleFavorite: (restaurantId: string, favorite: boolean) => void;
   onOpenActivity: () => void;
 }) {
-  const { servicios, fallo, reintentar, hayComercios } = useServiciosWeb(features);
-  const abrir = abrirCon(onOpen);
-  const propios = <T extends { customerId: string }>(lista: T[]) =>
-    lista.filter((entry) => entry.customerId === user?.id);
-  const enCurso = [
-    ...propios(state.orders)
-      .filter((order) => !["delivered", "cancelled"].includes(order.status))
-      .map((order) => ({
-        id: order.id,
-        texto: `Pedido de ${state.restaurants.find((r) => r.id === order.restaurantId)?.name ?? "tu comercio"}`,
-      })),
-    ...propios(state.rides)
-      .filter((ride) => !["completed", "cancelled"].includes(ride.status))
-      .map((ride) => ({ id: ride.id, texto: `Viaje a ${ride.destination}` })),
-    ...propios(state.shipments)
-      .filter((shipment) => !["delivered", "cancelled"].includes(shipment.status))
-      .map((shipment) => ({ id: shipment.id, texto: `Envío a ${shipment.destination}` })),
-  ];
-  // «Volver a pedir»: comercios abiertos donde la persona ya recibió un pedido.
+  const { servicios, fallo, reintentar, hayComercios } = useServiciosWeb(features, "pedidos");
+  const abrir = abrirCon(portada.abrir);
+  const favoritos = state.favoriteRestaurantIds || [];
+  // «Volver a pedir»: comercios donde la persona ya recibió un pedido.
   const yaPedidos = [
     ...new Set(
-      propios(state.orders)
-        .filter((order) => order.status === "delivered")
+      state.orders
+        .filter((order) => order.customerId === user?.id && order.status === "delivered")
         .map((order) => order.restaurantId),
     ),
   ]
     .map((id) => state.restaurants.find((restaurant) => restaurant.id === id))
-    .filter((restaurant) => restaurant?.open)
-    .slice(0, 4);
-  const viajes = servicios.some((servicio) => servicio.tipo === "ride");
+    .filter((restaurant): restaurant is Restaurant => Boolean(restaurant));
 
   return (
     <section className="customer-home" aria-label="Inicio">
-      <h1>Hola{user?.name ? `, ${user.name.split(" ")[0]}` : ""}</h1>
-      {/* Sin comercios no hay nada que buscar. */}
-      {hayComercios && (
-        <button type="button" className="customer-home-search" onClick={onSearch}>
-          <Search size={18} /> Buscar comida, súper o farmacia
-        </button>
-      )}
-      {fallo && <AvisoRubros onRetry={reintentar} />}
-      {enCurso.length > 0 && (
-        <button type="button" className="customer-home-live" onClick={onOpenActivity}>
-          <span>
-            <strong>
-              {enCurso.length === 1 ? "Tenés algo en curso" : `Tenés ${enCurso.length} en curso`}
-            </strong>
-            {enCurso[0].texto}
-          </span>
-          <ChevronRight size={18} />
-        </button>
-      )}
-      <div className="customer-home-grid">
-        {servicios.map((servicio) => (
-          <button
-            type="button"
-            key={servicio.tipo === "vertical" ? servicio.vertical : servicio.tipo}
-            onClick={() => abrir(servicio)}
-          >
-            <servicio.icono size={26} />
-            <span>{servicio.titulo}</span>
+      <div className="customer-home-hero">
+        <h1>Hola{user?.name ? `, ${user.name.split(" ")[0]}` : ""}</h1>
+        <p>¿Qué vas a pedir hoy?</p>
+        {/* Sin comercios no hay nada que buscar. */}
+        {hayComercios && (
+          <button type="button" className="customer-home-search" onClick={portada.buscar}>
+            <Search size={18} /> Buscar comida, súper o farmacia
           </button>
-        ))}
+        )}
       </div>
-      {viajes && (
-        <button type="button" className="customer-home-where" onClick={() => onOpen("ride")}>
-          <Navigation size={18} /> ¿A dónde vas?
-        </button>
-      )}
-      {yaPedidos.length > 0 && (
-        <div className="customer-home-again">
-          <h2>Volver a pedir</h2>
-          <div>
-            {yaPedidos.map(
-              (restaurant) =>
-                restaurant && (
-                  <button
-                    type="button"
-                    key={restaurant.id}
-                    onClick={() => onOpenRestaurant(restaurant.id)}
-                  >
-                    <img src={restaurant.image || restaurant.cover} alt="" />
-                    <strong>{restaurant.name}</strong>
-                    <small>{restaurant.etaMin} min</small>
-                  </button>
-                ),
-            )}
-          </div>
+      {fallo && <AvisoRubros onRetry={reintentar} />}
+      <EnCurso items={enCursoDe(state, user?.id, "pedidos")} onOpen={onOpenActivity} />
+      {/* Con un solo rubro, el buscador y los comercios ya lo cubren. */}
+      {servicios.length > 1 && (
+        <div className="customer-home-grid" data-pocos={servicios.length <= 4 || undefined}>
+          {servicios.map((servicio) => (
+            <button
+              type="button"
+              key={servicio.tipo === "vertical" ? servicio.vertical : servicio.tipo}
+              data-servicio={servicio.tipo === "vertical" ? servicio.vertical : servicio.tipo}
+              aria-label={servicio.titulo}
+              onClick={() => abrir(servicio)}
+            >
+              <span className="customer-home-tile-icon" aria-hidden="true">
+                <servicio.icono size={26} />
+              </span>
+              <strong>{servicio.titulo}</strong>
+              <small>{servicio.detalle}</small>
+            </button>
+          ))}
         </div>
       )}
+      <Promociones state={state} onOpen={portada.buscar} />
+      <Cocinas restaurants={state.restaurants} onOpen={portada.abrirCategoria} />
+      <Comercios
+        titulo="Volver a pedir"
+        restaurants={yaPedidos}
+        favoritos={favoritos}
+        onOpen={onOpenRestaurant}
+        onToggleFavorite={onToggleFavorite}
+      />
+      <Comercios
+        titulo="Cerca tuyo"
+        restaurants={state.restaurants.filter((restaurant) => !yaPedidos.includes(restaurant))}
+        favoritos={favoritos}
+        onOpen={onOpenRestaurant}
+        onToggleFavorite={onToggleFavorite}
+        onVerTodo={() => portada.abrir("food", "restaurant")}
+      />
     </section>
   );
 }
 
 /** La pestaña Servicios: todo lo disponible, con qué es cada cosa. */
-export function CustomerServices({ features, onOpen }: { features: Flags; onOpen: Abrir }) {
-  const { servicios, cargando, fallo, reintentar } = useServiciosWeb(features);
+export function CustomerServices({
+  features,
+  ambito,
+  onOpen,
+}: {
+  features: Flags;
+  ambito: Ambito;
+  onOpen: Abrir;
+}) {
+  const { servicios, cargando, fallo, reintentar } = useServiciosWeb(features, ambito);
   const abrir = abrirCon(onOpen);
   return (
     <section className="customer-services" aria-label="Servicios">
-      <h1>Servicios</h1>
+      <h1>{ambito === "pedidos" ? "Explorar" : "Servicios"}</h1>
       {fallo && <AvisoRubros onRetry={reintentar} />}
       <p>
-        {cargando ? "Buscando lo disponible en tu zona…" : "Todo lo que podés pedir en tu zona"}
+        {cargando
+          ? "Buscando lo disponible en tu zona…"
+          : ambito === "pedidos"
+            ? "Todo lo que podés pedir en tu zona"
+            : "Para moverte y mandar paquetes"}
       </p>
       {servicios.map((servicio) => (
         <button
@@ -305,6 +314,18 @@ export function CustomerServices({ features, onOpen }: { features: Flags; onOpen
         </button>
       ))}
     </section>
+  );
+}
+
+/** Mientras se descarga el módulo de Viajes, que se carga sólo al entrar. */
+export function CargandoViajes() {
+  return (
+    <div className="ride-map ride-map-empty">
+      <div className="ride-map-empty-copy">
+        <RefreshCw size={20} />
+        <strong>Cargando Viajes</strong>
+      </div>
+    </div>
   );
 }
 

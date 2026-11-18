@@ -919,7 +919,9 @@ function App() {
     );
   }
 
-  if (isDesktop) {
+  // RES-06/FE-01: quien sólo pide ve Flash como sitio, también en escritorio.
+  const soloCliente = activeUser?.roles.every((role) => role === "customer") ?? false;
+  if (isDesktop && !soloCliente) {
     const networkBanner = (
       <NetworkStatusBanner
         online={isOnline}
@@ -999,8 +1001,6 @@ function App() {
     );
   }
 
-  // RES-06: una cuenta que sólo pide ve Flash como un sitio, sin el marco de staff.
-  const soloCliente = activeUser?.roles.every((role) => role === "customer") ?? false;
   return (
     <main className={soloCliente ? "app app-cliente" : "app"}>
       <section className="workspace">

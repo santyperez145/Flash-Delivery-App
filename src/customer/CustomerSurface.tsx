@@ -18,15 +18,15 @@ import { RefreshCw } from "lucide-react";
 import { api } from "../api";
 import { SubscriptionPanel } from "./SubscriptionPanel";
 import { GroupOrderPanel } from "./GroupOrderPanel";
-import { WalletScreen } from "./WalletScreen";
+import { WalletLink, WalletScreen } from "./WalletScreen";
 import { CustomerProfileScreen } from "./CustomerProfileScreen";
 import { CustomerActivityScreen } from "./CustomerActivityScreen";
-import { ShipmentHome } from "./ShipmentHome";
 import { CartScreen } from "./FoodCartScreen";
 import { RestaurantDetail } from "./FoodRestaurantScreen";
-import { FoodDiscoveryHome } from "./FoodDiscoveryHome";
-import { CustomerBottomNav, CustomerHeader, WalletLink } from "./CustomerNavigation";
-import { CustomerHome, CustomerServices, ServiceBackBar, usePortada } from "./CustomerHome";
+import { CustomerBottomNav, CustomerHeader } from "./CustomerNavigation";
+import { CustomerServices, usePortada } from "./CustomerHome";
+import { CustomerHomeTab } from "./CustomerHomeTab";
+import { AmbitoSwitch, useAmbito, type Ambito } from "./CustomerScope";
 import type {
   AppState,
   CartLine,
@@ -44,9 +44,10 @@ import type {
   UserAddress,
 } from "../types";
 
-// Notificaciones y Viajes se cargan sólo cuando el cliente entra en esa tarea.
+// Notificaciones se carga sólo cuando el cliente entra; Viajes, en `CustomerHomeTab`.
 const NotificationCenter = lazy(() => import("../NotificationCenter"));
-const RideHome = lazy(() => import("../RideHome"));
+
+export type CustomerAppProps = Parameters<typeof CustomerApp>[0];
 
 export function CustomerApp(props: {
   state: AppState;
@@ -179,6 +180,19 @@ export function CustomerApp(props: {
   } = props;
   // RES-02: «Inicio» es la portada con todos los servicios; tocar uno entra a él.
   const portada = usePortada({ setService, setTab, setCategory, setQuery });
+  // FE-01: Pedidos y Viajes, separados como Uber Eats y Uber. Cambiar vuelve al inicio.
+  const { ambito, cambiar } = useAmbito();
+  const cambiarAmbito = (siguiente: Ambito) => {
+    cambiar(siguiente);
+    portada.volver();
+    setService(siguiente === "pedidos" ? "food" : "ride");
+    setTab("home");
+  };
+  const toggleFavorite = (restaurantId: string, favorite: boolean) =>
+    runAction(
+      () => api.setFavorite(restaurantId, favorite),
+      favorite ? "Agregado a favoritos" : "Quitado de favoritos",
+    );
 
   if (selectedRestaurant) {
     return (
@@ -227,86 +241,33 @@ export function CustomerApp(props: {
   return (
     <div className="screen with-nav">
       <CustomerHeader
-        address={user?.defaultAddress || ""}
+        address={ambito === "pedidos" ? user?.defaultAddress || "" : undefined}
+        selector={<AmbitoSwitch ambito={ambito} onChange={cambiarAmbito} />}
         unread={state.notifications.filter((notification) => !notification.readAt).length}
         cartCount={cart.reduce((sum, line) => sum + line.quantity, 0)}
         onNotifications={() => setTab("notifications")}
-        onCart={() => setCartOpen(true)}
+        onCart={ambito === "pedidos" ? () => setCartOpen(true) : undefined}
       />
-      {tab === "home" && !portada.enServicio && (
-        <CustomerHome
-          state={state}
-          user={user}
-          features={props.features}
-          onOpen={portada.abrir}
-          onSearch={portada.buscar}
-          onOpenRestaurant={setSelectedRestaurantId}
-          onOpenActivity={() => setTab("activity")}
+      {tab === "home" && (
+        <CustomerHomeTab
+          props={props}
+          ambito={ambito}
+          portada={portada}
+          toggleFavorite={toggleFavorite}
         />
       )}
-      {tab === "services" && <CustomerServices features={props.features} onOpen={portada.abrir} />}
-      {tab === "home" && portada.enServicio && (
-        <ServiceBackBar
-          titulo={service === "ride" ? "Viaje" : service === "shipment" ? "Envíos" : "Comida"}
-          onBack={portada.volver}
-        />
-      )}
-
-      {tab === "home" && portada.enServicio && service === "food" && (
-        <FoodDiscoveryHome
-          key={portada.rubro}
-          initialVertical={portada.rubro}
-          restaurants={restaurants}
-          allItems={allItems}
-          query={query}
-          setQuery={setQuery}
-          category={category}
-          setCategory={setCategory}
-          categories={categories}
-          state={state}
-          onToggleFavorite={(restaurantId, favorite) =>
-            runAction(
-              () => api.setFavorite(restaurantId, favorite),
-              favorite ? "Agregado a favoritos" : "Quitado de favoritos",
-            )
-          }
-          onOpenRestaurant={(restaurant) => setSelectedRestaurantId(restaurant.id)}
-          onOpenItem={openItem}
-          onOpenSubscription={() => setTab("profile")}
-        />
-      )}
-      {tab === "home" && portada.enServicio && service === "ride" && (
-        <Suspense
-          fallback={
-            <div className="ride-map ride-map-empty">
-              <div className="ride-map-empty-copy">
-                <RefreshCw size={20} />
-                <strong>Cargando Viajes</strong>
-              </div>
-            </div>
-          }
-        >
-          <RideHome
-            state={state}
-            user={user}
-            addresses={addresses}
-            rideForm={rideForm}
-            setRideForm={setRideForm}
-            quote={quote}
-            quoteRide={quoteRide}
-            requestRide={requestRide}
-            locatePickup={locatePickup}
-            locationStatus={locationStatus}
-            locationMessage={locationMessage}
-            busy={busy}
-          />
-        </Suspense>
-      )}
-      {tab === "home" && portada.enServicio && service === "shipment" && (
-        <ShipmentHome state={state} user={user} busy={busy} onCreateShipment={createShipment} />
+      {tab === "services" && (
+        <CustomerServices features={props.features} ambito={ambito} onOpen={portada.abrir} />
       )}
       {tab === "activity" && (
-        <CustomerActivityScreen state={state} user={user} runAction={runAction} busy={busy} />
+        <CustomerActivityScreen
+          state={state}
+          user={user}
+          runAction={runAction}
+          busy={busy}
+          ambito={ambito}
+          onOpenRestaurant={setSelectedRestaurantId}
+        />
       )}
       {tab === "notifications" && (
         <Suspense
@@ -348,13 +309,10 @@ export function CustomerApp(props: {
           onDietaryPreferencesChange={onDietaryPreferencesChange}
         />
       )}
-      {/* La suscripción vive en Perfil, que es donde la persona ya va a mirar lo
-          que paga. Se monta al lado del perfil y no dentro para que su carga
-          fallida no se lleve puesta la pantalla de la cuenta. */}
+      {/* La suscripción, al lado del perfil: su carga fallida no tira la cuenta. */}
       {tab === "profile" && <SubscriptionPanel />}
-      {/* Los grupos viven en Actividad y no en Perfil: son pedidos en curso, y
-          es donde alguien vuelve a mirar «cómo va lo que pedimos». */}
-      {tab === "activity" && (
+      {/* Los grupos, en Actividad: son pedidos en curso. */}
+      {tab === "activity" && ambito === "pedidos" && (
         <GroupOrderPanel
           restaurantId={cartRestaurant?.id ?? null}
           cart={cart}
@@ -364,6 +322,7 @@ export function CustomerApp(props: {
         />
       )}
       <CustomerBottomNav
+        ambito={ambito}
         tab={tab}
         onTabChange={(next) => {
           if (next === "home") portada.volver();

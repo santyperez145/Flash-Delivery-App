@@ -45,6 +45,43 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
 
+## Avance 18 de noviembre de 2026 — FE-01, Pedidos y Viajes separados, y el sitio del cliente
+
+- **Pedido del dueño.** Un frente al nivel de la competencia, y Pedidos separado de Viajes
+  «para que no quede todo mezclado», como Uber Eats y Uber.
+- **Dos experiencias, un selector.** Arriba de todo, **Pedidos | Viajes**:
+  - **Pedidos**: comida, súper, farmacia, kiosco y tiendas. Barra Inicio · Explorar ·
+    Pedidos · Cuenta, carrito y «Volver a pedir».
+  - **Viajes**: viajes y envíos de paquetes. Barra Inicio · Servicios · Actividad · Cuenta,
+    sin carrito.
+  - Cada ámbito ve sólo lo suyo en curso y en su actividad. Se recuerda en el navegador y
+    `/viajes` abre Viajes directo.
+- **Inicio de Pedidos, como el feed de Uber Eats.** Lo que está en curso con su barra de
+  avance, rubros, promociones vigentes, «¿Qué se te antoja?» con las cocinas que hoy tienen
+  algo en la carta, «Volver a pedir» y «Cerca tuyo». Todo sale del estado real: sin
+  promoción activa no hay tarjeta.
+- **Inicio de Viajes, como el de Uber.** «¿A dónde vas?» primero; después los lugares
+  guardados y los destinos recientes, que abren el viaje con el destino cargado.
+- **Actividad rehecha.** En curso arriba, anteriores abajo, por fecha, con total y estado
+  legible. Antes mostraba el estado interno («delivering», «ready_for_pickup») y decía
+  «1 items».
+  - **Calificar lo elige la persona** de 1 a 5. Antes un toque calificaba con 5.
+  - «Volver a pedir» abre el comercio.
+- **El cliente pide también desde la computadora**, como en ubereats.com y
+  pedidosya.com.ar. Antes, de 620 px para arriba, la web le decía «Esta cuenta continúa en
+  la app móvil».
+  - En escritorio, barra del sitio arriba y grillas anchas.
+  - La puerta queda para quien sólo maneja, que trabaja desde la app.
+- **Tamaño.** La pestaña Inicio salió de `CustomerSurface.tsx` a `CustomerHomeTab.tsx`: el
+  coordinador quedó en 334 líneas, debajo de su techo de 375. `App.tsx` no creció.
+- **Verificación:**
+  - `test:customer-home` suma la separación (servicios, en curso, actividad, carrito,
+    grupos), la dirección `/viajes`, la calificación elegida y el cliente en escritorio.
+    Falsificado: cada aserción nueva falla cuando se rompe lo que vigila.
+  - `test:responsive-browser` (Chromium real) recorre los dos ámbitos en el celular, el
+    sitio a 1024 y 1440 px, y la puerta con la cuenta de conductor. Pasó completo en local.
+- **Pendiente:** la misma separación en la app móvil (FE-02).
+
 ## Avance 18 de noviembre de 2026 — P-02b, foto obligatoria al dejar en la puerta
 
 - **Qué faltaba.** El cliente podía pedir que le dejen el pedido en la puerta (P-02), pero

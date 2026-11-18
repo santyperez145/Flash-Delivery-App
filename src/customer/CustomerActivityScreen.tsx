@@ -2,167 +2,171 @@ import { useState } from "react";
 import { Car, PackageCheck, ShoppingBag } from "lucide-react";
 
 import { api } from "../api";
-import { orderStatusLabel, rideStatusLabel, shipmentStatusLabel } from "../labels";
+import {
+  orderStatusLabel,
+  orderSteps,
+  pickupOrderSteps,
+  rideStatusLabel,
+  rideSteps,
+  shipmentStatusLabel,
+  shipmentSteps,
+} from "../labels";
 import type { AppState, User } from "../types";
-import { SectionTitle } from "../ui/panels";
 import { RescheduleControl } from "./SchedulePicker";
-import { CustomerStatusCard } from "./CustomerStatusCard";
+import { FilaAnterior, SinActividad, TarjetaEnCurso, unidades } from "./ActivityEntries";
+import type { Entrada } from "./ActivityEntries";
+import { avanceDe } from "./CustomerHomeFeed";
+import type { Ambito } from "./CustomerScope";
 import { OrderTrackingSheet } from "./OrderTrackingSheet";
 import { RideTrackingSheet } from "./RideTrackingSheet";
 import { ShipmentTrackingSheet } from "./ShipmentTrackingSheet";
+
+// Actividad (FE-01): lo que está en curso arriba y lo anterior abajo, por fecha, como
+// en Uber; cada ámbito ve lo suyo (Pedidos sus pedidos, Viajes sus viajes y envíos).
+// Antes eran tres listas por servicio con el estado interno a la vista («delivering»)
+// y una calificación de 5 estrellas de un toque.
 
 export function CustomerActivityScreen({
   state,
   user,
   runAction,
   busy,
+  ambito,
+  onOpenRestaurant,
 }: {
   state: AppState;
   user: User | null;
   runAction: (action: () => Promise<unknown>, success: string) => void;
   busy: boolean;
+  /** Pedidos muestra pedidos; Viajes, viajes y envíos. */
+  ambito: Ambito;
+  onOpenRestaurant: (restaurantId: string) => void;
 }) {
-  const orders = state.orders.filter((order) => order.customerId === user?.id);
-  const rides = state.rides.filter((ride) => ride.customerId === user?.id);
-  const shipments = state.shipments.filter((shipment) => shipment.customerId === user?.id);
+  const pedidos = ambito === "pedidos";
+  const orders = state.orders.filter((order) => pedidos && order.customerId === user?.id);
+  const rides = state.rides.filter((ride) => !pedidos && ride.customerId === user?.id);
+  const shipments = state.shipments.filter((entry) => !pedidos && entry.customerId === user?.id);
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
   const [trackingRideId, setTrackingRideId] = useState<string | null>(null);
   const [trackingShipmentId, setTrackingShipmentId] = useState<string | null>(null);
   const trackingOrder = orders.find((order) => order.id === trackingOrderId) || null;
   const trackingRide = rides.find((ride) => ride.id === trackingRideId) || null;
   const trackingShipment = shipments.find((shipment) => shipment.id === trackingShipmentId) || null;
+  const calificado = (jobId: string, subject: "merchant" | "driver") =>
+    state.ratings.some((entry) => entry.jobId === jobId && entry.subjectType === subject);
+  const calificar = (jobId: string, subject: "merchant" | "driver") => (estrellas: number) =>
+    runAction(() => api.createRating(jobId, subject, estrellas), "Gracias por tu calificación");
+
+  const entradas: Entrada[] = [
+    ...orders.map((order): Entrada => {
+      const restaurant = state.restaurants.find((entry) => entry.id === order.restaurantId);
+      const activo = !["delivered", "cancelled"].includes(order.status);
+      const cantidad = order.items.reduce((sum, item) => sum + item.quantity, 0);
+      const retiro = order.fulfillment === "pickup";
+      return {
+        id: order.id,
+        icono: ShoppingBag,
+        imagen: restaurant?.image,
+        titulo: restaurant?.name || "Pedido",
+        detalle: retiro ? `${unidades(cantidad)} · Retiro` : unidades(cantidad),
+        fecha: order.createdAt,
+        monto: order.total,
+        estado: orderStatusLabel[order.status],
+        activo,
+        cancelado: order.status === "cancelled",
+        avance: avanceDe(retiro ? pickupOrderSteps : orderSteps, order.status),
+        seguir: { rotulo: "Seguir pedido", accion: () => setTrackingOrderId(order.id) },
+        cancelar: activo
+          ? () => runAction(() => api.setOrderStatus(order.id, "cancelled"), "Pedido cancelado")
+          : undefined,
+        calificar:
+          order.status === "delivered" && !calificado(order.id, "merchant")
+            ? calificar(order.id, "merchant")
+            : undefined,
+        volverAPedir: !activo && restaurant ? () => onOpenRestaurant(restaurant.id) : undefined,
+        // Sólo mientras nadie empezó. Después el comercio ya está cocinando o hay un
+        // conductor en camino, y el servidor lo rechaza con 409.
+        extra: order.scheduledFor && ["requested", "accepted"].includes(order.status) && (
+          <RescheduleControl
+            scheduledFor={order.scheduledFor}
+            disabled={busy}
+            onReschedule={(iso) =>
+              runAction(() => api.rescheduleJob(order.id, iso), "Pedido reprogramado")
+            }
+          />
+        ),
+      };
+    }),
+    ...rides.map((ride): Entrada => {
+      const driver = state.drivers.find((entry) => entry.id === ride.driverId);
+      const activo = !["completed", "cancelled"].includes(ride.status);
+      return {
+        id: ride.id,
+        icono: Car,
+        titulo: `Viaje a ${ride.destination}`,
+        detalle: driver ? `Con ${driver.name}` : `Desde ${ride.pickup}`,
+        fecha: ride.createdAt,
+        monto: ride.fare,
+        estado: rideStatusLabel[ride.status],
+        activo,
+        cancelado: ride.status === "cancelled",
+        avance: avanceDe(rideSteps, ride.status),
+        seguir: { rotulo: "Seguir viaje", accion: () => setTrackingRideId(ride.id) },
+        cancelar: activo
+          ? () => runAction(() => api.setRideStatus(ride.id, "cancelled"), "Viaje cancelado")
+          : undefined,
+        calificar:
+          ride.status === "completed" && !calificado(ride.id, "driver")
+            ? calificar(ride.id, "driver")
+            : undefined,
+      };
+    }),
+    ...shipments.map((shipment): Entrada => {
+      const activo = !["delivered", "cancelled"].includes(shipment.status);
+      return {
+        id: shipment.id,
+        icono: PackageCheck,
+        titulo: `Envío a ${shipment.recipientName}`,
+        detalle: shipment.destination,
+        fecha: shipment.timeline?.[0]?.at,
+        monto: shipment.fare,
+        estado: shipmentStatusLabel[shipment.status],
+        activo,
+        cancelado: shipment.status === "cancelled",
+        avance: avanceDe(shipmentSteps, shipment.status),
+        seguir: { rotulo: "Seguir envío", accion: () => setTrackingShipmentId(shipment.id) },
+        cancelar: activo
+          ? () =>
+              runAction(() => api.setShipmentStatus(shipment.id, "cancelled"), "Envío cancelado")
+          : undefined,
+      };
+    }),
+  ].sort((a, b) => (b.fecha ?? "").localeCompare(a.fecha ?? ""));
+  const enCurso = entradas.filter((entrada) => entrada.activo);
+  const anteriores = entradas.filter((entrada) => !entrada.activo);
+
   return (
-    <div className="activity-stack">
-      <SectionTitle title="Pedidos" />
-      {orders.map((order) => {
-        const restaurant = state.restaurants.find((entry) => entry.id === order.restaurantId);
-        const rated = state.ratings.some(
-          (entry) => entry.jobId === order.id && entry.subjectType === "merchant",
-        );
-        const active = !["delivered", "cancelled"].includes(order.status);
-        return (
-          <CustomerStatusCard
-            key={order.id}
-            icon={ShoppingBag}
-            title={`${restaurant?.name || "Restaurante"} · ${orderStatusLabel[order.status]}`}
-            subtitle={`${order.items.length} items · ${order.deliveryAddress}`}
-            amount={order.total}
-            status={order.status}
-            actionLabel={
-              active
-                ? "Seguir pedido"
-                : order.status === "delivered"
-                  ? rated
-                    ? undefined
-                    : "Calificar 5★"
-                  : undefined
-            }
-            onAction={() =>
-              active
-                ? setTrackingOrderId(order.id)
-                : order.status === "delivered"
-                  ? runAction(
-                      () => api.createRating(order.id, "merchant", 5),
-                      "Gracias por tu calificación",
-                    )
-                  : undefined
-            }
-            secondaryActionLabel={active ? "Cancelar" : undefined}
-            onSecondaryAction={
-              active
-                ? () =>
-                    runAction(() => api.setOrderStatus(order.id, "cancelled"), "Pedido cancelado")
-                : undefined
-            }
-            disabled={busy}
-          >
-            {/* Sólo mientras nadie empezó. Después el comercio ya está cocinando
-                o hay un conductor en camino, y el servidor lo rechaza: ofrecer
-                el botón igual sería prometer algo que devuelve 409. */}
-            {order.scheduledFor && ["requested", "accepted"].includes(order.status) && (
-              <RescheduleControl
-                scheduledFor={order.scheduledFor}
-                disabled={busy}
-                onReschedule={(iso) =>
-                  runAction(() => api.rescheduleJob(order.id, iso), "Pedido reprogramado")
-                }
-              />
-            )}
-          </CustomerStatusCard>
-        );
-      })}
-      <SectionTitle title="Viajes" />
-      {rides.map((ride) => {
-        const driver = state.drivers.find((entry) => entry.id === ride.driverId);
-        const rated = state.ratings.some(
-          (entry) => entry.jobId === ride.id && entry.subjectType === "driver",
-        );
-        const active = !["completed", "cancelled"].includes(ride.status);
-        return (
-          <CustomerStatusCard
-            key={ride.id}
-            icon={Car}
-            title={`${rideStatusLabel[ride.status]} · ${driver?.name || "Sin conductor"}`}
-            subtitle={`${ride.pickup} → ${ride.destination}`}
-            amount={ride.fare}
-            status={ride.status}
-            actionLabel={
-              active
-                ? "Seguir viaje"
-                : ride.status === "completed"
-                  ? rated
-                    ? undefined
-                    : "Calificar 5★"
-                  : undefined
-            }
-            onAction={() =>
-              active
-                ? setTrackingRideId(ride.id)
-                : ride.status === "completed"
-                  ? runAction(
-                      () => api.createRating(ride.id, "driver", 5),
-                      "Gracias por tu calificación",
-                    )
-                  : undefined
-            }
-            secondaryActionLabel={active ? "Cancelar" : undefined}
-            onSecondaryAction={
-              active
-                ? () => runAction(() => api.setRideStatus(ride.id, "cancelled"), "Viaje cancelado")
-                : undefined
-            }
-            disabled={busy}
-          />
-        );
-      })}
-      <SectionTitle title="Envíos" />
-      {shipments.map((shipment) => {
-        const driver = state.drivers.find((entry) => entry.id === shipment.driverId);
-        const active = !["delivered", "cancelled"].includes(shipment.status);
-        return (
-          <CustomerStatusCard
-            key={shipment.id}
-            icon={PackageCheck}
-            title={`${shipmentStatusLabel[shipment.status]} · ${shipment.recipientName}`}
-            subtitle={`${shipment.pickup} → ${shipment.destination} · ${shipment.packageSize}`}
-            amount={shipment.fare}
-            status={shipment.status}
-            actionLabel={active ? "Seguir envío" : undefined}
-            onAction={active ? () => setTrackingShipmentId(shipment.id) : undefined}
-            secondaryActionLabel={active ? "Cancelar" : undefined}
-            onSecondaryAction={
-              active
-                ? () =>
-                    runAction(
-                      () => api.setShipmentStatus(shipment.id, "cancelled"),
-                      "Envío cancelado",
-                    )
-                : undefined
-            }
-            disabled={busy}
-          />
-        );
-      })}
+    <div className="activity-page">
+      <h1>{pedidos ? "Pedidos" : "Actividad"}</h1>
+      {!entradas.length && <SinActividad pedidos={pedidos} />}
+      {enCurso.length > 0 && (
+        <section aria-label="En curso">
+          <h2>En curso</h2>
+          <div className="activity-live-list">
+            {enCurso.map((entrada) => (
+              <TarjetaEnCurso key={entrada.id} entrada={entrada} busy={busy} />
+            ))}
+          </div>
+        </section>
+      )}
+      {anteriores.length > 0 && (
+        <section aria-label="Anteriores">
+          <h2>Anteriores</h2>
+          {anteriores.map((entrada) => (
+            <FilaAnterior key={entrada.id} entrada={entrada} busy={busy} />
+          ))}
+        </section>
+      )}
       {trackingOrder && (
         <OrderTrackingSheet
           order={trackingOrder}

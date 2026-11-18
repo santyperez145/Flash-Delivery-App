@@ -7,6 +7,8 @@ import { contains, containsAll, containsNone, readWebSource, section } from "./s
 const { source: app } = await readWebSource();
 const api = await fs.readFile("src/api.ts", "utf8");
 const coordinator = await fs.readFile("src/customer/CustomerSurface.tsx", "utf8");
+// FE-01: la pestaña Inicio de cada ámbito salió del coordinador a su archivo.
+const homeTab = await fs.readFile("src/customer/CustomerHomeTab.tsx", "utf8");
 const foodCart = await fs.readFile("src/customer/FoodCartScreen.tsx", "utf8");
 const fulfillmentPicker = await fs.readFile("src/customer/FoodFulfillmentPicker.tsx", "utf8");
 const cardPayment = await fs.readFile("src/customer/FoodCardPayment.tsx", "utf8");
@@ -62,7 +64,8 @@ assert(
 
 assert(
   foodDiscovery.trimEnd().split(/\r?\n/).length <= 130 &&
-    contains(coordinator, "<FoodDiscoveryHome") &&
+    contains(homeTab, "<FoodDiscoveryHome") &&
+    !contains(homeTab, "function FoodDiscoveryHome") &&
     !contains(coordinator, "function FoodDiscoveryHome") &&
     containsAll(foodDiscovery, [
       'state.promotions.filter((p) => p.active && p.service === "food")',
