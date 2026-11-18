@@ -57,6 +57,30 @@ assert.ok(
 );
 ok("ningún pedido se crea para una cuenta eliminada, ni en plena carrera con el borrado");
 
+// Los comprobantes ya emitidos se redactan, y una cuenta eliminada no vuelve.
+const terminal = sinComentarios(
+  await leer("database/migrations/139_account_deletion_terminal.sql"),
+);
+assert.ok(
+  contains(terminal, "AFTER UPDATE OF status ON users FOR EACH ROW WHEN (NEW.status = 'deleted'") &&
+    contains(terminal, "UPDATE service_receipts r SET metadata = r.metadata") &&
+    contains(
+      terminal,
+      "BEFORE UPDATE OF status ON users FOR EACH ROW WHEN (OLD.status = 'deleted'",
+    ) &&
+    contains(terminal, "RAISE EXCEPTION 'FLASH_ACCOUNT_DELETED'") &&
+    contains(
+      terminal,
+      "FROM jobs j, users u WHERE j.id = r.job_id AND u.id = r.customer_id AND u.status = 'deleted';",
+    ) &&
+    contains(
+      await leer("server/http/admin-router.js"),
+      'if (String(error?.message).includes("FLASH_ACCOUNT_DELETED")) return fail(res, 409,',
+    ),
+  "un comprobante conserva la dirección, o una cuenta eliminada se puede reactivar",
+);
+ok("los comprobantes emitidos se redactan y una cuenta eliminada no se reactiva");
+
 // **Toda** función con permisos de dueño nombra `pg_temp` al final: sin nombrarlo,
 // PostgreSQL busca primero las tablas en el esquema temporal de quien la llama.
 // Se mira el último `search_path` que cada migración le fija a cada función.

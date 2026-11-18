@@ -237,6 +237,9 @@ router.patch(
       });
       return ok(res, { moderation });
     } catch (error) {
+      // La base rechaza mover una cuenta eliminada por su titular (migración 139).
+      if (String(error?.message).includes("FLASH_ACCOUNT_DELETED"))
+        return fail(res, 409, "La cuenta fue eliminada por su titular y no se puede reactivar");
       return failFrom(res, error, "No se pudo cambiar el estado de la cuenta");
     }
   },

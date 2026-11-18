@@ -4443,6 +4443,15 @@ try {
       );
     const viajeBorrado = `job_borrado_${crypto.randomUUID()}`;
     await insertarViaje(viajeBorrado);
+    // Un comprobante ya emitido copia origen y destino en su metadata (migración 139).
+    await pool.query(
+      `INSERT INTO service_receipts(public_id,receipt_number,job_id,customer_id,service_kind,
+         subtotal_cents,total_cents,metadata)
+       SELECT $1,$2,j.id,j.customer_id,j.kind,100000,100000,
+         '{"pickup":"Calle Falsa 123","dropoff":"Avenida Siempre Viva 742","serviceLevel":"economy"}'
+       FROM jobs j WHERE j.public_id=$3`,
+      [`rcp_borrado_${crypto.randomUUID()}`, `FL-BORRADO-${crypto.randomUUID()}`, viajeBorrado],
+    );
     const malaClaveBorrado = await request("/me/delete", {
       method: "POST",
       body: JSON.stringify({ password: "otra-clave" }),
@@ -4512,6 +4521,30 @@ try {
       pedidoTardio.includes("FLASH_CUSTOMER_DELETED"),
       "no order can be created for a deleted account",
     );
+    const comprobanteBorrado = (
+      await pool.query(
+        "SELECT metadata,total_cents FROM service_receipts WHERE job_id=(SELECT id FROM jobs WHERE public_id=$1)",
+        [viajeBorrado],
+      )
+    ).rows[0];
+    assert(
+      comprobanteBorrado?.metadata?.pickup === "Dirección eliminada" &&
+        comprobanteBorrado.metadata.dropoff === "Dirección eliminada" &&
+        comprobanteBorrado.metadata.serviceLevel === "economy" &&
+        Number(comprobanteBorrado.total_cents) === 100000,
+      `account deletion redacts issued receipts and keeps their amounts (${JSON.stringify(comprobanteBorrado)})`,
+    );
+    // Una cuenta eliminada no vuelve, la pida quien la pida.
+    const reactivacion = await pool
+      .query("UPDATE users SET status='active' WHERE id=$1", [internoBorrado])
+      .then(
+        () => "",
+        (error) => error.message,
+      );
+    assert(
+      reactivacion.includes("FLASH_ACCOUNT_DELETED"),
+      "a deleted account cannot be reactivated",
+    );
     const reingresoBorrado = await request("/auth/login", {
       method: "POST",
       body: JSON.stringify({ email: correoBorrado, password: "borrado123" }),
@@ -4553,6 +4586,10 @@ try {
   } finally {
     token = tokenAntesDelBorrado;
     if (idBorrado) {
+      await pool.query(
+        "DELETE FROM service_receipts WHERE customer_id=(SELECT id FROM users WHERE public_id=$1)",
+        [idBorrado],
+      );
       await pool.query(
         "DELETE FROM jobs WHERE customer_id=(SELECT id FROM users WHERE public_id=$1)",
         [idBorrado],
