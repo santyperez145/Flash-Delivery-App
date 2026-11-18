@@ -14,7 +14,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 
-import { contains } from "./source-contract.mjs";
+import { contains, squeeze } from "./source-contract.mjs";
 
 const ok = (mensaje) => console.log(`ok - ${mensaje}`);
 const leer = (ruta) => fs.readFile(`apps/mobile/src/${ruta}`, "utf8");
@@ -172,9 +172,19 @@ assert.ok(
 );
 // Calificar lo elige la persona: no se califica con 5 por ella.
 assert.ok(
-  !actividadWeb.includes(", 5)") &&
+  !/createRating\([^)]*,\s*\d\s*\)/.test(squeeze(actividadWeb)) &&
     contains(actividadWeb, "runAction(() => api.createRating(jobId, subject, estrellas)"),
   "la actividad califica con un número fijo",
+);
+// Un destino reciente es un viaje terminado, y lo que va al viaje es su dirección.
+const viajesWeb = await leerWeb("RidesLanding.tsx");
+assert.ok(
+  contains(viajesWeb, 'entry.status === "completed" &&') &&
+    contains(viajesWeb, "destination: lugar.direccion,") &&
+    contains(viajesWeb, "direccion: ride.destination,") &&
+    contains(inicioWeb, "Boolean(restaurant?.open)") &&
+    contains(actividadWeb, "!activo && restaurant?.open ? () => onOpenRestaurant(restaurant.id)"),
+  "un viaje cancelado pasa por visitado, el destino lleva el subtítulo, o se ofrece volver a pedir en un cerrado",
 );
 ok("Pedidos y Viajes separados: servicios, en curso, actividad, carrito y dirección propios");
 
@@ -183,7 +193,8 @@ ok("Pedidos y Viajes separados: servicios, en curso, actividad, carrito y direcc
 const app = await fs.readFile("src/App.tsx", "utf8");
 assert.ok(
   contains(app, "if (isDesktop && !soloCliente) {") &&
-    app.indexOf("const soloCliente") < app.indexOf("if (isDesktop && !soloCliente)"),
+    squeeze(app).indexOf(squeeze("const soloCliente")) <
+      squeeze(app).indexOf(squeeze("if (isDesktop && !soloCliente)")),
   "el cliente en escritorio choca con la puerta de staff",
 );
 ok("el cliente pide también desde escritorio");

@@ -214,7 +214,8 @@ export function CustomerHome({
     ),
   ]
     .map((id) => state.restaurants.find((restaurant) => restaurant.id === id))
-    .filter((restaurant): restaurant is Restaurant => Boolean(restaurant));
+    // Sólo abiertos: uno cerrado dejaría armar un carrito que no se puede pagar.
+    .filter((restaurant): restaurant is Restaurant => Boolean(restaurant?.open));
 
   return (
     <section className="customer-home" aria-label="Inicio">
@@ -258,6 +259,8 @@ export function CustomerHome({
         favoritos={favoritos}
         onOpen={onOpenRestaurant}
         onToggleFavorite={onToggleFavorite}
+        // Más de ocho siguen en Pedidos, cada uno con su «Volver a pedir».
+        onVerTodo={onOpenActivity}
       />
       <Comercios
         titulo="Cerca tuyo"

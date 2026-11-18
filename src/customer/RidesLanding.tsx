@@ -12,7 +12,15 @@ import { EnCurso, enCursoDe, Seccion } from "./CustomerHomeFeed";
 // porque no se podría cotizar.
 
 type Flags = Record<string, { active: boolean; variant: Record<string, unknown> }> | null;
-type Lugar = { id: string; titulo: string; detalle: string; punto: GeoPoint; reciente: boolean };
+type Lugar = {
+  id: string;
+  titulo: string;
+  detalle: string;
+  /** La dirección que va al viaje: en un reciente es el título, no el subtítulo. */
+  direccion: string;
+  punto: GeoPoint;
+  reciente: boolean;
+};
 
 export function lugaresDe(state: AppState, userId: string | undefined): Lugar[] {
   const guardados = state.addresses
@@ -21,13 +29,20 @@ export function lugaresDe(state: AppState, userId: string | undefined): Lugar[] 
       id: `guardado-${entry.id}`,
       titulo: entry.label,
       detalle: entry.address,
+      direccion: entry.address,
       punto: { lat: entry.lat as number, lng: entry.lng as number },
       reciente: false,
     }));
   const vistos = new Set(guardados.map((lugar) => lugar.detalle));
   const recientes: Lugar[] = [];
   for (const ride of [...state.rides]
-    .filter((entry) => entry.customerId === userId && entry.destinationLocation)
+    .filter(
+      (entry) =>
+        entry.customerId === userId &&
+        // «Viajaste» sólo si el viaje terminó: uno cancelado no es un lugar visitado.
+        entry.status === "completed" &&
+        entry.destinationLocation,
+    )
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt))) {
     if (vistos.has(ride.destination)) continue;
     vistos.add(ride.destination);
@@ -35,6 +50,7 @@ export function lugaresDe(state: AppState, userId: string | undefined): Lugar[] 
       id: `reciente-${ride.id}`,
       titulo: ride.destination,
       detalle: "Viajaste hace poco",
+      direccion: ride.destination,
       punto: ride.destinationLocation as GeoPoint,
       reciente: true,
     });
@@ -63,7 +79,7 @@ export function RidesHome({
   const irA = (lugar: Lugar) => {
     setRideForm((form) => ({
       ...form,
-      destination: lugar.detalle,
+      destination: lugar.direccion,
       destinationCoords: lugar.punto,
     }));
     portada.abrir("ride");

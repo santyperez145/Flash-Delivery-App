@@ -80,7 +80,10 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
     Falsificado: cada aserción nueva falla cuando se rompe lo que vigila.
   - `test:responsive-browser` (Chromium real) recorre los dos ámbitos en el celular, el
     sitio a 1024 y 1440 px, y la puerta con la cuenta de conductor. Pasó completo en local.
-- **Pendiente:** la misma separación en la app móvil (FE-02).
+- **Pendiente: la misma separación en la app móvil (FE-02), en su propio PR.** Exige
+  partir primero `apps/mobile/src/screens/CustomerScreen.tsx`, con 1.320 líneas, a 30 de
+  su techo. Juntos habrían sido dos refactors grandes imposibles de revisar o revertir por
+  separado. El móvil sigue con el inicio de todos los servicios (RES-01), que funciona.
 
 ## Avance 18 de noviembre de 2026 — P-02b, foto obligatoria al dejar en la puerta
 

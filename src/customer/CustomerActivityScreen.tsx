@@ -83,7 +83,8 @@ export function CustomerActivityScreen({
           order.status === "delivered" && !calificado(order.id, "merchant")
             ? calificar(order.id, "merchant")
             : undefined,
-        volverAPedir: !activo && restaurant ? () => onOpenRestaurant(restaurant.id) : undefined,
+        volverAPedir:
+          !activo && restaurant?.open ? () => onOpenRestaurant(restaurant.id) : undefined,
         // Sólo mientras nadie empezó. Después el comercio ya está cocinando o hay un
         // conductor en camino, y el servidor lo rechaza con 409.
         extra: order.scheduledFor && ["requested", "accepted"].includes(order.status) && (
