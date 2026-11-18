@@ -323,9 +323,9 @@ export function RideTrackingSheet({
           )}
         </section>
         <p className="tracking-integrity-note">
-          La ubicación y los estados provienen del backend autenticado. Si una señal o el proveedor
-          de mapas falla, Flash conserva el viaje y sus acciones de seguridad sin inventar
-          movimiento.
+          La ubicación y el estado llegan desde el teléfono del conductor. Si se pierde la señal o
+          el mapa, el viaje y sus botones de seguridad siguen disponibles, y no se muestra un
+          movimiento que no ocurrió.
         </p>
       </section>
     </div>

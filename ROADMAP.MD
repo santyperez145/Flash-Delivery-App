@@ -66,6 +66,22 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   - `test:merchant-operations-ui` vigila la función, el motivo obligatorio y la app.
     Falsificado: cada aserción nueva falla cuando se rompe lo que vigila.
 
+## Avance 18 de noviembre de 2026 — RES-03, la portada de comidas sólo con lo real
+
+- **La portada web mezclaba lo real con lo que no lo era.**
+  - La tarjeta «Hot deal · Comida en minutos · con backend activo» no se apoyaba en
+    ninguna promoción.
+  - Cuatro atributos fijos prometían cosas como «Garantía · Crédito si falla».
+  - «Más pedidos» eran los siete primeros platos de la lista.
+- **Ahora abre como Uber Eats y PedidosYa:** buscador, rubros, promociones vigentes (sólo
+  las reales), el plan Flash Más real, cocinas y comercios. La lista de platos se llama
+  por lo que es.
+- **Los seguimientos le hablan al cliente.** Pedido, viaje y envío dejan de decir
+  «backend autenticado» y dicen de dónde sale la ubicación, y qué pasa si se pierde.
+- **Verificación:** `test:web-checkout` y `test:responsive-layout` exigen las promociones
+  reales y rechazan los textos fijos. Falsificado: volver a poner «backend activo» o
+  mostrar promociones inactivas los pone en rojo.
+
 ## Avance 18 de noviembre de 2026 — RES-02, la web del cliente con la misma estructura
 
 - **La web tiene ahora la misma estructura que el móvil.**

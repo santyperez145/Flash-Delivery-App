@@ -277,7 +277,12 @@ assert(
   contains(webCustomerCoordinator, "<FoodDiscoveryHome") &&
     !contains(webCustomerCoordinator, "function FoodDiscoveryHome") &&
     webFoodDiscovery.trimEnd().split(/\r?\n/).length <= 130 &&
-    contains(webFoodDiscovery, "featuredRestaurant?.cover") &&
+    // RES-03: la portada abre con promociones reales, no con una tarjeta fija.
+    contains(
+      webFoodDiscovery,
+      'state.promotions.filter((p) => p.active && p.service === "food")',
+    ) &&
+    !contains(webFoodDiscovery, "backend activo") &&
     !contains(webFoodDiscovery, "images.unsplash.com") &&
     contains(webFoodDiscovery, "<RestaurantCard") &&
     contains(webFoodDiscovery, "<FoodRow") &&

@@ -64,7 +64,12 @@ assert(
   foodDiscovery.trimEnd().split(/\r?\n/).length <= 130 &&
     contains(coordinator, "<FoodDiscoveryHome") &&
     !contains(coordinator, "function FoodDiscoveryHome") &&
-    containsAll(foodDiscovery, ["featuredRestaurant?.cover", "<RestaurantCard", "<FoodRow"]) &&
+    containsAll(foodDiscovery, [
+      'state.promotions.filter((p) => p.active && p.service === "food")',
+      "<RestaurantCard",
+      "<FoodRow",
+    ]) &&
+    containsNone(foodDiscovery, ["Hot deal", "backend activo", "Mas pedidos"]) &&
     containsNone(foodDiscovery, ["images.unsplash.com"]),
   "home y descubrimiento usan catálogo real y conservan un límite propio",
 );
