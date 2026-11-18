@@ -66,11 +66,21 @@ export function CustomerFoodCheckoutScreen({
           </Text>
         </View>
         <Text style={styles.foodCheckoutMerchant}>{restaurantName}</Text>
-        <Text style={styles.foodCheckoutEta}>Llega en aproximadamente {quote.etaMin} min</Text>
+        <Text style={styles.foodCheckoutEta}>
+          {quote.fulfillment === "pickup"
+            ? `Listo para retirar en aproximadamente ${quote.etaMin} min`
+            : `Llega en aproximadamente ${quote.etaMin} min`}
+        </Text>
         <View style={styles.foodCheckoutHeroFacts}>
           <View>
-            <Text style={styles.foodCheckoutHeroFactLabel}>DISTANCIA</Text>
-            <Text style={styles.foodCheckoutHeroFactValue}>{quote.distanceKm} km</Text>
+            {/* La cotización es una unión por modo: en retiro no hay viaje,
+                así que no hay distancia que mostrar. */}
+            <Text style={styles.foodCheckoutHeroFactLabel}>
+              {quote.fulfillment === "pickup" ? "MODO" : "DISTANCIA"}
+            </Text>
+            <Text style={styles.foodCheckoutHeroFactValue}>
+              {quote.fulfillment === "pickup" ? "Retiro" : `${quote.distanceKm} km`}
+            </Text>
           </View>
           <View style={styles.foodCheckoutHeroDivider} />
           <View style={styles.itemCopy}>
@@ -98,11 +108,17 @@ export function CustomerFoodCheckoutScreen({
             <Ionicons name="location" size={20} color={flashDesign.color.food} />
           </View>
           <View style={styles.itemCopy}>
-            <Text style={styles.foodCheckoutInfoTitle}>Entregar en</Text>
-            <Text style={styles.foodCheckoutInfoValue} numberOfLines={2}>
-              {quote.deliveryAddress}
+            <Text style={styles.foodCheckoutInfoTitle}>
+              {quote.fulfillment === "pickup" ? "Retirás en" : "Entregar en"}
             </Text>
-            <Text style={styles.foodCheckoutInfoMeta}>Dirección validada con coordenadas</Text>
+            <Text style={styles.foodCheckoutInfoValue} numberOfLines={2}>
+              {quote.fulfillment === "pickup" ? quote.pickupAddress : quote.deliveryAddress}
+            </Text>
+            <Text style={styles.foodCheckoutInfoMeta}>
+              {quote.fulfillment === "pickup"
+                ? "Mostrá el número de pedido en el mostrador"
+                : "Dirección validada con coordenadas"}
+            </Text>
           </View>
           <Ionicons name="checkmark-circle" size={21} color={flashDesign.color.shipment} />
         </View>
