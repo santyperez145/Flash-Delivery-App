@@ -6,6 +6,7 @@ import { flashDesign } from "../design-system";
 import { money } from "../format";
 import { styles } from "../styles";
 import type { MobileCartLine, Promotion, Restaurant, User } from "../types";
+import { useVerticalScope, VerticalRail } from "../VerticalRail";
 
 export type CatalogSearchResult = {
   restaurantId: string;
@@ -82,6 +83,11 @@ export function CustomerFoodBrowseScreen({
   onLoadMore: () => void;
 }) {
   const itemCount = cart.reduce((sum, line) => sum + line.quantity, 0);
+  // Rubros (P-01): la portada muestra el rubro elegido; los favoritos no se
+  // filtran, porque guardar una farmacia no la vuelve restaurante.
+  const scope = useVerticalScope({ restaurants, categories });
+  restaurants = scope.restaurants;
+  categories = scope.categories;
 
   if (screen === "home") {
     return (
@@ -122,6 +128,7 @@ export function CustomerFoodBrowseScreen({
           <Text style={styles.foodHomeEyebrow}>HOLA, {user.name.split(" ")[0].toUpperCase()}</Text>
           <Text style={styles.foodHomeTitle}>¿Qué te gustaría pedir?</Text>
         </View>
+        <VerticalRail {...scope.rail} />
         {promotion ? (
           <LinearGradient
             colors={[flashDesign.color.ink, "#33253B"]}
@@ -241,7 +248,11 @@ export function CustomerFoodBrowseScreen({
         ) : null}
         <View style={styles.foodSectionHeader}>
           <Text style={styles.foodSectionTitle}>
-            {selectedCategory === "Todos" ? "Elegidos para vos" : selectedCategory}
+            {selectedCategory !== "Todos"
+              ? selectedCategory
+              : scope.vertical === "restaurant"
+                ? "Elegidos para vos"
+                : scope.label}
           </Text>
           <Text style={styles.foodSeeAll}>{restaurants.length} abiertos</Text>
         </View>

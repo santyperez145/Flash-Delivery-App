@@ -8,6 +8,8 @@ import type {
   OrderSubstitution,
   UserAddress,
   FoodCheckoutQuote,
+  MerchantVertical,
+  CatalogVertical,
   ShipmentReturn,
   ShipmentClaimEvidence,
   DriverDocument,
@@ -34,6 +36,8 @@ export type {
   OrderSubstitution,
   UserAddress,
   FoodCheckoutQuote,
+  MerchantVertical,
+  CatalogVertical,
   ShipmentReturn,
   ShipmentClaimEvidence,
   DriverDocument,
@@ -71,6 +75,8 @@ export type Restaurant = {
   id: string;
   ownerId: string;
   name: string;
+  /** Rubro (P-01). Ausente en el respaldo SQLite, que sólo tiene restaurantes. */
+  vertical?: MerchantVertical;
   cuisine: string;
   rating: number;
   etaMin: number;

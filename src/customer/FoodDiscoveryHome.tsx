@@ -5,6 +5,7 @@ import type { MenuItem, Restaurant } from "../types";
 import { SectionTitle } from "../ui/panels";
 import { Beneficios, useSubscription } from "./SubscriptionPanel";
 import { CategoryRail, FoodRow, RestaurantCard, SearchBar } from "./FoodCatalogComponents";
+import { useVerticalScope, VerticalRail } from "./VerticalRail";
 
 export function FoodDiscoveryHome({
   restaurants,
@@ -33,11 +34,15 @@ export function FoodDiscoveryHome({
   onOpenItem: (restaurant: Restaurant, item: MenuItem) => void;
   onOpenSubscription: () => void;
 }) {
+  const scope = useVerticalScope({ restaurants, allItems, categories, query, setCategory });
+  restaurants = scope.restaurants;
+  allItems = scope.items;
   const featuredRestaurant =
     restaurants.find((restaurant) => restaurant.open) || restaurants[0] || allItems[0]?.restaurant;
   const heroImage = featuredRestaurant?.cover || featuredRestaurant?.image;
   return (
     <>
+      <VerticalRail {...scope.rail} />
       {heroImage && (
         <section className="promo-card">
           <img src={heroImage} alt={`Promoción de ${featuredRestaurant.name}`} />
@@ -51,8 +56,9 @@ export function FoodDiscoveryHome({
       <FlashPassTeaser onOpen={onOpenSubscription} />
       <FlashPromiseGrid />
       <SearchBar query={query} setQuery={setQuery} />
-      <CategoryRail categories={categories} category={category} setCategory={setCategory} />
+      <CategoryRail categories={scope.categories} category={category} setCategory={setCategory} />
       <SectionTitle title="Cerca tuyo" action="Abiertos" />
+      {!restaurants.length && <p className="vertical-empty">Sin comercios para mostrar acá.</p>}
       <div className="restaurant-rail">
         {restaurants.map((restaurant) => (
           <RestaurantCard

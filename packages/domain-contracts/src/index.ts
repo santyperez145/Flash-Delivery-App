@@ -139,6 +139,12 @@ type FoodCheckoutQuoteBase = {
  * a cada pantalla que lea la direccion a decir primero cual de los dos modos
  * esta mostrando.
  */
+/** Rubro de un comercio: el CHECK de `merchants.vertical` (migración 001). */
+export type MerchantVertical = "restaurant" | "grocery" | "pharmacy" | "kiosk" | "retail";
+
+/** Un rubro con comercios activos, como lo devuelve `/api/catalog/verticals`. */
+export type CatalogVertical = { vertical: MerchantVertical; merchants: number };
+
 export type FoodCheckoutQuote =
   | (FoodCheckoutQuoteBase & {
       fulfillment: "delivery";

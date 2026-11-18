@@ -34,11 +34,20 @@ export function mapCatalogItem(row) {
   };
 }
 
+/**
+ * Los rubros de comercio, en el orden en que los muestra la portada (P-01).
+ *
+ * Son exactamente los del CHECK de `merchants.vertical` en la migración 001:
+ * `test:catalog-verticals` lo verifica, porque una lista que se desincroniza de
+ * la base ofrece un rubro que ningún comercio puede tener.
+ */
+export const MERCHANT_VERTICALS = ["restaurant", "grocery", "pharmacy", "kiosk", "retail"];
+
 export async function getPostgresRestaurants({ publicIds = null, ownerPublicId = null } = {}) {
   const result = await postgresPool.query(
     `
     SELECT m.id, m.public_id, m.owner_id, owner.public_id AS owner_public_id,
-      m.name, COALESCE(branch.address,m.address) address, CASE WHEN branch.id IS NULL THEN m.open ELSE branch.open AND branch.status='active' AND app.branch_is_scheduled_open(branch.id,now()) END open, COALESCE(branch.open,m.open) manual_open, COALESCE(branch.eta_min,m.eta_min) eta_min, m.delivery_fee_cents, m.metadata,
+      m.name, m.vertical, COALESCE(branch.address,m.address) address, CASE WHEN branch.id IS NULL THEN m.open ELSE branch.open AND branch.status='active' AND app.branch_is_scheduled_open(branch.id,now()) END open, COALESCE(branch.open,m.open) manual_open, COALESCE(branch.eta_min,m.eta_min) eta_min, m.delivery_fee_cents, m.metadata,
       (SELECT round(avg(r.score),2) FROM ratings r WHERE r.subject_type='merchant' AND r.subject_id=m.id) AS merchant_rating,
       ST_Y(COALESCE(branch.location,m.location)::geometry) AS lat, ST_X(COALESCE(branch.location,m.location)::geometry) AS lng,
       ci.public_id AS item_public_id, ci.name AS item_name, ci.description,
@@ -243,6 +252,7 @@ export async function getPostgresRestaurants({ publicIds = null, ownerPublicId =
         id: row.public_id,
         ownerId: row.owner_public_id,
         name: row.name,
+        vertical: row.vertical,
         cuisine: metadata.cuisine || "Comercio",
         rating: Number(row.merchant_rating ?? metadata.rating ?? 0),
         distanceKm: Number(metadata.distanceKm || 0),
@@ -269,6 +279,7 @@ export async function getPostgresRestaurants({ publicIds = null, ownerPublicId =
 const publicRestaurant = (restaurant) => ({
   id: restaurant.id,
   name: restaurant.name,
+  vertical: restaurant.vertical,
   cuisine: restaurant.cuisine,
   rating: restaurant.rating,
   distanceKm: restaurant.distanceKm,
@@ -299,10 +310,21 @@ const publicRestaurant = (restaurant) => ({
     pickupEnabled: branch.pickupEnabled === true,
   })),
 });
-export async function getPostgresRestaurantPage({ limit = 20, cursor = null, query = "" } = {}) {
+export async function getPostgresRestaurantPage({
+  limit = 20,
+  cursor = null,
+  query = "",
+  vertical = null,
+} = {}) {
+  // El rubro filtra en la base y no en el cliente: con miles de comercios por
+  // ciudad, una farmacia en la página 40 no existiría para quien la busca.
   const page = await postgresPool.query(
-      `SELECT id,public_id,created_at,to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') cursor_created_at FROM merchants WHERE status='active' AND ($1='' OR name ILIKE '%'||$1||'%' OR metadata->>'cuisine' ILIKE '%'||$1||'%') AND ($2::timestamptz IS NULL OR (created_at,id)>($2::timestamptz,$3::uuid)) ORDER BY created_at,id LIMIT $4`,
-      [query.trim(), cursor?.createdAt || null, cursor?.id || null, limit + 1],
+      `SELECT id,public_id,created_at,to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') cursor_created_at
+       FROM merchants WHERE status='active' AND ($5::text IS NULL OR vertical=$5)
+         AND ($1='' OR name ILIKE '%'||$1||'%' OR metadata->>'cuisine' ILIKE '%'||$1||'%')
+         AND ($2::timestamptz IS NULL OR (created_at,id)>($2::timestamptz,$3::uuid))
+       ORDER BY created_at,id LIMIT $4`,
+      [query.trim(), cursor?.createdAt || null, cursor?.id || null, limit + 1, vertical],
     ),
     hasMore = page.rows.length > limit,
     rows = page.rows.slice(0, limit),
@@ -318,6 +340,25 @@ export async function getPostgresRestaurantPage({ limit = 20, cursor = null, que
           )
         : null,
   };
+}
+
+/**
+ * Qué rubros tienen comercios activos, y cuántos (P-01).
+ *
+ * Es lo que decide qué accesos muestra la portada. Un acceso a «Farmacias» que
+ * abre una lista vacía es peor que no tenerlo: promete una oferta que no existe.
+ * El orden es fijo y no por cantidad, para que la portada no se reordene sola
+ * cada vez que se da de alta un comercio.
+ */
+export async function getPostgresCatalogVerticals() {
+  const result = await postgresPool.query(
+    `SELECT vertical, count(*)::int merchants FROM merchants WHERE status='active' GROUP BY vertical`,
+  );
+  const conteo = new Map(result.rows.map((row) => [row.vertical, row.merchants]));
+  return MERCHANT_VERTICALS.filter((vertical) => conteo.get(vertical) > 0).map((vertical) => ({
+    vertical,
+    merchants: conteo.get(vertical),
+  }));
 }
 
 export async function getPostgresOperationsRestaurantPage({

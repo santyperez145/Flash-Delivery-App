@@ -250,6 +250,32 @@ Referencias oficiales usadas para esta comparacion:
 - [DoorDash Merchant Portal](https://merchants.doordash.com/en-us/products/merchant-portal)
 - [DoorDash real-time merchant features](https://about.doordash.com/en-us/news/doordash-empowers-merchants-with-new-real-time-features)
 
+### Decisión 18 de noviembre de 2026 — rubros de comercio en la portada (P-01)
+
+**Comparado contra:** PedidosYa, que abre la portada con accesos a Restaurantes, Market,
+Farmacias, Kioscos y Tiendas, y Uber Eats, que separa Restaurants, Grocery, Convenience,
+Pharmacy y Retail. Los dos resuelven igual tres cosas: el rubro es lo primero que se ve, cada
+acceso abre sólo comercios de ese rubro, y la búsqueda atraviesa todos.
+
+**Decisiones derivadas.**
+
+- **Los accesos salen de un resumen del servidor, no de lo cargado.** El cliente tiene una
+  página de cada rubro; contar sobre eso diría «3 farmacias» donde hay cuarenta. Un rubro
+  sin comercios activos no aparece: un acceso que abre una lista vacía promete una oferta
+  que no existe.
+- **La portada pide una página por rubro.** Con una sola página del catálogo mezclado, un
+  rubro cuyos comercios se dieron de alta después de los primeros cincuenta existía en la
+  base y no en la app. Si el resumen falla, la portada vuelve a la página única.
+- **Con una búsqueda escrita el rubro no filtra.** Quien busca «hielo» desde Restaurantes
+  quiere el kiosco que lo vende. Es lo que hacen los dos competidores.
+- **La tienda de un súper reusa la página del restaurante.** Es lo que hizo Uber Eats al
+  abrir grocery: las categorías hacen de pasillos. La navegación por departamento y la
+  recompra de la canasta quedan como P-09.
+
+**Dónde Flash queda por debajo todavía.** PedidosYa Market opera dark stores propias con
+inventario de la plataforma; Flash es un marketplace de comercios. Y ninguna farmacia de
+Flash vende medicamentos (P-10): exige farmacia habilitada, y es un bloqueo externo.
+
 ### Decisión 17 de noviembre de 2026 — retiro en el local, y por qué sin código
 
 **Comparado contra:** Uber Eats y PedidosYa, los dos con retiro en el local en su checkout, y

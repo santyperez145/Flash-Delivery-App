@@ -22,6 +22,7 @@ import type {
 } from "./types";
 import type { AnalyticsEvent } from "./analytics";
 import { createAuthRefreshCoordinator } from "./auth-refresh-coordinator";
+import { createCatalogApi } from "./catalog-api";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:4000/api";
 const TOKEN_KEY = "flash_platform_token";
@@ -267,6 +268,7 @@ async function request<T>(
   return payload as T;
 }
 
+const catalogApi = createCatalogApi(request);
 export const api = {
   async getDriverOffers() {
     return request<{ offers: DispatchOffer[] }>("/driver/offers");
@@ -311,7 +313,7 @@ export const api = {
         ? Promise.resolve({ items: [], nextCursor: null })
         : this.getActivity(undefined, 50),
       ["customer", "driver"].includes(activeAudience)
-        ? this.getCatalog(undefined, 50)
+        ? catalogApi.getHome(50)
         : Promise.resolve(null),
       activeAudience === "driver" ? this.getCurrentDriver() : Promise.resolve(null),
       activeAudience === "merchant" ? this.getCurrentMerchant() : Promise.resolve(null),
@@ -505,16 +507,8 @@ export const api = {
       { method: "PATCH", body: JSON.stringify(input) },
     );
   },
-  async getCatalog(cursor?: string, limit = 20, query = "") {
-    const params = new URLSearchParams({
-      limit: String(limit),
-      ...(cursor ? { cursor } : {}),
-      ...(query ? { q: query } : {}),
-    });
-    return request<{ restaurants: Restaurant[]; nextCursor: string | null }>(
-      `/catalog/restaurants?${params}`,
-    );
-  },
+  getCatalog: catalogApi.getPage,
+  getCatalogVerticals: catalogApi.getVerticals,
   async route(from: GeoPoint, to: GeoPoint) {
     const params = new URLSearchParams({
       fromLat: String(from.lat),
