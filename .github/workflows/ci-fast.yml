@@ -502,6 +502,27 @@ jobs:
             --no-progress \
             flash:ci || true
 
+  # La infraestructura de GCP (infra/gcp) se valida en cada PR aunque todavía
+  # no haya cuenta: el día que exista, desplegar tiene que ser correr un comando,
+  # no descubrir que el código de infraestructura no compila.
+  infrastructure:
+    name: Infraestructura (Terraform)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/gcp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.15.8
+      - name: Formato
+        run: terraform fmt -check -recursive
+      - name: Inicializar sin backend
+        run: terraform init -backend=false -input=false
+      - name: Validar
+        run: terraform validate
+
   mobile-typecheck:
     name: Mobile typecheck y variantes
     runs-on: ubuntu-latest

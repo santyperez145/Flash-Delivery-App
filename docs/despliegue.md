@@ -115,7 +115,9 @@ en vez de descubrirla el día del primer incidente.
 
 ## Pasos, en orden
 
-Ninguno ejecutado. Cada uno se marca al correrlo, con la fecha.
+Ninguno ejecutado. Cada uno se marca al correrlo, con la fecha. **Desde el 18 de noviembre
+de 2026 están escritos en Terraform** ([`infra/gcp`](../infra/gcp/README.md)) y CI los valida en
+cada PR: lo que falta es la cuenta, no la infraestructura.
 
 - [ ] Proyecto de GCP y facturación, región por omisión `southamerica-east1`.
 - [ ] Artifact Registry, y que CI publique ahí la imagen que ya construye.
