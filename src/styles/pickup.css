@@ -1,0 +1,42 @@
+/* Retiro en el local (GTM-002).
+ *
+ * Vive en su propia hoja porque `styles.css` es un monolito identificado en el
+ * hallazgo H-08 y ningún PR lo hace crecer. El selector de modo no necesita
+ * reglas propias: reusa `.payment-choice`, que ya es un par de opciones con
+ * ícono, título y detalle, y colapsa a una columna en pantallas angostas.
+ */
+/* La aclaración del retiro. Es texto largo a propósito: dice qué reemplaza al
+   código de retiro, así que no puede truncarse como el resto de los `small`. */
+.checkout-pickup-note {
+  padding: 0 4px;
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+/* El interruptor de retiro (GTM-002). A diferencia del de apertura, la
+   explicación es larga a propósito: encenderlo cambia la operación del local,
+   así que dice qué pasa en el mostrador antes de que se toque. */
+.branch-pickup-switch {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  margin-top: 14px;
+  padding: 12px;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.branch-pickup-switch strong {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 0.86rem;
+}
+.branch-pickup-switch small {
+  display: block;
+  margin-top: 3px;
+  color: var(--ink-soft);
+  font-size: 0.74rem;
+  line-height: 1.35;
+}

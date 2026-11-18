@@ -1917,12 +1917,13 @@ Object.assign(openApiDocument.components.schemas, {
   },
   FoodQuoteRequest: {
     type: "object",
-    required: ["customerId", "restaurantId", "deliveryAddressId"],
+    required: ["customerId", "restaurantId"], // sin dirección: en retiro no hay; la exige el repositorio en entrega
     properties: {
       customerId: { type: "string" },
       restaurantId: { type: "string" },
       deliveryAddressId: { type: "string", format: "uuid" },
       branchId: { type: "string" },
+      fulfillment: { type: "string", enum: ["delivery", "pickup"], default: "delivery" },
       paymentMethod: { type: "string" },
       paymentMethodId: { type: "string", format: "uuid" },
       promotionCode: { type: "string", minLength: 3, maxLength: 40 },
@@ -1939,7 +1940,7 @@ Object.assign(openApiDocument.components.schemas, {
       { $ref: "#/components/schemas/FoodQuoteRequest" },
       {
         type: "object",
-        required: ["items", "deliveryAddress", "paymentMethod", "quoteToken"],
+        required: ["items", "paymentMethod", "quoteToken"],
         properties: {
           deliveryAddress: { type: "string", minLength: 3 },
           quoteToken: { type: "string", minLength: 20, writeOnly: true },
@@ -1953,9 +1954,8 @@ Object.assign(openApiDocument.components.schemas, {
           // hasta que hay conductor y el servicio se completa. Si el pedido se
           // reintegra, vuelve entera.
           tipCents: { type: "integer", minimum: 0, maximum: 10000000, default: 0 },
-          // Reserva de horario (GTM-001). Ausente es «lo antes posible». Los
-          // pedidos de comida no se podian programar: `jobs.scheduled_for`
-          // existia desde la migracion 001 y solo lo escribia el alta de viajes.
+          // Reserva de horario (GTM-001). Ausente es «lo antes posible». Los pedidos de comida no
+          // se podian programar: `jobs.scheduled_for` existia desde la migracion 001 y solo lo escribia el alta de viajes.
           scheduledFor: { type: "string", format: "date-time" },
           providerPayment: { $ref: "#/components/schemas/ProviderPaymentInput" },
         },

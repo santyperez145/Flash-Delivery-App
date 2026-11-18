@@ -53,6 +53,9 @@ const branchUpdateSchema = z
     open: z.boolean().optional(),
     etaMin: z.coerce.number().int().min(5).max(240).optional(),
     status: z.enum(["active", "paused", "closed"]).optional(),
+    // Retiro en el local (GTM-002). Lo decide el comercio, sucursal por
+    // sucursal: entregar en mano exige mostrador y alguien que atienda.
+    pickupEnabled: z.boolean().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, "Debes indicar un cambio");
 const branchInventorySchema = z.object({

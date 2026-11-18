@@ -55,7 +55,7 @@ El job `migrate-from-base` existe porque **una migración puede pasar desde cero
 siete casos conservan la matriz completa de ownership y MFA, y siguen corriendo en
 `ci-fast`. La segunda mitad de `test:runtime-role-shape` inicia `postgis/postgis:17-3.5` en
 un puerto asignado por Docker, crea `flash_app`, `flash_runtime` y `flash_rls_audit`, ejecuta
-las 136 migraciones con el rol migrador y comprueba PostGIS 3.5 y la ausencia de ownership,
+las 137 migraciones con el rol migrador y comprueba PostGIS 3.5 y la ausencia de ownership,
 `SUPERUSER` y `BYPASSRLS` en runtime y auditoría.
 
 La suite de contenedor corre encadenada a una puerta ya bloqueante del job
@@ -249,6 +249,14 @@ Son dos puertas distintas y el orden entre ellas importó.
 `test:dependency-gate` audita **cuatro alcances**: raíz y móvil, cada uno en producción y en desarrollo. Antes auditaba sólo lo que se despliega —la pregunta correcta para decidir si un despliegue es seguro— y dejaba fuera el empaquetador, el formateador y el navegador de pruebas. Un compromiso ahí llega igual al artefacto, sólo que por el camino de la construcción.
 
 Los alcances se reportan por separado a propósito: «¿es seguro lo que desplegamos?» y «¿es seguro lo que usamos para construirlo?» son preguntas distintas, y mezclarlas haría que una vulnerabilidad del empaquetador se leyera como un problema de producción.
+
+**Excepciones por aviso, con vencimiento** (desde el 18-11-2026). Un aviso sin versión corregida no se arregla actualizando, y dejar la puerta roja hasta que el mantenedor publique enseña a ignorarla. Pero exceptuar un paquete entero taparía también el próximo aviso que le salga. [`scripts/dependency-audit-exceptions.json`](../scripts/dependency-audit-exceptions.json) nombra **un aviso** por entrada, con motivo, mitigación y fecha de revisión, y la puerta aplica tres reglas, falsificadas una por una:
+
+- un paquete se excusa sólo si **todos** sus avisos graves están exceptuados;
+- vencida la fecha, la puerta vuelve a fallar;
+- una excepción que ya no corresponde a ningún aviso también falla, así que la lista sólo puede achicarse.
+
+Vigente: **GHSA-fc5q-39xc-vjpf** (`picomatch` ≤4.0.7, ReDoS), aprobada por el dueño el 18-11-2026, a revisar el 18-12-2026. No hay versión corregida publicada; la única salida de npm era bajar vite y vitest a versiones anteriores. `picomatch` sólo evalúa patrones de la configuración del repositorio y no está en el árbol de producción del servidor.
 
 `test:production-deps` exige que **cada paquete de `dependencies` esté importado por `server/` o `scripts/`**. La imagen instala con `--omit=dev`, así que todo lo que quede ahí se despliega, lo use el servidor o no. Siete paquetes que sólo usa el frente —React, React DOM, `lucide-react`, `maplibre-gl`, el SDK de Mercado Pago, `qrcode` y `concurrently`— viajaban en cada imagen.
 

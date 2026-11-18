@@ -100,9 +100,14 @@ assert(
 );
 assert(
   containsAll(mobileMerchant, ['["accepted", "preparing"].includes(order.status)']) &&
+    // El comercio maneja su cocina y, en un retiro (GTM-002), también la entrega
+    // en el mostrador: no hay conductor que la haga. Las etapas del reparto
+    // (`courier_assigned`, `picked_up`, `delivering`) siguen sin ser suyas.
     containsAll(desktopMerchant, [
-      'canAdvance={["accepted", "preparing"].includes(order.status)}',
+      '["accepted", "preparing"].includes(order.status) ||',
+      '(order.fulfillment === "pickup" && order.status === "ready_for_pickup")',
     ]) &&
+    !/canAdvance=\{[^}]*(courier_assigned|picked_up|delivering)/.test(desktopMerchant) &&
     containsAll(mobile, ["mobileOrderStatusLabel[order.status]"]),
   "merchant surfaces only offer owned kitchen transitions and render human workflow labels",
 );

@@ -25,6 +25,44 @@ import path from "node:path";
 
 const NIVEL = "high";
 
+// **Excepciones por aviso, nunca por paquete.** Un aviso sin versión corregida
+// no se arregla actualizando, y dejar la puerta roja hasta que el mantenedor
+// publique enseña a ignorarla. Pero exceptuar un paquete entero taparía también
+// el próximo aviso que le salga. Por eso cada entrada nombra un aviso, dice por
+// qué no se puede actualizar y qué mitiga el riesgo, y vence: pasada la fecha,
+// la puerta vuelve a fallar. Una entrada que ya no corresponde a ningún aviso
+// también falla, así que la lista sólo puede achicarse.
+const EXCEPCIONES = JSON.parse(
+  fs.readFileSync(new URL("./dependency-audit-exceptions.json", import.meta.url), "utf8"),
+).excepciones;
+const hoy = new Date().toISOString().slice(0, 10);
+const vigentes = new Map(
+  EXCEPCIONES.filter((entrada) => entrada.revisar >= hoy).map((entrada) => [
+    entrada.aviso,
+    entrada,
+  ]),
+);
+const usadas = new Set();
+
+/** Los avisos que originan la vulnerabilidad de un paquete, siguiendo la cadena. */
+function avisosRaiz(vulnerabilidades, nombre, vistos = new Set()) {
+  if (vistos.has(nombre)) return [];
+  vistos.add(nombre);
+  const dato = vulnerabilidades[nombre];
+  if (!dato) return [];
+  return dato.via.flatMap((via) =>
+    typeof via === "string"
+      ? avisosRaiz(vulnerabilidades, via, vistos)
+      : ["high", "critical"].includes(via.severity)
+        ? [
+            String(via.url || via.source)
+              .split("/")
+              .pop(),
+          ]
+        : [],
+  );
+}
+
 // Se invoca npm por su entrada de Node y no por el ejecutable del sistema.
 // `npm.cmd` no se resuelve sin shell en Windows, y pasar argumentos a un shell
 // los concatena sin escapar. Llamar al archivo evita las dos cosas.
@@ -74,20 +112,45 @@ const problemas = [];
 for (const alcance of ALCANCES) {
   const reporte = auditar(alcance);
   const conteo = reporte.metadata?.vulnerabilities ?? {};
-  const graves = (conteo.high ?? 0) + (conteo.critical ?? 0);
   const total = Object.values(conteo).reduce((suma, valor) => suma + valor, 0);
+  const vulnerabilidades = reporte.vulnerabilities ?? {};
 
-  if (graves > 0) {
-    problemas.push(`${alcance.etiqueta}: ${graves} de nivel ${NIVEL} o superior`);
-    for (const [nombre, dato] of Object.entries(reporte.vulnerabilities ?? {})) {
-      if (dato.severity === "high" || dato.severity === "critical") {
-        problemas.push(`  ${nombre} (${dato.severity})`);
-      }
-    }
+  // Un paquete se excusa sólo si **todos** sus avisos graves están exceptuados:
+  // uno solo sin excepción alcanza para que la puerta falle.
+  const graves = [];
+  const excusados = [];
+  for (const [nombre, dato] of Object.entries(vulnerabilidades)) {
+    if (dato.severity !== "high" && dato.severity !== "critical") continue;
+    const raices = avisosRaiz(vulnerabilidades, nombre);
+    if (raices.length && raices.every((aviso) => vigentes.has(aviso))) {
+      raices.forEach((aviso) => usadas.add(aviso));
+      excusados.push(nombre);
+    } else graves.push(`${nombre} (${dato.severity})`);
+  }
+
+  if (graves.length) {
+    problemas.push(`${alcance.etiqueta}: ${graves.length} de nivel ${NIVEL} o superior`);
+    for (const grave of graves) problemas.push(`  ${grave}`);
   } else {
     const resto = total ? ` · ${total} por debajo del umbral` : "";
-    console.log(`ok - ${alcance.etiqueta}: sin vulnerabilidades ${NIVEL} o superiores${resto}`);
+    const excepcion = excusados.length
+      ? ` · ${excusados.length} por avisos exceptuados con fecha de revisión`
+      : "";
+    console.log(
+      `ok - ${alcance.etiqueta}: sin vulnerabilidades ${NIVEL} o superiores${excepcion}${resto}`,
+    );
   }
+}
+
+for (const entrada of EXCEPCIONES) {
+  if (entrada.revisar < hoy)
+    problemas.push(
+      `excepción vencida el ${entrada.revisar}: ${entrada.aviso} (${entrada.paquete}) — revisá si ya hay versión corregida`,
+    );
+  else if (!usadas.has(entrada.aviso))
+    problemas.push(
+      `excepción sin uso: ${entrada.aviso} (${entrada.paquete}) ya no aparece — borrala`,
+    );
 }
 
 if (problemas.length) {

@@ -49,6 +49,14 @@ export const shipmentStatusLabel: Record<Shipment["status"], string> = {
 // `cancelled` no aparece en ninguna: no es un paso del recorrido, es su
 // interrupción, y dibujarlo como quinto paso sugeriría que se llega ahí.
 
+/** Un retiro no tiene conductor ni viaje: de listo pasa a entregado. */
+export const pickupOrderSteps: OrderStatus[] = [
+  "requested",
+  "accepted",
+  "preparing",
+  "ready_for_pickup",
+  "delivered",
+];
 export const orderSteps: OrderStatus[] = [
   "requested",
   "accepted",

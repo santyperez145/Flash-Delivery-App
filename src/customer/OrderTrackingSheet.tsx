@@ -3,7 +3,7 @@ import { Check, Copy, MapPin, X } from "lucide-react";
 
 import { api } from "../api";
 import { initials } from "../format";
-import { orderStatusLabel, orderSteps } from "../labels";
+import { orderStatusLabel, orderSteps, pickupOrderSteps } from "../labels";
 import type { Driver, Order, RoadRoute } from "../types";
 
 const FlashMap = lazy(() => import("../maps/FlashMap"));
@@ -24,7 +24,7 @@ export function OrderTrackingSheet({
 
   useEffect(() => {
     let cancelled = false;
-    const origin = order.pickupLocation;
+    const origin = order.fulfillment === "pickup" ? null : order.pickupLocation; // retiro: no hay ruta
     const destination = order.deliveryLocation;
     setRoute(null);
     setRouteError(null);
@@ -60,8 +60,10 @@ export function OrderTrackingSheet({
     order.deliveryLocation?.lng,
   ]);
 
-  const hasMap = Boolean(order.pickupLocation && order.deliveryLocation);
-  const currentIndex = Math.max(orderSteps.indexOf(order.status), 0);
+  const esRetiro = order.fulfillment === "pickup";
+  const steps = esRetiro ? pickupOrderSteps : orderSteps;
+  const hasMap = !esRetiro && Boolean(order.pickupLocation && order.deliveryLocation);
+  const currentIndex = Math.max(steps.indexOf(order.status), 0);
   const share = async () => {
     const text = `Mi pedido ${order.id} está ${orderStatusLabel[order.status].toLowerCase()}. ETA publicada: ${order.etaMin} min.`;
     try {
@@ -138,8 +140,10 @@ export function OrderTrackingSheet({
         ) : (
           <div className="tracking-map-empty">
             <MapPin size={20} />
-            <strong>El mapa se activará al recibir coordenadas</strong>
-            <span>{routeError}</span>
+            <strong>
+              {esRetiro ? "Retirás en el local" : "El mapa se activará al recibir coordenadas"}
+            </strong>
+            <span>{esRetiro ? order.deliveryAddress : routeError}</span>
           </div>
         )}
         <div className="tracking-status-panel">
@@ -161,7 +165,7 @@ export function OrderTrackingSheet({
             )}
           </div>
           <div className="stepper tracking-stepper">
-            {orderSteps.map((step, index) => (
+            {steps.map((step, index) => (
               <div className={index <= currentIndex ? "step active" : "step"} key={step}>
                 <span>{index < currentIndex ? <Check size={12} /> : index + 1}</span>
                 <small>{orderStatusLabel[step]}</small>
@@ -170,8 +174,9 @@ export function OrderTrackingSheet({
           </div>
         </div>
         <p className="tracking-integrity-note">
-          La ubicación del repartidor aparece únicamente cuando el backend recibe una actualización
-          válida. El timeline y la ETA siguen disponibles durante una degradación de mapas.
+          {esRetiro
+            ? "No hay repartidor: el local te lo entrega en el mostrador contra el número de pedido."
+            : "La ubicación del repartidor aparece únicamente cuando el backend recibe una actualización válida. El timeline y la ETA siguen disponibles durante una degradación de mapas."}
         </p>
       </section>
     </div>

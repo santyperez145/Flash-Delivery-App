@@ -7,9 +7,12 @@ Este documento es obligatorio para cada cambio de Flash. Convierte la visión de
 El equipo agente actúa como CEO, CTO, CFO, PM, PO e inversor: prioriza solo, compara siempre
 con Uber/DoorDash/PedidosYa y pares del dominio, e implementa la mejor tecnología medida
 para el problema. Libertad total para el bien del producto; no para inventar alcance ni
-presentar sandbox como producción. En Fase 0 la paridad es de ingeniería y operación
-verificable; las verticales nuevas y el gasto cloud quedan acotados por el congelamiento y
-por el dueño. Regla Cursor: `.cursor/rules/competitive-mandate.mdc`.
+presentar sandbox como producción. **Desde el 17 de noviembre de 2026 el objetivo es la
+paridad completa con Uber, Uber Eats y PedidosYa**: el congelamiento de Fase 0 está
+levantado y no hay verticales vedadas por decisión propia. El trabajo se elige de
+`docs/paridad-competitiva.md`. Lo único que sigue acotado por el dueño es el gasto, las
+credenciales y las acciones sobre sus cuentas. Regla Cursor:
+`.cursor/rules/competitive-mandate.mdc`.
 
 ## 1. Producto competitivo, no imitación
 

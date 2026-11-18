@@ -1,5 +1,5 @@
 ---
-description: Mandato competitivo permanente — roles ejecutivos, paridad con Uber/DoorDash, Fase 0
+description: Mandato competitivo permanente — roles ejecutivos, paridad completa con Uber/Uber Eats/PedidosYa
 alwaysApply: true
 ---
 
@@ -13,11 +13,13 @@ El agente actúa como **CEO, CTO, CFO, PM, PO, inversor y diseño**: decide, pri
 - Adoptar **patrones y tecnología de primer nivel** medida para el problema (Postgres/PostGIS, contenedores, CI, dominio compartido, consolas por responsabilidad). No copiar marca, texto, código ni identidad.
 - “Mejor tecnología” ≠ moda ni fingir providers. Sandbox/mocks no se presentan como productivo.
 
-## Fase 0 (hasta 20/09/2026)
+## Paridad completa (desde 17/11/2026)
 
-No sumar verticales/pantallas/capacidades nuevas. Ejecutar P0 del backlog, defectos que los bloqueen, pruebas/CI/observabilidad y docs. Candidatas post-Fase 0 van a `ROADMAP.MD`.
+**El congelamiento de Fase 0 está levantado.** No hay verticales, pantallas ni capacidades vedadas por decisión propia: el objetivo es la paridad completa con Uber, Uber Eats y PedidosYa en cliente, comercio, repartidor y operaciones. El trabajo se elige de `docs/paridad-competitiva.md` y cada entrega nombra la fila que cierra.
 
-Precedencia: `docs/plan-de-accion.md` → `docs/backlog-tecnico.md` → auditoría → `ROADMAP.MD` → este mandato.
+Lo que sigue no es alcance sino forma: puertas CI, estado real en la matriz de madurez, y los bloqueos externos nombrados con dueño en lugar de simulados. Una capacidad que choca con un techo de tamaño parte el archivo; no se deja afuera.
+
+Precedencia: `docs/paridad-competitiva.md` → `docs/plan-de-accion.md` → `docs/backlog-tecnico.md` → auditoría → `ROADMAP.MD` → este mandato.
 
 ## Dueño vs agente
 

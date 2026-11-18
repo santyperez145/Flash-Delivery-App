@@ -973,6 +973,7 @@ export const api = {
     restaurantId: string;
     deliveryAddressId?: string;
     branchId?: string;
+    fulfillment?: "delivery" | "pickup";
     deliveryAddress: string;
     paymentMethod: string;
     paymentMethodId?: string;
@@ -986,7 +987,8 @@ export const api = {
     scheduledFor?: string;
     items: Array<Pick<CartLine, "quantity" | "extras" | "note"> & { menuItemId: string }>;
   }) {
-    if (!payload.deliveryAddressId)
+    // Sólo en entrega: en retiro no hay dirección y la guarda dejaba el modo inalcanzable.
+    if (payload.fulfillment !== "pickup" && !payload.deliveryAddressId)
       throw new Error("Selecciona una dirección guardada antes de confirmar");
     const quoteToken =
       payload.quoteToken ||
@@ -996,6 +998,7 @@ export const api = {
           restaurantId: payload.restaurantId,
           deliveryAddressId: payload.deliveryAddressId,
           branchId: payload.branchId,
+          fulfillment: payload.fulfillment,
           paymentMethod: payload.paymentMethod,
           paymentMethodId: payload.paymentMethodId,
           promotionCode: payload.promotionCode,
@@ -1022,16 +1025,7 @@ export const api = {
     }>(`/merchant/orders/active?restaurantId=${encodeURIComponent(merchantId)}&limit=${limit}`);
   },
 
-  async quoteFoodCheckout(payload: {
-    customerId: string;
-    restaurantId: string;
-    deliveryAddressId: string;
-    branchId?: string;
-    paymentMethod: string;
-    paymentMethodId?: string;
-    promotionCode?: string;
-    items: Array<Pick<CartLine, "quantity" | "extras" | "note"> & { menuItemId: string }>;
-  }) {
+  async quoteFoodCheckout(payload: import("./types").FoodQuotePayload) {
     return request<{ quote: import("./types").FoodCheckoutQuote }>("/orders/quote", {
       method: "POST",
       body: JSON.stringify(payload),
@@ -1385,6 +1379,7 @@ export const api = {
       open?: boolean;
       etaMin?: number;
       status?: "active" | "paused" | "closed";
+      pickupEnabled?: boolean;
     },
   ) {
     return request<{ restaurant: Restaurant }>(
