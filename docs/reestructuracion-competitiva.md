@@ -62,10 +62,26 @@ Ahora abre como las portadas de Uber Eats y PedidosYa: buscador, rubros, promoci
 vigentes (sólo las reales), el plan Flash Más real, cocinas y comercios. Los seguimientos
 dejan de hablarle al cliente de «backend autenticado».
 
-**Pendiente para RES-06:** la web del cliente se muestra dentro de un marco de teléfono, con
-un selector Cliente · Local · Driver · Ops y un panel con métricas de toda la operación
-(«Pedidos activos», «Drivers online»). Es la maqueta de demostración. Una web de cliente
-real se ve como un sitio, sin selector de perfiles, y no expone métricas de la plataforma.
+La web del cliente, además, se mostraba dentro de la maqueta de staff: lo resolvió RES-06,
+en la sección siguiente.
+
+### La web del cliente como sitio (RES-06)
+
+En el celular, la web le mostraba al cliente el marco de demostración:
+
+- la barra de un teléfono con la hora y «Live»;
+- un selector Cliente · Local · Driver · Ops;
+- en anchos medianos, un panel con métricas de toda la operación («Pedidos activos»,
+  «Drivers online»).
+
+Ninguna app de la competencia le muestra eso a quien pide, y las métricas de la plataforma
+no son datos del cliente. **Una cuenta que sólo pide ve ahora su app a pantalla
+completa.** Las cuentas con varios roles conservan ese armado, que es su herramienta.
+
+- Las piezas salieron de `App.tsx` a `src/shell/StaffShell.tsx`: el monolito bajó 108
+  líneas.
+- En escritorio, la web le sigue indicando al cliente que use la app móvil. Es una decisión
+  de producto que no se cambió.
 
 ### Repartidor
 
@@ -110,7 +126,7 @@ Flash Negocios tiene Hoy · Pedidos · Catálogo · Cuenta.
 | RES-03 | Portada de comidas con datos reales: promociones vigentes en lugar de textos fijos, y seguimientos en el idioma del cliente | Hecho (web) |
 | RES-04 | Servicios por ciudad: «disponible en tu ciudad» según la zona de la dirección | Pendiente |
 | RES-05 | Repartidor: desglose por servicio de lo cobrado y lo que retuvo Flash | Hecho en viajes y envíos; comida pendiente |
-| RES-06 | La web del cliente como sitio: sin marco de teléfono, sin selector de perfiles, sin métricas de la operación | Pendiente |
+| RES-06 | La web del cliente como sitio: sin marco de teléfono, sin selector de perfiles, sin métricas de la operación | Hecho |
 | RES-07 | Comercio: pausa con tiempo y motivo que vence sola | Hecho en la app móvil; modo ocupado, pausa automática y web pendientes |
 
 Las filas de funciones (P-02b, P-03 a P-10) siguen en [`paridad-competitiva.md`](paridad-competitiva.md).

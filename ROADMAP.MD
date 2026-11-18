@@ -66,6 +66,24 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   - `test:merchant-operations-ui` vigila la función, el motivo obligatorio y la app.
     Falsificado: cada aserción nueva falla cuando se rompe lo que vigila.
 
+## Avance 18 de noviembre de 2026 — RES-06, la web del cliente como sitio
+
+- **Antes, en el celular, el cliente veía la maqueta de demostración.**
+  - Arriba de su app aparecían la barra de un teléfono con la hora y «Live», y un
+    selector Cliente · Local · Driver · Ops.
+  - En anchos medianos se sumaba un panel con métricas de toda la operación.
+  - Ninguna app de la competencia le muestra eso a quien pide, y esas métricas no son
+    datos del cliente.
+- **Ahora una cuenta que sólo pide ve su app a pantalla completa.** Las cuentas con varios
+  roles conservan el armado, que es su herramienta.
+- **`App.tsx` bajó 108 líneas.** Panel de marca, barra del teléfono y selector salieron a
+  `src/shell/StaffShell.tsx`.
+- **La pantalla de acceso** muestra los roles en castellano: «Cliente», no «customer».
+- **Verificación:**
+  - `test:customer-home` exige las dos cosas, y falsificado se pone en rojo.
+  - En el navegador, con la cuenta de prueba de cliente, ya no aparecen ni la barra ni el
+    selector.
+
 ## Avance 18 de noviembre de 2026 — RES-05, desglose de ganancias del repartidor
 
 - **Qué faltaba.** Uber Driver sumó en 2024 el desglose de lo que paga el pasajero: cuánto
