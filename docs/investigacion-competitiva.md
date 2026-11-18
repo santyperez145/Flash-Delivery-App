@@ -790,3 +790,35 @@ auditado.
 - La ven quien pidió, quien repartió y operaciones. El comercio no.
 - **Brecha:** el cliente no recibe la foto por notificación al cerrarse el pedido. La ve al
   abrir el seguimiento.
+
+### Decisión 18 de noviembre de 2026 — control del viaje (SEG-01)
+
+Uber detecta con RideCheck cuando un viaje se desvía, se detiene sin motivo o termina antes,
+y le pregunta al pasajero
+([Uber Newsroom](https://www.uber.com/us/en/newsroom/set-it-and-forget-it-how-to-maximize-your-safety-features/)).
+Flash detecta cuatro señales en la base (parada larga, señal perdida, desvío del corredor y
+final lejos del destino) y pregunta «¿Todo bien?»; «Pedir ayuda» abre un incidente en la
+cola del SOS. Detalle en [`ride-safety.md`](ride-safety.md).
+
+- **Brecha:** Flash no guarda la geometría vial del viaje, así que el desvío se mide contra
+  la recta origen-destino con un margen amplio. Uber compara contra la ruta.
+- **Brecha:** no se graba audio. Uber lo ofrece cifrado; acá es una decisión legal del
+  dueño antes que código.
+
+### Decisión 18 de noviembre de 2026 — código de entrega en pedidos (SEG-03)
+
+Uber Eats pide un PIN para entregar ciertos pedidos: su guía para comercios lo recomienda
+para artículos de valor alto y restringidos, y el PIN lo ve el cliente en la app
+([Uber Eats Merchants](https://merchants.ubereats.com/nz/en/resources/articles/proof-of-delivery/),
+[Uber Developer](https://developer.uber.com/docs/deliveries/guides/proof-of-delivery)). Según
+una guía de repartidores, Uber lo pide también a quien reporta problemas de entrega seguido;
+**no se encontró fuente oficial de ese criterio.** PedidosYa: **no se encontró fuente
+pública** de un PIN de entrega.
+
+Flash lo pide en pedidos con envío desde $ 60.000 (configurable) y a quien tuvo un reclamo
+aprobado en 90 días. El cliente lo ve en el seguimiento, quien reparte lo ingresa y el
+servidor no cierra sin él. Detalle en [`order-delivery-code.md`](order-delivery-code.md).
+
+- **Brecha:** el umbral es fijo y no depende del rubro. Uber Eats lo atiende también por
+  tipo de artículo (alcohol, tabaco, farmacia); en Flash todavía no hay artículos
+  restringidos marcados en el catálogo.

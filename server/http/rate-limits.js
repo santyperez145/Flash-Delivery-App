@@ -60,6 +60,15 @@ export const deliveryProofLimiter = createLimiter({
   message: "Demasiadas operaciones de prueba de entrega. Intenta más tarde.",
 });
 
+// SEG-03: el código de entrega tiene su propio presupuesto. Compartir el de las
+// fotos hacía que unos intentos de código dejaran sin cupo la evidencia de un
+// reclamo desde la misma IP. La base ya bloquea a los cinco fallos.
+export const deliveryCodeLimiter = createLimiter({
+  max: 30,
+  prefix: "delivery-code",
+  message: "Demasiados intentos de código de entrega. Intenta más tarde.",
+});
+
 export const serviceChatLimiter = createLimiter({
   max: 60,
   prefix: "service-chat",

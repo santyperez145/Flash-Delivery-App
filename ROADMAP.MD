@@ -45,6 +45,29 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
 
+## Avance 18 de noviembre de 2026 — SEG-03, código de entrega en pedidos
+
+- **Qué faltaba.** Uber Eats entrega con PIN los pedidos de valor alto y los de quien
+  reporta problemas. Flash tenía PIN en envíos y foto en la puerta, pero un pedido de
+  comida caro se cerraba sin prueba de que lo recibió la persona.
+- **Ahora un pedido con envío se entrega con código** si su total llega a $ 60.000
+  (configurable) o si el cliente tuvo un reclamo aprobado en 90 días.
+  - El cliente lo ve en el seguimiento.
+  - Quien reparte lo ingresa antes de cerrar.
+  - El servidor no cierra sin él.
+  - Funciona en web y móvil. Un retiro en el local nunca lleva código.
+- **SEG-02, preferencias de seguridad: revisado, casi todo ya estaba.** El PIN de subida de
+  Flash es obligatorio en todos los viajes, más estricto que en Uber, donde es opcional, y
+  el control del viaje (SEG-01) está siempre encendido. Falta compartir el viaje
+  automáticamente con los contactos, que necesita un proveedor de SMS (dueño).
+- **Verificación:**
+  - `test:order-delivery-code` (nueva, en `ci-critical-flows`) prueba la decisión y el
+    circuito completo contra PostgreSQL y la API. No se pudo correr en local, porque no
+    hay credenciales de la base local; corre en el CI.
+  - `test:rls` suma el aislamiento del código.
+  - `test:delivery-preferences` vigila el cableado. Falsificado: cada aserción nueva falla
+    cuando se rompe lo que vigila.
+
 ## Avance 18 de noviembre de 2026 — SEG-01, control del viaje
 
 - **Auditoría integral.** [`docs/auditoria-integral-competitiva.md`](docs/auditoria-integral-competitiva.md)

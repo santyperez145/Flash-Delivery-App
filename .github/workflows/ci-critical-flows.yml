@@ -146,6 +146,7 @@ jobs:
           test:driver-preferences
           test:ride-safety
           test:ride-trip-checks
+          test:order-delivery-code
           test:service-chat
           test:shipment-claims
           test:support-sla

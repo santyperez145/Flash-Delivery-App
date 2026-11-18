@@ -54,6 +54,8 @@ import {
 import { usesPostgresCommerce } from "../postgres.js";
 import { orderHasDeliveryPhoto } from "../order-delivery-photo-repository.js";
 import { orderDeliveryPhotoRouter } from "./order-delivery-photo-router.js";
+import { orderDeliveryCodeRouter } from "./order-delivery-code-router.js";
+import { orderNeedsDeliveryCode } from "../order-delivery-code-repository.js";
 import { validarHorarioProgramado } from "../scheduling.js";
 import { publishRealtimeEvent } from "./realtime.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";
@@ -243,6 +245,7 @@ export const orderRouter = Router();
 const router = orderRouter;
 // P-02b: la foto de entrega vive en su propio router, montado acá.
 router.use(orderDeliveryPhotoRouter);
+router.use(orderDeliveryCodeRouter);
 
 router.get("/api/cart", requireAuth, requireAnyRole("customer", "admin"), async (req, res) => {
   if (!usesPostgresCommerce()) return ok(res, { cart: [] });
@@ -628,6 +631,16 @@ router.post(
       if (!(await orderHasDeliveryPhoto(db.orders[index].id)))
         return fail(res, 409, "Lo dejaste en la puerta: sacá una foto antes de marcarlo entregado");
     }
+    // SEG-03: un pedido con código no se cierra sin que quien reparte lo ingrese.
+    // Operaciones puede cerrarlo sin código, auditado.
+    if (
+      next === "delivered" &&
+      db.orders[index].fulfillment !== "pickup" &&
+      !isAdmin(req) &&
+      usesPostgresCommerce() &&
+      (await orderNeedsDeliveryCode(db.orders[index].id))
+    )
+      return fail(res, 409, "Pedí el código de entrega al cliente antes de marcarlo entregado");
     db.orders[index] = usesPostgresCommerce()
       ? await setPostgresOrderStatus(db.orders[index].id, next, req.auth.userId)
       : addTimeline(db.orders[index], next);

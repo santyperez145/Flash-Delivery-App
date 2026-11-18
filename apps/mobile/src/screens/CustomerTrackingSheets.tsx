@@ -19,6 +19,7 @@ import type {
 import { CustomerTrackingProgress } from "./CustomerTrackingProgress";
 import { useTrackingRoute } from "./useTrackingRoute";
 import { OrderDeliveryPhoto } from "../OrderDeliveryPhoto";
+import { OrderDeliveryCodeView } from "../OrderDeliveryCode";
 import { TripCheckBanner } from "../TripCheckBanner";
 
 export function OrderTrackingSheet({
@@ -107,6 +108,8 @@ export function OrderTrackingSheet({
             : `ETA publicada: ${order.etaMin} min`}
         </Text>
         <CustomerTrackingProgress labels={labels} current={current} activeColor="#ff6a21" />
+        {/* SEG-03: el código que el cliente le da a quien reparte. */}
+        <OrderDeliveryCodeView order={order} />
         {/* P-02b: dejado en la puerta, el pedido se cerró con foto. */}
         {order.status === "delivered" && order.deliveryPhoto && (
           <OrderDeliveryPhoto orderId={order.id} />

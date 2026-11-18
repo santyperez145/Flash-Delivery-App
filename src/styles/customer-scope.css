@@ -414,3 +414,56 @@
   margin-top: 8px;
   color: var(--danger);
 }
+
+/* --- Código de entrega (SEG-03) ------------------------------------------ */
+.delivery-code {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin: 0 0 12px;
+  padding: 14px 16px;
+  color: var(--ink);
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+}
+
+.delivery-code p {
+  margin: 2px 0 8px;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.delivery-code-digits {
+  display: block;
+  font-size: 2rem;
+  font-weight: 900;
+  letter-spacing: 0.4em;
+}
+
+.delivery-code-entry {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.delivery-code-entry input {
+  width: 8rem;
+  font-size: 1.25rem;
+  letter-spacing: 0.3em;
+  text-align: center;
+}
+
+.delivery-code-entry button {
+  padding: 0 16px;
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  background: var(--ink);
+  border: 0;
+  border-radius: 999px;
+}
+
+.delivery-code-entry button:disabled {
+  opacity: 0.45;
+}

@@ -45,6 +45,7 @@ import type {
   User,
 } from "../types";
 import { DoorPhoto, faltaFotoEnPuerta } from "./DoorPhoto";
+import { faltaCodigoDeEntrega, OrderDeliveryCodeEntry } from "../customer/OrderDeliveryCode";
 
 /**
  * El subtítulo de una oferta de dispatch: distancia, duración, tasa de
@@ -438,12 +439,14 @@ export function DriverApp({
           <div key={order.id}>
             {/* P-02b: dejado en la puerta, el cierre espera la foto. */}
             <DoorPhoto order={order} busy={busy} runAction={runAction} />
+            {/* SEG-03: con código, se ingresa antes de cerrar el pedido. */}
+            <OrderDeliveryCodeEntry order={order} busy={busy} runAction={runAction} />
             <OrderOpsCard
               order={order}
               restaurant={state.restaurants.find((entry) => entry.id === order.restaurantId)}
               driver={driver}
               onAdvance={() => runAction(() => api.advanceOrder(order.id), "Delivery avanzado")}
-              busy={busy || faltaFotoEnPuerta(order)}
+              busy={busy || faltaFotoEnPuerta(order) || faltaCodigoDeEntrega(order)}
               preferencias="reparto"
             />
           </div>

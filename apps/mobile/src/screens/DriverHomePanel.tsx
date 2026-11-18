@@ -16,6 +16,7 @@ import {
   View,
 } from "react-native";
 
+import { faltaCodigoDeEntrega, OrderDeliveryCodeEntry } from "../OrderDeliveryCode";
 import { api } from "../api";
 import {
   startDriverBackgroundLocation,
@@ -429,9 +430,20 @@ export function DriverHomePanel(props: {
                 </Pressable>
               </View>
             )}
+            {/* SEG-03: con código, se ingresa antes de cerrar el pedido. */}
+            <OrderDeliveryCodeEntry
+              order={order}
+              busy={busy}
+              onVerifiedDeliver={(pin) =>
+                runAction(async () => {
+                  await api.verifyOrderDeliveryCode(order.id, pin);
+                  await api.advanceOrder(order.id);
+                }, "Código verificado; pedido entregado")
+              }
+            />
             <OrderCard
               order={order}
-              disabled={busy || (fotoEnPuerta && !fotoLista)}
+              disabled={busy || (fotoEnPuerta && !fotoLista) || faltaCodigoDeEntrega(order)}
               onPress={() => runAction(() => api.advanceOrder(order.id), "Delivery avanzado")}
               preferencias="reparto"
             />
