@@ -93,7 +93,7 @@ export type User = {
   defaultAddress?: string;
   restaurantId?: string;
   driverId?: string;
-  status?: "active" | "suspended" | "pending";
+  status?: "active" | "suspended" | "pending" | "deleted";
 };
 
 export type Extra = {

@@ -190,6 +190,18 @@ export function AdminUserModeration({
         {users.map((user) => {
           const suspended = user.status === "suspended",
             reason = reasons[user.id] || "";
+          // Eliminada por su titular: no se suspende ni se reactiva (migración 139).
+          if (user.status === "deleted")
+            return (
+              <article className="admin-row user-moderation-row" key={user.id}>
+                <UserRound size={19} />
+                <div>
+                  <strong>{user.name}</strong>
+                  <span>{user.roles.join(", ")}</span>
+                </div>
+                <b className="status-suspended">Eliminada por su titular</b>
+              </article>
+            );
           return (
             <article className="admin-row user-moderation-row" key={user.id}>
               <UserRound size={19} />

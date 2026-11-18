@@ -136,6 +136,13 @@ bloqueo de lanzamiento, no de paridad. Ver [`docs/lanzamiento.md`](docs/lanzamie
       respuestas guardadas para reintentos.
   - **Más casos que no se borran:** un reclamo o una devolución abierta, como el saldo.
   - **Referidos:** el código deja de aceptarse, y las recompensas pendientes no se pagan.
+- **Después del merge (migración 139):**
+  - **Comprobantes.** Los ya emitidos copian origen y destino en su metadata, y la 138
+    no los tocaba. Un disparador sobre el paso a `deleted` los redacta en la misma
+    transacción del borrado, sin tocar los montos.
+  - **Una cuenta eliminada es terminal.** La moderación podía reactivarla, y un JWT
+    todavía vigente habría vuelto a servir. Ahora la base rechaza cualquier cambio de
+    estado desde `deleted`, el servidor responde 409 y el panel la muestra sin controles.
 
 ## Avance 18 de noviembre de 2026 — P-02, preferencias de entrega
 
@@ -555,7 +562,7 @@ La suite además afirma que **el propio módulo no vuelve a depender de la base*
 
 El primer límite de integración estándar también quedó activo: la segunda mitad de
 `test:runtime-role-shape` crea PostGIS 17 desde Docker, replica los tres roles de producción y
-aplica las 138 migraciones desde cero. Corre dentro de `ci-postgres`, así que una prueba que sólo
+aplica todas las migraciones desde cero. Corre dentro de `ci-postgres`, así que una prueba que sólo
 funcionara sobre la base preparada a mano por el workflow ya no podría satisfacer por sí sola el
 criterio.
 
