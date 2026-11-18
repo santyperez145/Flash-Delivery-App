@@ -5,7 +5,7 @@ import { Image, ImageBackground, Pressable, ScrollView, Text, TextInput, View } 
 import { flashDesign } from "../design-system";
 import { money } from "../format";
 import { styles } from "../styles";
-import type { MobileCartLine, Promotion, Restaurant, User } from "../types";
+import type { MerchantVertical, MobileCartLine, Promotion, Restaurant, User } from "../types";
 import { useVerticalScope, VerticalRail } from "../VerticalRail";
 
 export type CatalogSearchResult = {
@@ -53,6 +53,7 @@ export function CustomerFoodBrowseScreen({
   onQueryChange,
   onRetrySearch,
   onLoadMore,
+  initialVertical,
 }: {
   screen: string;
   user: User;
@@ -84,11 +85,18 @@ export function CustomerFoodBrowseScreen({
   onQueryChange: (query: string) => void;
   onRetrySearch: () => void;
   onLoadMore: () => void;
+  initialVertical?: MerchantVertical;
 }) {
   const itemCount = cart.reduce((sum, line) => sum + line.quantity, 0);
   // Rubros (P-01): la portada muestra el rubro elegido; los favoritos no se
   // filtran, porque guardar una farmacia no la vuelve restaurante.
-  const scope = useVerticalScope({ restaurants, allRestaurants, categories, onSelectCategory });
+  const scope = useVerticalScope({
+    restaurants,
+    allRestaurants,
+    categories,
+    onSelectCategory,
+    initialVertical,
+  });
   restaurants = scope.restaurants;
   categories = scope.categories;
 

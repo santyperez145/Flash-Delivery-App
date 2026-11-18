@@ -38,6 +38,12 @@ Ordenado por valor sobre esfuerzo, no por facilidad.
 | P-10 | **Medicamentos de venta libre y bajo receta** | PedidosYa (farmacias habilitadas) | **Bloqueo externo, no de producto.** Exige farmacia habilitada con farmacéutico responsable y, bajo receta, receta electrónica. El rubro farmacia existe; sin habilitación, un comercio de ese rubro sólo puede vender perfumería y cuidado personal. Dueño: alianza con farmacias habilitadas. |
 | P-08 | **Integración POS del comercio** | Uber Eats, PedidosYa | Ticket INT-001 abierto con cinco criterios: sincronización de catálogo, pedidos hacia el POS, stock en dos sentidos, idempotencia de webhooks y portal de errores del partner. Nada de eso depende de un tercero para construirse. |
 
+## Estructura de las apps
+
+La comparación de **estructura** (cómo se entra, cómo se navega, qué hay en el inicio) vive en
+[`reestructuracion-competitiva.md`](reestructuracion-competitiva.md), con sus fases RES-01 a
+RES-05.
+
 ## Lo que ya está a la par
 
 No se vuelve a construir. Cada fila dice dónde está, para que no se dupliquen por

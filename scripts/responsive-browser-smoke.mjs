@@ -26,8 +26,9 @@ const mobileAudiences = {
     // afirmaciones de viewport se medían sobre el login. La auditoría de cliente
     // pasó así hasta el 27 de agosto de 2026. El marcador tiene que existir sólo
     // después de autenticarse.
-    readyText: "Buscar platos, tiendas o restaurantes",
-    tabs: ["Inicio", "Buscar", "Actividad", "Cuenta"],
+    // El inicio con todos los servicios (RES-01): su buscador sólo existe adentro.
+    readyText: "Buscar comida, súper o farmacia",
+    tabs: ["Inicio", "Servicios", "Actividad", "Cuenta"],
   },
   driver: {
     email: "conductor@flash.app",
@@ -283,8 +284,13 @@ async function auditMobile(browser) {
       }
 
       if (mobileVariant === "customer") {
-        for (const service of ["Comidas", "Viajes", "Envios"]) {
-          await page.getByText(service, { exact: true }).first().click();
+        // Cada servicio se abre desde la pestaña Servicios, como en el inicio.
+        for (const service of ["Viaje", "Comida", "Envíos"]) {
+          await page.getByText("Servicios", { exact: true }).last().click();
+          await page
+            .getByRole("button", { name: `Abrir ${service}` })
+            .first()
+            .click();
           await page.waitForTimeout(120);
           await assertNoPageOverflow(page, `customer ${service} at ${viewport.width}px`);
         }

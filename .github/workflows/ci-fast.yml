@@ -175,6 +175,11 @@ jobs:
       - name: Legal links contract
         run: npm run test:legal-links
 
+      # Inicio del cliente (RES-01): todos los servicios en la entrada, sólo los que
+      # existen, y la barra Inicio · Servicios · Actividad · Cuenta.
+      - name: Customer home contract
+        run: npm run test:customer-home
+
       - name: Payment provider contracts
         run: |
           npm run test:mercadopago-payment

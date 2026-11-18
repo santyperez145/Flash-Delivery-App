@@ -38,6 +38,8 @@ type CustomerRideScreenProps = {
   activeRides: Ride[];
   trustedContacts: RideTrustedContact[];
   selectedAddress: SharedAddressSelection | null;
+  /** El destino elegido en el inicio («¿A dónde vas?» o un destino reciente). */
+  selectedDestination?: SharedAddressSelection | null;
   onTrustedContactsChange: (contacts: RideTrustedContact[]) => void;
   onOpenTracking: (rideId: string) => void;
   onShareRide: (ride: Ride, contact?: RideTrustedContact) => void;
@@ -55,6 +57,7 @@ export function CustomerRideScreen({
   activeRides,
   trustedContacts,
   selectedAddress,
+  selectedDestination = null,
   onTrustedContactsChange,
   onOpenTracking,
   onShareRide,
@@ -149,6 +152,13 @@ export function CustomerRideScreen({
     setPickupCoords(selectedAddress.point);
     invalidateQuote();
   }, [selectedAddress]);
+
+  useEffect(() => {
+    if (!selectedDestination) return;
+    setDestination(selectedDestination.address);
+    setDestinationCoords(selectedDestination.point);
+    invalidateQuote();
+  }, [selectedDestination]);
 
   const useCurrentLocation = async () => {
     setLocationMessage("Solicitando ubicacion...");
