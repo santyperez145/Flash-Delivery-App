@@ -165,6 +165,9 @@ assert(
     'rotulo="Reanudar ahora"',
     "Cerrar sin fecha",
     "Vuelve a recibir pedidos solo, a esa hora.",
-  ]) && containsAll(mobile, ["<MerchantPause", "pauseMinutes: minutes"]),
+  ]) &&
+    containsAll(mobile, ["<MerchantPause", "pauseMinutes: minutes"]) &&
+    // El estado mostrado se recarga apenas la pausa cambia.
+    containsAll(mobile, ["pauseReason: reason, }); await loadOperations();"]),
   "the merchant app pauses with reason and duration, resumes early, and keeps the open-ended close",
 );

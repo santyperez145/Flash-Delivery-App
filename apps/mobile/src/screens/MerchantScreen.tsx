@@ -273,11 +273,15 @@ export function MerchantScreen({
                 busy={busy}
                 onPause={(minutes, reason) =>
                   runAction(
-                    () =>
-                      api.updateRestaurant(restaurant.id, {
+                    // El estado de la pausa sale del panel, no de `/state`: se recarga
+                    // apenas cambia, sin esperar la próxima consulta.
+                    async () => {
+                      await api.updateRestaurant(restaurant.id, {
                         pauseMinutes: minutes,
                         pauseReason: reason,
-                      }),
+                      });
+                      await loadOperations();
+                    },
                     minutes ? "Pedidos en pausa" : "Pedidos reanudados",
                   )
                 }
