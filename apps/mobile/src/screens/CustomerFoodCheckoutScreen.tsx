@@ -224,24 +224,27 @@ export function CustomerFoodCheckoutScreen({
           </Text>
         </View>
       </View>
-      {/* El retiro en el local todavía no se elige en el móvil (ver P-02 en el
-          registro de paridad): si la cotización es de retiro, no hay reparto. */}
+      {/* En retiro no hay reparto: de las preferencias queda sólo la de
+          cubiertos, que es de la cocina. */}
+      <DeliveryPreferences
+        value={preferences}
+        onChange={onPreferencesChange}
+        vertical={vertical}
+        pickup={quote.fulfillment === "pickup"}
+        disabled={busy}
+      />
+      <SchedulePicker scheduledFor={scheduledFor} onChange={onScheduleChange} disabled={busy} />
+      {/* La propina es para quien reparte: en retiro no hay, y el servidor
+          rechaza el pedido que la lleve. */}
       {quote.fulfillment !== "pickup" && (
-        <DeliveryPreferences
-          value={preferences}
-          onChange={onPreferencesChange}
-          vertical={vertical}
+        <TipSelector
+          subtotal={quote.subtotal}
+          tipCents={tipCents}
+          onChange={onTipChange}
+          orderTotal={quote.total}
           disabled={busy}
         />
       )}
-      <SchedulePicker scheduledFor={scheduledFor} onChange={onScheduleChange} disabled={busy} />
-      <TipSelector
-        subtotal={quote.subtotal}
-        tipCents={tipCents}
-        onChange={onTipChange}
-        orderTotal={quote.total}
-        disabled={busy}
-      />
       <View style={styles.foodCheckoutSecurity}>
         <View style={styles.foodCheckoutSecurityIcon}>
           <Ionicons name="lock-closed" size={18} color={flashDesign.color.shipment} />

@@ -94,9 +94,15 @@ export function CustomerFoodOrdersScreen({
             <Text style={styles.foodActiveOrderEta}>{order.etaMin} min</Text>
           </View>
           <View style={styles.foodActiveOrderDestination}>
-            <Ionicons name="location-outline" size={17} color={flashDesign.color.food} />
+            <Ionicons
+              name={order.fulfillment === "pickup" ? "storefront-outline" : "location-outline"}
+              size={17}
+              color={flashDesign.color.food}
+            />
             <Text style={styles.foodActiveOrderDestinationText} numberOfLines={2}>
-              {order.deliveryAddress}
+              {order.fulfillment === "pickup"
+                ? `Retirás en ${order.deliveryAddress} · mostrá el número de pedido`
+                : order.deliveryAddress}
             </Text>
             <Text style={styles.foodActiveOrderTotal}>{money.format(order.total)}</Text>
           </View>
@@ -105,10 +111,13 @@ export function CustomerFoodOrdersScreen({
               <Ionicons name="share-social-outline" size={17} color={flashDesign.color.food} />
               <Text style={styles.foodActiveOrderSecondaryText}>Compartir</Text>
             </Pressable>
-            <Pressable style={styles.foodActiveOrderPrimary} onPress={() => onTrack(order.id)}>
-              <Ionicons name="map-outline" size={17} color="#fff" />
-              <Text style={styles.foodActiveOrderPrimaryText}>Ver seguimiento</Text>
-            </Pressable>
+            {/* En retiro no hay reparto que seguir en un mapa. */}
+            {order.fulfillment !== "pickup" && (
+              <Pressable style={styles.foodActiveOrderPrimary} onPress={() => onTrack(order.id)}>
+                <Ionicons name="map-outline" size={17} color="#fff" />
+                <Text style={styles.foodActiveOrderPrimaryText}>Ver seguimiento</Text>
+              </Pressable>
+            )}
           </View>
           {order.scheduledFor && ["requested", "accepted"].includes(order.status) ? (
             <RescheduleControl

@@ -176,3 +176,42 @@ assert(
   contains(app, "api.rescheduleJob") && contains(app, "SchedulePicker"),
   "el checkout movil reserva horario y la lista de pedidos permite moverlo",
 );
+
+// ---------------------------------------------------------------------------
+// Retiro en el local desde la app (P-11). El servidor y la web lo ofrecían desde
+// GTM-002; la app móvil, que es la superficie principal del cliente, no.
+{
+  const leerMovil = (archivo) => fs.readFileSync(`apps/mobile/src/${archivo}`, "utf8");
+  const coordinador = await leerMovil("screens/CustomerScreen.tsx");
+  const carrito = await leerMovil("screens/CustomerFoodCartScreen.tsx");
+  const checkout = await leerMovil("screens/CustomerFoodCheckoutScreen.tsx");
+  const pedidos = await leerMovil("screens/CustomerFoodOrdersScreen.tsx");
+  const selector = await leerMovil("FulfillmentToggle.tsx");
+  assert(
+    contains(carrito, "{pickupAddress ? ( <FulfillmentToggle") &&
+      contains(selector, "branch.isPrimary && branch.pickupEnabled"),
+    "the cart offers pickup only where a branch enabled it",
+  );
+  assert(
+    contains(coordinador, 'fulfillment: esRetiro ? "pickup" : "delivery",') &&
+      contains(coordinador, "deliveryAddressId: esRetiro ? undefined : selectedFoodAddress?.id,"),
+    "pickup quotes without a customer address",
+  );
+  // El modo del pedido sale de la cotización firmada, no del botón: el servidor
+  // compara los dos y rechaza el que no coincida.
+  assert(
+    contains(coordinador, 'const retiro = foodCheckoutQuote?.fulfillment === "pickup";') &&
+      contains(coordinador, "fulfillment: foodCheckoutQuote.fulfillment,") &&
+      contains(coordinador, "tipCents: retiro ? 0 : foodTipCents,"),
+    "the order takes its mode from the signed quote and sends no tip on pickup",
+  );
+  assert(
+    contains(checkout, '{quote.fulfillment !== "pickup" && ( <TipSelector') &&
+      contains(
+        pedidos,
+        '{order.fulfillment !== "pickup" && ( <Pressable style={styles.foodActiveOrderPrimary}',
+      ),
+    "pickup hides the courier tip and the courier tracking",
+  );
+  console.log("ok - la app móvil ofrece retiro en el local de punta a punta");
+}

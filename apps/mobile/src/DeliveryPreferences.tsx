@@ -24,11 +24,14 @@ export function DeliveryPreferences({
   value,
   onChange,
   vertical,
+  pickup = false,
   disabled,
 }: {
   value: Preferencias;
   onChange: (value: Preferencias) => void;
   vertical: MerchantVertical;
+  /** En retiro no hay reparto: sólo se elige si lleva cubiertos. */
+  pickup?: boolean;
   disabled: boolean;
 }) {
   const sinPuerta = RUBROS_SIN_PUERTA.includes(vertical);
@@ -67,31 +70,35 @@ export function DeliveryPreferences({
   };
   return (
     <View style={estilos.contenedor} accessibilityLabel="Preferencias de entrega">
-      <Text style={estilos.seccion}>Cómo te lo entregamos</Text>
-      <View style={estilos.opciones} accessibilityRole="radiogroup">
-        {opcion("hand_to_me", "En mano", "Te lo entregan en la puerta", false)}
-        {opcion(
-          "leave_at_door",
-          "Dejar en la puerta",
-          sinPuerta ? "No disponible en este comercio" : "Sin contacto",
-          sinPuerta,
-        )}
-      </View>
-      <Text style={estilos.seccion}>Indicaciones para quien reparte</Text>
-      <TextInput
-        value={value.instructions}
-        onChangeText={(texto) => cambiar({ instructions: texto })}
-        maxLength={MAX_INDICACIONES}
-        editable={!disabled}
-        multiline
-        placeholder="Piso, timbre, cómo encontrar la entrada"
-        placeholderTextColor={flashDesign.color.muted}
-        style={estilos.campo}
-        accessibilityLabel="Indicaciones para quien reparte"
-      />
-      <Text style={estilos.detalle}>
-        Las ve sólo quien reparte · {value.instructions.length}/{MAX_INDICACIONES}
-      </Text>
+      {!pickup && (
+        <>
+          <Text style={estilos.seccion}>Cómo te lo entregamos</Text>
+          <View style={estilos.opciones} accessibilityRole="radiogroup">
+            {opcion("hand_to_me", "En mano", "Te lo entregan en la puerta", false)}
+            {opcion(
+              "leave_at_door",
+              "Dejar en la puerta",
+              sinPuerta ? "No disponible en este comercio" : "Sin contacto",
+              sinPuerta,
+            )}
+          </View>
+          <Text style={estilos.seccion}>Indicaciones para quien reparte</Text>
+          <TextInput
+            value={value.instructions}
+            onChangeText={(texto) => cambiar({ instructions: texto })}
+            maxLength={MAX_INDICACIONES}
+            editable={!disabled}
+            multiline
+            placeholder="Piso, timbre, cómo encontrar la entrada"
+            placeholderTextColor={flashDesign.color.muted}
+            style={estilos.campo}
+            accessibilityLabel="Indicaciones para quien reparte"
+          />
+          <Text style={estilos.detalle}>
+            Las ve sólo quien reparte · {value.instructions.length}/{MAX_INDICACIONES}
+          </Text>
+        </>
+      )}
       <View style={estilos.cubiertos}>
         <Ionicons name="restaurant-outline" size={18} color={flashDesign.color.ink} />
         <Text style={[estilos.titulo, estilos.cubiertosTexto]}>

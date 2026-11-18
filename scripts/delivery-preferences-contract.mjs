@@ -169,7 +169,10 @@ const checkoutMovil = await leer("apps/mobile/src/screens/CustomerFoodCheckoutSc
 const coordinadorMovil = await leer("apps/mobile/src/screens/CustomerScreen.tsx");
 assert.ok(
   contains(checkoutMovil, "<DeliveryPreferences") &&
-    contains(coordinadorMovil, "deliveryPreferences: foodPreferences,") &&
+    contains(
+      coordinadorMovil,
+      "deliveryPreferences: retiro ? { ...PREFERENCIAS_INICIALES, cutlery: foodPreferences.cutlery } : foodPreferences,",
+    ) &&
     contains(coordinadorMovil, "setFoodPreferences(PREFERENCIAS_INICIALES);"),
   "el checkout móvil no ofrece, no manda o no reinicia las preferencias",
 );

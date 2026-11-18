@@ -771,9 +771,11 @@ export const api = {
     /** Reserva de horario en ISO. Ausente es «lo antes posible». */
     scheduledFor?: string;
     deliveryPreferences?: import("./types").DeliveryPreferences;
+    fulfillment?: "delivery" | "pickup";
     items: Array<{ menuItemId: string; quantity: number; extras: string[]; note: string }>;
   }) {
-    if (!payload.deliveryAddressId)
+    // Sólo en entrega: en retiro no hay dirección (P-11).
+    if (payload.fulfillment !== "pickup" && !payload.deliveryAddressId)
       throw new Error("Selecciona una dirección guardada antes de confirmar");
     return request<{ order: Order }>("/orders", {
       method: "POST",
@@ -791,8 +793,10 @@ export const api = {
   async quoteFoodCheckout(payload: {
     customerId: string;
     restaurantId: string;
-    deliveryAddressId: string;
+    /** Ausente en retiro: no hay dirección del cliente que medir. */
+    deliveryAddressId?: string;
     branchId?: string;
+    fulfillment?: "delivery" | "pickup";
     paymentMethod: string;
     paymentMethodId: string;
     promotionCode?: string;

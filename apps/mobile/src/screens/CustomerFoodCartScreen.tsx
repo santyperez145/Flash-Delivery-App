@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image, Pressable, Text, TextInput, View } from "react-native";
+import { FulfillmentToggle, type Fulfillment } from "../FulfillmentToggle";
 
 import { flashDesign } from "../design-system";
 import { money } from "../format";
@@ -29,6 +30,9 @@ export function CustomerFoodCartScreen({
   onSelectPayment,
   onPromotionChange,
   onCheckout,
+  fulfillment,
+  onFulfillmentChange,
+  pickupAddress,
 }: {
   visible: boolean;
   cart: MobileCartLine[];
@@ -52,6 +56,10 @@ export function CustomerFoodCartScreen({
   onSelectPayment: (paymentMethodId: string) => void;
   onPromotionChange: (code: string) => void;
   onCheckout: () => void;
+  fulfillment: Fulfillment;
+  onFulfillmentChange: (value: Fulfillment) => void;
+  /** Dirección de la sucursal con retiro; `null` si el local no lo ofrece. */
+  pickupAddress: string | null;
 }) {
   if (!visible) return null;
 
@@ -156,9 +164,22 @@ export function CustomerFoodCartScreen({
           ))}
           <View style={styles.foodSectionHeader}>
             <Text style={styles.foodSectionTitle}>Entrega</Text>
-            <Text style={styles.foodSeeAll}>Dirección verificada</Text>
+            <Text style={styles.foodSeeAll}>
+              {fulfillment === "pickup" ? "Retirás en el local" : "Dirección verificada"}
+            </Text>
           </View>
-          <View style={styles.foodCartOptionList}>
+          {pickupAddress ? (
+            <FulfillmentToggle
+              value={fulfillment}
+              onChange={onFulfillmentChange}
+              deliveryFee={restaurant?.deliveryFee ?? 0}
+              pickupAddress={pickupAddress}
+              disabled={busy}
+            />
+          ) : null}
+          <View
+            style={[styles.foodCartOptionList, fulfillment === "pickup" && { display: "none" }]}
+          >
             {geocodedAddresses.map((address) => {
               const selected = deliveryAddress === address.address;
               return (

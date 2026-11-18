@@ -45,6 +45,23 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
 
+## Avance 18 de noviembre de 2026 — P-11, retiro en el local desde la app móvil
+
+El servidor y la web ofrecían el retiro desde GTM-002; **la app móvil, que es la superficie
+principal del cliente, no dejaba elegirlo**. Ahora el carrito ofrece «Envío» o «Retiro en el
+local», como PedidosYa, sólo donde una sucursal lo habilitó.
+
+- **El modo se elige antes de cotizar**, porque decide si hace falta dirección, si hay envío
+  en el precio y si se puede dejar propina. La sucursal de retiro es la principal si lo
+  ofrece, si no la primera que lo haga, y su id viaja al cotizar.
+- **El pedido toma el modo de la cotización firmada**, no del botón: el servidor los compara.
+  En retiro no viaja dirección del cliente, ni propina, ni modo de entrega; sí los cubiertos.
+- **El seguimiento dice dónde retirar** y no ofrece el mapa de un reparto que no ocurre.
+- El coordinador móvil no creció: la creación del pedido repetía el filtro de la dirección
+  elegida, y la elección de la sucursal pasó al módulo del selector.
+- **Verificación:** cinco aserciones nuevas en `test:mobile-food-design`, falsificadas una
+  por una; `tsc` móvil.
+
 ## Avance 18 de noviembre de 2026 — LAN-001, borrado de cuenta desde la app
 
 **Apple y Google no publican una app que permite crear cuentas si no deja borrarlas desde la

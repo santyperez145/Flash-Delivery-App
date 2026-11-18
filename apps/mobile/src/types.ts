@@ -103,6 +103,8 @@ export type Restaurant = {
     status: "active" | "paused" | "closed";
     etaMin: number;
     isPrimary: boolean;
+    /** La sucursal acepta retiro en el local (GTM-002). */
+    pickupEnabled?: boolean;
     timezone: string;
     weeklyHours: Array<{ weekday: number; opensAt: string; closesAt: string; enabled: boolean }>;
     scheduleExceptions: Array<{
@@ -159,6 +161,8 @@ export type Driver = {
 };
 
 export type Order = {
+  /** Cómo lo recibe el cliente (GTM-002, P-11). */
+  fulfillment?: "delivery" | "pickup";
   /** Recortadas según quién mira: el comercio recibe sólo los cubiertos (P-02). */
   deliveryPreferences?: DeliveryPreferencesView;
   id: string;
