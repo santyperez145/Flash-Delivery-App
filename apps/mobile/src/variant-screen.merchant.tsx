@@ -7,6 +7,7 @@
 // conocer una variante en particular. Ahora el caparazón pregunta por el
 // encabezado de la variante instalada y las otras dos responden `null`.
 import { Pressable, Text, View } from "react-native";
+import { AccountDeletion } from "./AccountDeletion";
 
 import { MerchantScreen } from "./screens/MerchantScreen";
 import { styles } from "./styles";
@@ -38,13 +39,19 @@ export const variantScreen: VariantScreen = ({
   busy,
   runAction,
   refresh,
+  logout,
 }) =>
   activeRestaurant ? (
-    <MerchantScreen
-      restaurant={activeRestaurant}
-      orders={orders}
-      busy={busy}
-      runAction={runAction}
-      onRefresh={refresh}
-    />
+    <>
+      <MerchantScreen
+        restaurant={activeRestaurant}
+        orders={orders}
+        busy={busy}
+        runAction={runAction}
+        onRefresh={refresh}
+      />
+      {/* Apple y Google exigen poder eliminar la cuenta desde la app (LAN-001).
+          Un comercio tiene liquidaciones, así que esto crea una solicitud. */}
+      <AccountDeletion onDeleted={logout} />
+    </>
   ) : null;

@@ -57,7 +57,8 @@ import {
   getAdminMfaStatus,
   verifyAdminMfa,
 } from "../mfa-repository.js";
-import { recordPostgresAudit } from "../operations-repository.js";
+import { createPostgresSupportTicket, recordPostgresAudit } from "../operations-repository.js";
+import { deletePostgresCustomerAccount } from "../account-deletion-repository.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";
 import {
   consumeAuthSession,
@@ -417,6 +418,56 @@ router.get("/api/me/sessions", requireAuth, async (req, res) => {
   } catch (error) {
     return failFrom(res, error, "No se pudieron cargar las sesiones");
   }
+});
+// Borrado de cuenta desde la app (LAN-001). Requisito de Apple y Google para
+// publicar. Un cliente se borra en el momento (se anonimiza: ver migración 138);
+// un comercio, repartidor o staff tiene pagos u obligaciones pendientes, así que
+// su pedido se convierte en una solicitud a soporte, que las tiendas aceptan.
+const borradoSchema = z.object({ password: z.string().min(1).max(200) });
+router.post("/api/me/delete", requireAuth, async (req, res) => {
+  if (!usesPostgresAuth()) return fail(res, 503, "El borrado de cuenta requiere PostgreSQL");
+  const parsed = parseOrFail(borradoSchema, req.body || {});
+  if (!parsed.ok) return fail(res, 400, parsed.message);
+  try {
+    await deletePostgresCustomerAccount({
+      userPublicId: req.auth.userId,
+      password: parsed.data.password,
+    });
+  } catch (error) {
+    if (!error.requiereSoporte) return failFrom(res, error, "No se pudo eliminar la cuenta");
+    try {
+      await createPostgresSupportTicket({
+        userPublicId: req.auth.userId,
+        category: "account",
+        priority: "high",
+        subject: "Solicitud de eliminación de cuenta",
+        body: "Pedido desde la app. La cuenta tiene roles con pagos u obligaciones pendientes.",
+        idempotencyKey: `account-deletion-${req.auth.userId}`,
+      });
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "account.deletion_requested",
+        entityType: "user",
+        entityId: req.auth.userId,
+        requestId: req.requestId,
+      });
+      res.status(202);
+      return ok(res, { status: "requested" });
+    } catch (ticketError) {
+      return failFrom(res, ticketError, "No se pudo registrar la solicitud de eliminación");
+    }
+  }
+  await recordPostgresAudit({
+    actorPublicId: req.auth.userId,
+    roles: req.auth.roles,
+    action: "account.deleted",
+    entityType: "user",
+    entityId: req.auth.userId,
+    requestId: req.requestId,
+  });
+  if (isWebSessionRequest(req)) clearRefreshCookie(res);
+  return ok(res, { status: "deleted" });
 });
 router.delete("/api/me/sessions/:sessionId", requireAuth, async (req, res) => {
   if (!usesPostgresAuth()) return fail(res, 503, "El cierre remoto requiere PostgreSQL");

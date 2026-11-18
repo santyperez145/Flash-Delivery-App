@@ -45,6 +45,33 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
 
+## Avance 18 de noviembre de 2026 — LAN-001, borrado de cuenta desde la app
+
+**Apple y Google no publican una app que permite crear cuentas si no deja borrarlas desde la
+app**, y Google pide además un camino web. Flash no tenía borrado en ninguna capa: era un
+bloqueo de lanzamiento, no de paridad. Ver [`docs/lanzamiento.md`](docs/lanzamiento.md).
+
+- **Se anonimiza, no se borran filas.** Pedidos, ledger, pagos, propinas, calificaciones y
+  auditoría apuntan a la cuenta, y varios son registros que se conservan por obligación. La
+  persona deja de ser identificable —nombre, correo, teléfono, direcciones, dispositivos,
+  preferencias, historial— y las transacciones quedan atadas a una cuenta anónima. El plazo
+  de conservación de cada registro lo define la asesoría legal.
+- **Una función, no permisos de borrado.** `app.delete_customer_account` (migración 138),
+  `SECURITY DEFINER` con `search_path` fijo, en una transacción; el runtime sólo puede
+  ejecutarla. Darle DELETE sobre veinte tablas habría deshecho lo que acotó la migración 135.
+- **Guardas.** Pide la contraseña otra vez. No borra con un pedido en curso ni con saldo en
+  la Wallet. Comercios, repartidores y staff tienen pagos u obligaciones: su pedido se
+  convierte en una solicitud a soporte, que las tiendas aceptan.
+- **Ofrecido en cada superficie:** perfil web del cliente, la pantalla web que ve un cliente
+  en escritorio —el camino web de Google— y las tres apps móviles. Antes de confirmar dice qué
+  se borra y qué se conserva.
+- **Verificación.** `test:account-deletion` (nuevo, en `ci-fast`) vigila la función, la
+  ruta y que el borrado esté ofrecido en las cinco superficies; falsificado, y la
+  falsificación encontró una aserción que no protegía —verificaba que la comparación de
+  contraseña existiera, no que cortara el flujo—. `test:postgres` prueba el 403 con otra
+  contraseña, la anonimización, el borrado de direcciones, la revocación de sesiones y
+  métodos de pago, la auditoría, que no se puede volver a entrar, y la solicitud del comercio.
+
 ## Avance 18 de noviembre de 2026 — P-02, preferencias de entrega
 
 Uber Eats y PedidosYa dejan elegir cómo llega el pedido; Flash no tenía ninguna de las tres
@@ -463,7 +490,7 @@ La suite además afirma que **el propio módulo no vuelve a depender de la base*
 
 El primer límite de integración estándar también quedó activo: la segunda mitad de
 `test:runtime-role-shape` crea PostGIS 17 desde Docker, replica los tres roles de producción y
-aplica las 137 migraciones desde cero. Corre dentro de `ci-postgres`, así que una prueba que sólo
+aplica las 138 migraciones desde cero. Corre dentro de `ci-postgres`, así que una prueba que sólo
 funcionara sobre la base preparada a mano por el workflow ya no podría satisfacer por sí sola el
 criterio.
 

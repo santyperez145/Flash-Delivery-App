@@ -4392,6 +4392,126 @@ try {
     sqliteFingerprint() === sqliteBefore,
     "PostgreSQL runtime smoke performs no SQLite writes",
   );
+
+  // --- Borrado de cuenta (LAN-001) -------------------------------------------
+  // Requisito de Apple y Google. Una cuenta propia de la prueba, para no tocar
+  // las del seed: se crea, se verifica, se le guarda una dirección y se borra.
+  const tokenAntesDelBorrado = token;
+  const correoBorrado = `borrado-${crypto.randomUUID()}@flash.test`;
+  const altaBorrado = await request("/auth/register", {
+    method: "POST",
+    body: JSON.stringify({
+      name: "Persona Para Borrar",
+      email: correoBorrado,
+      password: "borrado123",
+      phone: "+5491100000099",
+      deviceName: "postgres-smoke-borrado",
+    }),
+  });
+  await request("/auth/email-verification/confirm", {
+    method: "POST",
+    body: JSON.stringify({ email: correoBorrado, code: altaBorrado.body.developmentCode }),
+  });
+  const ingresoBorrado = await request("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email: correoBorrado, password: "borrado123", deviceName: "borrado" }),
+  });
+  const idBorrado = altaBorrado.body.user?.id;
+  try {
+    token = ingresoBorrado.body.token;
+    const internoBorrado = (
+      await pool.query("SELECT id FROM users WHERE public_id=$1", [idBorrado])
+    ).rows[0].id;
+    await pool.query(
+      `INSERT INTO addresses(user_id,label,formatted_address,location,geocoded_at)
+       VALUES($1,'Casa','Calle Falsa 123',ST_SetSRID(ST_MakePoint(-58.43,-34.58),4326)::geography,now())`,
+      [internoBorrado],
+    );
+    const malaClaveBorrado = await request("/me/delete", {
+      method: "POST",
+      body: JSON.stringify({ password: "otra-clave" }),
+    });
+    assert(malaClaveBorrado.status === 403, "account deletion asks for the password again");
+    const borrado = await request("/me/delete", {
+      method: "POST",
+      body: JSON.stringify({ password: "borrado123" }),
+    });
+    const filaBorrada = (
+      await pool.query("SELECT email,name,phone,status,deleted_at FROM users WHERE id=$1", [
+        internoBorrado,
+      ])
+    ).rows[0];
+    const restosBorrado = (
+      await pool.query(
+        `SELECT (SELECT count(*) FROM addresses WHERE user_id=$1)::int direcciones,
+                (SELECT count(*) FROM refresh_sessions WHERE user_id=$1 AND revoked_at IS NULL)::int sesiones,
+                (SELECT count(*) FROM payment_methods WHERE user_id=$1 AND revoked_at IS NULL)::int pagos,
+                (SELECT count(*) FROM audit_events WHERE action='account.deleted' AND actor_id=$1)::int auditoria`,
+        [internoBorrado],
+      )
+    ).rows[0];
+    assert(
+      borrado.status === 200 &&
+        borrado.body.status === "deleted" &&
+        filaBorrada.status === "deleted" &&
+        filaBorrada.deleted_at &&
+        filaBorrada.name === "Cuenta eliminada" &&
+        filaBorrada.phone === null &&
+        filaBorrada.email.endsWith("@flash.invalid") &&
+        restosBorrado.direcciones === 0 &&
+        restosBorrado.sesiones === 0 &&
+        restosBorrado.pagos === 0 &&
+        restosBorrado.auditoria === 1,
+      "account deletion anonymizes the user, removes personal data, revokes sessions and payment methods, and is audited",
+    );
+    const reingresoBorrado = await request("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email: correoBorrado, password: "borrado123" }),
+    });
+    assert(
+      reingresoBorrado.status === 401 || reingresoBorrado.status === 403,
+      "a deleted account cannot log in again",
+    );
+    // Un comercio tiene liquidaciones: no se borra al instante, se pide a soporte.
+    const comercioBorrado = await request("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({
+        email: "comercio@flash.app",
+        password: "demo123",
+        deviceName: "borrado",
+      }),
+    });
+    token = comercioBorrado.body.token;
+    const pedidoBorrado = await request("/me/delete", {
+      method: "POST",
+      body: JSON.stringify({ password: "demo123" }),
+    });
+    const ticketBorrado = (
+      await pool.query(
+        `SELECT count(*)::int n FROM support_tickets t JOIN users u ON u.id=t.user_id
+         WHERE u.email='comercio@flash.app' AND t.subject='Solicitud de eliminación de cuenta'`,
+      )
+    ).rows[0].n;
+    const comercioSigue = (
+      await pool.query("SELECT status FROM users WHERE email='comercio@flash.app'")
+    ).rows[0].status;
+    assert(
+      pedidoBorrado.status === 202 &&
+        pedidoBorrado.body.status === "requested" &&
+        ticketBorrado >= 1 &&
+        comercioSigue === "active",
+      "a merchant account deletion becomes a support request and the account stays active",
+    );
+  } finally {
+    token = tokenAntesDelBorrado;
+    if (idBorrado) {
+      await pool.query(
+        "DELETE FROM audit_events WHERE actor_id=(SELECT id FROM users WHERE public_id=$1)",
+        [idBorrado],
+      );
+      await pool.query("DELETE FROM users WHERE public_id=$1", [idBorrado]);
+    }
+  }
 } finally {
   const runtimeJobIds = [
     orderId,
