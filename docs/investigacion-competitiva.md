@@ -760,3 +760,21 @@ preparación y pausa sola a la tienda que deja pedidos sin aceptar. Flash adopta
 con duración y motivo, que vence sola y se aplica donde la base ya decide si una sucursal
 atiende. **Brechas que quedan:** el modo ocupado, la pausa automática y la misma pausa en
 la consola web. De PedidosYa no se encontró documentación oficial de su app de comercios.
+
+### Decisión 18 de noviembre de 2026 — desglose por servicio de las ganancias Driver
+
+En 2024, Uber anunció para el Driver un desglose semanal de lo que paga el pasajero:
+cuánto le queda a quien maneja, el seguro y las comisiones
+([Uber Newsroom, Only on Uber 2024](https://www.uber.com/newsroom/onlyonuber24)). Flash
+adopta la idea, no la presentación.
+
+- **Qué muestra.** Cada viaje y cada envío del detalle reciente dice cuánto se cobró, cuánto
+  retuvo Flash y cuánto quedó para el repartidor.
+- **De dónde sale.** Del mismo asiento contable de doble partida: el débito de la
+  liquidación y el crédito a ingresos de la plataforma. Nada se estima: sin asiento no hay
+  desglose.
+- **Brecha que queda.** Los pedidos de comida le pagan al repartidor dentro de la
+  liquidación del comercio, cuyo total es el del pedido entero. Hasta separar esa parte no
+  se muestra desglose, porque sería falso.
+- **Diferencia con Uber.** Flash no tiene seguros ni cargos aparte del precio: no hay más
+  líneas que mostrar, y no se inventan.
