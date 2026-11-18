@@ -241,6 +241,11 @@ assert.ok(
       "busy={busy || faltaFotoEnPuerta(order)}",
     ) &&
     contains(await leer("src/operations/DoorPhoto.tsx"), 'capture="environment"') &&
+    // La app nativa también la achica: la calidad de la cámara no limita el peso.
+    contains(
+      await leer("apps/mobile/src/screens/useDriverShift.tsx"),
+      "contexto.resize(asset.width >= asset.height ? { width: 1280 } : { height: 1280 });",
+    ) &&
     // Achicada antes de subir: una foto de cámara supera el límite de 1 MB del JSON.
     contains(
       await leer("src/operations/DoorPhoto.tsx"),
