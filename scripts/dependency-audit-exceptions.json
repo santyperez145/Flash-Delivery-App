@@ -1,13 +1,4 @@
 {
   "$comment": "Avisos de seguridad aceptados temporalmente por scripts/dependency-audit.mjs. Cada entrada es UN aviso (no un paquete), con su motivo, su mitigación y una fecha de revisión: vencida la fecha, la puerta vuelve a fallar. Si el aviso deja de aparecer, la puerta también falla hasta que la entrada se borre, para que esta lista sólo pueda achicarse.",
-  "excepciones": [
-    {
-      "aviso": "GHSA-fc5q-39xc-vjpf",
-      "paquete": "picomatch",
-      "alcances": ["raíz · desarrollo", "móvil · producción", "móvil · desarrollo"],
-      "motivo": "ReDoS por extglobs repetidos de una sola rama en picomatch <=4.0.7. Al 18-11-2026 no hay versión corregida publicada: 4.0.7 es la última. La única salida que propone npm es bajar vite a 6.2.7 y vitest a 3.1.4, versiones anteriores que reintroducen otros avisos.",
-      "mitigacion": "picomatch sólo evalúa patrones glob escritos en la configuración del repositorio (vite, vitest, metro, expo). Ningún patrón viene de un usuario ni de una red, y el aviso exige un patrón controlado por un atacante. No está en el árbol de producción del servidor (raíz · producción queda limpio), y en el móvil corre al empaquetar, no dentro de la app instalada.",
-      "revisar": "2026-12-18"
-    }
-  ]
+  "excepciones": []
 }

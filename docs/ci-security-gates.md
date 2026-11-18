@@ -2,7 +2,7 @@
 
 ## Estado al 29 de agosto de 2026
 
-`ci.yml` se dividió en cuatro workflows. La cobertura pasó de 15 a **107 de 108 suites** detrás de una puerta: **105 bloquean el merge**, 2 corren de noche y la cuarentena está vacía.
+`ci.yml` se dividió en cuatro workflows. La cobertura pasó de 15 a **108 de 109 suites** detrás de una puerta: **106 bloquean el merge**, 2 corren de noche y la cuarentena está vacía.
 
 Desde el 27 de agosto la rama `main` **está protegida**: los siete checks son obligatorios, la rama debe estar al día, la historia es lineal y no hay excepción para administradores. Hasta ese día se habían mergeado once PR con CI en verde sin que nada lo exigiera.
 
@@ -273,7 +273,7 @@ borrando el análisis, bajando la severidad y desalineando las excepciones: fall
 - vencida la fecha, la puerta vuelve a fallar;
 - una excepción que ya no corresponde a ningún aviso también falla, así que la lista sólo puede achicarse.
 
-Vigente: **GHSA-fc5q-39xc-vjpf** (`picomatch` ≤4.0.7, ReDoS), aprobada por el dueño el 18-11-2026, a revisar el 18-12-2026. No hay versión corregida publicada; la única salida de npm era bajar vite y vitest a versiones anteriores. `picomatch` sólo evalúa patrones de la configuración del repositorio y no está en el árbol de producción del servidor.
+**Hoy no hay excepciones vigentes.** La primera fue **GHSA-fc5q-39xc-vjpf** (`picomatch` ≤4.0.7, ReDoS), aprobada por el dueño el 18-11-2026 porque no había versión corregida. El mismo día la base de avisos dejó de marcar la 4.0.7 y la puerta falló pidiendo borrar la excepción sin uso: es la mitad del diseño que impide que una excepción sobreviva a su motivo.
 
 `test:production-deps` exige que **cada paquete de `dependencies` esté importado por `server/` o `scripts/`**. La imagen instala con `--omit=dev`, así que todo lo que quede ahí se despliega, lo use el servidor o no. Siete paquetes que sólo usa el frente —React, React DOM, `lucide-react`, `maplibre-gl`, el SDK de Mercado Pago, `qrcode` y `concurrently`— viajaban en cada imagen.
 

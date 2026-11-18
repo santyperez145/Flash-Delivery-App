@@ -29,7 +29,7 @@ jobs:
         with:
           fail-on-severity: high
           comment-summary-in-pr: on-failure
-          # Los mismos avisos exceptuados por el dueño en
+          # Avisos exceptuados por el dueño: los mismos de
           # scripts/dependency-audit-exceptions.json, con su vencimiento allí.
-          # Una excepción que se agrega en un lado se agrega en el otro.
-          allow-ghsas: GHSA-fc5q-39xc-vjpf
+          # Hoy no hay ninguno; una excepción que se agrega en un lado se agrega
+          # en el otro (`allow-ghsas:`), y test:ci-coverage lo verifica.
