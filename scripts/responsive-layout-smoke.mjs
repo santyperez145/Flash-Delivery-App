@@ -43,7 +43,7 @@ const stateStyles = fs.readFileSync("src/styles/states.css", "utf8");
 const adaptive = fs.readFileSync("src/adaptive.css", "utf8");
 const entry = fs.readFileSync("src/main.tsx", "utf8");
 const guidelines = fs.readFileSync("docs/ui-layout-guidelines.md", "utf8");
-const agents = fs.readFileSync("AGENTS.md", "utf8");
+const reglas = fs.readFileSync("CONTRIBUTING.md", "utf8");
 const browserSmoke = fs.readFileSync("scripts/responsive-browser-smoke.mjs", "utf8");
 
 function assert(condition, label) {
@@ -302,7 +302,7 @@ assert(
     contains(guidelines, "Driver") &&
     contains(guidelines, "Merchant") &&
     contains(guidelines, "Operaciones") &&
-    contains(agents, "docs/ui-layout-guidelines.md"),
+    contains(reglas, "docs/ui-layout-guidelines.md"),
   "the responsive contract is documented and mandatory for future deliveries",
 );
 

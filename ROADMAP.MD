@@ -2,6 +2,23 @@
 
 > Lineamiento obligatorio para cada entrega: [`docs/product-execution-guidelines.md`](docs/product-execution-guidelines.md). Define investigación competitiva, segmentación, cero hardcodeos productivos, calidad visual, arquitectura, seguridad y definición de terminado.
 
+## Decisión 18 de noviembre de 2026 — revisión determinística y reglas del proyecto
+
+**Decisión del dueño.** La revisión de cada cambio pasa a ser determinística: reglas que se
+ejecutan igual para todos, sin revisiones automáticas de terceros sobre los PRs.
+
+- **Revisión.** CodeQL (análisis estático de seguridad) y revisión de las dependencias de
+  cada PR, además de las puertas CI; `test:ci-coverage` verifica que las dos sigan en pie y
+  que acepten las mismas excepciones que `test:dependency-gate`. La aprobación humana por
+  área queda en `CODEOWNERS` y se exige el día que haya un segundo revisor.
+- **Reglas.** Las reglas del proyecto pasan a [`CONTRIBUTING.md`](CONTRIBUTING.md), reescritas
+  para competir: paridad completa como objetivo, comparar antes de construir, web y móvil a
+  la par, nada falso, estados honestos y la revisión determinística. Todas las reglas de
+  ingeniería anteriores se conservan.
+- **Lo que queda del dueño.** Desinstalar de la cuenta de GitHub las aplicaciones de revisión
+  automática que siguen instaladas, y decidir si CodeQL y la revisión de dependencias pasan a
+  ser checks requeridos de la protección de `main`.
+
 ## Decisión 17 de noviembre de 2026 — paridad completa, y el congelamiento levantado
 
 **Decisión del dueño: el objetivo es la paridad completa y competitiva con Uber, Uber Eats y
@@ -107,7 +124,7 @@ Mandato del dueño: libertad total de actuar (CEO/CTO/CFO/PM/PO/inversor) y adop
 
 ## Decisión 2 de septiembre de 2026 — mandato competitivo permanente
 
-- [x] Lineamiento del dueño formalizado en `AGENTS.md`, `docs/product-execution-guidelines.md` §0 y `.cursor/rules/competitive-mandate.mdc` (`alwaysApply`): roles CEO/CTO/CFO/PM/PO/inversor, comparar siempre, mejor tecnología medida, libertad para el bien del producto.
+- [x] Lineamiento del dueño formalizado en las reglas del proyecto (hoy `CONTRIBUTING.md`) y en `docs/product-execution-guidelines.md` §0: comparar siempre, mejor tecnología medida, libertad para el bien del producto.
 - [x] En Fase 0 se interpreta como paridad de ingeniería/operación (no verticales nuevas ni providers fingidos). Gasto y cuentas cloud siguen siendo del dueño.
 
 ## Avance 2 de septiembre de 2026 — ARC-001, release/pricing/infra fuera de AdminConsole
@@ -215,7 +232,7 @@ Pedido del dueño: cablear absolutamente todo para uso real, con automatizacione
 
 ## Avance 2 de septiembre de 2026 — ARC-001 pendiente y cierre de IDOR de soporte
 
-- [x] Se integró lo que `codex/reflow-catalog-search-sql` no llegó a `main`: SQL de catálogo/búsqueda refloweado y editores de comercio extraídos a `MerchantCatalogEditors.tsx`.
+- [x] Se integró lo que una rama paralela de reflow (`reflow-catalog-search-sql`) no llegó a `main`: SQL de catálogo/búsqueda refloweado y editores de comercio extraídos a `MerchantCatalogEditors.tsx`.
 - [x] Un agente `support` ya no puede editar el perfil de otro (`canManageSupportAgent`), lee la cola de tickets y un bootstrap propio, y no enumera usuarios ni el dashboard admin. `test:security` y `test:authorization` lo cubren.
 - [~] PedidosYa y Zendesk separan cola de tickets de administración de agentes. Flash ahora niega el IDOR, pero sigue por debajo sin SLA visible al cliente, asignación automática medida y portal self-serve del ticket.
 - [ ] ARC-001 global sigue abierto: unificar tipos divergentes, 251 líneas largas SQL y concentraciones restantes (AdminConsole, DriverScreen).
@@ -700,7 +717,7 @@ Cuarta entrega de la Fase 0. Clasifica el hallazgo [H-04](docs/auditoria-2026-08
 - [x] **Las 106 tablas clasificadas** en [`database/rls-classification.json`](database/rls-classification.json): 65 `por-usuario` (60 con política), 24 `global-lectura`, 15 `servicio`, 2 `sin-uso`.
 - [x] **`test:rls-matrix` como puerta.** Falla si una tabla nueva no se clasifica, si la matriz se desalinea de las migraciones, si una clasificación sobrevive a su tabla, o si una tabla `por-usuario` queda sin política fuera de la deuda declarada. Verificado que detecta las tres derivas.
 - [x] **Deuda declarada que sólo puede achicarse:** `user_roles`, `drivers`, `merchants`, `shipment_details`, `promotion_redemptions`.
-- [x] **Regla en `AGENTS.md`:** toda migración que crea una tabla la clasifica en el mismo PR.
+- [x] **Regla del proyecto (hoy en `CONTRIBUTING.md`):** toda migración que crea una tabla la clasifica en el mismo PR.
 - [x] Aplicar política a las cinco tablas de la deuda.
 - [x] Eliminar el esquema muerto con una migración.
 - [x] Decidir `FORCE ROW LEVEL SECURITY`: no corresponde al rol migrador y la forma del rol runtime queda probada en CI.

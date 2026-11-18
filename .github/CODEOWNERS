@@ -39,4 +39,5 @@
 /.github/workflows/                 @santyperez145
 /.github/CODEOWNERS                 @santyperez145
 /scripts/line-length-baseline.json  @santyperez145
-/AGENTS.md                          @santyperez145
+/CONTRIBUTING.md                    @santyperez145
+/scripts/dependency-audit-exceptions.json @santyperez145

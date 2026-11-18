@@ -55,7 +55,7 @@ const FECHADA = new RegExp(
   "i",
 );
 
-const RAICES = ["docs", "ROADMAP.MD", "README.md", "AGENTS.md"];
+const RAICES = ["docs", "ROADMAP.MD", "README.md", "CONTRIBUTING.md"];
 
 async function documentos(entrada) {
   const stat = await fs.stat(entrada).catch(() => null);

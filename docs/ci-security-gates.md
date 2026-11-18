@@ -250,6 +250,23 @@ Son dos puertas distintas y el orden entre ellas importó.
 
 Los alcances se reportan por separado a propósito: «¿es seguro lo que desplegamos?» y «¿es seguro lo que usamos para construirlo?» son preguntas distintas, y mezclarlas haría que una vulnerabilidad del empaquetador se leyera como un problema de producción.
 
+**La revisión de cada cambio es determinística** (desde el 18-11-2026). Además de las puertas de
+CI, cada PR pasa por dos revisiones que se ejecutan igual para todos y fallan igual para todos:
+
+- **CodeQL** (`.github/workflows/codeql.yml`): análisis estático de seguridad por reglas sobre
+  JavaScript y TypeScript —servidor, web y móvil—, con las consultas extendidas de seguridad.
+  Corre en cada PR, en cada push a `main` y una vez por semana, porque las consultas se
+  actualizan y un patrón nuevo puede encontrar algo en código que no cambió.
+- **Revisión de dependencias** (`.github/workflows/dependency-review.yml`): mira sólo lo que el
+  PR cambia en los `package-lock.json` y bloquea una dependencia nueva o actualizada con una
+  vulnerabilidad alta o crítica. Complementa a `test:dependency-gate`, que audita el árbol
+  entero.
+
+`test:ci-coverage` verifica que los dos workflows sigan existiendo y bloqueando, y que la
+revisión del PR acepte exactamente los mismos avisos que la auditoría del árbol: borrar un
+workflow no rompe ninguna prueba, la revisión simplemente deja de ocurrir. Lo verificó
+borrando el análisis, bajando la severidad y desalineando las excepciones: falla en los tres.
+
 **Excepciones por aviso, con vencimiento** (desde el 18-11-2026). Un aviso sin versión corregida no se arregla actualizando, y dejar la puerta roja hasta que el mantenedor publique enseña a ignorarla. Pero exceptuar un paquete entero taparía también el próximo aviso que le salga. [`scripts/dependency-audit-exceptions.json`](../scripts/dependency-audit-exceptions.json) nombra **un aviso** por entrada, con motivo, mitigación y fecha de revisión, y la puerta aplica tres reglas, falsificadas una por una:
 
 - un paquete se excusa sólo si **todos** sus avisos graves están exceptuados;
