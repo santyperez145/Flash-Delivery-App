@@ -1,5 +1,6 @@
 import { ArrowRight, Flame, LogIn, RefreshCw, ShieldCheck, TriangleAlert } from "lucide-react";
 
+import { roleLabel } from "../labels";
 import type { User } from "../types";
 import { AccountDeletion } from "./AccountDeletion";
 import { LegalLinks } from "./LegalLinks";
@@ -72,7 +73,9 @@ export function DesktopAccessGate({ user, onLogout }: { user: User | null; onLog
           </p>
         </div>
         <div className="role-gate-actions">
-          <span>{user?.roles.join(" · ") || "Sin rol operativo"}</span>
+          <span>
+            {user?.roles.map((role) => roleLabel[role]).join(" · ") || "Sin rol operativo"}
+          </span>
           <button type="button" onClick={onLogout}>
             <LogIn size={17} /> Cambiar de cuenta
           </button>

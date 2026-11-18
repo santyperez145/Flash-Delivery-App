@@ -7,7 +7,16 @@
 // Son `Record<Estado, string>` a propósito y no un objeto suelto: si el backend
 // agrega un estado, TypeScript exige traducirlo acá en lugar de dejar que la
 // pantalla muestre el identificador crudo.
-import type { OrderStatus, RideStatus, Shipment } from "./types";
+import type { OrderStatus, RideStatus, Shipment, UserRole } from "./types";
+
+/** Los roles como los lee una persona: «customer» no es una palabra de la pantalla. */
+export const roleLabel: Record<UserRole, string> = {
+  customer: "Cliente",
+  merchant: "Comercio",
+  driver: "Repartidor",
+  admin: "Administración",
+  support: "Soporte",
+};
 
 export const orderStatusLabel: Record<OrderStatus, string> = {
   requested: "Validando pago",
