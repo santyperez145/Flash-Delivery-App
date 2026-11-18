@@ -13,10 +13,11 @@ que ser competitivo, invertible y estar terminado, no sólo correcto.
 comparar siempre, adoptar la mejor tecnología _medida_ para el problema, y actuar con
 libertad total mientras sea para bien. Formalizado también en
 [`.cursor/rules/competitive-mandate.mdc`](.cursor/rules/competitive-mandate.mdc) y en
-[`docs/product-execution-guidelines.md`](docs/product-execution-guidelines.md). Durante la
-Fase 0 eso significa paridad de **ingeniería y operación verificable** (dominio compartido,
-módulos por responsabilidad, CI, PostGIS, imagen endurecida), no copiar verticales ni
-fingir providers productivos.
+[`docs/product-execution-guidelines.md`](docs/product-execution-guidelines.md). Desde el
+17 de noviembre de 2026 eso significa paridad **de producto y de operación**: cerrar los
+huecos de [`docs/paridad-competitiva.md`](docs/paridad-competitiva.md) con la misma
+exigencia de verificación con la que se construyó la base. Sigue sin significar copiar
+identidad ajena ni fingir providers productivos.
 
 De ahí salen tres obligaciones que no estaban antes:
 
@@ -56,29 +57,74 @@ nadie sabe si sigue vigente.
 Lo que sí se consulta, siempre, es lo que es genuinamente del dueño del producto: decisiones
 de negocio, gasto, credenciales, y cualquier acción sobre su máquina o sus cuentas.
 
-## Prioridad vigente — congelamiento de Fase 0
+## Prioridad vigente — paridad competitiva completa
 
-**Desde el 25 de agosto y hasta cerrar la Fase 0 (20 de septiembre de 2026) no se agregan verticales, pantallas ni capacidades de producto nuevas.**
+**Desde el 17 de noviembre de 2026 el objetivo es la paridad completa y competitiva con
+Uber, Uber Eats y PedidosYa, superficie por superficie: cliente, comercio, repartidor y
+operaciones.** Decisión del dueño, de esa fecha. El trabajo se elige de
+[`docs/paridad-competitiva.md`](docs/paridad-competitiva.md), que es el registro de huecos
+medidos contra esas tres aplicaciones y la cola de trabajo vigente.
 
-Se admiten exclusivamente cuatro clases de cambio:
+Toda entrega nombra la fila que cierra y cuál de los tres competidores ya la tiene. Una
+entrega que no se puede ubicar en el registro es una entrega que nadie pidió.
 
-1. Los tickets P0 de [`docs/backlog-tecnico.md`](docs/backlog-tecnico.md).
-2. Corrección de defectos que bloqueen un P0.
-3. Pruebas, contratos, puertas CI y observabilidad.
-4. Documentación que refleje lo anterior.
+### El congelamiento de Fase 0 queda levantado
 
-Cualquier otra propuesta se anota en `ROADMAP.MD` como candidata post-Fase 0 y no se implementa. Excepción única: un hallazgo de seguridad explotable se atiende de inmediato, con su prueba de regresión.
+Estuvo vigente del 25 de agosto al 17 de noviembre de 2026. Se levanta, y el motivo queda
+escrito porque este documento exige que un criterio que se salta diga por qué:
 
-Documentos rectores, en orden de precedencia: [`docs/plan-de-accion.md`](docs/plan-de-accion.md) → [`docs/backlog-tecnico.md`](docs/backlog-tecnico.md) → [`docs/auditoria-2026-08-25.md`](docs/auditoria-2026-08-25.md) → `ROADMAP.MD`.
+1. **Su propia ventana venció el 20 de septiembre** y se siguió aplicando dos meses más.
+   Una regla que sobrevive a su fecha deja de ser un plan y pasa a ser una costumbre.
+2. **Cumplió la parte que se podía medir.** Lo que el congelamiento protegía era que la
+   superficie existente fuera verificable: hoy **75 de 107 suites `test:*` corren en
+   puertas CI bloqueantes** —eran 15 de 104 el 25 de agosto— y existen los trinquetes que
+   impiden retroceder (líneas largas, privilegios excedentes, rutas huérfanas,
+   clasificación RLS, formato).
+3. **Cuatro de sus cinco criterios de salida restantes no los puede conseguir el agente.**
+   Credenciales de proveedor, dispositivos físicos, una cuenta cloud y un segundo revisor
+   son del dueño. Un congelamiento cuya salida depende de la acción de otro no es un plan:
+   es una espera, y mientras espera el hueco de producto frente a la competencia sigue
+   abierto.
 
-El motivo está en el veredicto de la auditoría: **la plataforma ya tiene más superficie funcional de la que puede validar, mantener y operar**. Agregar superficie durante la estabilización empeora exactamente la métrica que se quiere corregir.
+Documentos rectores, en orden de precedencia:
+[`docs/paridad-competitiva.md`](docs/paridad-competitiva.md) →
+[`docs/plan-de-accion.md`](docs/plan-de-accion.md) →
+[`docs/backlog-tecnico.md`](docs/backlog-tecnico.md) →
+[`docs/auditoria-2026-08-25.md`](docs/auditoria-2026-08-25.md) → `ROADMAP.MD`.
+
+### Qué no es una prohibición y por eso sigue
+
+Lo que se levantó es el límite de **alcance**: qué se puede construir. Lo que sigue no
+limita el alcance, sino la forma de entregarlo, y es lo que permite sumar superficie rápido
+sin romper dinero:
+
+- **Las puertas de verificación se mantienen.** No frenan una capacidad: la obligan a
+  entrar completa. Cuando el retiro en el local chocó con el techo de tamaño de
+  `FoodCartScreen.tsx`, la respuesta fue partir el archivo en dos componentes, no dejar la
+  capacidad afuera. Esa es la respuesta correcta siempre.
+- **Una capacidad no se anuncia por encima de su estado real** ([`docs/matriz-madurez.md`](docs/matriz-madurez.md)).
+  Eso no restringe qué se construye: distingue un producto de una demostración.
+- **Lo que depende de un tercero se nombra como bloqueo externo, con dueño.** No es una
+  regla que me impongo, es un hecho del mundo: el cobro recurrente y el movimiento real de
+  dinero necesitan credenciales productivas de Mercado Pago; el push a un teléfono
+  necesita un dispositivo y credenciales EAS; el ETA vial necesita una API key comercial;
+  un seguro o una retención impositiva necesitan inscripción ante el organismo que
+  corresponda; un medicamento bajo receta necesita una farmacia habilitada. Todo eso se
+  construye **hasta el borde de la credencial**, con la degradación dicha en la pantalla, y
+  el bloqueo nombrado con su dueño. Lo que no se hace es fingir que ya funciona.
 
 ## Producto y competencia
 
 - Antes de diseñar una capacidad relevante, comprobar cómo resuelven el problema las aplicaciones competidoras y plataformas comparables. Priorizar fuentes oficiales, documentación técnica primaria, comportamiento verificable y material vigente.
 - Registrar las referencias y la decisión derivada cuando influyan materialmente en arquitectura, seguridad, experiencia o costos. Comparar flujos y estándares; no copiar activos, texto, código ni identidad propietaria.
 - Implementar lógica real, estados honestos y degradación explícita. No presentar mocks, datos inventados, proveedores sandbox o integraciones incompletas como capacidades productivas.
-- Mantener la estrategia delivery/courier primero. Movilidad pública, dinero productivo, seguros, fiscalidad y comunicaciones externas permanecen bloqueados hasta disponer de proveedores, habilitación y verificación real.
+- **No hay verticales ni superficies vedadas por decisión propia.** El objetivo es la
+  paridad completa con Uber, Uber Eats y PedidosYa, y eso incluye lo que todavía no existe
+  en Flash: verticales no gastronómicas, preferencias de entrega, lealtad, cuentas
+  corporativas, lotes de reparto y publicidad de comercios. Lo único que condiciona una
+  capacidad es si depende de un tercero —credencial, habilitación o dispositivo—, y en ese
+  caso se construye hasta ese borde con degradación explícita y el bloqueo nombrado con su
+  dueño, en lugar de no construirla.
 - Toda pantalla nueva o modificada debe cumplir `docs/DESIGN_ROADMAP.md` y `docs/ui-layout-guidelines.md`: sistema visual Flash, cobertura competitiva, safe areas reales, composición compact/medium/expanded, barras estables, una sola hoja modal, texto variable y estados honestos sin desbordes.
 
 ## Tecnología

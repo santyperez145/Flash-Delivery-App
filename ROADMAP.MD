@@ -2,6 +2,60 @@
 
 > Lineamiento obligatorio para cada entrega: [`docs/product-execution-guidelines.md`](docs/product-execution-guidelines.md). Define investigación competitiva, segmentación, cero hardcodeos productivos, calidad visual, arquitectura, seguridad y definición de terminado.
 
+## Decisión 17 de noviembre de 2026 — paridad completa, y el congelamiento levantado
+
+**Decisión del dueño: el objetivo es la paridad completa y competitiva con Uber, Uber Eats y
+PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda levantado.
+
+- **Por qué se levanta.** Su ventana venció el 20 de septiembre y se siguió aplicando dos
+  meses más; cumplió la parte medible de su objetivo (75 de 107 suites `test:*` en puertas
+  CI bloqueantes, contra 15 de 104 el 25 de agosto); y cuatro de sus cinco criterios de
+  salida restantes dependen de credenciales, dispositivos, una cuenta cloud y un segundo
+  revisor, que son del dueño. **Un congelamiento cuya salida depende de la acción de otro
+  no es un plan, es una espera.**
+- **Qué lo reemplaza.** [`docs/paridad-competitiva.md`](docs/paridad-competitiva.md): el
+  registro de huecos medidos contra las tres aplicaciones, con el estado de Flash verificado
+  contra el repositorio fila por fila. Es la cola de trabajo vigente y el primer documento
+  rector.
+- **Qué no cambió.** Las puertas de verificación, la matriz de madurez y la obligación de
+  nombrar los bloqueos externos con su dueño. No limitan qué se construye: limitan cómo
+  entra. Cuando el retiro en el local chocó con el techo de tamaño de `FoodCartScreen.tsx`,
+  se partió el archivo en dos componentes; no se dejó la capacidad afuera.
+- **Armado del registro, dos suposiciones corregidas.** Supuse que faltaban las categorías
+  de viaje y el reordenar; las dos existían (`rideQuoteSchema` valida
+  `economy|comfort|moto|xl`, y `POST /api/orders/:orderId/reorder` está cableado). Es el
+  hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
+  eso cada fila del registro dice dónde se verificó.
+
+## Avance 17 de noviembre de 2026 — GTM-002, retiro en el local
+
+El hueco de producto más grande que quedaba frente a Uber Eats y PedidosYa: **todo pedido de
+comida exigía repartidor.** No existía ningún concepto de modo de entrega.
+
+- **Modelo.** El modo vive en `metadata.fulfillment` y no en una columna: `jobs` es
+  compartida por comida, viajes y envíos, y la distinción ya viaja ahí. La migración 137
+  agrega `merchant_branches.pickup_enabled` —apagado por omisión, porque entregar en mano
+  exige mostrador y alguien que atienda— y un índice parcial para el barrido del despacho.
+- **Sin código de retiro, y es una decisión.** El PIN de envíos y viajes existe porque el
+  intento ocurre sin testigos. El retiro ocurre en un mostrador con el ticket a la vista: el
+  número de pedido da la misma garantía, que es lo que usan Uber Eats y PedidosYa.
+- **Lo que se cerró de punta a punta.** Cotización sin distancia ni tarifa de envío ni
+  servicio; creación sin dirección de cliente; exclusión del despacho en las cuatro
+  consultas **y** en la creación directa de ofertas; transiciones propias del retiro;
+  comparación del modo contra el token firmado; el comercio autorizado a entregarlo; el
+  checkout web con su selector; y el interruptor por sucursal en la consola del comercio.
+- **El defecto que lo habría dejado inservible.** `nextOrderStatus` devolvía `null` en
+  `ready_for_pickup`: un pedido para retirar quedaba cocinado, pagado y **trabado para
+  siempre**, porque el único camino previsto era el del conductor. Lo encontró escribir la
+  puerta, no leer el código.
+- **Verificación.** `test:dispatch-candidates` (cuatro filtros, oferta directa, avance a
+  entregado, consola del comercio), `test:web-checkout` (modo hasta la API, elección desde
+  el token firmado, sin propina en retiro), `test:authorization` (el comercio completa un
+  retiro y no un reparto). Las ocho aserciones nuevas se falsificaron rompiendo lo que
+  vigilan y se confirmó que fallan.
+- **Lo que falta.** Ningún local lo habilitó todavía: la capacidad está en `CI`, no operada.
+  El checkout móvil queda pendiente.
+
 ## Roadmap rector adoptado — 21 de agosto de 2026
 
 Fuente de producto: `C:\Users\santiago\Desktop\FlashAPP.txt`. Se adopta su estrategia **delivery/courier primero, B2B después y movilidad pública sólo tras safety y habilitación local**. La auditoría describe una versión anterior; sus EPICs se mantienen, pero estos checks reflejan el runtime actual y sustituyen sus puntuaciones históricas.
