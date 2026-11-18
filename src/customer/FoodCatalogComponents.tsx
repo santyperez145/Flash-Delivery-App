@@ -16,7 +16,7 @@ export function SearchBar({
       <input
         value={query}
         onChange={(event) => setQuery(event.target.value)}
-        placeholder="Que queres pedir hoy?"
+        placeholder="¿Qué querés pedir hoy?"
       />
       <button
         type="button"

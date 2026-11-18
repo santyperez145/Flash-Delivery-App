@@ -390,27 +390,57 @@ async function auditDesktopAccessGate(browser) {
   });
   const page = await context.newPage();
 
-  await login(page, desktopUrl, "cliente@flash.app", "Ingresar");
+  // FE-01: el cliente tiene el sitio también en escritorio; la puerta queda para
+  // quien sólo maneja, que trabaja desde la app.
+  await login(page, desktopUrl, "conductor@flash.app", "Ingresar");
   await page.locator(".role-gate-shell").waitFor({ timeout: 15_000 });
 
   for (const viewport of desktopViewports.filter(({ width }) => width >= 620)) {
     await page.setViewportSize(viewport);
-    await withAuditScreenshot(page, `customer-access-gate-${viewport.width}`, async () => {
+    await withAuditScreenshot(page, `driver-access-gate-${viewport.width}`, async () => {
       const gate = page.locator(".role-gate-card");
       await gate.waitFor();
-      await assertNoPageOverflow(page, `customer access gate at ${viewport.width}px`);
+      await assertNoPageOverflow(page, `driver access gate at ${viewport.width}px`);
       await assertLocatorInsideViewport(
         page,
         page.getByRole("button", { name: "Cambiar de cuenta" }),
-        `customer access gate action at ${viewport.width}px`,
+        `driver access gate action at ${viewport.width}px`,
       );
       const cardWidth = await gate.evaluate((element) => element.getBoundingClientRect().width);
-      assert.ok(cardWidth <= 520, `customer access gate card exceeds its readable width`);
+      assert.ok(cardWidth <= 520, `driver access gate card exceeds its readable width`);
     });
-    ok(`customer access gate fits ${viewport.width}x${viewport.height}`);
+    ok(`driver access gate fits ${viewport.width}x${viewport.height}`);
   }
 
   await page.getByRole("button", { name: "Cambiar de cuenta" }).click();
+  await context.close();
+}
+
+async function auditDesktopCustomerSite(browser) {
+  const context = await browser.newContext({
+    viewport: desktopViewports.at(-1),
+    locale: "es-AR",
+    timezoneId: "America/Argentina/Buenos_Aires",
+    reducedMotion: "reduce",
+  });
+  const page = await context.newPage();
+  await login(page, desktopUrl, "cliente@flash.app", "Ingresar");
+  await page.locator(".ambito-switch").waitFor({ timeout: 15_000 });
+  assert.equal(await page.locator(".role-gate-shell").count(), 0, "customer sees the site");
+  for (const viewport of desktopViewports.filter(({ width }) => width >= 900)) {
+    await page.setViewportSize(viewport);
+    for (const name of ["Pedidos", "Viajes"]) {
+      await page.locator(".ambito-switch").getByRole("button", { name, exact: true }).click();
+      await withAuditScreenshot(page, `customer-site-${name}-${viewport.width}`, async () => {
+        await assertNoPageOverflow(page, `customer ${name} site at ${viewport.width}px`);
+        const nav = page.locator(".bottom-nav");
+        await assertLocatorInsideViewport(page, nav, `customer ${name} nav at ${viewport.width}px`);
+        const box = await nav.boundingBox();
+        assert.ok(box && box.y < 160, "on desktop the sections live in the top bar");
+      });
+    }
+    ok(`customer site fits ${viewport.width}x${viewport.height} in Pedidos and Viajes`);
+  }
   await context.close();
 }
 
@@ -425,6 +455,11 @@ async function auditCompactCustomerSurfaces(browser) {
 
   await ensureActiveTestShipment();
   await login(page, desktopUrl, "cliente@flash.app", "Ingresar");
+  // FE-01: Pedidos y Viajes están separados; los envíos viven en Viajes.
+  const ambito = (name) =>
+    page.locator(".ambito-switch").getByRole("button", { name, exact: true });
+  const seccion = (name) => page.locator(".bottom-nav").getByRole("button", { name, exact: true });
+  await ambito("Viajes").click();
   await page.getByRole("button", { name: "Envíos", exact: true }).click();
   await page.getByRole("heading", { name: "Mandá un paquete hoy", exact: true }).waitFor();
   const quoteShipment = page.getByRole("button", { name: "Cotizar envío", exact: true });
@@ -434,7 +469,8 @@ async function auditCompactCustomerSurfaces(browser) {
 
   // RES-02: cada servicio se abre desde el inicio; se vuelve con la flecha.
   await page.getByRole("button", { name: "Volver al inicio", exact: true }).click();
-  await page.getByRole("button", { name: "Comida", exact: true }).click();
+  await ambito("Pedidos").click();
+  await page.getByRole("button", { name: "Buscar comida, súper o farmacia", exact: true }).click();
   await page.locator(".restaurant-card").first().click();
   await page.locator(".detail-screen").waitFor();
   await assertNoPageOverflow(page, "compact customer restaurant");
@@ -489,13 +525,21 @@ async function auditCompactCustomerSurfaces(browser) {
 
   ok("compact customer account renders saved places and dietary preferences");
 
-  await page.getByRole("button", { name: "Actividad", exact: true }).click();
+  // Cada ámbito ve su actividad: Pedidos sus pedidos; Viajes, viajes y envíos.
   const trackingCases = [
-    { action: "Seguir pedido", marker: /Pedido / },
-    { action: "Seguir viaje", marker: "Centro de seguridad" },
-    { action: "Seguir envío", marker: "Prueba de entrega" },
+    { ambito: "Pedidos", tab: "Pedidos", action: "Seguir pedido", marker: /Pedido / },
+    { ambito: "Viajes", tab: "Actividad", action: "Seguir viaje", marker: "Centro de seguridad" },
+    { ambito: "Viajes", tab: "Actividad", action: "Seguir envío", marker: "Prueba de entrega" },
   ];
   for (const trackingCase of trackingCases) {
+    await ambito(trackingCase.ambito).click();
+    await seccion(trackingCase.tab).click();
+    if (trackingCase.ambito === "Pedidos")
+      assert.equal(
+        await page.getByRole("button", { name: "Seguir viaje", exact: true }).count(),
+        0,
+        "Pedidos must not list rides",
+      );
     await page.getByRole("button", { name: trackingCase.action, exact: true }).first().click();
     await page.getByText(trackingCase.marker, { exact: false }).first().waitFor();
     const close = page.getByRole("button", { name: "Cerrar seguimiento", exact: true });
@@ -503,7 +547,7 @@ async function auditCompactCustomerSurfaces(browser) {
     await assertLocatorInsideViewport(page, close, `${trackingCase.action} close action`);
     await close.click();
   }
-  ok("compact customer opens food, ride and shipment tracking without overflow");
+  ok("compact customer opens food, ride and shipment tracking, each in its own scope");
   await context.close();
 }
 
@@ -516,6 +560,7 @@ try {
   if (!skipDesktop) {
     await auditCompactCustomerSurfaces(browser);
     await auditDesktopAccessGate(browser);
+    await auditDesktopCustomerSite(browser);
     await auditDesktopRole(browser, "merchant");
     await auditDesktopRole(browser, "operations");
   }

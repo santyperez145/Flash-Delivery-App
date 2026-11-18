@@ -4,6 +4,15 @@ import { TicketPercent, WalletCards } from "lucide-react";
 import { money } from "../format";
 import type { AppState, User } from "../types";
 
+/** La Wallet vive dentro de Cuenta: un acceso, con el saldo a la vista. */
+export function WalletLink({ wallet, onOpen }: { wallet: number; onOpen: () => void }) {
+  return (
+    <button type="button" className="customer-wallet-link" onClick={onOpen}>
+      Wallet · {money.format(wallet)}
+    </button>
+  );
+}
+
 export function WalletScreen({
   user,
   promotions,

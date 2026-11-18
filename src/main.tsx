@@ -12,6 +12,9 @@ import "./styles/account-deletion.css";
 import "./styles/legal-links.css";
 import "./styles/customer-home.css";
 import "./styles/customer-site.css";
+import "./styles/customer-feed.css";
+import "./styles/customer-desktop.css";
+import "./styles/customer-scope.css";
 import "./adaptive.css";
 
 const publicTrackingToken = window.location.pathname.match(

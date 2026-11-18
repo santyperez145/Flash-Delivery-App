@@ -1,0 +1,179 @@
+/* La web del cliente en escritorio (FE-01), como ubereats.com y pedidosya.com.ar:
+   una barra arriba con la marca, la dirección, las secciones y el carrito, y el
+   contenido en una grilla ancha. En el teléfono la barra de secciones va abajo,
+   como en la app; acá sube a la barra del sitio. Hoja propia: `styles.css` es un
+   monolito de H-08. */
+@media (min-width: 900px) {
+  .app-cliente .workspace {
+    max-width: none;
+  }
+
+  .app-cliente .screen {
+    --gutter: max(32px, calc((100vw - 1180px) / 2));
+    padding: 0 var(--gutter) 64px;
+  }
+
+  .app-cliente .screen.with-nav {
+    padding-bottom: 64px;
+  }
+
+  /* Comercio, carrito y seguimiento no tienen la barra del sitio: aire arriba. */
+  .app-cliente .screen:not(.with-nav) {
+    padding-top: 24px;
+  }
+
+  .app-cliente .detail-summary h2 {
+    font-size: 1.75rem;
+  }
+
+  .app-cliente .restaurant-cover {
+    height: 300px;
+    margin: 0;
+    border-radius: var(--radius-surface);
+  }
+
+  .app-cliente .home-header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    justify-content: flex-start;
+    height: 72px;
+    margin: 0 calc(-1 * var(--gutter)) 28px;
+    padding: 0 var(--gutter);
+    background: rgba(255, 255, 255, 0.94);
+    border-bottom: 1px solid var(--line);
+    backdrop-filter: blur(12px);
+  }
+
+  .app-cliente .customer-brand {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    color: var(--ink);
+    font-size: 1.25rem;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+  }
+
+  .app-cliente .customer-brand svg {
+    color: var(--food);
+  }
+
+  .app-cliente .customer-address {
+    margin: 0 auto 0 28px;
+    padding-left: 28px;
+    border-left: 1px solid var(--line);
+  }
+
+  .app-cliente .customer-address .muted-label {
+    margin: 0;
+  }
+
+  /* Junto a las acciones (notificaciones y carrito, ~104 px), no centrada: centrada
+     pisaba una dirección larga. */
+  .app-cliente .bottom-nav {
+    top: 14px;
+    right: calc(var(--gutter) + 112px);
+    bottom: auto;
+    left: auto;
+    grid-template-columns: repeat(4, auto);
+    padding: 4px;
+    background: var(--paper-soft);
+    border: 0;
+    border-radius: 999px;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  .app-cliente .nav-item {
+    grid-auto-flow: column;
+    gap: 8px;
+    height: 36px;
+    padding: 0 16px;
+    color: var(--ink-soft);
+    font-size: 0.88rem;
+    border-radius: 999px;
+  }
+
+  .app-cliente .nav-item.active {
+    color: var(--ink);
+    background: var(--paper);
+    box-shadow: 0 2px 8px rgba(23, 19, 28, 0.08);
+  }
+
+  /* Inicio: más aire y grillas en lugar de carriles. */
+  .app-cliente .customer-home {
+    gap: 36px;
+  }
+
+  .app-cliente .customer-home-hero h1 {
+    font-size: 2.4rem;
+  }
+
+  .app-cliente .customer-home .customer-home-search,
+  .app-cliente .customer-home .customer-home-where {
+    max-width: 620px;
+  }
+
+  .app-cliente .customer-home .customer-home-grid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px;
+  }
+
+  .app-cliente .customer-home .customer-home-grid button,
+  .app-cliente .customer-home .customer-home-grid button:nth-child(-n + 2) {
+    grid-column: auto;
+    min-height: 132px;
+    padding: 16px;
+  }
+
+  .app-cliente .customer-home-grid small {
+    display: block;
+  }
+
+  .app-cliente .home-live {
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  }
+
+  .app-cliente .home-promos,
+  .app-cliente .home-cuisines,
+  .app-cliente .home-stores,
+  .app-cliente .restaurant-rail {
+    margin: 0;
+    padding: 0;
+  }
+
+  .app-cliente .home-promos {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  }
+
+  .app-cliente .home-cuisines {
+    grid-auto-columns: 96px;
+  }
+
+  .app-cliente .home-cuisines img {
+    width: 84px;
+    height: 84px;
+  }
+
+  .app-cliente .home-stores,
+  .app-cliente .restaurant-rail {
+    grid-auto-flow: row;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 20px;
+    overflow: visible;
+  }
+
+  /* Comida: los platos en dos columnas. */
+  .app-cliente .item-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  /* Lo que se lee como una lista no necesita todo el ancho. */
+  .app-cliente .customer-services {
+    max-width: 720px;
+  }
+}

@@ -1,0 +1,364 @@
+/* Pedidos y Viajes separados (FE-01): el selector, el inicio de Viajes y la
+   Actividad. Hoja propia: `styles.css` es un monolito de H-08. */
+
+/* En el teléfono, el selector ocupa su propia fila arriba de todo. */
+.app-cliente .home-header {
+  flex-wrap: wrap;
+  row-gap: 12px;
+}
+
+.app-cliente .header-actions {
+  margin-left: auto;
+}
+
+.ambito-switch {
+  display: grid;
+  flex: 1 0 100%;
+  grid-template-columns: 1fr 1fr;
+  order: -1;
+  padding: 4px;
+  background: var(--paper-soft);
+  border-radius: 999px;
+}
+
+.ambito-switch button {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  color: var(--ink-soft);
+  font: inherit;
+  font-weight: 800;
+  background: none;
+  border: 0;
+  border-radius: 999px;
+}
+
+.ambito-switch button[aria-pressed="true"] {
+  color: #fff;
+  background: var(--ink);
+  box-shadow: 0 4px 12px rgba(23, 19, 28, 0.16);
+}
+
+.ambito-switch [data-ambito="pedidos"][aria-pressed="true"] svg {
+  color: #ffb08a;
+}
+
+.ambito-switch [data-ambito="viajes"][aria-pressed="true"] svg {
+  color: #c9b4ff;
+}
+
+/* Viajes tiene su acento: la barra de secciones no se tiñe de naranja de comida. */
+.bottom-nav[data-ambito="viajes"] .nav-item.active {
+  color: var(--ride);
+  background: color-mix(in srgb, var(--ride) 10%, var(--paper));
+}
+
+/* --- Inicio de Viajes --------------------------------------------------- */
+.rides-where {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-height: 60px;
+  padding: 0 10px 0 18px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 1.15rem;
+  font-weight: 900;
+  text-align: left;
+  background: var(--paper-soft);
+  border: 0;
+  border-radius: 999px;
+}
+
+.rides-where svg {
+  color: var(--ride);
+}
+
+.rides-where .customer-home-where-now {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.rides-places {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rides-places li + li {
+  border-top: 1px solid var(--line);
+}
+
+.rides-places button {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  width: 100%;
+  min-height: 64px;
+  padding: 8px 0;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  background: none;
+  border: 0;
+}
+
+.rides-places button > span:first-child {
+  display: grid;
+  flex: 0 0 40px;
+  place-items: center;
+  height: 40px;
+  color: var(--ink);
+  background: var(--paper-soft);
+  border-radius: 999px;
+}
+
+.rides-places button > span:last-child {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.rides-places small {
+  overflow: hidden;
+  color: var(--ink-soft);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- Actividad ---------------------------------------------------------- */
+.activity-page {
+  display: grid;
+  gap: 24px;
+  padding-bottom: 8px;
+}
+
+.activity-page h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.activity-page section {
+  display: grid;
+  gap: 4px;
+}
+
+.activity-page h2 {
+  margin: 0 0 8px;
+  font-size: 1.15rem;
+  font-weight: 900;
+}
+
+.activity-live-list {
+  display: grid;
+  gap: 12px;
+}
+
+.activity-thumb {
+  display: grid;
+  flex: 0 0 56px;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  color: var(--ink);
+  object-fit: cover;
+  background: var(--paper-soft);
+  border-radius: 12px;
+}
+
+.activity-live {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+.activity-live-head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.activity-live-head > div {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+
+.activity-live-head small {
+  color: var(--brand);
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.activity-live-head span {
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+}
+
+.activity-live-bar.home-live-bar {
+  margin: 0;
+  background: var(--paper-soft);
+}
+
+.activity-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.activity-actions button,
+.activity-row-actions button {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 16px;
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  background: var(--ink);
+  border: 0;
+  border-radius: 999px;
+}
+
+.activity-actions button.secondary,
+.activity-row-actions button {
+  color: var(--ink);
+  background: var(--paper-soft);
+}
+
+.activity-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.activity-row-main {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+
+.activity-row-main > span {
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+}
+
+.activity-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.activity-row-side {
+  display: grid;
+  gap: 6px;
+  justify-items: end;
+}
+
+.activity-chip {
+  padding: 2px 8px;
+  color: var(--shipment);
+  font-size: 0.72rem;
+  font-weight: 800;
+  background: color-mix(in srgb, var(--shipment) 10%, var(--paper));
+  border-radius: 999px;
+}
+
+.activity-chip.cancelled {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 8%, var(--paper));
+}
+
+.activity-rate {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+  color: #d99a00;
+}
+
+.activity-rate span {
+  margin-right: 4px;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.activity-rate button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  min-height: 32px;
+  padding: 0;
+  color: inherit;
+  background: none;
+  border: 0;
+}
+
+/* --- Escritorio: el selector va en la barra del sitio, junto a la marca. --- */
+@media (min-width: 900px) {
+  .app-cliente .home-header {
+    flex-wrap: nowrap;
+  }
+
+  .app-cliente .ambito-switch {
+    flex: 0 0 auto;
+    order: 0;
+    margin-left: 24px;
+  }
+
+  .app-cliente .ambito-switch button {
+    min-height: 36px;
+    padding: 0 16px;
+  }
+
+  .app-cliente .rides-home .customer-home-hero {
+    max-width: 620px;
+  }
+
+  .app-cliente .rides-places {
+    max-width: 620px;
+  }
+
+  .app-cliente .activity-page {
+    max-width: 860px;
+  }
+
+  .app-cliente .activity-live-list {
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  }
+}
+
+/* Entre 900 y 1240 px la barra no entra en una fila: las secciones bajan a una
+   segunda fila de la misma barra. */
+@media (min-width: 900px) and (max-width: 1239px) {
+  .app-cliente .home-header {
+    align-items: flex-start;
+    height: 124px;
+    padding-top: 16px;
+  }
+
+  .app-cliente .bottom-nav {
+    top: 72px;
+    right: auto;
+    left: var(--gutter);
+  }
+}

@@ -1,0 +1,411 @@
+/* Inicio del cliente web con secciones (FE-01): en curso, servicios, promociones,
+   cocinas y comercios, como el feed de Uber Eats y PedidosYa. Hoja propia:
+   `styles.css` es un monolito de H-08. */
+
+.customer-brand {
+  display: none;
+}
+
+.customer-home {
+  gap: 22px;
+}
+
+.customer-home-hero {
+  display: grid;
+  gap: 6px;
+}
+
+.customer-home-hero h1 {
+  font-size: 1.75rem;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.customer-home-hero p {
+  margin: 0 0 8px;
+  color: var(--ink-soft);
+}
+
+.customer-home .customer-home-search {
+  min-height: 52px;
+  font-weight: 600;
+  background: var(--paper-soft);
+  border-color: transparent;
+  transition: border-color 0.15s ease;
+}
+
+.customer-home .customer-home-search:hover {
+  border-color: var(--line);
+}
+
+/* Lo que está en curso: una tarjeta oscura por cosa, con su barra de avance. */
+.home-live {
+  display: grid;
+  gap: 8px;
+}
+
+.home-live > button {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  color: #fff;
+  font: inherit;
+  text-align: left;
+  background: var(--ink);
+  border: 0;
+  border-radius: var(--radius-card);
+}
+
+.home-live-icon {
+  display: grid;
+  flex: 0 0 40px;
+  place-items: center;
+  height: 40px;
+  color: var(--ink);
+  background: #fff;
+  border-radius: 999px;
+}
+
+.home-live-copy {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+}
+
+.home-live-copy small {
+  color: #c9bfff;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.home-live-copy strong {
+  overflow: hidden;
+  font-size: 0.98rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-live-bar {
+  display: block;
+  height: 4px;
+  margin-top: 6px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+}
+
+.home-live-bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--brand), #b18cff);
+  border-radius: inherit;
+}
+
+.home-live .home-live-more {
+  justify-content: center;
+  padding: 10px;
+  color: var(--ink);
+  font-weight: 800;
+  background: var(--paper-soft);
+}
+
+/* Servicios: los dos primeros grandes y el resto chicos, como el inicio de Uber. */
+.customer-home .customer-home-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.customer-home .customer-home-grid button {
+  --tono: var(--food);
+  position: relative;
+  align-content: start;
+  justify-items: start;
+  gap: 4px;
+  min-height: 92px;
+  padding: 12px;
+  overflow: hidden;
+  text-align: left;
+  background: color-mix(in srgb, var(--tono) 9%, var(--paper));
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.customer-home .customer-home-grid button:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card);
+}
+
+.customer-home .customer-home-grid button:nth-child(-n + 2) {
+  grid-column: span 2;
+  min-height: 112px;
+}
+
+.customer-home .customer-home-grid [data-servicio="ride"] {
+  --tono: var(--ride);
+}
+
+.customer-home .customer-home-grid [data-servicio="shipment"] {
+  --tono: var(--shipment);
+}
+
+.customer-home .customer-home-grid [data-servicio="grocery"] {
+  --tono: #1f9d55;
+}
+
+.customer-home .customer-home-grid [data-servicio="pharmacy"] {
+  --tono: #e0346f;
+}
+
+.customer-home .customer-home-grid [data-servicio="kiosk"] {
+  --tono: #d99a00;
+}
+
+.customer-home .customer-home-grid [data-servicio="retail"] {
+  --tono: #2563eb;
+}
+
+.customer-home-tile-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  color: var(--tono);
+  background: var(--paper);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(23, 19, 28, 0.06);
+}
+
+.customer-home .customer-home-grid svg {
+  color: inherit;
+}
+
+.customer-home-grid strong {
+  font-size: 0.86rem;
+}
+
+.customer-home-grid small {
+  display: none;
+  color: var(--ink-soft);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.customer-home-grid button:nth-child(-n + 2) strong {
+  font-size: 1rem;
+}
+
+.customer-home-grid button:nth-child(-n + 2) small {
+  display: block;
+}
+
+/* Con pocos servicios no hay jerarquía que marcar: van todos iguales, en una fila. */
+.customer-home .customer-home-grid[data-pocos] {
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+}
+
+.customer-home .customer-home-grid[data-pocos] button {
+  grid-column: auto;
+  min-height: 112px;
+}
+
+.customer-home-grid[data-pocos] small {
+  display: block;
+}
+
+.customer-home .customer-home-where {
+  min-height: 56px;
+  font-size: 1.05rem;
+  background: var(--paper-soft);
+  border-color: transparent;
+  border-radius: 999px;
+}
+
+.customer-home-where-now {
+  margin-left: auto;
+  padding: 6px 12px;
+  color: var(--ink);
+  font-size: 0.8rem;
+  background: var(--paper);
+  border-radius: 999px;
+}
+
+/* Secciones con título y «Ver todo». */
+.home-section {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.home-section > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.home-section h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}
+
+.home-section > header button {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 36px;
+  padding: 0 4px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 800;
+  background: none;
+  border: 0;
+}
+
+.home-promos,
+.home-cuisines,
+.home-stores {
+  display: grid;
+  grid-auto-flow: column;
+  gap: 12px;
+  margin: 0 -18px;
+  padding: 0 18px 4px;
+  overflow-x: auto;
+  scroll-padding-inline: 18px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.home-promos::-webkit-scrollbar,
+.home-cuisines::-webkit-scrollbar,
+.home-stores::-webkit-scrollbar {
+  display: none;
+}
+
+.home-promos {
+  grid-auto-columns: minmax(240px, 78%);
+}
+
+.home-promos button {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-height: 132px;
+  padding: 16px;
+  color: #fff;
+  font: inherit;
+  text-align: left;
+  background: linear-gradient(135deg, var(--brand), var(--brand-deep));
+  border: 0;
+  border-radius: var(--radius-card);
+  scroll-snap-align: start;
+}
+
+.home-promos [data-tono="1"] {
+  background: linear-gradient(135deg, var(--food), #d9480f);
+}
+
+.home-promos [data-tono="2"] {
+  background: linear-gradient(135deg, #1f2937, var(--ink));
+}
+
+.home-promos strong {
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+
+.home-promos span,
+.home-promos small {
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 0.84rem;
+}
+
+.home-promos small {
+  justify-self: start;
+  margin-top: 4px;
+  padding: 4px 8px;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+}
+
+.home-cuisines {
+  grid-auto-columns: 76px;
+}
+
+.home-cuisines button {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 0;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: none;
+  border: 0;
+  scroll-snap-align: start;
+}
+
+.home-cuisines img {
+  width: 68px;
+  height: 68px;
+  object-fit: cover;
+  border-radius: 999px;
+  box-shadow: 0 6px 16px rgba(23, 19, 28, 0.12);
+  transition: transform 0.15s ease;
+}
+
+.home-cuisines button:hover img {
+  transform: scale(1.05);
+}
+
+.home-cuisines span {
+  max-width: 76px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.home-stores {
+  grid-auto-columns: minmax(250px, 80%);
+}
+
+.home-stores .restaurant-card {
+  scroll-snap-align: start;
+}
+
+/* Tarjeta de comercio: imagen más grande y redondeada, como en las apps de delivery. */
+.app-cliente .restaurant-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.app-cliente .restaurant-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card);
+}
+
+.app-cliente .restaurant-card img {
+  height: auto;
+  aspect-ratio: 16 / 9;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .customer-home-grid button,
+  .home-cuisines img,
+  .app-cliente .restaurant-card {
+    transition: none;
+  }
+}

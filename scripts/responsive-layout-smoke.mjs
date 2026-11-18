@@ -21,6 +21,10 @@ const customerIssues = fs.readFileSync(
 );
 const { source: webApp } = await readWebSource();
 const webCustomerCoordinator = fs.readFileSync("src/customer/CustomerSurface.tsx", "utf8");
+// FE-01: la pestaña Inicio de cada ámbito salió del coordinador a su archivo.
+const webCustomerHomeTab = fs.readFileSync("src/customer/CustomerHomeTab.tsx", "utf8");
+const webCustomerShell = `${webCustomerCoordinator}
+${webCustomerHomeTab}`;
 const webWallet = fs.readFileSync("src/customer/WalletScreen.tsx", "utf8");
 const webCustomerProfile = fs.readFileSync("src/customer/CustomerProfileScreen.tsx", "utf8");
 const webCustomerAddressBook = fs.readFileSync("src/customer/CustomerAddressBook.tsx", "utf8");
@@ -235,7 +239,7 @@ assert(
 );
 
 assert(
-  contains(webCustomerCoordinator, "<ShipmentHome") &&
+  contains(webCustomerShell, "<ShipmentHome") &&
     !contains(webCustomerCoordinator, "function ShipmentHome") &&
     webCustomerShipment.trimEnd().split(/\r?\n/).length <= 575 &&
     contains(webCustomerShipment, "api.getShipmentOptions") &&
@@ -274,7 +278,7 @@ assert(
 );
 
 assert(
-  contains(webCustomerCoordinator, "<FoodDiscoveryHome") &&
+  contains(webCustomerShell, "<FoodDiscoveryHome") &&
     !contains(webCustomerCoordinator, "function FoodDiscoveryHome") &&
     webFoodDiscovery.trimEnd().split(/\r?\n/).length <= 130 &&
     // RES-03: la portada abre con promociones reales, no con una tarjeta fija.
@@ -293,14 +297,15 @@ assert(
 assert(
   // RES-02: el selector de servicio dejó lugar al inicio con todos los servicios,
   // que es quien aplica los interruptores.
-  contains(webCustomerCoordinator, "<CustomerHome") &&
+  contains(webCustomerShell, "<CustomerHome") &&
     contains(webCustomerCoordinator, "<CustomerBottomNav") &&
     !contains(webCustomerCoordinator, "function CustomerHome") &&
     !contains(webCustomerCoordinator, "function BottomNav") &&
     webCustomerNavigation.trimEnd().split(/\r?\n/).length <= 95 &&
     contains(webCustomerHome, "if (features?.shipment_beta?.active ?? true)") &&
     contains(webCustomerHome, "if (features?.public_rides?.active ?? true)") &&
-    contains(webCustomerNavigation, 'label: "Actividad"'),
+    // FE-01: cada ámbito tiene su barra (Uber Eats y Uber).
+    contains(webCustomerNavigation, 'label: pedidos ? "Pedidos" : "Actividad"'),
   "web service flags and stable customer navigation keep bounded ownership",
 );
 

@@ -80,8 +80,35 @@ completa.** Las cuentas con varios roles conservan ese armado, que es su herrami
 
 - Las piezas salieron de `App.tsx` a `src/shell/StaffShell.tsx`: el monolito bajó 108
   líneas.
-- En escritorio, la web le sigue indicando al cliente que use la app móvil. Es una decisión
-  de producto que no se cambió.
+- En escritorio, la web le seguía indicando al cliente que use la app móvil. **FE-01 lo
+  cambió**: ver la sección siguiente.
+
+### Pedidos y Viajes separados (FE-01)
+
+Uber y Uber Eats son dos apps; PedidosYa sólo hace pedidos. Flash tenía una portada con
+todo junto: el auto al lado de la pizza, y una Actividad con viajes y pedidos mezclados.
+El dueño pidió separarlos.
+
+- **Un selector Pedidos | Viajes** arriba de todo (`src/customer/CustomerScope.tsx`). Se
+  recuerda, y `/viajes` abre Viajes directo.
+- **Pedidos** (comida, súper, farmacia, kiosco, tiendas): barra Inicio · Explorar ·
+  Pedidos · Cuenta. El inicio es un feed: en curso, rubros, promociones vigentes, cocinas,
+  «Volver a pedir» y «Cerca tuyo».
+- **Viajes** (viajes y envíos, que Uber también ofrece desde su app de viajes): barra
+  Inicio · Servicios · Actividad · Cuenta, sin carrito. El inicio pone «¿A dónde vas?»
+  primero, y después los lugares guardados y los destinos recientes con el destino cargado.
+- **Cada ámbito ve sólo lo suyo** en curso y en su actividad. Los pedidos grupales viven
+  en Pedidos.
+- **El sitio en escritorio.** El cliente pide desde la computadora, como en ubereats.com:
+  barra del sitio arriba, contenido en grilla. La puerta «seguí en la app» queda para quien
+  sólo maneja.
+- **Por qué el móvil va en otro PR (FE-02).** La app móvil no comparte pantallas con la
+  web: su inicio, su barra y su actividad viven en `apps/mobile/src/`, con
+  `screens/CustomerScreen.tsx` en 1.320 líneas, a 30 de su techo de 1.350. Separar ahí
+  exige partir ese coordinador primero, con sus contratos y la auditoría en Chromium de
+  las tres variantes de la app. En el mismo PR habrían sido dos refactors grandes que no
+  se pueden revisar ni revertir por separado. Mientras tanto, el móvil sigue con el inicio
+  de todos los servicios (RES-01), que funciona.
 
 ### Repartidor
 
@@ -128,6 +155,8 @@ Flash Negocios tiene Hoy · Pedidos · Catálogo · Cuenta.
 | RES-05 | Repartidor: desglose por servicio de lo cobrado y lo que retuvo Flash | Hecho en viajes y envíos; comida pendiente |
 | RES-06 | La web del cliente como sitio: sin marco de teléfono, sin selector de perfiles, sin métricas de la operación | Hecho |
 | RES-07 | Comercio: pausa con tiempo y motivo que vence sola | Hecho en la app móvil; modo ocupado, pausa automática y web pendientes |
+| FE-01 | Pedidos y Viajes separados en la web, inicio con feed, Actividad rehecha y el sitio del cliente en escritorio | Hecho (web) |
+| FE-02 | La misma separación en la app móvil | Pendiente: va en su PR, ver abajo |
 
 Las filas de funciones (P-02b, P-03 a P-10) siguen en [`paridad-competitiva.md`](paridad-competitiva.md).
 
