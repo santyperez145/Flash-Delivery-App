@@ -364,3 +364,7 @@ export type DispatchOffer = {
   leaveAtDoor?: boolean;
   hasInstructions?: boolean;
 };
+
+/** SEG-01: una señal del control del viaje que el pasajero todavía no contestó. */
+export type RideTripCheckKind = "long_stop" | "signal_lost" | "route_deviation" | "early_end";
+export type RideTripCheck = { id: string; kind: RideTripCheckKind; detectedAt: string };

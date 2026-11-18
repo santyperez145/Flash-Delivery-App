@@ -19,6 +19,7 @@ import type {
 import { CustomerTrackingProgress } from "./CustomerTrackingProgress";
 import { useTrackingRoute } from "./useTrackingRoute";
 import { OrderDeliveryPhoto } from "../OrderDeliveryPhoto";
+import { TripCheckBanner } from "../TripCheckBanner";
 
 export function OrderTrackingSheet({
   order,
@@ -203,6 +204,7 @@ export function RideTrackingSheet({
         />
       )}
       <ScrollView showsVerticalScrollIndicator={false}>
+        <TripCheckBanner ride={ride} location={driver?.location || undefined} />
         <View style={styles.trackingStatus}>
           <Text style={styles.foodRestaurantTitle}>{headline}</Text>
           <Text style={styles.cardText}>

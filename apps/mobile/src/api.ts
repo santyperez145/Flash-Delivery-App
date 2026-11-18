@@ -608,6 +608,20 @@ export const api = {
       method: "DELETE",
     });
   },
+  async answerRideTripCheck(
+    rideId: string,
+    checkId: string,
+    input: { response: "ok" | "help"; location?: GeoPoint },
+  ) {
+    // SEG-01: «Estoy bien» o «Pedir ayuda» ante un aviso del control del viaje.
+    return request<{
+      check: { id: string; kind: string; status: string; incidentId: string | null };
+    }>(`/rides/${rideId}/trip-checks/${checkId}`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+
   async createRideSafetyIncident(
     rideId: string,
     input: {

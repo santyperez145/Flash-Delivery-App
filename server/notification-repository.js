@@ -377,8 +377,10 @@ async function deliverViaExpo({ notification, devices, attempt, workerId }) {
     const messages = batch.map(({ token }) =>
       buildExpoMessage({
         token,
-        title: notification.title,
-        body: notification.body,
+        // La tabla no tiene columnas de título ni de texto: viajan en el payload.
+        // Antes se leían de la fila y todas las push salían vacías.
+        title: notification.title ?? notification.payload?.title,
+        body: notification.body ?? notification.payload?.body,
         // El payload no transporta datos sensibles: sólo lo necesario para que
         // la app abra el recurso correcto y vuelva a consultarlo autenticada.
         data: { type: notification.type, entityId: notification.entity_id ?? null },

@@ -26,6 +26,7 @@ import type {
   ServiceQuickReply,
   ShipmentClaim,
   DispatchOffer,
+  RideTripCheck,
 } from "@flash/domain-contracts";
 
 export type {
@@ -56,6 +57,7 @@ export type {
   ServiceQuickReply,
   ShipmentClaim,
   DispatchOffer,
+  RideTripCheck,
 };
 
 export type Mode = "customer" | "merchant" | "driver";
@@ -207,6 +209,8 @@ export type Ride = {
   customerId: string;
   driverId: string | null;
   status: "requested" | "driver_assigned" | "arriving" | "in_progress" | "completed" | "cancelled";
+  /** SEG-01: el aviso abierto del control del viaje, si hay uno. */
+  tripCheck?: RideTripCheck | null;
   service?: RideService;
   pickup: string;
   destination: string;

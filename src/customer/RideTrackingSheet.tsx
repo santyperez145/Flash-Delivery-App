@@ -5,6 +5,7 @@ import { api } from "../api";
 import { initials, money } from "../format";
 import { rideStatusLabel, rideSteps } from "../labels";
 import type { Driver, Ride, RoadRoute } from "../types";
+import { TripCheckBanner } from "./TripCheckBanner";
 
 const FlashMap = lazy(() => import("../maps/FlashMap"));
 
@@ -210,6 +211,7 @@ export function RideTrackingSheet({
             <span>{routeError}</span>
           </div>
         )}
+        <TripCheckBanner ride={ride} location={driver?.location || undefined} />
         <div className="tracking-status-panel">
           <div className="tracking-status-copy">
             <div>

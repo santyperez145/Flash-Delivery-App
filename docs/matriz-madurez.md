@@ -81,7 +81,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Capacidad | Estado | Evidencia / bloqueo |
 | --- | --- | --- |
 | PostgreSQL/PostGIS runtime | `CI` | `ci-postgres.yml` levanta PostGIS 17 con roles separados; `test:runtime-role-shape` repite el arranque en un contenedor aislado |
-| 140 migraciones versionadas | `CI` | `ci-postgres.yml` corre desde cero, en Testcontainers y de forma incremental sobre la rama base |
+| 141 migraciones versionadas | `CI` | `ci-postgres.yml` corre desde cero, en Testcontainers y de forma incremental sobre la rama base |
 | Framework estándar de pruebas | `CI` | Vitest 4.1 ejecuta autorización; Testcontainers 12.1 ejecuta migraciones y roles sobre PostGIS efímero · migración gradual restante |
 | Row-Level Security | `CI` | `test:rls` bloquea el merge · **69 de 69** tablas `por-usuario` con política. `shipment_details` y `promotion_redemptions` cerraron el 27-08: la primera guardaba nombre, teléfono y PIN del destinatario sin `ENABLE` |
 | Matriz de clasificación RLS | `CI` | `test:rls-matrix`: las 104 tablas clasificadas, deuda declarada que sólo puede achicarse. Desde el 27/08 también resta los `DROP TABLE`: una clasificación no sobrevive a su tabla |
@@ -219,6 +219,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | Capacidad | Estado | Evidencia / bloqueo |
 | --- | --- | --- |
 | PIN de retiro | `CI` | `test:ride-safety` en `ci-critical-flows` |
+| Control del viaje: parada, señal, desvío y final lejos (SEG-01) | `CI` | `test:ride-trip-checks` en `ci-critical-flows` · web y móvil · **sin operación real**: el corredor es la recta con margen, no la ruta vial |
 | Contactos de confianza cifrados | `CI` | `test:ride-safety` en `ci-critical-flows` |
 | Compartir recorrido | `CI` | `test:ride-safety` en `ci-critical-flows` |
 | Botón de emergencia | `LOCAL` | Sin procedimiento operativo detrás |

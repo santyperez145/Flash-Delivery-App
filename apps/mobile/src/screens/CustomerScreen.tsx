@@ -908,6 +908,9 @@ export function CustomerScreen({
             orders={activityOrders}
             activeOrders={activeOrders}
             activeRides={activeRides}
+            ridesWithCheck={activityRides.filter(
+              (ride) => ride.customerId === user.id && ride.tripCheck,
+            )}
             activeShipments={activeShipments}
             onSearch={() => {
               // Buscar empieza de cero: una cocina de antes ocultaría lo que coincide.

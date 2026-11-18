@@ -49,7 +49,11 @@ export async function getPostgresRides() {
       ST_Y(j.dropoff_location::geometry) dropoff_lat, ST_X(j.dropoff_location::geometry) dropoff_lng,
       (SELECT jsonb_build_object('id',c.public_id,'reason',c.reason_code,'refundAmount',c.refund_amount_cents/100.0,'fee',c.cancellation_fee_cents/100.0,'createdAt',c.created_at) FROM job_cancellations c WHERE c.job_id=j.id) cancellation,
       COALESCE((SELECT jsonb_agg(jsonb_build_object('status',je.status::text,'at',je.occurred_at) ORDER BY je.occurred_at)
-        FROM job_events je WHERE je.job_id=j.id),'[]') timeline
+        FROM job_events je WHERE je.job_id=j.id),'[]') timeline,
+      -- SEG-01: el aviso abierto más reciente del control del viaje.
+      (SELECT jsonb_build_object('id',tc.public_id,'kind',tc.kind,'detectedAt',tc.detected_at)
+        FROM ride_trip_checks tc WHERE tc.job_id=j.id AND tc.status='open'
+        ORDER BY tc.detected_at DESC LIMIT 1) trip_check
     FROM jobs j JOIN users customer ON customer.id=j.customer_id
     LEFT JOIN drivers driver ON driver.id=j.driver_id WHERE j.kind='ride' ORDER BY j.created_at DESC`);
   return result.rows.map((row) => ({
@@ -71,6 +75,7 @@ export async function getPostgresRides() {
     createdAt: new Date(row.created_at).toISOString(),
     timeline: row.timeline || [],
     cancellation: row.cancellation || null,
+    tripCheck: row.trip_check || null,
   }));
 }
 

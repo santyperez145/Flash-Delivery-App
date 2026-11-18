@@ -4,6 +4,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 
 import { api } from "../api";
 import { useServiciosDisponibles, type ServicioCliente } from "../customer-services";
+import { TripCheckBanner } from "../TripCheckBanner";
 import { flashDesign } from "../design-system";
 import type {
   GeoPoint,
@@ -34,6 +35,7 @@ export function CustomerHomeScreen({
   orders,
   activeOrders,
   activeRides,
+  ridesWithCheck,
   activeShipments,
   onSearch,
   onWhereTo,
@@ -49,6 +51,8 @@ export function CustomerHomeScreen({
   orders: Order[];
   activeOrders: Order[];
   activeRides: Ride[];
+  /** SEG-01: viajes con un aviso del control del viaje sin contestar. */
+  ridesWithCheck: Ride[];
   activeShipments: Shipment[];
   onSearch: () => void;
   onWhereTo: (destino: Destino | null) => void;
@@ -134,6 +138,9 @@ export function CustomerHomeScreen({
         </Pressable>
       )}
       {fallo && <AvisoRubros onRetry={reintentar} />}
+      {ridesWithCheck.map((ride) => (
+        <TripCheckBanner key={ride.id} ride={ride} />
+      ))}
 
       {enCurso.length > 0 && (
         <Pressable

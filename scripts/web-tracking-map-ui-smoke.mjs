@@ -94,3 +94,38 @@ assert(
   vite.includes('exclude: ["maplibre-gl"]'),
   "Vite conserva el worker propio de MapLibre durante desarrollo y HMR",
 );
+
+// SEG-01: el control del viaje está a la vista en web y móvil, durante el viaje y
+// en el inicio (un final lejos del destino se pregunta con el viaje cerrado), y el
+// worker de despacho corre el barrido.
+const read = (file) => fs.readFile(file, "utf8");
+const [webBanner, mobileBanner, mobileSheets, mobileHome, ridesHome, worker, webApi, mobileApi] =
+  await Promise.all(
+    [
+      "src/customer/TripCheckBanner.tsx",
+      "apps/mobile/src/TripCheckBanner.tsx",
+      "apps/mobile/src/screens/CustomerTrackingSheets.tsx",
+      "apps/mobile/src/screens/CustomerHomeScreen.tsx",
+      "src/customer/RidesLanding.tsx",
+      "scripts/dispatch-worker.mjs",
+      "src/api.ts",
+      "apps/mobile/src/api.ts",
+    ].map(read),
+  );
+assert(
+  contains(rideTracking, "<TripCheckBanner ride={ride}") &&
+    contains(ridesHome, "<TripCheckBanner key={ride.id} ride={ride} />") &&
+    contains(mobileSheets, "<TripCheckBanner ride={ride}") &&
+    contains(mobileHome, "<TripCheckBanner key={ride.id} ride={ride} />") &&
+    [webBanner, mobileBanner].every(
+      (source) =>
+        contains(source, 'contestar("ok")') &&
+        contains(source, 'contestar("help")') &&
+        contains(source, "api.answerRideTripCheck(ride.id, check.id, { response, location })"),
+    ) &&
+    [webApi, mobileApi].every((source) =>
+      contains(source, "`/rides/${rideId}/trip-checks/${checkId}`"),
+    ) &&
+    contains(worker, "await processPostgresTripChecks();"),
+  "el control del viaje se ve y se contesta en web y móvil, y el worker corre el barrido",
+);
