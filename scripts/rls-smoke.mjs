@@ -740,15 +740,16 @@ try {
     ).rows[0].count === 1,
     "RLS exposes the trip checks of the customer's own rides",
   );
-  if (fixtureDeliveryCodeJobId)
-    assert(
-      (
-        await client.query("SELECT count(*)::int count FROM order_delivery_codes WHERE job_id=$1", [
-          fixtureDeliveryCodeJobId,
-        ])
-      ).rows[0].count === 1,
-      "RLS exposes the delivery code state of the customer's own order",
-    );
+  // Siempre se afirma sobre el pedido de prueba: si ya tenía código, la fila existe
+  // igual y el cliente la tiene que ver. Sólo se borra la que se creó acá.
+  assert(
+    (
+      await client.query("SELECT count(*)::int count FROM order_delivery_codes WHERE job_id=$1", [
+        fixtureJob.id,
+      ])
+    ).rows[0].count === 1,
+    "RLS exposes the delivery code state of the customer's own order",
+  );
 
   // La otra mitad de la politica de `shipment_details`. Sin esto la prueba de
   // arriba solo demostraria que la tabla esta cerrada, no que discrimina: una

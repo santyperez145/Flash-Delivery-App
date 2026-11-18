@@ -17,10 +17,12 @@ const pendiente = (order: Order) =>
 export function OrderDeliveryCodeView({ order }: { order: Order }) {
   const [codigo, setCodigo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [intento, setIntento] = useState(0);
   const activo = pendiente(order) && !["delivered", "cancelled"].includes(order.status);
   useEffect(() => {
     if (!activo) return;
     let vigente = true;
+    setError(null);
     api
       .getOrderDeliveryCode(order.id)
       .then((respuesta) => vigente && setCodigo(respuesta.deliveryCode))
@@ -32,7 +34,14 @@ export function OrderDeliveryCodeView({ order }: { order: Order }) {
     return () => {
       vigente = false;
     };
-  }, [activo, order.id]);
+  }, [activo, order.id, intento]);
+  // Si la lectura falló (sin conexión, por ejemplo), se reintenta sola cada 10 s:
+  // quien reparte está esperando el código en la puerta.
+  useEffect(() => {
+    if (!activo || !error) return;
+    const timer = setTimeout(() => setIntento((n) => n + 1), 10000);
+    return () => clearTimeout(timer);
+  }, [activo, error]);
   if (!activo) return null;
   return (
     <View style={estilos.caja} accessibilityLabel="Código de entrega">
@@ -43,7 +52,11 @@ export function OrderDeliveryCodeView({ order }: { order: Order }) {
           Dáselo a quien te entregue el pedido. No lo compartas antes de recibirlo.
         </Text>
         {codigo ? <Text style={estilos.codigo}>{codigo}</Text> : null}
-        {error ? <Text style={estilos.error}>{error}</Text> : null}
+        {error ? (
+          <Pressable accessibilityRole="button" onPress={() => setIntento((n) => n + 1)}>
+            <Text style={estilos.error}>{error} · Reintentar</Text>
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );

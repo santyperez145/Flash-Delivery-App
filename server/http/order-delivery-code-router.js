@@ -13,7 +13,7 @@ import {
 import { usesPostgresCommerce } from "../postgres.js";
 import { requireAuth } from "./authentication.js";
 import { requireAnyRole } from "./authorization.js";
-import { deliveryProofLimiter } from "./rate-limits.js";
+import { deliveryCodeLimiter } from "./rate-limits.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";
 
 const codigoSchema = z.object({ pin: z.string().regex(/^\d{4}$/, "El código tiene 4 dígitos") });
@@ -43,7 +43,7 @@ orderDeliveryCodeRouter.get(
 
 orderDeliveryCodeRouter.post(
   "/api/orders/:orderId/delivery-code/verify",
-  deliveryProofLimiter,
+  deliveryCodeLimiter,
   requireAuth,
   requireAnyRole("driver"),
   async (req, res) => {

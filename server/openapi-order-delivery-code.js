@@ -41,7 +41,7 @@ export function orderDeliveryCodePaths({ success, json, errorResponses }) {
               schema: {
                 type: "object",
                 required: ["pin"],
-                properties: { pin: { type: "string", pattern: "^\d{4}$" } },
+                properties: { pin: { type: "string", pattern: "^[0-9]{4}$" } },
               },
             },
           },

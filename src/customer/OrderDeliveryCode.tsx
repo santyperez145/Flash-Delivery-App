@@ -19,10 +19,12 @@ export const faltaCodigoDeEntrega = (order: Order) =>
 export function OrderDeliveryCodeView({ order }: { order: Order }) {
   const [codigo, setCodigo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [intento, setIntento] = useState(0);
   const activo = pendiente(order) && !["delivered", "cancelled"].includes(order.status);
   useEffect(() => {
     if (!activo) return;
     let vigente = true;
+    setError(null);
     api
       .getOrderDeliveryCode(order.id)
       .then((respuesta) => vigente && setCodigo(respuesta.deliveryCode))
@@ -34,7 +36,14 @@ export function OrderDeliveryCodeView({ order }: { order: Order }) {
     return () => {
       vigente = false;
     };
-  }, [activo, order.id]);
+  }, [activo, order.id, intento]);
+  // Si la lectura falló (sin conexión, por ejemplo), se reintenta sola cada 10 s:
+  // quien reparte está esperando el código en la puerta.
+  useEffect(() => {
+    if (!activo || !error) return;
+    const timer = setTimeout(() => setIntento((n) => n + 1), 10000);
+    return () => clearTimeout(timer);
+  }, [activo, error]);
   if (!activo) return null;
   return (
     <section className="delivery-code" aria-label="Código de entrega">
@@ -43,7 +52,14 @@ export function OrderDeliveryCodeView({ order }: { order: Order }) {
         <strong>Código de entrega</strong>
         <p>Dáselo a quien te entregue el pedido. No lo compartas antes de recibirlo.</p>
         {codigo && <span className="delivery-code-digits">{codigo}</span>}
-        {error && <small role="status">{error}</small>}
+        {error && (
+          <small role="status">
+            {error}{" "}
+            <button type="button" onClick={() => setIntento((n) => n + 1)}>
+              Reintentar
+            </button>
+          </small>
+        )}
       </div>
     </section>
   );

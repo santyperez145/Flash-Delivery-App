@@ -52,6 +52,8 @@ suposición.
 | --- | --- |
 | Preferencias de entrega: en mano o en la puerta, indicaciones y cubiertos (era P-02) | `server/delivery-preferences.js`, checkout web y móvil, etiquetas para cocina y reparto · el comercio ve sólo los cubiertos y el repartidor sin asignar sólo banderas · `test:delivery-preferences`, `test:authorization`, `test:postgres` |
 | Foto obligatoria al dejar en la puerta (era P-02b) | `server/order-delivery-photo-repository.js`, guarda en `POST /api/orders/:orderId/advance`, foto en la app del repartidor y del cliente · `test:postgres` |
+| Control del viaje: parada larga, señal perdida, desvío y final lejos del destino (SEG-01, Uber RideCheck) | Migración 141, `server/ride-trip-check-repository.js`, aviso en web y móvil · `test:ride-trip-checks` |
+| Código de entrega en pedidos de valor alto o con reclamo previo (SEG-03, Uber Eats) | Migración 142, `server/order-delivery-code-repository.js`, web y móvil · `test:order-delivery-code` |
 | Rubros de comercio: restaurantes, súper, farmacia, kiosco y tiendas (era P-01) | `merchants.vertical` proyectado, `GET /api/catalog/verticals`, filtro `?vertical=` en la base, `VerticalRail` en web y móvil · `test:catalog-verticals` |
 | Retiro en el local, en web y en la app móvil (el móvil era P-11) | Migración 137, `getPostgresFoodPickupQuote`, `FoodFulfillmentPicker.tsx`, `FulfillmentToggle.tsx`, `MerchantPickupSwitch.tsx` · `test:mobile-food-design` |
 | Reordenar un pedido | `POST /api/orders/:orderId/reorder` |

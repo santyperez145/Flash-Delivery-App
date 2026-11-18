@@ -171,20 +171,8 @@ try {
     "un código mal cargado no sirve",
   );
 
-  const bien = await request(`/orders/${orderId}/delivery-code/verify`, driver.token, {
-    method: "POST",
-    body: JSON.stringify({ pin: codigo }),
-  });
-  assert(bien.status === 200 && bien.body.verified === true, "el código correcto se verifica");
-  assert(!(await orderNeedsDeliveryCode(orderId)), "verificado, el pedido ya se puede cerrar");
-  const usado = await request(`/orders/${orderId}/delivery-code`, customer.token);
-  assert(usado.status === 409, "un código usado ya no se muestra");
-
-  // Cinco errores bloquean: se prueba en una fila nueva, sin verificar.
-  await pool.query(
-    "UPDATE order_delivery_codes SET verified_at=NULL,verified_by=NULL,failed_attempts=4 WHERE job_id=$1",
-    [jobId],
-  );
+  // Cinco errores bloquean, también al código correcto.
+  await pool.query("UPDATE order_delivery_codes SET failed_attempts=4 WHERE job_id=$1", [jobId]);
   const quinto = await request(`/orders/${orderId}/delivery-code/verify`, driver.token, {
     method: "POST",
     body: JSON.stringify({ pin: otro }),
@@ -197,8 +185,31 @@ try {
     quinto.status === 429 && bloqueado.status === 429,
     "cinco errores bloquean, también al código correcto",
   );
+  // Pasado el bloqueo (se simula), el código correcto vale.
+  await pool.query(
+    "UPDATE order_delivery_codes SET failed_attempts=0,locked_until=NULL WHERE job_id=$1",
+    [jobId],
+  );
+  const bien = await request(`/orders/${orderId}/delivery-code/verify`, driver.token, {
+    method: "POST",
+    body: JSON.stringify({ pin: codigo }),
+  });
+  assert(bien.status === 200 && bien.body.verified === true, "el código correcto se verifica");
+  assert(!(await orderNeedsDeliveryCode(orderId)), "verificado, el pedido ya se puede cerrar");
+  const usado = await request(`/orders/${orderId}/delivery-code`, customer.token);
+  assert(usado.status === 409, "un código usado ya no se muestra");
+
+  // Con el código verificado, el pedido se cierra.
+  const cerrado = await request(`/orders/${orderId}/advance`, driver.token, { method: "POST" });
+  assert(
+    cerrado.status === 200 && cerrado.body.order?.status === "delivered",
+    "con el código verificado, quien reparte cierra el pedido",
+  );
 } finally {
   if (jobId) {
+    await pool.query("DELETE FROM notifications WHERE deduplication_key LIKE $1", [
+      `food_order:${orderId}:%`,
+    ]);
     await pool.query("DELETE FROM order_delivery_codes WHERE job_id=$1", [jobId]);
     await pool.query("DELETE FROM job_events WHERE job_id=$1", [jobId]);
     await pool.query("DELETE FROM jobs WHERE id=$1", [jobId]);
