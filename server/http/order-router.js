@@ -52,6 +52,8 @@ import {
   setPostgresOrderStatus,
 } from "../order-repository.js";
 import { usesPostgresCommerce } from "../postgres.js";
+import { orderHasDeliveryPhoto } from "../order-delivery-photo-repository.js";
+import { orderDeliveryPhotoRouter } from "./order-delivery-photo-router.js";
 import { validarHorarioProgramado } from "../scheduling.js";
 import { publishRealtimeEvent } from "./realtime.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";
@@ -239,6 +241,8 @@ const jwtSecret = config.jwtSecret;
 
 export const orderRouter = Router();
 const router = orderRouter;
+// P-02b: la foto de entrega vive en su propio router, montado acá.
+router.use(orderDeliveryPhotoRouter);
 
 router.get("/api/cart", requireAuth, requireAnyRole("customer", "admin"), async (req, res) => {
   if (!usesPostgresCommerce()) return ok(res, { cart: [] });
@@ -613,6 +617,17 @@ router.post(
       })
     )
       return fail(res, 403, "Esta etapa corresponde a otro participante del pedido");
+    // P-02b: dejado en la puerta, el pedido se cierra con foto. Sin ella, «no me
+    // llegó» queda sin respuesta. Operaciones puede cerrar sin foto, auditado.
+    const enLaPuerta =
+      next === "delivered" &&
+      db.orders[index].fulfillment !== "pickup" &&
+      db.orders[index].deliveryPreferences?.dropoff === "leave_at_door";
+    if (enLaPuerta && !isAdmin(req)) {
+      if (!usesPostgresCommerce()) return fail(res, 503, "La foto de entrega requiere PostgreSQL");
+      if (!(await orderHasDeliveryPhoto(db.orders[index].id)))
+        return fail(res, 409, "Lo dejaste en la puerta: sacá una foto antes de marcarlo entregado");
+    }
     db.orders[index] = usesPostgresCommerce()
       ? await setPostgresOrderStatus(db.orders[index].id, next, req.auth.userId)
       : addTimeline(db.orders[index], next);

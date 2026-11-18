@@ -32,7 +32,7 @@ const mapDeliveryEvidence = (row) => ({
   signerRelationship: row.signer_relationship || null,
   consentVersion: row.consent_version || null,
 });
-const matchesImageMime = (content, mimeType) =>
+export const matchesImageMime = (content, mimeType) =>
   mimeType === "image/jpeg"
     ? content[0] === 0xff && content[1] === 0xd8 && content[2] === 0xff
     : mimeType === "image/png"

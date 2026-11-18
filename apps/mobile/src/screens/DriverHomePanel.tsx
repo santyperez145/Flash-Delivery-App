@@ -66,7 +66,7 @@ export function DriverHomePanel(props: {
   deliverySignatureReady: Record<string, boolean>;
   deliveryEvidenceUploading: string | null;
   setSignatureShipmentId: (id: string | null) => void;
-  captureDeliveryEvidence: (shipmentId: string) => Promise<void>;
+  captureDeliveryEvidence: (id: string, tipo?: "shipment" | "order") => Promise<void>;
   visibleOffers: DispatchOffer[];
   offersLoading: boolean;
   offerBusy: string | null;
@@ -381,20 +381,67 @@ export function DriverHomePanel(props: {
           ["Modo", driver.activeService === "delivery" ? "Delivery" : "Taxi"],
         ]}
       />
-      {activeOrders.map((order) => (
-        <View key={order.id} style={styles.stack}>
-          <OrderCard
-            order={order}
-            disabled={busy}
-            onPress={() => runAction(() => api.advanceOrder(order.id), "Delivery avanzado")}
-            preferencias="reparto"
-          />
-          <Pressable style={styles.shareAction} onPress={() => setChatJobId(order.id)}>
-            <Ionicons name="chatbubbles-outline" size={18} color="#7c3cff" />
-            <Text style={styles.shareActionText}>Chat del servicio</Text>
-          </Pressable>
-        </View>
-      ))}
+      {activeOrders.map((order) => {
+        // P-02b: dejado en la puerta, el pedido se cierra con foto.
+        const fotoEnPuerta =
+          order.status === "delivering" &&
+          order.fulfillment !== "pickup" &&
+          order.deliveryPreferences?.dropoff === "leave_at_door";
+        // La foto ya subida cuenta aunque la app se haya reiniciado: lo dice el servidor.
+        const fotoLista = Boolean(deliveryEvidenceReady[order.id] || order.deliveryPhoto);
+        return (
+          <View key={order.id} style={styles.stack}>
+            {fotoEnPuerta && (
+              <View style={styles.deliveryProofCard}>
+                <View style={styles.deliveryProofIcon}>
+                  <Ionicons
+                    name={fotoLista ? "shield-checkmark" : "camera"}
+                    size={22}
+                    color="#fff"
+                  />
+                </View>
+                <View style={styles.itemCopy}>
+                  <Text style={styles.sectionTitle}>
+                    {fotoLista ? "Foto protegida" : "Foto en la puerta"}
+                  </Text>
+                  <Text style={styles.cardText}>
+                    {fotoLista
+                      ? "Ya podés marcarlo entregado."
+                      : "El cliente pidió que lo dejes en la puerta: sacá una foto antes de cerrarlo."}
+                  </Text>
+                </View>
+                <Pressable
+                  disabled={deliveryEvidenceUploading === order.id || busy}
+                  style={[
+                    styles.proofCameraButton,
+                    (deliveryEvidenceUploading === order.id || busy) && styles.disabledButton,
+                  ]}
+                  onPress={() => void captureDeliveryEvidence(order.id, "order")}
+                >
+                  <Ionicons name="camera-outline" size={18} color="#fff" />
+                  <Text style={styles.primaryButtonText}>
+                    {deliveryEvidenceUploading === order.id
+                      ? "Guardando…"
+                      : fotoLista
+                        ? "Repetir"
+                        : "Tomar foto"}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+            <OrderCard
+              order={order}
+              disabled={busy || (fotoEnPuerta && !fotoLista)}
+              onPress={() => runAction(() => api.advanceOrder(order.id), "Delivery avanzado")}
+              preferencias="reparto"
+            />
+            <Pressable style={styles.shareAction} onPress={() => setChatJobId(order.id)}>
+              <Ionicons name="chatbubbles-outline" size={18} color="#7c3cff" />
+              <Text style={styles.shareActionText}>Chat del servicio</Text>
+            </Pressable>
+          </View>
+        );
+      })}
       {activeRides.map((ride) => (
         <View key={ride.id} style={styles.stack}>
           <RideCard

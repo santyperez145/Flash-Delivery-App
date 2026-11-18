@@ -80,3 +80,23 @@
 .delivery-tag.muted {
   color: var(--ink-soft);
 }
+
+/* P-02b: la foto de un pedido dejado en la puerta, en la web del repartidor. */
+.door-photo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 0 0 8px;
+  color: var(--ink);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.door-photo input {
+  width: 100%;
+}
+
+.door-photo-ready {
+  color: var(--shipment);
+}

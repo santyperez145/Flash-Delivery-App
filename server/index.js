@@ -320,6 +320,7 @@ import {
   shipmentStatuses,
   writeDb,
 } from "./store.js";
+import { jsonBody } from "./http/json-body.js";
 
 const app = express();
 const jwtSecret = config.jwtSecret;
@@ -463,14 +464,7 @@ app.use(
     message: "Demasiados intentos de autenticacion. Intenta mas tarde.",
   }),
 );
-app.use(
-  express.json({
-    limit: "1mb",
-    verify: (req, _res, buffer) => {
-      req.rawBody = Buffer.from(buffer);
-    },
-  }),
-);
+app.use(jsonBody);
 
 // The database independently locks PIN verification after five failures. This
 // wider edge budget also covers authorized photo upload/download operations.

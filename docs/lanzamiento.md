@@ -114,7 +114,7 @@ Lo que se puede hacer hoy, en este orden:
      - **Lo que falta frente a Uber:** un centro de privacidad propio dentro de la app,
        donde se ejerzan los derechos desde un lugar único. Hoy Flash tiene el borrado de
        cuenta y los enlaces, pero no ese centro.
-4. **Paridad que el piloto necesita:** foto al dejar en la puerta (P-02b) y ~~retiro desde el
+4. **Paridad que el piloto necesita:** ~~foto al dejar en la puerta (P-02b) y retiro desde el
    móvil (P-11)~~, hecho. El resto de [`paridad-competitiva.md`](paridad-competitiva.md) no bloquea
    el piloto.
 5. **Material de tiendas:** capturas, descripción, clasificación de contenido y formularios

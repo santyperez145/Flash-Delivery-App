@@ -198,6 +198,8 @@ export type Order = {
     note?: string;
   }>;
   cancellation?: ServiceCancellation | null;
+  /** P-02b: el pedido ya tiene foto de entrega (sólo el dato, no la imagen). */
+  deliveryPhoto?: boolean;
 };
 
 export type Ride = {

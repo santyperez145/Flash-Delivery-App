@@ -177,7 +177,8 @@ const openapi = await leer("server/openapi-account.js");
 assert.ok(
   contains(openapi, '"/api/me/delete": {') &&
     contains(openapi, "202: success(") &&
-    contains(await leer("server/openapi.js"), "accountPaths({ success, json, errorResponses }),"),
+    contains(await leer("server/openapi.js"), "extraPaths({ success, json, errorResponses }),") &&
+    contains(await leer("server/openapi-paths.js"), "...accountPaths(helpers),"),
   "el borrado no está documentado en OpenAPI",
 );
 ok("OpenAPI documenta el borrado con su 200 y su 202");

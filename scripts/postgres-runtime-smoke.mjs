@@ -2539,10 +2539,46 @@ try {
     method: "POST",
     body: "{}",
   });
+  // P-02b: este pedido pidió que lo dejen en la puerta (hereda las preferencias del
+  // pedido principal). Sin foto no se cierra; con foto, la ve quien pidió.
+  const sinFoto = await request(`/orders/${settlementOrderId}/advance`, {
+    method: "POST",
+    body: "{}",
+  });
+  // Cabecera JPEG real: el servidor rechaza lo que no es una imagen.
+  const bytesFoto = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), crypto.randomBytes(252)]);
+  const fotoSubida = await request(`/orders/${settlementOrderId}/delivery-photo`, {
+    method: "POST",
+    body: JSON.stringify({ mimeType: "image/jpeg", contentBase64: bytesFoto.toString("base64") }),
+  });
+  assert(
+    sinFoto.status === 409 && fotoSubida.status === 201 && Boolean(fotoSubida.body.photo?.id),
+    `an order left at the door cannot close without a photo, and the courier can attach one (${JSON.stringify({ sinFoto: sinFoto.status, foto: fotoSubida.status })})`,
+  );
   const settledOrder = await request(`/orders/${settlementOrderId}/advance`, {
     method: "POST",
     body: "{}",
   });
+  token = customerToken;
+  const fotoCliente = await request(`/orders/${settlementOrderId}/delivery-photo`);
+  token = (
+    await request("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({
+        email: "comercio@flash.app",
+        password: "demo123",
+        deviceName: "p02b",
+      }),
+    })
+  ).body.token;
+  const fotoComercio = await request(`/orders/${settlementOrderId}/delivery-photo`);
+  token = driverToken;
+  assert(
+    fotoCliente.status === 200 &&
+      fotoCliente.body.contentBase64 === bytesFoto.toString("base64") &&
+      fotoComercio.status === 403,
+    "the customer sees the door photo and the merchant does not",
+  );
   const settlementLedger = await pool.query(
     `SELECT b.entry_count,b.imbalance_cents,t.metadata FROM ledger_transaction_balances b JOIN ledger_transactions t ON t.id=b.transaction_id WHERE t.idempotency_key=$1`,
     [`settlement-${settlementOrderId}`],

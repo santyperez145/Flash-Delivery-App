@@ -4,6 +4,7 @@
 // shell de la lógica de turno; este hook es esa frontera en Flash.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ImageManipulator, SaveFormat } from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";
 import { Alert, Linking, Platform } from "react-native";
@@ -108,7 +109,12 @@ export function useDriverShift({
     void getBackgroundLocationState().then(setBackgroundGps);
   }, [driver.online]);
 
-  const captureDeliveryEvidence = async (shipmentId: string) => {
+  // Envíos y pedidos dejados en la puerta (P-02b) comparten la captura: cámara,
+  // ubicación y subida cifrada. Cambia sólo a qué trabajo se ata la foto.
+  const captureDeliveryEvidence = async (
+    shipmentId: string,
+    tipo: "shipment" | "order" = "shipment",
+  ) => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
       Alert.alert("Permiso necesario", "Habilitá la cámara para registrar la entrega.");
@@ -117,14 +123,27 @@ export function useDriverShift({
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ["images"],
       allowsEditing: false,
-      quality: 0.55,
-      base64: true,
+      quality: 0.8,
       exif: false,
     });
     if (result.canceled) return;
     const asset = result.assets[0];
-    if (!asset.base64) {
-      Alert.alert("Flash", "La cámara no devolvió una imagen válida.");
+    // La calidad de la cámara no limita el peso: una foto de un teléfono bueno pasa
+    // el máximo de 1,5 MB del servidor. Se achica a 1280 px de lado y se comprime.
+    let contentBase64: string | undefined;
+    try {
+      const contexto = ImageManipulator.manipulate(asset.uri);
+      if (Math.max(asset.width, asset.height) > 1280)
+        contexto.resize(asset.width >= asset.height ? { width: 1280 } : { height: 1280 });
+      const imagen = await contexto.renderAsync();
+      contentBase64 = (
+        await imagen.saveAsync({ compress: 0.6, format: SaveFormat.JPEG, base64: true })
+      ).base64;
+    } catch {
+      contentBase64 = undefined;
+    }
+    if (!contentBase64) {
+      Alert.alert("Flash", "No pudimos preparar la foto. Probá sacarla de nuevo.");
       return;
     }
     setDeliveryEvidenceUploading(shipmentId);
@@ -136,17 +155,20 @@ export function useDriverShift({
         }).catch(() => null);
         if (current) location = { lat: current.coords.latitude, lng: current.coords.longitude };
       }
-      await api.addShipmentDeliveryEvidence(shipmentId, {
-        type: "photo",
-        mimeType: (asset.mimeType || "image/jpeg") as "image/jpeg" | "image/png" | "image/webp",
-        contentBase64: asset.base64,
+      const foto = {
+        mimeType: "image/jpeg" as const,
+        contentBase64,
         capturedAt: new Date().toISOString(),
         location,
-      });
+      };
+      if (tipo === "order") await api.addOrderDeliveryPhoto(shipmentId, foto);
+      else await api.addShipmentDeliveryEvidence(shipmentId, { type: "photo", ...foto });
       setDeliveryEvidenceReady((current) => ({ ...current, [shipmentId]: true }));
       Alert.alert(
         "Evidencia protegida",
-        "La foto quedó cifrada y vinculada al envío. Ahora pedí el PIN.",
+        tipo === "order"
+          ? "La foto quedó cifrada y vinculada al pedido. Ya podés marcarlo entregado."
+          : "La foto quedó cifrada y vinculada al envío. Ahora pedí el PIN.",
       );
     } catch (error) {
       Alert.alert(

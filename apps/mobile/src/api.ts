@@ -1227,6 +1227,26 @@ export const api = {
       body: JSON.stringify({ driverId }),
     });
   },
+  /** P-02b: la foto de un pedido dejado en la puerta, cifrada en el servidor. */
+  async addOrderDeliveryPhoto(
+    orderId: string,
+    input: {
+      mimeType: "image/jpeg" | "image/png" | "image/webp";
+      contentBase64: string;
+      capturedAt?: string;
+      location?: GeoPoint;
+    },
+  ) {
+    return request<{ photo: { id: string } }>(`/orders/${orderId}/delivery-photo`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+  async getOrderDeliveryPhoto(orderId: string) {
+    return request<{ photo: { mimeType: string }; contentBase64: string }>(
+      `/orders/${orderId}/delivery-photo`,
+    );
+  },
   async advanceOrder(orderId: string) {
     return request<{ order: Order }>(`/orders/${orderId}/advance`, { method: "POST" });
   },
