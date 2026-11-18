@@ -188,6 +188,7 @@ El push y los mapas ilustran exactamente esa distancia. Ambos pasaron de imposib
 | --- | --- | --- |
 | Backoffice de operaciones | `CI` | `test:operations-resources` bloquea el merge |
 | Suscripción (Flash Más) | `CI` | `test:postgres` prueba umbral, alta duplicada, baja que conserva el beneficio y reactivación · `test:marketplace-ledger` prueba quién paga el subsidio · **no cobra**: depende de PAY-001 |
+| Retiro en el local | `CI` | `test:dispatch-candidates` afirma que el retiro queda fuera de las cuatro consultas del despacho y de la creación directa de ofertas, que el pedido avanza de listo a entregado y que el comercio puede habilitarlo y entregarlo · `test:web-checkout` afirma que el modo viaja hasta la API y que la elección sale del token firmado · `test:authorization` prueba que el comercio completa el retiro y no un reparto · **sin operación real**: ningún local lo habilitó todavía |
 | Propina en el checkout | `CI` | `test:postgres` prueba retención, cargo único y liberación entera al conductor · `test:web-checkout` y `test:mobile-food-design` atan los topes del cliente a los del servidor |
 | Servicios programados y reprogramación | `CI` | `test:dispatch-candidates` afirma los cuatro bordes de la ventana y que ningún router la reescriba · `test:postgres` prueba el movimiento y sus dos rechazos |
 | Pedidos grupales | `CI` | `test:postgres` prueba el tope contra los precios de la base, que un grupo ajeno no se lee y que las líneas se entregan sumadas sin perder notas |

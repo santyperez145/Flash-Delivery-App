@@ -170,6 +170,27 @@ describe("HTTP authorization", () => {
     expect(canAdvance(customer, "delivered")).toBe(false);
 
     expect(canAdvance(merchant, "preparing", null)).toBe(false);
+
+    // Retiro en el local (GTM-002). Las dos mitades, porque la regla que lo
+    // habilita es la que podria habilitar de mas.
+    const retiro = { ...order, fulfillment: "pickup", courierId: null };
+    const porRetiro = (request, nextStatus) =>
+      canAdvanceOrder(request, { order: retiro, restaurant, nextStatus });
+
+    // El comercio entrega: no hay conductor que pueda hacerlo.
+    expect(porRetiro(merchant, "delivered")).toBe(true);
+    // Y sigue sin poder marcar etapas de un reparto que no ocurre.
+    expect(porRetiro(merchant, "picked_up")).toBe(false);
+    expect(porRetiro(merchant, "delivering")).toBe(false);
+    // Un comercio ajeno no entrega el pedido de otro.
+    expect(
+      canAdvanceOrder(otherMerchant, { order: retiro, restaurant, nextStatus: "delivered" }),
+    ).toBe(false);
+    // Ni el cliente, aunque sea el suyo y lo este retirando el mismo.
+    expect(porRetiro(customer, "delivered")).toBe(false);
+    // Y en una entrega normal el comercio sigue sin poder completarla: la regla
+    // nueva no puede filtrarse al modo de reparto.
+    expect(canAdvance(merchant, "delivered")).toBe(false);
     expect(canAdvance(adminWithMfa, "preparing", null)).toBe(true);
     expect(
       canAdvanceOrder(driver, {

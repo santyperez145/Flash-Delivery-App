@@ -250,6 +250,36 @@ Referencias oficiales usadas para esta comparacion:
 - [DoorDash Merchant Portal](https://merchants.doordash.com/en-us/products/merchant-portal)
 - [DoorDash real-time merchant features](https://about.doordash.com/en-us/news/doordash-empowers-merchants-with-new-real-time-features)
 
+### Decisión 17 de noviembre de 2026 — retiro en el local, y por qué sin código
+
+**Comparado contra:** Uber Eats y PedidosYa, los dos con retiro en el local en su checkout, y
+DoorDash, que lo llama *pickup* y lo usa como palanca de margen.
+
+Los tres resuelven el mismo problema igual: el modo se elige antes de la dirección, el
+pedido no entra al despacho, no se cobra envío, y la entrega se hace en el mostrador contra
+el número de pedido —no contra un código secreto.
+
+**Decisión derivada, y lo que se descartó.** La primera versión de la migración 137 agregaba
+`pickup_code_hash`: un código aleatorio guardado hasheado, igual que el PIN de envíos de la
+migración 024. Se sacó, y el motivo queda escrito porque es la clase de decisión que después
+nadie sabe si sigue vigente: **el modelo de amenaza no lo justifica.** El PIN de envíos y el
+de viajes existen porque el intento ocurre sin testigos —alguien solo en una puerta, alguien
+solo en un auto—. El retiro ocurre en un mostrador, con el ticket a la vista y alguien del
+local mirando. Agregar un secreto que no hace falta cuesta el lugar donde guardarlo, el
+camino para devolverlo y el riesgo de filtrarlo. Si la operación real muestra que hace
+falta, es una migración.
+
+**Dónde Flash queda por debajo todavía.** Uber Eats muestra el mapa del local y el tiempo de
+caminata desde la ubicación del cliente; PedidosYa ofrece retiro con descuento propio del
+comercio. Flash no hace ninguna de las dos: muestra la dirección y el ETA de cocina, y no
+tiene promoción específica de retiro. Quedan anotadas en
+[`docs/paridad-competitiva.md`](paridad-competitiva.md), no implementadas.
+
+**El margen es la razón económica, no la paridad.** Un pedido retirado no tiene costo de
+reparto, así que su contribución por pedido es estructuralmente mejor que la de una entrega
+subsidiada — y el contribution margin por job es la puerta económica de la Fase 2 según
+`docs/investor-readiness.md`.
+
 ## Benchmark visual y de experiencia aplicado
 
 Revision adicional: 14 de agosto de 2026.

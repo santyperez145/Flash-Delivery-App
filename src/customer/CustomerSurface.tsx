@@ -215,6 +215,7 @@ export function CustomerApp(props: {
         onCreateOrder={createOrder}
         addresses={addresses}
         paymentMethods={state.paymentMethods.filter((entry) => entry.userId === user?.id)}
+        customerId={user?.id || ""}
         customerEmail={user?.email || ""}
         busy={busy}
       />

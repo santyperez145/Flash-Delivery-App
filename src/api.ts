@@ -973,6 +973,7 @@ export const api = {
     restaurantId: string;
     deliveryAddressId?: string;
     branchId?: string;
+    fulfillment?: "delivery" | "pickup";
     deliveryAddress: string;
     paymentMethod: string;
     paymentMethodId?: string;
@@ -986,7 +987,10 @@ export const api = {
     scheduledFor?: string;
     items: Array<Pick<CartLine, "quantity" | "extras" | "note"> & { menuItemId: string }>;
   }) {
-    if (!payload.deliveryAddressId)
+    // La direccion es obligatoria **solo en entrega**. En retiro no existe, y
+    // exigirla aca dejaba el modo inalcanzable desde el cliente aunque el
+    // servidor lo aceptara: la guarda del cliente es anterior a la peticion.
+    if (payload.fulfillment !== "pickup" && !payload.deliveryAddressId)
       throw new Error("Selecciona una dirección guardada antes de confirmar");
     const quoteToken =
       payload.quoteToken ||
@@ -996,6 +1000,7 @@ export const api = {
           restaurantId: payload.restaurantId,
           deliveryAddressId: payload.deliveryAddressId,
           branchId: payload.branchId,
+          fulfillment: payload.fulfillment,
           paymentMethod: payload.paymentMethod,
           paymentMethodId: payload.paymentMethodId,
           promotionCode: payload.promotionCode,
@@ -1025,8 +1030,10 @@ export const api = {
   async quoteFoodCheckout(payload: {
     customerId: string;
     restaurantId: string;
-    deliveryAddressId: string;
+    /** Ausente en retiro: no hay direccion del cliente que medir. */
+    deliveryAddressId?: string;
     branchId?: string;
+    fulfillment?: "delivery" | "pickup";
     paymentMethod: string;
     paymentMethodId?: string;
     promotionCode?: string;
@@ -1385,6 +1392,8 @@ export const api = {
       open?: boolean;
       etaMin?: number;
       status?: "active" | "paused" | "closed";
+      /** Retiro en el local, sucursal por sucursal (GTM-002). */
+      pickupEnabled?: boolean;
     },
   ) {
     return request<{ restaurant: Restaurant }>(

@@ -688,6 +688,7 @@ function App() {
         restaurantId: cartRestaurant.id,
         deliveryAddressId: checkout.deliveryAddressId,
         deliveryAddress: checkout.deliveryAddress,
+        fulfillment: checkout.fulfillment,
         paymentMethod: checkout.paymentMethod,
         paymentMethodId: checkout.paymentMethodId,
         providerPayment,

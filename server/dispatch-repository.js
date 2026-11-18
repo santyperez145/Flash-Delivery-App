@@ -5,12 +5,24 @@ import { scoreCandidates, shortlistDrivers } from "./dispatch-candidates.js";
 
 const offerId = () => `OFR-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
 
+// **Un pedido para retirar nunca entra al despacho** (GTM-002). El predicado de
+// comida selecciona por `status='ready_for_pickup'`, que es exactamente el estado
+// al que llega un pedido retirado cuando la cocina termina: sin el filtro de
+// `fulfillment`, cada pedido que el cliente va a buscar al local se le ofreceria
+// a tres conductores, y el primero que aceptara se llevaria comida que nadie
+// pidio que se mueva.
+//
+// El filtro esta en las cuatro consultas y no en una funcion compartida porque
+// son cuatro consultas distintas —barrido, candidatos, oferta y aceptacion— y una
+// sola de ellas sin el filtro vuelve a abrir el agujero. `test:dispatch-candidates`
+// cuenta que esten las cuatro.
 export async function createDispatchOffers(client, { jobId, mode, limit = 3, ttlSeconds = 45 }) {
   // Las compuertas del trabajo se evalúan una sola vez, no por candidato.
   const job = (
     await client.query(
       `SELECT j.id,j.pickup_location::text pickup,
-      (COALESCE(j.metadata->>'subtype','')<>'food_order' OR j.status='ready_for_pickup') ready,
+      (COALESCE(j.metadata->>'subtype','')<>'food_order' OR j.status='ready_for_pickup')
+      AND COALESCE(j.metadata->>'fulfillment','delivery')<>'pickup' ready,
       (j.scheduled_for IS NULL OR j.scheduled_for<=now()+interval '15 minutes') in_window
     FROM jobs j WHERE j.id=$1`,
       [jobId],
@@ -88,6 +100,7 @@ export async function processPostgresDispatchBatch({
         `SELECT j.id,j.public_id,j.kind,COALESCE((j.metadata->>'dispatchRound')::int,0) dispatch_round
       FROM jobs j WHERE j.driver_id IS NULL AND j.status NOT IN('completed','cancelled')
         AND (COALESCE(j.metadata->>'subtype','')<>'food_order' OR j.status='ready_for_pickup')
+      AND COALESCE(j.metadata->>'fulfillment','delivery')<>'pickup'
         AND (j.scheduled_for IS NULL OR j.scheduled_for<=now()+interval '15 minutes')
         AND NOT EXISTS(SELECT 1 FROM dispatch_offers o WHERE o.job_id=j.id AND o.status='pending' AND o.expires_at>now())
         AND COALESCE((j.metadata->>'dispatchNextAttemptAt')::timestamptz,'epoch')<=now()
@@ -134,6 +147,7 @@ export async function getPostgresDispatchOffers(driverPublicId) {
     FROM dispatch_offers o JOIN drivers d ON d.id=o.driver_id JOIN jobs j ON j.id=o.job_id
     WHERE d.public_id=$1 AND o.status='pending' AND o.expires_at>now() AND j.driver_id IS NULL AND j.status NOT IN('completed','cancelled')
       AND (COALESCE(j.metadata->>'subtype','')<>'food_order' OR j.status='ready_for_pickup')
+      AND COALESCE(j.metadata->>'fulfillment','delivery')<>'pickup'
       AND (j.scheduled_for IS NULL OR j.scheduled_for<=now()+interval '15 minutes')
     ORDER BY o.score DESC,o.expires_at LIMIT 50`,
     [driverPublicId],
@@ -176,6 +190,7 @@ export async function acceptDispatchOffer(
       `SELECT o.id,o.job_id,o.driver_id,j.kind FROM dispatch_offers o JOIN jobs j ON j.id=o.job_id JOIN drivers d ON d.id=o.driver_id
     WHERE j.public_id=$1 AND d.public_id=$2 AND o.status='pending' AND o.expires_at>now()
       AND (COALESCE(j.metadata->>'subtype','')<>'food_order' OR j.status='ready_for_pickup')
+      AND COALESCE(j.metadata->>'fulfillment','delivery')<>'pickup'
       AND (j.scheduled_for IS NULL OR j.scheduled_for<=now()+interval '15 minutes') FOR UPDATE OF o`,
       [jobPublicId, driverPublicId],
     )

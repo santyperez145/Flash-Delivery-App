@@ -1,5 +1,6 @@
 import { useEffect, useState, type ComponentType } from "react";
 import {
+  Bike,
   Check,
   CreditCard,
   MapPin,
@@ -25,6 +26,8 @@ import type {
 } from "../types";
 import { TopBar } from "../ui/panels";
 import { EmptyState } from "./EmptyState";
+import { MercadoPagoCardCheckout } from "./FoodCardPayment";
+import { FoodFulfillmentPicker } from "./FoodFulfillmentPicker";
 import { QuantityCounter } from "./QuantityCounter";
 import { SchedulePicker } from "./SchedulePicker";
 import { TipSelector } from "./TipSelector";
@@ -43,6 +46,7 @@ export function CartScreen({
   onCreateOrder,
   addresses,
   paymentMethods,
+  customerId,
   customerEmail,
   busy,
 }: {
@@ -68,6 +72,7 @@ export function CartScreen({
   ) => Promise<void>;
   addresses: UserAddress[];
   paymentMethods: AppState["paymentMethods"];
+  customerId: string;
   customerEmail: string;
   busy: boolean;
 }) {
@@ -98,6 +103,21 @@ export function CartScreen({
     [quoteRevision, setQuoteRevision] = useState(0),
     [quoteClock, setQuoteClock] = useState(Date.now());
   const selectedAddress = geocodedAddresses.find((entry) => entry.id === selectedAddressId) || null;
+  // Retiro en el local (GTM-002). Arranca en `delivery` porque es lo que elige
+  // la enorme mayoría: el retiro se ofrece, no se asume.
+  const [fulfillment, setFulfillment] = useState<"delivery" | "pickup">("delivery");
+  // **La misma sucursal que se le manda al servidor.** La cotización envía
+  // `branches.find(isPrimary)?.id`, y el servidor, cuando no recibe ninguna,
+  // elige la primaria. Derivar acá otra sucursal ofrecería retiro por una que
+  // el checkout no va a usar.
+  const checkoutBranch = restaurant?.branches?.find((branch) => branch.isPrimary) || null;
+  const pickupAvailable = checkoutBranch?.pickupEnabled === true;
+  const esRetiro = fulfillment === "pickup";
+  useEffect(() => {
+    // Si el local deja de ofrecerlo —o se cambia de local— el modo vuelve a
+    // entrega. Quedarse en retiro mostraría un checkout que el servidor rechaza.
+    if (!pickupAvailable) setFulfillment("delivery");
+  }, [pickupAvailable]);
   useEffect(() => {
     if (!checkoutOpen || !restaurant) {
       setPaymentMode("wallet");
@@ -145,7 +165,16 @@ export function CartScreen({
       setQuoteBusy(false);
       return;
     }
-    if (!restaurant || !selectedAddress) {
+    if (!restaurant) {
+      setCheckoutQuote(null);
+      setQuoteError("");
+      setQuoteBusy(false);
+      return;
+    }
+    // La dirección sólo hace falta cuando Flash lleva el pedido. Exigirla en
+    // retiro bloquearía el modo entero por un dato que no se usa — y es
+    // justamente el cliente sin dirección guardada el que más lo necesita.
+    if (!esRetiro && !selectedAddress) {
       setCheckoutQuote(null);
       setQuoteError("Agregá una dirección con ubicación verificada desde Cuenta para continuar.");
       setQuoteBusy(false);
@@ -164,10 +193,11 @@ export function CartScreen({
     const timer = window.setTimeout(() => {
       api
         .quoteFoodCheckout({
-          customerId: selectedAddress.userId,
+          customerId,
           restaurantId: restaurant.id,
-          branchId: restaurant.branches?.find((branch) => branch.isPrimary)?.id,
-          deliveryAddressId: selectedAddress.id,
+          branchId: checkoutBranch?.id,
+          fulfillment,
+          deliveryAddressId: esRetiro ? undefined : selectedAddress?.id,
           paymentMethod:
             paymentMode === "wallet" ? walletMethod?.label || "Flash Wallet" : "Mercado Pago",
           paymentMethodId: paymentMode === "wallet" ? walletMethod?.id : undefined,
@@ -202,6 +232,10 @@ export function CartScreen({
   }, [
     cart,
     checkoutOpen,
+    customerId,
+    // Sin esto, cambiar de modo dejaría en pantalla el precio del modo
+    // anterior: el envío cobrado de un pedido que el cliente va a retirar.
+    fulfillment,
     paymentMode,
     promotionCode,
     quoteRevision,
@@ -212,18 +246,37 @@ export function CartScreen({
   const quoteExpired = Boolean(
     checkoutQuote && new Date(checkoutQuote.expiresAt).getTime() <= quoteClock,
   );
-  const checkoutSelection: FoodCheckoutSelection | null =
-    checkoutQuote && selectedAddress
+  // **El modo lo dicta la cotización firmada, no el botón.** El servidor
+  // compara el `fulfillment` del pedido contra el del token y rechaza el que no
+  // coincida; construir la elección desde el estado local permitiría mandar un
+  // modo que el precio no respalda.
+  const checkoutSelection: FoodCheckoutSelection | null = !checkoutQuote
+    ? null
+    : checkoutQuote.fulfillment === "pickup"
       ? {
-          deliveryAddressId: selectedAddress.id,
-          deliveryAddress: checkoutQuote.deliveryAddress,
+          fulfillment: "pickup",
+          deliveryAddress: checkoutQuote.pickupAddress,
           paymentMethod: checkoutQuote.paymentMethod,
           paymentMethodId: checkoutQuote.paymentMethodId || undefined,
           quoteToken: checkoutQuote.quoteToken,
-          tipCents,
+          // Sin reparto no hay a quién darle propina, y el servidor devuelve 409
+          // si llega una. Se manda en cero en lugar de omitirla para que no
+          // dependa de que el selector se haya ocultado.
+          tipCents: 0,
           scheduledFor,
         }
-      : null;
+      : selectedAddress
+        ? {
+            fulfillment: "delivery",
+            deliveryAddressId: selectedAddress.id,
+            deliveryAddress: checkoutQuote.deliveryAddress,
+            paymentMethod: checkoutQuote.paymentMethod,
+            paymentMethodId: checkoutQuote.paymentMethodId || undefined,
+            quoteToken: checkoutQuote.quoteToken,
+            tipCents,
+            scheduledFor,
+          }
+        : null;
   // Los mismos topes que aplica el servidor. Duplicarlos acá evita ofrecer un
   // monto que el confirmar va a rechazar; el que manda sigue siendo el servidor.
   const propinaMin = 10000;
@@ -254,7 +307,10 @@ export function CartScreen({
             <div>
               <strong>{restaurant?.name}</strong>
               <span>
-                {restaurant?.etaMin} min · envio {money.format(restaurant?.deliveryFee || 0)}
+                {restaurant?.etaMin} min ·{" "}
+                {esRetiro
+                  ? "retirás en el local"
+                  : `envio ${money.format(restaurant?.deliveryFee || 0)}`}
               </span>
             </div>
           </div>
@@ -285,51 +341,21 @@ export function CartScreen({
           </div>
           {checkoutOpen && (
             <section className="checkout-card">
-              <div className="checkout-section-heading">
-                <div>
-                  <span className="muted-label">Entrega</span>
-                  <strong>Elegí dónde recibir</strong>
-                </div>
-                <MapPin size={18} />
-              </div>
-              <div
-                className="checkout-address-list"
-                role="radiogroup"
-                aria-label="Dirección de entrega"
-              >
-                {geocodedAddresses.map((entry) => (
-                  <button
-                    key={entry.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={entry.id === selectedAddressId}
-                    className={
-                      entry.id === selectedAddressId
-                        ? "checkout-address active"
-                        : "checkout-address"
-                    }
-                    onClick={() => setSelectedAddressId(entry.id)}
-                  >
-                    <span className="saved-address-icon">
-                      <MapPin size={16} />
-                    </span>
-                    <span>
-                      <strong>{entry.label}</strong>
-                      <small>{entry.address}</small>
-                    </span>
-                    {entry.id === selectedAddressId ? <Check size={17} /> : null}
-                  </button>
-                ))}
-                {!geocodedAddresses.length && (
-                  <div className="checkout-missing-state">
-                    <TriangleAlert size={17} />
-                    <span>
-                      Necesitás una dirección guardada con coordenadas GPS. Cerrá el carrito y
-                      agregala desde Cuenta.
-                    </span>
-                  </div>
-                )}
-              </div>
+              <FoodFulfillmentPicker
+                fulfillment={fulfillment}
+                onChange={setFulfillment}
+                onTipReset={() => setTipCents(0)}
+                pickupAvailable={pickupAvailable}
+                deliveryFee={restaurant?.deliveryFee || 0}
+                branchName={checkoutBranch?.name || restaurant?.name || "El local"}
+                branchAddress={checkoutBranch?.address || ""}
+                quotedPickupAddress={
+                  checkoutQuote?.fulfillment === "pickup" ? checkoutQuote.pickupAddress : null
+                }
+                addresses={geocodedAddresses}
+                selectedAddressId={selectedAddressId}
+                onSelectAddress={setSelectedAddressId}
+              />
               <div className="checkout-section-heading">
                 <div>
                   <span className="muted-label">Pago</span>
@@ -405,8 +431,9 @@ export function CartScreen({
                       {quoteExpired ? "Cotización vencida" : "Precio verificado por Flash"}
                     </strong>
                     <small>
-                      {checkoutQuote.distanceKm} km · llega en aproximadamente{" "}
-                      {checkoutQuote.etaMin} min · {checkoutQuote.pricingVersion}
+                      {checkoutQuote.fulfillment === "pickup"
+                        ? `Listo para retirar en aproximadamente ${checkoutQuote.etaMin} min · ${checkoutQuote.pricingVersion}`
+                        : `${checkoutQuote.distanceKm} km · llega en aproximadamente ${checkoutQuote.etaMin} min · ${checkoutQuote.pricingVersion}`}
                     </small>
                   </span>
                   {quoteExpired ? (
@@ -478,7 +505,10 @@ export function CartScreen({
               disabled={busy || quoteBusy}
             />
           )}
-          {checkoutOpen && checkoutQuote && (
+          {/* La propina es para el repartidor. En retiro no hay ninguno, y el
+              servidor devuelve 409 al pedido que la lleve: ofrecerla sería
+              ofrecer un camino que termina en error. */}
+          {checkoutOpen && checkoutQuote && checkoutQuote.fulfillment !== "pickup" && (
             <TipSelector
               subtotal={checkoutQuote.subtotal}
               tipCents={tipCents}
@@ -526,95 +556,6 @@ export function CartScreen({
           )}
         </>
       )}
-    </div>
-  );
-}
-
-type ProviderPaymentInput = { cardToken: string; paymentMethodId: string; installments: number };
-type CardBrickForm = {
-  token: string;
-  payment_method_id: string;
-  installments: number;
-  transaction_amount: number;
-};
-type CardBrickProps = {
-  initialization: { amount: number; payer: { email: string } };
-  customization: {
-    paymentMethods: {
-      maxInstallments: number;
-      types: { included: Array<"credit_card" | "debit_card" | "prepaid_card"> };
-    };
-    visual: { style: { theme: string } };
-  };
-  locale: "es-AR";
-  onSubmit: (form: CardBrickForm) => Promise<void>;
-  onReady: () => void;
-  onError: (error: unknown) => void;
-};
-
-function MercadoPagoCardCheckout({
-  publicKey,
-  amount,
-  email,
-  busy,
-  onSubmit,
-  onError,
-}: {
-  publicKey: string;
-  amount: number;
-  email: string;
-  busy: boolean;
-  onSubmit: (payment: ProviderPaymentInput) => Promise<void>;
-  onError: (message: string) => void;
-}) {
-  const [CardBrick, setCardBrick] = useState<ComponentType<CardBrickProps> | null>(null);
-  useEffect(() => {
-    let active = true;
-    import("@mercadopago/sdk-react")
-      .then((sdk) => {
-        if (!active) return;
-        sdk.initMercadoPago(publicKey, { locale: "es-AR" });
-        setCardBrick(() => sdk.CardPayment as unknown as ComponentType<CardBrickProps>);
-      })
-      .catch(() => {
-        if (active) onError("No se pudo cargar el formulario seguro de Mercado Pago");
-      });
-    return () => {
-      active = false;
-    };
-  }, [onError, publicKey]);
-  if (!CardBrick)
-    return (
-      <div className="payment-brick-loading">
-        <RefreshCw size={16} />
-        Cargando formulario seguro…
-      </div>
-    );
-  return (
-    <div className={busy ? "payment-brick busy" : "payment-brick"}>
-      <CardBrick
-        initialization={{ amount, payer: { email } }}
-        customization={{
-          paymentMethods: {
-            maxInstallments: 12,
-            types: { included: ["credit_card", "debit_card", "prepaid_card"] },
-          },
-          visual: { style: { theme: "default" } },
-        }}
-        locale="es-AR"
-        onReady={() => onError("")}
-        onError={() => onError("Mercado Pago no pudo preparar el formulario")}
-        onSubmit={async (form) => {
-          if (busy) throw new Error("El pago ya se está procesando");
-          if (Math.abs(Number(form.transaction_amount) - amount) > 0.01)
-            throw new Error("El total del formulario cambió; revisá el pedido");
-          await onSubmit({
-            cardToken: form.token,
-            paymentMethodId: form.payment_method_id,
-            installments: Number(form.installments) || 1,
-          });
-        }}
-      />
     </div>
   );
 }

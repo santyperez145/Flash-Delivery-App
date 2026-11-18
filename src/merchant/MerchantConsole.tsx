@@ -39,6 +39,7 @@ import {
   DietaryCatalogEditor,
   ModifierCatalogEditor,
 } from "./MerchantCatalogEditors";
+import { MerchantPickupSwitch } from "./MerchantPickupSwitch";
 import type {
   AppState,
   MerchantFinance,
@@ -751,7 +752,13 @@ export function MerchantDesktopConsole({
                     restaurant={restaurant}
                     driver={state.drivers.find((entry) => entry.id === order.courierId)}
                     onAdvance={() => runAction(() => api.advanceOrder(order.id), "Pedido avanzado")}
-                    canAdvance={["accepted", "preparing"].includes(order.status)}
+                    canAdvance={
+                      ["accepted", "preparing"].includes(order.status) ||
+                      // El último paso de un pedido para retirar también es del
+                      // comercio: se lo entrega en mano en el mostrador. Sin
+                      // esto la comanda queda lista y sin acción posible.
+                      (order.fulfillment === "pickup" && order.status === "ready_for_pickup")
+                    }
                     onDetails={() => setDetailOrderId(order.id)}
                     busy={busy}
                   />
@@ -949,6 +956,18 @@ export function MerchantDesktopConsole({
                     </span>
                   </label>
                 </div>
+                <MerchantPickupSwitch
+                  pickupEnabled={branch.pickupEnabled}
+                  busy={busy}
+                  onChange={(pickupEnabled) =>
+                    runAction(
+                      () => api.updateBranch(restaurant.id, branch.id, { pickupEnabled }),
+                      pickupEnabled
+                        ? "Retiro en el local habilitado"
+                        : "Retiro en el local deshabilitado",
+                    )
+                  }
+                />
                 <div className="branch-metrics">
                   <article>
                     <small>ETA publicado</small>

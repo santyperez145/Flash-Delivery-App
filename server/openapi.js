@@ -1917,12 +1917,21 @@ Object.assign(openApiDocument.components.schemas, {
   },
   FoodQuoteRequest: {
     type: "object",
-    required: ["customerId", "restaurantId", "deliveryAddressId"],
+    // `deliveryAddressId` **ya no es obligatorio en el esquema** porque un
+    // pedido para retirar no tiene direccion de cliente (GTM-002). Lo exige el
+    // repositorio cuando `fulfillment` es `delivery`, que es donde tiene
+    // sentido exigirlo: ponerlo aca obligaria a un esquema por modo.
+    required: ["customerId", "restaurantId"],
     properties: {
       customerId: { type: "string" },
       restaurantId: { type: "string" },
       deliveryAddressId: { type: "string", format: "uuid" },
       branchId: { type: "string" },
+      // Retiro en el local (GTM-002). `delivery` por omision: es lo que pide la
+      // enorme mayoria, y hacerlo explicito rompia a todo cliente que ya
+      // cotiza. En `pickup` no hay tarifa de envio, ni de servicio, ni
+      // propina, y el pedido nunca entra al despacho.
+      fulfillment: { type: "string", enum: ["delivery", "pickup"], default: "delivery" },
       paymentMethod: { type: "string" },
       paymentMethodId: { type: "string", format: "uuid" },
       promotionCode: { type: "string", minLength: 3, maxLength: 40 },

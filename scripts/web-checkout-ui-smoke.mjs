@@ -8,6 +8,8 @@ const { source: app } = await readWebSource();
 const api = await fs.readFile("src/api.ts", "utf8");
 const coordinator = await fs.readFile("src/customer/CustomerSurface.tsx", "utf8");
 const foodCart = await fs.readFile("src/customer/FoodCartScreen.tsx", "utf8");
+const fulfillmentPicker = await fs.readFile("src/customer/FoodFulfillmentPicker.tsx", "utf8");
+const cardPayment = await fs.readFile("src/customer/FoodCardPayment.tsx", "utf8");
 const quantityCounter = await fs.readFile("src/customer/QuantityCounter.tsx", "utf8");
 const emptyState = await fs.readFile("src/customer/EmptyState.tsx", "utf8");
 const foodCatalog = await fs.readFile("src/customer/FoodCatalogComponents.tsx", "utf8");
@@ -21,14 +23,21 @@ const assert = (condition, message) => {
   console.log(`ok - ${message}`);
 };
 
+// El techo del carrito baja de 690 a 625: el modo de entrega y el formulario de
+// tarjeta salieron a sus propios archivos, y un techo que no acompaña al
+// refactor deja espacio libre para que el monolito vuelva a crecer.
 assert(
   coordinator.trimEnd().split(/\r?\n/).length <= 375 &&
-    foodCart.trimEnd().split(/\r?\n/).length <= 690 &&
+    foodCart.trimEnd().split(/\r?\n/).length <= 625 &&
+    fulfillmentPicker.trimEnd().split(/\r?\n/).length <= 175 &&
+    cardPayment.trimEnd().split(/\r?\n/).length <= 115 &&
     quantityCounter.trimEnd().split(/\r?\n/).length <= 35 &&
     emptyState.trimEnd().split(/\r?\n/).length <= 25 &&
     contains(coordinator, "<CartScreen") &&
     !contains(coordinator, "function CartScreen") &&
-    contains(foodCart, "<MercadoPagoCardCheckout"),
+    !contains(foodCart, "function MercadoPagoCardCheckout") &&
+    contains(foodCart, "<MercadoPagoCardCheckout") &&
+    contains(foodCart, "<FoodFulfillmentPicker"),
   "carrito, checkout, pago y primitivas conservan límites propios",
 );
 
@@ -131,4 +140,50 @@ assert(
 assert(
   contains(app, "api.rescheduleJob") && contains(app, "SchedulePicker"),
   "el checkout web reserva horario y la actividad permite moverlo",
+);
+
+// ---------------------------------------------------------------------------
+// Retiro en el local (GTM-002): el modo tiene que llegar hasta la API.
+//
+// Es la clase de hueco que este repositorio ya pagó una vez: una capacidad
+// construida en el servidor que ninguna pantalla ofrece. El servidor acepta
+// `fulfillment`, cotiza sin envío y deja que el comercio complete el pedido;
+// si el checkout no manda el modo, todo eso existe y no se puede usar.
+assert(
+  containsAll(fulfillmentPicker, [
+    'aria-label="Modo de entrega"',
+    "Retirar en el local",
+    'onChange("pickup")',
+  ]) && contains(fulfillmentPicker, "pickupAvailable &&"),
+  "el checkout ofrece retirar en el local, y sólo donde la sucursal lo habilitó",
+);
+assert(
+  contains(checkout, "fulfillment,") &&
+    contains(api, 'fulfillment?: "delivery" | "pickup"') &&
+    contains(api, 'payload.fulfillment !== "pickup" && !payload.deliveryAddressId'),
+  "el modo viaja a la cotización y a la creación, y la dirección deja de ser obligatoria en retiro",
+);
+// **La elección sale del token firmado, no del botón.** El servidor compara el
+// modo del pedido contra el de la cotización: construirla desde el estado local
+// permitiría mandar un modo que el precio no respalda.
+assert(
+  containsAll(checkout, [
+    'checkoutQuote.fulfillment === "pickup"',
+    'fulfillment: "pickup"',
+    'fulfillment: "delivery"',
+  ]),
+  "la elección del checkout sale del modo que firmó la cotización",
+);
+// Sin reparto no hay a quién darle propina, y el servidor devuelve 409 al pedido
+// que la lleve: ofrecer el selector sería ofrecer un camino que termina en error.
+assert(
+  contains(checkout, 'checkoutQuote.fulfillment !== "pickup" && (<TipSelector') &&
+    contains(fulfillmentPicker, "onTipReset()"),
+  "en retiro no se ofrece propina y la elegida antes se descarta",
+);
+const sucursalWeb = await fs.readFile("src/types.ts", "utf8");
+assert(
+  contains(sucursalWeb, "pickupEnabled: boolean") &&
+    contains(sucursalWeb, 'fulfillment: "delivery" | "pickup"'),
+  "el contrato del cliente publica el modo y qué sucursales lo aceptan",
 );
