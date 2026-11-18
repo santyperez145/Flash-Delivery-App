@@ -10,7 +10,7 @@ variable "region" {
 }
 
 variable "image" {
-  description = "Imagen de la API en Artifact Registry, con su digest. La construye y verifica CI; nunca una build local. Hace falta recién con deploy_services."
+  description = "Imagen de la API en Artifact Registry, fijada por digest, construida desde un commit de main que pasó CI (README, paso 7). Hace falta recién con deploy_services."
   type        = string
   default     = ""
 }

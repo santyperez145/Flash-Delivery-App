@@ -106,7 +106,7 @@ resource "google_artifact_registry_repository" "flash" {
   repository_id = "flash"
   location      = var.region
   format        = "DOCKER"
-  description   = "Imágenes de Flash, publicadas por CI después de verificarlas."
+  description   = "Imágenes de Flash, construidas desde un commit de main que pasó CI."
   depends_on    = [google_project_service.apis]
 }
 

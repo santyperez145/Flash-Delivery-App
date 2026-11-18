@@ -70,7 +70,20 @@ secretos vacíos, la primera aplicación fallaría.
    - correr las migraciones con `flash_app`.
 
    Nunca correr los seeds de desarrollo en producción.
-7. **Imagen:** CI la publica en `terraform output artifact_registry`. Se anota su digest.
+7. **Imagen.** CI construye y prueba la imagen (`container-image` en `ci-fast`), pero
+   **todavía no la publica**. El workflow que la sube necesita la identidad federada de
+   GitHub en el proyecto, y se escribe cuando exista la cuenta (`docs/lanzamiento.md`).
+   Mientras tanto se publica a mano, desde un checkout limpio del commit de `main` que pasó
+   CI:
+
+       REGISTRO=$(terraform output -raw artifact_registry)
+       gcloud auth configure-docker southamerica-east1-docker.pkg.dev
+       docker build -t "$REGISTRO/api:$(git rev-parse HEAD)" .
+       docker push "$REGISTRO/api:$(git rev-parse HEAD)"
+       gcloud artifacts docker images describe "$REGISTRO/api:$(git rev-parse HEAD)" \
+         --format='value(image_summary.digest)'
+
+   El último comando da el digest que va en el paso siguiente.
 8. **Segunda aplicación: los servicios.** Se agregan al archivo:
 
        image           = "southamerica-east1-docker.pkg.dev/<project_id>/flash/api@sha256:<digest>"
