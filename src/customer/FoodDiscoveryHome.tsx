@@ -1,7 +1,7 @@
-import { Clock3, LocateFixed, ShieldCheck, Sparkles, UserRound } from "lucide-react";
+import { Sparkles, Tag } from "lucide-react";
 
 import { money } from "../format";
-import type { MenuItem, MerchantVertical, Restaurant } from "../types";
+import type { AppState, MenuItem, MerchantVertical, Restaurant } from "../types";
 import { SectionTitle } from "../ui/panels";
 import { Beneficios, useSubscription } from "./SubscriptionPanel";
 import { CategoryRail, FoodRow, RestaurantCard, SearchBar } from "./FoodCatalogComponents";
@@ -15,7 +15,7 @@ export function FoodDiscoveryHome({
   category,
   setCategory,
   categories,
-  favoriteRestaurantIds,
+  state,
   onToggleFavorite,
   onOpenRestaurant,
   onOpenItem,
@@ -29,7 +29,8 @@ export function FoodDiscoveryHome({
   category: string;
   setCategory: (category: string) => void;
   categories: string[];
-  favoriteRestaurantIds: string[];
+  /** Favoritos y promociones: datos reales de la cuenta, no textos fijos. */
+  state: Pick<AppState, "favoriteRestaurantIds" | "promotions">;
   onToggleFavorite: (restaurantId: string, favorite: boolean) => void;
   onOpenRestaurant: (restaurant: Restaurant) => void;
   onOpenItem: (restaurant: Restaurant, item: MenuItem) => void;
@@ -42,25 +43,27 @@ export function FoodDiscoveryHome({
   );
   restaurants = scope.restaurants;
   allItems = scope.items;
-  const featuredRestaurant =
-    restaurants.find((restaurant) => restaurant.open) || restaurants[0] || allItems[0]?.restaurant;
-  const heroImage = featuredRestaurant?.cover || featuredRestaurant?.image;
+  const favoriteRestaurantIds = state.favoriteRestaurantIds || [];
+  // RES-03: como Uber Eats y PedidosYa, la portada abre con el buscador, los rubros y
+  // las promociones vigentes. Sólo las reales: sin promoción activa no hay tarjeta.
+  const promociones = state.promotions.filter((p) => p.active && p.service === "food");
   return (
     <>
+      <SearchBar query={query} setQuery={setQuery} />
       <VerticalRail {...scope.rail} />
-      {heroImage && (
-        <section className="promo-card">
-          <img src={heroImage} alt={`Promoción de ${featuredRestaurant.name}`} />
-          <div className="promo-overlay">
-            <span>Hot deal</span>
-            <h2>Comida en minutos</h2>
-            <p>Pedidos, tracking y reparto con backend activo.</p>
-          </div>
+      {promociones.length > 0 && (
+        <section className="promo-rail" aria-label="Promociones vigentes">
+          {promociones.map((promocion) => (
+            <article key={promocion.id}>
+              <Tag size={16} />
+              <strong>{promocion.title}</strong>
+              <span>{promocion.description}</span>
+              {promocion.code && <small>Código {promocion.code}</small>}
+            </article>
+          ))}
         </section>
       )}
       <FlashPassTeaser onOpen={onOpenSubscription} />
-      <FlashPromiseGrid />
-      <SearchBar query={query} setQuery={setQuery} />
       <CategoryRail categories={scope.categories} category={category} setCategory={setCategory} />
       <SectionTitle title="Cerca tuyo" action="Abiertos" />
       {!restaurants.length && <p className="vertical-empty">Sin comercios para mostrar acá.</p>}
@@ -77,7 +80,7 @@ export function FoodDiscoveryHome({
           />
         ))}
       </div>
-      <SectionTitle title="Mas pedidos" action="Filtros" />
+      <SectionTitle title="Platos de comercios abiertos" />
       <div className="item-list">
         {allItems.slice(0, 7).map(({ restaurant, item }) => (
           <FoodRow
@@ -106,25 +109,5 @@ function FlashPassTeaser({ onOpen }: { onOpen: () => void }) {
         <Sparkles size={15} /> {money.format(plan.priceCents / 100)} / {plan.billingPeriodDays} días
       </span>
     </button>
-  );
-}
-
-function FlashPromiseGrid() {
-  const promises = [
-    ["Tracking vivo", "Mapa + ETA", LocateFixed],
-    ["Garantia", "Credito si falla", ShieldCheck],
-    ["Sustituciones", "Vos elegis el reemplazo", UserRound],
-    ["Programar", "Food o taxi", Clock3],
-  ] as const;
-  return (
-    <div className="promise-grid">
-      {promises.map(([title, detail, Icon]) => (
-        <article key={title}>
-          <Icon size={16} />
-          <strong>{title}</strong>
-          <span>{detail}</span>
-        </article>
-      ))}
-    </div>
   );
 }

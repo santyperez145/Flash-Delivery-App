@@ -263,7 +263,7 @@ export function CustomerApp(props: {
           category={category}
           setCategory={setCategory}
           categories={categories}
-          favoriteRestaurantIds={state.favoriteRestaurantIds || []}
+          state={state}
           onToggleFavorite={(restaurantId, favorite) =>
             runAction(
               () => api.setFavorite(restaurantId, favorite),

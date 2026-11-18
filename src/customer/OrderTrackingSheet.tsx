@@ -176,7 +176,7 @@ export function OrderTrackingSheet({
         <p className="tracking-integrity-note">
           {esRetiro
             ? "No hay repartidor: el local te lo entrega en el mostrador contra el número de pedido."
-            : "La ubicación del repartidor aparece únicamente cuando el backend recibe una actualización válida. El timeline y la ETA siguen disponibles durante una degradación de mapas."}
+            : "La ubicación del repartidor aparece cuando su teléfono envía una posición. Si se pierde la señal o el mapa, el estado y la hora estimada siguen a la vista."}
         </p>
       </section>
     </div>
