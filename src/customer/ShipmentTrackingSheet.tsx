@@ -272,9 +272,9 @@ export function ShipmentTrackingSheet({
         )}
         {actionNotice && <small className="tracking-action-notice">{actionNotice}</small>}
         <p className="tracking-integrity-note">
-          La ruta, el estado, el ETA, la ubicación del repartidor y la prueba de entrega provienen
-          del backend autenticado. Si falta una señal o el proveedor de mapas falla, Flash conserva
-          el estado operativo sin inventar movimiento.
+          La ruta, el estado, la hora estimada, la ubicación del repartidor y la prueba de entrega
+          se actualizan con los datos reales del envío. Si se pierde la señal o el mapa, el estado
+          sigue a la vista y no se muestra un movimiento que no ocurrió.
         </p>
       </section>
     </div>

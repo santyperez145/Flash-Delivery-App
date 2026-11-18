@@ -157,3 +157,22 @@ for (const [nombre, servicio, home, avisos] of [
     `${nombre}: el buscador aparece sin comercios, o un fallo se ve como disponibilidad`,
   );
 ok("buscar empieza de cero, sin comercios no hay buscador y un fallo se dice con reintento");
+
+// RES-03: la hoja del inicio queda bien cerrada (un conflicto resuelto a mano dejó
+// las promociones anidadas en otra regla) y los platos «de comercios abiertos» lo son.
+const hoja = await fs.readFile("src/styles/customer-home.css", "utf8");
+let profundidad = 0;
+for (const caracter of hoja) {
+  if (caracter === "{") profundidad += 1;
+  if (caracter === "}") profundidad -= 1;
+  assert.ok(
+    profundidad >= 0 && profundidad <= 1,
+    "customer-home.css anida reglas: falta cerrar una",
+  );
+}
+assert.equal(profundidad, 0, "customer-home.css termina con una regla abierta");
+assert.ok(
+  contains(await leerWeb("FoodDiscoveryHome.tsx"), ".filter(({ restaurant }) => restaurant.open)"),
+  "la lista de platos de comercios abiertos incluye comercios cerrados",
+);
+ok("la hoja del inicio está bien cerrada y los platos son de comercios abiertos");

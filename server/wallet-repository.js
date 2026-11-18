@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { postgresPool } from "./postgres.js";
+import { pesos } from "./money.js";
 import { markHeldTipRefunded } from "./tip-repository.js";
 import { enqueueNotificationForInternalUser } from "./notification-repository.js";
 
@@ -351,8 +352,8 @@ export async function getDriverEarnings(userPublicId) {
       breakdown:
         row.kind === "driver_earning" && row.settlement_total_cents !== null
           ? {
-              customerPaid: Number(row.settlement_total_cents) / 100,
-              platformFee: Number(row.platform_cents || 0) / 100,
+              customerPaid: pesos(row.settlement_total_cents),
+              platformFee: pesos(row.platform_cents),
             }
           : null,
     })),

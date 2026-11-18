@@ -50,9 +50,22 @@ Actividad · Wallet · Perfil. **RES-02** la lleva a la misma estructura que el 
 - barra Inicio · Servicios · Actividad · Cuenta;
 - la Wallet dentro de Cuenta, con el saldo a la vista.
 
-**Pendiente para RES-03:** la portada de comidas de la web abre con una tarjeta de marketing
-(«Comida en minutos», «con backend activo») y cuatro atributos fijos. Uber Eats y PedidosYa
-abren directo en rubros y comercios: se reemplaza por promociones y comercios reales.
+**RES-03** corrigió la portada de comidas de la web, que mezclaba cosas reales con otras
+que no lo eran:
+
+- La tarjeta «Hot deal · Comida en minutos · con backend activo» no se apoyaba en ninguna
+  promoción.
+- Cuatro atributos fijos afirmaban cosas como «Garantía · Crédito si falla».
+- «Más pedidos» eran los siete primeros platos de la lista.
+
+Ahora abre como las portadas de Uber Eats y PedidosYa: buscador, rubros, promociones
+vigentes (sólo las reales), el plan Flash Más real, cocinas y comercios. Los seguimientos
+dejan de hablarle al cliente de «backend autenticado».
+
+**Pendiente para RES-06:** la web del cliente se muestra dentro de un marco de teléfono, con
+un selector Cliente · Local · Driver · Ops y un panel con métricas de toda la operación
+(«Pedidos activos», «Drivers online»). Es la maqueta de demostración. Una web de cliente
+real se ve como un sitio, sin selector de perfiles, y no expone métricas de la plataforma.
 
 ### Repartidor
 
@@ -80,9 +93,10 @@ Flash Negocios tiene Hoy · Pedidos · Catálogo · Cuenta.
 | --- | --- | --- |
 | RES-01 | Inicio con todos los servicios, barra Inicio · Servicios · Actividad · Cuenta, búsqueda arriba, «¿A dónde vas?», en curso y volver a pedir, en el móvil | Hecho |
 | RES-02 | La misma estructura en la web del cliente, con la Wallet dentro de Cuenta | Hecho |
-| RES-03 | Inicio personalizado con datos reales: promociones vigentes, horario, favoritos | Pendiente |
+| RES-03 | Portada de comidas con datos reales: promociones vigentes en lugar de textos fijos, y seguimientos en el idioma del cliente | Hecho (web) |
 | RES-04 | Servicios por ciudad: «disponible en tu ciudad» según la zona de la dirección | Pendiente |
 | RES-05 | Repartidor: desglose por servicio de lo cobrado y lo que retuvo Flash | Hecho en viajes y envíos; comida pendiente |
+| RES-06 | La web del cliente como sitio: sin marco de teléfono, sin selector de perfiles, sin métricas de la operación | Pendiente |
 
 Las filas de funciones (P-02b, P-03 a P-10) siguen en [`paridad-competitiva.md`](paridad-competitiva.md).
 
