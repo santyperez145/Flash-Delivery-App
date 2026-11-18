@@ -176,3 +176,27 @@ assert.ok(
   "la lista de platos de comercios abiertos incluye comercios cerrados",
 );
 ok("la hoja del inicio está bien cerrada y los platos son de comercios abiertos");
+
+// --- RES-06: la web del cliente es un sitio, no la maqueta de staff ---------
+const app = await fs.readFile("src/App.tsx", "utf8");
+assert.ok(
+  contains(
+    app,
+    'const soloCliente = activeUser?.roles.every((role) => role === "customer") ?? false;',
+  ) &&
+    contains(app, "{!soloCliente && <PhoneStatus online={isOnline} />}") &&
+    contains(app, "{!soloCliente && <AppModeBar mode={mode} onModeChange={switchMode} />}") &&
+    contains(app, "{!soloCliente && ( <BrandPanel") &&
+    contains(app, '{!soloCliente && ( <Suspense fallback={<aside className="ops-panel"') &&
+    !contains(app, "function BrandPanel(") &&
+    contains(await fs.readFile("src/shell/StaffShell.tsx", "utf8"), "export function BrandPanel("),
+  "un cliente ve el marco de staff: métricas de la operación, teléfono o selector de perfiles",
+);
+assert.ok(
+  contains(
+    await fs.readFile("src/ui/SystemStateScreen.tsx", "utf8"),
+    "user?.roles.map((role) => roleLabel[role])",
+  ),
+  "la pantalla de acceso muestra el rol crudo en inglés",
+);
+ok("un cliente ve Flash como un sitio, sin métricas de la operación ni selector de perfiles");
