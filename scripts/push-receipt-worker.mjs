@@ -8,10 +8,12 @@
 import { config } from "../server/config.js";
 import { processPostgresPushReceipts } from "../server/notification-repository.js";
 import { closePostgres } from "../server/postgres.js";
+import { startWorkerHealth } from "./worker-health.mjs";
 
 if (config.notificationProvider !== "expo")
   throw new Error("Los recibos de push sólo aplican con NOTIFICATION_PROVIDER=expo");
 
+const salud = startWorkerHealth({ name: "push-receipts" });
 let stopping = false;
 process.on("SIGINT", () => {
   stopping = true;
@@ -21,6 +23,7 @@ process.on("SIGTERM", () => {
 });
 
 do {
+  salud.beat();
   const result = await processPostgresPushReceipts({});
   if (result.checked)
     console.log(JSON.stringify({ level: "info", event: "push.receipts", ...result }));
@@ -37,4 +40,5 @@ do {
   if (!stopping) await new Promise((resolve) => setTimeout(resolve, 15_000));
 } while (!stopping);
 
+await salud.close();
 await closePostgres();

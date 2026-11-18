@@ -45,6 +45,35 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
 
+## Avance 18 de noviembre de 2026 — Infraestructura GCP en Terraform
+
+Desplegar no puede ser una semana de trabajo el día que exista la cuenta. [`infra/gcp`](infra/gcp/README.md)
+traduce [`docs/despliegue.md`](docs/despliegue.md) a Terraform, y `ci-fast` lo valida en cada
+PR. No se desplegó nada: no hay cuenta.
+
+- **Las tres trampas del despliegue, en código:** instancia mínima con CPU siempre
+  asignada, conexión directa por el conector de Cloud SQL y SSE de una hora.
+- **Lo que corrigió la revisión** (las dos primeras habrían roto el primer despliegue):
+  - **Workers.** Cloud Run sólo acepta servicios que escuchen en un puerto. Los cinco
+    workers en bucle exponen su latido (`scripts/worker-health.mjs`): contestan 503 si el
+    bucle se traba, y el liveness los reinicia.
+  - **Lotes.** Webhooks de Mercado Pago y refresco de OAuth procesan una tanda y terminan.
+    Son jobs con su planificador, como la conciliación.
+  - **Dos fases.** Cloud Run lee los secretos al crear la revisión. La primera aplicación
+    crea la base, la red y los secretos vacíos; la segunda (`deploy_services = true`)
+    despliega, después de cargar los secretos y migrar.
+  - **Liveness de la API sobre `/api/ready`.** Cloud Run no saca instancias del tráfico, y
+    con el realtime caído reiniciar es lo único que sirve.
+  - **Detalles.** Cloud SQL Enterprise explícito, porque `db-custom-*` no existe en
+    Enterprise Plus. `DATABASE_URL` de socket con host `localhost`, porque sin host la URL
+    es inválida. URLs legales obligatorias.
+- **Verificación:** `test:worker-health`, nuevo en `ci-fast`.
+  - Ejecuta el helper: sin puerto no abre nada; con puerto contesta 200 mientras el bucle
+    late y 503 cuando se traba.
+  - Vigila que los cinco workers laten y que Terraform les dé el puerto.
+  - Falsificado: un 200 fijo, un worker sin latido y Terraform sin el puerto ponen la suite
+    en rojo.
+
 ## Avance 18 de noviembre de 2026 — P-11, retiro en el local desde la app móvil
 
 El servidor y la web ofrecían el retiro desde GTM-002; **la app móvil, que es la superficie

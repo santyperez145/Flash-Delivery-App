@@ -17,3 +17,9 @@ vite-dev*.log
 sbom-flash.cdx.json
 
 test-artifacts/
+
+# Terraform: los proveedores descargados no se versionan; el lock sí.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars

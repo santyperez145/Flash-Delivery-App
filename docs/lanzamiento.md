@@ -92,9 +92,11 @@ Lo que se puede hacer hoy, en este orden:
    - El plazo de 30 días de Uber evita borrados por error. Es una decisión de producto
      pendiente: agregarlo exige que la cuenta quede suspendida, no anonimizada, durante el
      plazo.
-2. **Infraestructura como código para GCP** y el workflow de despliegue, apagado hasta que
-   existan las credenciales: el día que se abra la cuenta, desplegar tiene que ser correr un
-   comando, no una semana de trabajo.
+2. ~~**Infraestructura como código para GCP**~~, en [`infra/gcp`](../infra/gcp/README.md).
+   - Hecho: Terraform validado en CI, con despliegue en dos fases porque Cloud Run lee los
+     secretos al crear cada revisión.
+   - Falta el workflow que publica la imagen y aplica. Se escribe con la cuenta, porque
+     necesita la identidad federada de GitHub en el proyecto.
 3. **Enlaces legales en la app** (términos, privacidad) apuntando a las URLs que defina el
    dueño, con el estado honesto mientras no existan.
 4. **Paridad que el piloto necesita:** foto al dejar en la puerta (P-02b) y retiro desde el
