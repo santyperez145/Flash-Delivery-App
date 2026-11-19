@@ -37,21 +37,25 @@ const [
 assert.ok(
   // Antes de puntuar: filtrar después del corte dejaba el viaje sin ofertas si los
   // mejores puntuados debían de más.
+  // PAG-01 en comida: el tope se proyecta con lo que va a deber al cobrar.
   contains(
     despacho,
-    "const habilitados = job.cash ? await elegiblesParaEfectivo(client, driverIds) : driverIds;",
+    "const habilitados = job.cash ? await elegiblesParaEfectivo(client, driverIds, Number(job.cash_debt)) : driverIds;",
   ) &&
     contains(
       despacho,
       "await scoreCandidates(client, { jobId, driverIds: habilitados, mode, limit })",
     ) &&
-    contains(despacho, "if (offer.cash && !(await puedeTomarEfectivo(client, offer.driver_id)))") &&
+    contains(
+      despacho,
+      "if (offer.cash && !(await puedeTomarEfectivo(client, offer.driver_id, Number(offer.cash_debt))))",
+    ) &&
     // Deber exactamente el tope todavía se permite.
     contains(
       despacho,
-      "(await driverWalletBalanceCents(client, driverId)) >= -config.cashDriverDebtLimitCents",
+      "(await driverWalletBalanceCents(client, driverId)) - enCurso - deudaNueva >= -config.cashDriverDebtLimitCents",
     ) &&
-    contains(despacho, "[driverIds, -config.cashDriverDebtLimitCents],"),
+    contains(despacho, "[driverIds, -config.cashDriverDebtLimitCents, deudaNueva],"),
   "el despacho ofrece o deja aceptar un viaje en efectivo a quien debe más del tope",
 );
 console.log("ok - quien debe más del tope no recibe ni acepta viajes en efectivo");

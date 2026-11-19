@@ -1,4 +1,4 @@
-import { refundRecipient } from "./wallet-repository.js";
+import { CASH_LABEL, refundRecipient } from "./wallet-repository.js";
 import crypto from "node:crypto";
 import { postgresPool } from "./postgres.js";
 import { heldTipForJob, markHeldTipRefunded, markTipReleased } from "./tip-repository.js";
@@ -124,7 +124,18 @@ export async function settleCapturedFoodOrder(client, { jobId, actorId = null })
       [jobId],
     )
   ).rows[0];
-  if (!payment) return { settled: false, reason: "payment_not_captured" };
+  // PAG-01: un pedido en efectivo no tiene cobro previo. Se liquida por el total del
+  // pedido (ya rebajado por las sustituciones aceptadas) y, aparte, se asienta que
+  // quien cobró tiene la plata en la mano.
+  const efectivo = !payment && job.payment_method_label === CASH_LABEL;
+  if (!payment && !efectivo)
+    return { settled: false, reason: "payment_not_captured", cashRequired: false };
+  const pago = payment ?? {
+    provider: "cash",
+    captured_amount_cents: job.final_amount_cents,
+    provider_payload: {},
+    customer_id: job.customer_id,
+  };
   const transaction = (
     await client.query(
       `INSERT INTO ledger_transactions(idempotency_key,kind,actor_id,description,metadata) VALUES($1,'merchant_settlement',$2,$3,$4) ON CONFLICT(idempotency_key) DO NOTHING RETURNING id`,
@@ -136,13 +147,13 @@ export async function settleCapturedFoodOrder(client, { jobId, actorId = null })
       ],
     )
   ).rows[0];
-  if (!transaction) return { settled: true, idempotent: true };
+  if (!transaction) return { settled: true, idempotent: true, cashRequired: efectivo };
   // La propina tomada en el checkout viaja dentro de lo cobrado, pero **no se
   // reparte**: no es del comercio ni de la plataforma. Se saca del total antes
   // de dividir y se paga aparte, o el comercio se llevaria la propina del
   // repartidor.
   const tip = await heldTipForJob(client, job.id);
-  const capturado = Number(payment.captured_amount_cents),
+  const capturado = Number(pago.captured_amount_cents),
     total = capturado - tip.amountCents,
     subtotal = Number(job.subtotal_cents),
     discount = Math.round(Number(job.metadata?.discount || 0) * 100),
@@ -150,11 +161,11 @@ export async function settleCapturedFoodOrder(client, { jobId, actorId = null })
     // para que el proveedor no se la deposite al comercio. Se descuenta acá por
     // el mismo motivo por el que se descuenta del total.
     providerApplicationFee =
-      Number(payment.provider_payload?.applicationFeeCents || 0) - tip.amountCents,
+      Number(pago.provider_payload?.applicationFeeCents || 0) - tip.amountCents,
     deliveryFee = Math.round(Number(job.metadata?.deliveryFee || 0) * 100),
     subscriptionDiscount = Math.round(Number(job.metadata?.subscriptionDiscount || 0) * 100),
     { merchantNet, driverNet, platformNet, commission } = calculateFoodSettlement({
-      provider: payment.provider,
+      provider: pago.provider,
       total,
       subtotal,
       discount,
@@ -168,7 +179,7 @@ export async function settleCapturedFoodOrder(client, { jobId, actorId = null })
     merchantDestination = await account(client, {
       ownerType: "merchant",
       ownerId: job.merchant_internal_id,
-      accountType: payment.provider === "mercadopago" ? "seller_split_control" : "payable",
+      accountType: pago.provider === "mercadopago" ? "seller_split_control" : "payable",
     }),
     platformRevenue = await systemAccount(client, "revenue");
   // Cuando la plataforma subsidia, su cuenta de resultados **se debita** en vez
@@ -205,7 +216,7 @@ export async function settleCapturedFoodOrder(client, { jobId, actorId = null })
           ownerType: "user",
           // A quien pagó la propina (PAG-05): con el perfil familiar, quien organiza.
           // Si borró su cuenta, a quien pidió (ver `refundRecipient`).
-          ownerId: await refundRecipient(client, payment.customer_id, job.customer_id),
+          ownerId: await refundRecipient(client, pago.customer_id, job.customer_id),
           accountType: "wallet",
         });
     entries.push([destinoPropina, "credit", tip.amountCents]);
@@ -234,18 +245,62 @@ export async function settleCapturedFoodOrder(client, { jobId, actorId = null })
             platformNet,
             commission,
             settlementRail:
-              payment.provider === "mercadopago" ? "provider_split" : "internal_payable",
-            providerFeesExcluded: payment.provider === "mercadopago",
+              pago.provider === "mercadopago"
+                ? "provider_split"
+                : efectivo
+                  ? "cash_on_delivery"
+                  : "internal_payable",
+            providerFeesExcluded: pago.provider === "mercadopago",
           },
         ],
       );
+  // El efectivo lo tiene quien lo cobró: el repartidor, o el comercio en un retiro o
+  // con su propio reparto. Queda debiendo lo que no es suyo; la caja de compensación
+  // recibe el total que la liquidación de arriba repartió. Clave propia por pedido:
+  // no choca con la de los viajes (`cash-collection-viaje-…`).
+  let collector = null;
+  // Sin nada que cobrar no hay asiento: los importes del libro son siempre positivos.
+  if (efectivo && capturado > 0) {
+    collector = job.driver_user_id ? "courier" : "merchant";
+    const cobrador = job.driver_user_id
+      ? await account(client, {
+          ownerType: "user",
+          ownerId: job.driver_user_id,
+          accountType: "wallet",
+        })
+      : merchantDestination;
+    const cobro = (
+      await client.query(
+        `INSERT INTO ledger_transactions(idempotency_key,kind,actor_id,description,metadata)
+         VALUES($1,'cash_collection',$2,$3,$4) RETURNING id`,
+        [
+          `cash-collection-${job.public_id}`,
+          actorId,
+          `Efectivo cobrado pedido ${job.public_id}`,
+          { jobPublicId: job.public_id, collector },
+        ],
+      )
+    ).rows[0].id;
+    await client.query(
+      `INSERT INTO ledger_entries(transaction_id,account_id,direction,amount_cents,reference_type,reference_id,metadata)
+       VALUES($1,$2,'debit',$4,'cash_collection',$5,$6),($1,$3,'credit',$4,'cash_collection',$5,$6)`,
+      [cobro, cobrador, clearing, capturado, job.id, { jobPublicId: job.public_id, collector }],
+    );
+  }
   return {
     settled: true,
+    cashRequired: efectivo,
+    collector,
     merchantNet,
     driverNet,
     platformNet,
     commission,
-    settlementRail: payment.provider === "mercadopago" ? "provider_split" : "internal_payable",
+    settlementRail:
+      pago.provider === "mercadopago"
+        ? "provider_split"
+        : efectivo
+          ? "cash_on_delivery"
+          : "internal_payable",
   };
 }
 

@@ -16,6 +16,7 @@ import { track } from "../analytics";
 import { api } from "../api";
 import { flashDesign } from "../design-system";
 import { FAMILY_PAYMENT, FAMILY_PAYMENT_ID, useFamilyPayment } from "../family-payment";
+import { CASH_PAYMENT, CASH_PAYMENT_ID, parseCashTendered } from "../cash-payment";
 import { mobileOrderStatusLabel, money } from "../format";
 import { styles } from "../styles";
 import { ActionButton, ServiceChatModal } from "../ui";
@@ -306,6 +307,9 @@ export function CustomerScreen({
   // Reserva de horario (GTM-001). `null` es «lo antes posible».
   const [foodScheduledFor, setFoodScheduledFor] = useState<string | null>(null);
   const [foodPreferences, setFoodPreferences] = useState(PREFERENCIAS_INICIALES);
+  // PAG-01: «¿Con cuánto pagás?» en efectivo, en pesos tal como se escribe. Vacío es
+  // pagar justo.
+  const [foodCashTendered, setFoodCashTendered] = useState("");
   // Retiro en el local (P-11): el modo se elige en el carrito, antes de cotizar.
   const [foodFulfillment, setFoodFulfillment] = useState<Fulfillment>("delivery");
   // Grupo que se está por confirmar (GTM-001).
@@ -707,12 +711,26 @@ export function CustomerScreen({
   // con una membresía activa; si deja de estarlo, vuelve el medio guardado.
   const { membership: foodFamily, reload: reloadFoodFamily } = useFamilyPayment();
   const payFoodWithFamily = selectedFoodPaymentId === FAMILY_PAYMENT_ID && foodFamily !== null;
-  // Lo que viaja a la API: la etiqueta de la familia va sin `paymentMethodId`.
+  const pickupBranch = sucursalConRetiro(cartRestaurant);
+  // Sin sucursal con retiro, el modo elegido no aplica: es entrega.
+  const esRetiro = foodFulfillment === "pickup" && Boolean(pickupBranch);
+  // La sucursal que se cotiza: la del retiro o la principal para el reparto.
+  const foodQuoteBranch = esRetiro
+    ? pickupBranch
+    : cartRestaurant?.branches?.find((branch) => branch.isPrimary) || null;
+  // PAG-01: el efectivo lo habilita cada sucursal. Si la que se cotiza no lo acepta
+  // (o lo deja de aceptar), vuelve el medio guardado sin que nadie lo elija de nuevo.
+  const foodCashAvailable = Boolean(foodQuoteBranch?.cashEnabled);
+  const payFoodWithCash = selectedFoodPaymentId === CASH_PAYMENT_ID && foodCashAvailable;
+  // Lo que viaja a la API: la etiqueta de la familia y la del efectivo van sin
+  // `paymentMethodId`.
   const foodPaymentFields = payFoodWithFamily
     ? { paymentMethod: FAMILY_PAYMENT, paymentMethodId: undefined }
-    : selectedFoodPayment
-      ? { paymentMethod: selectedFoodPayment.label, paymentMethodId: selectedFoodPayment.id }
-      : null;
+    : payFoodWithCash
+      ? { paymentMethod: CASH_PAYMENT, paymentMethodId: undefined }
+      : selectedFoodPayment
+        ? { paymentMethod: selectedFoodPayment.label, paymentMethodId: selectedFoodPayment.id }
+        : null;
   // Lo que queda del mes cambia con cada compra, y el perfil se puede dejar desde
   // Cuenta: se relee cada vez que el carrito queda a la vista, no sólo al entrar.
   const foodCartVisible =
@@ -808,9 +826,6 @@ export function CustomerScreen({
       item.lat !== null &&
       item.lng !== null,
   );
-  const pickupBranch = sucursalConRetiro(cartRestaurant);
-  // Sin sucursal con retiro, el modo elegido no aplica: es entrega.
-  const esRetiro = foodFulfillment === "pickup" && Boolean(pickupBranch);
   const foodCheckoutItems = cart.map((line) => ({
     menuItemId: line.menuItemId,
     quantity: line.quantity,
@@ -836,9 +851,7 @@ export function CustomerScreen({
         customerId: user.id,
         restaurantId: cartRestaurant.id,
         deliveryAddressId: esRetiro ? undefined : selectedFoodAddress?.id,
-        branchId: esRetiro
-          ? pickupBranch?.id
-          : cartRestaurant.branches?.find((branch) => branch.isPrimary)?.id,
+        branchId: foodQuoteBranch?.id,
         fulfillment: esRetiro ? "pickup" : "delivery",
         paymentMethod: foodPaymentFields.paymentMethod,
         paymentMethodId: foodPaymentFields.paymentMethodId,
@@ -846,6 +859,15 @@ export function CustomerScreen({
         items: foodCheckoutItems,
       });
       setFoodCheckoutQuote(result.quote);
+      // PAG-01: en efectivo no hay propina en el checkout ni se deja en la puerta, y el
+      // servidor rechaza el pedido que lo pida. Se ajusta con la cotización firmada,
+      // antes de que la pantalla los muestre.
+      if (result.quote.paymentMethod === CASH_PAYMENT) {
+        setFoodTipCents(0);
+        setFoodPreferences((actual) =>
+          actual.dropoff === "leave_at_door" ? { ...actual, dropoff: "hand_to_me" } : actual,
+        );
+      } else setFoodCashTendered("");
       setFoodScreen("checkout");
     }, "Precio final actualizado");
   };
@@ -902,6 +924,17 @@ export function CustomerScreen({
       );
       return;
     }
+    // PAG-01: «¿Con cuánto pagás?» viaja sólo en efectivo y sólo si se completó. Menos
+    // que el total no alcanza: el servidor lo rechaza, y se avisa antes.
+    const conCuanto =
+      foodCheckoutQuote.paymentMethod === CASH_PAYMENT ? parseCashTendered(foodCashTendered) : null;
+    if (conCuanto !== null && conCuanto < foodCheckoutQuote.total) {
+      Alert.alert(
+        "No alcanza",
+        `Con lo que pagás no alcanza: el total es ${money.format(foodCheckoutQuote.total)}.`,
+      );
+      return;
+    }
     runAction(async () => {
       const result = await api.createOrder({
         customerId: user.id,
@@ -921,6 +954,8 @@ export function CustomerScreen({
         // En retiro no hay propina de reparto ni modo de entrega: sólo cubiertos.
         tipCents: retiro ? 0 : foodTipCents,
         scheduledFor: foodScheduledFor ?? undefined,
+        // En centavos enteros, como la propina.
+        ...(conCuanto !== null ? { cashTenderedCents: conCuanto * 100 } : {}),
         deliveryPreferences: retiro
           ? { ...PREFERENCIAS_INICIALES, cutlery: foodPreferences.cutlery }
           : foodPreferences,
@@ -943,6 +978,7 @@ export function CustomerScreen({
       setFoodTipCents(0);
       setFoodScheduledFor(null);
       setFoodPreferences(PREFERENCIAS_INICIALES);
+      setFoodCashTendered("");
       setFoodScreen("orders");
       if (payFoodWithFamily) void reloadFoodFamily();
       track("job_created", "customer_app", { service: "food" });
@@ -1097,9 +1133,13 @@ export function CustomerScreen({
               userId={user.id}
               deliveryAddress={deliveryAddress}
               paymentMethods={customerPaymentMethods}
-              selectedPayment={payFoodWithFamily ? undefined : selectedFoodPayment}
+              selectedPayment={
+                payFoodWithFamily || payFoodWithCash ? undefined : selectedFoodPayment
+              }
               family={foodFamily}
               familySelected={payFoodWithFamily}
+              cashAvailable={foodCashAvailable}
+              cashSelected={payFoodWithCash}
               promotion={activeFoodPromotion}
               promotionCode={foodPromotionCode}
               subtotal={cartTotal}
@@ -1123,6 +1163,8 @@ export function CustomerScreen({
               onSelectPayment={(paymentMethodId) => {
                 setSelectedFoodPaymentId(paymentMethodId);
                 setFoodCheckoutQuote(null);
+                // En efectivo la propina se da en mano: una elegida antes no se cobra.
+                if (paymentMethodId === CASH_PAYMENT_ID) setFoodTipCents(0);
               }}
               onPromotionChange={(code) => {
                 setFoodPromotionCode(code);
@@ -1134,8 +1176,10 @@ export function CustomerScreen({
               visible={foodScreen === "checkout"}
               quote={foodCheckoutQuote}
               restaurantName={cartRestaurant?.name}
-              paymentMethod={payFoodWithFamily ? undefined : selectedFoodPayment}
+              paymentMethod={payFoodWithFamily || payFoodWithCash ? undefined : selectedFoodPayment}
               family={payFoodWithFamily ? foodFamily : null}
+              cashTendered={foodCashTendered}
+              onCashTenderedChange={setFoodCashTendered}
               busy={busy}
               tipCents={foodTipCents}
               scheduledFor={foodScheduledFor}

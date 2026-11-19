@@ -28,12 +28,18 @@ export function TipSelector({
   onChange,
   orderTotal,
   disabled,
+  cashInHand = false,
 }: {
   subtotal: number;
   tipCents: number;
   onChange: (cents: number) => void;
   orderTotal: number;
   disabled: boolean;
+  /**
+   * PAG-01: en efectivo no hay cobro con el pedido donde sumarla, y el servidor
+   * rechaza el que la lleve. Se dice por qué en vez de esconder la sección.
+   */
+  cashInHand?: boolean;
 }) {
   const techo = maxCents(orderTotal);
   const opciones = PORCENTAJES.map((porcentaje) => ({
@@ -64,6 +70,14 @@ export function TipSelector({
       {hijos}
     </Pressable>
   );
+
+  if (cashInHand)
+    return (
+      <View style={styles.propinaSelector}>
+        <Text style={styles.sectionTitle}>Propina para quien reparte</Text>
+        <Text style={styles.cardText}>La propina se la das en mano</Text>
+      </View>
+    );
 
   return (
     <View style={styles.propinaSelector}>

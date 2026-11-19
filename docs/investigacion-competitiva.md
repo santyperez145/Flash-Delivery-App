@@ -834,6 +834,25 @@ Detalle en [`cash-rides.md`](cash-rides.md).
 - **Brecha:** el conductor no puede saldar la deuda pagando; se netea contra sus ganancias.
 - **Brecha:** efectivo en pedidos de comida, que exige que el comercio lo acepte.
 
+### Decisión 19 de noviembre de 2026 — efectivo en pedidos de comida (PAG-01)
+
+En DiDi Food el restaurante configura si recibe efectivo; con efectivo cobrado por el repartidor
+y no entregado al local, el monto se descuenta de sus pagos, y los pedidos en efectivo generan
+un saldo negativo que se cubre con los pagos electrónicos
+([DiDi Food, habilitar el pago en efectivo](https://web.didiglobal.com/cr/restaurantes/paso-a-paso-para-habilitar-el-pago-en-efectivo-para-tus-pedidos.pdf);
+[DiDi Food Perú, ganancias](https://web.didiglobal.com/pe/restaurantes/pe-aprende-a-revisar-a-detalle-tus-ganancias.pdf)).
+En la región, el efectivo de noche es un riesgo para quien reparte: en Uruguay, los
+repartidores de PedidosYa dejaron de aceptarlo desde las 19 horas
+([Montevideo Portal](https://www.montevideo.com.uy/Noticias/Repartidores-de-PedidosYa-dejaran-de-aceptar-pedidos-en-efectivo-a-partir-de-las-19-00-uc960798)).
+Flash lo ofrece por sucursal, con vuelto, liquidación en mano y rendición. Detalle en
+[`cash-food-orders.md`](cash-food-orders.md).
+
+- **Por encima de lo publicado:** el tope de deuda del repartidor se proyecta con lo que va a
+  deber, la rendición no puede superar la deuda, y el reintegro de una incidencia va a la
+  Wallet de quien pidió una vez cobrado.
+- **Brecha:** sin red de cobranza para que el repartidor deposite solo (PAG-03, dueño) y sin
+  franja horaria para no aceptar efectivo de noche.
+
 ### Decisión 19 de noviembre de 2026 — perfil familiar (PAG-05)
 
 En Uber, quien organiza invita a otras cuentas y paga sus viajes con su medio de pago sin

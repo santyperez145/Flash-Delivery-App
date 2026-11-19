@@ -5,6 +5,7 @@ import { Pressable, Text, View } from "react-native";
 import { RescheduleControl } from "../SchedulePicker";
 import { flashDesign } from "../design-system";
 import { mobileOrderStatusLabel, money } from "../format";
+import { customerCashLine } from "../cash-payment";
 import { styles } from "../styles";
 import type { Order } from "../types";
 
@@ -46,6 +47,11 @@ export function CustomerFoodOrdersScreen({
             Pedido {lastCreatedOrder.id} · entrega estimada en {lastCreatedOrder.etaMin} min.
           </Text>
           <Text style={styles.orderConfirmationTotal}>{money.format(lastCreatedOrder.total)}</Text>
+          {lastCreatedOrder.cashPayment ? (
+            <Text style={styles.orderConfirmationCopy}>
+              {customerCashLine(lastCreatedOrder.cashPayment)}
+            </Text>
+          ) : null}
           <Pressable style={styles.orderConfirmationAction} onPress={onConfirmedActivity}>
             <Text style={styles.orderConfirmationActionText}>Seguir en Actividad</Text>
             <Ionicons name="arrow-forward" size={18} color="#fff" />
@@ -106,6 +112,15 @@ export function CustomerFoodOrdersScreen({
             </Text>
             <Text style={styles.foodActiveOrderTotal}>{money.format(order.total)}</Text>
           </View>
+          {/* PAG-01: en efectivo, lo que hay que tener a mano al recibirlo. */}
+          {order.cashPayment ? (
+            <View style={styles.foodActiveOrderDestination}>
+              <Ionicons name="cash-outline" size={17} color={flashDesign.color.food} />
+              <Text style={styles.foodActiveOrderDestinationText}>
+                {customerCashLine(order.cashPayment)}
+              </Text>
+            </View>
+          ) : null}
           <View style={styles.foodActiveOrderActions}>
             <Pressable style={styles.foodActiveOrderSecondary} onPress={() => onShare(order)}>
               <Ionicons name="share-social-outline" size={17} color={flashDesign.color.food} />

@@ -1,0 +1,122 @@
+/* Pago en efectivo de pedidos de comida (PAG-01).
+ *
+ * Hoja propia porque `styles.css` es un monolito identificado en el hallazgo H-08.
+ * El selector de medio reusa `.payment-choice` y el interruptor de la sucursal
+ * reusa `.branch-pickup-switch`; acá sólo lo nuevo.
+ */
+
+/* Wallet, tarjeta y efectivo son tres: el efectivo toma la fila entera para que la
+ * grilla de dos columnas no deje un hueco. Con el perfil familiar son cuatro, y
+ * cada uno vuelve a su media fila. */
+.payment-choice.with-cash:not(.with-family) .cash-option {
+  grid-column: 1 / -1;
+}
+.payment-choice.with-family.with-cash .family-option {
+  grid-column: auto;
+}
+.payment-choice .cash-option small {
+  white-space: normal;
+}
+
+.cash-tendered {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+.cash-tendered > span {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.cash-tendered input {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  color: var(--ink);
+  font: inherit;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+.cash-tendered input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.cash-tendered input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+.cash-tendered small {
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+.cash-tendered small.invalid {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+/* Avisos de cobro: el cliente, quien reparte y el comercio leen cuánto en mano. */
+.cash-tip-note,
+.cash-notice {
+  margin: 8px 0;
+  padding: 8px 12px;
+  color: var(--shipment);
+  font-size: 0.84rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+  background: color-mix(in srgb, var(--shipment) 10%, var(--paper));
+  border-radius: var(--radius-control);
+}
+.cash-tip-note {
+  font-weight: 700;
+}
+
+/* Lo que quien reparte debe rendir a la operación. */
+.driver-cash-debt {
+  display: grid;
+  gap: 4px;
+  margin: 12px 0;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--shipment) 8%, var(--paper));
+  border: 1px solid color-mix(in srgb, var(--shipment) 22%, var(--line));
+  border-radius: var(--radius-card);
+}
+.driver-cash-debt strong {
+  font-size: 0.96rem;
+}
+.driver-cash-debt small {
+  color: var(--ink-soft);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+/* Registrar una rendición desde el backoffice. */
+.cash-deposit-form {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px 12px;
+  background: var(--paper-soft);
+  border-radius: var(--radius-control);
+}
+.cash-deposit-form > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.cash-deposit-form input {
+  flex: 1 1 140px;
+  min-width: 0;
+  min-height: 40px;
+  padding: 8px 10px;
+  font: inherit;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+.cash-deposit-form small {
+  color: var(--ink-soft);
+}
+.cash-deposit-form small[role="alert"] {
+  color: var(--danger);
+  font-weight: 700;
+}

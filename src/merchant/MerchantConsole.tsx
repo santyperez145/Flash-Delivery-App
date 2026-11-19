@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 
 import { api } from "../api";
+import { cobroParaComercio, etiquetaMovimiento } from "../cash-payment";
 import { compactMinutes, money } from "../format";
 import { orderStatusLabel } from "../labels";
 import { AdminKpi, AdminSectionHeader, OrderOpsCard } from "../ui/panels";
@@ -41,6 +42,7 @@ import {
   DietaryCatalogEditor,
   ModifierCatalogEditor,
 } from "./MerchantCatalogEditors";
+import { MerchantCashSwitch } from "./MerchantCashSwitch";
 import { MerchantPickupSwitch } from "./MerchantPickupSwitch";
 import type {
   AppState,
@@ -207,6 +209,12 @@ function MerchantOrderDetailDialog({
               <strong>{order.courierId ? "Asignado" : "Pendiente"}</strong>
             </article>
           </div>
+          {/* PAG-01: en un retiro cobra el local; en una entrega, el repartidor. */}
+          {order.cashPayment && !["delivered", "cancelled"].includes(order.status) && (
+            <p className="cash-notice" role="note">
+              {cobroParaComercio(order.cashPayment)}
+            </p>
+          )}
           {/* Cubiertos (P-02): lo único de las preferencias que le sirve a la
               cocina, y lo único que el servidor le manda al comercio. */}
           <DeliveryPreferenceTags preferences={order.deliveryPreferences} audience="cocina" />
@@ -983,6 +991,16 @@ export function MerchantDesktopConsole({
                     )
                   }
                 />
+                <MerchantCashSwitch
+                  cashEnabled={branch.cashEnabled === true}
+                  busy={busy}
+                  onChange={(cashEnabled) =>
+                    runAction(
+                      () => api.updateBranch(restaurant.id, branch.id, { cashEnabled }),
+                      cashEnabled ? "Efectivo habilitado" : "Efectivo deshabilitado",
+                    )
+                  }
+                />
                 <div className="branch-metrics">
                   <article>
                     <small>ETA publicado</small>
@@ -1317,7 +1335,7 @@ export function MerchantDesktopConsole({
                       {entry.direction === "credit" ? "+" : "-"}
                       {money.format(entry.amount)}
                     </b>
-                    <small>{entry.kind}</small>
+                    <small>{etiquetaMovimiento(entry.kind)}</small>
                   </article>
                 ))}
                 {!financeLoading && !finance?.movements.length && <p>Sin liquidaciones todavía.</p>}

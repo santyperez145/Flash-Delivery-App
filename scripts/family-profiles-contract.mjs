@@ -140,7 +140,7 @@ assert.ok(
 assert.ok(
   contains(
     incidencias,
-    "const wallet = await payerWalletForRefund(client, payment.customer_id, { fallbackUserId: issue.customer_id, });",
+    ": await payerWalletForRefund(client, payment.customer_id, { fallbackUserId: issue.customer_id, });",
   ) &&
     contains(
       sustituciones,
@@ -148,7 +148,7 @@ assert.ok(
     ) &&
     contains(
       liquidacion,
-      "ownerId: await refundRecipient(client, payment.customer_id, job.customer_id),",
+      "ownerId: await refundRecipient(client, pago.customer_id, job.customer_id),",
     ) &&
     !contains(liquidacion, "ownerId: job.customer_id,") &&
     contains(pedidos, "customerId: payerId,"),

@@ -29,6 +29,7 @@ import { styles } from "../styles";
 import { ActionButton, KpiRow, OrderCard, ServiceChatModal } from "../ui";
 import type { MerchantOperationsDashboard, Order, OrderSubstitution, Restaurant } from "../types";
 import { MerchantPause, rotuloMotivo } from "../MerchantPause";
+import { merchantCashLine } from "../cash-payment";
 
 export function MerchantScreen({
   restaurant,
@@ -773,6 +774,15 @@ function MerchantOrderDetailModal({
                 </Text>
               </View>
             </View>
+            {/* PAG-01: en un retiro en efectivo cobra el mostrador, con el vuelto listo. */}
+            {order.cashPayment && !["delivered", "cancelled"].includes(order.status) ? (
+              <View style={styles.merchantKitchenNote}>
+                <Ionicons name="cash-outline" size={16} color="#9a3e12" />
+                <Text style={styles.merchantKitchenNoteText}>
+                  {merchantCashLine(order.cashPayment)}
+                </Text>
+              </View>
+            ) : null}
             {/* Cubiertos (P-02): lo único de las preferencias que le sirve a la
                 cocina, y lo único que el servidor le manda al comercio. */}
             <DeliveryPreferenceTags preferences={order.deliveryPreferences} audience="cocina" />

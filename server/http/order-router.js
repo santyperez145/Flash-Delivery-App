@@ -61,7 +61,7 @@ import { publishRealtimeEvent } from "./realtime.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";
 import { assessTransactionRisk, setRiskEntity } from "../risk-repository.js";
 import { createId, createLocalNotification, getTimestamp, orderStatuses } from "../store.js";
-import { cancelOrderAndRefundWallet } from "../wallet-repository.js";
+import { CASH_LABEL, cancelOrderAndRefundWallet } from "../wallet-repository.js";
 import { FAMILY_LABEL } from "../family-profile-repository.js";
 import {
   MAX_INDICACIONES,
@@ -89,6 +89,8 @@ const orderSchema = z.object({
   paymentMethodId: z.string().uuid().optional(),
   promotionCode: z.string().trim().min(3).max(40).optional(),
   quoteToken: z.string().min(20).optional(),
+  // PAG-01: «¿Con cuánto pagás?» en efectivo, en centavos; ausente si paga justo.
+  cashTenderedCents: z.coerce.number().int().positive().max(90_000_000_000_000).optional(),
   // Propina tomada en el checkout (GTM-001). En centavos y entera: un `number`
   // en pesos con decimales llega redondeado distinto según el cliente, y esto es
   // dinero. Los topes reales los aplica el repositorio contra el total del
@@ -377,7 +379,12 @@ router.post("/api/orders", requireAuth, requireAnyRole("customer", "admin"), asy
     scheduledFor,
     fulfillment,
     deliveryPreferences,
+    cashTenderedCents,
   } = parsed.data;
+  // PAG-01: el efectivo se liquida en el libro contable de PostgreSQL. Sin él, un
+  // pedido en efectivo se completaría sin comisión ni deuda de quien cobró.
+  if (paymentMethod === CASH_LABEL && !usesPostgresCommerce())
+    return fail(res, 503, "El pago en efectivo requiere PostgreSQL");
   if (scheduledFor) {
     const invalido = validarHorarioProgramado(scheduledFor);
     if (invalido) return fail(res, 400, invalido);
@@ -505,11 +512,13 @@ router.post("/api/orders", requireAuth, requireAnyRole("customer", "admin"), asy
         scheduledFor: scheduledFor || null,
         fulfillment,
         deliveryPreferences,
+        cashTenderedCents: cashTenderedCents ?? null,
         idempotencyKey,
       });
       if (
         providerPayment &&
         order.paymentMethod !== FAMILY_LABEL &&
+        order.paymentMethod !== CASH_LABEL &&
         !String(order.paymentMethod).toLowerCase().includes("wallet")
       )
         order = await processPostgresOrderMarketplacePayment({

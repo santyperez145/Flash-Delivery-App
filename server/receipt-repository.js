@@ -127,7 +127,19 @@ export async function getOrCreatePostgresReceipt({ jobPublicId, actorPublicId, a
                 // PAG-05: pagado con el perfil familiar de otra persona.
                 familyProfile: Boolean(payment.family_profile),
               }
-            : { status: "not_recorded", currency: "ARS" },
+            : // PAG-01: un viaje o pedido en efectivo no tiene cobro registrado, pero se
+              // pagó: el comprobante lo dice, en vez de «sin registrar».
+              job.payment_method_label === "Efectivo"
+              ? {
+                  provider: "cash",
+                  status: "collected",
+                  amount: pesos(totalCents),
+                  capturedAmount: pesos(totalCents),
+                  currency: "ARS",
+                  collectedBy:
+                    metadata.cashPayment?.collector === "merchant" ? "merchant" : "courier",
+                }
+              : { status: "not_recorded", currency: "ARS" },
           {
             pickup: job.pickup_address,
             dropoff: job.dropoff_address,

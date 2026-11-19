@@ -33,6 +33,7 @@ import type {
   GiftCard,
   ReceivedGiftCard,
   FamilyMember,
+  CashPayment,
   FamilyCharge,
   FamilyProfile,
   FamilyPaymentLabel,
@@ -75,6 +76,7 @@ export type {
   GiftCard,
   ReceivedGiftCard,
   FamilyMember,
+  CashPayment,
   FamilyCharge,
   FamilyProfile,
   FamilyPaymentLabel,
@@ -234,6 +236,8 @@ export type Restaurant = {
     /** La sucursal acepta que el cliente retire en el local (GTM-002).
      *  Apagado por omision: exige mostrador y alguien que atienda. */
     pickupEnabled: boolean;
+    /** PAG-01: la sucursal acepta efectivo. */
+    cashEnabled?: boolean;
     timezone: string;
     weeklyHours: Array<{
       weekday: number;
@@ -272,6 +276,8 @@ export type Driver = {
     updatedAt?: string | null;
   };
   earningsToday: number;
+  /** PAG-01: efectivo cobrado que todavía debe rendir. */
+  cashDebt?: number;
 };
 
 export type TimelineEntry<TStatus extends string> = {
@@ -291,6 +297,8 @@ export type OrderItem = {
 export type Order = {
   id: string;
   customerId: string;
+  /** PAG-01: en efectivo, cuánto cobrar, con cuánto paga y el vuelto. */
+  cashPayment?: CashPayment | null;
   restaurantId: string;
   branchId?: string | null;
   courierId: string | null;
@@ -968,6 +976,8 @@ export type FoodCheckoutSelection = {
   scheduledFor?: string | null;
   /** Cómo se entrega (P-02): modo, indicaciones y cubiertos. */
   deliveryPreferences?: DeliveryPreferences;
+  /** PAG-01: «¿Con cuánto pagás?» en efectivo, en centavos. Ausente si paga justo. */
+  cashTenderedCents?: number;
 };
 
 /** Lo que la pantalla de envíos manda para crear uno. */

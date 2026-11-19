@@ -18,10 +18,13 @@ export function DriverEarningsPanel({
   driverId,
   fallbackEarningsToday,
   rating,
+  cashDebt,
 }: {
   driverId: string;
   fallbackEarningsToday: number;
   rating: number;
+  /** PAG-01: efectivo cobrado que todavía no se rindió, en pesos. */
+  cashDebt?: number;
 }) {
   const [driverEarnings, setDriverEarnings] = useState<DriverEarnings | null>(null);
   const [driverEarningsLoading, setDriverEarningsLoading] = useState(false);
@@ -111,6 +114,19 @@ export function DriverEarningsPanel({
           <Text style={styles.driverPeriodMeta}>retiro aún no habilitado</Text>
         </View>
       </View>
+      {/* PAG-01: lo cobrado en mano no es ganancia: es plata de la operación que se
+          rinde. Mientras supere el tope, el despacho no ofrece servicios en efectivo. */}
+      {cashDebt != null && cashDebt > 0 ? (
+        <View style={styles.driverTransparencyCard}>
+          <Ionicons name="cash-outline" size={22} color="#a33939" />
+          <View style={styles.itemCopy}>
+            <Text style={styles.sectionTitle}>Efectivo por rendir {money.format(cashDebt)}</Text>
+            <Text style={styles.cardText}>
+              Lo rendís a la operación; mientras supere el tope no te llegan servicios en efectivo.
+            </Text>
+          </View>
+        </View>
+      ) : null}
       {driverEarnings?.days.length ? (
         <View style={styles.driverWeekChartCard}>
           <View style={styles.driverSectionHeading}>
@@ -344,22 +360,31 @@ export function DriverEarningsPanel({
               >
                 <Ionicons
                   name={
-                    entry.category === "tip"
-                      ? "heart-outline"
-                      : entry.category === "adjustment"
-                        ? "remove-circle-outline"
-                        : entry.category === "ride"
-                          ? "car-sport-outline"
-                          : entry.category === "shipment"
-                            ? "cube-outline"
-                            : "bag-handle-outline"
+                    entry.category === "cash"
+                      ? "cash-outline"
+                      : entry.category === "tip"
+                        ? "heart-outline"
+                        : entry.category === "adjustment"
+                          ? "remove-circle-outline"
+                          : entry.category === "ride"
+                            ? "car-sport-outline"
+                            : entry.category === "shipment"
+                              ? "cube-outline"
+                              : "bag-handle-outline"
                   }
                   size={20}
                   color={entry.amount < 0 ? "#a33939" : "#7c3cff"}
                 />
               </View>
               <View style={styles.itemCopy}>
-                <Text style={styles.sectionTitle}>{entry.description}</Text>
+                <Text style={styles.sectionTitle}>
+                  {/* El cobro en mano resta (se debe); la rendición lo devuelve. */}
+                  {entry.category === "cash"
+                    ? entry.amount < 0
+                      ? "Efectivo cobrado"
+                      : "Rendición de efectivo"
+                    : entry.description}
+                </Text>
                 <Text style={styles.cardText}>
                   {entry.jobId || "Movimiento de cuenta"} ·{" "}
                   {new Date(entry.createdAt).toLocaleString("es-AR")}

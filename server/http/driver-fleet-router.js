@@ -37,6 +37,7 @@ import {
   updateDriverVehicle,
 } from "../driver-vehicle-repository.js";
 import { recordPostgresAudit } from "../operations-repository.js";
+import { registerCashDeposit } from "../wallet-repository.js";
 import { requireAuth } from "./authentication.js";
 import { isAdmin, requireAnyRole } from "./authorization.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";
@@ -530,5 +531,54 @@ router.patch(
       action: "driver.location_updated",
     });
     return ok(res, { driver });
+  },
+);
+
+// PAG-01: la operación registra que un repartidor o conductor entregó el efectivo
+// cobrado. Sólo administración: mueve la deuda de una persona y la caja de efectivo.
+const rendicionSchema = z.object({
+  amount: z.number().int("El importe va en pesos enteros").positive().max(90_000_000_000_000),
+  reference: z.string().trim().max(120).optional(),
+});
+router.post(
+  "/api/admin/drivers/:driverId/cash-deposits",
+  requireAuth,
+  requireAnyRole("admin"),
+  async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "La rendición de efectivo requiere PostgreSQL");
+    const parsed = parseOrFail(rendicionSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    const idempotencyKey = req.get("idempotency-key");
+    if (!idempotencyKey || !/^[a-zA-Z0-9._:-]{16,128}$/.test(idempotencyKey))
+      return fail(res, 400, "Idempotency-Key válido es obligatorio");
+    try {
+      const deposit = await registerCashDeposit({
+        driverPublicId: req.params.driverId,
+        amount: parsed.data.amount,
+        reference: parsed.data.reference || null,
+        actorPublicId: req.auth.userId,
+        idempotencyKey,
+      });
+      // Todo intento queda auditado, también el reintento: si la auditoría de la
+      // rendición original falló después de confirmarla, el reintento la deja escrita.
+      await recordPostgresAudit({
+        actorPublicId: req.auth.userId,
+        roles: req.auth.roles,
+        action: "driver.cash_deposit_registered",
+        entityType: "driver",
+        entityId: req.params.driverId,
+        requestId: req.requestId,
+        afterData: {
+          amount: deposit.deposited,
+          debt: deposit.debt,
+          duplicate: deposit.duplicate,
+          idempotencyKey,
+        },
+      });
+      return ok(res, { deposit });
+    } catch (error) {
+      return failFrom(res, error, "No se pudo registrar la rendición");
+    }
   },
 );

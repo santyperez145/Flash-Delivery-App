@@ -45,6 +45,48 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
 
+## Avance 19 de noviembre de 2026 — PAG-01, efectivo en pedidos de comida
+
+- **Qué faltaba.** En Argentina, PedidosYa, Rappi y DiDi Food dejan pagar el delivery en
+  efectivo; Flash sólo lo permitía en viajes.
+- **Ahora cada sucursal decide si acepta efectivo**, desde la consola del comercio, y quien pide
+  lo elige en el checkout de la web o la app, con «¿Con cuánto pagás?» para el vuelto.
+  - Paga al repartidor, o en el mostrador si retira.
+  - Quien cobra lo ve: el repartidor «Cobrá $ X en efectivo · paga con $ Y, vuelto $ Z» (también
+    antes de aceptar la oferta), el comercio en un retiro, y quien pidió en el seguimiento.
+  - Sin propina de checkout (se da en mano) ni entrega sin contacto.
+- **El dinero.** Nada se cobra al crear el pedido. Al completarlo se liquida como uno pagado y
+  se asienta que quien cobró tiene el efectivo (`cash_collection`): el repartidor queda
+  debiendo todo menos su envío, y en un retiro el comercio debe la comisión. Un pedido en
+  efectivo no se completa sin su liquidación.
+- **La rendición de efectivo** (migración 148): la operación registra que un repartidor entregó
+  lo que cobró, y su deuda baja. No puede pasar de lo que debe. Sin esto, un repartidor quedaba
+  trabado en el tope después de dos o tres pedidos.
+- **El tope de deuda se proyecta**: mira lo que va a deber al cobrar, no sólo lo que debe hoy.
+- **Antifraude**, como la competencia: teléfono verificado y sin dos pedidos en efectivo sin
+  recibir en 90 días.
+- **Incidencias** de un pedido en efectivo: el reintegro va como saldo en la Wallet, como en
+  PedidosYa y Rappi. **Sustituciones**: se cobra menos en mano.
+- **Verificación:**
+  - `test:cash-food-orders` (nueva, en `ci-critical-flows`) recorre la sucursal que no acepta,
+    el antifraude, un retiro en efectivo por la API, la liquidación de un retiro y de una
+    entrega, una incidencia y la rendición, con los saldos del libro contable en cada paso. No
+    se pudo correr en local, porque no hay credenciales de la base local; corre en el CI.
+  - `test:cash-food-orders-contract` (nueva, en `ci-fast`) vigila el cableado en servidor, web
+    y teléfono. Falsificado con 32 mutaciones.
+- **Una revisión adversarial antes del PR encontró 13 defectos, corregidos.** Los principales:
+  - Un repartidor podía cobrar en la puerta, cancelar el pedido y quedarse con el efectivo sin
+    deuda. Ahora un pedido en efectivo en camino lo cancela la operación.
+  - El tope de deuda no contaba los pedidos en efectivo que el repartidor todavía llevaba.
+  - Un pedido más grande que el tope se aceptaba y nadie podía llevarlo.
+  - El antifraude se esquivaba cancelando con otro motivo. Ahora cuenta toda cancelación
+    después de empezar a prepararse, y hay un solo pedido en efectivo en curso a la vez.
+  - El comercio no tenía tope de deuda por retiros en efectivo.
+  - El formulario de rendición podía registrarla dos veces si se cortaba la red.
+  - La prueba nueva dejaba evaluaciones de riesgo sin borrar y habría fallado en el CI.
+- **Detalle:** [`docs/cash-food-orders.md`](docs/cash-food-orders.md). La red de cobranza para
+  que el repartidor deposite solo (PAG-03) sigue del dueño.
+
 ## Avance 19 de noviembre de 2026 — PAG-05, perfil familiar
 
 - **Qué faltaba.** Uber deja que una persona pague los viajes y pedidos de su familia con su

@@ -21,7 +21,11 @@ export async function getPostgresDrivers({ userPublicId = null, publicIds = null
        WHERE a.owner_type='user' AND a.owner_id=d.user_id AND a.currency='ARS' AND a.account_type='wallet'
          AND t.status='posted' AND t.kind IN('driver_earning','merchant_settlement','tip','tip_adjustment')
          AND t.created_at >= (date_trunc('day',now() AT TIME ZONE u.timezone) AT TIME ZONE u.timezone)
-         AND t.created_at < ((date_trunc('day',now() AT TIME ZONE u.timezone)+interval '1 day') AT TIME ZONE u.timezone)) earnings_today_cents
+         AND t.created_at < ((date_trunc('day',now() AT TIME ZONE u.timezone)+interval '1 day') AT TIME ZONE u.timezone)) earnings_today_cents,
+      -- PAG-01: el saldo completo. Negativo es efectivo cobrado que todavía debe rendir.
+      (SELECT COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint
+       FROM ledger_accounts a JOIN ledger_entries e ON e.account_id=a.id
+       WHERE a.owner_type='user' AND a.owner_id=d.user_id AND a.currency='ARS' AND a.account_type='wallet') wallet_balance_cents
     FROM drivers d JOIN users u ON u.id = d.user_id
     LEFT JOIN vehicles v ON v.driver_id=d.id AND v.active AND v.retired_at IS NULL
     WHERE ($1::text IS NULL OR u.public_id = $1)
@@ -58,6 +62,8 @@ export async function getPostgresDrivers({ userPublicId = null, publicIds = null
         accuracyM: row.location_accuracy_m == null ? null : Number(row.location_accuracy_m),
       },
       earningsToday: Number(row.earnings_today_cents || 0) / 100,
+      // PAG-01: efectivo por rendir, para quien reparte y para la operación.
+      cashDebt: Math.max(0, -Number(row.wallet_balance_cents || 0)) / 100,
     };
   });
 }

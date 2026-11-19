@@ -68,7 +68,10 @@ export function CustomerActivityScreen({
         icono: ShoppingBag,
         imagen: restaurant?.image,
         titulo: restaurant?.name || "Pedido",
-        detalle: retiro ? `${unidades(cantidad)} · Retiro` : unidades(cantidad),
+        // PAG-01: en efectivo se dice en la lista, así nadie llega sin la plata.
+        detalle: [unidades(cantidad), retiro ? "Retiro" : "", order.cashPayment ? "Efectivo" : ""]
+          .filter(Boolean)
+          .join(" · "),
         fecha: order.createdAt,
         monto: order.total,
         estado: orderStatusLabel[order.status],

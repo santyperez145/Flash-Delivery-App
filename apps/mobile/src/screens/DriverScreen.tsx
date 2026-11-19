@@ -135,6 +135,7 @@ export function DriverScreen({
             driverId={driver.id}
             fallbackEarningsToday={driver.earningsToday}
             rating={driver.rating}
+            cashDebt={driver.cashDebt}
           />
         )}
         {driverView === "inbox" && (

@@ -21,6 +21,7 @@ import { useTrackingRoute } from "./useTrackingRoute";
 import { OrderDeliveryPhoto } from "../OrderDeliveryPhoto";
 import { OrderDeliveryCodeView } from "../OrderDeliveryCode";
 import { TripCheckBanner } from "../TripCheckBanner";
+import { customerCashLine } from "../cash-payment";
 import { FareSplitPanel } from "../FareSplit";
 
 export function OrderTrackingSheet({
@@ -109,6 +110,12 @@ export function OrderTrackingSheet({
             : `ETA publicada: ${order.etaMin} min`}
         </Text>
         <CustomerTrackingProgress labels={labels} current={current} activeColor="#ff6a21" />
+        {/* PAG-01: cuánto tener a mano, y el vuelto si avisó con cuánto paga. */}
+        {order.cashPayment && !["delivered", "cancelled"].includes(order.status) && (
+          <Text style={[styles.cardTitle, { color: "#087A50" }]}>
+            {customerCashLine(order.cashPayment)}
+          </Text>
+        )}
         {/* SEG-03: el código que el cliente le da a quien reparte. */}
         <OrderDeliveryCodeView order={order} />
         {/* P-02b: dejado en la puerta, el pedido se cerró con foto. */}

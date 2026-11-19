@@ -365,6 +365,8 @@ export type DispatchOffer = {
   hasInstructions?: boolean;
   /** PAG-01: el viaje se cobra en efectivo. */
   cash?: boolean;
+  /** PAG-01: cuánto cobrar en mano si es en efectivo. */
+  cashToCollect?: number | null;
 };
 
 /** SEG-01: una señal del control del viaje que el pasajero todavía no contestó. */
@@ -409,6 +411,18 @@ export type ReceivedGiftCard = {
   fromName: string;
   message: string | null;
   createdAt: string;
+};
+
+/**
+ * PAG-01: un pedido que se paga en efectivo. Cuánto cobrar, con cuánto paga quien
+ * pidió (`null` si paga justo) y el vuelto. Cobra el repartidor, o el comercio en un
+ * retiro.
+ */
+export type CashPayment = {
+  toCollect: number;
+  tendered: number | null;
+  change: number;
+  collector: "courier" | "merchant";
 };
 
 /** PAG-05: la etiqueta del medio de pago «Perfil familiar» en pedidos, viajes y envíos. */

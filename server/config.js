@@ -21,6 +21,9 @@ const envSchema = z.object({
   // PAG-01: cuánto puede deber un conductor en comisiones de viajes en efectivo antes
   // de dejar de recibirlos.
   CASH_DRIVER_DEBT_LIMIT_CENTS: z.coerce.number().int().min(0).default(3000000),
+  // PAG-01: lo que un comercio puede deber en comisiones de retiros en efectivo antes de
+  // dejar de recibirlos. Se netea con sus liquidaciones de pedidos pagados.
+  CASH_MERCHANT_DEBT_LIMIT_CENTS: z.coerce.number().int().min(0).default(5000000),
   HOST: z.string().min(1).default("127.0.0.1"),
   JWT_SECRET: z.string().min(16).default(defaultJwtSecret),
   CORS_ORIGIN: z
@@ -286,6 +289,7 @@ export const config = {
   deliveryPinSecret: env.DELIVERY_PIN_SECRET,
   orderDeliveryCodeMinCents: env.ORDER_DELIVERY_CODE_MIN_CENTS,
   cashDriverDebtLimitCents: env.CASH_DRIVER_DEBT_LIMIT_CENTS,
+  cashMerchantDebtLimitCents: env.CASH_MERCHANT_DEBT_LIMIT_CENTS,
   mfaEncryptionKey: env.MFA_ENCRYPTION_KEY,
   kycDocumentEncryptionKey: env.KYC_DOCUMENT_ENCRYPTION_KEY,
   deliveryProofEncryptionKey: env.DELIVERY_PROOF_ENCRYPTION_KEY,

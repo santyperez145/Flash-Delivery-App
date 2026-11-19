@@ -32,6 +32,7 @@ import type {
   GiftCard,
   ReceivedGiftCard,
   FamilyMember,
+  CashPayment,
   FamilyCharge,
   FamilyProfile,
   FamilyPaymentLabel,
@@ -73,6 +74,7 @@ export type {
   GiftCard,
   ReceivedGiftCard,
   FamilyMember,
+  CashPayment,
   FamilyCharge,
   FamilyProfile,
   FamilyPaymentLabel,
@@ -127,6 +129,8 @@ export type Restaurant = {
     isPrimary: boolean;
     /** La sucursal acepta retiro en el local (GTM-002). */
     pickupEnabled?: boolean;
+    /** PAG-01: la sucursal acepta efectivo. */
+    cashEnabled?: boolean;
     timezone: string;
     weeklyHours: Array<{ weekday: number; opensAt: string; closesAt: string; enabled: boolean }>;
     scheduleExceptions: Array<{
@@ -174,6 +178,8 @@ export type Driver = {
   vehicleStatus?: "pending" | "approved" | "rejected" | null;
   rating: number;
   earningsToday: number;
+  /** PAG-01: efectivo cobrado que todavía debe rendir. */
+  cashDebt?: number;
   location: GeoPoint & {
     label: string;
     updatedAt?: string | null;
@@ -183,6 +189,8 @@ export type Driver = {
 };
 
 export type Order = {
+  /** PAG-01: en efectivo, cuánto cobrar, con cuánto paga y el vuelto. */
+  cashPayment?: CashPayment | null;
   /** Cómo lo recibe el cliente (GTM-002, P-11). */
   fulfillment?: "delivery" | "pickup";
   /** Recortadas según quién mira: el comercio recibe sólo los cubiertos (P-02). */
@@ -275,7 +283,8 @@ export type DriverEarnings = {
   days: DriverEarningsDay[];
   recent: Array<{
     id: string;
-    category: "food" | "ride" | "shipment" | "tip" | "adjustment";
+    /** `cash`: efectivo cobrado (debe) o su rendición (PAG-01). */
+    category: "food" | "ride" | "shipment" | "tip" | "adjustment" | "cash";
     jobId: string | null;
     description: string;
     amount: number;

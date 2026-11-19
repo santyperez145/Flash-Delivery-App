@@ -8,6 +8,7 @@ import { AdminSectionHeader } from "../ui/panels";
 import { api } from "../api";
 import { initials } from "../format";
 import type { AppState, Order, Ride } from "../types";
+import { AdminCashDeposit } from "./AdminCashDeposit";
 import { AdminLiveGrid } from "./AdminOverviewBoards";
 import { DispatchReleasePanel, MerchantSuspensionPanel } from "./OperationsInterventionPanel";
 import { DriverCompliancePanel } from "./AdminTrustPanels";
@@ -149,6 +150,8 @@ export function AdminDriversSupplyPanel({
               {driver.online ? "Pausar" : "Activar"}
             </button>
             <DriverCompliancePanel driverId={driver.id} busy={busy} runAction={runAction} />
+            {/* PAG-01: la deuda en efectivo y su rendición, al lado de la persona. */}
+            <AdminCashDeposit driver={driver} busy={busy} runAction={runAction} />
           </article>
         ))}
       </div>

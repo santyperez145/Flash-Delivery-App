@@ -207,7 +207,7 @@ const signedCents = (row) => (row.direction === "credit" ? 1 : -1) * Number(row.
 const earningCategory = (row) => {
   if (row.kind === "tip") return "tip";
   if (row.kind === "tip_adjustment") return "adjustment";
-  if (row.kind === "cash_collection") return "cash";
+  if (row.kind === "cash_collection" || row.kind === "cash_deposit") return "cash";
   if (row.kind === "merchant_settlement" || row.job_subtype === "food_order") return "food";
   return row.job_kind === "ride" ? "ride" : "shipment";
 };
@@ -380,7 +380,7 @@ export async function getDriverEarnings(userPublicId) {
        ORDER BY t.created_at DESC,t.id DESC LIMIT 100`,
       // El cobro en efectivo se lista (el conductor ve que lo debe) pero no suma a
       // sus ganancias: su ganancia ya está en la liquidación del viaje.
-      [account.id, [...driverEarningKinds, "cash_collection"]],
+      [account.id, [...driverEarningKinds, "cash_collection", "cash_deposit"]],
     ),
     postgresPool.query(
       `WITH scoped AS (
@@ -621,6 +621,34 @@ export async function cancelOrderAndRefundWallet({
     await client.query("BEGIN");
     const actor = (await client.query("SELECT id FROM users WHERE public_id=$1", [actorPublicId]))
       .rows[0];
+    // PAG-01: un pedido en efectivo que ya salió del local tiene la comida o la plata
+    // en la mano de quien reparte. Cancelarlo no liquida nada, así que quien reparte
+    // podría cobrar en la puerta, cancelar y quedarse el efectivo sin deuda. Desde
+    // ahí lo cancela la operación, que registra qué pasó con la comida o el efectivo.
+    const enCamino = (
+      await client.query(
+        `SELECT 1 FROM jobs WHERE public_id=$1 AND payment_method_label=$2
+           AND status IN ('picked_up','delivering')`,
+        [orderPublicId, CASH_LABEL],
+      )
+    ).rows[0];
+    if (enCamino) {
+      const operacion = actor
+        ? (
+            await client.query(
+              "SELECT 1 FROM user_roles WHERE user_id=$1 AND role IN ('admin','support')",
+              [actor.id],
+            )
+          ).rows[0]
+        : null;
+      if (!operacion)
+        throw Object.assign(
+          new Error(
+            "Un pedido en efectivo en camino lo cancela la operación: escribinos desde Ayuda",
+          ),
+          { status: 409 },
+        );
+    }
     const job = (
       await client.query(
         `UPDATE jobs SET status='cancelled',version=version+1,updated_at=now() WHERE public_id=$1 AND kind='delivery' AND metadata->>'subtype'='food_order' AND status NOT IN('completed','cancelled') RETURNING id,customer_id`,
@@ -867,6 +895,105 @@ export async function cancelMobilityJobAndRefundWallet({
       refundAmount: refundAmount / 100,
       reason,
     };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * PAG-01: la rendición de efectivo. Un repartidor o conductor entrega a la operación
+ * el efectivo que cobró, y su deuda baja en lo que entregó. Sin esto, la deuda de un
+ * pedido en efectivo (casi todo su valor) sólo se neteaba con ganancias, y quien
+ * reparte quedaba trabado en el tope después de dos o tres pedidos.
+ *
+ * El asiento acredita su Wallet y debita la caja de efectivo recibido de la
+ * plataforma. **No puede pasar de lo que debe**: una rendición de más dejaría saldo
+ * a favor, que es plata retirable que nadie depositó en la cuenta.
+ */
+export async function registerCashDeposit({
+  driverPublicId,
+  amount,
+  reference,
+  actorPublicId,
+  idempotencyKey,
+}) {
+  const amountCents = Math.round(Number(amount) * 100);
+  if (!Number.isSafeInteger(amountCents) || amountCents <= 0)
+    throw Object.assign(new Error("El importe tiene que ser mayor a cero"), { status: 400 });
+  const client = await postgresPool.connect();
+  try {
+    await client.query("BEGIN");
+    const driver = (
+      await client.query("SELECT d.id,d.user_id FROM drivers d WHERE d.public_id=$1 FOR UPDATE", [
+        driverPublicId,
+      ])
+    ).rows[0];
+    if (!driver) throw Object.assign(new Error("Repartidor no encontrado"), { status: 404 });
+    const actor = (await client.query("SELECT id FROM users WHERE public_id=$1", [actorPublicId]))
+      .rows[0];
+    const wallet = await userAccount(client, driver.user_id);
+    await client.query("SELECT id FROM ledger_accounts WHERE id=$1 FOR UPDATE", [wallet]);
+    const transaction = (
+      await client.query(
+        `INSERT INTO ledger_transactions(idempotency_key,kind,actor_id,description,metadata)
+         VALUES($1,'cash_deposit',$2,$3,$4) ON CONFLICT(idempotency_key) DO NOTHING RETURNING id`,
+        [
+          `cash-deposit-${idempotencyKey}`,
+          actor?.id || null,
+          `Rendición de efectivo${reference ? ` · ${reference}` : ""}`,
+          { driverPublicId, reference: reference || null },
+        ],
+      )
+    ).rows[0];
+    const debtCents = async () => Math.max(0, -(await driverWalletBalanceCents(client, driver.id)));
+    // Un reintento con la misma clave no registra otra rendición. Con otro repartidor
+    // u otro importe no es un reintento: se rechaza, en vez de responder «ya estaba».
+    if (!transaction) {
+      const previa = (
+        await client.query(
+          `SELECT t.metadata->>'driverPublicId' driver,
+             (SELECT e.amount_cents FROM ledger_entries e WHERE e.transaction_id=t.id AND e.direction='credit' LIMIT 1) amount
+           FROM ledger_transactions t WHERE t.idempotency_key=$1`,
+          [`cash-deposit-${idempotencyKey}`],
+        )
+      ).rows[0];
+      if (previa?.driver !== driverPublicId || Number(previa?.amount) !== amountCents)
+        throw Object.assign(new Error("Esa clave ya se usó para otra rendición"), { status: 409 });
+      const deuda = await debtCents();
+      await client.query("ROLLBACK");
+      return { duplicate: true, deposited: pesos(amountCents), debt: pesos(deuda) };
+    }
+    const deuda = await debtCents();
+    if (amountCents > deuda)
+      throw Object.assign(
+        new Error(`La rendición supera lo que debe: $${pesos(deuda).toLocaleString("es-AR")}`),
+        { status: 409 },
+      );
+    const caja = (
+      await client.query(`INSERT INTO ledger_accounts(owner_type,owner_id,currency,account_type)
+        VALUES('platform',NULL,'ARS','cash_on_hand') ON CONFLICT (owner_type,currency,account_type) WHERE owner_id IS NULL
+        DO UPDATE SET owner_type=EXCLUDED.owner_type RETURNING id`)
+    ).rows[0].id;
+    await client.query(
+      `INSERT INTO ledger_entries(transaction_id,account_id,direction,amount_cents,reference_type,metadata)
+       VALUES($1,$2,'credit',$4,'cash_deposit',$5),($1,$3,'debit',$4,'cash_deposit',$5)`,
+      [transaction.id, wallet, caja, amountCents, { driverPublicId }],
+    );
+    await enqueueNotificationForInternalUser(client, {
+      userId: driver.user_id,
+      template: "cash_deposit_registered",
+      payload: {
+        title: "Registramos tu rendición de efectivo",
+        body: `Entregaste $${pesos(amountCents).toLocaleString("es-AR")}. Ya podés tomar más servicios en efectivo si quedás dentro del tope.`,
+      },
+      deduplicationKey: `cash_deposit:${idempotencyKey}`,
+    });
+    const restante = await debtCents();
+    await client.query("COMMIT");
+    return { duplicate: false, deposited: pesos(amountCents), debt: pesos(restante) };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
