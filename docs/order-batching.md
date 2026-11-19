@@ -17,7 +17,9 @@ Es la palanca más directa sobre el costo por entrega: un viaje al local en luga
 - **Cuándo se ofrece.** Un pedido de comida queda listo para retirar y otro repartidor ya
   tiene asignado un pedido de **la misma sucursal** que todavía no retiró (asignado o
   llegando). Si la entrega del nuevo queda en el camino, a ese repartidor se le ofrece
-  sumarlo antes que a nadie: «Sumá un pedido del mismo local».
+  sumarlo antes que a nadie: «Sumá un pedido del mismo local». En esa ronda el pedido no se
+  le ofrece suelto a nadie más; si nadie acepta el lote, la ronda siguiente, cuando vencen
+  las ofertas (45 s), lo abre a los repartidores libres.
 - **El tope de desvío.** Lo que espera de más el segundo cliente por pasar antes por la
   casa del primero, en línea recta:
   `local→casa 1 + casa 1→casa 2 − local→casa 2`. No puede pasar de
@@ -27,12 +29,13 @@ Es la palanca más directa sobre el costo por entrega: un viaje al local en luga
   el primero todavía en el local, así que sólo se suma el tiempo de retirar otra bolsa.
 - **Como mucho dos pedidos.** El primero no puede ser a su vez un segundo, y un índice único
   impide que un pedido sostenga dos. Quien reparte no puede tener ningún otro servicio en
-  curso.
+  curso, de ningún tipo: ni un envío ni un viaje con pasajero.
 - **A quien ya lleva un pedido no le llega uno suelto.** Antes, un repartidor con un pedido
   podía aceptar otro de cualquier local, sin orden ni tope de desvío. Ahora, con un pedido en
-  curso, uno de comida sólo se acepta si forma lote con él. Quien lleva uno se saca de la
-  lista **antes** de puntuar: sacarlo después del corte dejaba el pedido sin ofertas cuando
-  los mejores puntuados, que suelen ser los que ya están en un local, llevaban uno.
+  curso, uno de comida sólo se acepta si forma lote con él. Quien lleva un servicio se saca
+  **en la lista corta**, antes del corte y antes de decidir si el radio alcanza: sacarlo
+  después dejaba el pedido sin ofertas cuando los más cercanos, que suelen ser los que ya
+  están en un local, llevaban uno, aunque hubiera repartidores libres un poco más lejos.
 - **En cada ronda, otro repartidor.** Quien ya recibió la oferta de un lote no ocupa un lugar
   en la ronda siguiente: el lote le llega a otro repartidor del mismo local.
 - **Al aceptar se vuelve a controlar.** Entre la oferta y la aceptación el primero pudo
@@ -40,7 +43,8 @@ Es la palanca más directa sobre el costo por entrega: un viaje al local en luga
   pedido, y el lote se vuelve a calcular para ese repartidor. Si ya no se forma, la
   aceptación se rechaza con un 409.
 - **Efectivo.** Un lote en efectivo respeta el tope de deuda de quien reparte (PAG-01), con lo
-  que va a deber al cobrar los dos.
+  que va a deber al cobrar los dos. Se filtra antes de elegir los dos repartidores: si los
+  mejores deben de más, el lote le llega al siguiente.
 - **El lote se deshace solo.** Si uno de los dos se cancela, o la operación le saca un pedido
   al repartidor y vuelve a la cola, un trigger de la base corta el vínculo y le resta al
   segundo los minutos de desvío. Se hace en la base porque las cancelaciones y liberaciones

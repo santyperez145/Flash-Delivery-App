@@ -12,12 +12,13 @@ import fs from "node:fs/promises";
 import { contains, squeeze } from "./source-contract.mjs";
 
 const leer = (ruta) => fs.readFile(ruta, "utf8");
-const [migracion, configuracion, despacho, pedidos, contratos, tiposWeb, tiposMovil] =
+const [migracion, configuracion, despacho, candidatos, pedidos, contratos, tiposWeb, tiposMovil] =
   await Promise.all(
     [
       "database/migrations/149_food_order_batches.sql",
       "server/config.js",
       "server/dispatch-repository.js",
+      "server/dispatch-candidates.js",
       "server/order-repository.js",
       "packages/domain-contracts/src/index.ts",
       "src/types.ts",
@@ -30,6 +31,13 @@ const tramo = (fuente, desde, hasta) => {
   assert.ok(inicio >= 0, `falta ${desde}`);
   const fin = fuente.indexOf(hasta, inicio + desde.length);
   return fuente.slice(inicio, fin < 0 ? undefined : fin);
+};
+/** ¿`primero` aparece antes que `despues`? Sin importar el espaciado, como `contains`. */
+const antes = (fuente, primero, despues) => {
+  const plano = squeeze(fuente),
+    a = plano.indexOf(squeeze(primero)),
+    b = plano.indexOf(squeeze(despues));
+  return a >= 0 && b >= 0 && a < b;
 };
 
 // --- La base: un segundo pedido apunta al primero, y uno solo por vez --------------
@@ -79,8 +87,11 @@ assert.ok(
   "el pedido nuevo está libre y tiene local",
 );
 assert.ok(
-  contains(lote, "AND x.status NOT IN ('completed','cancelled')) = 1"),
-  "quien lo lleva no tiene ningún otro servicio en curso",
+  contains(
+    lote,
+    "(SELECT count(*) FROM jobs x WHERE x.driver_id = d.id AND x.status NOT IN ('completed','cancelled')) = 1",
+  ),
+  "quien lo lleva no tiene ningún otro servicio en curso, de ningún tipo: tampoco un viaje",
 );
 assert.ok(
   contains(
@@ -123,7 +134,7 @@ assert.ok(
   contains(oferta, "if (job.food) {") &&
     contains(
       oferta,
-      "await client.query(`${LOTE_COMPATIBLE_SQL} LIMIT 2`, [ jobId, config.dispatch.batchMaxDetourM, null, ])",
+      "await client.query(`${LOTE_COMPATIBLE_SQL} LIMIT 20`, [ jobId, config.dispatch.batchMaxDetourM, null, ])",
     ),
   "un pedido de comida se ofrece primero como lote, con el tope configurado",
 );
@@ -132,31 +143,35 @@ assert.ok(
   "un lote en efectivo respeta la deuda de quien reparte",
 );
 assert.ok(
-  contains(oferta, "if (!lotesHabilitados.includes(lote.driver_id)) continue;"),
-  "quien no puede tomar efectivo no recibe el lote",
-);
-assert.ok(
   contains(
     oferta,
-    "const habilitados = job.food ? await sinPedidoEnCurso(client, habilitadosEfectivo) : habilitadosEfectivo;",
+    "const lotes = compatibles .filter((lote) => lotesHabilitados.includes(lote.driver_id)) .slice(0, 2);",
   ),
-  "a quien ya lleva un pedido no le llega uno de comida suelto",
+  "el efectivo se filtra antes de elegir los dos: si los mejores deben de más, le llega al tercero",
 );
 assert.ok(
-  oferta.indexOf("await sinPedidoEnCurso(client, habilitadosEfectivo)") > 0 &&
-    oferta.indexOf("await sinPedidoEnCurso(client, habilitadosEfectivo)") <
-      oferta.indexOf(
-        "await scoreCandidates(client, { jobId, driverIds: habilitados, mode, limit })",
-      ),
-  "quien ya lleva un pedido se saca antes de puntuar, no después del corte",
+  contains(oferta, "if (offers.length) return offers;") &&
+    antes(oferta, "if (offers.length) return offers;", "for (const candidate of candidates.rows)"),
+  "el lote va antes que nadie: en esa ronda no hay ofertas sueltas",
 );
-const libres = tramo(despacho, "const sinPedidoEnCurso", "const minutosDeDesvio");
+// A quien ya lleva un servicio no le llega uno de comida suelto, y se lo saca en la lista
+// corta: antes del corte y antes de decidir si el radio alcanza.
+assert.ok(
+  contains(oferta, "sinServicioEnCurso: Boolean(job.food),") &&
+    antes(oferta, "sinServicioEnCurso: Boolean(job.food),", "await scoreCandidates("),
+  "a quien ya lleva un servicio no le llega uno de comida suelto",
+);
 assert.ok(
   contains(
-    libres,
-    "WHERE driver_id = ANY($1::uuid[]) AND kind='delivery' AND status NOT IN ('completed','cancelled')",
-  ) && contains(libres, "return driverIds.filter((id) => !ocupados.has(id));"),
-  "ocupado es tener cualquier entrega en curso",
+    candidatos,
+    "AND (NOT $5::boolean OR NOT EXISTS (SELECT 1 FROM jobs x WHERE x.driver_id = d.id AND x.status NOT IN ('completed','cancelled')))",
+  ) &&
+    antes(candidatos, "AND (NOT $5::boolean OR NOT EXISTS", "LIMIT $4`") &&
+    contains(
+      candidatos,
+      "await client.query(SHORTLIST_SQL, [pickup, mode, radius, shortlistSize, sinServicioEnCurso])",
+    ),
+  "el filtro va en la lista corta: si los cercanos están ocupados, el radio se sigue ampliando",
 );
 
 // --- La aceptación -----------------------------------------------------------------------
@@ -176,8 +191,7 @@ assert.ok(
   "se vuelve a controlar al aceptar, con el primero bloqueado",
 );
 assert.ok(
-  aceptar.indexOf('"SELECT id FROM drivers WHERE id=$1 FOR UPDATE"') <
-    aceptar.indexOf("LIMIT 1 FOR UPDATE OF a"),
+  antes(aceptar, '"SELECT id FROM drivers WHERE id=$1 FOR UPDATE"', "LIMIT 1 FOR UPDATE OF a"),
   "el repartidor se bloquea antes que el primer pedido",
 );
 assert.ok(
@@ -185,7 +199,7 @@ assert.ok(
   "sin lote compatible, la aceptación se rechaza",
 );
 assert.ok(
-  aceptar.indexOf("LIMIT 1 FOR UPDATE OF a") < aceptar.indexOf("UPDATE jobs SET driver_id=$1"),
+  antes(aceptar, "LIMIT 1 FOR UPDATE OF a", "UPDATE jobs SET driver_id=$1"),
   "el control va antes de asignar",
 );
 assert.ok(

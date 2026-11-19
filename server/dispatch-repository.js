@@ -83,34 +83,15 @@ const LOTE_COMPATIBLE_SQL = `
     -- oferta propia tiene que estar.
     AND ($3::uuid IS NOT NULL OR NOT EXISTS (SELECT 1 FROM dispatch_offers p
            WHERE p.job_id = n.id AND p.driver_id = d.id))
-    -- Ningún otro pedido en curso: ni un segundo de este lote ni otro servicio.
-    AND (SELECT count(*) FROM jobs x WHERE x.driver_id = d.id AND x.kind = 'delivery'
+    -- Ningún otro servicio en curso, de ningún tipo: ni un segundo de este lote, ni un
+    -- envío, ni un viaje con pasajero.
+    AND (SELECT count(*) FROM jobs x WHERE x.driver_id = d.id
            AND x.status NOT IN ('completed','cancelled')) = 1
     AND NOT EXISTS (SELECT 1 FROM jobs f WHERE f.batch_anchor_id = a.id
            AND f.status NOT IN ('completed','cancelled'))
     AND ST_Distance(a.pickup_location, a.dropoff_location) + ST_Distance(a.dropoff_location, n.dropoff_location)
       - ST_Distance(n.pickup_location, n.dropoff_location) <= $2
   ORDER BY extra_m, a.created_at`;
-
-/**
- * P-03: de una lista de repartidores, los que no llevan ningún pedido. Quien ya lleva uno
- * sólo recibe un pedido de comida como lote. Se filtra **antes** de puntuar, como el
- * efectivo: filtrar después del corte dejaba el pedido sin ofertas si los mejores
- * puntuados —los que ya están en un local— tenían uno en curso.
- */
-const sinPedidoEnCurso = async (client, driverIds) => {
-  if (driverIds.length === 0) return [];
-  const ocupados = new Set(
-    (
-      await client.query(
-        `SELECT DISTINCT driver_id FROM jobs WHERE driver_id = ANY($1::uuid[]) AND kind='delivery'
-           AND status NOT IN ('completed','cancelled')`,
-        [driverIds],
-      )
-    ).rows.map((row) => row.driver_id),
-  );
-  return driverIds.filter((id) => !ocupados.has(id));
-};
 
 /** Minutos que suma el desvío: a la velocidad de la estimación del checkout, más la entrega del primero. */
 const minutosDeDesvio = (extraM) => Math.max(2, Math.ceil(Number(extraM) / 350) + 2);
@@ -150,18 +131,17 @@ export async function createDispatchOffers(client, { jobId, mode, limit = 3, ttl
     pickup: job.pickup,
     mode,
     needed: limit,
+    // P-03: quien ya lleva un servicio sólo recibe un pedido de comida como lote. Se
+    // filtra en la lista corta, antes del corte y del radio (ver `SHORTLIST_SQL`).
+    sinServicioEnCurso: Boolean(job.food),
   });
   // PAG-01: un viaje en efectivo no se le ofrece a quien ya debe más del tope en
   // comisiones de viajes en efectivo. Se filtra la lista corta **antes** de puntuar:
   // filtrar después del corte dejaba el viaje sin ofertas si los mejores puntuados
   // debían de más, aunque hubiera otros conductores habilitados.
-  const habilitadosEfectivo = job.cash
+  const habilitados = job.cash
     ? await elegiblesParaEfectivo(client, driverIds, Number(job.cash_debt))
     : driverIds;
-  // P-03: un pedido de comida suelto, sólo a quien no lleva ninguno.
-  const habilitados = job.food
-    ? await sinPedidoEnCurso(client, habilitadosEfectivo)
-    : habilitadosEfectivo;
   // Etapa 2: puntuación explicable, sólo sobre la lista corta.
   const candidates = {
     rows: await scoreCandidates(client, { jobId, driverIds: habilitados, mode, limit }),
@@ -173,9 +153,11 @@ export async function createDispatchOffers(client, { jobId, mode, limit = 3, ttl
   // (se sacó antes de puntuar): al aceptarlo se rechazaría, y llevar dos pedidos de
   // locales distintos sin orden ni tope de desvío es justo lo que demoraba al primero.
   if (job.food) {
-    const lotes = config.dispatch.batchingEnabled
+    // Se traen más compatibles que los dos que se ofrecen y el efectivo se filtra antes
+    // de elegir: si los dos mejores deben de más, el lote le llega al tercero.
+    const compatibles = config.dispatch.batchingEnabled
       ? (
-          await client.query(`${LOTE_COMPATIBLE_SQL} LIMIT 2`, [
+          await client.query(`${LOTE_COMPATIBLE_SQL} LIMIT 20`, [
             jobId,
             config.dispatch.batchMaxDetourM,
             null,
@@ -185,12 +167,14 @@ export async function createDispatchOffers(client, { jobId, mode, limit = 3, ttl
     const lotesHabilitados = job.cash
       ? await elegiblesParaEfectivo(
           client,
-          lotes.map((lote) => lote.driver_id),
+          compatibles.map((lote) => lote.driver_id),
           Number(job.cash_debt),
         )
-      : lotes.map((lote) => lote.driver_id);
+      : compatibles.map((lote) => lote.driver_id);
+    const lotes = compatibles
+      .filter((lote) => lotesHabilitados.includes(lote.driver_id))
+      .slice(0, 2);
     for (const lote of lotes) {
-      if (!lotesHabilitados.includes(lote.driver_id)) continue;
       const scoreBreakdown = {
         batch: {
           anchorOrderId: lote.anchor_public_id,
@@ -227,6 +211,10 @@ export async function createDispatchOffers(client, { jobId, mode, limit = 3, ttl
         deduplicationKey: `dispatch_offer:${row.public_id}`,
       });
     }
+    // El lote va antes que nadie: en esta ronda sólo se ofrece a quien ya va a ese local.
+    // Si nadie lo acepta, la ronda siguiente (al vencer las ofertas) lo abre a los libres,
+    // y quien ya recibió el lote no vuelve a ocupar un lugar.
+    if (offers.length) return offers;
   }
   for (const candidate of candidates.rows) {
     const scoreBreakdown = {
