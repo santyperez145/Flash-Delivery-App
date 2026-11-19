@@ -3,6 +3,7 @@ import type { ComponentProps } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useServiciosDisponibles, type ServicioCliente } from "../customer-services";
+import { ambitoDe, type Ambito } from "../customer-scope";
 import { flashDesign } from "../design-system";
 import { AvisoRubros } from "./CustomerHomeScreen";
 import { styles } from "../styles";
@@ -14,27 +15,42 @@ import type { MerchantVertical } from "../types";
 // reúne viajes, comida y envíos: el inicio como puerta, una pestaña con todos los
 // servicios de la ciudad y una actividad única para lo pedido. La búsqueda vive
 // en el inicio y en cada tienda, no en una pestaña propia.
+//
+// Desde FE-02 los rótulos siguen al ámbito, como Uber Eats y Uber: en Pedidos,
+// «Explorar» y «Pedidos»; en Viajes, «Servicios» y «Actividad».
 
 export type VistaCliente = "home" | "services" | "service" | "activity" | "account";
 type IconName = ComponentProps<typeof Ionicons>["name"];
 
-const PESTANAS: Array<{ vista: VistaCliente; rotulo: string; icono: IconName }> = [
+const pestanasDe = (
+  ambito: Ambito,
+): Array<{ vista: VistaCliente; rotulo: string; icono: IconName }> => [
   { vista: "home", rotulo: "Inicio", icono: "home-outline" },
-  { vista: "services", rotulo: "Servicios", icono: "grid-outline" },
-  { vista: "activity", rotulo: "Actividad", icono: "time-outline" },
+  {
+    vista: "services",
+    rotulo: ambito === "pedidos" ? "Explorar" : "Servicios",
+    icono: ambito === "pedidos" ? "compass-outline" : "grid-outline",
+  },
+  {
+    vista: "activity",
+    rotulo: ambito === "pedidos" ? "Pedidos" : "Actividad",
+    icono: ambito === "pedidos" ? "receipt-outline" : "time-outline",
+  },
   { vista: "account", rotulo: "Cuenta", icono: "person-outline" },
 ];
 
 export function CustomerTabBar({
   vista,
+  ambito,
   onChange,
 }: {
   vista: VistaCliente;
+  ambito: Ambito;
   onChange: (vista: VistaCliente) => void;
 }) {
   return (
     <View style={styles.foodBottomNav} accessibilityRole="tablist">
-      {PESTANAS.map((pestana) => {
+      {pestanasDe(ambito).map((pestana) => {
         // Dentro de un servicio se está «en» Inicio: de ahí se llegó.
         const activa = vista === pestana.vista || (vista === "service" && pestana.vista === "home");
         return (
@@ -74,17 +90,26 @@ export function ServiceBackBar({ titulo, onBack }: { titulo: string; onBack: () 
   );
 }
 
-/** La pestaña Servicios: todo lo disponible en la ciudad, con qué es cada cosa. */
+/**
+ * La pestaña Servicios: lo disponible en la ciudad, con qué es cada cosa. En Pedidos
+ * («Explorar») son los rubros; en Viajes, viajes y envíos.
+ */
 export function CustomerServicesScreen({
+  ambito,
   onOpenRide,
   onOpenVertical,
   onOpenShipment,
 }: {
+  ambito: Ambito;
   onOpenRide: () => void;
   onOpenVertical: (vertical: MerchantVertical) => void;
   onOpenShipment: () => void;
 }) {
-  const { servicios, cargando, fallo, reintentar } = useServiciosDisponibles();
+  const disponibles = useServiciosDisponibles();
+  const { cargando, reintentar } = disponibles;
+  const servicios = disponibles.servicios.filter((servicio) => ambitoDe(servicio) === ambito);
+  // El resumen de rubros sólo importa en Pedidos.
+  const fallo = disponibles.fallo && ambito === "pedidos";
   const abrir = (servicio: ServicioCliente) =>
     servicio.tipo === "ride"
       ? onOpenRide()
@@ -93,10 +118,18 @@ export function CustomerServicesScreen({
         : onOpenVertical(servicio.vertical);
   return (
     <View style={estilos.servicios}>
-      <Text style={estilos.titulo}>Servicios</Text>
+      <Text style={estilos.titulo}>{ambito === "pedidos" ? "Explorar" : "Servicios"}</Text>
       {fallo && <AvisoRubros onRetry={reintentar} />}
       <Text style={estilos.subtitulo}>
-        {cargando ? "Buscando lo disponible en tu zona…" : "Todo lo que podés pedir en tu zona"}
+        {cargando
+          ? "Buscando lo disponible en tu zona…"
+          : servicios.length === 0
+            ? ambito === "pedidos"
+              ? "Todavía no hay comercios en tu zona."
+              : "Los viajes y envíos todavía no están disponibles en tu zona."
+            : ambito === "pedidos"
+              ? "Comida, súper, farmacia y más en tu zona"
+              : "Viajá o mandá un paquete en el día"}
       </Text>
       {servicios.map((servicio) => (
         <Pressable

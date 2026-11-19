@@ -3,7 +3,8 @@
 // La app del cliente se reorganizó como las de varios servicios: el inicio es la
 // puerta a todos (viajes, rubros del catálogo y envíos), con «¿A dónde vas?», lo
 // que está en curso y «Volver a pedir»; la barra es Inicio · Servicios ·
-// Actividad · Cuenta. Lo que vigila este contrato son las decisiones que una
+// Actividad · Cuenta. Desde FE-01 (web) y FE-02 (móvil) hay dos ámbitos, Pedidos y
+// Viajes, con su inicio, su barra y su actividad. Lo que vigila este contrato son las decisiones que una
 // edición distraída rompe sin que ninguna prueba de comportamiento lo note:
 //
 // - que se entre al inicio y no a la portada de un servicio;
@@ -33,13 +34,16 @@ assert.ok(
     !contains(coordinador, "styles.serviceNav"),
   "la app del cliente no entra al inicio con todos los servicios",
 );
-const rotulos = [...barra.matchAll(/rotulo: "([^"]+)"/g)].map((m) => m[1]);
-assert.deepEqual(
-  rotulos,
-  ["Inicio", "Servicios", "Actividad", "Cuenta"],
-  "la barra no es Inicio · Servicios · Actividad · Cuenta",
+// FE-02: la barra sigue al ámbito, como la web y como Uber Eats y Uber.
+assert.ok(
+  contains(barra, '{ vista: "home", rotulo: "Inicio", icono: "home-outline" },') &&
+    contains(barra, 'rotulo: ambito === "pedidos" ? "Explorar" : "Servicios",') &&
+    contains(barra, 'rotulo: ambito === "pedidos" ? "Pedidos" : "Actividad",') &&
+    contains(barra, '{ vista: "account", rotulo: "Cuenta", icono: "person-outline" },') &&
+    contains(coordinador, "<CustomerTabBar vista={sharedView} ambito={ambito}"),
+  "la barra móvil no es la de su ámbito",
 );
-ok("se entra al inicio, y la barra es Inicio · Servicios · Actividad · Cuenta");
+ok("se entra al inicio, y la barra es la de su ámbito");
 
 assert.ok(
   contains(servicios, "if (flags?.public_rides?.active ?? true)") &&
@@ -65,13 +69,17 @@ assert.ok(
     ),
   "«Volver a pedir» no sale de pedidos entregados en comercios abiertos",
 );
+// FE-02: cada inicio muestra lo suyo en curso, y lo del otro ámbito se avisa con un toque.
 assert.ok(
-  contains(inicio, "...activeOrders.map(") &&
+  contains(inicio, "const enPedidos = activeOrders.map(") &&
     contains(inicio, "...activeRides.map(") &&
-    contains(inicio, "...activeShipments.map("),
-  "lo que está en curso no reúne pedidos, viajes y envíos",
+    contains(inicio, "...activeShipments.map(") &&
+    contains(inicio, "const enCurso = pedidos ? enPedidos : enViajes;") &&
+    contains(inicio, "const delOtroLado = pedidos ? enViajes : enPedidos;") &&
+    contains(inicio, 'onPress={() => onChangeAmbito(pedidos ? "viajes" : "pedidos")}'),
+  "lo en curso mezcla los ámbitos, o esconde lo del otro sin avisar",
 );
-ok("«Volver a pedir» sale de pedidos entregados, y lo en curso reúne los tres servicios");
+ok("«Volver a pedir» sale de pedidos entregados, y lo en curso es del ámbito con aviso del otro");
 
 assert.ok(
   contains(coordinador, "selectedDestination={rideDestination}") &&
@@ -188,6 +196,79 @@ assert.ok(
 );
 ok("Pedidos y Viajes separados: servicios, en curso, actividad, carrito y dirección propios");
 
+// --- FE-02: Pedidos y Viajes separados también en el móvil --------------------
+const ambitoMovil = await leer("customer-scope.tsx");
+const actividadMovil = await leer("screens/CustomerActivityScreen.tsx");
+const formatoMovil = await leer("format.ts");
+assert.ok(
+  contains(ambitoMovil, 'servicio.tipo === "vertical" ? "pedidos" : "viajes"') &&
+    contains(ambitoMovil, 'guardado === "viajes" && setAmbito("viajes")') &&
+    contains(ambitoMovil, "void AsyncStorage.setItem(CLAVE, siguiente).catch(() => undefined);") &&
+    contains(
+      coordinador,
+      '{["home", "services", "activity"].includes(sharedView) && ( <AmbitoSwitch ambito={ambito} onChange={cambiarAmbito} />',
+    ),
+  "móvil: no hay selector de Pedidos y Viajes, o no se recuerda la elección",
+);
+assert.ok(
+  contains(
+    inicio,
+    "const servicios = disponibles.servicios.filter((servicio) => ambitoDe(servicio) === ambito);",
+  ) &&
+    contains(
+      barra,
+      "const servicios = disponibles.servicios.filter((servicio) => ambitoDe(servicio) === ambito);",
+    ) &&
+    contains(coordinador, 'activeOrders={ambito === "pedidos" ? activeOrders : []}') &&
+    contains(coordinador, 'activeRides={ambito === "viajes" ? activeRides : []}') &&
+    contains(coordinador, 'activeShipments={ambito === "viajes" ? activeShipments : []}') &&
+    // Se filtra antes de recortar a cinco: si no, un ámbito dejaba vacío al otro.
+    contains(
+      coordinador,
+      '.filter((service) => (service.kind === "order") === (ambito === "pedidos")) .slice(0, 5);',
+    ) &&
+    contains(
+      coordinador,
+      '.filter((cancellation) => (cancellation.kind === "order") === (ambito === "pedidos")) .slice(0, 5);',
+    ) &&
+    contains(actividadMovil, '{ambito === "pedidos" && ( <GroupOrderPanel'),
+  "móvil: Pedidos y Viajes se mezclan en el inicio, los servicios o la actividad",
+);
+// El control del viaje es de seguridad: se ve en los dos ámbitos, no sólo en Viajes.
+assert.ok(
+  contains(inicio, "{ridesWithCheck.map((ride) => ( <TripCheckBanner") &&
+    !contains(inicio, "{!pedidos && ridesWithCheck.map(") &&
+    !contains(inicio, "{!pedidos && (ridesWithCheck"),
+  "móvil: el aviso del control del viaje sólo se ve en Viajes",
+);
+// La actividad dice el estado en palabras, no el identificador del backend.
+assert.ok(
+  contains(actividadMovil, "{customerOrderStatusLabel[order.status]}") &&
+    contains(actividadMovil, "{rideStatusLabel[ride.status]}") &&
+    contains(actividadMovil, "{shipmentStatusLabel[shipment.status]}") &&
+    !contains(actividadMovil, "{order.status}</Text>") &&
+    contains(
+      formatoMovil,
+      'export const customerOrderStatusLabel: Record<Order["status"], string>',
+    ),
+  "móvil: la actividad muestra el estado crudo",
+);
+// «Ver todos» abre restaurantes: la fila muestra sólo restaurantes. El selector se toca bien.
+assert.ok(
+  // Sólo abiertos: uno cerrado dejaba armar un pedido que el servidor rechaza.
+  contains(
+    inicio,
+    '.filter( (restaurant) => restaurant.open && (restaurant.vertical ?? "restaurant") === "restaurant", )',
+  ) &&
+    contains(inicio, 'onPress={() => onOpenVertical("restaurant")}') &&
+    // Con los viajes apagados no quedan destinos como acceso al servicio.
+    contains(inicio, "{!pedidos && viajes && destinos.length > 0 && (") &&
+    contains(inicio, "if (!viajes) setDestinos([]);") &&
+    contains(ambitoMovil, "minHeight: flashDesign.control.touch,"),
+  "móvil: «Ver todos» no abre lo que muestra la fila, se ofrece un cerrado o un viaje apagado, o el selector es chico",
+);
+ok("móvil: Pedidos y Viajes separados, recordados, con seguridad en los dos y estados legibles");
+
 // El cliente tiene el sitio también en escritorio, como ubereats.com: la puerta
 // «seguí en la app» queda para el staff que no tiene portal y para quien maneja.
 const app = await fs.readFile("src/App.tsx", "utf8");
@@ -214,14 +295,21 @@ assert.ok(
 );
 const aviso = "{fallo && <AvisoRubros onRetry={reintentar} />}";
 const cuantas = (fuente) => fuente.split(aviso).length - 1;
-for (const [nombre, servicio, home, avisos] of [
-  ["móvil", serviciosMovil, homeMovil, cuantas(homeMovil) + cuantas(barra)],
-  ["web", inicioWeb, inicioWeb, cuantas(inicioWeb)],
+// En el móvil, el buscador es de Pedidos (FE-02): en Viajes está «¿A dónde vas?».
+for (const [nombre, servicio, home, avisos, buscador] of [
+  [
+    "móvil",
+    serviciosMovil,
+    homeMovil,
+    cuantas(homeMovil) + cuantas(barra),
+    "{pedidos && hayComercios && (",
+  ],
+  ["web", inicioWeb, inicioWeb, cuantas(inicioWeb), "{hayComercios && ("],
 ])
   assert.ok(
     contains(servicio, 'fallo: rubros === "error",') &&
       contains(servicio, "reintentar: () => setIntento((n) => n + 1),") &&
-      contains(home, "{hayComercios && (") &&
+      contains(home, buscador) &&
       // En el inicio y en Servicios: los dos lugares que ofrecen rubros.
       avisos === 2,
     `${nombre}: el buscador aparece sin comercios, o un fallo se ve como disponibilidad`,

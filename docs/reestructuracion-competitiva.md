@@ -102,13 +102,16 @@ El dueño pidió separarlos.
 - **El sitio en escritorio.** El cliente pide desde la computadora, como en ubereats.com:
   barra del sitio arriba, contenido en grilla. La puerta «seguí en la app» queda para quien
   sólo maneja.
-- **Por qué el móvil va en otro PR (FE-02).** La app móvil no comparte pantallas con la
-  web: su inicio, su barra y su actividad viven en `apps/mobile/src/`, con
-  `screens/CustomerScreen.tsx` en 1.320 líneas, a 30 de su techo de 1.350. Separar ahí
-  exige partir ese coordinador primero, con sus contratos y la auditoría en Chromium de
-  las tres variantes de la app. En el mismo PR habrían sido dos refactors grandes que no
-  se pueden revisar ni revertir por separado. Mientras tanto, el móvil sigue con el inicio
-  de todos los servicios (RES-01), que funciona.
+- **El móvil (FE-02), en su propio PR.** La app no comparte pantallas con la web. El
+  ámbito vive en `apps/mobile/src/customer-scope.tsx` y se recuerda en el teléfono. El
+  inicio, la pestaña de servicios, la barra y la actividad lo siguen, con la misma
+  separación que la web.
+  - Lo que está en curso del otro ámbito se avisa con un toque para ir.
+  - El control del viaje (SEG-01) se ve en los dos ámbitos.
+  - La actividad dice el estado en palabras.
+
+  Se pensó partir antes `CustomerScreen.tsx`, que estaba cerca de su techo de tamaño. Con
+  los techos quitados (PR #143) no hizo falta.
 
 ### Repartidor
 
@@ -156,7 +159,7 @@ Flash Negocios tiene Hoy · Pedidos · Catálogo · Cuenta.
 | RES-06 | La web del cliente como sitio: sin marco de teléfono, sin selector de perfiles, sin métricas de la operación | Hecho |
 | RES-07 | Comercio: pausa con tiempo y motivo que vence sola | Hecho en la app móvil; modo ocupado, pausa automática y web pendientes |
 | FE-01 | Pedidos y Viajes separados en la web, inicio con feed, Actividad rehecha y el sitio del cliente en escritorio | Hecho (web) |
-| FE-02 | La misma separación en la app móvil | Pendiente: va en su PR, ver abajo |
+| FE-02 | La misma separación en la app móvil, con aviso de lo en curso del otro ámbito y estados legibles | Hecho |
 
 Las filas de funciones (P-02b, P-03 a P-10) siguen en [`paridad-competitiva.md`](paridad-competitiva.md).
 

@@ -28,7 +28,8 @@ const mobileAudiences = {
     // después de autenticarse.
     // El inicio con todos los servicios (RES-01): su buscador sólo existe adentro.
     readyText: "Buscar comida, súper o farmacia",
-    tabs: ["Inicio", "Servicios", "Actividad", "Cuenta"],
+    // FE-02: se entra a Pedidos, con su barra. La de Viajes se recorre aparte.
+    tabs: ["Inicio", "Explorar", "Pedidos", "Cuenta"],
   },
   driver: {
     email: "conductor@flash.app",
@@ -182,17 +183,29 @@ async function ensureActiveTestShipment() {
   }
 }
 
+// FE-02: el selector Pedidos | Viajes está en el inicio, los servicios y la actividad.
+// Se vuelve al inicio primero porque dentro de un servicio no se muestra.
+async function irAlAmbito(page, ambito) {
+  await page.getByText("Inicio", { exact: true }).last().click();
+  // `.first()`: el selector va antes que la barra, que en Pedidos también tiene «Pedidos».
+  await page.getByRole("tab", { name: ambito }).first().click();
+  await page.waitForTimeout(120);
+}
+
 async function auditCustomerTrackingSheets(page) {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByText("Actividad", { exact: true }).last().click();
   const cases = [
     {
+      ambito: "Pedidos",
+      pestana: "Pedidos",
       service: "food",
       openName: /Abrir seguimiento del pedido/,
       closeName: "Cerrar seguimiento del pedido",
       accent: "rgb(255, 106, 33)",
     },
     {
+      ambito: "Viajes",
+      pestana: "Actividad",
       service: "ride",
       openName: /Abrir seguimiento del viaje/,
       closeName: "Cerrar seguimiento del viaje",
@@ -201,6 +214,9 @@ async function auditCustomerTrackingSheets(page) {
   ];
 
   for (const trackingCase of cases) {
+    // Cada ámbito ve lo suyo: el pedido en Pedidos, el viaje en la Actividad de Viajes.
+    await irAlAmbito(page, trackingCase.ambito);
+    await page.getByText(trackingCase.pestana, { exact: true }).last().click();
     const open = page.getByRole("button", { name: trackingCase.openName }).first();
     await open.waitFor({ timeout: 10_000 });
     await open.press("Enter");
@@ -284,9 +300,15 @@ async function auditMobile(browser) {
       }
 
       if (mobileVariant === "customer") {
-        // Cada servicio se abre desde la pestaña Servicios, como en el inicio.
-        for (const service of ["Viaje", "Comida", "Envíos"]) {
-          await page.getByText("Servicios", { exact: true }).last().click();
+        // FE-02: Comida se abre desde Explorar (Pedidos); Viaje y Envíos, desde la
+        // pestaña Servicios de Viajes.
+        for (const [ambito, pestana, service] of [
+          ["Pedidos", "Explorar", "Comida"],
+          ["Viajes", "Servicios", "Viaje"],
+          ["Viajes", "Servicios", "Envíos"],
+        ]) {
+          await irAlAmbito(page, ambito);
+          await page.getByText(pestana, { exact: true }).last().click();
           await page
             .getByRole("button", { name: `Abrir ${service}` })
             .first()
@@ -294,6 +316,20 @@ async function auditMobile(browser) {
           await page.waitForTimeout(120);
           await assertNoPageOverflow(page, `customer ${service} at ${viewport.width}px`);
         }
+        // La barra de Viajes también entra en el ancho.
+        await irAlAmbito(page, "Viajes");
+        for (const tab of ["Servicios", "Actividad"]) {
+          const tabLocator = page.getByText(tab, { exact: true }).last();
+          await tabLocator.click();
+          await page.waitForTimeout(120);
+          await assertNoPageOverflow(page, `customer Viajes ${tab} at ${viewport.width}px`);
+          await assertLocatorInsideViewport(
+            page,
+            tabLocator,
+            `customer Viajes ${tab} navigation at ${viewport.width}px`,
+          );
+        }
+        await irAlAmbito(page, "Pedidos");
       }
     });
     ok(`${mobileVariant} navigation fits ${viewport.width}x${viewport.height}`);

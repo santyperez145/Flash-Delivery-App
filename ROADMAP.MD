@@ -45,6 +45,35 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
 
+## Avance 19 de noviembre de 2026 — FE-02, Pedidos y Viajes separados en la app móvil
+
+- **Qué faltaba.** La web separa Pedidos y Viajes desde FE-01; la app del celular seguía
+  con un inicio único donde el auto y la pizza convivían, y una actividad mezclada.
+- **Ahora la app tiene el mismo selector Pedidos | Viajes** arriba del inicio, la pestaña
+  de servicios y la actividad, y lo recuerda en el teléfono.
+  - **Pedidos:** buscador, rubros, «Volver a pedir» y «Cerca tuyo», con los abiertos
+    primero. Barra Inicio · Explorar · Pedidos · Cuenta. Los pedidos grupales viven acá.
+  - **Viajes:** «¿A dónde vas?» arriba, lugares recientes, Viaje y Envíos, e invitaciones a
+    dividir la tarifa. Barra Inicio · Servicios · Actividad · Cuenta.
+  - **Cada ámbito ve lo suyo** en curso y en la actividad. Lo que está en curso del otro
+    lado se avisa con un toque para ir: no se esconde.
+  - **El control del viaje (SEG-01) se ve en los dos ámbitos**, porque es de seguridad.
+- **Defecto corregido en el camino.** La actividad móvil mostraba el estado crudo del
+  backend («Pedido · courier_assigned»). Ahora dice «Repartidor asignado», «Tu conductor
+  está llegando» y equivalentes.
+- **No hizo falta partir `CustomerScreen.tsx`.** Desde que se quitaron los techos por
+  archivo (PR #143), la separación entra como un módulo nuevo (`customer-scope.tsx`) y
+  filtros en el coordinador.
+- **Verificación:**
+  - `test:customer-home` suma la sección móvil. Falsificado: cada una de las 14 aserciones
+    nuevas falla cuando se rompe lo que vigila.
+  - Recorrido en el navegador de los dos inicios, Explorar y las dos actividades.
+  - `test:responsive-browser` (Chromium real, nocturno) ahora recorre la barra de cada
+    ámbito en 320, 390 y 768 px y abre cada servicio desde el suyo. Pasó completo en
+    local. Corridas seguidas contra la misma API local chocan con el límite de 300
+    pedidos por minuto, así que la API nocturna corre con el límite subido, como
+    `ci-critical-flows`.
+
 ## Avance 19 de noviembre de 2026 — SEG-08, verificación en dos pasos para toda cuenta
 
 - **Qué faltaba.** Uber deja proteger cualquier cuenta con un segundo factor; en Flash existía
@@ -216,10 +245,8 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
     Falsificado: cada aserción nueva falla cuando se rompe lo que vigila.
   - `test:responsive-browser` (Chromium real) recorre los dos ámbitos en el celular, el
     sitio a 1024 y 1440 px, y la puerta con la cuenta de conductor. Pasó completo en local.
-- **Pendiente: la misma separación en la app móvil (FE-02), en su propio PR.** Exige
-  partir primero `apps/mobile/src/screens/CustomerScreen.tsx`, con 1.320 líneas, a 30 de
-  su techo. Juntos habrían sido dos refactors grandes imposibles de revisar o revertir por
-  separado. El móvil sigue con el inicio de todos los servicios (RES-01), que funciona.
+- **La misma separación en la app móvil (FE-02)** quedó hecha el 19 de noviembre, en su
+  propio PR (ver arriba).
 
 ## Avance 18 de noviembre de 2026 — P-02b, foto obligatoria al dejar en la puerta
 
