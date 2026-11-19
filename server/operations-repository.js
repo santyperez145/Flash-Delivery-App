@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { postgresPool } from "./postgres.js";
+import { CASH_LABEL } from "./wallet-repository.js";
 
 const ticketId = () => `TCK-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
 const notificationId = () => `NTF-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
@@ -637,7 +638,7 @@ export async function getPostgresAuditEventPage({ limit = 100, cursor = null, qu
 }
 
 export async function getPostgresAdminFinancials() {
-  const [payments, refunds, revenue, merchantPayable, payouts] = await Promise.all([
+  const [payments, refunds, revenue, merchantPayable, payouts, cash] = await Promise.all([
     postgresPool.query(
       // FE-04: lo procesado es lo cobrado; una intención fallida, cancelada o sin pagar no
       // es volumen.
@@ -658,12 +659,22 @@ export async function getPostgresAdminFinancials() {
     postgresPool.query(
       `SELECT COALESCE(sum(amount_cents) FILTER(WHERE status IN('pending','processing')),0)::bigint pending_cents,count(*) FILTER(WHERE status IN('pending','processing'))::int pending_count FROM payouts`,
     ),
+    // Lo cobrado en efectivo no pasa por una intención de pago: un servicio completado y
+    // pagado en mano es volumen igual (PAG-01). Sin esto, un mes de efectivo daría $0.
+    postgresPool.query(
+      `SELECT COALESCE(sum(COALESCE(final_amount_cents,quoted_amount_cents)),0)::bigint cents,count(*)::int jobs
+       FROM jobs WHERE status='completed' AND payment_method_label=$1`,
+      [CASH_LABEL],
+    ),
   ]);
   const money = (value) => Number(value || 0) / 100;
   return {
-    grossProcessed: money(payments.rows[0].gross_processed_cents),
+    grossProcessed: money(
+      Number(payments.rows[0].gross_processed_cents) + Number(cash.rows[0].cents),
+    ),
+    cashCollected: money(cash.rows[0].cents),
     netCaptured: money(payments.rows[0].net_captured_cents),
-    paymentCount: payments.rows[0].payment_count,
+    paymentCount: payments.rows[0].payment_count + cash.rows[0].jobs,
     refunded: money(refunds.rows[0].refunded_cents),
     refundCount: refunds.rows[0].refund_count,
     postedPlatformRevenue: money(revenue.rows[0].cents),

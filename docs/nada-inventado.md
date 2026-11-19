@@ -28,8 +28,10 @@ superficies encontró valores fijos que se leían como datos reales; esta ola lo
   madurez» calculado sobre una base fija de 42, hitos escritos a mano presentados como
   estado, un volumen que sumaba lo cancelado y lo no cobrado, promedios de $0 sin datos,
   tasas de asignación de 0% sin pedidos y «Zonas calientes · Live» con una demanda que es
-  configuración de precios. Ahora el volumen cuenta sólo lo cobrado y no lo cancelado, un
-  promedio sin datos es «—», la tasa sin pedidos es «—», las zonas se llaman «Zonas de
+  configuración de precios. Ahora el volumen cuenta sólo lo cobrado (con tarjeta, Wallet o en
+  efectivo) y no lo cancelado, un
+  promedio sin datos es «—», la tasa sin pedidos en total (no sólo en la página que tiene el
+  navegador) es «—», las zonas se llaman «Zonas de
   servicio» con su «demanda configurada», y el puntaje y los hitos no existen más.
 - **La consola del comercio** usaba la foto del local para un producto sin foto, y
   precargaba un horario de 9 a 23 en una sucursal sin horario. Ahora dice «Sin foto
@@ -44,7 +46,7 @@ base sembrada como la del CI, con la migración 151 y las semillas.
 `npm run test:no-invented-data` (en `ci-fast`) vigila que no vuelva nada de lo anterior:
 el alta de producto, la migración, la calificación real del comercio y de quien maneja en
 web y app, la app sin relleno, el tablero sin puntaje ni hitos y con el volumen bien
-contado, y la consola del comercio. Falsificado con 20 mutaciones. Si falla, una pantalla
+contado, y la consola del comercio. Falsificado con 23 mutaciones. Si falla, una pantalla
 volvió a mostrar un dato que nadie dio.
 
 ## Lo que sigue
