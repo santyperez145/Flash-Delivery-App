@@ -30,6 +30,8 @@ import type {
   RideTripCheck,
   FareSplit,
   FareSplitInvitation,
+  GiftCard,
+  ReceivedGiftCard,
   MfaStatus,
   MfaEnrollment,
 } from "@flash/domain-contracts";
@@ -66,6 +68,8 @@ export type {
   RideTripCheck,
   FareSplit,
   FareSplitInvitation,
+  GiftCard,
+  ReceivedGiftCard,
   MfaStatus,
   MfaEnrollment,
 };

@@ -17,6 +17,7 @@ let fixtureDeviceId;
 let fixtureOfferId;
 let fixtureTripCheckId;
 let fixtureFareSplitId;
+let fixtureGiftCardId;
 let fixtureDeliveryCodeJobId;
 let fixturePayoutId;
 let fixtureTipId;
@@ -581,6 +582,14 @@ try {
       [`SPL-RLS-${Date.now()}`, fixtureJob.id, customer.id, `rls-${Date.now()}@flash.test`],
     )
   ).rows[0].id;
+  // PAG-04: una tarjeta de regalo la ven quien la compró y a quien se dirigió;
+  // nadie más. Sin destinatario, para que no haya otra cuenta que la vea con razón.
+  fixtureGiftCardId = (
+    await owner.query(
+      "INSERT INTO gift_cards(public_id,code_hash,code_last4,amount_cents,purchaser_id,status,cancelled_at) VALUES($1,$2,'WXYZ',100000,$3,'cancelled',now()) RETURNING id",
+      [`GFT-RLS-${Date.now()}`, `rls-gift-${Date.now()}`, customer.id],
+    )
+  ).rows[0].id;
   // SEG-01: un aviso del control del viaje del cliente, para probar que la
   // política discrimina: lo ve quien viaja y nadie más.
   // SEG-03: el código de entrega lo ven quien pidió y quien reparte; nadie más.
@@ -757,6 +766,14 @@ try {
       ])
     ).rows[0].count === 1,
     "RLS exposes the fare split invitations the customer sent",
+  );
+  assert(
+    (
+      await client.query("SELECT count(*)::int count FROM gift_cards WHERE id=$1", [
+        fixtureGiftCardId,
+      ])
+    ).rows[0].count === 1,
+    "RLS exposes the gift cards the customer bought",
   );
   // Siempre se afirma sobre el pedido de prueba: si ya tenía código, la fila existe
   // igual y el cliente la tiene que ver. Sólo se borra la que se creó acá.
@@ -968,6 +985,14 @@ try {
     ).rows[0].count === 0,
     "RLS hides the passenger's fare splits from a driver",
   );
+  assert(
+    (
+      await client.query("SELECT count(*)::int count FROM gift_cards WHERE id=$1", [
+        fixtureGiftCardId,
+      ])
+    ).rows[0].count === 0,
+    "RLS hides the customer's gift cards from a driver",
+  );
   // La otra mitad de la politica de `drivers`. Sin esto, la prueba del auditor
   // solo demostraria que la tabla esta cerrada: una politica que niega a todos
   // pasa el test negativo y deja al conductor sin poder verse a si mismo.
@@ -1018,6 +1043,10 @@ try {
   assert(
     (await client.query("SELECT count(*)::int count FROM ride_fare_splits")).rows[0].count === 0,
     "RLS hides another customer's fare splits",
+  );
+  assert(
+    (await client.query("SELECT count(*)::int count FROM gift_cards")).rows[0].count === 0,
+    "RLS hides another customer's gift cards",
   );
   assert(
     (await client.query("SELECT count(*)::int count FROM order_delivery_codes")).rows[0].count ===
@@ -1149,6 +1178,8 @@ try {
     "RLS hides another customer's service chat",
   );
 } finally {
+  if (owner && fixtureGiftCardId)
+    await owner.query("DELETE FROM gift_cards WHERE id=$1", [fixtureGiftCardId]);
   if (owner && fixtureFareSplitId)
     await owner.query("DELETE FROM ride_fare_splits WHERE id=$1", [fixtureFareSplitId]);
   if (owner && fixtureDeliveryCodeJobId)

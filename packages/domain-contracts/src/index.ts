@@ -388,6 +388,29 @@ export type FareSplitInvitation = {
   share: number;
 };
 
+/** PAG-04: una tarjeta de regalo que compró la persona. El código, sólo mientras está vigente. */
+export type GiftCard = {
+  id: string;
+  amount: number;
+  status: "active" | "redeemed" | "cancelled";
+  code: string | null;
+  last4: string;
+  recipientEmail: string | null;
+  message: string | null;
+  createdAt: string;
+  redeemedAt: string | null;
+  cancelledAt: string | null;
+};
+
+/** PAG-04: una tarjeta dirigida a la cuenta, para canjear sin escribir el código. */
+export type ReceivedGiftCard = {
+  id: string;
+  amount: number;
+  fromName: string;
+  message: string | null;
+  createdAt: string;
+};
+
 /** SEG-08: la verificación en dos pasos de la cuenta. */
 export type MfaStatus = {
   enabled: boolean;

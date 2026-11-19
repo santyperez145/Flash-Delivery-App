@@ -312,3 +312,46 @@ export function decryptPaymentOAuthToken(envelope) {
     decipher.final(),
   ]).toString("utf8");
 }
+
+// Tarjetas de regalo (PAG-04). El código se busca por su HMAC y se guarda cifrado
+// para que quien la compró lo vuelva a ver mientras está vigente. Claves propias,
+// derivadas de la de recuperación como las del chat y los contactos de confianza.
+const giftCardKey = crypto
+  .createHmac("sha256", recoveryKey)
+  .update("flash-gift-card-code-v1")
+  .digest();
+const giftCardHashKey = crypto
+  .createHmac("sha256", recoveryKey)
+  .update("flash-gift-card-lookup-v1")
+  .digest();
+export function hashGiftCardCode(value) {
+  return crypto.createHmac("sha256", giftCardHashKey).update(String(value), "utf8").digest("hex");
+}
+export function encryptGiftCardCode(value) {
+  const iv = crypto.randomBytes(12),
+    cipher = crypto.createCipheriv("aes-256-gcm", giftCardKey, iv);
+  cipher.setAAD(Buffer.from("flash-gift-card-code-v1"));
+  const ciphertext = Buffer.concat([cipher.update(String(value), "utf8"), cipher.final()]),
+    tag = cipher.getAuthTag();
+  return [
+    "v1",
+    iv.toString("base64url"),
+    tag.toString("base64url"),
+    ciphertext.toString("base64url"),
+  ].join(".");
+}
+export function decryptGiftCardCode(envelope) {
+  const [version, iv, tag, ciphertext] = String(envelope || "").split(".");
+  if (version !== "v1" || !iv || !tag || !ciphertext) throw new Error("Invalid gift card envelope");
+  const decipher = crypto.createDecipheriv(
+    "aes-256-gcm",
+    giftCardKey,
+    Buffer.from(iv, "base64url"),
+  );
+  decipher.setAAD(Buffer.from("flash-gift-card-code-v1"));
+  decipher.setAuthTag(Buffer.from(tag, "base64url"));
+  return Buffer.concat([
+    decipher.update(Buffer.from(ciphertext, "base64url")),
+    decipher.final(),
+  ]).toString("utf8");
+}

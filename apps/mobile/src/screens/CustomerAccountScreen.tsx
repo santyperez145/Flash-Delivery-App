@@ -2,6 +2,7 @@
 // Se mantiene montada al cambiar de pestaña para no descartar formularios en curso.
 import { useEffect, useState } from "react";
 import { AccountDeletion } from "../AccountDeletion";
+import { GiftCards } from "../GiftCards";
 import { TwoStepVerification } from "../TwoStepVerification";
 import { LegalLinks } from "../LegalLinks";
 import { Ionicons } from "@expo/vector-icons";
@@ -33,6 +34,8 @@ type CustomerAccountScreenProps = {
   dietaryPreferences: DietaryPreferences;
   setDietaryPreferences: (preferences: DietaryPreferences) => void;
   onUseAddress: (address: string, point: GeoPoint | null) => void;
+  /** PAG-04: una tarjeta de regalo cambió el saldo; la cuenta se vuelve a leer. */
+  onWalletChanged: () => void;
 };
 
 export function CustomerAccountScreen({
@@ -45,6 +48,7 @@ export function CustomerAccountScreen({
   dietaryPreferences,
   setDietaryPreferences,
   onUseAddress,
+  onWalletChanged,
 }: CustomerAccountScreenProps) {
   const [paymentToken, setPaymentToken] = useState("");
   const [paymentBrand, setPaymentBrand] = useState<"visa" | "mastercard" | "amex" | "cabal">(
@@ -142,6 +146,8 @@ export function CustomerAccountScreen({
           <Text style={styles.totalText}>Wallet {money.format(user.wallet)}</Text>
         </View>
       </View>
+      {/* PAG-04: al lado del saldo, que es con lo que se compran y adonde van. */}
+      <GiftCards wallet={user.wallet} onWalletChanged={onWalletChanged} />
       <View style={styles.addressBookCard}>
         <View style={styles.addressBookHeading}>
           <View style={styles.savedAddressCopy}>

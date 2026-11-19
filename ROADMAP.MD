@@ -45,6 +45,58 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
 
+## Avance 19 de noviembre de 2026 — PAG-04, tarjetas de regalo
+
+- **Qué faltaba.** Uber deja regalar saldo con tarjetas de regalo; Flash sólo tenía el premio de
+  referidos.
+- **Ahora un cliente compra una tarjeta con el saldo de su Flash Wallet** y la regala, en web y
+  en la app:
+  - con el código, que comparte por donde quiera;
+  - o dirigida a otra cuenta Flash por su email, que la ve en su Wallet y la canjea con un toque.
+  - Quien la recibe suma el importe a su Wallet.
+  - Quien la compró la anula mientras nadie la canjeó, y la plata le vuelve.
+  - No vence.
+- **El dinero pasa por una cuenta de la plataforma** (`gift_card_liability`, asiento
+  `gift_card`, migración 146). Su saldo es siempre lo que Flash debe en tarjetas vigentes.
+- **Pensado contra el robo de cuentas**, que es el uso clásico de las tarjetas de regalo:
+  - con la verificación en dos pasos activa, comprar pide el código;
+  - cada compra se avisa por push y email;
+  - el código se busca por HMAC y se guarda cifrado, nunca en claro ni en la auditoría;
+  - canjear tiene su propio límite;
+  - una compra exige `Idempotency-Key` y bloquea la Wallet antes de mirar el saldo.
+- **Dirigirla no sirve para averiguar cuentas.** Un email sin cuenta responde igual.
+- **Verificación:**
+  - `test:gift-cards` (nueva, en `ci-critical-flows`) recorre comprar, repetir, sin saldo,
+    canjear por cuenta y por código, rechazos y anular, con los saldos del libro contable en
+    cada paso. No se pudo correr en local, porque no hay credenciales de la base local; corre
+    en el CI.
+  - `test:gift-cards-contract` (nueva, en `ci-fast`) vigila el cableado en servidor, web y
+    teléfono. Falsificado: cada una de las mutaciones probadas la hace fallar.
+  - `test:rls` suma la tabla `gift_cards`.
+- **Diez defectos de la revisión, corregidos antes de fusionar** (siete de las revisiones del PR y
+  tres de una revisión adversarial propia sobre esos arreglos):
+  - Un canje o una anulación en paralelo con el borrado de la cuenta podía acreditar la
+    plata en una cuenta ya borrada. Ahora la cuenta queda bloqueada durante la operación.
+  - Con más de 50 compras, una tarjeta vigente vieja desaparecía de la lista con su código y
+    su botón de anular. Ahora la lista trae todas las vigentes.
+  - El reintento de una compra cuya respuesta se perdió traía el código del segundo factor ya
+    usado y se rechazaba. Ahora se responde antes de pedirlo.
+  - Con el pool de conexiones lleno, el aviso de la compra podía perderse. Ahora se encola en
+    la misma transacción.
+  - Activar la verificación en dos pasos en la misma pantalla dejaba la compra sin el campo
+    del código. Ahora las apps lo vuelven a leer antes de comprar; si no se puede saber, el
+    campo se ofrece sin exigirlo.
+  - Canje y borrado de la cuenta de quien compró podían trabarse mutuamente. Ahora el canje
+    bloquea las filas en el mismo orden que el borrado.
+  - La cuenta a la que se dirige la tarjeta no se bloqueaba contra su propio borrado.
+  - Una compra rechazada por saldo gastaba el código del segundo factor. Ahora saldo y
+    destinatario se controlan antes de pedirlo.
+  - La misma clave con otro importe o destinatario devolvía la tarjeta anterior como si fuera
+    nueva. Ahora responde 409, y las apps cambian la clave cuando cambian los datos.
+  - `test:gift-cards` suma cada caso y el contrato los vigila. Falsificado con 30 mutaciones.
+- **Detalle:** [`docs/gift-cards.md`](docs/gift-cards.md). Comprar con tarjeta en el momento
+  depende de Mercado Pago en producción (PAG-07, dueño).
+
 ## Avance 19 de noviembre de 2026 — FE-02, Pedidos y Viajes separados en la app móvil
 
 - **Qué faltaba.** La web separa Pedidos y Viajes desde FE-01; la app del celular seguía

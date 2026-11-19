@@ -1,0 +1,165 @@
+/* Tarjetas de regalo (PAG-04). Hoja propia: `styles.css` es un monolito de H-08. */
+.gift-cards {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+.gift-cards header {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.gift-cards header > svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--accent-deep);
+}
+.gift-cards header strong {
+  font-size: 1rem;
+}
+.gift-cards p,
+.gift-cards small {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+.gift-cards p[role="alert"] {
+  color: var(--danger, #b42318);
+  font-weight: 700;
+}
+.gift-cards p[role="status"] {
+  color: #0f6b3a;
+  font-weight: 700;
+}
+.gift-cards form {
+  display: grid;
+  gap: 10px;
+}
+.gift-cards label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.gift-cards input {
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  font: inherit;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.gift-cards-redeem > div {
+  display: flex;
+  gap: 8px;
+}
+.gift-cards-redeem input {
+  flex: 1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.06em;
+}
+.gift-cards button {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 8px 16px;
+  color: #fff;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 800;
+  background: var(--ink);
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.gift-cards button.secondary {
+  color: var(--ink);
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+}
+.gift-cards button.danger {
+  background: var(--danger, #b42318);
+}
+.gift-cards button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.gift-cards-amounts,
+.gift-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.gift-card {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  background: var(--paper-soft);
+  border-radius: 12px;
+}
+.gift-card > div:first-child {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.gift-card q {
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+  font-style: italic;
+}
+.gift-card-received {
+  background: linear-gradient(135deg, #f3ecff, #fff4e5);
+}
+.gift-card code,
+.gift-card-new code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.08em;
+  overflow-wrap: anywhere;
+}
+.gift-card-new {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  color: #fff;
+  background: linear-gradient(135deg, #5b21b6, #7c3cff);
+  border-radius: 14px;
+}
+.gift-card-new code {
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+.gift-card-new button.secondary {
+  color: #fff;
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.6);
+}
+.gift-cards-list {
+  display: grid;
+  gap: 8px;
+}
+.gift-card-status {
+  justify-self: start;
+  padding: 2px 10px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  border-radius: 999px;
+}
+.gift-card-active {
+  color: #0f6b3a;
+  background: #ddf5e7;
+}
+.gift-card-redeemed,
+.gift-card-cancelled {
+  color: var(--ink-soft);
+  background: var(--paper);
+}

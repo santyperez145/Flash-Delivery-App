@@ -3,6 +3,7 @@ import { TicketPercent, WalletCards } from "lucide-react";
 
 import { money } from "../format";
 import type { AppState, User } from "../types";
+import { GiftCards } from "./GiftCards";
 
 /** La Wallet vive dentro de Cuenta: un acceso, con el saldo a la vista. */
 export function WalletLink({ wallet, onOpen }: { wallet: number; onOpen: () => void }) {
@@ -18,11 +19,14 @@ export function WalletScreen({
   promotions,
   transactions,
   onTopUp,
+  onWalletChanged,
 }: {
   user: User | null;
   promotions: AppState["promotions"];
   transactions: AppState["walletTransactions"];
   onTopUp: (amount: number) => void;
+  /** PAG-04: una tarjeta de regalo cambió el saldo; la cuenta se vuelve a leer. */
+  onWalletChanged: (aviso: string) => void;
 }) {
   const [amount, setAmount] = useState("10000");
   const parsedAmount = Number(amount);
@@ -55,6 +59,7 @@ export function WalletScreen({
           </button>
         </div>
       </section>
+      <GiftCards wallet={user?.wallet || 0} onWalletChanged={onWalletChanged} />
       <section className="loyalty-card">
         <div>
           <span>Actividad financiera</span>

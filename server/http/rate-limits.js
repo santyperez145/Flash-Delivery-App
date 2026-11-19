@@ -77,6 +77,15 @@ export const fareSplitLimiter = createLimiter({
   message: "Demasiadas invitaciones para dividir la tarifa. Intenta más tarde.",
 });
 
+// PAG-04: canjear prueba códigos. Con 80 bits por código no hay adivinanza posible,
+// pero el límite corta igual un barrido y deja rastro. Comprar comparte el cupo:
+// es lo que haría quien vacía una cuenta robada.
+export const giftCardLimiter = createLimiter({
+  max: 20,
+  prefix: "gift-card",
+  message: "Demasiadas operaciones con tarjetas de regalo. Intenta más tarde.",
+});
+
 export const serviceChatLimiter = createLimiter({
   max: 60,
   prefix: "service-chat",

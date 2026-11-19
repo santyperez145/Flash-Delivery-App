@@ -16,6 +16,7 @@ import "./styles/customer-site.css";
 import "./styles/customer-feed.css";
 import "./styles/customer-desktop.css";
 import "./styles/customer-scope.css";
+import "./styles/gift-cards.css";
 import "./adaptive.css";
 
 const publicTrackingToken = window.location.pathname.match(

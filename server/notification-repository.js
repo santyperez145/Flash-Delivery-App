@@ -29,7 +29,9 @@ const categoryForTemplate = (template) =>
     ? "service_updates"
     : template.startsWith("support_")
       ? "support"
-      : template.startsWith("tip_") || template.includes("refund")
+      : template.startsWith("tip_") ||
+          template.startsWith("gift_card_") ||
+          template.includes("refund")
         ? "wallet"
         : template.startsWith("promotion_")
           ? "promotions"
@@ -61,6 +63,11 @@ const securityChangeEmails = {
   mfa_recovery_code_used: {
     subject: "Se usó un código de recuperación de tu cuenta Flash",
     text: "Si no fuiste vos, cambiá tu contraseña ahora y escribinos desde Ayuda en la app.",
+  },
+  // PAG-04: el email no lleva el código ni el importe; sólo que hubo una compra.
+  gift_card_purchased: {
+    subject: "Compraste una tarjeta de regalo en Flash",
+    text: "Si no fuiste vos, anulala desde tu Wallet mientras nadie la canjeó, cambiá tu contraseña y escribinos desde Ayuda.",
   },
 };
 
