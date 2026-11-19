@@ -255,13 +255,17 @@ assert.ok(
 );
 // «Ver todos» abre restaurantes: la fila muestra sólo restaurantes. El selector se toca bien.
 assert.ok(
+  // Sólo abiertos: uno cerrado dejaba armar un pedido que el servidor rechaza.
   contains(
     inicio,
-    '.filter((restaurant) => (restaurant.vertical ?? "restaurant") === "restaurant")',
+    '.filter( (restaurant) => restaurant.open && (restaurant.vertical ?? "restaurant") === "restaurant", )',
   ) &&
     contains(inicio, 'onPress={() => onOpenVertical("restaurant")}') &&
+    // Con los viajes apagados no quedan destinos como acceso al servicio.
+    contains(inicio, "{!pedidos && viajes && destinos.length > 0 && (") &&
+    contains(inicio, "if (!viajes) setDestinos([]);") &&
     contains(ambitoMovil, "minHeight: flashDesign.control.touch,"),
-  "móvil: «Ver todos» no abre lo que muestra la fila, o el selector es chico para tocar",
+  "móvil: «Ver todos» no abre lo que muestra la fila, se ofrece un cerrado o un viaje apagado, o el selector es chico",
 );
 ok("móvil: Pedidos y Viajes separados, recordados, con seguridad en los dos y estados legibles");
 

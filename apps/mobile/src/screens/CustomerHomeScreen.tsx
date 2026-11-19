@@ -84,6 +84,8 @@ export function CustomerHomeScreen({
   const viajes = disponibles.servicios.some((servicio) => servicio.tipo === "ride");
   const [destinos, setDestinos] = useState<RideDestination[]>([]);
   useEffect(() => {
+    // Con los viajes apagados, los destinos de antes no quedan como acceso al servicio.
+    if (!viajes) setDestinos([]);
     if (!viajes || pedidos) return;
     let vigente = true;
     api
@@ -106,12 +108,15 @@ export function CustomerHomeScreen({
       yaPedidos.push(restaurant);
     if (yaPedidos.length === 4) break;
   }
-  // «Restaurantes cerca tuyo»: los abiertos primero y, entre ellos, los que llegan
-  // antes. Sólo restaurantes, para que «Ver todos» abra lo mismo que se ve; los
-  // demás rubros tienen su acceso en la grilla.
+  // «Restaurantes cerca tuyo»: sólo abiertos, de los que llegan antes. Uno cerrado
+  // abriría la tienda y dejaría armar un pedido que el servidor rechaza. Sólo
+  // restaurantes, para que «Ver todos» abra lo mismo que se ve; los demás rubros
+  // tienen su acceso en la grilla.
   const cerca = restaurants
-    .filter((restaurant) => (restaurant.vertical ?? "restaurant") === "restaurant")
-    .sort((a, b) => Number(b.open) - Number(a.open) || a.etaMin - b.etaMin)
+    .filter(
+      (restaurant) => restaurant.open && (restaurant.vertical ?? "restaurant") === "restaurant",
+    )
+    .sort((a, b) => a.etaMin - b.etaMin)
     .slice(0, 8);
 
   const enPedidos = activeOrders.map((order) => ({
@@ -248,7 +253,7 @@ export function CustomerHomeScreen({
         </View>
       )}
 
-      {!pedidos && destinos.length > 0 && (
+      {!pedidos && viajes && destinos.length > 0 && (
         <View style={estilos.seccion}>
           <Text style={estilos.seccionTitulo}>Lugares recientes</Text>
           {destinos.map((destino) => (
