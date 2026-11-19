@@ -5,6 +5,7 @@ import type { Portada, ServicioWeb } from "./CustomerHome";
 import { useServiciosWeb } from "./CustomerHome";
 import { EnCurso, enCursoDe, Seccion } from "./CustomerHomeFeed";
 import { TripCheckBanner } from "./TripCheckBanner";
+import { FareSplitInvitations } from "./FareSplit";
 
 // El inicio de Viajes (FE-01), como el de Uber: «¿A dónde vas?» primero, después
 // los lugares guardados y los destinos recientes, que llevan al viaje con el
@@ -109,6 +110,8 @@ export function RidesHome({
         .map((ride) => (
           <TripCheckBanner key={ride.id} ride={ride} />
         ))}
+      {/* PAG-02: invitaciones a dividir un viaje. */}
+      <FareSplitInvitations />
       <EnCurso items={enCursoDe(state, user?.id, "viajes")} onOpen={onOpenActivity} />
       {lugares.length > 0 && (
         <ul className="rides-places" aria-label="Lugares">

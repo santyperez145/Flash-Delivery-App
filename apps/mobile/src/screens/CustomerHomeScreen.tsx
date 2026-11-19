@@ -5,6 +5,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import { api } from "../api";
 import { useServiciosDisponibles, type ServicioCliente } from "../customer-services";
 import { TripCheckBanner } from "../TripCheckBanner";
+import { FareSplitInvitations } from "../FareSplit";
 import { flashDesign } from "../design-system";
 import type {
   GeoPoint,
@@ -138,6 +139,8 @@ export function CustomerHomeScreen({
         </Pressable>
       )}
       {fallo && <AvisoRubros onRetry={reintentar} />}
+      {/* PAG-02: invitaciones a dividir un viaje. */}
+      <FareSplitInvitations />
       {ridesWithCheck.map((ride) => (
         <TripCheckBanner key={ride.id} ride={ride} />
       ))}

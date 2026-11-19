@@ -80,3 +80,44 @@ assert.ok(
   "las apps no dejan elegir efectivo, o el conductor no sabe que cobra en mano",
 );
 console.log("ok - web y móvil dejan elegir efectivo, y el conductor ve cuánto cobrar");
+
+// --- PAG-02: dividir la tarifa ------------------------------------------------
+// La prueba con PostgreSQL (`test:fare-splits`) recorre el dinero. Esto vigila el
+// cableado: la ruta montada y limitada, la cancelación que devuelve las partes y las
+// dos apps.
+{
+  const [division, rutas, webSeguimiento, webInicio, movilSeguimiento, movilInicio] =
+    await Promise.all(
+      [
+        "server/ride-fare-split-repository.js",
+        "server/http/ride-fare-split-router.js",
+        "src/customer/RideTrackingSheet.tsx",
+        "src/customer/RidesLanding.tsx",
+        "apps/mobile/src/screens/CustomerTrackingSheets.tsx",
+        "apps/mobile/src/screens/CustomerHomeScreen.tsx",
+      ].map(leer),
+    );
+  assert.ok(
+    contains(viajes, "router.use(rideFareSplitRouter);") &&
+      contains(rutas, "fareSplitLimiter,") &&
+      contains(billetera, "await refundFareSplitsOnCancel(client, {") &&
+      contains(division, "const parte = Math.floor(total / (aceptados.length + 2));") &&
+      contains(
+        division,
+        'if (suma !== 0) throw new Error("La división de la tarifa no cuadra");',
+      ) &&
+      // Un email sin cliente activo responde igual que uno inexistente.
+      contains(division, "u.status='active' AND u.id<>$2 LIMIT 1"),
+    "dividir la tarifa no está montado, limitado, cuadrado o devuelto al cancelar",
+  );
+  assert.ok(
+    contains(webSeguimiento, "<FareSplitPanel ride={ride} />") &&
+      contains(webInicio, "<FareSplitInvitations />") &&
+      contains(movilSeguimiento, "<FareSplitPanel ride={ride} />") &&
+      contains(movilInicio, "<FareSplitInvitations />"),
+    "dividir la tarifa no se ofrece en web y móvil",
+  );
+  console.log(
+    "ok - dividir la tarifa está montado, cuadrado, devuelto al cancelar y en las dos apps",
+  );
+}

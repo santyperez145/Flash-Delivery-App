@@ -3,6 +3,7 @@ import { postgresPool } from "./postgres.js";
 import { pesos } from "./money.js";
 import { markHeldTipRefunded } from "./tip-repository.js";
 import { enqueueNotificationForInternalUser } from "./notification-repository.js";
+import { refundFareSplitsOnCancel } from "./ride-fare-split-repository.js";
 
 const clearingAccount = async (client) =>
   (
@@ -741,6 +742,14 @@ export async function cancelMobilityJobAndRefundWallet({
         "UPDATE payment_intents SET status='refunded',captured_amount_cents=0,updated_at=now() WHERE id=$1",
         [payment.id],
       );
+      // PAG-02: si el viaje estaba dividido, quien pidió acaba de recibir el total;
+      // a cada invitado se le devuelve lo que pagó.
+      if (kind === "ride")
+        await refundFareSplitsOnCancel(client, {
+          jobId: job.id,
+          ridePublicId: publicId,
+          customerId: job.customer_id,
+        });
     }
     const refundAmount = Number(payment?.captured_amount_cents || 0);
     const cancellation = (

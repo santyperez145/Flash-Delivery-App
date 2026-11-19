@@ -292,6 +292,10 @@
       "clase": "por-usuario",
       "rls": true
     },
+    "ride_fare_splits": {
+      "clase": "por-usuario",
+      "rls": true
+    },
     "ride_pickup_verifications": {
       "clase": "por-usuario",
       "rls": true

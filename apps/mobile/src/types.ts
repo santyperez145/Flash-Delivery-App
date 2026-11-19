@@ -27,6 +27,8 @@ import type {
   ShipmentClaim,
   DispatchOffer,
   RideTripCheck,
+  FareSplit,
+  FareSplitInvitation,
 } from "@flash/domain-contracts";
 
 export type {
@@ -58,6 +60,8 @@ export type {
   ShipmentClaim,
   DispatchOffer,
   RideTripCheck,
+  FareSplit,
+  FareSplitInvitation,
 };
 
 export type Mode = "customer" | "merchant" | "driver";

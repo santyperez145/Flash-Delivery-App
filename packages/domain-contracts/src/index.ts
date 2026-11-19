@@ -370,3 +370,20 @@ export type DispatchOffer = {
 /** SEG-01: una señal del control del viaje que el pasajero todavía no contestó. */
 export type RideTripCheckKind = "long_stop" | "signal_lost" | "route_deviation" | "early_end";
 export type RideTripCheck = { id: string; kind: RideTripCheckKind; detectedAt: string };
+
+/** PAG-02: una persona con la que se divide la tarifa de un viaje. */
+export type FareSplit = {
+  id: string;
+  name: string;
+  status: "invited" | "accepted" | "declined" | "cancelled";
+  paid: number;
+};
+
+/** PAG-02: una invitación pendiente a dividir un viaje, con la parte que tocaría. */
+export type FareSplitInvitation = {
+  id: string;
+  rideId: string;
+  inviterName: string;
+  destination: string;
+  share: number;
+};

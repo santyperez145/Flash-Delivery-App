@@ -69,6 +69,14 @@ export const deliveryCodeLimiter = createLimiter({
   message: "Demasiados intentos de código de entrega. Intenta más tarde.",
 });
 
+// PAG-02: invitar a dividir una tarifa dice si un email tiene cuenta Flash. El
+// límite evita usarlo para averiguarlo en masa.
+export const fareSplitLimiter = createLimiter({
+  max: 20,
+  prefix: "fare-split",
+  message: "Demasiadas invitaciones para dividir la tarifa. Intenta más tarde.",
+});
+
 export const serviceChatLimiter = createLimiter({
   max: 60,
   prefix: "service-chat",
