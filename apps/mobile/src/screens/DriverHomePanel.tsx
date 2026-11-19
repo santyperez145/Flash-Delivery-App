@@ -659,6 +659,12 @@ export function DriverHomePanel(props: {
             <Text style={styles.helperText}>
               {offer.distanceKm} km · {offer.durationMin} min · puntaje {Math.round(offer.score)}
             </Text>
+            {/* PAG-01: antes de aceptar, quien maneja sabe que cobra en mano. */}
+            {offer.cash && (
+              <Text style={[styles.helperText, { color: "#087A50", fontWeight: "800" }]}>
+                Se cobra en efectivo
+              </Text>
+            )}
             {/* Antes de aceptar: si es sin contacto y si hay indicaciones, nunca el texto (P-02). */}
             {(offer.leaveAtDoor || offer.hasInstructions) && (
               <Text style={styles.helperText}>

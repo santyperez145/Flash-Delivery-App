@@ -18,6 +18,9 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(4000),
   // SEG-03: desde qué total (en centavos) un pedido con envío pide código de entrega.
   ORDER_DELIVERY_CODE_MIN_CENTS: z.coerce.number().int().min(0).default(6000000),
+  // PAG-01: cuánto puede deber un conductor en comisiones de viajes en efectivo antes
+  // de dejar de recibirlos.
+  CASH_DRIVER_DEBT_LIMIT_CENTS: z.coerce.number().int().min(0).default(3000000),
   HOST: z.string().min(1).default("127.0.0.1"),
   JWT_SECRET: z.string().min(16).default(defaultJwtSecret),
   CORS_ORIGIN: z
@@ -282,6 +285,7 @@ export const config = {
   pushTokenEncryptionKey: env.PUSH_TOKEN_ENCRYPTION_KEY,
   deliveryPinSecret: env.DELIVERY_PIN_SECRET,
   orderDeliveryCodeMinCents: env.ORDER_DELIVERY_CODE_MIN_CENTS,
+  cashDriverDebtLimitCents: env.CASH_DRIVER_DEBT_LIMIT_CENTS,
   mfaEncryptionKey: env.MFA_ENCRYPTION_KEY,
   kycDocumentEncryptionKey: env.KYC_DOCUMENT_ENCRYPTION_KEY,
   deliveryProofEncryptionKey: env.DELIVERY_PROOF_ENCRYPTION_KEY,

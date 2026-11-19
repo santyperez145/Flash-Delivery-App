@@ -11,6 +11,7 @@ import FlashNativeMap from "../FlashNativeMap";
 import { money } from "../format";
 import { styles } from "../styles";
 import { ActionButton, NativeMapUnavailable } from "../ui";
+import { RidePaymentPicker, type RidePaymentMethod } from "../RidePaymentPicker";
 import type {
   AppState,
   GeoPoint,
@@ -71,6 +72,7 @@ export function CustomerRideScreen({
   const [roadRoute, setRoadRoute] = useState<RoadRoute | null>(null);
   const [rideService, setRideService] = useState<RideService>("economy");
   const [rideQuote, setRideQuote] = useState<RideQuote | null>(null);
+  const [pago, setPago] = useState<RidePaymentMethod>("Flash Wallet");
   const [rideOptions, setRideOptions] = useState<RideQuote[]>([]);
   const [rideDestinations, setRideDestinations] = useState<RideDestination[]>([]);
   const [trustedContactName, setTrustedContactName] = useState("");
@@ -251,7 +253,7 @@ export function CustomerRideScreen({
           service: rideService,
           pickupCoords,
           destinationCoords,
-          paymentMethod: "Flash Wallet",
+          paymentMethod: pago,
           quoteToken,
           scheduledFor,
         });
@@ -479,6 +481,7 @@ export function CustomerRideScreen({
             </Pressable>
           ))}
         </View>
+        <RidePaymentPicker value={pago} fare={rideQuote?.fare ?? null} onChange={setPago} />
         <View style={styles.actionRow}>
           <ActionButton label="Cotizar" disabled={busy} onPress={quoteRide} />
           <ActionButton label="Solicitar" disabled={busy || !rideQuote} onPress={requestRide} />

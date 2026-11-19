@@ -77,7 +77,11 @@ const rideQuoteSchema = z.object({
 
 const rideCreateSchema = rideQuoteSchema.extend({
   customerId: z.string().min(1),
-  paymentMethod: z.string().min(2),
+  // PAG-01: un viaje se paga con Flash Wallet o en efectivo al conductor. Antes se
+  // aceptaba cualquier texto, y uno que no dijera «wallet» quedaba sin cobro.
+  paymentMethod: z.enum(["Flash Wallet", "Efectivo"], {
+    message: "Elegí Flash Wallet o efectivo",
+  }),
   quoteToken: z.string().min(20).optional(),
   scheduledFor: z.string().datetime().optional(),
 });

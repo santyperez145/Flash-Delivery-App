@@ -19,7 +19,7 @@ perfecto.
 | Fraude y riesgo | 7 | Hay puntaje explicable por transacción; falta la señal de dispositivo |
 | Prueba de entrega | 9 | Foto en la puerta, PIN en envíos y código en pedidos de valor alto o con reclamo previo (SEG-03) |
 | Privacidad de contacto | 5 | Chat en la app, pero el teléfono no se enmascara |
-| Pagos: medios | 4 | Sin efectivo, sin dividir la tarifa, sin tarjeta de regalo, sin carga por Rapipago o Pago Fácil |
+| Pagos: medios | 5 | Efectivo en viajes (PAG-01); faltan efectivo en pedidos, dividir la tarifa, tarjeta de regalo y carga por Rapipago o Pago Fácil |
 | Pagos: cobro real | 3 | Todo listo hasta el borde: faltan las credenciales productivas de Mercado Pago (dueño) |
 | Reintegros y reclamos | 7 | Reintegros, faltantes y reclamos de envíos existen; falta el reintegro inmediato a la Wallet sin revisión en montos chicos |
 | Comprobantes | 5 | Comprobante no fiscal; la factura electrónica necesita alta en ARCA (dueño) |
@@ -58,7 +58,7 @@ perfecto.
 
 | # | Qué | Quién | Estado en Flash (verificado) |
 | --- | --- | --- | --- |
-| PAG-01 | **Efectivo** en viajes (y en pedidos, donde el comercio acepta) | Uber en Argentina; PedidosYa | **No existe.** El cobro es Wallet o tarjeta tokenizada. En Argentina el efectivo es parte del mercado: exige que la comisión del conductor se descuente de su saldo. |
+| PAG-01 | **Efectivo** en viajes (y en pedidos, donde el comercio acepta) | Uber en Argentina; PedidosYa | **Hecho en viajes.** Migración 143, liquidación con cobro en mano, tope de deuda en el despacho, web y móvil · `test:cash-rides`. Ver [`cash-rides.md`](cash-rides.md). En pedidos de comida queda pendiente. |
 | PAG-02 | **Dividir la tarifa** entre pasajeros | Uber | **No existe.** Hay pedido grupal con tope en comida (`docs/group-orders.md`), no división de un viaje. |
 | PAG-03 | **Cargar saldo en efectivo** por Rapipago o Pago Fácil | Uber Cash en Argentina | **No existe.** La Wallet se carga con tarjeta. Necesita convenio con la red de cobranza (dueño). |
 | PAG-04 | **Tarjetas de regalo** y saldo de regalo | Uber | **No existe.** Hay referidos con premio acreditado (`docs/referrals.md`). |
@@ -74,7 +74,7 @@ un tercero.
 
 1. **SEG-01** (hecho) y **SEG-02** (cubierto salvo lo que necesita SMS): detección de anomalías en el viaje y preferencias de seguridad.
 2. **SEG-03** (hecho): PIN de entrega en pedidos de valor alto.
-3. **PAG-01**: efectivo en viajes, con la comisión descontada del saldo del conductor.
+3. **PAG-01** (hecho en viajes): efectivo en viajes, con la comisión descontada del saldo del conductor.
 4. **PAG-02**: dividir la tarifa.
 5. **SEG-08**: segundo factor para clientes y conductores.
 6. **FE-02**: Pedidos y Viajes separados en la app móvil.

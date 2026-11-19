@@ -11,6 +11,15 @@ import { styles } from "../styles";
 import { ActionButton } from "../ui";
 import type { AppState, Ride } from "../types";
 
+const rideStatusText: Record<string, string> = {
+  requested: "Buscando conductor",
+  driver_assigned: "Asignado",
+  arriving: "Yendo a buscar",
+  in_progress: "En viaje",
+  completed: "Completado",
+  cancelled: "Cancelado",
+};
+
 export function RideCard({
   ride,
   disabled,
@@ -22,13 +31,19 @@ export function RideCard({
 }) {
   return (
     <View style={styles.card}>
-      <Text style={styles.cardTitle}>{ride.status}</Text>
+      <Text style={styles.cardTitle}>{rideStatusText[ride.status] ?? ride.status}</Text>
       <Text style={styles.cardText}>
-        {ride.pickup} {"->"} {ride.destination}
+        {ride.pickup} → {ride.destination}
       </Text>
       <Text style={styles.cardText}>
-        {ride.distanceKm} km - {money.format(ride.fare)}
+        {ride.distanceKm} km · {money.format(ride.fare)}
       </Text>
+      {/* PAG-01: el conductor tiene que saber que cobra en mano, y cuánto. */}
+      {ride.paymentMethod === "Efectivo" && (
+        <Text style={[styles.cardTitle, { color: "#087A50" }]}>
+          Cobrá {money.format(ride.fare)} en efectivo
+        </Text>
+      )}
       {onPress && <ActionButton label="Gestionar" disabled={disabled} onPress={onPress} />}
     </View>
   );

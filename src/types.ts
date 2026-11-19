@@ -173,7 +173,11 @@ export type RideForm = {
   service: Ride["service"];
   pickupCoords: GeoPoint | null;
   destinationCoords: GeoPoint | null;
+  /** PAG-01: Flash Wallet (por omisión) o efectivo al conductor. */
+  paymentMethod?: RidePaymentMethod;
 };
+
+export type RidePaymentMethod = "Flash Wallet" | "Efectivo";
 
 export type Restaurant = {
   id: string;

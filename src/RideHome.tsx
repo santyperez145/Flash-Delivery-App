@@ -1,5 +1,6 @@
 import {
   BadgeDollarSign,
+  Banknote,
   Bike,
   Car,
   LocateFixed,
@@ -7,6 +8,7 @@ import {
   ShieldCheck,
   Sparkles,
   Truck,
+  Wallet,
 } from "lucide-react";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { api } from "./api";
@@ -245,6 +247,27 @@ export default function RideHome({
                 : "estimación por dirección"}
             </small>
           </div>
+        )}
+        {/* PAG-01: Flash Wallet o efectivo al conductor, como Uber en Argentina. */}
+        <div className="ride-payment" role="radiogroup" aria-label="Cómo pagás">
+          {(["Flash Wallet", "Efectivo"] as const).map((metodo) => (
+            <button
+              key={metodo}
+              type="button"
+              role="radio"
+              aria-checked={(rideForm.paymentMethod ?? "Flash Wallet") === metodo}
+              onClick={() => setRideForm((form) => ({ ...form, paymentMethod: metodo }))}
+            >
+              {metodo === "Efectivo" ? <Banknote size={16} /> : <Wallet size={16} />}
+              {metodo}
+            </button>
+          ))}
+        </div>
+        {rideForm.paymentMethod === "Efectivo" && (
+          <p className="ride-payment-note">
+            Le pagás {quote ? money.format(quote.fare) : "el total"} en efectivo al conductor al
+            terminar el viaje.
+          </p>
         )}
         <div className="two-actions">
           <button

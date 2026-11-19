@@ -112,10 +112,30 @@ export async function getPostgresWalletTransactions({ userPublicId, includeAll =
 }
 
 const driverEarningKinds = ["driver_earning", "merchant_settlement", "tip", "tip_adjustment"];
+/** PAG-01: el rótulo con el que un viaje se paga en efectivo. */
+export const CASH_LABEL = "Efectivo";
+
+/**
+ * Saldo del conductor en centavos (negativo si debe comisiones de viajes en efectivo).
+ * Un conductor que debe más del tope no recibe ni acepta viajes en efectivo.
+ */
+export async function driverWalletBalanceCents(client, driverId) {
+  return Number(
+    (
+      await client.query(
+        `SELECT COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint balance
+         FROM drivers d JOIN ledger_accounts a ON a.owner_type='user' AND a.owner_id=d.user_id AND a.account_type='wallet'
+         JOIN ledger_entries e ON e.account_id=a.id WHERE d.id=$1`,
+        [driverId],
+      )
+    ).rows[0]?.balance ?? 0,
+  );
+}
 const signedCents = (row) => (row.direction === "credit" ? 1 : -1) * Number(row.amount_cents);
 const earningCategory = (row) => {
   if (row.kind === "tip") return "tip";
   if (row.kind === "tip_adjustment") return "adjustment";
+  if (row.kind === "cash_collection") return "cash";
   if (row.kind === "merchant_settlement" || row.job_subtype === "food_order") return "food";
   return row.job_kind === "ride" ? "ride" : "shipment";
 };
@@ -286,7 +306,9 @@ export async function getDriverEarnings(userPublicId) {
        LEFT JOIN jobs j ON j.id=e.reference_id
        WHERE e.account_id=$1 AND t.status='posted' AND t.kind=ANY($2)
        ORDER BY t.created_at DESC,t.id DESC LIMIT 100`,
-      [account.id, driverEarningKinds],
+      // El cobro en efectivo se lista (el conductor ve que lo debe) pero no suma a
+      // sus ganancias: su ganancia ya está en la liquidación del viaje.
+      [account.id, [...driverEarningKinds, "cash_collection"]],
     ),
     postgresPool.query(
       `WITH scoped AS (
@@ -417,7 +439,9 @@ export async function settleMobilityWalletPayment({
     await client.query("BEGIN");
     const job = (
       await client.query(
-        "SELECT j.id,j.kind,j.driver_id,d.user_id driver_user_id FROM jobs j JOIN drivers d ON d.id=j.driver_id WHERE j.public_id=$1 AND d.public_id=$2 AND j.status='completed' FOR UPDATE OF j",
+        `SELECT j.id,j.kind,j.driver_id,j.payment_method_label,j.final_amount_cents,d.user_id driver_user_id
+        FROM jobs j JOIN drivers d ON d.id=j.driver_id
+        WHERE j.public_id=$1 AND d.public_id=$2 AND j.status='completed' FOR UPDATE OF j`,
         [publicId, driverPublicId],
       )
     ).rows[0];
@@ -431,11 +455,16 @@ export async function settleMobilityWalletPayment({
         [job.id],
       )
     ).rows[0];
-    if (!payment) {
+    // PAG-01: un viaje en efectivo no tiene cobro en Flash: el conductor recibió el
+    // total en mano. Se liquida igual que uno con Wallet —su ganancia y la comisión—,
+    // y además se asienta que cobró el total, que le debe a la plataforma. Neto, su
+    // saldo baja exactamente la comisión.
+    const efectivo = !payment && job.kind === "ride" && job.payment_method_label === CASH_LABEL;
+    if (!payment && !efectivo) {
       await client.query("ROLLBACK");
       return { settled: false, reason: "payment_not_captured" };
     }
-    const total = Number(payment.captured_amount_cents),
+    const total = Number(efectivo ? job.final_amount_cents : payment.captured_amount_cents),
       driverCents = Math.min(total, Math.max(0, Math.round(driverAmount * 100))),
       platformCents = total - driverCents;
     const transaction = (
@@ -481,8 +510,26 @@ export async function settleMobilityWalletPayment({
         platformCents,
       ],
     );
+    if (efectivo) {
+      const cobro = (
+        await client.query(
+          `INSERT INTO ledger_transactions(idempotency_key,kind,description,metadata) VALUES($1,'cash_collection',$2,$3) RETURNING id`,
+          [`cash-collection-${reference}`, `Cobro en efectivo ${publicId}`, { publicId, total }],
+        )
+      ).rows[0];
+      await client.query(
+        `INSERT INTO ledger_entries(transaction_id,account_id,direction,amount_cents,reference_type,reference_id,metadata)
+        VALUES($1,$2,'debit',$3,'cash_collection',$4,$5),($1,$6,'credit',$3,'cash_collection',$4,$5)`,
+        [cobro.id, driverWallet, total, job.id, { publicId, total }, clearing],
+      );
+    }
     await client.query("COMMIT");
-    return { settled: true, driverAmount: driverCents / 100, platformAmount: platformCents / 100 };
+    return {
+      settled: true,
+      cash: efectivo,
+      driverAmount: driverCents / 100,
+      platformAmount: platformCents / 100,
+    };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
