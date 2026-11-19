@@ -122,6 +122,7 @@ console.log("ok - web y móvil dejan elegir efectivo, y el conductor ve cuánto 
       // simultáneo del invitado.
       squeeze(cancelacion).indexOf(squeeze("await refundFareSplitsOnCancel(client, {")) <
         squeeze(cancelacion).indexOf(squeeze("account_type='cash_clearing' FOR UPDATE")) &&
+      contains(cancelacion, "AND account_type='wallet' FOR NO KEY UPDATE") &&
       contains(migracion, "SET invitee_email = 'eliminado:' || public_id") &&
       contains(division, "const parte = Math.floor(total / (aceptados.length + 2));") &&
       contains(division, "SELECT id FROM ledger_accounts WHERE id=$1 FOR NO KEY UPDATE") &&

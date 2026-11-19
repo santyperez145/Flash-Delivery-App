@@ -710,7 +710,11 @@ export async function cancelMobilityJobAndRefundWallet({
     if (payment) {
       const wallet = (
         await client.query(
-          "SELECT id FROM ledger_accounts WHERE owner_type='user' AND owner_id=$1 AND account_type='wallet' FOR UPDATE",
+          // `NO KEY UPDATE`: las partes de un viaje dividido ya se devolvieron con
+          // asientos que toman un bloqueo compartido de clave foránea sobre esta
+          // billetera, y `FOR UPDATE` choca con él. Dos cancelaciones de viajes
+          // divididos entre las mismas personas se trababan.
+          "SELECT id FROM ledger_accounts WHERE owner_type='user' AND owner_id=$1 AND account_type='wallet' FOR NO KEY UPDATE",
           [job.customer_id],
         )
       ).rows[0];

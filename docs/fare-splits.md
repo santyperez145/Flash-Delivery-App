@@ -25,7 +25,8 @@ Como en Uber: quien pidió un viaje invita a quienes viajan con él, y cada uno 
   controlar su saldo, y con `FOR NO KEY UPDATE`, que no choca con el bloqueo compartido que
   toma la clave foránea al asentar en otra billetera. Al cancelar, las partes se devuelven
   **antes** de bloquear la cuenta de compensación: después, se trababan con un pago simultáneo
-  del invitado.
+  del invitado. Y la billetera de quien cancela se bloquea con `FOR NO KEY UPDATE`: con
+  `FOR UPDATE`, dos cancelaciones de viajes divididos entre las mismas personas se trababan.
 - **Borrar la cuenta borra el email.** El email escrito en una invitación se borra con la
   cuenta de quien invitó o de quien fue invitado; lo pagado queda.
 - **El saldo se actualiza.** Después de pagar una parte, web y móvil vuelven a leer la cuenta.
