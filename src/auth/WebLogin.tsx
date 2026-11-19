@@ -34,18 +34,28 @@ export function WebLogin({ busy, error, mfaChallenge, onLogin, onMfa }: WebLogin
   const [password, setPassword] = useState("");
   const [mfaCode, setMfaCode] = useState("");
   const [passwordVisible, setPasswordVisible] = useState(false);
-  const [modo, setModo] = useState<Modo>("ingresar");
+  // El enlace del email de recuperación abre la web en `/recover-password?token=…`: se
+  // entra directo al paso de la contraseña nueva, y el token se saca de la barra.
+  const [tokenDelEnlace] = useState(() => {
+    if (typeof window === "undefined" || window.location.pathname !== "/recover-password")
+      return "";
+    const token = new URLSearchParams(window.location.search).get("token") || "";
+    window.history.replaceState(null, "", "/");
+    return token;
+  });
+  const [modo, setModo] = useState<Modo>(tokenDelEnlace ? "recuperar" : "ingresar");
   const [codigoInicial, setCodigoInicial] = useState<string>();
   const [aviso, setAviso] = useState("");
   const isMfa = Boolean(mfaChallenge);
-  const ingresar = async () => {
+  const ingresarCon = async (correo: string, clave: string) => {
     setAviso("");
-    const resultado = await onLogin(email.trim().toLowerCase(), password);
+    const resultado = await onLogin(correo.trim().toLowerCase(), clave);
     if (resultado?.verificationRequired) {
       setCodigoInicial(undefined);
       setModo("verificar");
     }
   };
+  const ingresar = () => ingresarCon(email, password);
   const volverAIngresar = (texto = "") => {
     setAviso(texto);
     setModo("ingresar");
@@ -92,7 +102,9 @@ export function WebLogin({ busy, error, mfaChallenge, onLogin, onMfa }: WebLogin
               setEmail(datos.email);
               setPassword(datos.password);
               setCodigoInicial(datos.codigo);
-              setModo("verificar");
+              if (datos.verificar) setModo("verificar");
+              // Sin verificación pendiente, el alta ya dejó la sesión: se ingresa directo.
+              else void ingresarCon(datos.email, datos.password);
             }}
           />
         )}
@@ -105,15 +117,17 @@ export function WebLogin({ busy, error, mfaChallenge, onLogin, onMfa }: WebLogin
               volverAIngresar();
             }}
             onVerificada={async () => {
-              // Con la contraseña recién escrita se entra directo; si no, se pide.
+              // El código ya se consumió: se vuelve al ingreso antes de intentar entrar, así
+              // un fallo del ingreso automático se ve ahí y se reintenta sin otro código.
+              volverAIngresar("Email verificado. Ingresá con tu contraseña.");
               if (password) await ingresar();
-              else volverAIngresar("Email verificado. Ingresá con tu contraseña.");
             }}
           />
         )}
         {!isMfa && modo === "recuperar" && (
           <RecuperarClave
             emailInicial={email}
+            tokenInicial={tokenDelEnlace}
             onIngresar={() => volverAIngresar()}
             onListo={(texto, correo) => {
               setEmail(correo);

@@ -116,12 +116,19 @@ export function useServiciosWeb(features: Flags, ambito: Ambito) {
  * Sin comercios en la zona no se muestra una portada vacía ni una promoción que nadie
  * puede cumplir: se dice qué pasa y qué se puede hacer mientras tanto (FE-03).
  */
-function SinComercios() {
+function SinComercios({ features }: { features: Flags }) {
+  // Sólo se ofrece lo que está prendido: con viajes y envíos apagados no hay «mientras tanto».
+  const otros = [
+    (features?.public_rides?.active ?? true) && "pedir un viaje",
+    (features?.shipment_beta?.active ?? true) && "mandar un envío",
+  ].filter(Boolean);
   return (
     <EmptyState
       icon={Store}
       title="Todavía no hay comercios en tu zona"
-      text="Cuando se sumen comercios cerca tuyo, los vas a ver acá. Mientras tanto, desde Viajes podés pedir un viaje o mandar un envío."
+      text={`Cuando se sumen comercios cerca tuyo, los vas a ver acá.${
+        otros.length ? ` Mientras tanto, desde Viajes podés ${otros.join(" o ")}.` : ""
+      }`}
     />
   );
 }
@@ -269,9 +276,11 @@ export function CustomerHome({
           ))}
         </div>
       )}
-      {!cargando && !fallo && !hayComercios && !state.restaurants.length && <SinComercios />}
-      {/* Una promoción de comida sin comercios donde usarla sería una promesa vacía. */}
-      {(hayComercios || state.restaurants.length > 0) && (
+      {!cargando && !fallo && !hayComercios && !state.restaurants.length && (
+        <SinComercios features={features} />
+      )}
+      {/* Una promoción de comida sin un comercio abierto donde usarla sería una promesa vacía. */}
+      {state.restaurants.some((restaurant) => restaurant.open) && (
         <Promociones state={state} onOpen={portada.buscar} />
       )}
       <Cocinas restaurants={state.restaurants} onOpen={portada.abrirCategoria} />
@@ -321,7 +330,9 @@ export function CustomerServices({
               : "Para moverte y mandar paquetes"}
         </p>
       )}
-      {!cargando && !fallo && !servicios.length && ambito === "pedidos" && <SinComercios />}
+      {!cargando && !fallo && !servicios.length && ambito === "pedidos" && (
+        <SinComercios features={features} />
+      )}
       {servicios.map((servicio) => (
         <button
           type="button"

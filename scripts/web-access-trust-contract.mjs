@@ -84,7 +84,7 @@ assert.ok(
 assert.ok(
   contains(flujos, "await api.register({") &&
     contains(flujos, "await api.confirmEmailVerification(email, codigo.trim());") &&
-    contains(flujos, "await api.confirmPasswordRecovery(codigo.trim(), password);"),
+    contains(flujos, "await api.confirmPasswordRecovery(token, password);"),
   "los formularios usan los endpoints reales",
 );
 // El alta y la recuperación validan cada una: las dos reglas aparecen dos veces.
@@ -137,14 +137,15 @@ for (const [fuente, texto] of [
 assert.ok(
   contains(
     portada,
-    "{!cargando && !fallo && !hayComercios && !state.restaurants.length && <SinComercios />}",
-  ) && contains(portada, "{(hayComercios || state.restaurants.length > 0) && ( <Promociones"),
+    "{!cargando && !fallo && !hayComercios && !state.restaurants.length && ( <SinComercios features={features} /> )}",
+  ) &&
+    contains(portada, "{state.restaurants.some((restaurant) => restaurant.open) && ( <Promociones"),
   "la portada web sin comercios lo dice y no muestra promociones de comida",
 );
 assert.ok(
   contains(
     portada,
-    '{!cargando && !fallo && !servicios.length && ambito === "pedidos" && <SinComercios />}',
+    '{!cargando && !fallo && !servicios.length && ambito === "pedidos" && ( <SinComercios features={features} /> )}',
   ),
   "Explorar sin comercios lo dice",
 );
@@ -193,6 +194,33 @@ assert.ok(
 assert.ok(
   contains(carrito, 'placeholder="Ingresá tu código"') && !contains(carrito, "FLASH40"),
   "el carrito no sugiere un código de promoción de demostración",
+);
+
+// --- Lo que pidió la revisión del PR -----------------------------------------------------
+assert.ok(
+  contains(login, 'window.location.pathname !== "/recover-password"') &&
+    contains(login, 'new URLSearchParams(window.location.search).get("token")') &&
+    contains(login, 'window.history.replaceState(null, "", "/");') &&
+    contains(login, "tokenInicial={tokenDelEnlace}") &&
+    contains(flujos, "const token = tokenDeRecuperacion(codigo);"),
+  "el enlace del email de recuperación abre la contraseña nueva, y un enlace pegado se entiende",
+);
+assert.ok(
+  contains(flujos, "verificar: alta.verificationRequired === true,") &&
+    contains(login, 'if (datos.verificar) setModo("verificar");'),
+  "un alta que ya dio la sesión no se queda en una verificación imposible",
+);
+assert.ok(
+  squeeze(login).indexOf(
+    squeeze('volverAIngresar("Email verificado. Ingresá con tu contraseña.");'),
+  ) < squeeze(login).indexOf(squeeze("if (password) await ingresar();")),
+  "verificado el email, un fallo del ingreso automático se ve en el ingreso",
+);
+assert.ok(contains(flujos, "<LegalLinks />"), "el alta muestra los términos y la privacidad");
+assert.ok(
+  contains(portada, '(features?.public_rides?.active ?? true) && "pedir un viaje",') &&
+    contains(portadaMovil, "{otros.length > 0 && ("),
+  "sin comercios no se ofrecen viajes ni envíos apagados",
 );
 
 console.log("web access and trust contract ok");

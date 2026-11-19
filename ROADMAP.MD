@@ -57,7 +57,13 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   solo comercio: la migración 150 apaga las dos promociones de demostración donde nadie las
   usó, y las semillas de desarrollo las vuelven a crear. Sin comercios, la portada y
   Explorar dicen qué pasa (web y app) y no muestran promociones de comida.
-- **Verificación:** `test:web-access-trust` (nueva, en `ci-fast`), falsificado con 24
+- **La revisión del PR sumó siete correcciones:** el enlace del email de recuperación abre el
+  paso de la contraseña nueva (y un enlace pegado se entiende); un alta sin PostgreSQL entra
+  directo en vez de quedar en una verificación imposible; un fallo del ingreso automático
+  después de verificar se ve en el ingreso; el alta muestra los términos y la privacidad; las
+  promociones piden un comercio abierto; sin comercios no se ofrecen viajes ni envíos
+  apagados; y la decisión quedó en la investigación competitiva.
+- **Verificación:** `test:web-access-trust` (nueva, en `ci-fast`), falsificado con 38
   mutaciones; los 40 flujos críticos pasan con la migración 150.
 - **Detalle:** [`docs/acceso-y-confianza.md`](docs/acceso-y-confianza.md).
 - **El plan de los frontends**, salido de una auditoría de las cinco superficies contra Uber,

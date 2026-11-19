@@ -7,11 +7,27 @@ import { ArrowRight, Eye, EyeOff, KeyRound, MailCheck, UserPlus } from "lucide-r
 import { useState, type ReactNode } from "react";
 
 import { api } from "../api";
+import { LegalLinks } from "../ui/LegalLinks";
 
 export type Modo = "ingresar" | "crear" | "verificar" | "recuperar";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const TELEFONO = /^\+[1-9][0-9]{7,14}$/;
+/**
+ * El email de recuperación trae un enlace `/recover-password?token=…`. Si la persona
+ * pega el enlace entero en lugar del código, se toma el token del enlace.
+ */
+export function tokenDeRecuperacion(texto: string) {
+  const limpio = texto.trim();
+  try {
+    if (/^https?:\/\//i.test(limpio)) return new URL(limpio).searchParams.get("token") || "";
+  } catch {
+    return limpio;
+  }
+  const enLaQuery = /[?&]token=([^&\s]+)/.exec(limpio);
+  return enLaQuery ? decodeURIComponent(enLaQuery[1]) : limpio;
+}
+
 const mensaje = (error: unknown, porDefecto: string) =>
   error instanceof Error && error.message ? error.message : porDefecto;
 
@@ -106,7 +122,13 @@ export function CrearCuenta({
   onCreada,
   onIngresar,
 }: {
-  onCreada: (datos: { email: string; password: string; codigo?: string }) => void;
+  /** `verificar` en false: el servidor ya dio la sesión (el respaldo sin PostgreSQL). */
+  onCreada: (datos: {
+    email: string;
+    password: string;
+    codigo?: string;
+    verificar: boolean;
+  }) => void;
   onIngresar: () => void;
 }) {
   const [nombre, setNombre] = useState("");
@@ -134,7 +156,12 @@ export function CrearCuenta({
         password,
         ...(fono ? { phone: fono } : {}),
       });
-      onCreada({ email: correo, password, codigo: alta.developmentCode });
+      onCreada({
+        email: correo,
+        password,
+        codigo: alta.developmentCode,
+        verificar: alta.verificationRequired === true,
+      });
     } catch (fallo) {
       setError(mensaje(fallo, "No se pudo crear la cuenta"));
     } finally {
@@ -206,6 +233,11 @@ export function CrearCuenta({
       </div>
       <Falla texto={error} />
       <Enviar ocupado={ocupado} texto="Crear cuenta" ocupadoTexto="Creando tu cuenta…" />
+      {/* Como en la app: los términos y la privacidad se pueden leer antes de crear la cuenta. */}
+      <p className="web-auth-footnote">
+        Al crear tu cuenta aceptás los términos y la política de privacidad.
+      </p>
+      <LegalLinks />
       <p className="web-auth-switch">
         ¿Ya tenés cuenta?{" "}
         <button type="button" onClick={onIngresar}>
@@ -307,16 +339,19 @@ export function VerificarEmail({
 /** Recuperar la contraseña: se pide por email y se cambia con el código que llega. */
 export function RecuperarClave({
   emailInicial,
+  tokenInicial,
   onListo,
   onIngresar,
 }: {
   emailInicial: string;
+  /** El token del enlace del email, si se llegó por `/recover-password?token=…`. */
+  tokenInicial?: string;
   onListo: (aviso: string, email: string) => void;
   onIngresar: () => void;
 }) {
-  const [paso, setPaso] = useState<"pedir" | "cambiar">("pedir");
+  const [paso, setPaso] = useState<"pedir" | "cambiar">(tokenInicial ? "cambiar" : "pedir");
   const [email, setEmail] = useState(emailInicial);
-  const [codigo, setCodigo] = useState("");
+  const [codigo, setCodigo] = useState(tokenInicial ?? "");
   const [desarrollo, setDesarrollo] = useState<string>();
   const [password, setPassword] = useState("");
   const [repetida, setRepetida] = useState("");
@@ -340,13 +375,14 @@ export function RecuperarClave({
     }
   };
   const cambiar = async () => {
-    if (!codigo.trim()) return setError("Pegá el código de recuperación del email.");
+    const token = tokenDeRecuperacion(codigo);
+    if (!token) return setError("Pegá el código o el enlace de recuperación del email.");
     if (password.length < 8) return setError("La contraseña necesita al menos 8 caracteres.");
     if (password !== repetida) return setError("Las contraseñas no coinciden.");
     setOcupado(true);
     setError("");
     try {
-      await api.confirmPasswordRecovery(codigo.trim(), password);
+      await api.confirmPasswordRecovery(token, password);
       onListo(
         "Cambiaste tu contraseña y cerramos las sesiones anteriores. Ya podés ingresar.",
         email.trim().toLowerCase(),
@@ -404,7 +440,7 @@ export function RecuperarClave({
               autoComplete="one-time-code"
               value={codigo}
               onChange={(event) => setCodigo(event.target.value)}
-              placeholder="Pegalo desde el email"
+              placeholder="Pegá el código o el enlace del email"
               required
               autoFocus
             />

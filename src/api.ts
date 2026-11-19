@@ -579,7 +579,8 @@ export const api = {
   async register(input: { name: string; email: string; password: string; phone?: string }) {
     return request<{
       user: User;
-      verificationRequired: true;
+      // Sin PostgreSQL (respaldo local) el alta devuelve la sesión y no pide verificar.
+      verificationRequired?: boolean;
       developmentCode?: string;
       expiresAt?: string;
     }>("/auth/register", {

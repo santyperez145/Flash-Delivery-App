@@ -82,6 +82,11 @@ export function CustomerHomeScreen({
   const pedidos = ambito === "pedidos";
   const servicios = disponibles.servicios.filter((servicio) => ambitoDe(servicio) === ambito);
   const viajes = disponibles.servicios.some((servicio) => servicio.tipo === "ride");
+  // Lo que se puede ofrecer «mientras tanto» sin comercios: sólo lo que está prendido.
+  const otros = [
+    viajes && "pedir un viaje",
+    disponibles.servicios.some((servicio) => servicio.tipo === "shipment") && "mandar un envío",
+  ].filter(Boolean);
   const [destinos, setDestinos] = useState<RideDestination[]>([]);
   useEffect(() => {
     // Con los viajes apagados, los destinos de antes no quedan como acceso al servicio.
@@ -202,19 +207,21 @@ export function CustomerHomeScreen({
           <Ionicons name="storefront-outline" size={30} color={flashDesign.color.inkSoft} />
           <Text style={estilos.sinComerciosTitulo}>Todavía no hay comercios en tu zona</Text>
           <Text style={estilos.sinComerciosTexto}>
-            Cuando se sumen comercios cerca tuyo, los vas a ver acá. Mientras tanto, podés pedir un
-            viaje o mandar un envío.
+            Cuando se sumen comercios cerca tuyo, los vas a ver acá.
+            {otros.length ? ` Mientras tanto, podés ${otros.join(" o ")}.` : ""}
           </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Ir a Viajes"
-            style={estilos.otroLado}
-            onPress={() => onChangeAmbito("viajes")}
-          >
-            <Ionicons name="car-sport-outline" size={16} color={flashDesign.color.ink} />
-            <Text style={estilos.otroLadoTexto}>Viajes y envíos</Text>
-            <Text style={estilos.otroLadoAccion}>Ir a Viajes</Text>
-          </Pressable>
+          {otros.length > 0 && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Ir a Viajes"
+              style={estilos.otroLado}
+              onPress={() => onChangeAmbito("viajes")}
+            >
+              <Ionicons name="car-sport-outline" size={16} color={flashDesign.color.ink} />
+              <Text style={estilos.otroLadoTexto}>Viajes y envíos</Text>
+              <Text style={estilos.otroLadoAccion}>Ir a Viajes</Text>
+            </Pressable>
+          )}
         </View>
       )}
       {/* PAG-02: invitaciones a dividir un viaje. */}
