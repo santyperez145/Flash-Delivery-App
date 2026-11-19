@@ -853,6 +853,22 @@ Flash lo ofrece por sucursal, con vuelto, liquidación en mano y rendición. Det
 - **Brecha:** sin red de cobranza para que el repartidor deposite solo (PAG-03, dueño) y sin
   franja horaria para no aceptar efectivo de noche.
 
+### Decisión 19 de noviembre de 2026 — alta y recuperación de la cuenta en la web (FE-03)
+
+Uber crea la cuenta desde el mismo ingreso, en la app o en la web, con email o teléfono y
+contraseña, y la misma cuenta sirve para viajes y Uber Eats
+([Uber, crear una cuenta](https://help.uber.com/riders/article/how-do-i-create-an-uber-account--?nodeId=fdfc0273-f67e-4545-9885-f89d0ca0aacf)).
+De PedidosYa **no se encontró fuente oficial** del alta en la web; se observa el mismo
+patrón de registrarse desde el ingreso. Flash tenía el alta, la verificación del email y la
+recuperación de la contraseña sólo en la app; la web sólo dejaba ingresar. Ahora la web
+hace los tres con los mismos endpoints, y el enlace del email de recuperación abre directo
+el paso de la contraseña nueva. Detalle en [`acceso-y-confianza.md`](acceso-y-confianza.md).
+
+- **Brecha:** sin ingreso con Google o Apple, ni alta por teléfono con SMS: necesitan las
+  credenciales de esos proveedores (dueño).
+- **Brecha:** sin navegar como invitado antes de registrarse (ola FE-20 del
+  [plan de los frontends](plan-frontends.md)).
+
 ### Decisión 19 de noviembre de 2026 — pedidos agrupados (P-03)
 
 Uber Eats le ofrece a quien reparte sumar otro pedido del mismo comercio, con un aviso para

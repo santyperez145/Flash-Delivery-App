@@ -73,6 +73,18 @@ try {
       );
     }
   }
+  // Las promociones de demostración son de las semillas, no de las migraciones (la 150
+  // las apaga en cualquier base sin canjes): las pruebas de desarrollo las necesitan.
+  await client.query(
+    `INSERT INTO promotions(public_id,code,name,description,kind,value,max_discount_cents,min_subtotal_cents,
+       usage_limit,per_user_limit,starts_at,ends_at,rules,active)
+     VALUES
+      ('promo_food_40','FLASH40','40% off en seleccionados','Tope de reintegro $4.000 con Flash Wallet.',
+       'percentage',40,400000,500000,10000,1,'2026-01-01','2027-01-01','{"service":"food","paymentMethod":"flash_wallet"}',true),
+      ('promo_ride_airport','AERO15','Viajes al aeropuerto','15% en viajes elegibles hacia o desde aeropuertos.',
+       'percentage',15,500000,0,5000,2,'2026-01-01','2027-01-01','{"service":"ride","airport":true}',true)
+     ON CONFLICT(public_id) DO UPDATE SET active = true`,
+  );
   await client.query("COMMIT");
   console.log(
     `seeded ${merchants.length} merchants and ${merchants.reduce((sum, restaurant) => sum + restaurant.menu.length, 0)} catalog items`,

@@ -195,6 +195,16 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [authRequired, setAuthRequired] = useState(false);
   const [mfaChallenge, setMfaChallenge] = useState("");
+  // El enlace del email de recuperación (`/recover-password?token=…`) se atiende antes de
+  // elegir entre el ingreso y la app: con una sesión abierta en este navegador también
+  // tiene que abrir la contraseña nueva. El token se saca de la barra.
+  const [tokenRecuperacion, setTokenRecuperacion] = useState(() => {
+    if (typeof window === "undefined" || window.location.pathname !== "/recover-password")
+      return "";
+    const token = new URLSearchParams(window.location.search).get("token") || "";
+    window.history.replaceState(null, "", "/");
+    return token;
+  });
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -307,6 +317,11 @@ function App() {
       setLoading(true);
       await bootstrapSession();
     } catch (requestError) {
+      // Una cuenta con el email sin verificar no es un error: el ingreso sigue con el código.
+      if (
+        (requestError as { body?: { verificationRequired?: boolean } }).body?.verificationRequired
+      )
+        return { verificationRequired: true as const };
       setError(requestError instanceof Error ? requestError.message : "No se pudo iniciar sesión");
     } finally {
       setLoading(false);
@@ -879,7 +894,7 @@ function App() {
     );
   }
 
-  if (authRequired) {
+  if (authRequired || tokenRecuperacion) {
     return (
       <Suspense
         fallback={
@@ -897,6 +912,13 @@ function App() {
           mfaChallenge={mfaChallenge}
           onLogin={loginWeb}
           onMfa={completeMfaWeb}
+          tokenRecuperacion={tokenRecuperacion}
+          onRecuperacionTerminada={async (cambiada) => {
+            setTokenRecuperacion("");
+            // Cambiar la contraseña cierra todas las sesiones en el servidor: la que estaba
+            // abierta acá ya no sirve, así que se pide ingresar con la nueva.
+            if (cambiada && !authRequired) await logoutWeb();
+          }}
         />
       </Suspense>
     );
@@ -1024,6 +1046,7 @@ function App() {
                   <CustomerApp
                     state={state}
                     user={activeUser}
+                    onLogout={logoutWeb}
                     service={service}
                     setService={setService}
                     features={features}

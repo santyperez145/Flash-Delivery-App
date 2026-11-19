@@ -154,11 +154,14 @@ export function CustomerScreen({
       ),
     ];
   }, [state.restaurants]);
+  // FE-03: una promoción de comida sin un comercio abierto donde usarla sería una promesa
+  // vacía: no se muestra.
   const activeFoodPromotion = useMemo(
     () =>
-      state.promotions?.find((promotion) => promotion.active && promotion.service === "food") ||
+      (state.restaurants.some((restaurant) => restaurant.open) &&
+        state.promotions?.find((promotion) => promotion.active && promotion.service === "food")) ||
       null,
-    [state.promotions],
+    [state.promotions, state.restaurants],
   );
   const foodPromotionValue = activeFoodPromotion
     ? activeFoodPromotion.kind === "free_delivery"

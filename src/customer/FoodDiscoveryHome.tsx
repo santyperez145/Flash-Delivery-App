@@ -46,7 +46,12 @@ export function FoodDiscoveryHome({
   const favoriteRestaurantIds = state.favoriteRestaurantIds || [];
   // RES-03: como Uber Eats y PedidosYa, la portada abre con el buscador, los rubros y
   // las promociones vigentes. Sólo las reales: sin promoción activa no hay tarjeta.
-  const promociones = state.promotions.filter((p) => p.active && p.service === "food");
+  // FE-03: ni promociones ni Flash Más sin un comercio abierto donde usarlos.
+  const hayAbiertos = restaurants.some((restaurant) => restaurant.open);
+  const promociones = hayAbiertos
+    ? state.promotions.filter((p) => p.active && p.service === "food")
+    : [];
+  const platosAbiertos = allItems.filter(({ restaurant }) => restaurant.open).slice(0, 7);
   return (
     <>
       <SearchBar query={query} setQuery={setQuery} />
@@ -63,7 +68,7 @@ export function FoodDiscoveryHome({
           ))}
         </section>
       )}
-      <FlashPassTeaser onOpen={onOpenSubscription} />
+      {hayAbiertos && <FlashPassTeaser onOpen={onOpenSubscription} />}
       <CategoryRail categories={scope.categories} category={category} setCategory={setCategory} />
       <SectionTitle title="Cerca tuyo" action="Abiertos" />
       {!restaurants.length && <p className="vertical-empty">Sin comercios para mostrar acá.</p>}
@@ -80,21 +85,23 @@ export function FoodDiscoveryHome({
           />
         ))}
       </div>
-      <SectionTitle title="Platos de comercios abiertos" />
-      <div className="item-list">
-        {/* El título promete comercios abiertos: los platos de uno cerrado no van. */}
-        {allItems
-          .filter(({ restaurant }) => restaurant.open)
-          .slice(0, 7)
-          .map(({ restaurant, item }) => (
-            <FoodRow
-              key={`${restaurant.id}-${item.id}`}
-              item={item}
-              restaurant={restaurant}
-              onClick={() => onOpenItem(restaurant, item)}
-            />
-          ))}
-      </div>
+      {/* El título promete comercios abiertos: los platos de uno cerrado no van, y sin
+          platos no hay título. */}
+      {platosAbiertos.length > 0 && (
+        <>
+          <SectionTitle title="Platos de comercios abiertos" />
+          <div className="item-list">
+            {platosAbiertos.map(({ restaurant, item }) => (
+              <FoodRow
+                key={`${restaurant.id}-${item.id}`}
+                item={item}
+                restaurant={restaurant}
+                onClick={() => onOpenItem(restaurant, item)}
+              />
+            ))}
+          </div>
+        </>
+      )}
     </>
   );
 }

@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
-import { Check, CreditCard, MapPin, MessageCircle, ShieldCheck, UserRound } from "lucide-react";
+import {
+  Check,
+  CreditCard,
+  LogOut,
+  MapPin,
+  MessageCircle,
+  ShieldCheck,
+  UserRound,
+} from "lucide-react";
 import { AccountDeletion } from "../ui/AccountDeletion";
 import { LegalLinks } from "../ui/LegalLinks";
 import { TwoStepVerification } from "../ui/TwoStepVerification";
@@ -21,6 +29,7 @@ export function CustomerProfileScreen({
   onDeleteAddress,
   dietaryPreferences,
   onDietaryPreferencesChange,
+  onLogout,
 }: {
   user: User | null;
   address?: string;
@@ -33,8 +42,12 @@ export function CustomerProfileScreen({
   onDeleteAddress: (addressId: string) => Promise<boolean>;
   dietaryPreferences: DietaryPreferences | null;
   onDietaryPreferencesChange: (preferences: DietaryPreferences) => void;
+  onLogout: () => void;
 }) {
   const [name, setName] = useState(user?.name || "");
+  // Cerrar sesión pide confirmación, con «Volver» como opción por omisión: en una
+  // computadora compartida, salir por error obliga a ingresar de nuevo.
+  const [confirmarSalida, setConfirmarSalida] = useState(false);
   const [phone, setPhone] = useState(user?.phone || "");
   const [defaultAddress, setDefaultAddress] = useState(address || user?.defaultAddress || "");
 
@@ -64,14 +77,14 @@ export function CustomerProfileScreen({
         <label className="settings-row">
           <MessageCircle size={18} />
           <div>
-            <strong>Telefono</strong>
+            <strong>Teléfono</strong>
             <input value={phone} onChange={(event) => setPhone(event.target.value)} />
           </div>
         </label>
         <label className="settings-row">
           <MapPin size={18} />
           <div>
-            <strong>Direccion principal</strong>
+            <strong>Dirección principal</strong>
             <input
               value={defaultAddress}
               onChange={(event) => setDefaultAddress(event.target.value)}
@@ -81,11 +94,11 @@ export function CustomerProfileScreen({
         <div className="settings-row">
           <CreditCard size={18} />
           <div>
-            <strong>Metodos de pago</strong>
+            <strong>Medios de pago</strong>
             <span>
               {paymentMethods.length
                 ? paymentMethods.map((method) => method.label).join(", ")
-                : "Sin metodos configurados"}
+                : "Sin medios configurados"}
             </span>
           </div>
         </div>
@@ -124,6 +137,34 @@ export function CustomerProfileScreen({
       </button>
       <TwoStepVerification />
       <LegalLinks />
+      {confirmarSalida ? (
+        <div
+          className="profile-logout-confirm"
+          role="group"
+          aria-label="Confirmar cierre de sesión"
+        >
+          <p>¿Cerrar sesión en este navegador?</p>
+          <button
+            type="button"
+            className="profile-logout"
+            autoFocus
+            onClick={() => setConfirmarSalida(false)}
+          >
+            Volver
+          </button>
+          <button type="button" className="profile-logout profile-logout-danger" onClick={onLogout}>
+            <LogOut size={17} /> Cerrar sesión
+          </button>
+        </div>
+      ) : (
+        <button
+          className="secondary-button profile-logout"
+          type="button"
+          onClick={() => setConfirmarSalida(true)}
+        >
+          <LogOut size={17} /> Cerrar sesión
+        </button>
+      )}
       <AccountDeletion />
     </div>
   );

@@ -25,6 +25,7 @@ import type {
   User,
 } from "../types";
 import { Cocinas, Comercios, EnCurso, enCursoDe, Promociones } from "./CustomerHomeFeed";
+import { EmptyState } from "./EmptyState";
 import type { Ambito } from "./CustomerScope";
 
 // El inicio del cliente en la web (RES-02), con la misma lógica que el móvil
@@ -109,6 +110,27 @@ export function useServiciosWeb(features: Flags, ambito: Ambito) {
     reintentar: () => setIntento((n) => n + 1),
     hayComercios: servicios.some((servicio) => servicio.tipo === "vertical"),
   };
+}
+
+/**
+ * Sin comercios en la zona no se muestra una portada vacía ni una promoción que nadie
+ * puede cumplir: se dice qué pasa y qué se puede hacer mientras tanto (FE-03).
+ */
+function SinComercios({ features }: { features: Flags }) {
+  // Sólo se ofrece lo que está prendido: con viajes y envíos apagados no hay «mientras tanto».
+  const otros = [
+    (features?.public_rides?.active ?? true) && "pedir un viaje",
+    (features?.shipment_beta?.active ?? true) && "mandar un envío",
+  ].filter(Boolean);
+  return (
+    <EmptyState
+      icon={Store}
+      title="Todavía no hay comercios en tu zona"
+      text={`Cuando se sumen comercios cerca tuyo, los vas a ver acá.${
+        otros.length ? ` Mientras tanto, desde Viajes podés ${otros.join(" o ")}.` : ""
+      }`}
+    />
+  );
 }
 
 /** El aviso de un resumen de rubros que no se pudo leer. */
@@ -202,7 +224,10 @@ export function CustomerHome({
   onToggleFavorite: (restaurantId: string, favorite: boolean) => void;
   onOpenActivity: () => void;
 }) {
-  const { servicios, fallo, reintentar, hayComercios } = useServiciosWeb(features, "pedidos");
+  const { servicios, cargando, fallo, reintentar, hayComercios } = useServiciosWeb(
+    features,
+    "pedidos",
+  );
   const abrir = abrirCon(portada.abrir);
   const favoritos = state.favoriteRestaurantIds || [];
   // «Volver a pedir»: comercios donde la persona ya recibió un pedido.
@@ -251,7 +276,13 @@ export function CustomerHome({
           ))}
         </div>
       )}
-      <Promociones state={state} onOpen={portada.buscar} />
+      {!cargando && !fallo && !hayComercios && !state.restaurants.length && (
+        <SinComercios features={features} />
+      )}
+      {/* Una promoción de comida sin un comercio abierto donde usarla sería una promesa vacía. */}
+      {state.restaurants.some((restaurant) => restaurant.open) && (
+        <Promociones state={state} onOpen={portada.buscar} />
+      )}
       <Cocinas restaurants={state.restaurants} onOpen={portada.abrirCategoria} />
       <Comercios
         titulo="Volver a pedir"
@@ -290,13 +321,18 @@ export function CustomerServices({
     <section className="customer-services" aria-label="Servicios">
       <h1>{ambito === "pedidos" ? "Explorar" : "Servicios"}</h1>
       {fallo && <AvisoRubros onRetry={reintentar} />}
-      <p>
-        {cargando
-          ? "Buscando lo disponible en tu zona…"
-          : ambito === "pedidos"
-            ? "Todo lo que podés pedir en tu zona"
-            : "Para moverte y mandar paquetes"}
-      </p>
+      {(cargando || servicios.length > 0) && (
+        <p>
+          {cargando
+            ? "Buscando lo disponible en tu zona…"
+            : ambito === "pedidos"
+              ? "Todo lo que podés pedir en tu zona"
+              : "Para moverte y mandar paquetes"}
+        </p>
+      )}
+      {!cargando && !fallo && !servicios.length && ambito === "pedidos" && (
+        <SinComercios features={features} />
+      )}
       {servicios.map((servicio) => (
         <button
           type="button"

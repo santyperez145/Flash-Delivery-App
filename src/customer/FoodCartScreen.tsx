@@ -630,7 +630,7 @@ export function CartScreen({
                   <input
                     aria-label="Código promocional"
                     list="food-promotions"
-                    placeholder="Ej. FLASH40"
+                    placeholder="Ingresá tu código"
                     value={promotionCode}
                     onChange={(event) => setPromotionCode(event.target.value.toUpperCase())}
                   />
