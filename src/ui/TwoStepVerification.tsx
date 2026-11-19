@@ -93,7 +93,15 @@ function CampoCodigo({
   );
 }
 
-export function TwoStepVerification() {
+export function TwoStepVerification({
+  onChange,
+}: {
+  /**
+   * Avisa el estado cada vez que se lee o cambia. Las finanzas del comercio lo usan
+   * para mostrar el campo del código en el retiro apenas se activa.
+   */
+  onChange?: (status: MfaStatus) => void;
+} = {}) {
   const [estado, setEstado] = useState<MfaStatus | null>(null);
   const [falloCarga, setFalloCarga] = useState("");
   const [alta, setAlta] = useState<MfaEnrollment | null>(null);
@@ -104,6 +112,10 @@ export function TwoStepVerification() {
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState("");
   const [aviso, setAviso] = useState("");
+
+  useEffect(() => {
+    if (estado) onChange?.(estado);
+  }, [estado, onChange]);
 
   const cargar = useCallback(() => {
     setFalloCarga("");

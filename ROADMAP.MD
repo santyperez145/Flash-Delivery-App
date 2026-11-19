@@ -57,7 +57,10 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   - Eliminar la cuenta, autorizar un retiro y desvincular el cobro piden el código.
   - Desactivarla o generar códigos nuevos pide un código vigente.
   - Cada cambio se avisa por push y por email.
-- **Dos defectos encontrados y corregidos en el camino.**
+- **Tres defectos encontrados y corregidos en el camino.**
+  - Cualquier token firmado por el servidor con un `sub` servía como token de acceso. El
+    desafío que devuelve la contraseña sola habría abierto la cuenta sin el código. Ahora el
+    token de acceso lleva `typ: "access"` y es el único que autentica.
   - Un código TOTP se podía reusar dentro de su ventana de 30 segundos; ahora sirve una sola
     vez (`user_mfa.last_totp_step`).
   - Un código mal escrito dentro de una sesión respondía 401. Los clientes renuevan la sesión

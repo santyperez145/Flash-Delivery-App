@@ -13,6 +13,7 @@ import { contains } from "./source-contract.mjs";
 
 const leer = (ruta) => fs.readFile(ruta, "utf8");
 const [
+  autenticacion,
   rutas,
   repositorio,
   sesiones,
@@ -31,10 +32,12 @@ const [
   movilCliente,
   movilConductor,
   movilComercio,
+  movilComercioPantalla,
   movilBorrado,
   movilPanel,
 ] = await Promise.all(
   [
+    "server/http/authentication.js",
     "server/http/auth-router.js",
     "server/mfa-repository.js",
     "server/auth-repository.js",
@@ -53,6 +56,7 @@ const [
     "apps/mobile/src/screens/CustomerAccountScreen.tsx",
     "apps/mobile/src/screens/DriverScreen.tsx",
     "apps/mobile/src/variant-screen.merchant.tsx",
+    "apps/mobile/src/screens/MerchantScreen.tsx",
     "apps/mobile/src/AccountDeletion.tsx",
     "apps/mobile/src/TwoStepVerification.tsx",
   ].map(leer),
@@ -64,6 +68,11 @@ assert.ok(
     contains(rutas, "usesPostgresAuth() && (await getMfaStatus(user.id)).enabled") &&
     !contains(rutas, 'user.roles?.includes("admin") &&\n    (await getAdminMfaStatus'),
   "el ingreso pide el segundo factor a cualquier cuenta que lo activó, no sólo a admin",
+);
+assert.ok(
+  contains(autenticacion, 'if (payload.typ !== "access") return fail(res, 401') &&
+    contains(rutas, 'jwt.sign({ typ: "access", sub: user.id'),
+  "sólo un token de acceso autentica: el desafío del segundo factor no abre la cuenta",
 );
 assert.ok(
   !contains(rutas, "requireAdminIdentity") &&
@@ -119,10 +128,14 @@ assert.ok(
 for (const [fuente, donde] of [
   [webPerfil, "perfil del cliente"],
   [webPortal, "portal de otras cuentas"],
-  [webComercio, "finanzas del comercio"],
 ]) {
   assert.ok(contains(fuente, "<TwoStepVerification />"), `web: panel en el ${donde}`);
 }
+assert.ok(
+  contains(webComercio, "<TwoStepVerification onChange={sincronizarMfa} />") &&
+    contains(webPanel, "if (estado) onChange?.(estado);"),
+  "web: activar o apagar en las finanzas del comercio actualiza el campo del código del retiro",
+);
 assert.ok(
   contains(webPanel, "await disableMfa(codigo)") &&
     contains(webPanel, "await regenerateMfaRecoveryCodes(codigo)") &&
@@ -152,6 +165,10 @@ assert.ok(
 assert.ok(
   contains(movilApi, "token = result.token;") && contains(movilApi, '"/auth/mfa/confirm"'),
   "teléfono: al activarla adopta la sesión nueva (el servidor cerró la anterior)",
+);
+assert.ok(
+  contains(movilComercio, "accountFooter={") && contains(movilComercioPantalla, "{accountFooter}"),
+  "teléfono: en el comercio, el panel va dentro del scroll de la pestaña Cuenta",
 );
 for (const [fuente, donde] of [
   [movilCliente, "cliente"],

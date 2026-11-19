@@ -7,7 +7,7 @@
 // Es la superficie que el criterio «el build de driver no incluye pantallas de
 // comercio» nombra literalmente. Separarla es la condición para poder excluirla.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { DeliveryPreferenceTags } from "../DeliveryPreferenceTags";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -36,12 +36,19 @@ export function MerchantScreen({
   busy,
   runAction,
   onRefresh,
+  accountFooter,
 }: {
   restaurant: Restaurant;
   orders: Order[];
   busy: boolean;
   runAction: (action: () => Promise<unknown>, success: string) => void;
   onRefresh: () => Promise<void>;
+  /**
+   * Seguridad, documentos legales y baja de la cuenta, al final de la pestaña Cuenta.
+   * Van dentro del scroll: afuera, en una pantalla chica, la activación de la
+   * verificación en dos pasos quedaba cortada sin forma de llegar al botón.
+   */
+  accountFooter?: ReactNode;
 }) {
   const merchantScrollRef = useRef<ScrollView>(null);
   const [merchantView, setMerchantView] = useState<"today" | "orders" | "catalog" | "account">(
@@ -549,6 +556,7 @@ export function MerchantScreen({
                   </Text>
                 </View>
               </View>
+              {accountFooter}
             </>
           ) : null}
         </View>

@@ -153,6 +153,11 @@ try {
       !desafio.body.refreshToken,
     "con la verificación activa, la contraseña sola sólo devuelve un desafío",
   );
+  const desafioComoToken = await api("/me", { token: desafio.body.mfaChallenge });
+  assert(
+    desafioComoToken.status === 401,
+    "el desafío no sirve como token de acceso: la contraseña sola no abre la cuenta",
+  );
   const repetido = await api("/auth/mfa/complete", {
     body: { challenge: desafio.body.mfaChallenge, code: codigoAlta },
   });

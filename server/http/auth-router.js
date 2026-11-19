@@ -123,7 +123,11 @@ const refreshSchema = z.object({
 });
 
 function issueAccessToken(user, { mfaVerified = false } = {}) {
-  return jwt.sign({ sub: user.id, roles: user.roles, mfa: mfaVerified }, jwtSecret, {
+  // `typ: "access"` es lo único que `requireAuth` acepta. El desafío MFA, la
+  // autorización de un retiro y la validación de una dirección se firman con la
+  // misma clave y algunos llevan `sub`: sin el tipo, cualquiera de ellos servía
+  // como token de acceso (el desafío, con la contraseña sola).
+  return jwt.sign({ typ: "access", sub: user.id, roles: user.roles, mfa: mfaVerified }, jwtSecret, {
     expiresIn: "15m",
   });
 }

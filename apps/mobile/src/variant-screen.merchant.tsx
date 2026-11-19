@@ -51,11 +51,16 @@ export const variantScreen: VariantScreen = ({
         busy={busy}
         runAction={runAction}
         onRefresh={refresh}
+        accountFooter={
+          <>
+            {/* SEG-08: la protección de la cuenta que mueve la plata del comercio. */}
+            <TwoStepVerification />
+            {/* Apple y Google exigen poder eliminar la cuenta desde la app (LAN-001).
+                Un comercio tiene liquidaciones, así que esto crea una solicitud. */}
+            <LegalLinks />
+            <AccountDeletion onDeleted={logout} />
+          </>
+        }
       />
-      {/* Apple y Google exigen poder eliminar la cuenta desde la app (LAN-001).
-          Un comercio tiene liquidaciones, así que esto crea una solicitud. */}
-      <TwoStepVerification />
-      <LegalLinks />
-      <AccountDeletion onDeleted={logout} />
     </>
   ) : null;

@@ -447,6 +447,8 @@ export function MerchantDesktopConsole({
   const [mfaActive, setMfaActive] = useState(false);
   const [payoutMfaCode, setPayoutMfaCode] = useState("");
   const [disconnectMfaCode, setDisconnectMfaCode] = useState("");
+  // El panel de seguridad de esta misma sección avisa cuando se activa o se apaga.
+  const sincronizarMfa = useCallback((mfa: { enabled: boolean }) => setMfaActive(mfa.enabled), []);
   const loadFinance = useCallback(async () => {
     setFinanceLoading(true);
     try {
@@ -1297,7 +1299,7 @@ export function MerchantDesktopConsole({
               </small>
             </section>
             {/* SEG-08: la protección de la cuenta que mueve la plata del comercio. */}
-            <TwoStepVerification />
+            <TwoStepVerification onChange={sincronizarMfa} />
             <section className="admin-card">
               <AdminSectionHeader
                 title="Movimientos"

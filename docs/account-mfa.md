@@ -45,6 +45,11 @@ SEG-08 lo puede activar cualquier cliente, conductor o comercio, en la web y en 
   copia la marca. Con la verificación activa, una sesión sin marca o con una marca anterior a
   la activación no se renueva: el servidor la cierra y devuelve un desafío. Cubre la carrera
   de un ingreso que empezó justo antes de activarla.
+- **Sólo un token de acceso autentica.** El token de acceso lleva `typ: "access"` y
+  `requireAuth` rechaza cualquier otro. El desafío de cinco minutos, la autorización de un
+  retiro y la validación de una dirección se firman con la misma clave, y algunos llevan
+  `sub`. Antes de este control, el desafío que devuelve la contraseña sola servía como token
+  de acceso de la cuenta entera, lo que anulaba el segundo factor.
 - **Los administradores** siguen como en [`admin-mfa.md`](admin-mfa.md): vuelven a pasar el
   segundo factor en cada renovación, y con `REQUIRE_ADMIN_MFA` no pueden desactivarlo.
 - **Un código mal escrito dentro de una sesión responde 403, no 401.** Los clientes web y
@@ -70,7 +75,8 @@ Rutas (documentadas en OpenAPI, `server/openapi-account-mfa.js`):
   sintéticos que borra al terminar. Recorre:
   - activar, con el secreto cifrado;
   - el cierre de las demás sesiones y los avisos por push y email;
-  - el ingreso con desafío y la renovación sin volver a pedir el código;
+  - el ingreso con desafío, que el desafío no sirva como token de acceso, y la renovación
+    sin volver a pedir el código;
   - la sesión sin marca que no se renueva;
   - la reutilización de un código TOTP;
   - eliminar la cuenta sin código (403 `mfaRequired`), y que con la contraseña equivocada el
