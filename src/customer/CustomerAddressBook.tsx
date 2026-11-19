@@ -141,9 +141,9 @@ export function CustomerAddressBook({
     <section className="address-book-card" aria-labelledby="address-book-title">
       <div className="address-book-heading">
         <div>
-          <span className="muted-label">Checkout mas rapido</span>
+          <span className="muted-label">Checkout más rápido</span>
           <h3 id="address-book-title">Mis direcciones</h3>
-          <p>Guarda destinos frecuentes y usa coordenadas reales para entregar o pedir un viaje.</p>
+          <p>Guardá tus destinos frecuentes para pedir y viajar más rápido.</p>
         </div>
         <MapPin size={22} />
       </div>
@@ -189,7 +189,7 @@ export function CustomerAddressBook({
                 <button
                   type="button"
                   className="icon-button"
-                  title="Editar direccion"
+                  title="Editar dirección"
                   aria-label={`Editar ${entry.label}`}
                   onClick={() => editAddress(entry)}
                 >
@@ -198,7 +198,7 @@ export function CustomerAddressBook({
                 <button
                   type="button"
                   className="icon-button danger"
-                  title="Eliminar direccion"
+                  title="Eliminar dirección"
                   aria-label={`Eliminar ${entry.label}`}
                   onClick={() => void onDeleteAddress(entry.id)}
                 >
@@ -211,7 +211,7 @@ export function CustomerAddressBook({
       ) : (
         <div className="address-empty">
           <MapPin size={17} />
-          <span>Aun no tienes destinos guardados.</span>
+          <span>Todavía no guardaste destinos.</span>
         </div>
       )}
       <form className="address-form" onSubmit={saveAddress}>
@@ -238,7 +238,7 @@ export function CustomerAddressBook({
             </select>
           </label>
           <label className="address-form-wide">
-            <span>Direccion</span>
+            <span>Dirección</span>
             <input
               value={addressDraft.address}
               onChange={(event) =>
@@ -300,7 +300,7 @@ export function CustomerAddressBook({
             !addressDraft.validationToken
           }
         >
-          <MapPin size={16} /> {editingAddressId ? "Actualizar direccion" : "Guardar direccion"}
+          <MapPin size={16} /> {editingAddressId ? "Actualizar dirección" : "Guardar dirección"}
         </button>
       </form>
     </section>

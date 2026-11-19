@@ -307,6 +307,11 @@ function App() {
       setLoading(true);
       await bootstrapSession();
     } catch (requestError) {
+      // Una cuenta con el email sin verificar no es un error: el ingreso sigue con el código.
+      if (
+        (requestError as { body?: { verificationRequired?: boolean } }).body?.verificationRequired
+      )
+        return { verificationRequired: true as const };
       setError(requestError instanceof Error ? requestError.message : "No se pudo iniciar sesión");
     } finally {
       setLoading(false);
@@ -1024,6 +1029,7 @@ function App() {
                   <CustomerApp
                     state={state}
                     user={activeUser}
+                    onLogout={logoutWeb}
                     service={service}
                     setService={setService}
                     features={features}

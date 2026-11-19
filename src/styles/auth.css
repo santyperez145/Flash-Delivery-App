@@ -300,3 +300,53 @@
     border-radius: 20px;
   }
 }
+
+/* Alta, verificación y recuperación (FE-03): enlaces entre pasos y avisos. */
+.web-auth-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+}
+.web-auth-switch button {
+  min-height: 44px;
+  padding: 0 4px;
+  color: var(--brand);
+  font: inherit;
+  font-weight: 800;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.web-auth-switch button:hover,
+.web-auth-switch button:focus-visible {
+  text-decoration: underline;
+}
+.web-auth-signup {
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.web-auth-notice,
+.web-auth-dev-code {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  border-radius: var(--radius-control);
+}
+.web-auth-notice {
+  color: var(--ink);
+  background: var(--paper-soft);
+}
+.web-auth-dev-code {
+  color: var(--ink-soft);
+  background: var(--paper-soft);
+  border: 1px dashed var(--line);
+}
+.web-auth-card header span svg {
+  vertical-align: -2px;
+}

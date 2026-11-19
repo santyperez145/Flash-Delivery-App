@@ -113,6 +113,7 @@
     "test:cash-food-orders-contract": "node scripts/cash-food-orders-contract.mjs",
     "test:order-batching": "node --env-file-if-exists=.env.local scripts/order-batching-smoke.mjs",
     "test:order-batching-contract": "node scripts/order-batching-contract.mjs",
+    "test:web-access-trust": "node scripts/web-access-trust-contract.mjs",
     "test:service-chat": "node --env-file-if-exists=.env.local scripts/service-chat-smoke.mjs",
     "test:shipment-claims": "node --env-file-if-exists=.env.local scripts/shipment-claims-smoke.mjs",
     "test:payment-reconciliation": "node --env-file-if-exists=.env.local scripts/payment-reconciliation-smoke.mjs",

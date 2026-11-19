@@ -2,7 +2,7 @@
 
 ## Estado al 29 de agosto de 2026
 
-`ci.yml` se dividió en cuatro workflows. La cobertura pasó de 15 a **127 de 128 suites** detrás de una puerta: **125 bloquean el merge**, 2 corren de noche y la cuarentena está vacía.
+`ci.yml` se dividió en cuatro workflows. La cobertura pasó de 15 a **128 de 129 suites** detrás de una puerta: **126 bloquean el merge**, 2 corren de noche y la cuarentena está vacía.
 
 Desde el 27 de agosto la rama `main` **está protegida**: los siete checks son obligatorios, la rama debe estar al día, la historia es lineal y no hay excepción para administradores. Hasta ese día se habían mergeado once PR con CI en verde sin que nada lo exigiera.
 
@@ -55,7 +55,7 @@ El job `migrate-from-base` existe porque **una migración puede pasar desde cero
 siete casos conservan la matriz completa de ownership y MFA, y siguen corriendo en
 `ci-fast`. La segunda mitad de `test:runtime-role-shape` inicia `postgis/postgis:17-3.5` en
 un puerto asignado por Docker, crea `flash_app`, `flash_runtime` y `flash_rls_audit`, ejecuta
-las 149 migraciones con el rol migrador y comprueba PostGIS 3.5 y la ausencia de ownership,
+las 150 migraciones con el rol migrador y comprueba PostGIS 3.5 y la ausencia de ownership,
 `SUPERUSER` y `BYPASSRLS` en runtime y auditoría.
 
 La suite de contenedor corre encadenada a una puerta ya bloqueante del job
