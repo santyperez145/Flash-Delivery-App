@@ -180,6 +180,16 @@ export function MerchantApplicationPage({ user, onVolver, onAbrirPortal, onCerra
   useEffect(() => {
     void cargar();
   }, [cargar]);
+  // Releer sin pasar por «cargando»: la pantalla no parpadea y, si falla, queda lo último
+  // que se leyó hasta el próximo intento.
+  const releer = useCallback(async () => {
+    try {
+      const respuesta = await api.getMyApplications();
+      setCarga({ estado: "listo", solicitudes: respuesta.applications });
+    } catch {
+      // Se reintenta en la próxima vuelta.
+    }
+  }, []);
 
   const ultima = carga.estado === "listo" ? (carga.solicitudes[0] ?? null) : null;
   const mostrarFormulario =
@@ -188,6 +198,24 @@ export function MerchantApplicationPage({ user, onVolver, onAbrirPortal, onCerra
     // Una cuenta que ya tiene un comercio no puede presentar otra solicitud: el servidor
     // la rechaza con 409, así que no se ofrece un formulario que termina en error.
     !(user.roles.includes("merchant") && !ultima);
+  // Mientras la solicitud espera una decisión, la pantalla se actualiza sola: cada 30 s y
+  // al volver a la pestaña. Sin esto, quien la dejaba abierta nunca veía la aprobación.
+  const esperaDecision =
+    !mostrarFormulario && (ultima?.status === "pending" || ultima?.status === "needs_changes");
+  useEffect(() => {
+    if (!esperaDecision) return;
+    const intervalo = window.setInterval(() => void releer(), 30_000);
+    const alVolver = () => {
+      if (document.visibilityState === "visible") void releer();
+    };
+    document.addEventListener("visibilitychange", alVolver);
+    window.addEventListener("focus", alVolver);
+    return () => {
+      window.clearInterval(intervalo);
+      document.removeEventListener("visibilitychange", alVolver);
+      window.removeEventListener("focus", alVolver);
+    };
+  }, [esperaDecision, releer]);
 
   return (
     <main className="partner-shell">

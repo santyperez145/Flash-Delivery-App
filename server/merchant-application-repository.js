@@ -316,6 +316,20 @@ export async function decideMerchantApplication({
   requestId = null,
 }) {
   return enTransaccion(async (client) => {
+    // El mismo candado por persona que el envío, y antes que la fila: sin él, una solicitud
+    // nueva de esa persona podía colarse mientras se aprobaba la anterior (veía «sin
+    // comercio» antes del alta y «sin abiertas» después) y quedaba en la cola de una
+    // persona que ya tiene comercio. Mismo orden en los dos caminos: candado, después fila.
+    const solicitante = (
+      await client.query("SELECT applicant_id FROM merchant_applications WHERE public_id=$1", [
+        applicationPublicId,
+      ])
+    ).rows[0];
+    if (!solicitante) throw error("Solicitud no encontrada", 404);
+    await client.query(
+      "SELECT pg_advisory_xact_lock(hashtextextended('merchant_application:' || $1::text, 0))",
+      [solicitante.applicant_id],
+    );
     const solicitud = (
       await client.query(
         `SELECT id, public_id, status, applicant_id, business_name

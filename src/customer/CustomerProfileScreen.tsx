@@ -6,6 +6,7 @@ import {
   MapPin,
   MessageCircle,
   ShieldCheck,
+  Store,
   UserRound,
 } from "lucide-react";
 import { AccountDeletion } from "../ui/AccountDeletion";
@@ -136,6 +137,10 @@ export function CustomerProfileScreen({
         <Check size={17} /> Guardar cambios
       </button>
       <TwoStepVerification />
+      {/* FE-05: quien pide también puede tener un local; la postulación es /comercios. */}
+      <a className="profile-partner-link" href="/comercios">
+        <Store size={17} aria-hidden="true" /> ¿Tenés un comercio? Sumalo a Flash
+      </a>
       <LegalLinks />
       {confirmarSalida ? (
         <div

@@ -229,7 +229,7 @@ export function AdminApplications({
               Reintentar
             </button>
           </div>
-        ) : items.length === 0 ? (
+        ) : items.length === 0 && !nextCursor ? (
           <p className="admin-empty">{pestanaActual.vacio}</p>
         ) : (
           <div className="altas-grid">

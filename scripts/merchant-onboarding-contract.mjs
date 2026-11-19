@@ -15,24 +15,38 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 
-import { contains } from "./source-contract.mjs";
+import { contains, squeeze } from "./source-contract.mjs";
 
 const leer = (ruta) => fs.readFile(ruta, "utf8");
-const [app, ingreso, portal, solicitud, consola, altas, cola, puesta, horario, intervencion] =
-  await Promise.all(
-    [
-      "src/App.tsx",
-      "src/auth/WebLogin.tsx",
-      "src/ui/SystemStateScreen.tsx",
-      "src/partners/MerchantApplication.tsx",
-      "src/backoffice/AdminConsole.tsx",
-      "src/backoffice/AdminApplications.tsx",
-      "src/backoffice/WorkQueueBoard.tsx",
-      "src/merchant/MerchantSetupChecklist.tsx",
-      "src/merchant/MerchantCatalogEditors.tsx",
-      "src/backoffice/OperationsInterventionPanel.tsx",
-    ].map(leer),
-  );
+const [
+  app,
+  ingreso,
+  portal,
+  solicitud,
+  consola,
+  altas,
+  cola,
+  puesta,
+  horario,
+  intervencion,
+  perfil,
+  repositorio,
+] = await Promise.all(
+  [
+    "src/App.tsx",
+    "src/auth/WebLogin.tsx",
+    "src/ui/SystemStateScreen.tsx",
+    "src/partners/MerchantApplication.tsx",
+    "src/backoffice/AdminConsole.tsx",
+    "src/backoffice/AdminApplications.tsx",
+    "src/backoffice/WorkQueueBoard.tsx",
+    "src/merchant/MerchantSetupChecklist.tsx",
+    "src/merchant/MerchantCatalogEditors.tsx",
+    "src/backoffice/OperationsInterventionPanel.tsx",
+    "src/customer/CustomerProfileScreen.tsx",
+    "server/merchant-application-repository.js",
+  ].map(leer),
+);
 
 // --- La postulación es pública y se llega desde el ingreso ------------------------------
 assert.ok(
@@ -104,6 +118,35 @@ assert.ok(
     contains(horario, "aria-label={`Apertura del ${fullDayNames[hour.weekday]}`}") &&
     contains(horario, "aria-label={`Cierre del ${fullDayNames[hour.weekday]}`}"),
   "cada día y cada hora del horario tiene nombre",
+);
+
+// --- Lo que pidió la revisión del PR ---------------------------------------------------
+assert.ok(
+  contains(altas, ") : items.length === 0 && !nextCursor ? ("),
+  "decidir toda la página no esconde las solicitudes que quedan en el servidor",
+);
+assert.ok(
+  contains(solicitud, "const intervalo = window.setInterval(() => void releer(), 30_000);") &&
+    contains(solicitud, 'document.addEventListener("visibilitychange", alVolver);'),
+  "la solicitud abierta se actualiza sola mientras espera una decisión",
+);
+assert.ok(
+  contains(perfil, '<a className="profile-partner-link" href="/comercios">'),
+  "quien pide desde la web también encuentra cómo sumar su comercio",
+);
+
+const decidir = repositorio.slice(
+  repositorio.indexOf("export async function decideMerchantApplication"),
+);
+assert.ok(
+  contains(
+    decidir,
+    "pg_advisory_xact_lock(hashtextextended('merchant_application:' || $1::text, 0))",
+  ) &&
+    contains(decidir, "[solicitante.applicant_id],") &&
+    squeeze(decidir).indexOf(squeeze("pg_advisory_xact_lock")) <
+      squeeze(decidir).indexOf(squeeze("FROM merchant_applications WHERE public_id=$1 FOR UPDATE")),
+  "aprobar toma el candado de la persona antes que la fila: un envío simultáneo no se cuela",
 );
 
 console.log("merchant onboarding contract ok");

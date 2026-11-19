@@ -611,6 +611,19 @@
 .profile-logout:focus-visible {
   border-color: var(--ink-soft);
 }
+.profile-partner-link {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 44px;
+  color: var(--brand);
+  font-weight: 800;
+  text-decoration: none;
+}
+.profile-partner-link:hover,
+.profile-partner-link:focus-visible {
+  text-decoration: underline;
+}
 .profile-logout-confirm {
   display: grid;
   gap: 8px;
