@@ -58,7 +58,7 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   («Nuevo», «—», «Sin foto todavía», «Esta sucursal todavía no tiene horario»). La
   calificación del comercio, desde 10 opiniones reales. La **migración 151** limpia lo que
   ya estaba guardado.
-- **Verificación:** `test:no-invented-data` (nueva, en `ci-fast`), falsificado con 20
+- **Verificación:** `test:no-invented-data` (nueva, en `ci-fast`), falsificado con 23
   mutaciones; los 40 flujos críticos pasan con la migración 151; la consola de operaciones
   revisada en el navegador contra PostgreSQL.
 - **Detalle:** [`docs/nada-inventado.md`](docs/nada-inventado.md).

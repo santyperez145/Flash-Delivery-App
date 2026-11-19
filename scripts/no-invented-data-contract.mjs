@@ -172,8 +172,21 @@ assert.ok(
   "el volumen no cuenta lo cancelado ni lo no cobrado, y un promedio sin datos es «—»",
 );
 assert.ok(
-  contains(salud, '!state.orders.length ? "—"') && contains(salud, '!state.rides.length ? "—"'),
-  "sin pedidos ni viajes, la tasa de asignación es «—», no 0%",
+  contains(finanzasServidor, "FROM jobs WHERE status='completed' AND payment_method_label=$1") &&
+    contains(
+      finanzasServidor,
+      "Number(payments.rows[0].gross_processed_cents) + Number(cash.rows[0].cents),",
+    ),
+  "lo cobrado en efectivo entra en el volumen",
+);
+assert.ok(
+  contains(
+    salud,
+    '(dashboard ? !dashboard.marketplace.deliveryJobs : !state.orders.length) ? "—"',
+  ) &&
+    contains(salud, '(dashboard ? !dashboard.marketplace.rideJobs : !state.rides.length) ? "—"') &&
+    contains(tableroServidor, "deliveryJobs: db.orders.length,"),
+  "sin pedidos ni viajes en total, la tasa de asignación es «—», no 0%",
 );
 assert.ok(
   contains(salud, "Demanda configurada:") &&

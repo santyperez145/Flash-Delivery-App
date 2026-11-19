@@ -95,6 +95,11 @@ function adminSnapshot(db, financial = null) {
       ),
       unassignedOrders,
       unassignedRides,
+      // FE-04: cuántos servicios hay en total, para que la consola sepa si una tasa en 0
+      // es «ninguno asignado» o «todavía no hay»; la lista que tiene el navegador es
+      // sólo una página.
+      deliveryJobs: db.orders.length,
+      rideJobs: db.rides.length,
       openRestaurants: db.restaurants.filter((restaurant) => restaurant.open).length,
       onlineDrivers: db.drivers.filter((driver) => driver.online).length,
     },

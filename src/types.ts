@@ -552,10 +552,15 @@ export type AdminDashboard = {
     supplyDemandRatio: number;
     unassignedOrders: number;
     unassignedRides: number;
+    /** Servicios en total, no la página que tiene el navegador (FE-04). */
+    deliveryJobs?: number;
+    rideJobs?: number;
     openRestaurants: number;
     onlineDrivers: number;
     financial: {
       grossProcessed: number;
+      /** Lo cobrado en efectivo, que entra en `grossProcessed` (PAG-01). */
+      cashCollected?: number;
       netCaptured: number;
       paymentCount: number;
       refunded: number;

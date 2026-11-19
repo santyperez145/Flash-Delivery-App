@@ -43,7 +43,7 @@ export function MarketplaceHealth({
     [
       "Fill rate delivery",
       // FE-04: sin pedidos no hay tasa de asignación; 0% diría que no se asignó ninguno.
-      !state.orders.length
+      (dashboard ? !dashboard.marketplace.deliveryJobs : !state.orders.length)
         ? "—"
         : dashboard
           ? `${dashboard.marketplace.fillRateDelivery}%`
@@ -52,7 +52,7 @@ export function MarketplaceHealth({
     ],
     [
       "Fill rate taxi",
-      !state.rides.length
+      (dashboard ? !dashboard.marketplace.rideJobs : !state.rides.length)
         ? "—"
         : dashboard
           ? `${dashboard.marketplace.fillRateRide}%`
