@@ -72,7 +72,7 @@ horario, el segundo factor y los cobros reales sin simular Mercado Pago, que el 
 comercio salga del servidor, que el horario de una sucursal no se borre solo mientras se
 carga (el defecto que encontró la prueba en el navegador: la consola se actualiza cada pocos
 segundos y el formulario se reiniciaba) y que cada control del horario tenga nombre, y que el
-teléfono no quede «+54 +54». Falsificado con 17 mutaciones. Si falla, un comercio de verdad
+teléfono no quede «+54 +54». Falsificado con 19 mutaciones. Si falla, un comercio de verdad
 vuelve a perder su horario o a no encontrar cómo sumarse.
 
 ## Lo que falta

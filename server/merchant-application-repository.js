@@ -266,8 +266,10 @@ async function crearComercio(client, solicitud) {
     throw error("Quien se postuló ya tiene un comercio en Flash", 409);
   const ciudad = (
     await client.query(
+      // Sólo ciudades abiertas al público, las mismas que lista `getPublicCities`: una
+      // en planificación, interna o pausada no tiene clientes ni reparto todavía.
       `SELECT c.id FROM cities c, merchant_applications a
-       WHERE a.id=$1 AND ST_Covers(c.boundary, a.location)
+       WHERE a.id=$1 AND ST_Covers(c.boundary, a.location) AND c.status IN ('beta','active')
        ORDER BY c.created_at LIMIT 1`,
       [solicitud.id],
     )

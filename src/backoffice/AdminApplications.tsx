@@ -132,6 +132,40 @@ export function AdminApplications({
     void cargar(status);
   }, [cargar, status]);
 
+  // Con la pestaña abierta, la cola se actualiza sola: cada 30 s y al volver a la pestaña
+  // se relee la primera página y se suman las solicitudes nuevas. No se descarta lo ya
+  // cargado ni la selección: el operador puede estar leyendo una solicitud.
+  useEffect(() => {
+    const refrescar = async () => {
+      const numero = pedido.current;
+      try {
+        const pagina = await api.getAdminMerchantApplications({ status });
+        if (numero !== pedido.current || pestanaVigente.current !== status) return;
+        setItems((previas) => {
+          const vistas = new Set(previas.map((item) => item.id));
+          const nuevas = pagina.applications.filter((item) => !vistas.has(item.id));
+          if (!nuevas.length) return previas;
+          setSeleccionId((actual) => actual ?? nuevas[0].id);
+          return [...previas, ...nuevas];
+        });
+        setNextCursor((actual) => actual ?? pagina.nextCursor);
+      } catch {
+        // Se reintenta en la próxima vuelta; el error de la carga principal ya se ve.
+      }
+    };
+    const intervalo = window.setInterval(() => void refrescar(), 30_000);
+    const alVolver = () => {
+      if (document.visibilityState === "visible") void refrescar();
+    };
+    document.addEventListener("visibilitychange", alVolver);
+    window.addEventListener("focus", alVolver);
+    return () => {
+      window.clearInterval(intervalo);
+      document.removeEventListener("visibilitychange", alVolver);
+      window.removeEventListener("focus", alVolver);
+    };
+  }, [status]);
+
   const verMas = async () => {
     if (!nextCursor) return;
     const numero = pedido.current;

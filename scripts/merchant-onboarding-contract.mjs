@@ -154,4 +154,14 @@ assert.ok(
   "una decisión que vuelve después de cambiar de pestaña no pisa la lista nueva",
 );
 
+assert.ok(
+  contains(altas, "const intervalo = window.setInterval(() => void refrescar(), 30_000);") &&
+    contains(altas, "const nuevas = pagina.applications.filter((item) => !vistas.has(item.id));"),
+  "la cola de Altas suma sola las solicitudes nuevas sin descartar lo cargado",
+);
+assert.ok(
+  contains(repositorio, "AND ST_Covers(c.boundary, a.location) AND c.status IN ('beta','active')"),
+  "sólo se aprueba un comercio en una ciudad abierta al público",
+);
+
 console.log("merchant onboarding contract ok");
