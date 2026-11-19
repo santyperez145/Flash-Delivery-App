@@ -68,6 +68,11 @@ jobs:
         env:
           NODE_ENV: test
           LOG_LEVEL: silent
+          # La auditoria recorre Pedidos y Viajes (FE-02) en tres anchos y el escritorio
+          # contra una sola instancia: con el limite por defecto (300 por minuto) la
+          # API respondia 429 y la auditoria fallaba por cuota, no por la interfaz.
+          RATE_LIMIT_MAX: "100000"
+          AUTH_RATE_LIMIT_MAX: "100000"
         run: |
           node server/start.js > /tmp/nightly-api.log 2>&1 &
           echo $! > /tmp/nightly-api.pid

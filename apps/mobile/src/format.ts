@@ -9,7 +9,7 @@
 // porque en el móvil la pantalla es del comercio y la etiqueta es una acción, no
 // un estado. Unificarlas sería perder esa distinción; el nombre lleva el prefijo
 // `mobile` justamente para que nadie las confunda.
-import type { Order, RoadStep } from "./types";
+import type { Order, Ride, RoadStep, Shipment } from "./types";
 
 /** Pesos argentinos sin decimales, igual que en la web. */
 export const money = new Intl.NumberFormat("es-AR", {
@@ -26,6 +26,41 @@ export const mobileOrderStatusLabel: Record<Order["status"], string> = {
   ready_for_pickup: "Listo para retirar",
   courier_assigned: "Courier asignado",
   picked_up: "Retirado",
+  delivering: "En camino",
+  delivered: "Entregado",
+  cancelled: "Cancelado",
+};
+
+/**
+ * El estado de lo que pidió un cliente, en su voz (FE-02). La actividad mostraba el
+ * identificador crudo («Pedido · courier_assigned»).
+ */
+export const customerOrderStatusLabel: Record<Order["status"], string> = {
+  requested: "Confirmando el pago",
+  accepted: "El comercio lo aceptó",
+  preparing: "En preparación",
+  ready_for_pickup: "Listo para retirar",
+  courier_assigned: "Repartidor asignado",
+  picked_up: "Retirado por el repartidor",
+  delivering: "En camino",
+  delivered: "Entregado",
+  cancelled: "Cancelado",
+};
+
+export const rideStatusLabel: Record<Ride["status"], string> = {
+  requested: "Buscando conductor",
+  driver_assigned: "Conductor asignado",
+  arriving: "Tu conductor está llegando",
+  in_progress: "En viaje",
+  completed: "Completado",
+  cancelled: "Cancelado",
+};
+
+export const shipmentStatusLabel: Record<Shipment["status"], string> = {
+  requested: "Buscando repartidor",
+  driver_assigned: "Repartidor asignado",
+  arriving: "Retirando el paquete",
+  picked_up: "Paquete retirado",
   delivering: "En camino",
   delivered: "Entregado",
   cancelled: "Cancelado",

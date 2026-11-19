@@ -23,7 +23,7 @@ perfecto.
 | Pagos: cobro real | 3 | Todo listo hasta el borde: faltan las credenciales productivas de Mercado Pago (dueño) |
 | Reintegros y reclamos | 7 | Reintegros, faltantes y reclamos de envíos existen; falta el reintegro inmediato a la Wallet sin revisión en montos chicos |
 | Comprobantes | 5 | Comprobante no fiscal; la factura electrónica necesita alta en ARCA (dueño) |
-| Experiencia del cliente web | 8 | FE-01 la puso a la par en estructura; falta la misma separación en el móvil (FE-02) |
+| Experiencia del cliente | 8 | Pedidos y Viajes separados en web (FE-01) y móvil (FE-02); faltan servicios por ciudad (RES-04) y lotes de reparto |
 | Operación del comercio | 7 | Pausa con tiempo y motivo; faltan modo ocupado, pausa automática y la pausa en la web |
 | Repartidor y conductor | 7 | Desglose de ganancias en viajes y envíos; falta en comida y los lotes de reparto |
 
@@ -77,7 +77,7 @@ un tercero.
 3. **PAG-01** (hecho en viajes): efectivo en viajes, con la comisión descontada del saldo del conductor.
 4. **PAG-02** (hecho): dividir la tarifa.
 5. **SEG-08** (hecho el segundo factor): verificación en dos pasos para toda cuenta.
-6. **FE-02**: Pedidos y Viajes separados en la app móvil.
+6. **FE-02** (hecho): Pedidos y Viajes separados en la app móvil.
 7. **PAG-04 y PAG-05**: tarjetas de regalo y perfil familiar.
 
 Quedan del dueño: SEG-04 (decisión legal), SEG-05 (decisión con el piloto), SEG-06 y SEG-07

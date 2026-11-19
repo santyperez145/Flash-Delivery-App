@@ -18,6 +18,7 @@ import { flashDesign } from "../design-system";
 import { mobileOrderStatusLabel, money } from "../format";
 import { styles } from "../styles";
 import { ActionButton, ServiceChatModal } from "../ui";
+import { AmbitoSwitch, useAmbito } from "../customer-scope";
 import { CustomerActivityScreen } from "./CustomerActivityScreen";
 import { CustomerAccountScreen } from "./CustomerAccountScreen";
 import { CustomerFoodBrowseScreen, type CatalogSearchResult } from "./CustomerFoodBrowseScreen";
@@ -82,6 +83,8 @@ export function CustomerScreen({
   const [customerWindow, setCustomerWindow] = useState<"food" | "ride" | "shipment">("food");
   // RES-01: se entra al inicio con todos los servicios, no a la portada de comidas.
   const [sharedView, setSharedView] = useState<VistaCliente>("home");
+  // FE-02: Pedidos y Viajes, cada uno con su inicio, sus servicios y su actividad.
+  const { ambito, cambiar: cambiarAmbito } = useAmbito();
   const [foodVertical, setFoodVertical] = useState<MerchantVertical>("restaurant");
   const [rideDestination, setRideDestination] = useState<{
     address: string;
@@ -592,18 +595,21 @@ export function CustomerScreen({
     ...state.orders
       .filter((order) => order.customerId === user.id && order.cancellation)
       .map((order) => ({
+        kind: "order" as const,
         label: "Pedido cancelado",
         ...order.cancellation!,
       })),
     ...state.rides
       .filter((ride) => ride.customerId === user.id && ride.cancellation)
       .map((ride) => ({
+        kind: "ride" as const,
         label: "Viaje cancelado",
         ...ride.cancellation!,
       })),
     ...state.shipments
       .filter((shipment) => shipment.customerId === user.id && shipment.cancellation)
       .map((shipment) => ({
+        kind: "shipment" as const,
         label: "Envío cancelado",
         ...shipment.cancellation!,
       })),
@@ -923,8 +929,13 @@ export function CustomerScreen({
         ref={customerScrollRef}
         contentContainerStyle={[styles.stack, styles.customerScrollContent]}
       >
+        {["home", "services", "activity"].includes(sharedView) && (
+          <AmbitoSwitch ambito={ambito} onChange={cambiarAmbito} />
+        )}
         {sharedView === "home" && (
           <CustomerHomeScreen
+            ambito={ambito}
+            onChangeAmbito={cambiarAmbito}
             user={user}
             deliveryAddress={deliveryAddress}
             restaurants={state.restaurants}
@@ -959,6 +970,7 @@ export function CustomerScreen({
         )}
         {sharedView === "services" && (
           <CustomerServicesScreen
+            ambito={ambito}
             onOpenRide={() => abrirServicio("ride")}
             onOpenVertical={abrirRubro}
             onOpenShipment={() => abrirServicio("shipment")}
@@ -1168,16 +1180,22 @@ export function CustomerScreen({
         />
         {sharedView === "activity" && (
           <CustomerActivityScreen
+            ambito={ambito}
             restaurantId={cartRestaurant?.id ?? null}
             cart={cart}
             userId={user.id}
             busy={busy}
-            activeOrders={activeOrders}
-            activeRides={activeRides}
-            activeShipments={activeShipments}
-            pendingSubstitutions={pendingSubstitutions}
-            completedServices={completedForTips}
-            recentCancellations={recentCancellations}
+            // FE-02: cada ámbito ve lo suyo. Pedidos: comercios; Viajes: viajes y envíos.
+            activeOrders={ambito === "pedidos" ? activeOrders : []}
+            activeRides={ambito === "viajes" ? activeRides : []}
+            activeShipments={ambito === "viajes" ? activeShipments : []}
+            pendingSubstitutions={ambito === "pedidos" ? pendingSubstitutions : []}
+            completedServices={completedForTips.filter(
+              (service) => (service.kind === "order") === (ambito === "pedidos"),
+            )}
+            recentCancellations={recentCancellations.filter(
+              (cancellation) => (cancellation.kind === "order") === (ambito === "pedidos"),
+            )}
             tips={state.tips || []}
             receipts={receipts}
             shipments={state.shipments}
@@ -1337,6 +1355,7 @@ export function CustomerScreen({
       />
       <CustomerTabBar
         vista={sharedView}
+        ambito={ambito}
         onChange={(vista) => {
           if (vista === "home") setFoodScreen("home");
           setSharedView(vista);

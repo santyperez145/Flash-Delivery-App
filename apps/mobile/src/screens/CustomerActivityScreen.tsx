@@ -3,7 +3,8 @@ import { Pressable, Text, View } from "react-native";
 
 import { api } from "../api";
 import { GroupOrderPanel } from "../GroupOrderPanel";
-import { money } from "../format";
+import { customerOrderStatusLabel, money, rideStatusLabel, shipmentStatusLabel } from "../format";
+import type { Ambito } from "../customer-scope";
 import { styles } from "../styles";
 import { ActionButton } from "../ui";
 import type {
@@ -33,6 +34,8 @@ type CompletedService = {
 type RecentCancellation = ServiceCancellation & { label: string };
 
 type CustomerActivityScreenProps = {
+  /** FE-02: la actividad de Pedidos o la de Viajes; quien la llama ya filtró las listas. */
+  ambito: Ambito;
   restaurantId: string | null;
   cart: MobileCartLine[];
   userId: string;
@@ -68,6 +71,7 @@ type CustomerActivityScreenProps = {
 };
 
 export function CustomerActivityScreen({
+  ambito,
   restaurantId,
   cart,
   userId,
@@ -110,20 +114,35 @@ export function CustomerActivityScreen({
   return (
     <>
       <View style={styles.activityHeading}>
-        <Text style={styles.foodRestaurantTitle}>Actividad</Text>
-        <Text style={styles.cardText}>Pedidos, viajes y envíos en un solo lugar.</Text>
+        <Text style={styles.foodRestaurantTitle}>
+          {ambito === "pedidos" ? "Pedidos" : "Actividad"}
+        </Text>
+        <Text style={styles.cardText}>
+          {ambito === "pedidos"
+            ? "Tus pedidos de comida, súper y comercios."
+            : "Tus viajes y envíos."}
+        </Text>
       </View>
-      <GroupOrderPanel
-        restaurantId={restaurantId}
-        cart={cart}
-        userId={userId}
-        onCheckoutGroup={onCheckoutGroup}
-        busy={busy}
-      />
+      {/* El pedido grupal es de comercios: no tiene lugar en Viajes. */}
+      {ambito === "pedidos" && (
+        <GroupOrderPanel
+          restaurantId={restaurantId}
+          cart={cart}
+          userId={userId}
+          onCheckoutGroup={onCheckoutGroup}
+          busy={busy}
+        />
+      )}
       {!hasActivity && (
         <View style={styles.foodEmpty}>
-          <Ionicons name="time-outline" size={56} color="#7c3cff" />
-          <Text style={styles.foodSectionTitle}>Todavía no hay actividad</Text>
+          <Ionicons
+            name={ambito === "pedidos" ? "receipt-outline" : "car-sport-outline"}
+            size={56}
+            color="#7c3cff"
+          />
+          <Text style={styles.foodSectionTitle}>
+            {ambito === "pedidos" ? "Todavía no hiciste pedidos" : "Todavía no viajaste"}
+          </Text>
         </View>
       )}
       {pendingSubstitutions.length > 0 && (
@@ -146,7 +165,7 @@ export function CustomerActivityScreen({
               <Ionicons name="fast-food" size={21} color="#fff" />
             </View>
             <View style={styles.itemCopy}>
-              <Text style={styles.cardTitle}>Pedido · {order.status}</Text>
+              <Text style={styles.cardTitle}>{customerOrderStatusLabel[order.status]}</Text>
               <Text style={styles.cardText}>
                 {order.fulfillment === "pickup"
                   ? `Retirás en ${order.deliveryAddress}`
@@ -178,7 +197,7 @@ export function CustomerActivityScreen({
               <Ionicons name="car-sport" size={21} color="#fff" />
             </View>
             <View style={styles.itemCopy}>
-              <Text style={styles.cardTitle}>Viaje · {ride.status}</Text>
+              <Text style={styles.cardTitle}>{rideStatusLabel[ride.status]}</Text>
               <Text style={styles.cardText}>
                 {ride.pickup} → {ride.destination}
               </Text>
@@ -201,7 +220,7 @@ export function CustomerActivityScreen({
               <Ionicons name="cube" size={21} color="#fff" />
             </View>
             <View style={styles.itemCopy}>
-              <Text style={styles.cardTitle}>Envío · {shipment.status}</Text>
+              <Text style={styles.cardTitle}>Envío · {shipmentStatusLabel[shipment.status]}</Text>
               <Text style={styles.cardText}>
                 {shipment.pickup} → {shipment.destination}
               </Text>
