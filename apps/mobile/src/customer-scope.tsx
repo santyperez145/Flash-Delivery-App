@@ -95,7 +95,8 @@ const estilos = StyleSheet.create({
     gap: 6,
     alignItems: "center",
     justifyContent: "center",
-    minHeight: 40,
+    // El mínimo táctil del sistema de diseño (44): el relleno de la caja no cuenta.
+    minHeight: flashDesign.control.touch,
     borderRadius: flashDesign.radius.pill,
   },
   opcionActiva: { backgroundColor: flashDesign.color.ink },

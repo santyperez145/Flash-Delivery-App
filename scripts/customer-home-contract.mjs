@@ -222,10 +222,14 @@ assert.ok(
     contains(coordinador, 'activeOrders={ambito === "pedidos" ? activeOrders : []}') &&
     contains(coordinador, 'activeRides={ambito === "viajes" ? activeRides : []}') &&
     contains(coordinador, 'activeShipments={ambito === "viajes" ? activeShipments : []}') &&
-    contains(coordinador, '(service) => (service.kind === "order") === (ambito === "pedidos"),') &&
+    // Se filtra antes de recortar a cinco: si no, un ámbito dejaba vacío al otro.
     contains(
       coordinador,
-      '(cancellation) => (cancellation.kind === "order") === (ambito === "pedidos"),',
+      '.filter((service) => (service.kind === "order") === (ambito === "pedidos")) .slice(0, 5);',
+    ) &&
+    contains(
+      coordinador,
+      '.filter((cancellation) => (cancellation.kind === "order") === (ambito === "pedidos")) .slice(0, 5);',
     ) &&
     contains(actividadMovil, '{ambito === "pedidos" && ( <GroupOrderPanel'),
   "móvil: Pedidos y Viajes se mezclan en el inicio, los servicios o la actividad",
@@ -248,6 +252,16 @@ assert.ok(
       'export const customerOrderStatusLabel: Record<Order["status"], string>',
     ),
   "móvil: la actividad muestra el estado crudo",
+);
+// «Ver todos» abre restaurantes: la fila muestra sólo restaurantes. El selector se toca bien.
+assert.ok(
+  contains(
+    inicio,
+    '.filter((restaurant) => (restaurant.vertical ?? "restaurant") === "restaurant")',
+  ) &&
+    contains(inicio, 'onPress={() => onOpenVertical("restaurant")}') &&
+    contains(ambitoMovil, "minHeight: flashDesign.control.touch,"),
+  "móvil: «Ver todos» no abre lo que muestra la fila, o el selector es chico para tocar",
 );
 ok("móvil: Pedidos y Viajes separados, recordados, con seguridad en los dos y estados legibles");
 

@@ -590,7 +590,11 @@ export function CustomerScreen({
         label: `Envío a ${shipment.destination}`,
         amount: shipment.fare,
       })),
-  ].slice(0, 5);
+  ]
+    // FE-02: se filtra por ámbito antes de recortar; si no, los cinco de un ámbito
+    // dejaban vacío al otro aunque tuviera historia.
+    .filter((service) => (service.kind === "order") === (ambito === "pedidos"))
+    .slice(0, 5);
   const recentCancellations = [
     ...state.orders
       .filter((order) => order.customerId === user.id && order.cancellation)
@@ -615,6 +619,7 @@ export function CustomerScreen({
       })),
   ]
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .filter((cancellation) => (cancellation.kind === "order") === (ambito === "pedidos"))
     .slice(0, 5);
   const cancelService = (kind: "order" | "ride" | "shipment", id: string) =>
     Alert.alert("¿Por qué cancelás?", "El motivo y el reintegro quedarán registrados.", [
@@ -1190,12 +1195,8 @@ export function CustomerScreen({
             activeRides={ambito === "viajes" ? activeRides : []}
             activeShipments={ambito === "viajes" ? activeShipments : []}
             pendingSubstitutions={ambito === "pedidos" ? pendingSubstitutions : []}
-            completedServices={completedForTips.filter(
-              (service) => (service.kind === "order") === (ambito === "pedidos"),
-            )}
-            recentCancellations={recentCancellations.filter(
-              (cancellation) => (cancellation.kind === "order") === (ambito === "pedidos"),
-            )}
+            completedServices={completedForTips}
+            recentCancellations={recentCancellations}
             tips={state.tips || []}
             receipts={receipts}
             shipments={state.shipments}

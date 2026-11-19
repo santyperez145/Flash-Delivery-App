@@ -106,8 +106,11 @@ export function CustomerHomeScreen({
       yaPedidos.push(restaurant);
     if (yaPedidos.length === 4) break;
   }
-  // «Cerca tuyo»: los abiertos primero y, entre ellos, los que llegan antes.
-  const cerca = [...restaurants]
+  // «Restaurantes cerca tuyo»: los abiertos primero y, entre ellos, los que llegan
+  // antes. Sólo restaurantes, para que «Ver todos» abra lo mismo que se ve; los
+  // demás rubros tienen su acceso en la grilla.
+  const cerca = restaurants
+    .filter((restaurant) => (restaurant.vertical ?? "restaurant") === "restaurant")
     .sort((a, b) => Number(b.open) - Number(a.open) || a.etaMin - b.etaMin)
     .slice(0, 8);
 
@@ -292,7 +295,7 @@ export function CustomerHomeScreen({
       {pedidos && cerca.length > 0 && (
         <View style={estilos.seccion}>
           <View style={estilos.seccionCabecera}>
-            <Text style={estilos.seccionTitulo}>Cerca tuyo</Text>
+            <Text style={estilos.seccionTitulo}>Restaurantes cerca tuyo</Text>
             <Text
               accessibilityRole="button"
               style={estilos.verTodos}
