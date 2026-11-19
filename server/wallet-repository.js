@@ -75,7 +75,12 @@ export async function captureWalletPayment(
  * La crea si no existe: quien pagó siempre la tuvo, pero una cancelación no puede
  * romperse por una fila que falta.
  */
-export async function payerWalletForRefund(client, payerId, { noKeyUpdate = false } = {}) {
+export async function payerWalletForRefund(
+  client,
+  payerId,
+  { noKeyUpdate = false, fallbackUserId = null } = {},
+) {
+  payerId = await refundRecipient(client, payerId, fallbackUserId);
   await client.query(
     `INSERT INTO ledger_accounts(owner_type,owner_id,currency,account_type)
      VALUES('user',$1,'ARS','wallet') ON CONFLICT(owner_type,owner_id,currency,account_type) DO NOTHING`,
@@ -89,6 +94,18 @@ export async function payerWalletForRefund(client, payerId, { noKeyUpdate = fals
       [payerId],
     )
   ).rows[0];
+}
+
+/**
+ * A quién se le devuelve: a quien pagó, salvo que ya haya borrado su cuenta. Un
+ * reclamo se puede abrir y aprobar después de que quien organiza la borró, y esa plata
+ * quedaba en una billetera a la que nadie entra. Entonces vuelve a quien pidió, que es
+ * quien recibió el servicio.
+ */
+export async function refundRecipient(client, payerId, fallbackUserId) {
+  if (!fallbackUserId || String(payerId) === String(fallbackUserId)) return payerId;
+  const pagador = (await client.query("SELECT status FROM users WHERE id=$1", [payerId])).rows[0];
+  return pagador && pagador.status !== "deleted" ? payerId : fallbackUserId;
 }
 
 /**
@@ -630,7 +647,9 @@ export async function cancelOrderAndRefundWallet({
     ).rows[0];
     if (payment) {
       // A quien pagó (PAG-05), no a quien pidió.
-      const wallet = await payerWalletForRefund(client, payment.customer_id);
+      const wallet = await payerWalletForRefund(client, payment.customer_id, {
+        fallbackUserId: job.customer_id,
+      });
       const clearing = (
         await client.query(
           "SELECT id FROM ledger_accounts WHERE owner_type='platform' AND owner_id IS NULL AND account_type='cash_clearing' FOR UPDATE",
@@ -771,7 +790,10 @@ export async function cancelMobilityJobAndRefundWallet({
       // viaje dividido ya se devolvieron con asientos que toman un bloqueo compartido
       // de clave foránea sobre esta billetera, y `FOR UPDATE` choca con él. Dos
       // cancelaciones de viajes divididos entre las mismas personas se trababan.
-      const wallet = await payerWalletForRefund(client, payment.customer_id, { noKeyUpdate: true });
+      const wallet = await payerWalletForRefund(client, payment.customer_id, {
+        noKeyUpdate: true,
+        fallbackUserId: job.customer_id,
+      });
       const clearing = (
         await client.query(
           "SELECT id FROM ledger_accounts WHERE owner_type='platform' AND owner_id IS NULL AND account_type='cash_clearing' FOR UPDATE",

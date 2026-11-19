@@ -126,7 +126,7 @@ console.log("ok - web y móvil dejan elegir efectivo, y el conductor ve cuánto 
       // La billetera de quien pagó (PAG-05), con `NO KEY UPDATE`.
       contains(
         cancelacion,
-        "await payerWalletForRefund(client, payment.customer_id, { noKeyUpdate: true });",
+        "await payerWalletForRefund(client, payment.customer_id, { noKeyUpdate: true, fallbackUserId: job.customer_id, });",
       ) &&
       contains(migracion, "SET invitee_email = 'eliminado:' || public_id") &&
       contains(division, "const parte = Math.floor(total / (aceptados.length + 2));") &&

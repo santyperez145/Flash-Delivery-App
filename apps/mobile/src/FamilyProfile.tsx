@@ -12,6 +12,7 @@ import {
 
 import { flashDesign } from "./design-system";
 import {
+  getFamilyChargeReceipt,
   getFamilyProfile,
   inviteFamilyMember,
   leaveFamilyProfile,
@@ -21,7 +22,7 @@ import {
 } from "./family-profile-api";
 import { money } from "./format";
 import { getMfaStatus } from "./mfa-api";
-import type { FamilyMember, FamilyProfile as FamilyProfileState } from "./types";
+import type { FamilyCharge, FamilyMember, FamilyProfile as FamilyProfileState } from "./types";
 
 // Perfil familiar (PAG-05), como el de Uber: la Flash Wallet de quien organiza paga
 // los viajes, envíos y pedidos de las personas que invita, cuando eligen «Perfil
@@ -37,6 +38,26 @@ const mensaje = (error: unknown) =>
   error instanceof Error ? error.message : "No se pudo completar";
 const topeTexto = (tope: number | null) =>
   tope === null ? "Sin tope" : `Tope ${money.format(tope)} por mes`;
+const servicioTexto: Record<FamilyCharge["service"], string> = {
+  order: "Pedido",
+  ride: "Viaje",
+  shipment: "Envío",
+};
+/** El servidor manda hasta 20; el tope se repite acá por si una versión manda más. */
+const COBROS_VISIBLES = 20;
+const fecha = (iso: string) => new Date(iso).toLocaleDateString("es-AR");
+type Comprobante = Awaited<ReturnType<typeof getFamilyChargeReceipt>>["receipt"];
+/** El comprobante abierto: uno por vez, para que la lista no crezca sin control. */
+type ComprobanteAbierto =
+  | { jobId: string; estado: "cargando" }
+  | { jobId: string; estado: "listo"; datos: Comprobante }
+  | { jobId: string; estado: "error"; texto: string };
+/** Sólo un servicio terminado tiene comprobante; si no, se dice en qué quedó. */
+const estadoCobro = (cobro: FamilyCharge) =>
+  cobro.status === "completed" ? null : cobro.status === "cancelled" ? "Cancelado" : "En curso";
+const devueltoTexto = (cobro: FamilyCharge) =>
+  cobro.refunded >= cobro.amount ? "Devuelto" : `Devuelto ${money.format(cobro.refunded)}`;
+
 /** El mismo mínimo que la web y el servidor. */
 const TOPE_MINIMO = 1000;
 /** Vacío es sin tope; si no, pesos enteros desde el mínimo. `undefined`: no es válido. */
@@ -52,17 +73,21 @@ function Boton({
   tipo = "primario",
   deshabilitado = false,
   icono,
+  etiqueta,
 }: {
   texto: string;
   onPress: () => void;
   tipo?: "primario" | "secundario" | "peligro";
   deshabilitado?: boolean;
   icono?: keyof typeof Ionicons.glyphMap;
+  /** Para el lector de pantalla, cuando el texto solo no dice a qué se refiere. */
+  etiqueta?: string;
 }) {
   const secundario = tipo === "secundario";
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={etiqueta ?? texto}
       accessibilityState={{ disabled: deshabilitado }}
       disabled={deshabilitado}
       onPress={onPress}
@@ -98,6 +123,7 @@ export function FamilyProfile({
   // `null`: no se pudo saber. El campo se muestra, pero no se exige: el servidor
   // responde si hace falta (igual que en las tarjetas de regalo).
   const [conMfa, setConMfa] = useState<boolean | null>(false);
+  const [comprobante, setComprobante] = useState<ComprobanteAbierto | null>(null);
 
   const cargar = useCallback(
     () =>
@@ -236,6 +262,27 @@ export function FamilyProfile({
       ],
     );
 
+  // Tocar el mismo cobro lo cierra. Si se abre otro mientras uno carga, la respuesta
+  // vieja se descarta: no puede pisar el comprobante que la persona pidió después.
+  const verComprobante = (jobId: string) => {
+    if (comprobante?.jobId === jobId && comprobante.estado !== "cargando") {
+      setComprobante(null);
+      return;
+    }
+    setComprobante({ jobId, estado: "cargando" });
+    getFamilyChargeReceipt(jobId)
+      .then((respuesta) =>
+        setComprobante((actual) =>
+          actual?.jobId === jobId ? { jobId, estado: "listo", datos: respuesta.receipt } : actual,
+        ),
+      )
+      .catch((error: unknown) =>
+        setComprobante((actual) =>
+          actual?.jobId === jobId ? { jobId, estado: "error", texto: mensaje(error) } : actual,
+        ),
+      );
+  };
+
   const campoMfa =
     conMfa !== false ? (
       <TextInput
@@ -255,6 +302,8 @@ export function FamilyProfile({
   const membresia = familia?.membership ?? null;
   const organizador = familia?.organizer ?? null;
   const miembros = organizador?.members ?? [];
+  // `?? []`: un servidor anterior a los cobros no manda el campo.
+  const cobros = (organizador?.charges ?? []).slice(0, COBROS_VISIBLES);
   // Quien ya es miembro no puede organizar: el servidor responde 409.
   const puedeOrganizar = familia !== null && familia.role !== "member";
 
@@ -477,6 +526,70 @@ export function FamilyProfile({
       {puedeOrganizar && estado === "listo" && miembros.length === 0 ? (
         <Text style={estilos.texto}>Todavía no invitaste a nadie.</Text>
       ) : null}
+
+      {/* Lo que pagó la Wallet de quien organiza, con el comprobante de cada servicio
+          terminado: sin esto no tenía cómo controlar qué se cobró ni a nombre de quién. */}
+      {puedeOrganizar && organizador ? (
+        <>
+          <Text style={estilos.subtitulo}>Cobros del perfil</Text>
+          {cobros.length === 0 ? (
+            <Text style={estilos.texto}>Todavía no hay cobros con tu perfil.</Text>
+          ) : null}
+          {cobros.map((cobro) => {
+            const servicio = servicioTexto[cobro.service] ?? "Servicio";
+            const estadoServicio = estadoCobro(cobro);
+            const abierto = comprobante?.jobId === cobro.jobId ? comprobante : null;
+            const visible = abierto !== null && abierto.estado !== "cargando";
+            return (
+              <View key={cobro.jobId} style={estilos.tarjeta}>
+                <View style={estilos.filaCobro}>
+                  <Text style={[estilos.tarjetaTitulo, estilos.nombre]} numberOfLines={2}>
+                    {cobro.memberName} · {servicio}
+                  </Text>
+                  <Text style={estilos.tarjetaTitulo}>{money.format(cobro.amount)}</Text>
+                </View>
+                <Text style={estilos.texto}>
+                  {fecha(cobro.createdAt)}
+                  {cobro.refunded > 0 ? ` · ${devueltoTexto(cobro)}` : ""}
+                </Text>
+                {estadoServicio ? (
+                  <Text style={estilos.etiqueta}>{estadoServicio}</Text>
+                ) : (
+                  <Boton
+                    texto={visible ? "Ocultar comprobante" : "Ver comprobante"}
+                    tipo="secundario"
+                    icono="receipt-outline"
+                    etiqueta={`${visible ? "Ocultar" : "Ver"} el comprobante: ${servicio.toLowerCase()} de ${cobro.memberName}`}
+                    deshabilitado={abierto?.estado === "cargando"}
+                    onPress={() => verComprobante(cobro.jobId)}
+                  />
+                )}
+                {abierto?.estado === "cargando" ? (
+                  <View style={estilos.fila}>
+                    <ActivityIndicator color={flashDesign.color.brand} />
+                    <Text style={estilos.texto}>Cargando el comprobante…</Text>
+                  </View>
+                ) : null}
+                {abierto?.estado === "error" ? (
+                  <Text style={estilos.error} accessibilityLiveRegion="polite">
+                    {abierto.texto}
+                  </Text>
+                ) : null}
+                {abierto?.estado === "listo" ? (
+                  <View style={estilos.comprobante} accessibilityLiveRegion="polite">
+                    <Text style={estilos.etiqueta}>Comprobante {abierto.datos.number}</Text>
+                    <Text style={estilos.texto}>
+                      Total {money.format(abierto.datos.total)} · emitido el{" "}
+                      {fecha(abierto.datos.issuedAt)}
+                    </Text>
+                    <Text style={estilos.aviso}>Pagado con tu perfil familiar</Text>
+                  </View>
+                ) : null}
+              </View>
+            );
+          })}
+        </>
+      ) : null}
     </View>
   );
 }
@@ -502,6 +615,21 @@ const estilos = StyleSheet.create({
   },
   texto: { color: flashDesign.color.inkSoft, fontSize: flashDesign.type.metadata, lineHeight: 19 },
   fila: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: flashDesign.space.xs },
+  // El importe queda a la derecha y el nombre se achica: uno largo no lo empuja afuera.
+  filaCobro: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: flashDesign.space.xs,
+  },
+  comprobante: {
+    gap: 2,
+    padding: flashDesign.space.sm,
+    borderRadius: flashDesign.radius.control,
+    backgroundColor: flashDesign.color.surface,
+    borderWidth: 1,
+    borderColor: flashDesign.color.line,
+  },
   input: {
     minHeight: flashDesign.control.touch,
     paddingHorizontal: flashDesign.space.sm,

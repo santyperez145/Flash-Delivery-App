@@ -26,6 +26,7 @@ const [
   liquidacion,
   dividir,
   comprobante,
+  propinas,
   servidor,
   openapi,
   clasificacion,
@@ -41,6 +42,8 @@ const [
   movilEnvio,
   webPanel,
   movilPanel,
+  webAvisos,
+  movilAvisos,
 ] = await Promise.all(
   [
     "database/migrations/147_family_profiles.sql",
@@ -57,6 +60,7 @@ const [
     "server/merchant-finance-repository.js",
     "server/ride-fare-split-repository.js",
     "server/receipt-repository.js",
+    "server/tip-repository.js",
     "server/index.js",
     "server/openapi-paths.js",
     "database/rls-classification.json",
@@ -72,6 +76,8 @@ const [
     "apps/mobile/src/screens/CustomerShipmentScreen.tsx",
     "src/customer/FamilyProfile.tsx",
     "apps/mobile/src/FamilyProfile.tsx",
+    "src/NotificationCenter.tsx",
+    "apps/mobile/src/screens/CustomerAccountScreen.tsx",
   ].map(leer),
 );
 const ok = (mensaje) => console.log(`ok - ${mensaje}`);
@@ -134,16 +140,60 @@ assert.ok(
 assert.ok(
   contains(
     incidencias,
-    "const wallet = await payerWalletForRefund(client, payment.customer_id);",
+    "const wallet = await payerWalletForRefund(client, payment.customer_id, { fallbackUserId: issue.customer_id, });",
   ) &&
     contains(
       sustituciones,
-      "const wallet = await payerWalletForRefund(client, payment.customer_id),",
+      "const wallet = await payerWalletForRefund(client, payment.customer_id, { fallbackUserId: row.customer_id, }),",
     ) &&
-    contains(liquidacion, "ownerId: payment.customer_id,") &&
+    contains(
+      liquidacion,
+      "ownerId: await refundRecipient(client, payment.customer_id, job.customer_id),",
+    ) &&
     !contains(liquidacion, "ownerId: job.customer_id,") &&
     contains(pedidos, "customerId: payerId,"),
   "incidencias, sustituciones, la propina sin repartidor y su ajuste vuelven a quien pagó",
+);
+// Si quien pagó borró su cuenta, a quien pidió: un reclamo se puede abrir después, y esa
+// plata quedaba en una billetera a la que nadie entra.
+assert.ok(
+  contains(
+    billetera,
+    'return pagador && pagador.status !== "deleted" ? payerId : fallbackUserId;',
+  ) &&
+    contains(billetera, "payerId = await refundRecipient(client, payerId, fallbackUserId);") &&
+    (squeeze(billetera).match(/fallbackUserId:job\.customer_id,/g) || []).length === 2 &&
+    contains(
+      propinas,
+      "SELECT CASE WHEN c.status='deleted' THEN j.customer_id ELSE t.customer_id END customer_id,",
+    ),
+  "un reintegro de quien borró su cuenta va a quien pidió, en todos los caminos",
+);
+assert.ok(
+  contains(propinas, "OR j.customer_id=(SELECT id FROM users WHERE public_id=$1)") &&
+    contains(pedidos, "await getFamilyPaymentOption(customerPublicId, client)") &&
+    contains(
+      familia,
+      "export async function getFamilyPaymentOption(userPublicId, db = postgresPool) {",
+    ),
+  "el miembro ve la propina que pagó quien organiza, y la cotización usa una sola conexión",
+);
+// Dejar y sacar: la cuenta que recibe el aviso antes que la membresía (el orden del borrado).
+const dejar = familia.slice(familia.indexOf("export const leaveFamilyProfile"));
+const sacar = familia.slice(familia.indexOf("const miembroDelOrganizador"));
+assert.ok(
+  antes(
+    dejar,
+    '"SELECT 1 FROM users WHERE id=$1 FOR KEY SHARE", [vista.organizer_id]',
+    "FOR UPDATE OF fm`,",
+  ) &&
+    antes(
+      sacar,
+      '"SELECT 1 FROM users WHERE id=$1 FOR KEY SHARE", [vista.member_id]',
+      "FOR UPDATE OF fm`,",
+    ) &&
+    contains(familia, "charges: cobros.map((row) => ({"),
+  "dejar y sacar bloquean la cuenta avisada antes que la membresía; quien organiza ve los cobros",
 );
 assert.ok(
   contains(billetera, "await notifyPayerRefund(client, {") &&
@@ -366,3 +416,23 @@ assert.ok(
   "teléfono: el pedido usa el medio de la cotización y el perfil se relee al volver al carrito",
 );
 ok("revisión: permisos, orden de bloqueos, carreras, borrado, gasto neto y las dos apps");
+
+// Quien organiza ve cada cobro y abre su comprobante, y los avisos se leen en la app.
+for (const [panel, donde] of [
+  [webPanel, "web"],
+  [movilPanel, "teléfono"],
+])
+  assert.ok(
+    contains(panel, "Cobros del perfil") &&
+      /getFamilyChargeReceipt\(jobId\)/.test(panel) &&
+      contains(panel, "Pagado con tu perfil familiar"),
+    `${donde}: quien organiza ve los cobros del perfil y abre el comprobante`,
+  );
+assert.ok(
+  contains(webAvisos, "const { title, body, status } = notification.payload;") &&
+    contains(webAvisos, 'typeof body === "string" && body.trim()') &&
+    contains(movilAvisos, 'notificationPayloadText(item.payload, "title") ??') &&
+    contains(movilAvisos, 'notificationPayloadText(item.payload, "body") ??'),
+  "las bandejas muestran el título y el texto del aviso (quién pagó y cuánto)",
+);
+ok("cobros con comprobante para quien organiza y avisos legibles en las dos apps");

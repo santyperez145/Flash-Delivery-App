@@ -42,7 +42,13 @@ const mapAdjustment = (row) => ({
 
 export async function getPostgresTips({ userPublicId, roles = [] }) {
   const result = await postgresPool.query(
-    `${tipSelect} LEFT JOIN users du ON du.id=d.user_id WHERE $2::boolean OR c.public_id=$1 OR du.public_id=$1 ORDER BY t.created_at DESC LIMIT 200`,
+    // También las de los servicios que pidió: con el perfil familiar (PAG-05) la propina
+    // del checkout la pagó quien organiza, y sin esto el miembro no la veía y la app le
+    // ofrecía dejar otra, que el servidor rechaza por repetida.
+    `${tipSelect} LEFT JOIN users du ON du.id=d.user_id
+     WHERE $2::boolean OR c.public_id=$1 OR du.public_id=$1
+        OR j.customer_id=(SELECT id FROM users WHERE public_id=$1)
+     ORDER BY t.created_at DESC LIMIT 200`,
     [userPublicId, roles.includes("admin")],
   );
   return result.rows.map(mapTip);
@@ -364,7 +370,12 @@ export async function reviewTipAdjustment({ adjustmentPublicId, actorPublicId, d
     else {
       const participants = (
         await client.query(
-          "SELECT t.customer_id,d.user_id driver_user_id FROM service_tips t JOIN drivers d ON d.id=t.driver_id WHERE t.id=$1",
+          // A quien pagó la propina; si borró su cuenta (PAG-05: quien organiza un perfil
+          // familiar), a quien pidió el servicio, que no deja la plata en el aire.
+          `SELECT CASE WHEN c.status='deleted' THEN j.customer_id ELSE t.customer_id END customer_id,
+             d.user_id driver_user_id
+           FROM service_tips t JOIN drivers d ON d.id=t.driver_id JOIN users c ON c.id=t.customer_id
+           JOIN jobs j ON j.id=t.job_id WHERE t.id=$1`,
           [adjustment.tip_id],
         )
       ).rows[0];

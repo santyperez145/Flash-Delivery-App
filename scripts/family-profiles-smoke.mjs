@@ -35,7 +35,12 @@ import {
   setFamilyMemberLimit,
 } from "../server/family-profile-repository.js";
 import { inviteToSplitFare } from "../server/ride-fare-split-repository.js";
-import { cancelOrderAndRefundWallet, captureWalletPayment } from "../server/wallet-repository.js";
+import {
+  cancelOrderAndRefundWallet,
+  captureWalletPayment,
+  refundRecipient,
+} from "../server/wallet-repository.js";
+import { getPostgresTips, holdCheckoutTip } from "../server/tip-repository.js";
 
 const base = process.env.API_URL || "http://127.0.0.1:4000/api",
   pool = createPool(),
@@ -368,6 +373,17 @@ try {
     envioCancelado.status === 200 && (await saldo(organiza.id)) === antesOrganiza,
     "al cancelar el envío, la plata vuelve a quien organiza",
   );
+  // Quien organiza ve lo que se pagó con su perfil: su comprobante de cada cobro.
+  const cobros = (await getFamilyProfile(organiza.public_id)).organizer.charges;
+  const cobroDelViaje = cobros.find((cobro) => cobro.jobId === rideId);
+  assert(
+    cobros.length === 2 &&
+      cobroDelViaje?.service === "ride" &&
+      cobroDelViaje.memberName === "Ana" &&
+      cobroDelViaje.refunded === cobroDelViaje.amount &&
+      cobros.some((cobro) => cobro.jobId === shipmentId && cobro.service === "shipment"),
+    "quien organiza ve cada cobro del perfil, con lo devuelto",
+  );
 
   // --- El tope del mes ------------------------------------------------------------
   const sesionBeto = await ingresar(beto);
@@ -409,6 +425,13 @@ try {
       description: `Pedido ${pedidoBeto}`,
       familyMemberId: familia.familyMemberId,
     });
+    // La propina del checkout la paga quien organiza, como en el alta de un pedido.
+    await holdCheckoutTip(client, {
+      jobId: pedidoBetoId,
+      customerId: familia.organizerId,
+      amountCents: 50000,
+      idempotencyKey: `${marca}-pedido-beto`,
+    });
     await client.query("COMMIT");
   } catch (failure) {
     await client.query("ROLLBACK");
@@ -420,6 +443,12 @@ try {
   assert(
     quedan.membership.spentThisMonth === 2000 && quedan.membership.remaining === 1000,
     "lo gastado se suma al mes y el miembro ve lo que le queda",
+  );
+  assert(
+    (await getPostgresTips({ userPublicId: beto.public_id })).some(
+      (tip) => tip.jobId === pedidoBeto,
+    ),
+    "el miembro ve la propina del checkout que pagó quien organiza",
   );
   const tx = await pool.connect();
   let pasado = null;
@@ -512,6 +541,22 @@ try {
     filaDora.status === "left" && filaDora.invitee_email === null,
     "borrar la cuenta de un miembro lo saca del perfil y borra el email escrito",
   );
+
+  // --- Si quien pagó borró su cuenta, el reintegro va a quien pidió --------------------
+  const fallback = await pool.connect();
+  try {
+    await fallback.query("BEGIN");
+    const antesDeBorrar = await refundRecipient(fallback, caro.id, ana.id);
+    await fallback.query("UPDATE users SET status='deleted' WHERE id=$1", [caro.id]);
+    const despuesDeBorrar = await refundRecipient(fallback, caro.id, ana.id);
+    assert(
+      antesDeBorrar === caro.id && despuesDeBorrar === ana.id,
+      "un reintegro de quien borró su cuenta va a quien pidió, no a una billetera sin dueño",
+    );
+  } finally {
+    await fallback.query("ROLLBACK");
+    fallback.release();
+  }
 
   // --- La ruta responde -------------------------------------------------------------
   const ruta = await api("/me/family", { token: sesionAna.token });

@@ -92,6 +92,17 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
     ignoraba, el perfil ofrecido con el tope agotado, el pedido del teléfono que no usaba el
     medio de la cotización, entre otros.
   - El contrato se falsificó con 46 mutaciones.
+- **La revisión del PR sumó seis más, corregidas:**
+  - Un reclamo abierto después de que quien organiza borró su cuenta le devolvía la plata a esa
+    cuenta borrada. Ahora el reintegro va a quien pidió.
+  - Quien organiza no tenía en las apps cómo ver lo que se pagó ni el comprobante: ahora ve
+    los cobros del perfil y abre cada comprobante.
+  - Los avisos de cobro se veían como «Novedad de Flash» en las bandejas: ahora dicen quién
+    pagó y cuánto.
+  - La propina del checkout no aparecía en la actividad del miembro.
+  - La cotización pedía una segunda conexión a la base.
+  - Dejar y sacar del perfil podían trabarse con el borrado de una cuenta.
+  - El contrato suma 13 mutaciones más, todas detectadas.
 - **Detalle:** [`docs/family-profiles.md`](docs/family-profiles.md).
 
 ## Avance 19 de noviembre de 2026 — PAG-04, tarjetas de regalo

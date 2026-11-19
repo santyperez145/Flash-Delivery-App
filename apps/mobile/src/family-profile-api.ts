@@ -42,3 +42,16 @@ export const leaveFamilyProfile = () =>
     method: "POST",
     body: "{}",
   });
+
+/** El comprobante de un servicio que se pagó con el perfil: quien pagó también lo lee. */
+export const getFamilyChargeReceipt = (jobId: string) =>
+  request<{
+    receipt: {
+      id: string;
+      number: string;
+      jobId: string;
+      total: number;
+      issuedAt: string;
+      payment: { familyProfile?: boolean; status?: string };
+    };
+  }>(`/jobs/${jobId}/receipt`);

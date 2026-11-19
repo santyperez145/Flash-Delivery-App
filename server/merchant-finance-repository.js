@@ -1,3 +1,4 @@
+import { refundRecipient } from "./wallet-repository.js";
 import crypto from "node:crypto";
 import { postgresPool } from "./postgres.js";
 import { heldTipForJob, markHeldTipRefunded, markTipReleased } from "./tip-repository.js";
@@ -203,7 +204,8 @@ export async function settleCapturedFoodOrder(client, { jobId, actorId = null })
       : await account(client, {
           ownerType: "user",
           // A quien pagó la propina (PAG-05): con el perfil familiar, quien organiza.
-          ownerId: payment.customer_id,
+          // Si borró su cuenta, a quien pidió (ver `refundRecipient`).
+          ownerId: await refundRecipient(client, payment.customer_id, job.customer_id),
           accountType: "wallet",
         });
     entries.push([destinoPropina, "credit", tip.amountCents]);

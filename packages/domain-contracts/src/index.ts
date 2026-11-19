@@ -427,6 +427,19 @@ export type FamilyMember = {
   spentThisMonth: number;
 };
 
+/** PAG-05: un cobro pagado con el perfil familiar. */
+export type FamilyCharge = {
+  jobId: string;
+  service: "order" | "ride" | "shipment";
+  memberName: string;
+  amount: number;
+  /** Lo devuelto a quien organiza por cancelación o reclamo. */
+  refunded: number;
+  /** Estado del servicio: el comprobante está cuando es «completed». */
+  status: string;
+  createdAt: string;
+};
+
 /** PAG-05: el perfil familiar desde el punto de vista de la persona. */
 export type FamilyProfile = {
   role: "organizer" | "member" | "none";
@@ -435,6 +448,8 @@ export type FamilyProfile = {
     members: FamilyMember[];
     activeMembers: number;
     maxMembers: number;
+    /** Lo que se pagó con el perfil: el comprobante de cada cobro, para quien organiza. */
+    charges: FamilyCharge[];
   } | null;
   /** Si es miembro: quién paga, su tope y lo que le queda. Nunca el saldo de quien organiza. */
   membership: {

@@ -419,7 +419,9 @@ export async function getPostgresFoodCheckoutQuote({
     // PAG-05: el perfil familiar no es una fila de `payment_methods`; la cotización
     // sólo confirma que la persona puede usarlo. El tope se controla al cobrar.
     const opcionFamiliar =
-      paymentMethod === FAMILY_LABEL ? await getFamilyPaymentOption(customerPublicId) : null;
+      paymentMethod === FAMILY_LABEL
+        ? await getFamilyPaymentOption(customerPublicId, client)
+        : null;
     if (paymentMethod === FAMILY_LABEL && !opcionFamiliar)
       throw Object.assign(
         new Error("No tenés un perfil familiar activo: elegí otro medio de pago"),

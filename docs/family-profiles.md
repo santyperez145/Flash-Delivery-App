@@ -18,12 +18,15 @@ Wallet.
   sale de la Wallet de quien organiza. El miembro ve quién paga y cuánto le queda del tope
   del mes, **nunca el saldo** de quien organiza. Si el pago supera lo que queda, responde 402
   con lo que queda y no se cobra nada.
-- **El comprobante.** Quien organiza recibe una push con cada cobro («Ana pagó un viaje por
-  $ 8.500 con tu Wallet») y puede leer el comprobante del servicio.
+- **El comprobante.** Quien organiza recibe un aviso con cada cobro («Ana pagó un viaje por
+  $ 8.500 con tu Wallet»), que también se lee en la bandeja de notificaciones de las dos apps.
+  En su panel ve los últimos 20 cobros del perfil, con lo devuelto, y abre el comprobante de
+  cada servicio terminado.
 - **Dejar o sacar.** El miembro deja el perfil, o quien organiza lo saca, cuando quiera. Desde
   ese momento sus pagos salen de su propia Wallet. Las dos partes se enteran.
 - **Propinas.** La propina del checkout de un pedido viaja dentro del cobro, así que la paga
-  quien organiza y, si vuelve, vuelve a quien organiza. La propina que un miembro deja
+  quien organiza y, si vuelve, vuelve a quien organiza. El miembro la ve igual en su actividad,
+  y la app no le ofrece dejar otra. La propina que un miembro deja
   después de terminado un servicio sale de su propia Wallet.
 - **Dividir la tarifa (PAG-02)** no se ofrece en un viaje pagado con el perfil: lo pagó otra
   persona.
@@ -39,6 +42,11 @@ reintegro de una incidencia, el de una sustitución más barata, la propina de u
 completó sin repartidor y el ajuste de una propina. Antes todos volvían a quien pidió. Con el
 perfil familiar, eso habría pasado plata de quien organiza al miembro en cada cancelación.
 Quien pagó recibe una push con cada reintegro de una cancelación.
+
+**Si quien pagó borró su cuenta**, el reintegro va a quien pidió, que es quien recibió el servicio.
+Un reclamo se puede abrir y aprobar después de que quien organiza borró su cuenta, y esa plata
+quedaba en una billetera a la que nadie entra. Vale para cancelaciones, incidencias,
+sustituciones, la propina sin repartidor y los ajustes de propina.
 
 El tope se controla en la misma transacción del cobro, con la membresía bloqueada: dos pedidos
 simultáneos del mismo miembro no pasan los dos. Lo gastado es lo capturado en el mes calendario
@@ -75,6 +83,10 @@ queda, la cotización ya lo avisa (402), y con el tope agotado las apps no ofrec
   **antes** que la membresía: el borrado bloquea la cuenta y después, con su trigger, las
   membresías. En el orden inverso, cobro y borrado se esperaban mutuamente y la base abortaba
   uno. Aceptar una invitación sigue el mismo orden.
+- Dejar el perfil y sacar a alguien bloquean primero la cuenta que recibe el aviso y después la
+  membresía, el mismo orden que el borrado de esa cuenta.
+- La cotización de un pedido usa su propia conexión para leer el perfil: pedir otra mientras la
+  sostiene agotaba el pool con muchas cotizaciones a la vez.
 - Invitar y aceptar se ordenan por persona con un bloqueo consultivo: organizar y ser miembro se
   excluyen, y dos aceptaciones simultáneas de la misma persona ya no terminan en un 500.
 - Quien organiza tampoco borra su cuenta con una incidencia abierta o un ajuste de propina

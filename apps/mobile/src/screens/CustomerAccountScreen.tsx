@@ -11,7 +11,7 @@ import { Alert, Pressable, ScrollView, Share, Text, TextInput, View } from "reac
 
 import { api } from "../api";
 import { SubscriptionCard } from "../SubscriptionCard";
-import { money } from "../format";
+import { money, notificationPayloadText } from "../format";
 import { styles } from "../styles";
 import type {
   AccountSession,
@@ -581,12 +581,16 @@ export function CustomerAccountScreen({
               <View style={styles.notificationStatusDot} />
               <View style={styles.savedAddressCopy}>
                 <Text style={styles.sectionTitle}>
-                  {titles[item.template] || "Novedad de Flash"}
+                  {notificationPayloadText(item.payload, "title") ??
+                    (titles[item.template] || "Novedad de Flash")}
                 </Text>
                 <Text style={styles.cardText}>
-                  {String(
-                    item.payload.status || item.payload.kind || "Revisá la actividad de tu cuenta",
-                  )}
+                  {notificationPayloadText(item.payload, "body") ??
+                    String(
+                      item.payload.status ||
+                        item.payload.kind ||
+                        "Revisá la actividad de tu cuenta",
+                    )}
                 </Text>
                 <Text style={styles.notificationTime}>
                   {new Date(item.createdAt).toLocaleString("es-AR")}

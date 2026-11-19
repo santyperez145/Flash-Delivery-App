@@ -155,6 +155,19 @@ export async function getFamilyProfile(userPublicId) {
       [user.id],
     )
   ).rows;
+  // Lo que se pagó con el perfil, para quien organiza: su comprobante de cada cobro.
+  const cobros = perfil
+    ? (
+        await postgresPool.query(
+          `SELECT j.public_id job_id,j.kind,j.metadata->>'subtype' subtype,j.status job_status,
+             u.name member_name,p.amount_cents,p.captured_amount_cents,p.created_at
+           FROM payment_intents p JOIN family_members fm ON fm.id=p.family_member_id
+           JOIN jobs j ON j.id=p.job_id JOIN users u ON u.id=j.customer_id
+           WHERE fm.profile_id=$1 ORDER BY p.created_at DESC LIMIT 20`,
+          [perfil.id],
+        )
+      ).rows
+    : [];
   const activos = miembros.filter((row) => row.status === "active").length;
   return {
     role: membresia ? "member" : perfil && miembros.length ? "organizer" : "none",
@@ -164,6 +177,16 @@ export async function getFamilyProfile(userPublicId) {
           members: miembros.map((row) => miembroVista(row, { conEmail: true })),
           activeMembers: activos,
           maxMembers: FAMILY_MAX_MEMBERS,
+          charges: cobros.map((row) => ({
+            jobId: row.job_id,
+            service:
+              row.kind === "ride" ? "ride" : row.subtype === "shipment" ? "shipment" : "order",
+            memberName: primerNombre(row.member_name),
+            amount: pesos(row.amount_cents),
+            refunded: pesos(Number(row.amount_cents) - Number(row.captured_amount_cents)),
+            status: row.job_status,
+            createdAt: row.created_at,
+          })),
         }
       : null,
     membership: membresia
@@ -271,6 +294,13 @@ export const inviteFamilyMember = ({ userPublicId, email, monthlyLimit = null })
 
 /** La membresía de un perfil de quien organiza, bloqueada. */
 const miembroDelOrganizador = async (client, organizadorId, memberPublicId) => {
+  // La cuenta del miembro antes que la membresía: el aviso que se le encola pide su
+  // fila, y su borrado la bloquea primero y después, con el trigger, la membresía.
+  const vista = (
+    await client.query("SELECT member_id FROM family_members WHERE public_id=$1", [memberPublicId])
+  ).rows[0];
+  if (vista?.member_id)
+    await client.query("SELECT 1 FROM users WHERE id=$1 FOR KEY SHARE", [vista.member_id]);
   const fila = (
     await client.query(
       `SELECT fm.* FROM family_members fm JOIN family_profiles p ON p.id=fm.profile_id
@@ -400,6 +430,17 @@ export const respondFamilyInvitation = ({ userPublicId, memberPublicId, accept }
 export const leaveFamilyProfile = ({ userPublicId }) =>
   enTransaccion(async (client) => {
     const user = await cliente(client, userPublicId);
+    // La cuenta de quien organiza antes que la membresía: el aviso que se le encola pide
+    // su fila, y su borrado la bloquea primero y después, con el trigger, la membresía.
+    const vista = (
+      await client.query(
+        `SELECT p.organizer_id FROM family_members fm JOIN family_profiles p ON p.id=fm.profile_id
+         WHERE fm.member_id=$1 AND fm.status='active'`,
+        [user.id],
+      )
+    ).rows[0];
+    if (!vista) throw error("No sos parte de un perfil familiar", 404);
+    await client.query("SELECT 1 FROM users WHERE id=$1 FOR KEY SHARE", [vista.organizer_id]);
     const fila = (
       await client.query(
         `SELECT fm.*,p.organizer_id FROM family_members fm JOIN family_profiles p ON p.id=fm.profile_id
@@ -500,9 +541,11 @@ export async function notifyFamilyCharge(
  * Para la pantalla de pago: si la persona puede pagar con el perfil y cuánto le
  * queda. Nunca el saldo de quien organiza.
  */
-export async function getFamilyPaymentOption(userPublicId) {
+export async function getFamilyPaymentOption(userPublicId, db = postgresPool) {
+  // `db`: el cliente de la cotización, que ya tiene una conexión. Pedir otra mientras
+  // la sostiene agotaba el pool con muchas cotizaciones a la vez.
   const fila = (
-    await postgresPool.query(
+    await db.query(
       `SELECT fm.public_id,fm.monthly_limit_cents,o.name organizer_name,(${GASTADO_EN_EL_MES}) spent_cents
        FROM users u JOIN family_members fm ON fm.member_id=u.id AND fm.status='active'
        JOIN family_profiles p ON p.id=fm.profile_id JOIN users o ON o.id=p.organizer_id AND o.status='active'

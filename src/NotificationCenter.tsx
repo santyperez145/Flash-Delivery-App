@@ -45,10 +45,21 @@ export default function NotificationCenter({
       <section className="address-book-card">
         <div className="notification-list">
           {state.notifications.map((notification) => {
-            const status =
-              typeof notification.payload.status === "string"
-                ? notification.payload.status
-                : "Revisá la actividad de tu cuenta";
+            // Las notificaciones que ya traen su propio título y texto (las del perfil
+            // familiar, por ejemplo) se muestran tal cual: la plantilla sola no alcanza
+            // para decir quién usó el perfil ni cuánto. Las demás siguen como antes.
+            const { title, body, status } = notification.payload;
+            const titulo =
+              typeof title === "string" && title.trim()
+                ? title
+                : notificationTitle[notification.template] || "Novedad de Flash";
+            const texto =
+              typeof body === "string" && body.trim()
+                ? body
+                : (typeof status === "string"
+                    ? status
+                    : "Revisá la actividad de tu cuenta"
+                  ).replaceAll("_", " ");
             return (
               <button
                 className={notification.readAt ? "notification-row" : "notification-row unread"}
@@ -64,8 +75,8 @@ export default function NotificationCenter({
               >
                 <span className="notification-dot" aria-hidden="true" />
                 <span className="notification-copy">
-                  <strong>{notificationTitle[notification.template] || "Novedad de Flash"}</strong>
-                  <span>{status.replaceAll("_", " ")}</span>
+                  <strong>{titulo}</strong>
+                  <span>{texto}</span>
                   <small>
                     {new Date(notification.createdAt).toLocaleString("es-AR")}
                     {notification.channel === "in_app"

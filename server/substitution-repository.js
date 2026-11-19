@@ -206,7 +206,9 @@ export async function decideOrderSubstitution({
             status: 409,
           });
         // A quien pagó (PAG-05): con el perfil familiar, quien organiza.
-        const wallet = await payerWalletForRefund(client, payment.customer_id),
+        const wallet = await payerWalletForRefund(client, payment.customer_id, {
+            fallbackUserId: row.customer_id,
+          }),
           clearing = (
             await client.query(
               "SELECT id FROM ledger_accounts WHERE owner_type='platform' AND owner_id IS NULL AND account_type='cash_clearing' FOR UPDATE",

@@ -3,6 +3,7 @@ import { Users } from "lucide-react";
 
 import { api } from "../api";
 import {
+  getFamilyChargeReceipt,
   getFamilyProfile,
   inviteFamilyMember,
   leaveFamilyProfile,
@@ -11,7 +12,7 @@ import {
   setFamilyMemberLimit,
 } from "../family-profile-api";
 import { money } from "../format";
-import type { FamilyMember, FamilyProfile as PerfilFamiliar } from "../types";
+import type { FamilyCharge, FamilyMember, FamilyProfile as PerfilFamiliar } from "../types";
 
 // Perfil familiar (PAG-05), como el de Uber: la Flash Wallet de quien organiza paga
 // los viajes, envíos y pedidos de las personas que suma, con un tope por mes
@@ -35,6 +36,16 @@ const leerTope = (texto: string): number | null | undefined => {
 };
 const mensajeDe = (error: unknown, porDefecto: string) =>
   error instanceof Error ? error.message : porDefecto;
+/** Los últimos cobros que se muestran: la lista es para revisar, no un extracto. */
+const COBROS_VISIBLES = 20;
+const servicioTexto: Record<FamilyCharge["service"], string> = {
+  order: "Pedido",
+  ride: "Viaje",
+  shipment: "Envío",
+};
+const fecha = (iso: string) =>
+  new Date(iso).toLocaleDateString("es-AR", { day: "numeric", month: "short", year: "numeric" });
+type Comprobante = Awaited<ReturnType<typeof getFamilyChargeReceipt>>["receipt"];
 
 export function FamilyProfile({
   onWalletChanged,
@@ -54,6 +65,14 @@ export function FamilyProfile({
   // `null`: no se pudo saber. El campo se muestra, pero no se exige: el servidor
   // responde si hace falta. Igual que en las tarjetas de regalo.
   const [conMfa, setConMfa] = useState<boolean | null>(false);
+  // Un comprobante abierto a la vez, debajo de su cobro: quien organiza revisa uno por
+  // uno lo que se pagó con su Wallet sin salir del panel.
+  const [comprobante, setComprobante] = useState<
+    | { jobId: string; estado: "cargando" }
+    | { jobId: string; estado: "listo"; datos: Comprobante }
+    | { jobId: string; estado: "error"; texto: string }
+    | null
+  >(null);
 
   const cargar = useCallback(
     () =>
@@ -191,6 +210,27 @@ export function FamilyProfile({
     });
   };
 
+  const verComprobante = async (jobId: string) => {
+    if (comprobante?.jobId === jobId && comprobante.estado !== "error") {
+      setComprobante(null);
+      return;
+    }
+    setComprobante({ jobId, estado: "cargando" });
+    try {
+      const { receipt } = await getFamilyChargeReceipt(jobId);
+      // Si mientras tanto se abrió otro, esta respuesta llega tarde y no lo pisa.
+      setComprobante((actual) =>
+        actual?.jobId === jobId ? { jobId, estado: "listo", datos: receipt } : actual,
+      );
+    } catch (error) {
+      setComprobante((actual) =>
+        actual?.jobId === jobId
+          ? { jobId, estado: "error", texto: mensajeDe(error, "No pudimos leer el comprobante") }
+          : actual,
+      );
+    }
+  };
+
   const campoCodigo = (valor: string, cambiar: (valor: string) => void, id: string) =>
     conMfa !== false && (
       <label htmlFor={id}>
@@ -210,6 +250,7 @@ export function FamilyProfile({
   const organizador = perfil?.organizer ?? null;
   const miembros = organizador?.members ?? [];
   const lleno = Boolean(organizador && miembros.length >= organizador.maxMembers);
+  const cobros = (organizador?.charges ?? []).slice(0, COBROS_VISIBLES);
 
   return (
     <section className="family-profile" aria-labelledby="family-profile-title">
@@ -467,6 +508,84 @@ export function FamilyProfile({
               )}
             </article>
           ))}
+        </div>
+      )}
+
+      {/* Lo que se pagó con el perfil: quien organiza ve cada cobro y su comprobante, que
+          el servidor le deja leer porque salió de su Wallet. */}
+      {perfil?.role !== "member" && organizador && (
+        <div className="family-list family-charges">
+          <strong>Cobros del perfil</strong>
+          {cobros.length === 0 && <small>Todavía no hay cobros con tu perfil.</small>}
+          {cobros.map((cobro) => {
+            const abierto = comprobante?.jobId === cobro.jobId ? comprobante : null;
+            const descripcion = `${cobro.memberName} · ${servicioTexto[cobro.service]}`;
+            return (
+              <article key={cobro.jobId} className="family-card family-charge">
+                <div>
+                  <strong>{descripcion}</strong>
+                  <small>
+                    {money.format(cobro.amount)} · {fecha(cobro.createdAt)}
+                  </small>
+                  {cobro.refunded > 0 && (
+                    <small>
+                      {cobro.refunded >= cobro.amount
+                        ? "Devuelto"
+                        : `Devuelto ${money.format(cobro.refunded)}`}
+                    </small>
+                  )}
+                </div>
+                {cobro.status === "completed" ? (
+                  <button
+                    type="button"
+                    className="secondary"
+                    aria-expanded={abierto?.estado === "listo"}
+                    aria-label={`${
+                      abierto?.estado === "listo" ? "Ocultar" : "Ver"
+                    } comprobante de ${descripcion}`}
+                    disabled={abierto?.estado === "cargando"}
+                    onClick={() => void verComprobante(cobro.jobId)}
+                  >
+                    {abierto?.estado === "listo" ? "Ocultar comprobante" : "Ver comprobante"}
+                  </button>
+                ) : (
+                  <span className="family-status family-status-invited">
+                    {cobro.status === "cancelled" ? "Cancelado" : "En curso"}
+                  </span>
+                )}
+                {abierto?.estado === "cargando" && (
+                  <p role="status" className="family-receipt">
+                    Cargando el comprobante…
+                  </p>
+                )}
+                {abierto?.estado === "error" && (
+                  <p role="alert" className="family-receipt">
+                    {abierto.texto}
+                  </p>
+                )}
+                {abierto?.estado === "listo" && (
+                  <dl className="family-receipt" aria-label={`Comprobante de ${descripcion}`}>
+                    <div>
+                      <dt>Comprobante</dt>
+                      <dd>{abierto.datos.number}</dd>
+                    </div>
+                    <div>
+                      <dt>Total</dt>
+                      <dd>{money.format(abierto.datos.total)}</dd>
+                    </div>
+                    <div>
+                      <dt>Emitido</dt>
+                      <dd>{fecha(abierto.datos.issuedAt)}</dd>
+                    </div>
+                    <div>
+                      <dt>Medio de pago</dt>
+                      <dd>Pagado con tu perfil familiar</dd>
+                    </div>
+                  </dl>
+                )}
+              </article>
+            );
+          })}
         </div>
       )}
     </section>
