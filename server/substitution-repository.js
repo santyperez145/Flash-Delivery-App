@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { postgresPool } from "./postgres.js";
-import { payerWalletForRefund } from "./wallet-repository.js";
+import { CASH_LABEL, payerWalletForRefund } from "./wallet-repository.js";
 import { enqueueNotificationForInternalUser } from "./notification-repository.js";
 
 const newId = () => `SUB-${crypto.randomBytes(6).toString("hex").toUpperCase()}`;
@@ -26,7 +26,7 @@ const map = (row) => ({
   decidedAt: row.decided_at ? new Date(row.decided_at).toISOString() : null,
 });
 
-const select = `SELECT s.*,j.public_id job_public_id,j.customer_id,original.public_id original_public_id,replacement.public_id replacement_public_id FROM order_item_substitutions s JOIN jobs j ON j.id=s.job_id JOIN catalog_items original ON original.id=s.original_catalog_item_id JOIN catalog_items replacement ON replacement.id=s.replacement_catalog_item_id`;
+const select = `SELECT s.*,j.public_id job_public_id,j.customer_id,j.payment_method_label,original.public_id original_public_id,replacement.public_id replacement_public_id FROM order_item_substitutions s JOIN jobs j ON j.id=s.job_id JOIN catalog_items original ON original.id=s.original_catalog_item_id JOIN catalog_items replacement ON replacement.id=s.replacement_catalog_item_id`;
 
 export async function proposeOrderSubstitution({
   orderPublicId,
@@ -194,7 +194,17 @@ export async function decideOrderSubstitution({
         `UPDATE jobs SET quoted_amount_cents=quoted_amount_cents-$2,final_amount_cents=final_amount_cents-$2,metadata=jsonb_set(jsonb_set(metadata,'{subtotal}',to_jsonb((COALESCE((metadata->>'subtotal')::numeric,0)-$2/100.0))),'{discount}',to_jsonb(LEAST(COALESCE((metadata->>'discount')::numeric,0),COALESCE((metadata->>'subtotal')::numeric,0)-$2/100.0))),version=version+1,updated_at=now() WHERE id=$1`,
         [row.job_id, refundCents],
       );
-      if (refundCents) {
+      // PAG-01: en efectivo no hay nada cobrado que devolver. El total del pedido ya
+      // bajó, así que se cobra menos en mano y el vuelto crece lo mismo.
+      if (refundCents && row.payment_method_label === CASH_LABEL)
+        await client.query(
+          `UPDATE jobs SET metadata=jsonb_set(metadata,'{cashPayment,changeCents}',
+             to_jsonb(COALESCE((metadata#>>'{cashPayment,changeCents}')::bigint,0)
+               + CASE WHEN metadata#>>'{cashPayment,tenderedCents}' IS NULL THEN 0 ELSE $2 END))
+           WHERE id=$1 AND metadata ? 'cashPayment'`,
+          [row.job_id, refundCents],
+        );
+      else if (refundCents) {
         const payment = (
           await client.query(
             "SELECT * FROM payment_intents WHERE job_id=$1 AND provider='flash_wallet' AND status IN('captured','partially_refunded') FOR UPDATE",

@@ -32,6 +32,90 @@ import {
   resolveFamilyPayer,
 } from "./family-profile-repository.js";
 
+/**
+ * Si la persona puede pagar en efectivo en esta sucursal (PAG-01). Lo decide el
+ * comercio, y como en PedidosYa y Rappi hay un control antifraude: un pedido en
+ * efectivo que nadie recibe deja comida hecha y un viaje sin cobrar.
+ *
+ * - teléfono verificado: el repartidor tiene que poder llamar;
+ * - menos de dos pedidos en efectivo cancelados **después de empezar a prepararse**
+ *   en 90 días, quien sea que cancele y con el motivo que sea (contar sólo un motivo
+ *   se esquivaba eligiendo otro);
+ * - un solo pedido en efectivo en curso a la vez;
+ * - el comercio no debe más del tope en comisiones de retiros en efectivo.
+ */
+async function controlarEfectivo(client, { userId, cashEnabled, phoneVerifiedAt, merchantId }) {
+  if (!cashEnabled)
+    throw Object.assign(new Error("Este comercio no acepta efectivo"), { status: 409 });
+  if (!phoneVerifiedAt)
+    throw Object.assign(new Error("Para pagar en efectivo, verificá tu teléfono desde tu cuenta"), {
+      status: 409,
+    });
+  const historial = (
+    await client.query(
+      `SELECT
+         count(*) FILTER (WHERE j.status='cancelled' AND c.created_at > now() - interval '90 days'
+           AND EXISTS (SELECT 1 FROM job_events e WHERE e.job_id=j.id
+             AND e.status IN ('preparing','ready_for_pickup','driver_assigned','picked_up','delivering')))::int rechazos,
+         count(*) FILTER (WHERE j.status NOT IN ('completed','cancelled'))::int en_curso
+       FROM jobs j LEFT JOIN job_cancellations c ON c.job_id=j.id
+       WHERE j.customer_id=$1 AND j.payment_method_label=$2 AND j.metadata->>'subtype'='food_order'`,
+      [userId, CASH_LABEL],
+    )
+  ).rows[0];
+  if (Number(historial.rechazos) >= 2)
+    throw Object.assign(
+      new Error("Tenés pedidos en efectivo sin recibir: pagá con Wallet o tarjeta"),
+      { status: 409 },
+    );
+  if (Number(historial.en_curso) >= 1)
+    throw Object.assign(
+      new Error("Ya tenés un pedido en efectivo en curso: pagá este con Wallet o tarjeta"),
+      { status: 409 },
+    );
+  const deudaComercio = Number(
+    (
+      await client.query(
+        `SELECT COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint b
+         FROM ledger_accounts a JOIN ledger_entries e ON e.account_id=a.id
+         WHERE a.owner_type='merchant' AND a.owner_id=$1 AND a.account_type='payable'`,
+        [merchantId],
+      )
+    ).rows[0].b,
+  );
+  if (deudaComercio < -config.cashMerchantDebtLimitCents)
+    throw Object.assign(new Error("Este comercio no puede recibir efectivo por ahora"), {
+      status: 409,
+    });
+}
+
+/**
+ * Un pedido en efectivo se puede cobrar: hay algo que cobrar, y lo que va a deber quien
+ * reparte (todo menos su envío) entra en el tope de un repartidor sin deuda. Si no,
+ * ningún repartidor podría tomarlo y el comercio cocinaría un pedido que nadie lleva.
+ */
+function controlarMontoEfectivo({ totalCents, deliveryFeeCents, esRetiro }) {
+  if (totalCents <= 0)
+    throw Object.assign(new Error("No hay nada que cobrar en efectivo"), { status: 409 });
+  if (!esRetiro && totalCents - deliveryFeeCents > config.cashDriverDebtLimitCents)
+    throw Object.assign(new Error("Para pedidos de este monto, pagá con Wallet o tarjeta"), {
+      status: 409,
+    });
+}
+
+/** El efectivo de un pedido para quien lo mira: cuánto cobrar, con cuánto paga y el vuelto. */
+const vistaEfectivo = (cashPayment, totalCents) =>
+  cashPayment
+    ? {
+        toCollect: pesos(totalCents),
+        tendered: cashPayment.tenderedCents == null ? null : pesos(cashPayment.tenderedCents),
+        change: pesos(cashPayment.changeCents || 0),
+        collector: cashPayment.collector === "merchant" ? "merchant" : "courier",
+      }
+    : null;
+
+const formatoPesos = (cents) => `$${pesos(cents).toLocaleString("es-AR")}`;
+
 // Se paga desde una Flash Wallet: la propia, o la de quien organiza el perfil
 // familiar (PAG-05). Las promociones «con Flash Wallet» aplican a las dos.
 const pagaConWallet = (label) =>
@@ -48,6 +132,7 @@ import {
 } from "./payment-marketplace-provider.js";
 import { requireOrderDeliveryCodeIfNeeded } from "./order-delivery-code-repository.js";
 import { pesos } from "./money.js";
+import { CASH_LABEL } from "./wallet-repository.js";
 import { mapCatalogItem } from "./catalog-repository.js";
 import { config } from "./config.js";
 
@@ -119,6 +204,12 @@ function rowsToOrders(rows) {
         pickupLocation: { lat: Number(row.pickup_lat), lng: Number(row.pickup_lng) },
         deliveryLocation: { lat: Number(row.dropoff_lat), lng: Number(row.dropoff_lng) },
         paymentMethod: row.payment_method_label || "",
+        // PAG-01: en efectivo, cuánto cobrar, con cuánto paga y el vuelto, para quien
+        // pidió, quien reparte y el comercio (que cobra en un retiro).
+        cashPayment: vistaEfectivo(
+          metadata.cashPayment,
+          row.final_amount_cents ?? row.quoted_amount_cents,
+        ),
         items: [],
         subtotal: Number(metadata.subtotal || 0),
         deliveryFee: Number(metadata.deliveryFee || 0),
@@ -397,7 +488,7 @@ export async function getPostgresFoodCheckoutQuote({
   try {
     const context = (
       await client.query(
-        `SELECT u.id user_id,m.id merchant_id,b.id branch_id,b.eta_min FROM users u JOIN merchants m ON m.public_id=$2 JOIN merchant_branches b ON b.merchant_id=m.id AND b.public_id=$3 WHERE u.public_id=$1`,
+        `SELECT u.id user_id,u.phone_verified_at,m.id merchant_id,b.id branch_id,b.eta_min,b.cash_enabled FROM users u JOIN merchants m ON m.public_id=$2 JOIN merchant_branches b ON b.merchant_id=m.id AND b.public_id=$3 WHERE u.public_id=$1`,
         [customerPublicId, merchantPublicId, delivery.branchId],
       )
     ).rows[0];
@@ -418,6 +509,19 @@ export async function getPostgresFoodCheckoutQuote({
     }
     // PAG-05: el perfil familiar no es una fila de `payment_methods`; la cotización
     // sólo confirma que la persona puede usarlo. El tope se controla al cobrar.
+    // PAG-01: efectivo sólo si la sucursal lo acepta, sin método guardado.
+    if (paymentMethod === CASH_LABEL) {
+      if (paymentMethodId)
+        throw Object.assign(new Error("El efectivo no lleva un método de pago guardado"), {
+          status: 400,
+        });
+      await controlarEfectivo(client, {
+        userId: context.user_id,
+        cashEnabled: context.cash_enabled,
+        phoneVerifiedAt: context.phone_verified_at,
+        merchantId: context.merchant_id,
+      });
+    }
     const opcionFamiliar =
       paymentMethod === FAMILY_LABEL
         ? await getFamilyPaymentOption(customerPublicId, client)
@@ -516,6 +620,8 @@ export async function getPostgresFoodCheckoutQuote({
       serviceFeeCents -
       discountCents -
       subscriptionDiscountCents;
+    if (paymentMethod === CASH_LABEL)
+      controlarMontoEfectivo({ totalCents, deliveryFeeCents, esRetiro });
     // PAG-05: avisar en la cotización, no recién al confirmar, si el pedido supera lo
     // que queda del tope del mes. Al cobrar se vuelve a controlar, con la propina.
     if (
@@ -570,6 +676,8 @@ export async function createPostgresOrder({
   scheduledFor = null,
   fulfillment = "delivery",
   deliveryPreferences: preferenciasPedidas = null,
+  // PAG-01: «¿Con cuánto pagás?», en centavos; `null` si paga justo.
+  cashTenderedCents = null,
   idempotencyKey,
 }) {
   const esRetiro = fulfillment === "pickup";
@@ -577,11 +685,11 @@ export async function createPostgresOrder({
   try {
     await client.query("BEGIN");
     const customer = await client.query(
-      "SELECT id FROM users WHERE public_id = $1 AND status = 'active'",
+      "SELECT id,phone_verified_at FROM users WHERE public_id = $1 AND status = 'active'",
       [customerPublicId],
     );
     const merchant = await client.query(
-      `SELECT m.*,b.id branch_id,b.public_id branch_public_id,b.address branch_address,b.location branch_location,b.eta_min branch_eta_min,b.pickup_enabled FROM merchants m JOIN merchant_branches b ON b.merchant_id=m.id AND b.public_id=$2 AND b.status='active' AND b.open AND app.branch_is_scheduled_open(b.id,now()) WHERE m.public_id=$1 AND m.status='active'`,
+      `SELECT m.*,b.id branch_id,b.public_id branch_public_id,b.address branch_address,b.location branch_location,b.eta_min branch_eta_min,b.pickup_enabled,b.cash_enabled FROM merchants m JOIN merchant_branches b ON b.merchant_id=m.id AND b.public_id=$2 AND b.status='active' AND b.open AND app.branch_is_scheduled_open(b.id,now()) WHERE m.public_id=$1 AND m.status='active'`,
       [merchantPublicId, lockedQuote?.branchId],
     );
     if (!customer.rows[0]) throw Object.assign(new Error("Cliente no encontrado"), { status: 404 });
@@ -686,7 +794,27 @@ export async function createPostgresOrder({
         status: 400,
       });
     const walletPayment = pagaConWallet(paymentMethod);
-    if (!walletPayment && !providerPayment)
+    // PAG-01: en efectivo no se cobra nada ahora. Se liquida al completar el pedido.
+    const cashPayment = paymentMethod === CASH_LABEL;
+    if (cashPayment) {
+      if (paymentMethodId || providerPayment)
+        throw Object.assign(new Error("El efectivo no lleva un método de pago guardado"), {
+          status: 400,
+        });
+      // La propina del checkout viaja dentro de un cobro: en efectivo no hay cobro, y
+      // liquidarla le pagaría al repartidor plata que Flash nunca recibió.
+      if (tipCents > 0)
+        throw Object.assign(new Error("En efectivo, la propina se la das en mano al repartidor"), {
+          status: 409,
+        });
+      // Alguien tiene que recibir la plata: no se deja en la puerta.
+      if (deliveryPreferences.dropoff === "leave_at_door")
+        throw Object.assign(new Error("Un pedido en efectivo se entrega en mano"), {
+          status: 409,
+        });
+    } else if (cashTenderedCents !== null)
+      throw Object.assign(new Error("«Con cuánto pagás» es sólo para efectivo"), { status: 400 });
+    if (!walletPayment && !cashPayment && !providerPayment)
       throw Object.assign(
         new Error("El pago debe tokenizarse con Mercado Pago antes de confirmar"),
         { status: 402 },
@@ -720,6 +848,7 @@ export async function createPostgresOrder({
           fulfillment,
           branchId: lockedQuote.branchId || null,
           deliveryPreferences,
+          cashTenderedCents,
         }),
       )
       .digest("hex");
@@ -745,6 +874,23 @@ export async function createPostgresOrder({
       }
       throw Object.assign(new Error("La solicitud con esta clave todavía está procesándose"), {
         status: 409,
+      });
+    }
+    // PAG-01: la elegibilidad del efectivo se controla **después** de resolver un
+    // reintento: el pedido que ya creó esta misma solicitud cuenta como «en curso», y
+    // controlarla antes le respondía 409 al reintento en vez del pedido. Un bloqueo por
+    // persona ordena dos altas simultáneas con claves distintas: la segunda espera a que
+    // la primera confirme y la ve en curso.
+    if (cashPayment) {
+      await client.query(
+        "SELECT pg_advisory_xact_lock(hashtextextended('cash-order:' || $1::text, 0))",
+        [customer.rows[0].id],
+      );
+      await controlarEfectivo(client, {
+        userId: customer.rows[0].id,
+        cashEnabled: merchant.rows[0].cash_enabled,
+        phoneVerifiedAt: customer.rows[0].phone_verified_at,
+        merchantId: merchant.rows[0].id,
       });
     }
     const snapshots = [];
@@ -895,7 +1041,23 @@ export async function createPostgresOrder({
       zoneId: lockedQuote.zoneId,
       zoneMultiplier: lockedQuote.zoneMultiplier,
     };
-    const initialStatus = walletPayment ? "accepted" : "requested";
+    if (cashPayment) {
+      controlarMontoEfectivo({ totalCents, deliveryFeeCents, esRetiro });
+      if (cashTenderedCents !== null && cashTenderedCents < totalCents)
+        throw Object.assign(
+          new Error(`Con lo que pagás no alcanza: el total es ${formatoPesos(totalCents)}`),
+          { status: 400 },
+        );
+      // Quién cobra: el repartidor, o el comercio si se retira en el local.
+      metadata.cashPayment = {
+        tenderedCents: cashTenderedCents,
+        changeCents: cashTenderedCents === null ? 0 : cashTenderedCents - totalCents,
+        collector: esRetiro ? "merchant" : "courier",
+      };
+    }
+    // El efectivo no espera un cobro: el comercio lo ve como un pedido aceptado. En
+    // `requested` no aparece en su lista, que es para los pagos con tarjeta pendientes.
+    const initialStatus = walletPayment || cashPayment ? "accepted" : "requested";
     const job = await client.query(
       // `merchant_ready_due_at` cuenta desde el horario reservado, no desde
       // ahora: un pedido para mañana con vencimiento de cocina para dentro de 20
@@ -1045,6 +1207,10 @@ export async function createPostgresOrder({
           jobPublicId: publicId,
         });
       paymentStatus = "captured";
+    } else if (cashPayment) {
+      // Sin `payment_intents`: no hay nada cobrado ni por confirmar, y una intención
+      // pendiente abriría casos de conciliación. Se asienta al completar el pedido.
+      paymentStatus = "cash_on_delivery";
     } else {
       const merchantCommissionCents = Math.round(
           (Math.max(0, subtotalCents - discountCents) * Number(merchant.rows[0].commission_bps)) /
@@ -1098,7 +1264,7 @@ export async function createPostgresOrder({
       customer.rows[0].id,
       initialStatus,
     ]);
-    if (walletPayment)
+    if (walletPayment || cashPayment)
       await enqueueNotificationForInternalUser(client, {
         userId: customer.rows[0].id,
         template: "order_status",
@@ -1146,6 +1312,9 @@ export async function createPostgresOrder({
       createdAt: new Date().toISOString(),
       timeline: [{ status: initialStatus, at: new Date().toISOString() }],
       paymentStatus,
+      // PAG-01: la confirmación muestra cuánto tener a mano y el vuelto, como después
+      // el seguimiento. La misma forma que `rowsToOrders`.
+      cashPayment: vistaEfectivo(metadata.cashPayment, totalCents),
     };
     await client.query(
       "UPDATE idempotency_keys SET response_status = 200, response_body = $2 WHERE key = $1",
@@ -1367,11 +1536,18 @@ export async function setPostgresOrderStatus(orderPublicId, status, actorPublicI
     // tienen que saberlo, o alcanza con que una se olvide.
     if (databaseTarget === "ready_for_pickup" && !esRetiro)
       await createDispatchOffers(client, { jobId: result.rows[0].job_id, mode: "delivery" });
-    if (databaseTarget === "completed")
-      await settleCapturedFoodOrder(client, {
+    if (databaseTarget === "completed") {
+      const liquidacion = await settleCapturedFoodOrder(client, {
         jobId: result.rows[0].job_id,
         actorId: actor.rows[0]?.id || null,
       });
+      // PAG-01: sin cobro previo, la liquidación es el único registro de la plata. Un
+      // pedido en efectivo no se cierra sin ella.
+      if (liquidacion?.cashRequired && !liquidacion.settled)
+        throw Object.assign(new Error("No se pudo liquidar el pedido en efectivo"), {
+          status: 409,
+        });
+    }
     await enqueueNotificationForInternalUser(client, {
       userId: customer.customer_id,
       template: "order_status",

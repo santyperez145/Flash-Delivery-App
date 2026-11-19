@@ -30,6 +30,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 import { api } from "../api";
+import { cobroParaCliente, cobroParaComercio, cobroParaRepartidor } from "../cash-payment";
 import type { RealtimeAudienceHealth } from "../types";
 import { initials, money } from "../format";
 import { orderStatusLabel, rideStatusLabel } from "../labels";
@@ -66,7 +67,18 @@ function describirOferta(oferta: DispatchOffer, ahora: number) {
   const entrega = `${oferta.leaveAtDoor ? " · sin contacto" : ""}${oferta.hasInstructions ? " · con indicaciones" : ""}`;
   // PAG-01: un viaje en efectivo se cobra en mano; se sabe antes de aceptar.
   const cobro = oferta.cash ? " · en efectivo" : "";
-  return `${oferta.distanceKm} km · ${oferta.durationMin} min${cobro}${aceptacion}${entrega} · vence en ${restanS}s`;
+  // En un pedido de comida el servidor ya dice cuánto: es lo que decide si conviene
+  // salir con cambio encima.
+  const cobroEnMano =
+    oferta.cash && oferta.cashToCollect != null
+      ? ` · Cobrás ${money.format(oferta.cashToCollect)} en efectivo${
+          // Con cuánto paga y el vuelto: decide si conviene salir con cambio encima.
+          oferta.cashTendered != null && oferta.cashChange != null
+            ? ` (paga con ${money.format(oferta.cashTendered)}, vuelto ${money.format(oferta.cashChange)})`
+            : ""
+        }`
+      : cobro;
+  return `${oferta.distanceKm} km · ${oferta.durationMin} min${cobroEnMano}${aceptacion}${entrega} · vence en ${restanS}s`;
 }
 
 export function MerchantApp({
@@ -434,6 +446,7 @@ export function DriverApp({
           <span>Saldo Flash</span>
         </article>
       </div>
+      <DriverCashDebt driver={driver} />
 
       <SectionTitle title="Activos" action={money.format(driver.earningsToday)} />
       <div className="activity-stack">
@@ -443,6 +456,12 @@ export function DriverApp({
             <DoorPhoto order={order} busy={busy} runAction={runAction} />
             {/* SEG-03: con código, se ingresa antes de cerrar el pedido. */}
             <OrderDeliveryCodeEntry order={order} busy={busy} runAction={runAction} />
+            {/* PAG-01: cuánto cobrar en mano y cuánto vuelto llevar, antes de llegar. */}
+            {order.cashPayment && order.cashPayment.collector === "courier" && (
+              <p className="cash-notice" role="note">
+                {cobroParaRepartidor(order.cashPayment)}
+              </p>
+            )}
             <OrderOpsCard
               order={order}
               restaurant={state.restaurants.find((entry) => entry.id === order.restaurantId)}
@@ -747,7 +766,7 @@ export function OpsRail({
             <strong>{cartCount} items</strong>
             <p>{cartCount ? money.format(cartTotal) : "Listo para pedir comida o taxi"}</p>
           </div>
-          {activeOrder && <MiniOrder state={state} order={activeOrder} />}
+          {activeOrder && <MiniOrder state={state} order={activeOrder} audiencia="cliente" />}
           {activeRide && <MiniRide state={state} ride={activeRide} />}
         </>
       )}
@@ -765,7 +784,7 @@ export function OpsRail({
             .filter((order) => order.restaurantId === merchantRestaurantId)
             .slice(0, 3)
             .map((order) => (
-              <MiniOrder key={order.id} state={state} order={order} />
+              <MiniOrder key={order.id} state={state} order={order} audiencia="comercio" />
             ))}
         </>
       )}
@@ -778,6 +797,7 @@ export function OpsRail({
               {driver.online ? "Online" : "Fuera de linea"} · {driver.vehicle}
             </p>
           </div>
+          <DriverCashDebt driver={driver} />
           <button
             className="rail-action"
             type="button"
@@ -928,7 +948,16 @@ function MetricCard({ label, value, tone }: { label: string; value: number; tone
   );
 }
 
-function MiniOrder({ state, order }: { state: AppState; order: Order }) {
+function MiniOrder({
+  state,
+  order,
+  audiencia,
+}: {
+  state: AppState;
+  order: Order;
+  /** PAG-01: el cobro en efectivo se cuenta distinto a quien pidió y al comercio. */
+  audiencia: "cliente" | "comercio";
+}) {
   const restaurant = state.restaurants.find((entry) => entry.id === order.restaurantId);
   return (
     <article className="ops-card">
@@ -939,7 +968,33 @@ function MiniOrder({ state, order }: { state: AppState; order: Order }) {
       <p>
         {money.format(order.total)} · {order.items.length} items
       </p>
+      {order.cashPayment && (
+        <p className="cash-notice" role="note">
+          {audiencia === "cliente"
+            ? cobroParaCliente(order.cashPayment)
+            : cobroParaComercio(order.cashPayment)}
+        </p>
+      )}
     </article>
+  );
+}
+
+/**
+ * El efectivo cobrado que quien reparte todavía tiene que rendir (PAG-01).
+ *
+ * Sólo aparece si hay deuda: un cero permanente enseña a no mirar el aviso, y el día
+ * que importa es justamente cuando deja de ser cero. Llega del servidor; si no llega,
+ * no se inventa.
+ */
+function DriverCashDebt({ driver }: { driver: Driver }) {
+  if (!driver.cashDebt || driver.cashDebt <= 0) return null;
+  return (
+    <section className="driver-cash-debt" aria-label="Efectivo por rendir">
+      <strong>Efectivo por rendir {money.format(driver.cashDebt)}</strong>
+      <small>
+        Lo rendís a la operación; mientras supere el tope no te llegan servicios en efectivo.
+      </small>
+    </section>
   );
 }
 

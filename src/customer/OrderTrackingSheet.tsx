@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { Check, Copy, MapPin, X } from "lucide-react";
 
 import { api } from "../api";
+import { cobroParaCliente } from "../cash-payment";
 import { initials } from "../format";
 import { orderStatusLabel, orderSteps, pickupOrderSteps } from "../labels";
 import { OrderDeliveryCodeView } from "./OrderDeliveryCode";
@@ -148,6 +149,13 @@ export function OrderTrackingSheet({
           </div>
         )}
         <OrderDeliveryCodeView order={order} />
+        {/* PAG-01: cuánto tener a mano, y el vuelto si dijo con cuánto paga. */}
+        {/* Sólo mientras haya algo que pagar: no en uno entregado ni en uno cancelado. */}
+        {order.cashPayment && !["delivered", "cancelled"].includes(order.status) && (
+          <p className="cash-notice" role="note">
+            {cobroParaCliente(order.cashPayment)}
+          </p>
+        )}
         <div className="tracking-status-panel">
           <div className="tracking-status-copy">
             <div>

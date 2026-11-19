@@ -153,6 +153,8 @@ export async function getPostgresRestaurants({ publicIds = null, ownerPublicId =
             b.is_primary,
             'pickupEnabled',
             b.pickup_enabled,
+            'cashEnabled',
+            b.cash_enabled,
             'timezone',
             b.timezone,
             'weeklyHours',
@@ -308,6 +310,8 @@ const publicRestaurant = (restaurant) => ({
     // elegir el modo: ofrecerlo y que el checkout lo rechace es peor que no
     // ofrecerlo.
     pickupEnabled: branch.pickupEnabled === true,
+    // PAG-01: el checkout ofrece efectivo sólo donde la sucursal lo acepta.
+    cashEnabled: branch.cashEnabled === true,
   })),
 });
 export async function getPostgresRestaurantPage({
@@ -633,6 +637,8 @@ export async function updatePostgresBranch({
     // Sin esto el retiro queda inalcanzable: la columna existe, el checkout la
     // exige, y ninguna ruta la enciende.
     ["pickupEnabled", "pickup_enabled"],
+    // PAG-01: aceptar efectivo lo decide el comercio, sucursal por sucursal.
+    ["cashEnabled", "cash_enabled"],
   ])
     if (changes[key] !== undefined) {
       values.push(changes[key]);

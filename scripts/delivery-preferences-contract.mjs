@@ -25,7 +25,10 @@ const repositorio = await leer("server/order-repository.js");
 assert.ok(
   contains(ruta, "deliveryPreferences: z.object({") &&
     contains(ruta, "instructions: z.string().max(MAX_INDICACIONES)") &&
-    contains(ruta, "deliveryPreferences, idempotencyKey,"),
+    contains(
+      ruta,
+      "deliveryPreferences, cashTenderedCents: cashTenderedCents ?? null, idempotencyKey,",
+    ),
   "la ruta no acepta o no pasa las preferencias de entrega",
 );
 assert.ok(

@@ -3,17 +3,36 @@ import { postgresPool } from "./postgres.js";
 import { enqueueNotificationForInternalUser } from "./notification-repository.js";
 import { scoreCandidates, shortlistDrivers } from "./dispatch-candidates.js";
 import { config } from "./config.js";
+import { pesos } from "./money.js";
 import { CASH_LABEL, driverWalletBalanceCents } from "./wallet-repository.js";
 
 /**
- * PAG-01: ¿el conductor está dentro del tope de deuda por viajes en efectivo? Deber
- * exactamente el tope todavía se permite; pasarlo, no.
+ * PAG-01: ¿el conductor o repartidor queda dentro del tope de deuda por efectivo
+ * **después** de este servicio? Un viaje suma sólo la comisión, que se descuenta al
+ * liquidar; un pedido de comida suma casi todo su valor (la parte del comercio y la
+ * comisión), así que se proyecta: mirar sólo la deuda de hoy dejaba tomar un pedido
+ * que la lleva muy por encima del tope. Deber exactamente el tope se permite.
  */
-const puedeTomarEfectivo = async (client, driverId) =>
-  (await driverWalletBalanceCents(client, driverId)) >= -config.cashDriverDebtLimitCents;
+// Lo que va a deber por los pedidos en efectivo que ya lleva y todavía no liquidó: se
+// cobran recién al completar, así que sin esto dos pedidos simultáneos pasaban el tope.
+const DEUDA_EN_CURSO = `COALESCE((SELECT sum(GREATEST(0, COALESCE(j.final_amount_cents,j.quoted_amount_cents)
+    - round(COALESCE((j.metadata->>'deliveryFee')::numeric,0)*100)))::bigint
+  FROM jobs j WHERE j.driver_id=d.id AND j.status NOT IN ('completed','cancelled')
+    AND j.payment_method_label='Efectivo' AND j.metadata->>'subtype'='food_order'),0)`;
 
-/** PAG-01: de una lista de conductores, los que pueden tomar un viaje en efectivo. */
-const elegiblesParaEfectivo = async (client, driverIds) =>
+const puedeTomarEfectivo = async (client, driverId, deudaNueva = 0) => {
+  const enCurso = Number(
+    (await client.query(`SELECT ${DEUDA_EN_CURSO} n FROM drivers d WHERE d.id=$1`, [driverId]))
+      .rows[0]?.n ?? 0,
+  );
+  return (
+    (await driverWalletBalanceCents(client, driverId)) - enCurso - deudaNueva >=
+    -config.cashDriverDebtLimitCents
+  );
+};
+
+/** PAG-01: de una lista de conductores, los que pueden tomar un servicio en efectivo. */
+const elegiblesParaEfectivo = async (client, driverIds, deudaNueva = 0) =>
   driverIds.length === 0
     ? []
     : (
@@ -23,8 +42,9 @@ const elegiblesParaEfectivo = async (client, driverIds) =>
            LEFT JOIN ledger_entries e ON e.account_id=a.id
            WHERE d.id = ANY($1)
            GROUP BY d.id
-           HAVING COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0) >= $2`,
-          [driverIds, -config.cashDriverDebtLimitCents],
+           HAVING COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)
+             - ${DEUDA_EN_CURSO} - $3 >= $2`,
+          [driverIds, -config.cashDriverDebtLimitCents, deudaNueva],
         )
       ).rows
         .map((row) => row.id)
@@ -52,7 +72,10 @@ export async function createDispatchOffers(client, { jobId, mode, limit = 3, ttl
       (COALESCE(j.metadata->>'subtype','')<>'food_order' OR j.status='ready_for_pickup')
       AND COALESCE(j.metadata->>'fulfillment','delivery')<>'pickup' ready,
       (j.scheduled_for IS NULL OR j.scheduled_for<=now()+interval '15 minutes') in_window,
-      (j.kind='ride' AND j.payment_method_label=$2) cash
+      (j.payment_method_label=$2) cash,
+      CASE WHEN j.payment_method_label=$2 AND j.metadata->>'subtype'='food_order'
+        THEN GREATEST(0, COALESCE(j.final_amount_cents,j.quoted_amount_cents)
+          - round(COALESCE((j.metadata->>'deliveryFee')::numeric,0)*100))::bigint ELSE 0 END cash_debt
     FROM jobs j WHERE j.id=$1`,
       [jobId, CASH_LABEL],
     )
@@ -69,7 +92,9 @@ export async function createDispatchOffers(client, { jobId, mode, limit = 3, ttl
   // comisiones de viajes en efectivo. Se filtra la lista corta **antes** de puntuar:
   // filtrar después del corte dejaba el viaje sin ofertas si los mejores puntuados
   // debían de más, aunque hubiera otros conductores habilitados.
-  const habilitados = job.cash ? await elegiblesParaEfectivo(client, driverIds) : driverIds;
+  const habilitados = job.cash
+    ? await elegiblesParaEfectivo(client, driverIds, Number(job.cash_debt))
+    : driverIds;
   // Etapa 2: puntuación explicable, sólo sobre la lista corta.
   const candidates = {
     rows: await scoreCandidates(client, { jobId, driverIds: habilitados, mode, limit }),
@@ -179,8 +204,11 @@ export async function getPostgresDispatchOffers(driverPublicId) {
   );
   const result = await postgresPool.query(
     `SELECT o.public_id,j.public_id job_id,j.kind,j.service_level,j.pickup_address,j.dropoff_address,
-      j.quoted_amount_cents,j.distance_m,j.estimated_duration_s,j.metadata,o.score,o.score_breakdown,o.expires_at,o.status,
-      (j.kind='ride' AND j.payment_method_label=$2) cash
+      j.quoted_amount_cents,j.final_amount_cents,j.distance_m,j.estimated_duration_s,j.metadata,o.score,o.score_breakdown,o.expires_at,o.status,
+      (j.payment_method_label=$2) cash,
+      CASE WHEN j.payment_method_label=$2 AND j.metadata->>'subtype'='food_order'
+        THEN GREATEST(0, COALESCE(j.final_amount_cents,j.quoted_amount_cents)
+          - round(COALESCE((j.metadata->>'deliveryFee')::numeric,0)*100))::bigint ELSE 0 END cash_debt
     FROM dispatch_offers o JOIN drivers d ON d.id=o.driver_id JOIN jobs j ON j.id=o.job_id
     WHERE d.public_id=$1 AND o.status='pending' AND o.expires_at>now() AND j.driver_id IS NULL AND j.status NOT IN('completed','cancelled')
       AND (COALESCE(j.metadata->>'subtype','')<>'food_order' OR j.status='ready_for_pickup')
@@ -204,8 +232,18 @@ export async function getPostgresDispatchOffers(driverPublicId) {
     expiresAt: new Date(row.expires_at).toISOString(),
     status: row.status,
     subtype: row.metadata?.subtype || null,
-    // PAG-01: antes de aceptar, quien maneja sabe si cobra en mano.
+    // PAG-01: antes de aceptar, quien maneja sabe si cobra en mano, y cuánto.
     cash: Boolean(row.cash),
+    cashToCollect: row.cash ? pesos(row.final_amount_cents ?? row.quoted_amount_cents) : null,
+    // Con cuánto paga y el vuelto, para saber antes de aceptar si lleva cambio.
+    cashTendered:
+      row.cash && row.metadata?.cashPayment?.tenderedCents != null
+        ? pesos(row.metadata.cashPayment.tenderedCents)
+        : null,
+    cashChange:
+      row.cash && row.metadata?.cashPayment?.tenderedCents != null
+        ? pesos(row.metadata.cashPayment.changeCents || 0)
+        : null,
     // Antes de aceptar, el repartidor sabe si es sin contacto y si hay
     // indicaciones —como en DoorDash y Uber—, pero no el texto, que es de la
     // casa de alguien y recién lo ve quien acepta (P-02).
@@ -231,7 +269,10 @@ export async function acceptDispatchOffer(
 ) {
   const offer = (
     await client.query(
-      `SELECT o.id,o.job_id,o.driver_id,j.kind,(j.kind='ride' AND j.payment_method_label=$3) cash
+      `SELECT o.id,o.job_id,o.driver_id,j.kind,(j.payment_method_label=$3) cash,
+      CASE WHEN j.payment_method_label=$3 AND j.metadata->>'subtype'='food_order'
+        THEN GREATEST(0, COALESCE(j.final_amount_cents,j.quoted_amount_cents)
+          - round(COALESCE((j.metadata->>'deliveryFee')::numeric,0)*100))::bigint ELSE 0 END cash_debt
     FROM dispatch_offers o JOIN jobs j ON j.id=o.job_id JOIN drivers d ON d.id=o.driver_id
     WHERE j.public_id=$1 AND d.public_id=$2 AND o.status='pending' AND o.expires_at>now()
       AND (COALESCE(j.metadata->>'subtype','')<>'food_order' OR j.status='ready_for_pickup')
@@ -242,10 +283,10 @@ export async function acceptDispatchOffer(
   ).rows[0];
   if (!offer) throw Object.assign(new Error("La oferta no existe o venció"), { status: 409 });
   await client.query("SELECT id FROM drivers WHERE id=$1 FOR UPDATE", [offer.driver_id]);
-  if (offer.cash && !(await puedeTomarEfectivo(client, offer.driver_id)))
+  if (offer.cash && !(await puedeTomarEfectivo(client, offer.driver_id, Number(offer.cash_debt))))
     throw Object.assign(
       new Error(
-        "Tenés comisiones de viajes en efectivo por saldar: no podés tomar otro en efectivo",
+        "Tenés efectivo por rendir: no podés tomar otro servicio en efectivo hasta bajar tu deuda",
       ),
       { status: 409 },
     );

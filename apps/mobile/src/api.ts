@@ -861,6 +861,8 @@ export const api = {
     // Propina del checkout (GTM-001), en centavos y entera: en pesos con
     // decimales cada cliente redondea distinto, y esto es dinero.
     tipCents?: number;
+    /** PAG-01: «¿Con cuánto pagás?» en efectivo, en centavos. Ausente es pagar justo. */
+    cashTenderedCents?: number;
     /** Reserva de horario en ISO. Ausente es «lo antes posible». */
     scheduledFor?: string;
     deliveryPreferences?: import("./types").DeliveryPreferences;

@@ -38,6 +38,7 @@ import { mobileOrderStatusLabel, money } from "./format";
 import { styles } from "./styles";
 import type { Order, ServiceMessage } from "./types";
 import { DeliveryPreferenceTags } from "./DeliveryPreferenceTags";
+import { courierCashLine, merchantCashLine } from "./cash-payment";
 export function NativeMapUnavailable({
   message,
   height = 260,
@@ -389,6 +390,15 @@ export function OrderCard({
       <Text style={styles.cardText}>
         {order.items.length} items - {money.format(order.total)}
       </Text>
+      {/* PAG-01: quien reparte cobra en mano (y lleva el vuelto); el comercio cobra
+          sólo en un retiro y, si no, sabe que no tiene que cobrar. */}
+      {preferencias && order.cashPayment && !["delivered", "cancelled"].includes(order.status) && (
+        <Text style={[styles.cardTitle, { color: "#087A50" }]}>
+          {preferencias === "reparto"
+            ? courierCashLine(order.cashPayment)
+            : merchantCashLine(order.cashPayment)}
+        </Text>
+      )}
       {preferencias && (
         <DeliveryPreferenceTags preferences={order.deliveryPreferences} audience={preferencias} />
       )}

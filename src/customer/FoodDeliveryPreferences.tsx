@@ -24,6 +24,7 @@ export function FoodDeliveryPreferences({
   pickup,
   vertical,
   disabled,
+  cash = false,
 }: {
   value: DeliveryPreferences;
   onChange: (value: DeliveryPreferences) => void;
@@ -31,8 +32,12 @@ export function FoodDeliveryPreferences({
   pickup: boolean;
   vertical: MerchantVertical;
   disabled: boolean;
+  /** PAG-01: en efectivo alguien tiene que recibir la plata, así que no hay puerta. */
+  cash?: boolean;
 }) {
   const sinPuerta = RUBROS_SIN_PUERTA.includes(vertical);
+  // El servidor rechaza con 409 un pedido en efectivo para dejar en la puerta.
+  const puertaBloqueada = sinPuerta || cash;
   const cambiar = (parcial: Partial<DeliveryPreferences>) => onChange({ ...value, ...parcial });
   return (
     <section className="delivery-preferences" aria-label="Preferencias de entrega">
@@ -58,13 +63,19 @@ export function FoodDeliveryPreferences({
               role="radio"
               aria-checked={value.dropoff === "leave_at_door"}
               className={value.dropoff === "leave_at_door" ? "active" : ""}
-              disabled={disabled || sinPuerta}
+              disabled={disabled || puertaBloqueada}
               onClick={() => cambiar({ dropoff: "leave_at_door" })}
             >
               <DoorOpen size={18} />
               <span>
                 <strong>Dejar en la puerta</strong>
-                <small>{sinPuerta ? "No disponible en este comercio" : "Sin contacto"}</small>
+                <small>
+                  {sinPuerta
+                    ? "No disponible en este comercio"
+                    : cash
+                      ? "En efectivo se entrega en mano"
+                      : "Sin contacto"}
+                </small>
               </span>
             </button>
           </div>

@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import { postgresPool } from "./postgres.js";
-import { payerWalletForRefund } from "./wallet-repository.js";
+import { CASH_LABEL, payerWalletForRefund } from "./wallet-repository.js";
 import { markHeldTipRefunded } from "./tip-repository.js";
 import { enqueueNotificationForInternalUser } from "./notification-repository.js";
 import { upsertCase } from "./payment-repository.js";
@@ -75,7 +75,10 @@ export async function resolveOrderIssue({
       .rows[0];
     const issue = (
       await client.query(
-        `SELECT i.*,j.public_id job_public_id,j.customer_id,j.final_amount_cents FROM order_issues i JOIN jobs j ON j.id=i.job_id WHERE i.public_id=$1 AND i.status='open' FOR UPDATE OF i,j`,
+        `SELECT i.*,j.public_id job_public_id,j.customer_id,j.final_amount_cents,
+           j.payment_method_label,j.status job_status
+         FROM order_issues i JOIN jobs j ON j.id=i.job_id
+         WHERE i.public_id=$1 AND i.status='open' FOR UPDATE OF i,j`,
         [issuePublicId],
       )
     ).rows[0];
@@ -97,14 +100,41 @@ export async function resolveOrderIssue({
           [issue.job_id],
         )
       ).rows[0];
-      if (!payment || refundCents > Number(payment.captured_amount_cents))
+      // PAG-01: un pedido en efectivo no tiene cobro registrado. Se reintegra como saldo
+      // en la Flash Wallet de quien pidió, como hacen PedidosYa y Rappi, y sólo una vez
+      // entregado: antes, el efectivo todavía no se cobró y se devolvería plata que
+      // Flash no recibió. El tope es el total menos lo ya reintegrado por otras
+      // incidencias del mismo pedido.
+      const efectivo = !payment && issue.payment_method_label === CASH_LABEL;
+      if (efectivo) {
+        if (issue.job_status !== "completed")
+          throw Object.assign(
+            new Error("Un pedido en efectivo se reintegra una vez entregado y cobrado"),
+            { status: 409 },
+          );
+        const yaDevuelto = Number(
+          (
+            await client.query(
+              "SELECT COALESCE(sum(approved_refund_cents),0)::bigint n FROM order_issues WHERE job_id=$1 AND status='approved' AND id<>$2",
+              [issue.job_id, issue.id],
+            )
+          ).rows[0].n,
+        );
+        if (refundCents > Number(issue.final_amount_cents) - yaDevuelto)
+          throw Object.assign(new Error("El reintegro excede lo cobrado en efectivo"), {
+            status: 409,
+          });
+      } else if (!payment || refundCents > Number(payment.captured_amount_cents))
         throw Object.assign(new Error("No existe saldo capturado suficiente para reintegrar"), {
           status: 409,
         });
-      // A quien pagó (PAG-05): con el perfil familiar, quien organiza.
-      const wallet = await payerWalletForRefund(client, payment.customer_id, {
-        fallbackUserId: issue.customer_id,
-      });
+      // A quien pagó (PAG-05): con el perfil familiar, quien organiza. En efectivo, a
+      // quien pidió, que es quien pagó en mano.
+      const wallet = efectivo
+        ? await payerWalletForRefund(client, issue.customer_id)
+        : await payerWalletForRefund(client, payment.customer_id, {
+            fallbackUserId: issue.customer_id,
+          });
       const clearing = (
         await client.query(
           "SELECT id FROM ledger_accounts WHERE owner_type='platform' AND owner_id IS NULL AND account_type='cash_clearing' FOR UPDATE",
@@ -173,7 +203,7 @@ export async function resolveOrderIssue({
           if (saldo >= 0) continue;
           await upsertCase(client, {
             fingerprint: `negative_balance:${row.account_id}:${issuePublicId}`,
-            provider: payment.provider,
+            provider: payment?.provider ?? "cash",
             caseType: "negative_balance",
             severity: "medium",
             entityType: "ledger_account",
@@ -211,19 +241,23 @@ export async function resolveOrderIssue({
           clearing.id,
         ],
       );
-      await client.query(
-        `INSERT INTO refunds(payment_intent_id,requested_by,amount_cents,reason,status,resolved_at,provider_refund_id) VALUES($1,$2,$3,'order_issue','succeeded',now(),$4)`,
-        [payment.id, actor.id, refundCents, issuePublicId],
-      );
-      const remaining = Number(payment.captured_amount_cents) - refundCents;
-      await client.query(
-        "UPDATE payment_intents SET captured_amount_cents=$2,status=$3,updated_at=now() WHERE id=$1",
-        [payment.id, remaining, remaining === 0 ? "refunded" : "partially_refunded"],
-      );
-      // Sólo con reintegro total. Un reintegro parcial no anula la propina: el
-      // pedido puede completarse igual y el repartidor cobrarla. Marcarla acá le
-      // sacaría la propina por un problema que no fue suyo.
-      if (remaining === 0) await markHeldTipRefunded(client, issue.job_id);
+      // En efectivo no hay cobro que actualizar: el reintegro queda en la incidencia
+      // (`approved_refund_cents`) y en el asiento.
+      if (!efectivo) {
+        await client.query(
+          `INSERT INTO refunds(payment_intent_id,requested_by,amount_cents,reason,status,resolved_at,provider_refund_id) VALUES($1,$2,$3,'order_issue','succeeded',now(),$4)`,
+          [payment.id, actor.id, refundCents, issuePublicId],
+        );
+        const remaining = Number(payment.captured_amount_cents) - refundCents;
+        await client.query(
+          "UPDATE payment_intents SET captured_amount_cents=$2,status=$3,updated_at=now() WHERE id=$1",
+          [payment.id, remaining, remaining === 0 ? "refunded" : "partially_refunded"],
+        );
+        // Sólo con reintegro total. Un reintegro parcial no anula la propina: el
+        // pedido puede completarse igual y el repartidor cobrarla. Marcarla acá le
+        // sacaría la propina por un problema que no fue suyo.
+        if (remaining === 0) await markHeldTipRefunded(client, issue.job_id);
+      }
     }
     const updated = (
       await client.query(

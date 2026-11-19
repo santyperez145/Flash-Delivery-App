@@ -662,7 +662,14 @@ export function DriverHomePanel(props: {
             {/* PAG-01: antes de aceptar, quien maneja sabe que cobra en mano. */}
             {offer.cash && (
               <Text style={[styles.helperText, { color: "#087A50", fontWeight: "800" }]}>
-                Se cobra en efectivo
+                {offer.cashToCollect != null
+                  ? `Cobrás ${money.format(offer.cashToCollect)} en efectivo${
+                      // Con cuánto paga y el vuelto: decide si conviene salir con cambio.
+                      offer.cashTendered != null && offer.cashChange != null
+                        ? ` · paga con ${money.format(offer.cashTendered)}, vuelto ${money.format(offer.cashChange)}`
+                        : ""
+                    }`
+                  : "Se cobra en efectivo"}
               </Text>
             )}
             {/* Antes de aceptar: si es sin contacto y si hay indicaciones, nunca el texto (P-02). */}

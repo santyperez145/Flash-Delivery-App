@@ -56,7 +56,7 @@ export const driverEarningsSchemas = {
     required: ["id", "category", "jobId", "description", "amount", "createdAt"],
     properties: {
       id: { type: "string" },
-      category: { enum: ["food", "ride", "shipment", "tip", "adjustment"] },
+      category: { enum: ["food", "ride", "shipment", "tip", "adjustment", "cash"] },
       jobId: { type: ["string", "null"] },
       description: { type: "string" },
       amount: { type: "number" },

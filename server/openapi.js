@@ -1793,7 +1793,8 @@ Object.assign(openApiDocument.components.schemas, {
       paymentMethod: {
         type: "string",
         description:
-          "La etiqueta del método guardado, «Mercado Pago», o «Perfil familiar» (PAG-05, sin paymentMethodId).",
+          "La etiqueta del método guardado, «Mercado Pago», «Perfil familiar» (PAG-05, sin paymentMethodId) o «Efectivo» " +
+          "(PAG-01, sin paymentMethodId: sólo si la sucursal acepta efectivo y con el teléfono verificado).",
       },
       paymentMethodId: { type: "string", format: "uuid" },
       promotionCode: { type: "string", minLength: 3, maxLength: 40 },
@@ -1817,6 +1818,9 @@ Object.assign(openApiDocument.components.schemas, {
           // Propina (GTM-001): fuera de la cotizacion firmada, porque no es un precio que el cliente pueda bajar.
           // Topes contra el total del pedido; se cobra en el mismo cargo, retenida hasta completar, y vuelve entera si se reintegra.
           tipCents: { type: "integer", minimum: 0, maximum: 10000000, default: 0 },
+          // PAG-01: en efectivo, «¿Con cuánto pagás?». Al menos el total; ausente si paga justo. Un pedido en
+          // efectivo no lleva propina de checkout ni se deja en la puerta.
+          cashTenderedCents: { type: "integer", minimum: 1 },
           // Preferencias de entrega (P-02), tambien fuera de la cotizacion: no cambian el precio. En retiro solo vale
           // `cutlery`; `leave_at_door` se rechaza en farmacia y tiendas. El comercio recibe solo `cutlery`.
           deliveryPreferences: {

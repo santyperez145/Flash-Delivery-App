@@ -976,6 +976,8 @@ export const api = {
     tipCents?: number;
     /** Reserva de horario en ISO. Ausente es «lo antes posible». */
     scheduledFor?: string;
+    /** PAG-01: con cuánto paga en efectivo, en centavos. Ausente si paga justo. */
+    cashTenderedCents?: number;
     items: Array<Pick<CartLine, "quantity" | "extras" | "note"> & { menuItemId: string }>;
   }) {
     if (payload.fulfillment !== "pickup" && !payload.deliveryAddressId)
@@ -1419,6 +1421,8 @@ export const api = {
       etaMin?: number;
       status?: "active" | "paused" | "closed";
       pickupEnabled?: boolean;
+      /** PAG-01: la sucursal acepta efectivo. */
+      cashEnabled?: boolean;
     },
   ) {
     return request<{ restaurant: Restaurant }>(

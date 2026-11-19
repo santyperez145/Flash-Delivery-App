@@ -10,6 +10,7 @@ import {
   type FamilyMembership,
 } from "../family-payment";
 import { money } from "../format";
+import { CASH_PAYMENT, CASH_PAYMENT_ID, cashCollectionNote } from "../cash-payment";
 import { styles } from "../styles";
 import type { MobileCartLine, PaymentMethod, Promotion, Restaurant, UserAddress } from "../types";
 
@@ -24,6 +25,8 @@ export function CustomerFoodCartScreen({
   selectedPayment,
   family = null,
   familySelected = false,
+  cashAvailable = false,
+  cashSelected = false,
   promotion,
   promotionCode,
   subtotal,
@@ -53,6 +56,9 @@ export function CustomerFoodCartScreen({
   /** PAG-05: la membresía activa del perfil familiar; sin ella la opción no aparece. */
   family?: FamilyMembership | null;
   familySelected?: boolean;
+  /** PAG-01: la sucursal que se cotiza acepta efectivo; sin eso la opción no aparece. */
+  cashAvailable?: boolean;
+  cashSelected?: boolean;
   promotion: Promotion | null;
   promotionCode: string;
   subtotal: number;
@@ -254,7 +260,8 @@ export function CustomerFoodCartScreen({
             accessibilityLabel="Cómo pagás"
           >
             {paymentMethods.map((method) => {
-              const selected = !familySelected && selectedPayment?.id === method.id;
+              const selected =
+                !familySelected && !cashSelected && selectedPayment?.id === method.id;
               return (
                 <Pressable
                   key={method.id}
@@ -327,7 +334,39 @@ export function CustomerFoodCartScreen({
                 />
               </Pressable>
             ) : null}
-            {!paymentMethods.length && !family ? (
+            {/* Efectivo: sólo donde la sucursal lo acepta, y diciendo quién cobra. */}
+            {cashAvailable ? (
+              <Pressable
+                onPress={() => onSelectPayment(CASH_PAYMENT_ID)}
+                style={[styles.foodCartOption, cashSelected && styles.foodCartOptionSelected]}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: cashSelected }}
+              >
+                <View
+                  style={[
+                    styles.foodCartOptionIcon,
+                    styles.foodCartPaymentIcon,
+                    cashSelected && styles.foodCartPaymentIconSelected,
+                  ]}
+                >
+                  <Ionicons
+                    name="cash-outline"
+                    size={19}
+                    color={cashSelected ? "#fff" : flashDesign.color.brand}
+                  />
+                </View>
+                <View style={styles.itemCopy}>
+                  <Text style={styles.foodCartOptionTitle}>{CASH_PAYMENT}</Text>
+                  <Text style={styles.foodCartOptionMeta}>{cashCollectionNote(fulfillment)}</Text>
+                </View>
+                <Ionicons
+                  name={cashSelected ? "checkmark-circle" : "ellipse-outline"}
+                  size={22}
+                  color={cashSelected ? flashDesign.color.brand : flashDesign.color.muted}
+                />
+              </Pressable>
+            ) : null}
+            {!paymentMethods.length && !family && !cashAvailable ? (
               <Pressable style={styles.foodCartMissingOption} onPress={onOpenAccount}>
                 <Ionicons name="card-outline" size={20} color={flashDesign.color.danger} />
                 <View style={styles.itemCopy}>

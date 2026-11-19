@@ -1,5 +1,6 @@
 import { useEffect, useState, type ComponentType } from "react";
 import {
+  Banknote,
   Bike,
   Check,
   CreditCard,
@@ -16,6 +17,7 @@ import {
 } from "lucide-react";
 
 import { api } from "../api";
+import { CASH_PAYMENT } from "../cash-payment";
 import { money } from "../format";
 import type {
   AppState,
@@ -81,7 +83,10 @@ export function CartScreen({
   busy: boolean;
 }) {
   // PAG-05: «family» paga con la Wallet de quien organiza el perfil familiar.
-  const [paymentMode, setPaymentMode] = useState<"wallet" | "mercadopago" | "family">("wallet"),
+  // PAG-01: «cash» paga en efectivo al recibir o al retirar.
+  const [paymentMode, setPaymentMode] = useState<"wallet" | "mercadopago" | "family" | "cash">(
+      "wallet",
+    ),
     [paymentConfiguration, setPaymentConfiguration] = useState<{
       provider: "mercadopago" | "disabled";
       publicKey: string | null;
@@ -131,6 +136,26 @@ export function CartScreen({
   const pickupAvailable = Boolean(pickupBranch);
   const esRetiro = fulfillment === "pickup";
   const checkoutBranch = esRetiro ? pickupBranch : primaryBranch;
+  // PAG-01: el efectivo lo acepta cada sucursal. Se mira la que cotiza, que en un
+  // retiro puede no ser la principal.
+  const efectivoDisponible = checkoutBranch?.cashEnabled === true;
+  const enEfectivo = paymentMode === "cash";
+  // «¿Con cuánto pagás?», en pesos enteros tal como se escribe. Vacío es «pago justo».
+  const [conCuanto, setConCuanto] = useState("");
+  useEffect(() => {
+    // Si la sucursal deja de aceptarlo —o se pasa a una que no— el pago vuelve al
+    // medio por omisión: cotizar en efectivo terminaría en un 409 seguro.
+    if (!efectivoDisponible) setPaymentMode((modo) => (modo === "cash" ? "wallet" : modo));
+  }, [efectivoDisponible]);
+  useEffect(() => {
+    if (!enEfectivo) return;
+    // En efectivo no hay cobro en el que viaje la propina, y alguien tiene que
+    // recibir la plata: el servidor rechaza las dos cosas con 409.
+    setTipCents(0);
+    setPreferencias((actual) =>
+      actual.dropoff === "leave_at_door" ? { ...actual, dropoff: "hand_to_me" } : actual,
+    );
+  }, [enEfectivo]);
   useEffect(() => {
     // Si el local deja de ofrecerlo —o se cambia de local— el modo vuelve a
     // entrega. Quedarse en retiro mostraría un checkout que el servidor rechaza.
@@ -221,8 +246,11 @@ export function CartScreen({
               ? walletMethod?.label || "Flash Wallet"
               : paymentMode === "family"
                 ? FAMILY_PAYMENT
-                : "Mercado Pago",
-          // El perfil familiar no es un método guardado: el servidor rechaza un id con él.
+                : paymentMode === "cash"
+                  ? CASH_PAYMENT
+                  : "Mercado Pago",
+          // El perfil familiar y el efectivo no son métodos guardados: el servidor
+          // rechaza un id con ellos.
           paymentMethodId: paymentMode === "wallet" ? walletMethod?.id : undefined,
           promotionCode: promotionCode.trim().toUpperCase() || undefined,
           items: cart.map((line) => ({
@@ -269,6 +297,20 @@ export function CartScreen({
   const quoteExpired = Boolean(
     checkoutQuote && new Date(checkoutQuote.expiresAt).getTime() <= quoteClock,
   );
+  // PAG-01: si es efectivo lo dice la cotización firmada, igual que el modo.
+  const cotizoEfectivo = checkoutQuote?.paymentMethod === CASH_PAYMENT;
+  // El servidor exige que alcance para el total (400 si no). Se valida acá para no
+  // ofrecer un confirmar que va a fallar; el que decide sigue siendo el servidor.
+  const conCuantoPesos = conCuanto.trim() === "" ? null : Number(conCuanto);
+  const totalCents = checkoutQuote ? Math.round(checkoutQuote.total * 100) : 0;
+  const conCuantoInvalido =
+    cotizoEfectivo &&
+    conCuantoPesos !== null &&
+    (!Number.isInteger(conCuantoPesos) || conCuantoPesos * 100 < totalCents);
+  const efectivoEntregado =
+    cotizoEfectivo && conCuantoPesos !== null && !conCuantoInvalido
+      ? { cashTenderedCents: conCuantoPesos * 100 }
+      : {};
   // **El modo lo dicta la cotización firmada, no el botón.** El servidor
   // compara el `fulfillment` del pedido contra el del token y rechaza el que no
   // coincida; construir la elección desde el estado local permitiría mandar un
@@ -290,6 +332,7 @@ export function CartScreen({
           // En retiro sólo vale la elección de cubiertos: modo e indicaciones
           // de reparto no existen, y el servidor rechaza el pedido que las lleve.
           deliveryPreferences: { ...PREFERENCIAS_INICIALES, cutlery: preferencias.cutlery },
+          ...efectivoEntregado,
         }
       : selectedAddress
         ? {
@@ -299,9 +342,11 @@ export function CartScreen({
             paymentMethod: checkoutQuote.paymentMethod,
             paymentMethodId: checkoutQuote.paymentMethodId || undefined,
             quoteToken: checkoutQuote.quoteToken,
-            tipCents,
+            // En efectivo la propina se da en mano: el servidor rechaza una con 409.
+            tipCents: cotizoEfectivo ? 0 : tipCents,
             scheduledFor,
             deliveryPreferences: preferencias,
+            ...efectivoEntregado,
           }
         : null;
   // Los mismos topes que aplica el servidor. Duplicarlos acá evita ofrecer un
@@ -389,6 +434,7 @@ export function CartScreen({
                 pickup={esRetiro}
                 vertical={restaurant?.vertical ?? "restaurant"}
                 disabled={busy}
+                cash={enEfectivo}
               />
               <div className="checkout-section-heading">
                 <div>
@@ -398,7 +444,13 @@ export function CartScreen({
                 <CreditCard size={18} />
               </div>
               <div
-                className={familia ? "payment-choice with-family" : "payment-choice"}
+                className={[
+                  "payment-choice",
+                  familia ? "with-family" : "",
+                  efectivoDisponible ? "with-cash" : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
                 role="radiogroup"
                 aria-label="Método de pago"
               >
@@ -456,7 +508,53 @@ export function CartScreen({
                     </span>
                   </button>
                 )}
+                {/* PAG-01: sólo donde la sucursal que cotiza acepta efectivo. */}
+                {efectivoDisponible && (
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={enEfectivo}
+                    className={enEfectivo ? "active cash-option" : "cash-option"}
+                    onClick={() => setPaymentMode("cash")}
+                  >
+                    <Banknote size={18} />
+                    <span>
+                      <strong>{CASH_PAYMENT}</strong>
+                      <small>
+                        {esRetiro
+                          ? "Pagás en el mostrador al retirar"
+                          : "Le pagás al repartidor cuando llega"}
+                      </small>
+                    </span>
+                  </button>
+                )}
               </div>
+              {enEfectivo && (
+                <label className="cash-tendered">
+                  <span>¿Con cuánto pagás?</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder="Opcional"
+                    aria-invalid={conCuantoInvalido}
+                    aria-describedby="cash-tendered-hint"
+                    value={conCuanto}
+                    disabled={busy}
+                    onChange={(event) => setConCuanto(event.target.value.replace(/\D/g, ""))}
+                  />
+                  <small
+                    id="cash-tendered-hint"
+                    className={conCuantoInvalido ? "invalid" : undefined}
+                  >
+                    {conCuantoInvalido && checkoutQuote
+                      ? `Tiene que ser al menos ${money.format(checkoutQuote.total)}`
+                      : esRetiro
+                        ? "En pesos, así el local tiene listo tu vuelto. Si pagás justo, dejalo vacío."
+                        : "En pesos, así el repartidor lleva tu vuelto. Si pagás justo, dejalo vacío."}
+                  </small>
+                </label>
+              )}
               {paymentConfigurationError && (
                 <small className="payment-provider-error">{paymentConfigurationError}</small>
               )}
@@ -562,19 +660,32 @@ export function CartScreen({
           {/* La propina es para el repartidor. En retiro no hay ninguno, y el
               servidor devuelve 409 al pedido que la lleve: ofrecerla sería
               ofrecer un camino que termina en error. */}
-          {checkoutOpen && checkoutQuote && checkoutQuote.fulfillment !== "pickup" && (
-            <TipSelector
-              subtotal={checkoutQuote.subtotal}
-              tipCents={tipCents}
-              onChange={setTipCents}
-              minCents={propinaMin}
-              maxCents={propinaMax}
-              disabled={busy || quoteBusy}
-            />
-          )}
+          {/* PAG-01: en efectivo no hay cobro en el que viaje la propina. */}
+          {checkoutOpen &&
+            checkoutQuote &&
+            enEfectivo &&
+            checkoutQuote.fulfillment !== "pickup" && (
+              <p className="cash-tip-note" role="note">
+                La propina se la das en mano
+              </p>
+            )}
+          {checkoutOpen &&
+            checkoutQuote &&
+            !enEfectivo &&
+            checkoutQuote.fulfillment !== "pickup" && (
+              <TipSelector
+                subtotal={checkoutQuote.subtotal}
+                tipCents={tipCents}
+                onChange={setTipCents}
+                minCents={propinaMin}
+                maxCents={propinaMax}
+                disabled={busy || quoteBusy}
+              />
+            )}
           <SummaryBlock totals={displayedTotals} />
-          {/* Con el perfil familiar también se confirma acá: no hay pasarela de tarjeta. */}
-          {(paymentMode === "wallet" || paymentMode === "family") && (
+          {/* Con el perfil familiar y en efectivo también se confirma acá: no hay
+              pasarela de tarjeta. */}
+          {(paymentMode === "wallet" || paymentMode === "family" || paymentMode === "cash") && (
             <button
               className="primary-button sticky-action"
               type="button"
@@ -586,7 +697,11 @@ export function CartScreen({
               disabled={
                 busy ||
                 (checkoutOpen &&
-                  (quoteBusy || !checkoutSelection || quoteExpired || Boolean(quoteError)))
+                  (quoteBusy ||
+                    !checkoutSelection ||
+                    quoteExpired ||
+                    Boolean(quoteError) ||
+                    conCuantoInvalido))
               }
             >
               <ReceiptText size={17} />

@@ -2,10 +2,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { DeliveryPreferences } from "../DeliveryPreferences";
 import type { DeliveryPreferences as DeliveryPreferencesValue, MerchantVertical } from "../types";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, Text, TextInput, View } from "react-native";
 
 import { flashDesign } from "../design-system";
 import { familyPaymentNote, type FamilyMembership } from "../family-payment";
+import { CASH_PAYMENT, cashCollectionNote, parseCashTendered } from "../cash-payment";
 import { money } from "../format";
 import { SchedulePicker } from "../SchedulePicker";
 import { styles } from "../styles";
@@ -18,6 +19,8 @@ export function CustomerFoodCheckoutScreen({
   restaurantName,
   paymentMethod,
   family = null,
+  cashTendered = "",
+  onCashTenderedChange,
   busy,
   tipCents,
   scheduledFor,
@@ -36,6 +39,9 @@ export function CustomerFoodCheckoutScreen({
   paymentMethod?: PaymentMethod;
   /** PAG-05: presente si se paga con «Perfil familiar». */
   family?: FamilyMembership | null;
+  /** PAG-01: «¿Con cuánto pagás?» en pesos, tal como se escribe. */
+  cashTendered?: string;
+  onCashTenderedChange?: (value: string) => void;
   busy: boolean;
   tipCents: number;
   scheduledFor: string | null;
@@ -55,6 +61,11 @@ export function CustomerFoodCheckoutScreen({
   // En retiro no hay propina: el pedido la manda en cero, y el total que se
   // muestra tiene que ser el que se cobra, aunque se haya elegido una antes.
   const propina = quote.fulfillment === "pickup" ? 0 : tipCents;
+  // PAG-01: el medio sale de la cotización firmada, que es lo que se va a pedir.
+  const efectivo = quote.paymentMethod === CASH_PAYMENT;
+  const conCuanto = efectivo ? parseCashTendered(cashTendered) : null;
+  // Menos que el total no alcanza: el servidor lo rechaza, así que no se deja confirmar.
+  const noAlcanza = conCuanto !== null && conCuanto < quote.total + propina / 100;
 
   return (
     <>
@@ -141,7 +152,15 @@ export function CustomerFoodCheckoutScreen({
         <View style={styles.foodCheckoutInfoCard}>
           <View style={[styles.foodCheckoutInfoIcon, { backgroundColor: "#EEE7FF" }]}>
             <Ionicons
-              name={family ? "people" : paymentMethod?.type === "wallet" ? "wallet" : "card"}
+              name={
+                efectivo
+                  ? "cash-outline"
+                  : family
+                    ? "people"
+                    : paymentMethod?.type === "wallet"
+                      ? "wallet"
+                      : "card"
+              }
               size={20}
               color={flashDesign.color.brand}
             />
@@ -150,16 +169,56 @@ export function CustomerFoodCheckoutScreen({
             <Text style={styles.foodCheckoutInfoTitle}>Pagar con</Text>
             <Text style={styles.foodCheckoutInfoValue}>{quote.paymentMethod}</Text>
             <Text style={styles.foodCheckoutInfoMeta}>
-              {family
-                ? familyPaymentNote(family)
-                : paymentMethod?.type === "wallet"
-                  ? "Captura atómica al confirmar"
-                  : "Token seguro · captura según proveedor"}
+              {efectivo
+                ? cashCollectionNote(quote.fulfillment)
+                : family
+                  ? familyPaymentNote(family)
+                  : paymentMethod?.type === "wallet"
+                    ? "Captura atómica al confirmar"
+                    : "Token seguro · captura según proveedor"}
             </Text>
           </View>
           <Ionicons name="checkmark-circle" size={21} color={flashDesign.color.shipment} />
         </View>
       </View>
+      {/* Opcional: sin completar, quien cobra sabe que se paga justo. Lleva el vuelto
+          sólo si se lo avisan antes. */}
+      {efectivo ? (
+        <>
+          <View style={styles.foodSectionHeader}>
+            <Text style={styles.foodSectionTitle}>¿Con cuánto pagás?</Text>
+            <Text style={styles.foodSeeAll}>Opcional</Text>
+          </View>
+          <View style={styles.foodCouponField}>
+            <View style={styles.foodCouponIcon}>
+              <Ionicons name="cash-outline" size={19} color={flashDesign.color.food} />
+            </View>
+            <TextInput
+              value={cashTendered}
+              onChangeText={(texto) => onCashTenderedChange?.(texto.replace(/\D/g, ""))}
+              editable={!busy}
+              keyboardType="number-pad"
+              placeholder="Monto en pesos, si necesitás vuelto"
+              placeholderTextColor={flashDesign.color.muted}
+              style={styles.foodCouponInput}
+              accessibilityLabel="Con cuánto pagás, en pesos"
+            />
+          </View>
+          <Text
+            style={[
+              styles.foodCheckoutInfoMeta,
+              { marginHorizontal: flashDesign.space.md },
+              noAlcanza && { color: flashDesign.color.danger },
+            ]}
+          >
+            {conCuanto === null
+              ? "Si no lo completás, pagás el monto justo."
+              : noAlcanza
+                ? `Tiene que ser igual o mayor al total: ${money.format(quote.total + propina / 100)}`
+                : `Vuelto: ${money.format(conCuanto - (quote.total + propina / 100))}`}
+          </Text>
+        </>
+      ) : null}
       <View style={styles.foodSectionHeader}>
         <Text style={styles.foodSectionTitle}>Tu pedido</Text>
         <Text style={styles.foodSeeAll}>
@@ -240,6 +299,7 @@ export function CustomerFoodCheckoutScreen({
         onChange={onPreferencesChange}
         vertical={vertical}
         pickup={quote.fulfillment === "pickup"}
+        cash={efectivo}
         disabled={busy}
       />
       <SchedulePicker scheduledFor={scheduledFor} onChange={onScheduleChange} disabled={busy} />
@@ -252,6 +312,7 @@ export function CustomerFoodCheckoutScreen({
           onChange={onTipChange}
           orderTotal={quote.total}
           disabled={busy}
+          cashInHand={efectivo}
         />
       )}
       <View style={styles.foodCheckoutSecurity}>
@@ -264,8 +325,11 @@ export function CustomerFoodCheckoutScreen({
         </Text>
       </View>
       <Pressable
-        disabled={busy || quoteExpired}
-        style={[styles.foodCheckoutPrimary, (busy || quoteExpired) && styles.disabledButton]}
+        disabled={busy || quoteExpired || noAlcanza}
+        style={[
+          styles.foodCheckoutPrimary,
+          (busy || quoteExpired || noAlcanza) && styles.disabledButton,
+        ]}
         onPress={onConfirm}
       >
         <Text style={styles.foodCheckoutPrimaryText}>

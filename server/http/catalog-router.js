@@ -63,6 +63,8 @@ const branchUpdateSchema = z
     // Retiro en el local (GTM-002). Lo decide el comercio, sucursal por
     // sucursal: entregar en mano exige mostrador y alguien que atienda.
     pickupEnabled: z.boolean().optional(),
+    // PAG-01: efectivo en el mostrador o al repartidor. Lo decide el comercio.
+    cashEnabled: z.boolean().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, "Debes indicar un cambio");
 const branchInventorySchema = z.object({

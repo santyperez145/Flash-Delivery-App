@@ -25,6 +25,7 @@ export function DeliveryPreferences({
   onChange,
   vertical,
   pickup = false,
+  cash = false,
   disabled,
 }: {
   value: Preferencias;
@@ -32,9 +33,12 @@ export function DeliveryPreferences({
   vertical: MerchantVertical;
   /** En retiro no hay reparto: sólo se elige si lleva cubiertos. */
   pickup?: boolean;
+  /** PAG-01: en efectivo alguien tiene que recibir la plata; el servidor lo exige. */
+  cash?: boolean;
   disabled: boolean;
 }) {
   const sinPuerta = RUBROS_SIN_PUERTA.includes(vertical);
+  const puertaBloqueada = sinPuerta || cash;
   const cambiar = (parcial: Partial<Preferencias>) => onChange({ ...value, ...parcial });
   const opcion = (
     modo: Preferencias["dropoff"],
@@ -78,8 +82,12 @@ export function DeliveryPreferences({
             {opcion(
               "leave_at_door",
               "Dejar en la puerta",
-              sinPuerta ? "No disponible en este comercio" : "Sin contacto",
-              sinPuerta,
+              sinPuerta
+                ? "No disponible en este comercio"
+                : cash
+                  ? "En efectivo se entrega en mano"
+                  : "Sin contacto",
+              puertaBloqueada,
             )}
           </View>
           <Text style={estilos.seccion}>Indicaciones para quien reparte</Text>
