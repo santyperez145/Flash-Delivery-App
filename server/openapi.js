@@ -1790,7 +1790,11 @@ Object.assign(openApiDocument.components.schemas, {
       deliveryAddressId: { type: "string", format: "uuid" },
       branchId: { type: "string" },
       fulfillment: { type: "string", enum: ["delivery", "pickup"], default: "delivery" },
-      paymentMethod: { type: "string" },
+      paymentMethod: {
+        type: "string",
+        description:
+          "La etiqueta del método guardado, «Mercado Pago», o «Perfil familiar» (PAG-05, sin paymentMethodId).",
+      },
       paymentMethodId: { type: "string", format: "uuid" },
       promotionCode: { type: "string", minLength: 3, maxLength: 40 },
       items: {
@@ -1882,7 +1886,11 @@ Object.assign(openApiDocument.components.schemas, {
         required: ["customerId", "paymentMethod", "quoteToken"],
         properties: {
           customerId: { type: "string" },
-          paymentMethod: { type: "string", minLength: 2 },
+          paymentMethod: {
+            type: "string",
+            enum: ["Flash Wallet", "Efectivo", "Perfil familiar"],
+            description: "«Perfil familiar» cobra de la Wallet de quien organiza (PAG-05).",
+          },
           quoteToken: { type: "string", minLength: 20, writeOnly: true },
           scheduledFor: {
             type: "string",
@@ -1955,7 +1963,11 @@ Object.assign(openApiDocument.components.schemas, {
           recipientPhone: { type: "string", minLength: 6, maxLength: 40 },
           description: { type: "string", minLength: 2, maxLength: 180 },
           deliveryNotes: { type: "string", maxLength: 300 },
-          paymentMethod: { type: "string", minLength: 2 },
+          paymentMethod: {
+            type: "string",
+            enum: ["Flash Wallet", "Perfil familiar"],
+            description: "«Perfil familiar» cobra de la Wallet de quien organiza (PAG-05).",
+          },
           termsAccepted: { const: true },
           quoteToken: { type: "string", minLength: 20, writeOnly: true },
         },

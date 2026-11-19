@@ -12,6 +12,7 @@ import { money } from "../format";
 import { styles } from "../styles";
 import { ActionButton, NativeMapUnavailable } from "../ui";
 import { RidePaymentPicker, type RidePaymentMethod } from "../RidePaymentPicker";
+import { FAMILY_PAYMENT, useFamilyPayment } from "../family-payment";
 import type {
   AppState,
   GeoPoint,
@@ -72,7 +73,16 @@ export function CustomerRideScreen({
   const [roadRoute, setRoadRoute] = useState<RoadRoute | null>(null);
   const [rideService, setRideService] = useState<RideService>("economy");
   const [rideQuote, setRideQuote] = useState<RideQuote | null>(null);
-  const [pago, setPago] = useState<RidePaymentMethod>("Flash Wallet");
+  const [pagoElegido, setPago] = useState<RidePaymentMethod>("Flash Wallet");
+  // PAG-05: «Perfil familiar» sólo con una membresía activa. Si deja de estarlo
+  // (la sacaron o la lectura falló), el viaje vuelve a pagarse con la Wallet propia
+  // en vez de mandar un medio que el servidor rechazaría.
+  const { membership: familia, reload: releerFamilia } = useFamilyPayment();
+  const pago = pagoElegido === FAMILY_PAYMENT && !familia ? "Flash Wallet" : pagoElegido;
+  // Lo que queda del mes cambia con cada viaje: se relee al volver a la pantalla.
+  useEffect(() => {
+    if (visible) void releerFamilia();
+  }, [visible, releerFamilia]);
   const [rideOptions, setRideOptions] = useState<RideQuote[]>([]);
   const [rideDestinations, setRideDestinations] = useState<RideDestination[]>([]);
   const [trustedContactName, setTrustedContactName] = useState("");
@@ -258,6 +268,7 @@ export function CustomerRideScreen({
           scheduledFor,
         });
         track("job_created", "customer_app", { service: "ride" });
+        if (pago === FAMILY_PAYMENT) void releerFamilia();
       },
       scheduledFor ? "Viaje reservado" : "Viaje solicitado",
     );
@@ -481,7 +492,12 @@ export function CustomerRideScreen({
             </Pressable>
           ))}
         </View>
-        <RidePaymentPicker value={pago} fare={rideQuote?.fare ?? null} onChange={setPago} />
+        <RidePaymentPicker
+          value={pago}
+          fare={rideQuote?.fare ?? null}
+          onChange={setPago}
+          family={familia}
+        />
         <View style={styles.actionRow}>
           <ActionButton label="Cotizar" disabled={busy} onPress={quoteRide} />
           <ActionButton label="Solicitar" disabled={busy || !rideQuote} onPress={requestRide} />

@@ -85,7 +85,11 @@ const shipmentCreateSchema = shipmentQuoteSchema.extend({
   recipientPhone: z.string().trim().min(6).max(40),
   description: z.string().trim().min(2).max(180),
   deliveryNotes: z.string().trim().max(300).default(""),
-  paymentMethod: z.string().min(2),
+  // PAG-05: Flash Wallet o perfil familiar. Antes era texto libre, y una etiqueta que
+  // no dijera «wallet» creaba un envío sin cobrar que después no se liquidaba.
+  paymentMethod: z.enum(["Flash Wallet", "Perfil familiar"], {
+    message: "Elegí Flash Wallet o tu perfil familiar",
+  }),
   termsAccepted: z.literal(true, {
     error: "Debes aceptar las restricciones de envio",
   }),

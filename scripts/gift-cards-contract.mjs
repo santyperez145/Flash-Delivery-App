@@ -264,7 +264,7 @@ for (const [panel, donde] of [
       // activar en la misma pantalla, y sin el campo no hay cómo mandar el código.
       contains(
         panel,
-        'if (conMfa !== true && (await releerMfa()) === true) throw new Error("Escribí el código de tu app autenticadora para comprar");',
+        'if (!codigoMfa && conMfa !== true && (await releerMfa()) === true) throw new Error("Escribí el código de tu app autenticadora para comprar");',
       ) &&
       contains(panel, "void releerMfa();") &&
       contains(panel, "...(conCodigo ? { mfaCode: codigoMfa } : {}),") &&

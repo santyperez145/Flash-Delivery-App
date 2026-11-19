@@ -5,6 +5,7 @@ import type { DeliveryPreferences as DeliveryPreferencesValue, MerchantVertical 
 import { Pressable, Text, View } from "react-native";
 
 import { flashDesign } from "../design-system";
+import { familyPaymentNote, type FamilyMembership } from "../family-payment";
 import { money } from "../format";
 import { SchedulePicker } from "../SchedulePicker";
 import { styles } from "../styles";
@@ -16,6 +17,7 @@ export function CustomerFoodCheckoutScreen({
   quote,
   restaurantName,
   paymentMethod,
+  family = null,
   busy,
   tipCents,
   scheduledFor,
@@ -32,6 +34,8 @@ export function CustomerFoodCheckoutScreen({
   quote: FoodCheckoutQuote | null;
   restaurantName?: string;
   paymentMethod?: PaymentMethod;
+  /** PAG-05: presente si se paga con «Perfil familiar». */
+  family?: FamilyMembership | null;
   busy: boolean;
   tipCents: number;
   scheduledFor: string | null;
@@ -137,7 +141,7 @@ export function CustomerFoodCheckoutScreen({
         <View style={styles.foodCheckoutInfoCard}>
           <View style={[styles.foodCheckoutInfoIcon, { backgroundColor: "#EEE7FF" }]}>
             <Ionicons
-              name={paymentMethod?.type === "wallet" ? "wallet" : "card"}
+              name={family ? "people" : paymentMethod?.type === "wallet" ? "wallet" : "card"}
               size={20}
               color={flashDesign.color.brand}
             />
@@ -146,9 +150,11 @@ export function CustomerFoodCheckoutScreen({
             <Text style={styles.foodCheckoutInfoTitle}>Pagar con</Text>
             <Text style={styles.foodCheckoutInfoValue}>{quote.paymentMethod}</Text>
             <Text style={styles.foodCheckoutInfoMeta}>
-              {paymentMethod?.type === "wallet"
-                ? "Captura atómica al confirmar"
-                : "Token seguro · captura según proveedor"}
+              {family
+                ? familyPaymentNote(family)
+                : paymentMethod?.type === "wallet"
+                  ? "Captura atómica al confirmar"
+                  : "Token seguro · captura según proveedor"}
             </Text>
           </View>
           <Ionicons name="checkmark-circle" size={21} color={flashDesign.color.shipment} />

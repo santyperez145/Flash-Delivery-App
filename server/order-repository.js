@@ -25,6 +25,17 @@ import { getActiveSubscription, splitOrderDiscounts } from "./subscription-repos
 import { CHECKOUT_TIP_MIN_CENTS, checkoutTipMaxCents, holdCheckoutTip } from "./tip-repository.js";
 import { getPostgresPricingPlan } from "./configuration-repository.js";
 import { enqueueNotificationForInternalUser } from "./notification-repository.js";
+import {
+  FAMILY_LABEL,
+  getFamilyPaymentOption,
+  notifyFamilyCharge,
+  resolveFamilyPayer,
+} from "./family-profile-repository.js";
+
+// Se paga desde una Flash Wallet: la propia, o la de quien organiza el perfil
+// familiar (PAG-05). Las promociones «con Flash Wallet» aplican a las dos.
+const pagaConWallet = (label) =>
+  label === FAMILY_LABEL || String(label).toLowerCase().includes("wallet");
 import { acceptDispatchOffer, createDispatchOffers } from "./dispatch-repository.js";
 import {
   recordMarketplaceCapture,
@@ -405,6 +416,15 @@ export async function getPostgresFoodCheckoutQuote({
           ? "Flash Wallet"
           : `${method.brand || method.kind} •••• ${method.last4 || ""}`.trim();
     }
+    // PAG-05: el perfil familiar no es una fila de `payment_methods`; la cotización
+    // sólo confirma que la persona puede usarlo. El tope se controla al cobrar.
+    const opcionFamiliar =
+      paymentMethod === FAMILY_LABEL ? await getFamilyPaymentOption(customerPublicId) : null;
+    if (paymentMethod === FAMILY_LABEL && !opcionFamiliar)
+      throw Object.assign(
+        new Error("No tenés un perfil familiar activo: elegí otro medio de pago"),
+        { status: 409 },
+      );
     let subtotalCents = 0;
     const snapshot = [];
     for (const entry of items) {
@@ -452,10 +472,7 @@ export async function getPostgresFoodCheckoutQuote({
         throw Object.assign(new Error("No alcanzas el subtotal mínimo de la promoción"), {
           status: 409,
         });
-      if (
-        promotion.rules?.paymentMethod === "flash_wallet" &&
-        !String(paymentMethod).toLowerCase().includes("wallet")
-      )
+      if (promotion.rules?.paymentMethod === "flash_wallet" && !pagaConWallet(paymentMethod))
         throw Object.assign(new Error("La promoción requiere Flash Wallet"), { status: 409 });
       const usage = (
         await client.query(
@@ -497,6 +514,18 @@ export async function getPostgresFoodCheckoutQuote({
       serviceFeeCents -
       discountCents -
       subscriptionDiscountCents;
+    // PAG-05: avisar en la cotización, no recién al confirmar, si el pedido supera lo
+    // que queda del tope del mes. Al cobrar se vuelve a controlar, con la propina.
+    if (
+      opcionFamiliar?.remaining != null &&
+      totalCents > Math.round(opcionFamiliar.remaining * 100)
+    )
+      throw Object.assign(
+        new Error(
+          `Superás el tope de tu perfil familiar: te quedan $${opcionFamiliar.remaining.toLocaleString("es-AR")} este mes`,
+        ),
+        { status: 402 },
+      );
     return {
       ...delivery,
       items: snapshot,
@@ -647,7 +676,14 @@ export async function createPostgresOrder({
       fulfillment,
       vertical: merchant.rows[0].vertical,
     });
-    const walletPayment = String(paymentMethod).toLowerCase().includes("wallet");
+    // PAG-05: el rail se elige explícitamente. «Perfil familiar» no contiene «wallet»:
+    // con la prueba por subcadena caía en Mercado Pago.
+    const familyPayment = paymentMethod === FAMILY_LABEL;
+    if (familyPayment && paymentMethodId)
+      throw Object.assign(new Error("El perfil familiar no lleva un método de pago guardado"), {
+        status: 400,
+      });
+    const walletPayment = pagaConWallet(paymentMethod);
     if (!walletPayment && !providerPayment)
       throw Object.assign(
         new Error("El pago debe tokenizarse con Mercado Pago antes de confirmar"),
@@ -751,10 +787,7 @@ export async function createPostgresOrder({
         throw Object.assign(new Error("No alcanzas el subtotal mínimo de la promoción"), {
           status: 409,
         });
-      if (
-        promotion.rules?.paymentMethod === "flash_wallet" &&
-        !String(paymentMethod).toLowerCase().includes("wallet")
-      )
+      if (promotion.rules?.paymentMethod === "flash_wallet" && !pagaConWallet(paymentMethod))
         throw Object.assign(new Error("La promoción requiere Flash Wallet"), { status: 409 });
       const usage = (
         await client.query(
@@ -934,10 +967,19 @@ export async function createPostgresOrder({
         [promotion.id, customer.rows[0].id, job.rows[0].id, discountCents],
       );
     let paymentStatus = "pending";
+    // PAG-05: con el perfil familiar paga quien organiza. La membresía se bloquea y el
+    // tope del mes se controla acá, en la transacción del cobro.
+    const familia = familyPayment
+      ? await resolveFamilyPayer(client, {
+          customerId: customer.rows[0].id,
+          amountCents: chargedCents,
+        })
+      : null;
+    const payerId = familia?.organizerId ?? customer.rows[0].id;
     if (walletPayment) {
       const walletAccount = await client.query(
         `SELECT id FROM ledger_accounts WHERE owner_type='user' AND owner_id=$1 AND currency='ARS' AND account_type='wallet' FOR UPDATE`,
-        [customer.rows[0].id],
+        [payerId],
       );
       const walletBalance = walletAccount.rows[0]
         ? await client.query(
@@ -961,7 +1003,9 @@ export async function createPostgresOrder({
           `payment-${idempotencyKey}`,
           customer.rows[0].id,
           `Pago pedido ${publicId}`,
-          { jobPublicId: publicId },
+          familia
+            ? { jobPublicId: publicId, familyMemberId: familia.familyMemberId }
+            : { jobPublicId: publicId },
         ],
       );
       await client.query(
@@ -977,16 +1021,27 @@ export async function createPostgresOrder({
         ],
       );
       await client.query(
-        `INSERT INTO payment_intents(job_id,customer_id,provider,status,amount_cents,captured_amount_cents,currency,idempotency_key,provider_payload)
-        VALUES($1,$2,'flash_wallet','captured',$3,$3,'ARS',$4,$5)`,
+        `INSERT INTO payment_intents(job_id,customer_id,provider,status,amount_cents,captured_amount_cents,currency,idempotency_key,provider_payload,family_member_id)
+        VALUES($1,$2,'flash_wallet','captured',$3,$3,'ARS',$4,$5,$6)`,
         [
           job.rows[0].id,
-          customer.rows[0].id,
+          // Quien pagó: los reintegros vuelven acá (PAG-05).
+          payerId,
           chargedCents,
           `payment-${idempotencyKey}`,
           { ledgerTransactionId: paymentTransaction.rows[0].id },
+          familia?.familyMemberId ?? null,
         ],
       );
+      if (familia)
+        await notifyFamilyCharge(client, {
+          organizerId: familia.organizerId,
+          memberId: customer.rows[0].id,
+          familyMemberId: familia.familyMemberId,
+          amountCents: chargedCents,
+          description: "Un pedido",
+          jobPublicId: publicId,
+        });
       paymentStatus = "captured";
     } else {
       const merchantCommissionCents = Math.round(
@@ -1031,7 +1086,8 @@ export async function createPostgresOrder({
     // completarse vuelve con el reintegro.
     await holdCheckoutTip(client, {
       jobId: job.rows[0].id,
-      customerId: customer.rows[0].id,
+      // Quien pagó la propina: un ajuste se la devuelve a él (PAG-05).
+      customerId: payerId,
       amountCents: tipCents,
       idempotencyKey,
     });

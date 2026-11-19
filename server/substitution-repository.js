@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { postgresPool } from "./postgres.js";
+import { payerWalletForRefund } from "./wallet-repository.js";
 import { enqueueNotificationForInternalUser } from "./notification-repository.js";
 
 const newId = () => `SUB-${crypto.randomBytes(6).toString("hex").toUpperCase()}`;
@@ -204,12 +205,8 @@ export async function decideOrderSubstitution({
           throw Object.assign(new Error("No existe captura suficiente para ajustar el pedido"), {
             status: 409,
           });
-        const wallet = (
-            await client.query(
-              "SELECT id FROM ledger_accounts WHERE owner_type='user' AND owner_id=$1 AND account_type='wallet' FOR UPDATE",
-              [row.customer_id],
-            )
-          ).rows[0],
+        // A quien pagó (PAG-05): con el perfil familiar, quien organiza.
+        const wallet = await payerWalletForRefund(client, payment.customer_id),
           clearing = (
             await client.query(
               "SELECT id FROM ledger_accounts WHERE owner_type='platform' AND owner_id IS NULL AND account_type='cash_clearing' FOR UPDATE",

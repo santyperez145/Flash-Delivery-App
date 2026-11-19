@@ -1,7 +1,12 @@
+import {
+  FAMILY_LABEL,
+  notifyFamilyCharge,
+  resolveFamilyPayer,
+} from "./family-profile-repository.js";
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { postgresPool } from "./postgres.js";
-import { captureWalletPayment } from "./wallet-repository.js";
+import { CASH_LABEL, captureWalletPayment } from "./wallet-repository.js";
 import { enqueueNotificationForInternalUser } from "./notification-repository.js";
 import { acceptDispatchOffer, createDispatchOffers } from "./dispatch-repository.js";
 import {
@@ -32,6 +37,57 @@ const mapDeliveryEvidence = (row) => ({
   signerRelationship: row.signer_relationship || null,
   consentVersion: row.consent_version || null,
 });
+/**
+ * El cobro de un viaje o un envío, en la transacción del alta.
+ *
+ * - «Flash Wallet»: de la Wallet de quien pide.
+ * - «Perfil familiar» (PAG-05): de la Wallet de quien organiza, con la membresía
+ *   bloqueada y el tope del mes controlado acá; quien organiza recibe el aviso.
+ * - «Efectivo»: sólo viajes; se liquida al terminar (PAG-01).
+ *
+ * El rail se elige explícitamente: con la prueba por subcadena («wallet»), una
+ * etiqueta desconocida creaba el servicio sin cobrar.
+ */
+async function capturarServicio(
+  client,
+  { paymentMethod, jobId, customerId, amountCents, idempotencyKey, description, publicId, kind },
+) {
+  if (paymentMethod === CASH_LABEL && kind === "ride") return;
+  if (paymentMethod === FAMILY_LABEL) {
+    const familia = await resolveFamilyPayer(client, { customerId, amountCents });
+    await captureWalletPayment(client, {
+      jobId,
+      customerId: familia.organizerId,
+      amountCents,
+      idempotencyKey,
+      description,
+      metadata: { publicId, kind, familyMemberId: familia.familyMemberId },
+      familyMemberId: familia.familyMemberId,
+    });
+    await notifyFamilyCharge(client, {
+      organizerId: familia.organizerId,
+      memberId: customerId,
+      familyMemberId: familia.familyMemberId,
+      amountCents,
+      description: kind === "ride" ? "Un viaje" : "Un envío",
+      jobPublicId: publicId,
+    });
+    return;
+  }
+  if (!String(paymentMethod).toLowerCase().includes("wallet"))
+    throw Object.assign(new Error("Medio de pago no disponible para este servicio"), {
+      status: 400,
+    });
+  await captureWalletPayment(client, {
+    jobId,
+    customerId,
+    amountCents,
+    idempotencyKey,
+    description,
+    metadata: { publicId, kind },
+  });
+}
+
 export const matchesImageMime = (content, mimeType) =>
   mimeType === "image/jpeg"
     ? content[0] === 0xff && content[1] === 0xd8 && content[2] === 0xff
@@ -195,15 +251,16 @@ export async function createPostgresRide({
         deduplicationKey: `ride:${publicId}:reminder`,
         scheduledAt: new Date(scheduledDate.getTime() - 30 * 60 * 1000),
       });
-    if (String(paymentMethod).toLowerCase().includes("wallet"))
-      await captureWalletPayment(client, {
-        jobId: inserted.rows[0].id,
-        customerId: customer.id,
-        amountCents: Math.round(quote.fare * 100),
-        idempotencyKey,
-        description: `Viaje ${publicId}`,
-        metadata: { publicId, kind: "ride" },
-      });
+    await capturarServicio(client, {
+      paymentMethod,
+      jobId: inserted.rows[0].id,
+      customerId: customer.id,
+      amountCents: Math.round(quote.fare * 100),
+      idempotencyKey,
+      description: `Viaje ${publicId}`,
+      publicId,
+      kind: "ride",
+    });
     const ride = {
       id: publicId,
       customerId: customerPublicId,
@@ -613,15 +670,16 @@ export async function createPostgresShipment({
       payload: { kind: "shipment", jobId: publicId, status },
       deduplicationKey: `shipment:${publicId}:${status}`,
     });
-    if (String(data.paymentMethod).toLowerCase().includes("wallet"))
-      await captureWalletPayment(client, {
-        jobId: job.id,
-        customerId: customer.id,
-        amountCents: Math.round(quote.fare * 100),
-        idempotencyKey,
-        description: `Envío ${publicId}`,
-        metadata: { publicId, kind: "shipment" },
-      });
+    await capturarServicio(client, {
+      paymentMethod: data.paymentMethod,
+      jobId: job.id,
+      customerId: customer.id,
+      amountCents: Math.round(quote.fare * 100),
+      idempotencyKey,
+      description: `Envío ${publicId}`,
+      publicId,
+      kind: "shipment",
+    });
     const shipment = {
       id: publicId,
       customerId: customerPublicId,

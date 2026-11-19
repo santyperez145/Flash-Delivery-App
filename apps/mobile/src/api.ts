@@ -891,7 +891,8 @@ export const api = {
     branchId?: string;
     fulfillment?: "delivery" | "pickup";
     paymentMethod: string;
-    paymentMethodId: string;
+    /** Ausente con «Perfil familiar» (PAG-05): paga la Wallet de quien organiza. */
+    paymentMethodId?: string;
     promotionCode?: string;
     items: Array<{ menuItemId: string; quantity: number; extras: string[]; note: string }>;
   }) {

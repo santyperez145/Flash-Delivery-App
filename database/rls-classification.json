@@ -300,6 +300,14 @@
       "clase": "por-usuario",
       "rls": true
     },
+    "family_profiles": {
+      "clase": "por-usuario",
+      "rls": true
+    },
+    "family_members": {
+      "clase": "por-usuario",
+      "rls": true
+    },
     "ride_pickup_verifications": {
       "clase": "por-usuario",
       "rls": true

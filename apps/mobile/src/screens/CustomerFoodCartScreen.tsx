@@ -3,6 +3,12 @@ import { Image, Pressable, Text, TextInput, View } from "react-native";
 import { FulfillmentToggle, type Fulfillment } from "../FulfillmentToggle";
 
 import { flashDesign } from "../design-system";
+import {
+  FAMILY_PAYMENT,
+  FAMILY_PAYMENT_ID,
+  familyPaymentNote,
+  type FamilyMembership,
+} from "../family-payment";
 import { money } from "../format";
 import { styles } from "../styles";
 import type { MobileCartLine, PaymentMethod, Promotion, Restaurant, UserAddress } from "../types";
@@ -16,6 +22,8 @@ export function CustomerFoodCartScreen({
   deliveryAddress,
   paymentMethods,
   selectedPayment,
+  family = null,
+  familySelected = false,
   promotion,
   promotionCode,
   subtotal,
@@ -42,6 +50,9 @@ export function CustomerFoodCartScreen({
   deliveryAddress: string;
   paymentMethods: PaymentMethod[];
   selectedPayment?: PaymentMethod;
+  /** PAG-05: la membresía activa del perfil familiar; sin ella la opción no aparece. */
+  family?: FamilyMembership | null;
+  familySelected?: boolean;
   promotion: Promotion | null;
   promotionCode: string;
   subtotal: number;
@@ -237,15 +248,20 @@ export function CustomerFoodCartScreen({
             <Text style={styles.foodSectionTitle}>Pago</Text>
             <Text style={styles.foodSeeAll}>Token seguro</Text>
           </View>
-          <View style={styles.foodCartOptionList}>
+          <View
+            style={styles.foodCartOptionList}
+            accessibilityRole="radiogroup"
+            accessibilityLabel="Cómo pagás"
+          >
             {paymentMethods.map((method) => {
-              const selected = selectedPayment?.id === method.id;
+              const selected = !familySelected && selectedPayment?.id === method.id;
               return (
                 <Pressable
                   key={method.id}
                   onPress={() => onSelectPayment(method.id)}
                   style={[styles.foodCartOption, selected && styles.foodCartOptionSelected]}
-                  accessibilityState={{ selected }}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selected }}
                 >
                   <View
                     style={[
@@ -278,7 +294,40 @@ export function CustomerFoodCartScreen({
                 </Pressable>
               );
             })}
-            {!paymentMethods.length ? (
+            {/* Paga la Wallet de quien organiza: se muestra quién y cuánto queda del
+                mes, nunca su saldo. */}
+            {family ? (
+              <Pressable
+                onPress={() => onSelectPayment(FAMILY_PAYMENT_ID)}
+                style={[styles.foodCartOption, familySelected && styles.foodCartOptionSelected]}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: familySelected }}
+              >
+                <View
+                  style={[
+                    styles.foodCartOptionIcon,
+                    styles.foodCartPaymentIcon,
+                    familySelected && styles.foodCartPaymentIconSelected,
+                  ]}
+                >
+                  <Ionicons
+                    name="people"
+                    size={19}
+                    color={familySelected ? "#fff" : flashDesign.color.brand}
+                  />
+                </View>
+                <View style={styles.itemCopy}>
+                  <Text style={styles.foodCartOptionTitle}>{FAMILY_PAYMENT}</Text>
+                  <Text style={styles.foodCartOptionMeta}>{familyPaymentNote(family)}</Text>
+                </View>
+                <Ionicons
+                  name={familySelected ? "checkmark-circle" : "ellipse-outline"}
+                  size={22}
+                  color={familySelected ? flashDesign.color.brand : flashDesign.color.muted}
+                />
+              </Pressable>
+            ) : null}
+            {!paymentMethods.length && !family ? (
               <Pressable style={styles.foodCartMissingOption} onPress={onOpenAccount}>
                 <Ionicons name="card-outline" size={20} color={flashDesign.color.danger} />
                 <View style={styles.itemCopy}>

@@ -9,6 +9,7 @@ import {
   ShieldCheck,
   ShoppingBag,
   Store,
+  Users,
   TicketPercent,
   TriangleAlert,
   WalletCards,
@@ -26,6 +27,7 @@ import type {
 } from "../types";
 import { TopBar } from "../ui/panels";
 import { EmptyState } from "./EmptyState";
+import { FAMILY_PAYMENT, familyPaymentDetail, useFamilyPayment } from "./family-payment";
 import { MercadoPagoCardCheckout } from "./FoodCardPayment";
 import { FoodDeliveryPreferences, PREFERENCIAS_INICIALES } from "./FoodDeliveryPreferences";
 import { FoodFulfillmentPicker } from "./FoodFulfillmentPicker";
@@ -78,13 +80,21 @@ export function CartScreen({
   customerEmail: string;
   busy: boolean;
 }) {
-  const [paymentMode, setPaymentMode] = useState<"wallet" | "mercadopago">("wallet"),
+  // PAG-05: «family» paga con la Wallet de quien organiza el perfil familiar.
+  const [paymentMode, setPaymentMode] = useState<"wallet" | "mercadopago" | "family">("wallet"),
     [paymentConfiguration, setPaymentConfiguration] = useState<{
       provider: "mercadopago" | "disabled";
       publicKey: string | null;
       merchantReady: boolean;
     } | null>(null),
     [paymentConfigurationError, setPaymentConfigurationError] = useState("");
+  // Se lee al abrir el checkout, así lo que queda del mes está al día.
+  const familia = useFamilyPayment(checkoutOpen);
+  useEffect(() => {
+    // Si la membresía deja de estar (la sacaron o la lectura falló), el pago vuelve
+    // a la Wallet propia: cotizar con el perfil terminaría en un rechazo seguro.
+    if (!familia) setPaymentMode((modo) => (modo === "family" ? "wallet" : modo));
+  }, [familia]);
   const geocodedAddresses = addresses.filter(
     (entry) => !entry.id.startsWith("profile-") && entry.lat !== null && entry.lng !== null,
   );
@@ -207,7 +217,12 @@ export function CartScreen({
           fulfillment,
           deliveryAddressId: esRetiro ? undefined : selectedAddress?.id,
           paymentMethod:
-            paymentMode === "wallet" ? walletMethod?.label || "Flash Wallet" : "Mercado Pago",
+            paymentMode === "wallet"
+              ? walletMethod?.label || "Flash Wallet"
+              : paymentMode === "family"
+                ? FAMILY_PAYMENT
+                : "Mercado Pago",
+          // El perfil familiar no es un método guardado: el servidor rechaza un id con él.
           paymentMethodId: paymentMode === "wallet" ? walletMethod?.id : undefined,
           promotionCode: promotionCode.trim().toUpperCase() || undefined,
           items: cart.map((line) => ({
@@ -382,7 +397,11 @@ export function CartScreen({
                 </div>
                 <CreditCard size={18} />
               </div>
-              <div className="payment-choice" role="radiogroup" aria-label="Método de pago">
+              <div
+                className={familia ? "payment-choice with-family" : "payment-choice"}
+                role="radiogroup"
+                aria-label="Método de pago"
+              >
                 <button
                   type="button"
                   role="radio"
@@ -421,6 +440,22 @@ export function CartScreen({
                     </small>
                   </span>
                 </button>
+                {/* PAG-05: sólo para quien es miembro activo de un perfil familiar. */}
+                {familia && (
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={paymentMode === "family"}
+                    className={paymentMode === "family" ? "active family-option" : "family-option"}
+                    onClick={() => setPaymentMode("family")}
+                  >
+                    <Users size={18} />
+                    <span>
+                      <strong>{FAMILY_PAYMENT}</strong>
+                      <small>{familyPaymentDetail(familia)}</small>
+                    </span>
+                  </button>
+                )}
               </div>
               {paymentConfigurationError && (
                 <small className="payment-provider-error">{paymentConfigurationError}</small>
@@ -538,7 +573,8 @@ export function CartScreen({
             />
           )}
           <SummaryBlock totals={displayedTotals} />
-          {paymentMode === "wallet" && (
+          {/* Con el perfil familiar también se confirma acá: no hay pasarela de tarjeta. */}
+          {(paymentMode === "wallet" || paymentMode === "family") && (
             <button
               className="primary-button sticky-action"
               type="button"

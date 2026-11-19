@@ -117,7 +117,8 @@ export function GiftCards({
     event.preventDefault();
     if (!alcanza) return;
     void hacer("comprar", async () => {
-      if (conMfa !== true && (await releerMfa()) === true)
+      // Sólo si no hay un código escrito: con uno, se manda y el servidor decide.
+      if (!codigoMfa && conMfa !== true && (await releerMfa()) === true)
         throw new Error("Escribí el código de tu app autenticadora para comprar");
       const conCodigo = conMfa !== false && Boolean(codigoMfa);
       const { card } = await purchaseGiftCard(

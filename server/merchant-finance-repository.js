@@ -202,7 +202,8 @@ export async function settleCapturedFoodOrder(client, { jobId, actorId = null })
         })
       : await account(client, {
           ownerType: "user",
-          ownerId: job.customer_id,
+          // A quien pagó la propina (PAG-05): con el perfil familiar, quien organiza.
+          ownerId: payment.customer_id,
           accountType: "wallet",
         });
     entries.push([destinoPropina, "credit", tip.amountCents]);

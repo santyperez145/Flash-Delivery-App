@@ -1,0 +1,224 @@
+/* Perfil familiar (PAG-05). Hoja propia: `styles.css` es un monolito de H-08. Mismo
+   lenguaje visual que las tarjetas de regalo, que viven justo arriba en la Wallet. */
+.family-profile {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: 16px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+.family-profile header {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.family-profile header > svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--accent-deep);
+}
+.family-profile header strong {
+  font-size: 1rem;
+}
+.family-profile p,
+.family-profile small {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+.family-profile p[role="alert"] {
+  color: var(--danger, #b42318);
+  font-weight: 700;
+}
+.family-profile p[role="status"] {
+  color: #0f6b3a;
+  font-weight: 700;
+}
+.family-profile form {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.family-profile label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.family-profile input {
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  font: inherit;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.family-profile button {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 8px 16px;
+  color: #fff;
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 800;
+  background: var(--ink);
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.family-profile button.secondary {
+  color: var(--ink);
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+}
+.family-profile button.danger {
+  background: var(--danger, #b42318);
+}
+.family-profile button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.family-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.family-card {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 12px;
+  background: var(--paper-soft);
+  border-radius: 12px;
+}
+.family-card > div:first-child {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  /* Un email largo no puede ensanchar la tarjeta en un teléfono de 320px. */
+  overflow-wrap: anywhere;
+}
+.family-card-invitation {
+  background: linear-gradient(135deg, #f3ecff, #fff4e5);
+}
+.family-limit {
+  flex: 1 1 100%;
+}
+.family-membership {
+  display: grid;
+  gap: 12px;
+}
+.family-membership dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+.family-membership dl > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px 12px;
+  background: var(--paper-soft);
+  border-radius: 12px;
+}
+.family-membership dt {
+  color: var(--ink-soft);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+.family-membership dd {
+  margin: 0;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+.family-membership > button {
+  justify-self: start;
+}
+.family-list {
+  display: grid;
+  gap: 8px;
+}
+.family-status {
+  justify-self: start;
+  padding: 2px 10px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  border-radius: 999px;
+}
+.family-status-active {
+  color: #0f6b3a;
+  background: #ddf5e7;
+}
+.family-status-invited {
+  color: var(--ink-soft);
+  background: var(--paper);
+}
+
+/* La opción «Perfil familiar» en el pedido de viaje: con tres opciones, la tercera
+   ocupa la fila entera en lugar de apretar las tres en 320px. */
+.ride-payment.with-family button:last-child {
+  grid-column: 1 / -1;
+}
+
+/* El medio de pago del envío (PAG-05): Flash Wallet o, si es miembro, el perfil. */
+.shipment-payment-picker {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.shipment-payment-choice {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.shipment-payment-choice button {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control, 12px);
+  cursor: pointer;
+}
+.shipment-payment-choice button > svg {
+  flex: none;
+}
+.shipment-payment-choice button span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.shipment-payment-choice button small {
+  color: var(--ink-soft);
+}
+.shipment-payment-choice button[aria-checked="true"] {
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+
+/* La opción en el checkout de comida: ocupa la fila entera y su detalle (quién paga y
+   cuánto queda) se lee completo en lugar de cortarse con puntos suspensivos. */
+.payment-choice.with-family .family-option {
+  grid-column: 1 / -1;
+}
+.payment-choice .family-option small {
+  white-space: normal;
+}

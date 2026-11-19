@@ -32,6 +32,9 @@ import type {
   FareSplitInvitation,
   GiftCard,
   ReceivedGiftCard,
+  FamilyMember,
+  FamilyProfile,
+  FamilyPaymentLabel,
   MfaStatus,
   MfaEnrollment,
 } from "@flash/domain-contracts";
@@ -70,6 +73,9 @@ export type {
   FareSplitInvitation,
   GiftCard,
   ReceivedGiftCard,
+  FamilyMember,
+  FamilyProfile,
+  FamilyPaymentLabel,
   MfaStatus,
   MfaEnrollment,
 };
@@ -185,11 +191,11 @@ export type RideForm = {
   service: Ride["service"];
   pickupCoords: GeoPoint | null;
   destinationCoords: GeoPoint | null;
-  /** PAG-01: Flash Wallet (por omisión) o efectivo al conductor. */
+  /** PAG-01: Flash Wallet (por omisión) o efectivo al conductor. PAG-05: o el perfil familiar. */
   paymentMethod?: RidePaymentMethod;
 };
 
-export type RidePaymentMethod = "Flash Wallet" | "Efectivo";
+export type RidePaymentMethod = "Flash Wallet" | "Efectivo" | FamilyPaymentLabel;
 
 export type Restaurant = {
   id: string;

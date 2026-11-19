@@ -107,6 +107,8 @@
     "test:fare-splits": "node --env-file-if-exists=.env.local scripts/fare-splits-smoke.mjs",
     "test:gift-cards": "node --env-file-if-exists=.env.local scripts/gift-cards-smoke.mjs",
     "test:gift-cards-contract": "node scripts/gift-cards-contract.mjs",
+    "test:family-profiles": "node --env-file-if-exists=.env.local scripts/family-profiles-smoke.mjs",
+    "test:family-profiles-contract": "node scripts/family-profiles-contract.mjs",
     "test:service-chat": "node --env-file-if-exists=.env.local scripts/service-chat-smoke.mjs",
     "test:shipment-claims": "node --env-file-if-exists=.env.local scripts/shipment-claims-smoke.mjs",
     "test:payment-reconciliation": "node --env-file-if-exists=.env.local scripts/payment-reconciliation-smoke.mjs",

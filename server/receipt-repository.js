@@ -30,7 +30,10 @@ export async function getOrCreatePostgresReceipt({ jobPublicId, actorPublicId, a
       await client.query(
         `SELECT j.*,u.public_id customer_public_id
       FROM jobs j JOIN users u ON u.id=j.customer_id
-      WHERE j.public_id=$1 AND ($2::boolean OR u.public_id=$3) FOR UPDATE OF j`,
+      WHERE j.public_id=$1 AND ($2::boolean OR u.public_id=$3
+        -- PAG-05: quien pagó con su perfil familiar también tiene el comprobante.
+        OR EXISTS (SELECT 1 FROM payment_intents p JOIN users pu ON pu.id=p.customer_id
+                   WHERE p.job_id=j.id AND pu.public_id=$3)) FOR UPDATE OF j`,
         [jobPublicId, admin, actorPublicId],
       )
     ).rows[0];
@@ -86,7 +89,7 @@ export async function getOrCreatePostgresReceipt({ jobPublicId, actorPublicId, a
     }
     const payment = (
       await client.query(
-        "SELECT provider,status,amount_cents,captured_amount_cents,currency FROM payment_intents WHERE job_id=$1 ORDER BY created_at DESC LIMIT 1",
+        "SELECT provider,status,amount_cents,captured_amount_cents,currency,(family_member_id IS NOT NULL) family_profile FROM payment_intents WHERE job_id=$1 ORDER BY created_at DESC LIMIT 1",
         [job.id],
       )
     ).rows[0];
@@ -121,6 +124,8 @@ export async function getOrCreatePostgresReceipt({ jobPublicId, actorPublicId, a
                 amount: pesos(payment.amount_cents),
                 capturedAmount: pesos(payment.captured_amount_cents),
                 currency: payment.currency,
+                // PAG-05: pagado con el perfil familiar de otra persona.
+                familyProfile: Boolean(payment.family_profile),
               }
             : { status: "not_recorded", currency: "ARS" },
           {

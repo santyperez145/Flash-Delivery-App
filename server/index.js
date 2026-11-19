@@ -84,6 +84,7 @@ import { pricingRouter } from "./http/pricing-router.js";
 import { subscriptionRouter } from "./http/subscription-router.js";
 import { groupOrderRouter } from "./http/group-order-router.js";
 import { giftCardRouter } from "./http/gift-card-router.js";
+import { familyProfileRouter } from "./http/family-profile-router.js";
 import { supportRouter } from "./http/support-router.js";
 import { configurationRouter } from "./http/configuration-router.js";
 import {
@@ -714,6 +715,7 @@ app.use(pricingRouter);
 app.use(subscriptionRouter);
 app.use(groupOrderRouter);
 app.use(giftCardRouter);
+app.use(familyProfileRouter);
 app.use(feedbackRouter);
 
 app.use(realtimeRouter);

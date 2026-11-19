@@ -7,6 +7,7 @@ import {
   ShieldCheck,
   TriangleAlert,
   Truck,
+  Users,
   WalletCards,
 } from "lucide-react";
 
@@ -14,6 +15,7 @@ import { api } from "../api";
 import { money } from "../format";
 import type {
   AppState,
+  FamilyPaymentLabel,
   GeoPoint,
   Shipment,
   ShipmentCreatePayload,
@@ -21,6 +23,7 @@ import type {
   ShipmentQuote,
   User,
 } from "../types";
+import { FAMILY_PAYMENT, familyPaymentDetail, useFamilyPayment } from "./family-payment";
 
 export function ShipmentHome({
   state,
@@ -40,6 +43,15 @@ export function ShipmentHome({
       address.lat !== null &&
       address.lng !== null,
   );
+  // PAG-05: la Wallet propia (por omisión) o, para quien es miembro activo, el perfil
+  // familiar. Son los dos únicos valores que acepta el servidor para un envío.
+  const familia = useFamilyPayment();
+  const [pago, setPago] = useState<"Flash Wallet" | FamilyPaymentLabel>("Flash Wallet");
+  useEffect(() => {
+    // Si la membresía deja de estar, el pago vuelve a la Wallet: solicitar con el
+    // perfil terminaría en un rechazo seguro.
+    if (!familia) setPago("Flash Wallet");
+  }, [familia]);
   const [options, setOptions] = useState<ShipmentOptions | null>(null);
   const [optionsLoading, setOptionsLoading] = useState(true);
   const [optionsError, setOptionsError] = useState<string | null>(null);
@@ -225,7 +237,7 @@ export function ShipmentHome({
         itemCategory,
         serviceLevel,
         deliveryNotes: deliveryNotes.trim(),
-        paymentMethod: "Flash Wallet",
+        paymentMethod: pago,
         termsAccepted: true,
         pickupCoords,
         destinationCoords,
@@ -526,14 +538,53 @@ export function ShipmentHome({
         </section>
       )}
       <section className="shipment-confirm-card">
-        <div className="shipment-payment-row">
-          <div>
-            <span className="muted-label">Medio de pago</span>
-            <strong>Flash Wallet</strong>
-            <small>Saldo disponible: {money.format(user?.wallet || 0)}</small>
+        {familia ? (
+          <div className="shipment-payment-picker">
+            <span className="muted-label" id="shipment-payment-label">
+              Medio de pago
+            </span>
+            <div
+              className="shipment-payment-choice"
+              role="radiogroup"
+              aria-labelledby="shipment-payment-label"
+            >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={pago === "Flash Wallet"}
+                onClick={() => setPago("Flash Wallet")}
+              >
+                <WalletCards size={20} />
+                <span>
+                  <strong>Flash Wallet</strong>
+                  <small>Saldo disponible: {money.format(user?.wallet || 0)}</small>
+                </span>
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={pago === FAMILY_PAYMENT}
+                onClick={() => setPago(FAMILY_PAYMENT)}
+              >
+                <Users size={20} />
+                <span>
+                  <strong>{FAMILY_PAYMENT}</strong>
+                  <small>{familyPaymentDetail(familia)}</small>
+                </span>
+              </button>
+            </div>
           </div>
-          <WalletCards size={20} />
-        </div>
+        ) : (
+          // Sin perfil familiar hay un solo medio: elegir entre uno no es elegir.
+          <div className="shipment-payment-row">
+            <div>
+              <span className="muted-label">Medio de pago</span>
+              <strong>Flash Wallet</strong>
+              <small>Saldo disponible: {money.format(user?.wallet || 0)}</small>
+            </div>
+            <WalletCards size={20} />
+          </div>
+        )}
         <label className="shipment-check-row terms">
           <input
             type="checkbox"

@@ -86,6 +86,14 @@ export const giftCardLimiter = createLimiter({
   message: "Demasiadas operaciones con tarjetas de regalo. Intenta más tarde.",
 });
 
+// PAG-05: invitar y responder al perfil familiar. Invitar no dice quién tiene cuenta,
+// y el límite corta igual un barrido de emails.
+export const familyProfileLimiter = createLimiter({
+  max: 30,
+  prefix: "family-profile",
+  message: "Demasiadas operaciones con el perfil familiar. Intenta más tarde.",
+});
+
 export const serviceChatLimiter = createLimiter({
   max: 60,
   prefix: "service-chat",

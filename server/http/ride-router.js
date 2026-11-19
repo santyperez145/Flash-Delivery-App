@@ -80,8 +80,9 @@ const rideCreateSchema = rideQuoteSchema.extend({
   customerId: z.string().min(1),
   // PAG-01: un viaje se paga con Flash Wallet o en efectivo al conductor. Antes se
   // aceptaba cualquier texto, y uno que no dijera «wallet» quedaba sin cobro.
-  paymentMethod: z.enum(["Flash Wallet", "Efectivo"], {
-    message: "Elegí Flash Wallet o efectivo",
+  // PAG-05: o con el perfil familiar, que cobra de la Wallet de quien organiza.
+  paymentMethod: z.enum(["Flash Wallet", "Efectivo", "Perfil familiar"], {
+    message: "Elegí Flash Wallet, efectivo o tu perfil familiar",
   }),
   quoteToken: z.string().min(20).optional(),
   scheduledFor: z.string().datetime().optional(),

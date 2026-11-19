@@ -3,6 +3,7 @@ import { TicketPercent, WalletCards } from "lucide-react";
 
 import { money } from "../format";
 import type { AppState, User } from "../types";
+import { FamilyProfile } from "./FamilyProfile";
 import { GiftCards } from "./GiftCards";
 
 /** La Wallet vive dentro de Cuenta: un acceso, con el saldo a la vista. */
@@ -60,6 +61,8 @@ export function WalletScreen({
         </div>
       </section>
       <GiftCards wallet={user?.wallet || 0} onWalletChanged={onWalletChanged} />
+      {/* PAG-05: junto a las tarjetas, porque también es gastar de la Wallet. */}
+      <FamilyProfile onWalletChanged={onWalletChanged} />
       <section className="loyalty-card">
         <div>
           <span>Actividad financiera</span>

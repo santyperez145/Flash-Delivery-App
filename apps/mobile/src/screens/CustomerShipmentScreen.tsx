@@ -14,8 +14,10 @@ import {
 
 import { track } from "../analytics";
 import { api } from "../api";
+import { FAMILY_PAYMENT, useFamilyPayment } from "../family-payment";
 import FlashNativeMap from "../FlashNativeMap";
 import { money } from "../format";
+import { RidePaymentPicker } from "../RidePaymentPicker";
 import { styles } from "../styles";
 import { ActionButton, NativeMapUnavailable } from "../ui";
 import type {
@@ -81,6 +83,18 @@ export function CustomerShipmentScreen({
   const [shipmentOptions, setShipmentOptions] = useState<ShipmentOptions | null>(null);
   const [shipmentOptionsError, setShipmentOptionsError] = useState("");
   const defaultLocationSeededForUser = useRef("");
+  // PAG-05: un envío se paga con la Wallet propia o, para quien es miembro activo de
+  // un perfil familiar, con la de quien organiza. Sin membresía vuelve a la Wallet en
+  // vez de mandar un medio que el servidor rechazaría.
+  const [pagoElegido, setPagoElegido] = useState<"Flash Wallet" | typeof FAMILY_PAYMENT>(
+    "Flash Wallet",
+  );
+  const { membership: familia, reload: releerFamilia } = useFamilyPayment();
+  const pago = pagoElegido === FAMILY_PAYMENT && familia ? FAMILY_PAYMENT : "Flash Wallet";
+  // Lo que queda del mes cambia con cada envío: se relee al volver a la pantalla.
+  useEffect(() => {
+    if (visible) void releerFamilia();
+  }, [visible, releerFamilia]);
 
   useEffect(() => {
     if (defaultLocationSeededForUser.current === user.id) return;
@@ -207,13 +221,14 @@ export function CustomerShipmentScreen({
         itemCategory: shipmentItemCategory,
         serviceLevel: shipmentServiceLevel,
         deliveryNotes: "Entregar en mano",
-        paymentMethod: "Flash Wallet",
+        paymentMethod: pago,
         termsAccepted: true,
         pickupCoords: shipmentPickupCoords,
         destinationCoords: shipmentDestinationCoords,
         quoteToken: shipmentQuote.quoteToken,
       });
       track("job_created", "customer_app", { service: "shipment" });
+      if (pago === FAMILY_PAYMENT) void releerFamilia();
       setShipmentQuote(null);
       setShipmentPickupCoords(null);
       setShipmentDestinationCoords(null);
@@ -507,6 +522,17 @@ export function CustomerShipmentScreen({
             )}
           </View>
         )}
+        {/* Antes el medio no se veía; ahora se muestra siempre, y «Perfil familiar»
+            sólo aparece con una membresía activa. */}
+        <RidePaymentPicker
+          value={pago}
+          fare={shipmentQuote?.fare ?? null}
+          onChange={(metodo) => {
+            if (metodo !== "Efectivo") setPagoElegido(metodo);
+          }}
+          family={familia}
+          cash={false}
+        />
         <View style={styles.actionRow}>
           <ActionButton label="Cotizar" disabled={busy} onPress={quoteShipment} />
           <ActionButton

@@ -153,7 +153,9 @@ async function ensureActiveTestShipment() {
       description: "Documentación de prueba",
       weightKg: 0.5,
       deliveryNotes: "Recepción",
-      paymentMethod: "Efectivo",
+      // Los envíos se pagan con Flash Wallet o el perfil familiar (PAG-05): «Efectivo»
+      // ya no se acepta, y antes creaba un envío sin cobrar.
+      paymentMethod: "Flash Wallet",
       termsAccepted: true,
     };
     const quoteResponse = await fetch(`${apiUrl}/shipments/quote`, {

@@ -165,6 +165,8 @@ jobs:
         run: npm run test:account-mfa-contract
       - name: Tarjetas de regalo (PAG-04)
         run: npm run test:gift-cards-contract
+      - name: Perfil familiar (PAG-05)
+        run: npm run test:family-profiles-contract
 
       # Borrado de cuenta (LAN-001): requisito de Apple y Google para publicar.
       # Vigila que esté ofrecido en web y en las tres apps, y acotado en la base.
