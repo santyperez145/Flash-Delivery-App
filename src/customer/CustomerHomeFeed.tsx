@@ -196,7 +196,22 @@ export function Cocinas({
       <div className="home-cuisines">
         {cocinas.map((cocina) => (
           <button type="button" key={cocina.nombre} onClick={() => onOpen(cocina.nombre)}>
-            <img src={cocina.imagen} alt="" loading="lazy" />
+            {/* FE-04: si ningún plato de la cocina tiene foto, un círculo neutro en
+                lugar de un <img> vacío (los platos ya no heredan la foto del local). */}
+            {cocina.imagen ? (
+              <img src={cocina.imagen} alt="" loading="lazy" />
+            ) : (
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 68,
+                  height: 68,
+                  borderRadius: 999,
+                  background: "var(--paper-soft)",
+                  border: "1px solid var(--line)",
+                }}
+              />
+            )}
             <span>{cocina.nombre}</span>
           </button>
         ))}

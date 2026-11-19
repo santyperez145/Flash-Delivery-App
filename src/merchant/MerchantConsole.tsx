@@ -14,6 +14,7 @@
 // empaquetador podía dejarla fuera de ningún bundle.
 import { useCallback, useEffect, useState } from "react";
 import {
+  ImageOff,
   LineChart,
   ListChecks,
   LogIn,
@@ -52,6 +53,33 @@ import type {
   OrderSubstitution,
   Restaurant,
 } from "../types";
+
+/**
+ * La miniatura de un producto, o un recuadro vacío si el comercio no subió foto.
+ *
+ * Antes el alta copiaba la foto del local al plato, y la consola la mostraba como
+ * si fuera del producto: el comercio no se enteraba de que le faltaba una.
+ */
+function ProductThumb({ image }: { image?: string }) {
+  if (image) return <img src={image} alt="" />;
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        display: "grid",
+        placeItems: "center",
+        width: 44,
+        height: 40,
+        borderRadius: 8,
+        background: "var(--paper-soft)",
+        border: "1px dashed var(--line)",
+        color: "var(--muted)",
+      }}
+    >
+      <ImageOff size={16} />
+    </span>
+  );
+}
 
 function MerchantOrderDetailDialog({
   order,
@@ -852,12 +880,15 @@ export function MerchantDesktopConsole({
                 {restaurant.menu.map((item) => (
                   <article className="merchant-product-entry" key={item.id}>
                     <label>
-                      <img src={item.image} alt="" />
+                      <ProductThumb image={item.image} />
                       <span>
                         <strong>{item.name}</strong>
                         <small>
                           {item.category} · {money.format(item.price)}
                         </small>
+                        {/* Sin «Subí una»: la consola todavía no tiene carga de fotos, y
+                            un llamado a una acción que no existe sería otra promesa falsa. */}
+                        {!item.image && <small>Sin foto todavía</small>}
                       </span>
                       <input
                         type="checkbox"
@@ -1072,7 +1103,7 @@ export function MerchantDesktopConsole({
                       available = inventory?.available ?? item.stock;
                     return (
                       <label key={item.id}>
-                        <img src={item.image} alt="" />
+                        <ProductThumb image={item.image} />
                         <span>
                           <strong>{item.name}</strong>
                           <small>

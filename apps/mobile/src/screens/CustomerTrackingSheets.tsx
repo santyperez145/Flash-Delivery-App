@@ -4,7 +4,7 @@ import { Alert, Pressable, ScrollView, Share, Text, View } from "react-native";
 
 import { api } from "../api";
 import FlashNativeMap from "../FlashNativeMap";
-import { money } from "../format";
+import { calificacionConductor, money } from "../format";
 import { styles } from "../styles";
 import { MobileTaskSheet, NativeMapUnavailable } from "../ui";
 import type {
@@ -235,7 +235,7 @@ export function RideTrackingSheet({
               <Text style={styles.orderConfirmationEyebrow}>TU CONDUCTOR</Text>
               <Text style={styles.sectionTitle}>{driver.name}</Text>
               <Text style={styles.cardText}>
-                {driver.vehicle} · ★ {driver.rating.toFixed(1)}
+                {driver.vehicle} · {calificacionConductor(driver)}
               </Text>
             </View>
             <View style={styles.shipmentTrackingBadge}>

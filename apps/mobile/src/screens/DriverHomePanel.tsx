@@ -17,7 +17,7 @@ import {
 } from "react-native";
 
 import { faltaCodigoDeEntrega, OrderDeliveryCodeEntry } from "../OrderDeliveryCode";
-import { api } from "../api";
+import { api, type DriverProfile } from "../api";
 import {
   startDriverBackgroundLocation,
   stopDriverBackgroundLocation,
@@ -32,17 +32,18 @@ import { ActionButton, KpiRow, NativeMapUnavailable, OrderCard } from "../ui";
 import type {
   AppState,
   DispatchOffer,
-  Driver,
   DriverDemand,
   DriverVehicle,
   GeoPoint,
   RoadRoute,
 } from "../types";
 import type { DriverNavigationTarget } from "./DriverDeliveryModals";
+import { driverRatingLabel } from "./DriverEarningsPanel";
 import { RideCard, ShipmentCard } from "./DriverJobCards";
 
 export function DriverHomePanel(props: {
-  driver: Driver;
+  /** FE-04: con `ratingCount` cuando viene de `/api/driver/me`; sin él, la nota va «—». */
+  driver: DriverProfile;
   busy: boolean;
   runAction: (action: () => Promise<unknown>, success: string) => void;
   backgroundGps: BackgroundLocationState;
@@ -353,7 +354,10 @@ export function DriverHomePanel(props: {
         <Text style={styles.heroLabel}>{driver.online ? "Online" : "Offline"}</Text>
         <Text style={styles.heroTitle}>{driver.name}</Text>
         <Text style={styles.heroCopy}>
-          {driver.vehicle} - {driver.plate} - rating {driver.rating}
+          {driver.vehicle} - {driver.plate} -{" "}
+          {driver.ratingCount === 0
+            ? driverRatingLabel(driver)
+            : `rating ${driverRatingLabel(driver)}`}
         </Text>
         <Text style={styles.gpsText}>
           {gpsStatus === "live"

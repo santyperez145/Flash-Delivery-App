@@ -43,12 +43,22 @@ const router = driverRouter;
 
 router.get("/api/driver/me", requireAuth, requireAnyRole("driver"), async (req, res) => {
   try {
-    const driver = usesPostgresCommerce()
-      ? await getPostgresDriverForUser(req.auth.userId)
-      : readDb().drivers.find((entry) => entry.userId === req.auth.userId) || null;
+    if (usesPostgresCommerce()) {
+      const driver = await getPostgresDriverForUser(req.auth.userId);
+      if (!driver) return fail(res, 404, "Perfil de conductor no encontrado");
+      res.set("Cache-Control", "no-store, private");
+      return ok(res, { driver });
+    }
+    const db = readDb(),
+      driver = db.drivers.find((entry) => entry.userId === req.auth.userId) || null;
     if (!driver) return fail(res, 404, "Perfil de conductor no encontrado");
+    // FE-04: el respaldo también cuenta calificaciones reales. Sin este dato la app no
+    // distingue un 5 que alguien dio del 5 con que arranca todo perfil.
+    const ratingCount = (db.ratings || []).filter(
+      (entry) => entry.targetType === "driver" && entry.targetId === driver.id,
+    ).length;
     res.set("Cache-Control", "no-store, private");
-    return ok(res, { driver });
+    return ok(res, { driver: { ...driver, ratingCount } });
   } catch (error) {
     return failFrom(res, error, "No se pudo cargar el perfil del conductor");
   }

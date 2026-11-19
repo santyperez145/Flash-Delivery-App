@@ -50,10 +50,13 @@ function adminSnapshot(db, financial = null) {
     (order) => !["delivered", "cancelled"].includes(order.status),
   );
   const activeRides = db.rides.filter((ride) => !["completed", "cancelled"].includes(ride.status));
+  // FE-04: el volumen no cuenta lo cancelado; un pedido cancelado no movió plata.
   const grossVolume = [
-    ...db.orders.map((order) => order.total),
-    ...db.rides.map((ride) => ride.fare),
+    ...db.orders.filter((order) => order.status !== "cancelled").map((order) => order.total),
+    ...db.rides.filter((ride) => ride.status !== "cancelled").map((ride) => ride.fare),
   ].reduce((sum, value) => sum + value, 0);
+  // Un promedio sin datos no es $0: es que todavía no hay con qué calcularlo.
+  const promedio = (values) => (values.length ? `$${average(values)}` : "—");
   const completedJobs =
     db.orders.filter((order) => order.status === "delivered").length +
     db.rides.filter((ride) => ride.status === "completed").length;
@@ -92,6 +95,11 @@ function adminSnapshot(db, financial = null) {
       ),
       unassignedOrders,
       unassignedRides,
+      // FE-04: cuántos servicios hay en total, para que la consola sepa si una tasa en 0
+      // es «ninguno asignado» o «todavía no hay»; la lista que tiene el navegador es
+      // sólo una página.
+      deliveryJobs: db.orders.length,
+      rideJobs: db.rides.length,
       openRestaurants: db.restaurants.filter((restaurant) => restaurant.open).length,
       onlineDrivers: db.drivers.filter((driver) => driver.online).length,
     },
@@ -103,51 +111,15 @@ function adminSnapshot(db, financial = null) {
       netRevenueRunRate: null,
       contributionMargin: null,
       contributionMarginPercent: null,
-      readinessScore: Math.min(
-        100,
-        Math.round(
-          42 +
-            ratio(completedJobs, totalJobs) * 0.18 +
-            ratio(db.orders.filter((order) => order.courierId).length, db.orders.length) * 0.16 +
-            ratio(db.rides.filter((ride) => ride.driverId).length, db.rides.length) * 0.16,
-        ),
-      ),
-      milestones: [
-        {
-          label: "Producto fullstack",
-          status: "done",
-          value: "Cliente, comercio, driver y admin",
-        },
-        {
-          label: "Seguridad API",
-          status: "done",
-          value: "JWT, RBAC, ownership, rate limits",
-        },
-        {
-          label: "Mobile nativo",
-          status: "in_progress",
-          value: "Expo base para 3 apps",
-        },
-        {
-          label: "Realtime dispatch",
-          status: "next",
-          value: "SSE/WebSocket + Redis GEO",
-        },
-        {
-          label: "Pagos reales",
-          status: "next",
-          value: "PSP + ledger financiero",
-        },
-      ],
       unitEconomics: [
         {
           label: "AOV comida",
-          value: `$${average(db.orders.map((order) => order.total))}`,
+          value: promedio(db.orders.map((order) => order.total)),
           detail: "Ticket promedio",
         },
         {
           label: "Fare taxi",
-          value: `$${average(db.rides.map((ride) => ride.fare))}`,
+          value: promedio(db.rides.map((ride) => ride.fare)),
           detail: "Tarifa promedio",
         },
         {

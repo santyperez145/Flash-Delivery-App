@@ -21,6 +21,12 @@ import Constants from "expo-constants";
 import { registrarDispositivoParaPush } from "./push-registration";
 import { createCatalogApi } from "./catalog-api";
 
+/**
+ * FE-04: el perfil propio del conductor trae además cuántas calificaciones reales tiene.
+ * Opcional porque un servidor anterior no lo manda; sin el dato, la app muestra «—».
+ */
+export type DriverProfile = Driver & { ratingCount?: number };
+
 declare const process: {
   env?: { EXPO_PUBLIC_API_URL?: string; EXPO_PUBLIC_APP_VARIANT?: string };
 };
@@ -460,7 +466,7 @@ export const api = {
     };
   },
   async getCurrentDriver() {
-    return request<{ driver: Driver }>("/driver/me");
+    return request<{ driver: DriverProfile }>("/driver/me");
   },
   async getCurrentMerchant() {
     return request<{ restaurants: Restaurant[] }>("/merchant/me");

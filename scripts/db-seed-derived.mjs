@@ -200,6 +200,28 @@ const steps = [
     params: [VEGETARIAN_ITEMS],
   },
   {
+    // 151_catalog_no_invented_metadata quitó de `catalog_items.metadata` la
+    // calificación por plato y los rellenos del alta (500 kcal, ["Nuevo"] y la
+    // foto del local copiada al plato). El seed del catálogo corre después y
+    // vuelve a escribir `rating`; sin este paso una base nueva conserva lo que la
+    // migrada ya no tiene. Mismo filtro que la migración: sólo toca el relleno.
+    //
+    // A diferencia de la migración, que corre una sola vez, este paso se puede
+    // repetir sobre una base con altas nuevas. Desde FE-04 el comercio puede
+    // declarar 500 kcal o usar la foto del local para un plato, y eso es dato
+    // real. Por eso sólo limpia filas que todavía tienen `rating`: la API ya no
+    // lo escribe, así que únicamente lo llevan las filas que el seed reescribió.
+    label: "catálogo sin datos inventados",
+    sql: `UPDATE catalog_items ci
+          SET metadata = ci.metadata - 'rating'
+            - CASE WHEN ci.metadata -> 'kcal' = '500'::jsonb THEN 'kcal' ELSE '' END
+            - CASE WHEN ci.metadata -> 'tags' = '["Nuevo"]'::jsonb THEN 'tags' ELSE '' END
+            - CASE WHEN ci.metadata ->> 'image' = m.metadata ->> 'image' THEN 'image' ELSE '' END
+          FROM merchants m
+          WHERE m.id = ci.merchant_id
+            AND ci.metadata ? 'rating'`,
+  },
+  {
     label: "perfiles de agentes de soporte",
     sql: `INSERT INTO support_agent_profiles(user_id,availability,max_active_tickets,skills)
           SELECT DISTINCT u.id,'available',20,ARRAY['all']::text[]

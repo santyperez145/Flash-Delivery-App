@@ -195,10 +195,19 @@ const catalogSearchSchema = z.object({
   offset: z.coerce.number().int().min(0).max(10000).default(0),
 });
 
-const publicRestaurantFallback = (restaurant) => {
+const publicRestaurantFallback = (restaurant, ratings = []) => {
   const { ownerId: _ownerId, manualOpen: _manualOpen, ...safe } = restaurant;
+  // La calificación sale de las calificaciones guardadas y no del número fijo
+  // del respaldo: un local sin opiniones no tiene promedio que mostrar.
+  const scores = ratings
+    .filter((entry) => entry.targetType === "restaurant" && entry.targetId === restaurant.id)
+    .map((entry) => Number(entry.score));
   return {
     ...safe,
+    rating: scores.length
+      ? Math.round((scores.reduce((sum, score) => sum + score, 0) / scores.length) * 100) / 100
+      : null,
+    ratingCount: scores.length,
     branches: (restaurant.branches || []).map(
       ({
         manualOpen: _branchManual,
@@ -235,13 +244,14 @@ router.get("/api/catalog/restaurants", async (req, res) => {
     res.set("Cache-Control", "public, max-age=30, stale-while-revalidate=120");
     if (!usesPostgresCommerce()) {
       const normalized = query.trim().toLowerCase(),
-        all = getPublicState()
-          .restaurants.filter(
+        state = getPublicState(),
+        all = state.restaurants
+          .filter(
             (item) =>
               (!vertical || (item.vertical || "restaurant") === vertical) &&
               (!normalized || `${item.name} ${item.cuisine}`.toLowerCase().includes(normalized)),
           )
-          .map(publicRestaurantFallback),
+          .map((item) => publicRestaurantFallback(item, state.ratings)),
         offset = cursor ? Math.max(0, all.findIndex((item) => item.id === cursor.id) + 1) : 0,
         restaurants = all.slice(offset, offset + limit),
         last = restaurants.at(-1),
@@ -333,7 +343,7 @@ router.patch(
       : findRestaurant(db, req.params.restaurantId);
     if (!restaurant) return fail(res, 404, "Restaurante no encontrado");
     if (!canManageRestaurant(req, restaurant))
-      return fail(res, 403, "No puedes gestionar este restaurante");
+      return fail(res, 403, "No podés gestionar este local");
     const body = req.body || {};
     // RES-07: pausa por un tiempo y con motivo; vence sola. 0 reanuda.
     let pausa = null;
@@ -379,24 +389,32 @@ router.post(
       : findRestaurant(db, req.params.restaurantId);
     if (!restaurant) return fail(res, 404, "Restaurante no encontrado");
     if (!canManageRestaurant(req, restaurant))
-      return fail(res, 403, "No puedes gestionar este restaurante");
-    const { name, description, category, price } = req.body || {};
+      return fail(res, 403, "No podés gestionar este local");
+    const { name, description, category, price, kcal, timeMin, image } = req.body || {};
     if (!name || !price) return fail(res, 400, "Nombre y precio son obligatorios");
+    // Nada inventado: un producto recién creado no tiene calificación (nadie lo
+    // pidió todavía), ni calorías, tiempo o foto que el comercio no declaró.
+    // Antes se completaba con 4,5 estrellas, 500 kcal, la etiqueta «Nuevo» y la
+    // foto del local, y el cliente leía como dato lo que era relleno.
+    const declaredKcal = Number(kcal),
+      declaredTime = Number(timeMin),
+      declaredImage = typeof image === "string" ? image.trim() : "";
     const item = {
       id: createId("ITEM"),
       name: String(name),
       description: String(description || ""),
       category: String(category || "Especiales"),
       price: Math.max(100, Number(price)),
-      rating: 4.5,
-      timeMin: restaurant.etaMin,
-      kcal: 500,
       stock: true,
-      image: restaurant.image,
-      tags: ["Nuevo"],
+      ...(Number.isInteger(declaredKcal) && declaredKcal > 0 && { kcal: declaredKcal }),
+      ...(Number.isInteger(declaredTime) && declaredTime > 0 && { timeMin: declaredTime }),
+      // Sólo una dirección https: el catálogo la sirve tal cual a cada cliente.
+      ...(/^https:\/\/\S+$/.test(declaredImage) && { image: declaredImage }),
     };
     if (usesPostgresCommerce()) restaurant = await createPostgresMenuItem(restaurant.id, item);
-    else restaurant.menu.unshift(item);
+    // El respaldo SQLite exige estas columnas NOT NULL; ahí 0 y "" significan
+    // «no declarado», que es como las lee la interfaz. No son valores de vitrina.
+    else restaurant.menu.unshift({ rating: 0, timeMin: 0, kcal: 0, image: "", tags: [], ...item });
     await auditRuntime(db, req, "menu_item", item.id, "menu_item.created", {
       restaurantId: restaurant.id,
       price: item.price,
@@ -423,7 +441,7 @@ router.patch(
       : findRestaurant(db, req.params.restaurantId);
     if (!restaurant) return fail(res, 404, "Restaurante no encontrado");
     if (!canManageRestaurant(req, restaurant))
-      return fail(res, 403, "No puedes gestionar este restaurante");
+      return fail(res, 403, "No podés gestionar este local");
     const item = restaurant.menu.find((entry) => entry.id === req.params.itemId);
     if (!item) return fail(res, 404, "Producto no encontrado");
     const body = req.body || {};

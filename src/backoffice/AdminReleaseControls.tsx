@@ -1,6 +1,6 @@
 // Controles de release, tarifas e infra del backoffice (ARC-001).
 //
-// Embudo/flags, governance de pricing/surge y roadmap de infra. DoorDash /
+// Embudo/flags, governance de pricing/surge y estado de infra. DoorDash /
 // Uber aisilan launch controls y surge del shell; Flash adopta la frontera.
 
 import { AdminSectionHeader } from "../ui/panels";
@@ -12,7 +12,6 @@ import {
   ZoneReadinessPanel,
 } from "./ProductOperationsBoard";
 import { PricingGovernancePanel } from "./AdminFinancePanels";
-import { InfraItem } from "./AdminOverviewBoards";
 import { NotificationDeliveryPanel } from "./AdminSupportPanels";
 
 type RunAction = (action: () => Promise<unknown>, success: string) => void;
@@ -80,38 +79,15 @@ export function AdminPricingOpsPanel({
   );
 }
 
+// La sección Infra muestra sólo estado leído del servidor: las entregas de
+// notificaciones que agotaron sus reintentos. Antes encabezaba una «ruta de
+// infraestructura» de seis tarjetas (Kubernetes HPA, Redis administrado,
+// réplicas) que era una hoja de ruta, no un estado, y se leía como si todo eso
+// estuviera corriendo. El tablero de admin no devuelve salud de workers; cuando
+// la devuelva, va acá.
 export function AdminInfraPanel() {
   return (
     <div className="admin-grid">
-      <section className="admin-card">
-        <AdminSectionHeader title="Ruta de infraestructura" action="Escalable" />
-        <div className="infra-list">
-          <InfraItem
-            title="Apps nativas"
-            text="Migrar la experiencia mobile a Expo/React Native con EAS, manteniendo esta API como backend."
-          />
-          <InfraItem
-            title="API modular"
-            text="Separar auth, marketplace, dispatch, payments, notifications, support y admin en modulos o servicios."
-          />
-          <InfraItem
-            title="Datos"
-            text="PostgreSQL + PostGIS es el runtime primario; SQLite queda aislado como fallback de pruebas. Siguiente escala: réplicas, Redis administrado y object storage."
-          />
-          <InfraItem
-            title="Tiempo real"
-            text="WebSockets/SSE para tracking, ofertas a drivers, chats, eventos de cocina y consola admin."
-          />
-          <InfraItem
-            title="Operabilidad"
-            text="Contenedores, Kubernetes HPA, observabilidad, alertas, feature flags y auditoria de acciones."
-          />
-          <InfraItem
-            title="Seguridad"
-            text="RBAC real por rol, proteccion OWASP API Top 10, rate limits, secretos gestionados y trazabilidad."
-          />
-        </div>
-      </section>
       <NotificationDeliveryPanel />
     </div>
   );

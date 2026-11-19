@@ -108,7 +108,10 @@ export type Restaurant = {
   /** Rubro (P-01). Ausente en el respaldo SQLite, que sólo tiene restaurantes. */
   vertical?: MerchantVertical;
   cuisine: string;
-  rating: number;
+  /** Promedio de calificaciones reales del local; null si todavía no tiene. */
+  rating: number | null;
+  /** Cuántas calificaciones lo forman. Ausente en respuestas viejas: se lee como 0. */
+  ratingCount?: number;
   etaMin: number;
   deliveryFee: number;
   open: boolean;
@@ -154,6 +157,8 @@ export type Restaurant = {
     category?: string;
     price: number;
     stock: boolean;
+    /** Foto del plato que declaró el comercio; vacía si no subió ninguna. */
+    image?: string;
     modifierGroups?: Array<{
       id: string;
       name: string;
@@ -179,6 +184,8 @@ export type Driver = {
   vehicleKind?: "bicycle" | "motorcycle" | "car" | "van" | null;
   vehicleStatus?: "pending" | "approved" | "rejected" | null;
   rating: number;
+  /** FE-04: cuántas calificaciones hay; sin ninguna, `rating` es el valor inicial. */
+  ratingCount?: number;
   earningsToday: number;
   /** PAG-01: efectivo cobrado que todavía debe rendir. */
   cashDebt?: number;

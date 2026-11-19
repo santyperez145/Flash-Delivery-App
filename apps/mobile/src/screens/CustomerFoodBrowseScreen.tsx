@@ -23,6 +23,20 @@ export type CatalogSearchResult = {
 
 type FoodCategory = { name: string; image: string; count: number };
 
+/**
+ * Cuántas calificaciones necesita un local para mostrar su promedio, igual que
+ * en la web. Con dos o tres opiniones el promedio dice más de quién opinó que
+ * del local; por debajo del umbral se presenta como «Nuevo», que es lo que es.
+ */
+export const MIN_MERCHANT_RATINGS = 10;
+
+/** «4,6 (120)» con coma decimal, o null si el local todavía no llega al umbral. */
+export function merchantRatingLabel(restaurant: Pick<Restaurant, "rating" | "ratingCount">) {
+  const count = restaurant.ratingCount ?? 0;
+  if (restaurant.rating == null || count < MIN_MERCHANT_RATINGS) return null;
+  return `${restaurant.rating.toFixed(1).replace(".", ",")} (${count})`;
+}
+
 export function CustomerFoodBrowseScreen({
   screen,
   user,
@@ -262,7 +276,9 @@ export function CustomerFoodBrowseScreen({
             {selectedCategory !== "Todos"
               ? selectedCategory
               : scope.vertical === "restaurant"
-                ? "Elegidos para vos"
+                ? // La lista es la de locales abiertos, sin ningún criterio
+                  // personal: «Elegidos para vos» prometía una selección que no hay.
+                  "Abiertos ahora"
                 : scope.label}
           </Text>
           <Text style={styles.foodSeeAll}>{restaurants.length} abiertos</Text>
@@ -320,8 +336,14 @@ export function CustomerFoodBrowseScreen({
                   </Text>
                 </View>
                 <View style={styles.foodRatingPill}>
-                  <Ionicons name="star" size={12} color="#E98A00" />
-                  <Text style={styles.foodRatingText}>{restaurant.rating.toFixed(1)}</Text>
+                  {merchantRatingLabel(restaurant) ? (
+                    <>
+                      <Ionicons name="star" size={12} color="#E98A00" />
+                      <Text style={styles.foodRatingText}>{merchantRatingLabel(restaurant)}</Text>
+                    </>
+                  ) : (
+                    <Text style={styles.foodRatingText}>Nuevo</Text>
+                  )}
                 </View>
               </View>
               <View style={styles.foodMetaRow}>

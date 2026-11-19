@@ -15,8 +15,25 @@ import { flashDesign } from "../design-system";
 import { money } from "../format";
 import { styles } from "../styles";
 import type { DietaryPreferences, Restaurant } from "../types";
+import { merchantRatingLabel } from "./CustomerFoodBrowseScreen";
 
 type MenuItem = Restaurant["menu"][number];
+
+// El recuadro de un plato sin foto: mismo tamaño que la foto, para que la carta
+// no salte, y con el texto dicho en lugar de una imagen prestada del local.
+const dishPhotoPlaceholder = {
+  alignItems: "center",
+  justifyContent: "center",
+  gap: flashDesign.space.xxs,
+  backgroundColor: flashDesign.color.surfaceMuted,
+  borderWidth: 1,
+  borderColor: flashDesign.color.line,
+} as const;
+const dishPhotoPlaceholderText = {
+  color: flashDesign.color.muted,
+  fontSize: flashDesign.type.metadata,
+  fontWeight: "800",
+} as const;
 
 export function CustomerFoodRestaurantScreen({
   visible,
@@ -106,10 +123,27 @@ export function CustomerFoodRestaurantScreen({
       </ImageBackground>
       <View style={styles.foodRestaurantInfo}>
         <View style={styles.foodRestaurantStatusRow}>
-          <View style={styles.foodRestaurantOpenBadge}>
-            <View style={styles.foodRestaurantOpenDot} />
-            <Text style={styles.foodRestaurantOpenText}>Abierto ahora</Text>
-          </View>
+          {/* `open` lo calcula el servidor con la apertura manual y el horario de
+              la sucursal: sólo con ese dato se puede decir «Abierto ahora». */}
+          {restaurant.open ? (
+            <View style={styles.foodRestaurantOpenBadge}>
+              <View style={styles.foodRestaurantOpenDot} />
+              <Text style={styles.foodRestaurantOpenText}>Abierto ahora</Text>
+            </View>
+          ) : (
+            // Cerrado se dice tal cual: sin la marca, el cliente no sabría si
+            // el local atiende o si sólo falta el dato.
+            <View
+              style={[
+                styles.foodRestaurantOpenBadge,
+                { backgroundColor: flashDesign.color.surfaceMuted },
+              ]}
+            >
+              <Text style={[styles.foodRestaurantOpenText, { color: flashDesign.color.muted }]}>
+                Cerrado ahora
+              </Text>
+            </View>
+          )}
           {restaurant.badge ? (
             <Text style={styles.foodRestaurantOfferBadge}>{restaurant.badge}</Text>
           ) : null}
@@ -124,8 +158,12 @@ export function CustomerFoodRestaurantScreen({
               <Ionicons name="star" size={15} color="#E98A00" />
             </View>
             <View>
-              <Text style={styles.foodRestaurantFactValue}>{restaurant.rating.toFixed(1)}</Text>
-              <Text style={styles.foodRestaurantFactLabel}>calificación</Text>
+              <Text style={styles.foodRestaurantFactValue}>
+                {merchantRatingLabel(restaurant) ?? "Nuevo"}
+              </Text>
+              <Text style={styles.foodRestaurantFactLabel}>
+                {merchantRatingLabel(restaurant) ? "calificación" : "pocas opiniones"}
+              </Text>
             </View>
           </View>
           <View style={styles.foodRestaurantFact}>
@@ -192,11 +230,20 @@ export function CustomerFoodRestaurantScreen({
       ) : null}
       {visibleMenuItems.map((item) => (
         <View key={item.id} style={styles.foodProductCard}>
+          {/* La foto del plato o «Sin foto»; nunca la del local, que el cliente
+              leería como la del plato que va a recibir. */}
           <ImageBackground
-            source={{ uri: restaurant.image || restaurant.cover }}
+            source={item.image ? { uri: item.image } : undefined}
             imageStyle={styles.foodProductImageStyle}
-            style={styles.foodProductImage}
+            style={[styles.foodProductImage, !item.image && dishPhotoPlaceholder]}
+            accessibilityLabel={item.image ? undefined : `${item.name}, sin foto`}
           >
+            {!item.image ? (
+              <>
+                <Ionicons name="image-outline" size={20} color={flashDesign.color.muted} />
+                <Text style={dishPhotoPlaceholderText}>Sin foto</Text>
+              </>
+            ) : null}
             {!item.stock ? (
               <View style={styles.foodProductUnavailable}>
                 <Text style={styles.foodProductUnavailableText}>AGOTADO</Text>
@@ -278,10 +325,20 @@ export function CustomerFoodRestaurantScreen({
               contentContainerStyle={styles.productCustomizerContent}
             >
               <View style={styles.productCustomizerSummary}>
-                <Image
-                  source={{ uri: restaurant.image || restaurant.cover }}
-                  style={styles.productCustomizerImage}
-                />
+                {customizingItem?.image ? (
+                  <Image
+                    source={{ uri: customizingItem.image }}
+                    style={styles.productCustomizerImage}
+                  />
+                ) : (
+                  <View
+                    style={[styles.productCustomizerImage, dishPhotoPlaceholder]}
+                    accessibilityLabel={`${customizingItem?.name ?? "Producto"}, sin foto`}
+                  >
+                    <Ionicons name="image-outline" size={20} color={flashDesign.color.muted} />
+                    <Text style={dishPhotoPlaceholderText}>Sin foto</Text>
+                  </View>
+                )}
                 <View style={styles.itemCopy}>
                   <Text style={styles.productCustomizerSummaryPrice}>
                     {money.format(customizingItem?.price || 0)}

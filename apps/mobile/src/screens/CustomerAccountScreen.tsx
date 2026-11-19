@@ -51,12 +51,6 @@ export function CustomerAccountScreen({
   onUseAddress,
   onWalletChanged,
 }: CustomerAccountScreenProps) {
-  const [paymentToken, setPaymentToken] = useState("");
-  const [paymentBrand, setPaymentBrand] = useState<"visa" | "mastercard" | "amex" | "cabal">(
-    "visa",
-  );
-  const [paymentLast4, setPaymentLast4] = useState("");
-  const [paymentExpiry, setPaymentExpiry] = useState("");
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [accountSessions, setAccountSessions] = useState<AccountSession[]>([]);
   const [phoneVerificationCode, setPhoneVerificationCode] = useState("");
@@ -1001,94 +995,10 @@ export function CustomerAccountScreen({
               )}
             </View>
           ))}
-        <View style={styles.newAddressForm}>
-          <Text style={styles.sectionTitle}>Agregar tarjeta sandbox</Text>
-          <Text style={styles.cardText}>
-            El SDK del PSP genera el token; Flash nunca recibe el número completo ni el CVV.
-          </Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.paymentBrandRail}
-          >
-            {(["visa", "mastercard", "amex", "cabal"] as const).map((brand) => (
-              <Pressable
-                key={brand}
-                style={[
-                  styles.issueCategoryPill,
-                  paymentBrand === brand && styles.issueCategoryPillActive,
-                ]}
-                onPress={() => setPaymentBrand(brand)}
-              >
-                <Text
-                  style={[
-                    styles.issueCategoryText,
-                    paymentBrand === brand && styles.issueCategoryTextActive,
-                  ]}
-                >
-                  {brand.toUpperCase()}
-                </Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-          <TextInput
-            style={styles.input}
-            value={paymentToken}
-            onChangeText={setPaymentToken}
-            autoCapitalize="none"
-            placeholder="pm_test_token_seguro"
-          />
-          <View style={styles.paymentCompactFields}>
-            <TextInput
-              style={[styles.input, styles.paymentCompactInput]}
-              value={paymentLast4}
-              onChangeText={(value) => setPaymentLast4(value.replace(/[^0-9]/g, "").slice(0, 4))}
-              keyboardType="numeric"
-              placeholder="Últimos 4"
-            />
-            <TextInput
-              style={[styles.input, styles.paymentCompactInput]}
-              value={paymentExpiry}
-              onChangeText={(value) => setPaymentExpiry(value.replace(/[^0-9/]/g, "").slice(0, 7))}
-              keyboardType="numeric"
-              placeholder="MM/AAAA"
-            />
-          </View>
-          <Pressable
-            disabled={
-              busy ||
-              !/^pm_test_[A-Za-z0-9_-]{8,120}$/.test(paymentToken) ||
-              paymentLast4.length !== 4 ||
-              !/^\d{2}\/\d{4}$/.test(paymentExpiry)
-            }
-            style={[
-              styles.primaryButton,
-              (busy ||
-                !/^pm_test_[A-Za-z0-9_-]{8,120}$/.test(paymentToken) ||
-                paymentLast4.length !== 4 ||
-                !/^\d{2}\/\d{4}$/.test(paymentExpiry)) &&
-                styles.disabledButton,
-            ]}
-            onPress={() => {
-              const [month, year] = paymentExpiry.split("/").map(Number);
-              runAction(async () => {
-                await api.createSandboxPaymentMethod({
-                  providerToken: paymentToken,
-                  brand: paymentBrand,
-                  last4: paymentLast4,
-                  expiryMonth: month,
-                  expiryYear: year,
-                });
-                setPaymentToken("");
-                setPaymentLast4("");
-                setPaymentExpiry("");
-              }, "Método tokenizado agregado");
-            }}
-          >
-            <Ionicons name="shield-checkmark-outline" size={19} color="#fff" />
-            <Text style={styles.primaryButtonText}>Guardar token seguro</Text>
-          </Pressable>
-        </View>
+        {/* FE-04: el alta de tarjetas pedía un token de prueba del PSP a mano; eso no es una
+            capacidad para clientes. Hasta que el SDK del procesador tokenice en el teléfono,
+            se dice tal cual y se listan sólo los medios que ya existen. */}
+        <Text style={styles.cardText}>Todavía no se pueden agregar tarjetas desde la app.</Text>
       </View>
       <TwoStepVerification />
       <LegalLinks />

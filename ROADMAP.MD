@@ -45,6 +45,24 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
 
+## Avance 19 de noviembre de 2026 — FE-04, nada inventado
+
+- **Qué se sacó.** Valores fijos que se leían como datos reales, en todas las superficies:
+  productos con 4,5 estrellas, 500 kcal y la foto del local; la calificación del comercio y
+  la de quien maneja cayendo a un número guardado o al 5 inicial; conductores en línea y un
+  formulario de tarjeta de prueba en la app del cliente; un vencimiento 2099 y ceros de
+  relleno en la del repartidor; y en las consolas pines decorativos, un puntaje de madurez
+  sobre una base fija, hitos escritos a mano, volumen con lo cancelado y lo no cobrado,
+  promedios y tasas en cero sin datos y «zonas calientes en vivo» que eran configuración.
+- **Cómo quedó.** Sólo se guarda y se muestra lo declarado o medido; lo que falta se dice
+  («Nuevo», «—», «Sin foto todavía», «Esta sucursal todavía no tiene horario»). La
+  calificación del comercio, desde 10 opiniones reales. La **migración 151** limpia lo que
+  ya estaba guardado.
+- **Verificación:** `test:no-invented-data` (nueva, en `ci-fast`), falsificado con 23
+  mutaciones; los 40 flujos críticos pasan con la migración 151; la consola de operaciones
+  revisada en el navegador contra PostgreSQL.
+- **Detalle:** [`docs/nada-inventado.md`](docs/nada-inventado.md).
+
 ## Avance 19 de noviembre de 2026 — FE-03, acceso y confianza
 
 - **Cómo se encontró.** Probando el sistema en el navegador contra PostgreSQL, con cuentas

@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { Check, Copy, KeyRound, MapPin, X } from "lucide-react";
 
 import { api } from "../api";
-import { initials, money } from "../format";
+import { calificacionConductor, initials, money } from "../format";
 import { shipmentStatusLabel, shipmentSteps } from "../labels";
 import type { DeliveryEvidence, Driver, RoadRoute, Shipment } from "../types";
 
@@ -195,7 +195,7 @@ export function ShipmentTrackingSheet({
                 <span>
                   <strong>{driver.name}</strong>
                   <small>
-                    {driver.vehicle} · ★ {driver.rating.toFixed(1)}
+                    {driver.vehicle} · {calificacionConductor(driver)}
                   </small>
                 </span>
               </div>

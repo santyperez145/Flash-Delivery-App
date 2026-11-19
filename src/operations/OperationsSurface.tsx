@@ -55,6 +55,16 @@ import {
   retiraDosDelLocal,
 } from "./BatchRoute";
 import { faltaCodigoDeEntrega, OrderDeliveryCodeEntry } from "../customer/OrderDeliveryCode";
+import { DishPhoto } from "../customer/FoodCatalogComponents";
+
+// FE-04: sin calificaciones, `drivers.rating` es el 5 con que arranca todo perfil, no
+// una opinión de nadie. Sin el conteo (servidor viejo) no se sabe y va «—», igual que
+// en la app móvil.
+function driverRatingLabel(driver: Pick<Driver, "rating" | "ratingCount">) {
+  if (driver.ratingCount == null) return "—";
+  if (driver.ratingCount <= 0) return "Sin calificaciones";
+  return driver.rating.toFixed(2).replace(".", ",");
+}
 
 /**
  * El subtítulo de una oferta de dispatch: distancia, duración, tasa de
@@ -215,7 +225,9 @@ export function MerchantApp({
       <div className="menu-admin">
         {restaurant.menu.map((item) => (
           <label className="stock-row" key={item.id}>
-            <img src={item.image} alt={item.name} />
+            {/* La foto del plato o «Sin foto»: un producto dado de alta sin foto ya no
+                trae la del local, y un <img> vacío se vería roto. */}
+            <DishPhoto item={item} size={54} />
             <span>
               <strong>{item.name}</strong>
               <small>{money.format(item.price)}</small>
@@ -369,7 +381,10 @@ export function DriverApp({
   const activeRides = state.rides.filter(
     (ride) => ride.driverId === driver.id && !["completed", "cancelled"].includes(ride.status),
   );
-  const hotZone = state.zones.find((zone) => zone.demandLevel === "high") || state.zones[0];
+  // Sólo una zona que de verdad está en demanda alta. Antes caía a la primera
+  // zona de la lista y la presentaba como «demanda actual» aunque estuviera
+  // tranquila: el conductor iba a moverse hacia un lugar sin trabajo.
+  const hotZone = state.zones.find((zone) => zone.demandLevel === "high");
   const visibleOffers = offers.filter((offer) =>
     driver.activeService === "ride" ? offer.kind === "ride" : offer.kind === "delivery",
   );
@@ -384,7 +399,7 @@ export function DriverApp({
           </span>
           <h2>{driver.name}</h2>
           <p>
-            {driver.location.label} · rating {driver.rating}
+            {driver.location.label} · rating {driverRatingLabel(driver)}
           </p>
           <small className={`driver-gps-status ${gpsStatus}`}>
             {gpsStatus === "live"
@@ -436,12 +451,12 @@ export function DriverApp({
       <section className="driver-mission">
         <div>
           <span>Demanda actual</span>
-          <strong>{hotZone?.name || "Zona sin datos"}</strong>
-          <small>
-            {hotZone
-              ? `${hotZone.activeOrders} pedidos y ${hotZone.activeRides} viajes activos`
-              : "Sin zona disponible"}
-          </small>
+          <strong>{hotZone ? hotZone.name : "Sin zonas con demanda alta ahora"}</strong>
+          {hotZone && (
+            <small>
+              {hotZone.activeOrders} pedidos y {hotZone.activeRides} viajes activos
+            </small>
+          )}
         </div>
         <b>{money.format(driver.earningsToday)}</b>
       </section>
@@ -453,12 +468,13 @@ export function DriverApp({
         </article>
         <article>
           <ShieldCheck size={16} />
-          <strong>{driver.rating}</strong>
+          <strong>{driverRatingLabel(driver)}</strong>
           <span>Rating</span>
         </article>
         <article>
           <WalletCards size={16} />
-          <strong>{money.format(user?.wallet || 0)}</strong>
+          {/* Sin la cuenta cargada el saldo no se conoce: «—», no $0. */}
+          <strong>{user ? money.format(user.wallet) : "—"}</strong>
           <span>Saldo Flash</span>
         </article>
       </div>
@@ -591,16 +607,21 @@ export function OpsApp({
       </div>
       <OpsRiskBoard state={state} />
       <RealtimeAudiencePanel />
-      <section className="control-map">
-        {state.zones.slice(0, 3).map((zone, index) => (
-          <div className={`zone zone-${["one", "two", "three"][index]}`} key={zone.id}>
-            {zone.name} · {zone.activeOrders + zone.activeRides} activos
-          </div>
-        ))}
-        <span className="pin pin-a" />
-        <span className="pin pin-b" />
-        <span className="pin pin-c" />
-      </section>
+      {/* Las zonas como lista, sin grilla ni pines: los tres pines fijos no
+          eran repartidores ni pedidos, y en una consola de operaciones un
+          punto en un mapa se lee como algo que está pasando. */}
+      {state.zones.length > 0 ? (
+        <ul className="control-map" aria-label="Zonas">
+          {state.zones.slice(0, 3).map((zone) => (
+            <li className="zone" key={zone.id}>
+              <strong>{zone.name}</strong>
+              <span>{zone.activeOrders + zone.activeRides} activos</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="control-map control-map-empty">Sin zonas configuradas todavía</p>
+      )}
       <SectionTitle title="Pedidos en vivo" />
       <div className="activity-stack">
         {activeOrders.map((order) => (
@@ -728,7 +749,19 @@ function OpsRiskBoard({ state }: { state: AppState }) {
   const risks = [
     ["Backlog", unassignedOrders + unassignedRides, "Asignaciones pendientes"],
     ["Supply", state.metrics.onlineDrivers, "Drivers online"],
-    ["SLA", state.metrics.avgOrderEta + state.metrics.avgRideEta, "Minutos combinados"],
+    // Dos métricas, no una suma: el ETA de un pedido de comida y la espera de
+    // un viaje miden cosas distintas, y sumados no describían ninguna de las dos.
+    // Sin nada activo el servidor devuelve 0, que no es un promedio: «—».
+    [
+      "ETA comida",
+      state.metrics.activeOrders ? `${state.metrics.avgOrderEta} min` : "—",
+      state.metrics.activeOrders ? "Promedio de pedidos activos" : "Sin pedidos activos",
+    ],
+    [
+      "Espera viajes",
+      state.metrics.activeRides ? `${state.metrics.avgRideEta} min` : "—",
+      state.metrics.activeRides ? "Promedio de viajes activos" : "Sin viajes activos",
+    ],
   ] as const;
   return (
     <section className="ops-risk-board">

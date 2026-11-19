@@ -54,3 +54,13 @@ export function compactMinutes(totalMinutes: number) {
     remainingHours = hours % 24;
   return remainingHours ? `${days} d ${remainingHours} h` : `${days} d`;
 }
+
+/**
+ * FE-04: la calificación de quien maneja, sólo si alguien lo calificó. Sin opiniones el
+ * valor guardado es el inicial (5), no una nota: se dice «Nuevo» en lugar de «★ 5,0».
+ */
+export function calificacionConductor(driver: { rating: number; ratingCount?: number }) {
+  return driver.ratingCount && driver.ratingCount > 0
+    ? `★ ${driver.rating.toFixed(1).replace(".", ",")}`
+    : "Nuevo";
+}

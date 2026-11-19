@@ -33,7 +33,12 @@ type SharedAddressSelection = {
 type CustomerRideScreenProps = {
   visible: boolean;
   addresses: AppState["addresses"];
-  onlineDrivers: number;
+  /**
+   * FE-04: ya no se muestra. Cuántos conductores hay conectados es una métrica interna
+   * de oferta; al cliente le sirve saber si hay viaje y en cuánto llega, no el tamaño
+   * de la flota. Queda opcional mientras quien monta la pantalla la siga pasando.
+   */
+  onlineDrivers?: number;
   user: User;
   busy: boolean;
   runAction: (action: () => Promise<unknown>, success: string) => void;
@@ -52,7 +57,6 @@ type CustomerRideScreenProps = {
 export function CustomerRideScreen({
   visible,
   addresses,
-  onlineDrivers,
   user,
   busy,
   runAction,
@@ -283,9 +287,6 @@ export function CustomerRideScreen({
           <Text style={styles.rideEyebrow}>VIAJES</Text>
           <Text style={styles.rideTitle}>¿A dónde vamos?</Text>
         </View>
-        <View style={styles.livePill}>
-          <Text style={styles.livePillText}>{onlineDrivers} online</Text>
-        </View>
       </View>
       <ScrollView
         horizontal
@@ -417,7 +418,7 @@ export function CustomerRideScreen({
               </Text>
               <Text style={styles.helperText}>
                 {option.available
-                  ? `${option.pickupEtaMin} min · ${option.availableDrivers} conductores`
+                  ? `Llega en ${option.pickupEtaMin} min`
                   : "Sin conductores disponibles"}
               </Text>
             </View>

@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { ArrowLeft, Bike, Clock3, Leaf, Search, ShoppingBag, Star } from "lucide-react";
+import { ArrowLeft, Bike, Clock3, Leaf, Search, ShoppingBag } from "lucide-react";
 
 import { itemMatchesDietary } from "../dietary";
 import type { DietaryPreferences, MenuItem, Restaurant } from "../types";
 import { IconButton } from "../ui/panels";
-import { CategoryRail, FoodRow } from "./FoodCatalogComponents";
+import { CategoryRail, FoodRow, MerchantRating } from "./FoodCatalogComponents";
 import { EmptyState } from "./EmptyState";
 
 export function RestaurantDetail({
@@ -45,9 +45,7 @@ export function RestaurantDetail({
           {restaurant.cuisine} · {restaurant.address}
         </p>
         <div className="summary-grid">
-          <span>
-            <Star size={14} /> {restaurant.rating}
-          </span>
+          <MerchantRating restaurant={restaurant} iconSize={14} />
           <span>
             <Bike size={14} /> {restaurant.distanceKm} km
           </span>
