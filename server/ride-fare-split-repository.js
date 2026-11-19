@@ -21,16 +21,22 @@ const terminales = ["completed", "cancelled"];
 const publicId = () => `SPL-${crypto.randomBytes(5).toString("hex").toUpperCase()}`;
 const primerNombre = (nombre) => String(nombre || "").split(" ")[0] || "Alguien";
 
-const cuentaWallet = async (client, userId) =>
-  (
+// Sin `DO UPDATE`: un upsert que actualiza bloquea la fila, y bloquear billeteras en
+// distinto orden en dos transacciones las traba. Sólo se bloquea, aparte, la del
+// invitado que paga, para que su saldo no cambie mientras se controla.
+const cuentaWallet = async (client, userId) => {
+  await client.query(
+    `INSERT INTO ledger_accounts(owner_type,owner_id,currency,account_type)
+     VALUES('user',$1,'ARS','wallet') ON CONFLICT(owner_type,owner_id,currency,account_type) DO NOTHING`,
+    [userId],
+  );
+  return (
     await client.query(
-      `INSERT INTO ledger_accounts(owner_type,owner_id,currency,account_type)
-       VALUES('user',$1,'ARS','wallet')
-       ON CONFLICT(owner_type,owner_id,currency,account_type) DO UPDATE SET owner_type=EXCLUDED.owner_type
-       RETURNING id`,
+      "SELECT id FROM ledger_accounts WHERE owner_type='user' AND owner_id=$1 AND currency='ARS' AND account_type='wallet'",
       [userId],
     )
   ).rows[0].id;
+};
 
 const saldo = async (client, accountId) =>
   Number(
@@ -69,10 +75,6 @@ async function moverEntreBilleteras(client, { idempotencyKey, description, jobId
       accountId: await cuentaWallet(client, movimiento.userId),
     })),
   );
-  // Se bloquean en orden fijo para que dos aceptaciones simultáneas no se traben.
-  await client.query("SELECT id FROM ledger_accounts WHERE id=ANY($1) ORDER BY id FOR UPDATE", [
-    cuentas.map((cuenta) => cuenta.accountId),
-  ]);
   const transaccion = (
     await client.query(
       `INSERT INTO ledger_transactions(idempotency_key,kind,description,metadata)
@@ -111,19 +113,16 @@ export async function inviteToSplitFare({ ridePublicId, userPublicId, email }) {
       throw Object.assign(new Error("Sólo se divide un viaje pagado con Flash Wallet"), {
         status: 409,
       });
-    // Un email que no es de un cliente activo responde lo mismo que uno inexistente:
-    // la invitación no sirve para averiguar quién tiene cuenta.
+    // Invitar no dice quién tiene cuenta: un email que no es de un cliente activo se
+    // guarda como una invitación más, que nunca se acepta, y la respuesta es la misma.
+    const correo = String(email).trim().toLowerCase();
     const invitado = (
       await client.query(
         `SELECT u.id FROM users u JOIN user_roles r ON r.user_id=u.id AND r.role='customer'
-         WHERE lower(u.email)=lower($1) AND u.status='active' AND u.id<>$2 LIMIT 1`,
-        [email, user.id],
+         WHERE lower(u.email)=$1 AND u.status='active' AND u.id<>$2 LIMIT 1`,
+        [correo, user.id],
       )
     ).rows[0];
-    if (!invitado)
-      throw Object.assign(new Error("No encontramos una cuenta Flash con ese email"), {
-        status: 404,
-      });
     const vigentes = Number(
       (
         await client.query(
@@ -138,23 +137,25 @@ export async function inviteToSplitFare({ ridePublicId, userPublicId, email }) {
       });
     const split = (
       await client.query(
-        `INSERT INTO ride_fare_splits(public_id,job_id,inviter_id,invitee_id) VALUES($1,$2,$3,$4)
-         ON CONFLICT(job_id,invitee_id) DO NOTHING RETURNING public_id`,
-        [publicId(), ride.id, user.id, invitado.id],
+        `INSERT INTO ride_fare_splits(public_id,job_id,inviter_id,invitee_id,invitee_email)
+         VALUES($1,$2,$3,$4,$5)
+         ON CONFLICT(job_id,invitee_email) DO NOTHING RETURNING public_id`,
+        [publicId(), ride.id, user.id, invitado?.id ?? null, correo],
       )
     ).rows[0];
-    if (!split) throw Object.assign(new Error("Ya invitaste a esa persona"), { status: 409 });
-    await enqueueNotificationForInternalUser(client, {
-      userId: invitado.id,
-      template: "ride_split_invite",
-      payload: {
-        title: "Te invitaron a dividir un viaje",
-        body: `${primerNombre(ride.customer_name)} quiere dividir el viaje a ${ride.dropoff_address}.`,
-        splitId: split.public_id,
-        rideId: ridePublicId,
-      },
-      deduplicationKey: `ride-split:${split.public_id}`,
-    });
+    if (!split) throw Object.assign(new Error("Ya invitaste a ese email"), { status: 409 });
+    if (invitado)
+      await enqueueNotificationForInternalUser(client, {
+        userId: invitado.id,
+        template: "ride_split_invite",
+        payload: {
+          title: "Te invitaron a dividir un viaje",
+          body: `${primerNombre(ride.customer_name)} quiere dividir el viaje a ${ride.dropoff_address}.`,
+          splitId: split.public_id,
+          rideId: ridePublicId,
+        },
+        deduplicationKey: `ride-split:${split.public_id}`,
+      });
     await client.query("COMMIT");
     return { id: split.public_id, status: "invited" };
   } catch (error) {
@@ -168,15 +169,17 @@ export async function inviteToSplitFare({ ridePublicId, userPublicId, email }) {
 /** Para quien pidió: con quién divide, en qué estado y cuánto le toca a cada uno. */
 export async function listRideFareSplits({ ridePublicId, userPublicId }) {
   const result = await postgresPool.query(
-    `SELECT s.public_id,s.status,s.paid_cents,u.name invitee_name
-     FROM ride_fare_splits s JOIN jobs j ON j.id=s.job_id JOIN users u ON u.id=s.invitee_id
+    `SELECT s.public_id,s.status,s.paid_cents,s.invitee_email,u.name invitee_name
+     FROM ride_fare_splits s JOIN jobs j ON j.id=s.job_id LEFT JOIN users u ON u.id=s.invitee_id
      JOIN users me ON me.id=s.inviter_id
      WHERE j.public_id=$1 AND me.public_id=$2 ORDER BY s.created_at`,
     [ridePublicId, userPublicId],
   );
   return result.rows.map((row) => ({
     id: row.public_id,
-    name: primerNombre(row.invitee_name),
+    // Hasta que acepta se muestra el email que escribió quien invita: mostrar el
+    // nombre diría que ese email tiene cuenta.
+    name: row.status === "accepted" ? primerNombre(row.invitee_name) : row.invitee_email,
     status: row.status,
     paid: pesos(row.paid_cents),
   }));

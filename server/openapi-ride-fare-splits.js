@@ -37,8 +37,9 @@ export function rideFareSplitPaths({ success, json, errorResponses }) {
         operationId: "inviteToSplitFare",
         summary: "Quien pidió el viaje invita a otra cuenta Flash a dividir la tarifa",
         description:
-          "Sólo un viaje pagado con Flash Wallet y todavía en curso. Hasta cuatro personas. Un " +
-          "email que no es de un cliente activo responde igual que uno inexistente.",
+          "Sólo un viaje pagado con Flash Wallet y todavía en curso. Hasta cuatro invitaciones. " +
+          "Un email que no es de un cliente activo se guarda igual y responde lo mismo: invitar " +
+          "no dice qué emails tienen cuenta.",
         security: [{ bearerAuth: [] }],
         parameters: [rideId],
         requestBody: {
@@ -57,7 +58,6 @@ export function rideFareSplitPaths({ success, json, errorResponses }) {
           201: success({ type: "object", properties: { split: { type: "object" } } }, "Invitada"),
           400: errorResponses[400],
           403: { description: "No es quien pidió el viaje", content: json },
-          404: { description: "Sin cuenta Flash con ese email", content: json },
           409: { description: "Viaje terminado, sin Wallet, repetido o completo", content: json },
           429: errorResponses[429],
           ...comun,

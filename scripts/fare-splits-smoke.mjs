@@ -131,14 +131,16 @@ try {
   assert((await saldo(usuarios.pide.id)) === 0, "quien pide pagó el viaje entero");
 
   // --- Invitar ----------------------------------------------------------------
-  const sinCuenta = await espera(
-    inviteToSplitFare({
-      ridePublicId: rideId,
-      userPublicId: usuarios.pide.public_id,
-      email: `${marca}-nadie@flash.test`,
-    }),
+  // Un email sin cuenta responde igual que uno con cuenta: invitar no dice quién la tiene.
+  const nadie = await inviteToSplitFare({
+    ridePublicId: rideId,
+    userPublicId: usuarios.pide.public_id,
+    email: `${marca}-nadie@flash.test`,
+  });
+  assert(
+    nadie.status === "invited" && typeof nadie.id === "string",
+    "invitar un email sin cuenta responde igual que uno con cuenta",
   );
-  assert(sinCuenta?.status === 404, "un email sin cuenta Flash no se puede invitar");
   const ana = await inviteToSplitFare({
     ridePublicId: rideId,
     userPublicId: usuarios.pide.public_id,
@@ -162,6 +164,14 @@ try {
   assert(ajena?.status === 403, "sólo quien pidió el viaje puede dividirlo");
 
   // --- Aceptar y reequilibrar --------------------------------------------------
+  const fantasma = await espera(
+    respondToFareSplit({
+      splitPublicId: nadie.id,
+      userPublicId: usuarios.ana.public_id,
+      accept: true,
+    }),
+  );
+  assert(fantasma?.status === 403, "la invitación a un email sin cuenta no la acepta nadie");
   const aceptaAna = await respondToFareSplit({
     splitPublicId: ana.id,
     userPublicId: usuarios.ana.public_id,
@@ -171,6 +181,23 @@ try {
   assert(
     (await saldo(usuarios.ana.id)) === 50000 && (await saldo(usuarios.pide.id)) === 450000,
     "la mitad pasa de su Wallet a la de quien pidió",
+  );
+  // Con una división aceptada y el viaje en curso, no se puede borrar la cuenta: un
+  // reequilibrio o una cancelación le van a devolver plata.
+  const borrado = await pool.connect();
+  let bloqueo = null;
+  try {
+    await borrado.query("BEGIN");
+    await borrado.query("UPDATE users SET status='deleted' WHERE id=$1", [usuarios.ana.id]);
+  } catch (error) {
+    bloqueo = error;
+  } finally {
+    await borrado.query("ROLLBACK");
+    borrado.release();
+  }
+  assert(
+    /FLASH_DELETE_ACTIVE_JOB/.test(bloqueo?.message || ""),
+    "quien aceptó dividir un viaje en curso no puede borrar su cuenta",
   );
   const beto = await inviteToSplitFare({
     ridePublicId: rideId,
@@ -211,8 +238,10 @@ try {
     userPublicId: usuarios.pide.public_id,
   });
   assert(
-    lista.filter((split) => split.status === "accepted").length === 2 && lista.length === 3,
-    "quien pidió ve con quién divide y en qué estado",
+    lista.filter((split) => split.status === "accepted").length === 2 &&
+      lista.length === 4 &&
+      lista.some((split) => split.name === `${marca}-nadie@flash.test`),
+    "quien pidió ve con quién divide y en qué estado; hasta aceptar, por el email que escribió",
   );
 
   // --- Cancelar -----------------------------------------------------------------

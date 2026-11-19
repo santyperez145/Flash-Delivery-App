@@ -5,9 +5,12 @@ Como en Uber: quien pidió un viaje invita a quienes viajan con él, y cada uno 
 ## Cómo funciona
 
 - **Quién invita.** Quien pidió el viaje, si lo pagó con Flash Wallet y el viaje sigue en
-  curso. Invita por el email de otra cuenta Flash, hasta cuatro personas. Un email que no es
-  de un cliente activo responde lo mismo que uno inexistente, y las invitaciones tienen su
-  propio límite de pedidos por minuto: la invitación no sirve para averiguar quién tiene cuenta.
+  curso. Invita por email, hasta cuatro invitaciones.
+- **Invitar no dice quién tiene cuenta.** Un email que no es de un cliente activo se guarda
+  como una invitación más, que nunca se acepta, y la respuesta es la misma. Hasta que alguien
+  acepta, quien invita ve el email que escribió y no un nombre. Como cada viaje admite cuatro
+  invitaciones, averiguar cuentas así cuesta un viaje pagado cada cuatro emails; además las
+  invitaciones tienen su propio límite de pedidos por minuto.
 - **El invitado** recibe una push y ve la invitación en el inicio de Viajes, con la parte que
   le tocaría. Si acepta, la paga en el momento desde su Flash Wallet; sin saldo suficiente, no
   se acepta y nada se mueve.
@@ -16,6 +19,13 @@ Como en Uber: quien pidió un viaje invita a quienes viajan con él, y cada uno 
   que pagaron de más; quien pidió absorbe los centavos que no dividen exacto.
 - **Cancelación.** Quien pidió recupera el total como siempre, y a cada invitado se le
   devuelve lo que pagó, en la misma transacción.
+- **Borrar la cuenta.** Quien aceptó dividir un viaje que sigue en curso no puede borrar su
+  cuenta hasta que termine: un reequilibrio o una cancelación le van a devolver plata.
+- **Sin bloqueos cruzados.** Sólo se bloquea la billetera del invitado que paga, para
+  controlar su saldo. Bloquear varias en distinto orden podía trabar una aceptación con una
+  cancelación simultánea.
+- **En pantalla.** Las invitaciones se releen cada 30 segundos en el inicio, y si no se pueden
+  leer se dice, con «Reintentar».
 
 ## Por qué entre pasajeros
 

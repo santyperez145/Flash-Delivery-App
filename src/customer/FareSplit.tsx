@@ -26,13 +26,17 @@ export function FareSplitPanel({ ride }: { ride: Ride }) {
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [fallo, setFallo] = useState(false);
   const activo = divisible(ride);
   const cargar = useCallback(
     () =>
       api
         .getRideFareSplits(ride.id)
-        .then((respuesta) => setSplits(respuesta.splits))
-        .catch(() => undefined),
+        .then((respuesta) => {
+          setSplits(respuesta.splits);
+          setFallo(false);
+        })
+        .catch(() => setFallo(true)),
     [ride.id],
   );
   useEffect(() => {
@@ -51,7 +55,7 @@ export function FareSplitPanel({ ride }: { ride: Ride }) {
     try {
       await api.inviteToSplitFare(ride.id, email.trim());
       setEmail("");
-      setAviso("Invitación enviada");
+      setAviso("Si ese email tiene cuenta Flash, le llega la invitación");
       await cargar();
     } catch (error) {
       setAviso(error instanceof Error ? error.message : "No se pudo invitar");
@@ -80,6 +84,14 @@ export function FareSplitPanel({ ride }: { ride: Ride }) {
           ))}
         </ul>
       )}
+      {fallo && (
+        <small role="alert">
+          No pudimos ver con quién dividís.{" "}
+          <button type="button" onClick={() => void cargar()}>
+            Reintentar
+          </button>
+        </small>
+      )}
       <form onSubmit={invitar}>
         <input
           type="email"
@@ -103,17 +115,33 @@ export function FareSplitInvitations() {
   const [invitaciones, setInvitaciones] = useState<FareSplitInvitation[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [fallo, setFallo] = useState(false);
   const cargar = useCallback(
     () =>
       api
         .getFareSplitInvitations()
-        .then((respuesta) => setInvitaciones(respuesta.invitations))
-        .catch(() => undefined),
+        .then((respuesta) => {
+          setInvitaciones(respuesta.invitations);
+          setFallo(false);
+        })
+        .catch(() => setFallo(true)),
     [],
   );
+  // Una invitación puede llegar con el inicio abierto: se relee cada 30 segundos.
   useEffect(() => {
     void cargar();
+    const timer = setInterval(() => void cargar(), 30000);
+    return () => clearInterval(timer);
   }, [cargar]);
+  if (fallo)
+    return (
+      <p className="customer-home-notice" role="alert">
+        No pudimos ver si te invitaron a dividir un viaje.
+        <button type="button" onClick={() => void cargar()}>
+          Reintentar
+        </button>
+      </p>
+    );
   if (!invitaciones.length && !aviso) return null;
   const responder = async (invitacion: FareSplitInvitation, accept: boolean) => {
     setBusy(invitacion.id);

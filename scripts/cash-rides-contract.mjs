@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 
-import { contains } from "./source-contract.mjs";
+import { contains, squeeze } from "./source-contract.mjs";
 
 const leer = (ruta) => fs.readFile(ruta, "utf8");
 const [
@@ -86,17 +86,29 @@ console.log("ok - web y móvil dejan elegir efectivo, y el conductor ve cuánto 
 // cableado: la ruta montada y limitada, la cancelación que devuelve las partes y las
 // dos apps.
 {
-  const [division, rutas, webSeguimiento, webInicio, movilSeguimiento, movilInicio] =
-    await Promise.all(
-      [
-        "server/ride-fare-split-repository.js",
-        "server/http/ride-fare-split-router.js",
-        "src/customer/RideTrackingSheet.tsx",
-        "src/customer/RidesLanding.tsx",
-        "apps/mobile/src/screens/CustomerTrackingSheets.tsx",
-        "apps/mobile/src/screens/CustomerHomeScreen.tsx",
-      ].map(leer),
-    );
+  const [
+    division,
+    rutas,
+    webSeguimiento,
+    webInicio,
+    movilSeguimiento,
+    movilInicio,
+    migracion,
+    webDivision,
+    movilDivision,
+  ] = await Promise.all(
+    [
+      "server/ride-fare-split-repository.js",
+      "server/http/ride-fare-split-router.js",
+      "src/customer/RideTrackingSheet.tsx",
+      "src/customer/RidesLanding.tsx",
+      "apps/mobile/src/screens/CustomerTrackingSheets.tsx",
+      "apps/mobile/src/screens/CustomerHomeScreen.tsx",
+      "database/migrations/144_ride_fare_splits.sql",
+      "src/customer/FareSplit.tsx",
+      "apps/mobile/src/FareSplit.tsx",
+    ].map(leer),
+  );
   assert.ok(
     contains(viajes, "router.use(rideFareSplitRouter);") &&
       contains(rutas, "fareSplitLimiter,") &&
@@ -106,15 +118,29 @@ console.log("ok - web y móvil dejan elegir efectivo, y el conductor ve cuánto 
         division,
         'if (suma !== 0) throw new Error("La división de la tarifa no cuadra");',
       ) &&
-      // Un email sin cliente activo responde igual que uno inexistente.
-      contains(division, "u.status='active' AND u.id<>$2 LIMIT 1"),
+      // Invitar no dice quién tiene cuenta: un email sin cliente activo se guarda
+      // igual, y hasta aceptar se muestra el email y no el nombre.
+      contains(division, "[publicId(), ride.id, user.id, invitado?.id ?? null, correo],") &&
+      contains(
+        division,
+        'name: row.status === "accepted" ? primerNombre(row.invitee_name) : row.invitee_email,',
+      ) &&
+      // Quien aceptó dividir un viaje en curso no puede borrar su cuenta.
+      contains(migracion, "CREATE TRIGGER users_reject_deletion_with_open_fare_split"),
     "dividir la tarifa no está montado, limitado, cuadrado o devuelto al cancelar",
   );
   assert.ok(
     contains(webSeguimiento, "<FareSplitPanel ride={ride} />") &&
       contains(webInicio, "<FareSplitInvitations />") &&
       contains(movilSeguimiento, "<FareSplitPanel ride={ride} />") &&
-      contains(movilInicio, "<FareSplitInvitations />"),
+      contains(movilInicio, "<FareSplitInvitations />") &&
+      // Una invitación que llega con el inicio abierto aparece sola, y un error se dice.
+      [webDivision, movilDivision].every(
+        (fuente) =>
+          contains(fuente, "const timer = setInterval(() => void cargar(), 30000);") &&
+          // En el panel y en las invitaciones: los dos lugares que leen.
+          squeeze(fuente).split(squeeze(".catch(() => setFallo(true)),")).length - 1 === 2,
+      ),
     "dividir la tarifa no se ofrece en web y móvil",
   );
   console.log(
