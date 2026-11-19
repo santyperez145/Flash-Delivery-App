@@ -80,11 +80,12 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   - Las rondas siguientes le volvían a ofrecer el lote a los mismos dos repartidores.
   - La prueba nueva usaba un repartidor sin vehículo, así que una de sus afirmaciones no
     podía fallar.
-- **La revisión del PR sumó cinco más, corregidas:** el filtro de quien ya lleva un servicio
+- **La revisión del PR sumó seis más, corregidas:** el filtro de quien ya lleva un servicio
   pasó a la lista corta (si no, el radio dejaba de ampliarse con tres ocupados); un viaje con
   pasajero en curso también impide el lote; el efectivo se filtra antes de elegir los dos
-  repartidores; el lote tiene su ronda exclusiva antes de abrirse a los libres; y los
-  controles de orden del contrato no dependen del espaciado. La prueba de PostgreSQL del
+  repartidores; el lote tiene su ronda exclusiva antes de abrirse a los libres; el lote exige
+  ubicación reciente y precisa, como la lista corta; y los controles de orden del contrato
+  no dependen del espaciado. La prueba de PostgreSQL del
   runtime aparta el pedido en camino sembrado del repartidor de ejemplo mientras toma el
   suyo: con la regla nueva, ya no recibe uno suelto de otro local.
 - **Verificación:**
@@ -93,7 +94,7 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
     la liberación y el reagrupado, la cancelación y un control con el repartidor libre.
     No se pudo correr en local, porque no hay credenciales de la base local; corre en el CI.
   - `test:order-batching-contract` (nueva, en `ci-fast`) vigila el cableado en la base, el
-    servidor, web y teléfono. Falsificado con 55 mutaciones.
+    servidor, web y teléfono. Falsificado con 57 mutaciones.
 - **Brechas:** hasta dos pedidos y sólo del mismo local; el desvío se mide en línea recta.
   Detalle en [`docs/order-batching.md`](docs/order-batching.md).
 

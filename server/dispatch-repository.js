@@ -71,6 +71,10 @@ const LOTE_COMPATIBLE_SQL = `
     AND a.metadata->>'subtype' = 'food_order' AND a.status IN ('driver_assigned','arriving')
     AND a.batch_anchor_id IS NULL
   JOIN drivers d ON d.id = a.driver_id AND d.online
+    -- Las mismas condiciones de ubicación que la lista corta: a quien dejó de reportar no
+    -- se le ofrece un lote, que además tiene la ronda para él solo.
+    AND d.location_updated_at >= now() - interval '10 minutes'
+    AND (d.location_accuracy_m IS NULL OR d.location_accuracy_m <= 200)
   WHERE n.id = $1 AND n.kind = 'delivery' AND n.metadata->>'subtype' = 'food_order'
     AND n.driver_id IS NULL AND n.branch_id IS NOT NULL
     -- El pedido nuevo no es parte de otro lote, ni como segundo ni como primero.

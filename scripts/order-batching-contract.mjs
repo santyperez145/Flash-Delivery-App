@@ -83,6 +83,11 @@ assert.ok(
   "quien lo lleva está en línea",
 );
 assert.ok(
+  contains(lote, "AND d.location_updated_at >= now() - interval '10 minutes'") &&
+    contains(lote, "AND (d.location_accuracy_m IS NULL OR d.location_accuracy_m <= 200)"),
+  "a quien dejó de reportar su ubicación no se le ofrece un lote",
+);
+assert.ok(
   contains(lote, "n.driver_id IS NULL AND n.branch_id IS NOT NULL"),
   "el pedido nuevo está libre y tiene local",
 );

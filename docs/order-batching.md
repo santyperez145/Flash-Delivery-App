@@ -19,7 +19,9 @@ Es la palanca más directa sobre el costo por entrega: un viaje al local en luga
   llegando). Si la entrega del nuevo queda en el camino, a ese repartidor se le ofrece
   sumarlo antes que a nadie: «Sumá un pedido del mismo local». En esa ronda el pedido no se
   le ofrece suelto a nadie más; si nadie acepta el lote, la ronda siguiente, cuando vencen
-  las ofertas (45 s), lo abre a los repartidores libres.
+  las ofertas (45 s), lo abre a los repartidores libres. El lote sólo se le ofrece a quien
+  sigue reportando su ubicación (últimos 10 minutos, precisión de hasta 200 m), igual que
+  cualquier oferta: quien dejó de reportar no se queda con la ronda.
 - **El tope de desvío.** Lo que espera de más el segundo cliente por pasar antes por la
   casa del primero, en línea recta:
   `local→casa 1 + casa 1→casa 2 − local→casa 2`. No puede pasar de
