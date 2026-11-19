@@ -3,6 +3,7 @@ import { postgresPool } from "./postgres.js";
 import { pesos } from "./money.js";
 import { markHeldTipRefunded } from "./tip-repository.js";
 import { enqueueNotificationForInternalUser } from "./notification-repository.js";
+import { refundFareSplitsOnCancel } from "./ride-fare-split-repository.js";
 
 const clearingAccount = async (client) =>
   (
@@ -690,6 +691,16 @@ export async function cancelMobilityJobAndRefundWallet({
       "UPDATE dispatch_offers SET status='withdrawn',responded_at=now() WHERE job_id=$1 AND status='pending'",
       [job.id],
     );
+    // PAG-02: si el viaje estaba dividido, a cada invitado se le devuelve lo que pagó
+    // (y quien pidió recibe el total más abajo). Va **antes** de bloquear la cuenta de
+    // compensación: con ese bloqueo tomado, asentar en la billetera de un invitado
+    // que justo está pagando otra cosa con su Wallet trababa las dos operaciones.
+    if (kind === "ride")
+      await refundFareSplitsOnCancel(client, {
+        jobId: job.id,
+        ridePublicId: publicId,
+        customerId: job.customer_id,
+      });
     const payment = (
       await client.query(
         "SELECT * FROM payment_intents WHERE job_id=$1 AND provider='flash_wallet' AND status='captured' FOR UPDATE",
@@ -699,7 +710,11 @@ export async function cancelMobilityJobAndRefundWallet({
     if (payment) {
       const wallet = (
         await client.query(
-          "SELECT id FROM ledger_accounts WHERE owner_type='user' AND owner_id=$1 AND account_type='wallet' FOR UPDATE",
+          // `NO KEY UPDATE`: las partes de un viaje dividido ya se devolvieron con
+          // asientos que toman un bloqueo compartido de clave foránea sobre esta
+          // billetera, y `FOR UPDATE` choca con él. Dos cancelaciones de viajes
+          // divididos entre las mismas personas se trababan.
+          "SELECT id FROM ledger_accounts WHERE owner_type='user' AND owner_id=$1 AND account_type='wallet' FOR NO KEY UPDATE",
           [job.customer_id],
         )
       ).rows[0];

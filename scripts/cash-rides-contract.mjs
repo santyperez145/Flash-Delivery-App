@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 
-import { contains } from "./source-contract.mjs";
+import { contains, squeeze } from "./source-contract.mjs";
 
 const leer = (ruta) => fs.readFile(ruta, "utf8");
 const [
@@ -80,3 +80,84 @@ assert.ok(
   "las apps no dejan elegir efectivo, o el conductor no sabe que cobra en mano",
 );
 console.log("ok - web y móvil dejan elegir efectivo, y el conductor ve cuánto cobrar");
+
+// --- PAG-02: dividir la tarifa ------------------------------------------------
+// La prueba con PostgreSQL (`test:fare-splits`) recorre el dinero. Esto vigila el
+// cableado: la ruta montada y limitada, la cancelación que devuelve las partes y las
+// dos apps.
+{
+  const [
+    division,
+    rutas,
+    webSeguimiento,
+    webInicio,
+    movilSeguimiento,
+    movilInicio,
+    migracion,
+    webDivision,
+    movilDivision,
+  ] = await Promise.all(
+    [
+      "server/ride-fare-split-repository.js",
+      "server/http/ride-fare-split-router.js",
+      "src/customer/RideTrackingSheet.tsx",
+      "src/customer/RidesLanding.tsx",
+      "apps/mobile/src/screens/CustomerTrackingSheets.tsx",
+      "apps/mobile/src/screens/CustomerHomeScreen.tsx",
+      "database/migrations/144_ride_fare_splits.sql",
+      "src/customer/FareSplit.tsx",
+      "apps/mobile/src/FareSplit.tsx",
+    ].map(leer),
+  );
+  // La cancelación de viajes y envíos, sola: el archivo tiene otras que también
+  // bloquean la cuenta de compensación.
+  const cancelacion = billetera.slice(
+    billetera.indexOf("export async function cancelMobilityJobAndRefundWallet"),
+  );
+  assert.ok(
+    contains(viajes, "router.use(rideFareSplitRouter);") &&
+      contains(rutas, "fareSplitLimiter,") &&
+      contains(cancelacion, "await refundFareSplitsOnCancel(client, {") &&
+      // Antes de bloquear la cuenta de compensación: después, se trababa con un pago
+      // simultáneo del invitado.
+      squeeze(cancelacion).indexOf(squeeze("await refundFareSplitsOnCancel(client, {")) <
+        squeeze(cancelacion).indexOf(squeeze("account_type='cash_clearing' FOR UPDATE")) &&
+      contains(cancelacion, "AND account_type='wallet' FOR NO KEY UPDATE") &&
+      contains(migracion, "SET invitee_email = 'eliminado:' || public_id") &&
+      contains(division, "const parte = Math.floor(total / (aceptados.length + 2));") &&
+      contains(division, "SELECT id FROM ledger_accounts WHERE id=$1 FOR NO KEY UPDATE") &&
+      !contains(division, "ORDER BY id FOR UPDATE") &&
+      contains(
+        division,
+        'if (suma !== 0) throw new Error("La división de la tarifa no cuadra");',
+      ) &&
+      // Invitar no dice quién tiene cuenta: un email sin cliente activo se guarda
+      // igual, y hasta aceptar se muestra el email y no el nombre.
+      contains(division, "[publicId(), ride.id, user.id, invitado?.id ?? null, correo],") &&
+      contains(
+        division,
+        'name: row.status === "accepted" ? primerNombre(row.invitee_name) : row.invitee_email,',
+      ) &&
+      // Quien aceptó dividir un viaje en curso no puede borrar su cuenta.
+      contains(migracion, "CREATE TRIGGER users_reject_deletion_with_open_fare_split"),
+    "dividir la tarifa no está montado, limitado, cuadrado o devuelto al cancelar",
+  );
+  assert.ok(
+    contains(webSeguimiento, "<FareSplitPanel ride={ride} />") &&
+      contains(webInicio, "<FareSplitInvitations onPagado={onWalletChanged} />") &&
+      contains(movilSeguimiento, "<FareSplitPanel ride={ride} />") &&
+      contains(movilInicio, "<FareSplitInvitations onPagado={onWalletChanged} />") &&
+      // Una invitación que llega con el inicio abierto aparece sola, y un error se dice.
+      [webDivision, movilDivision].every(
+        (fuente) =>
+          contains(fuente, "const timer = setInterval(() => void cargar(), 30000);") &&
+          contains(fuente, "if (accept) onPagado?.();") &&
+          // En el panel y en las invitaciones: los dos lugares que leen.
+          squeeze(fuente).split(squeeze(".catch(() => setFallo(true)),")).length - 1 === 2,
+      ),
+    "dividir la tarifa no se ofrece en web y móvil",
+  );
+  console.log(
+    "ok - dividir la tarifa está montado, cuadrado, devuelto al cancelar y en las dos apps",
+  );
+}

@@ -833,3 +833,13 @@ Detalle en [`cash-rides.md`](cash-rides.md).
 
 - **Brecha:** el conductor no puede saldar la deuda pagando; se netea contra sus ganancias.
 - **Brecha:** efectivo en pedidos de comida, que exige que el comercio lo acepte.
+
+### Decisión 18 de noviembre de 2026 — dividir la tarifa (PAG-02)
+
+Uber deja dividir la tarifa con otros pasajeros; quien no acepta o no tiene un medio de pago
+válido deja su parte a cargo de quien pidió, y no se puede dividir después de terminado el
+viaje ([Uber, split fare](https://www.uber.com/en-GB/ride/how-uber-works/split-fare)). Flash
+hace lo mismo con Flash Wallet: partes iguales entre quienes aceptan, reequilibradas con cada
+aceptación. Detalle en [`fare-splits.md`](fare-splits.md).
+
+- **Brecha:** se invita por email y no por la agenda; un viaje en efectivo no se divide.

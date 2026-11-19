@@ -6,6 +6,7 @@ import { initials, money } from "../format";
 import { rideStatusLabel, rideSteps } from "../labels";
 import type { Driver, Ride, RoadRoute } from "../types";
 import { TripCheckBanner } from "./TripCheckBanner";
+import { FareSplitPanel } from "./FareSplit";
 
 const FlashMap = lazy(() => import("../maps/FlashMap"));
 
@@ -258,6 +259,8 @@ export function RideTrackingSheet({
             )}
           </section>
         )}
+        {/* PAG-02: dividir la tarifa con quien viaja. */}
+        <FareSplitPanel ride={ride} />
         <section className="ride-safety-actions">
           <div className="ride-safety-heading">
             <span className="safety-icon">

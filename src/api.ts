@@ -1210,6 +1210,30 @@ export const api = {
     });
   },
 
+  async inviteToSplitFare(rideId: string, email: string) {
+    // PAG-02: dividir la tarifa con otra cuenta Flash.
+    return request<{ split: { id: string; status: string } }>(`/rides/${rideId}/splits`, {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  },
+  async getRideFareSplits(rideId: string) {
+    return request<{ splits: import("@flash/domain-contracts").FareSplit[] }>(
+      `/rides/${rideId}/splits`,
+    );
+  },
+  async getFareSplitInvitations() {
+    return request<{ invitations: import("@flash/domain-contracts").FareSplitInvitation[] }>(
+      "/me/fare-split-invitations",
+    );
+  },
+  async respondToFareSplit(splitId: string, accept: boolean) {
+    return request<{ split: { id: string; status: string; share?: number } }>(
+      `/ride-splits/${splitId}/${accept ? "accept" : "decline"}`,
+      { method: "POST" },
+    );
+  },
+
   async answerRideTripCheck(
     rideId: string,
     checkId: string,

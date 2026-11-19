@@ -16,6 +16,7 @@ let fixtureFavorite;
 let fixtureDeviceId;
 let fixtureOfferId;
 let fixtureTripCheckId;
+let fixtureFareSplitId;
 let fixtureDeliveryCodeJobId;
 let fixturePayoutId;
 let fixtureTipId;
@@ -571,6 +572,15 @@ try {
       )
     ).rows[0],
     fixtureMerchant = (await owner.query("SELECT id FROM merchants LIMIT 1")).rows[0];
+  // PAG-02: una invitación a dividir la tarifa la ven quien invita y quien es
+  // invitado; nadie más. El invitado es un email sin cuenta, así no hay otra
+  // cuenta involucrada que pudiera verla con razón.
+  fixtureFareSplitId = (
+    await owner.query(
+      "INSERT INTO ride_fare_splits(public_id,job_id,inviter_id,invitee_email) VALUES($1,$2,$3,$4) RETURNING id",
+      [`SPL-RLS-${Date.now()}`, fixtureJob.id, customer.id, `rls-${Date.now()}@flash.test`],
+    )
+  ).rows[0].id;
   // SEG-01: un aviso del control del viaje del cliente, para probar que la
   // política discrimina: lo ve quien viaja y nadie más.
   // SEG-03: el código de entrega lo ven quien pidió y quien reparte; nadie más.
@@ -739,6 +749,14 @@ try {
       ])
     ).rows[0].count === 1,
     "RLS exposes the trip checks of the customer's own rides",
+  );
+  assert(
+    (
+      await client.query("SELECT count(*)::int count FROM ride_fare_splits WHERE id=$1", [
+        fixtureFareSplitId,
+      ])
+    ).rows[0].count === 1,
+    "RLS exposes the fare split invitations the customer sent",
   );
   // Siempre se afirma sobre el pedido de prueba: si ya tenía código, la fila existe
   // igual y el cliente la tiene que ver. Sólo se borra la que se creó acá.
@@ -942,6 +960,14 @@ try {
     ).rows[0].count === 0,
     "RLS hides the passenger's trip checks from a driver",
   );
+  assert(
+    (
+      await client.query("SELECT count(*)::int count FROM ride_fare_splits WHERE id=$1", [
+        fixtureFareSplitId,
+      ])
+    ).rows[0].count === 0,
+    "RLS hides the passenger's fare splits from a driver",
+  );
   // La otra mitad de la politica de `drivers`. Sin esto, la prueba del auditor
   // solo demostraria que la tabla esta cerrada: una politica que niega a todos
   // pasa el test negativo y deja al conductor sin poder verse a si mismo.
@@ -988,6 +1014,10 @@ try {
   assert(
     (await client.query("SELECT count(*)::int count FROM ride_trip_checks")).rows[0].count === 0,
     "RLS hides another customer's trip checks",
+  );
+  assert(
+    (await client.query("SELECT count(*)::int count FROM ride_fare_splits")).rows[0].count === 0,
+    "RLS hides another customer's fare splits",
   );
   assert(
     (await client.query("SELECT count(*)::int count FROM order_delivery_codes")).rows[0].count ===
@@ -1119,6 +1149,8 @@ try {
     "RLS hides another customer's service chat",
   );
 } finally {
+  if (owner && fixtureFareSplitId)
+    await owner.query("DELETE FROM ride_fare_splits WHERE id=$1", [fixtureFareSplitId]);
   if (owner && fixtureDeliveryCodeJobId)
     await owner.query("DELETE FROM order_delivery_codes WHERE job_id=$1", [
       fixtureDeliveryCodeJobId,

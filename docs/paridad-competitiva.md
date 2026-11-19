@@ -55,6 +55,7 @@ suposición.
 | Control del viaje: parada larga, señal perdida, desvío y final lejos del destino (SEG-01, Uber RideCheck) | Migración 141, `server/ride-trip-check-repository.js`, aviso en web y móvil · `test:ride-trip-checks` |
 | Código de entrega en pedidos de valor alto o con reclamo previo (SEG-03, Uber Eats) | Migración 142, `server/order-delivery-code-repository.js`, web y móvil · `test:order-delivery-code` |
 | Viajes en efectivo, con la comisión descontada del saldo del conductor (PAG-01, Uber en Argentina) | Migración 143, `settleMobilityWalletPayment`, tope en `dispatch-repository.js`, web y móvil · `test:cash-rides` |
+| Dividir la tarifa de un viaje (PAG-02, Uber) | Migración 144, `server/ride-fare-split-repository.js`, web y móvil · `test:fare-splits` |
 | Rubros de comercio: restaurantes, súper, farmacia, kiosco y tiendas (era P-01) | `merchants.vertical` proyectado, `GET /api/catalog/verticals`, filtro `?vertical=` en la base, `VerticalRail` en web y móvil · `test:catalog-verticals` |
 | Retiro en el local, en web y en la app móvil (el móvil era P-11) | Migración 137, `getPostgresFoodPickupQuote`, `FoodFulfillmentPicker.tsx`, `FulfillmentToggle.tsx`, `MerchantPickupSwitch.tsx` · `test:mobile-food-design` |
 | Reordenar un pedido | `POST /api/orders/:orderId/reorder` |

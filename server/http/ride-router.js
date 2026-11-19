@@ -63,6 +63,7 @@ import {
   verifyRidePickupCode,
 } from "../ride-safety-repository.js";
 import { respondToTripCheck } from "../ride-trip-check-repository.js";
+import { rideFareSplitRouter } from "./ride-fare-split-router.js";
 import { assessTransactionRisk, setRiskEntity } from "../risk-repository.js";
 import { createId, createLocalNotification, getTimestamp, rideStatuses } from "../store.js";
 import { cancelMobilityJobAndRefundWallet } from "../wallet-repository.js";
@@ -283,6 +284,8 @@ const jwtSecret = config.jwtSecret;
 
 export const rideRouter = Router();
 const router = rideRouter;
+// PAG-02: dividir la tarifa vive en su propio módulo.
+router.use(rideFareSplitRouter);
 
 router.get("/api/public/rides/track/:token", async (req, res) => {
   const token = String(req.params.token || "");

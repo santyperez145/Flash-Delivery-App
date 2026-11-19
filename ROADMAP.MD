@@ -45,6 +45,26 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
 
+## Avance 18 de noviembre de 2026 — PAG-02, dividir la tarifa
+
+- **Qué faltaba.** Uber deja dividir la tarifa de un viaje con quien viaja; Flash no.
+- **Ahora quien pidió un viaje pagado con Flash Wallet invita por email** a otras cuentas
+  Flash, hasta cuatro. Cada invitado ve la invitación con su parte y, si acepta, la paga desde
+  su Wallet. Funciona en web y en la app.
+  - Las partes son iguales y se reequilibran con cada aceptación.
+  - Si el viaje se cancela, cada uno recupera lo suyo.
+- **El dinero va de pasajero a pasajero** (asiento `fare_split`, migración 144). La
+  liquidación del conductor y los reintegros no cambian.
+- **La invitación no sirve para averiguar cuentas.** Un email que no es de un cliente activo
+  responde igual que uno inexistente, y las invitaciones tienen su propio límite.
+- **Verificación:**
+  - `test:fare-splits` (nueva, en `ci-critical-flows`) recorre invitar, aceptar,
+    reequilibrar, aceptar sin saldo y cancelar, con los saldos del libro contable en cada
+    paso. No se pudo correr en local, porque no hay credenciales de la base local; corre en
+    el CI.
+  - `test:cash-rides-contract` suma el cableado. Falsificado: cada aserción nueva falla
+    cuando se rompe lo que vigila.
+
 ## Avance 18 de noviembre de 2026 — PAG-01, viajes en efectivo
 
 - **Qué faltaba.** Uber en Argentina deja pagar el viaje en efectivo. En Flash, la API

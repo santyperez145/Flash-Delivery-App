@@ -931,6 +931,7 @@ export function CustomerScreen({
             orders={activityOrders}
             activeOrders={activeOrders}
             activeRides={activeRides}
+            onWalletChanged={() => void refresh()}
             ridesWithCheck={activityRides.filter(
               (ride) => ride.customerId === user.id && ride.tripCheck,
             )}

@@ -148,6 +148,7 @@ jobs:
           test:ride-trip-checks
           test:order-delivery-code
           test:cash-rides
+          test:fare-splits
           test:service-chat
           test:shipment-claims
           test:support-sla

@@ -5,6 +5,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import { api } from "../api";
 import { useServiciosDisponibles, type ServicioCliente } from "../customer-services";
 import { TripCheckBanner } from "../TripCheckBanner";
+import { FareSplitInvitations } from "../FareSplit";
 import { flashDesign } from "../design-system";
 import type {
   GeoPoint,
@@ -36,6 +37,7 @@ export function CustomerHomeScreen({
   activeOrders,
   activeRides,
   ridesWithCheck,
+  onWalletChanged,
   activeShipments,
   onSearch,
   onWhereTo,
@@ -53,6 +55,8 @@ export function CustomerHomeScreen({
   activeRides: Ride[];
   /** SEG-01: viajes con un aviso del control del viaje sin contestar. */
   ridesWithCheck: Ride[];
+  /** PAG-02: después de pagar una parte de un viaje, se vuelve a leer la cuenta. */
+  onWalletChanged: () => void;
   activeShipments: Shipment[];
   onSearch: () => void;
   onWhereTo: (destino: Destino | null) => void;
@@ -138,6 +142,8 @@ export function CustomerHomeScreen({
         </Pressable>
       )}
       {fallo && <AvisoRubros onRetry={reintentar} />}
+      {/* PAG-02: invitaciones a dividir un viaje. */}
+      <FareSplitInvitations onPagado={onWalletChanged} />
       {ridesWithCheck.map((ride) => (
         <TripCheckBanner key={ride.id} ride={ride} />
       ))}

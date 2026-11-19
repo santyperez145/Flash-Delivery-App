@@ -510,3 +510,83 @@
   background: color-mix(in srgb, var(--shipment) 10%, var(--paper));
   border-radius: var(--radius-control);
 }
+
+/* --- Dividir la tarifa (PAG-02) ----------------------------------------- */
+.fare-split-invitations {
+  display: grid;
+  gap: 8px;
+}
+
+.fare-split {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+  padding: 14px 16px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+}
+
+.fare-split header {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  align-items: center;
+}
+
+.fare-split header span {
+  grid-column: 2;
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+}
+
+.fare-split ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fare-split li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.fare-split li small {
+  color: var(--ink-soft);
+}
+
+.fare-split form {
+  display: flex;
+  gap: 8px;
+}
+
+.fare-split form input {
+  flex: 1;
+  min-width: 0;
+}
+
+.fare-split form button,
+.fare-split-actions button {
+  min-height: 44px;
+  padding: 0 16px;
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  background: var(--ink);
+  border: 0;
+  border-radius: 999px;
+}
+
+.fare-split-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.fare-split-actions button.secondary {
+  color: var(--ink);
+  background: var(--paper-soft);
+}

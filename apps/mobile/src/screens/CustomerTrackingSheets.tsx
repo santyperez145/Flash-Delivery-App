@@ -21,6 +21,7 @@ import { useTrackingRoute } from "./useTrackingRoute";
 import { OrderDeliveryPhoto } from "../OrderDeliveryPhoto";
 import { OrderDeliveryCodeView } from "../OrderDeliveryCode";
 import { TripCheckBanner } from "../TripCheckBanner";
+import { FareSplitPanel } from "../FareSplit";
 
 export function OrderTrackingSheet({
   order,
@@ -208,6 +209,8 @@ export function RideTrackingSheet({
       )}
       <ScrollView showsVerticalScrollIndicator={false}>
         <TripCheckBanner ride={ride} location={driver?.location || undefined} />
+        {/* PAG-02: dividir la tarifa con quien viaja. */}
+        <FareSplitPanel ride={ride} />
         <View style={styles.trackingStatus}>
           <Text style={styles.foodRestaurantTitle}>{headline}</Text>
           <Text style={styles.cardText}>
