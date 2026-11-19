@@ -18,7 +18,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 
-import { api, mobileAppVariant } from "../api";
+import { api, MfaRequiredError, mobileAppVariant } from "../api";
 import { flashDesign } from "../design-system";
 import { LegalLinks } from "../LegalLinks";
 import { styles } from "../styles";
@@ -27,10 +27,13 @@ import type { User } from "../types";
 export function LoginScreen({
   busy,
   onLogin,
+  onCompleteMfa,
   onRegister,
 }: {
   busy: boolean;
   onLogin: (email: string, password: string) => Promise<void>;
+  /** Segundo paso (SEG-08): la cuenta tiene la verificación en dos pasos activa. */
+  onCompleteMfa: (challenge: string, code: string) => Promise<void>;
   onRegister: (input: {
     name: string;
     email: string;
@@ -44,7 +47,9 @@ export function LoginScreen({
   }>;
 }) {
   const [creating, setCreating] = useState(false);
-  const [loginStep, setLoginStep] = useState<"email" | "password">("email");
+  const [loginStep, setLoginStep] = useState<"email" | "password" | "mfa">("email");
+  const [mfaChallenge, setMfaChallenge] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
   const [recoveryStep, setRecoveryStep] = useState<"none" | "request" | "confirm">("none");
   const [recoveryToken, setRecoveryToken] = useState("");
   const [recoveryBusy, setRecoveryBusy] = useState(false);
@@ -99,6 +104,8 @@ export function LoginScreen({
   const returnToEntry = () => {
     setCreating(false);
     setLoginStep("email");
+    setMfaChallenge("");
+    setMfaCode("");
     setRecoveryStep("none");
     setRecoveryToken("");
     setVerificationEmail("");
@@ -111,6 +118,21 @@ export function LoginScreen({
 
   const submit = async () => {
     setError("");
+    if (loginStep === "mfa") {
+      try {
+        await onCompleteMfa(mfaChallenge, mfaCode.trim());
+      } catch (mfaError) {
+        const message = mfaError instanceof Error ? mfaError.message : "Código inválido";
+        setError(message);
+        // El desafío dura cinco minutos: vencido, se vuelve a poner la contraseña.
+        if (/expirado|inválido/i.test(message) && message.includes("Desafío")) {
+          setLoginStep("password");
+          setMfaChallenge("");
+          setMfaCode("");
+        }
+      }
+      return;
+    }
     if (verificationEmail) {
       try {
         setRecoveryBusy(true);
@@ -193,6 +215,12 @@ export function LoginScreen({
         Alert.alert("Verificá tu email", "Ingresá el código de seis dígitos que enviamos.");
       } else await onLogin(normalizedEmail, password);
     } catch (loginError) {
+      if (loginError instanceof MfaRequiredError) {
+        setMfaChallenge(loginError.challenge);
+        setMfaCode("");
+        setLoginStep("mfa");
+        return;
+      }
       setError(loginError instanceof Error ? loginError.message : "No se pudo iniciar sesion");
       if (
         !creating &&
@@ -210,38 +238,43 @@ export function LoginScreen({
   };
 
   const isVerification = Boolean(verificationEmail);
-  const title = isVerification
-    ? "Confirmá que sos vos"
-    : recoveryStep === "request"
-      ? "Recuperá tu cuenta"
-      : recoveryStep === "confirm"
-        ? "Creá una contraseña nueva"
-        : creating
-          ? "Creá tu cuenta Flash"
-          : loginStep === "password"
-            ? "Te damos la bienvenida"
-            : mobileAppVariant === "driver"
-              ? "Entrá a Flash Driver"
-              : mobileAppVariant === "merchant"
-                ? "Entrá a Flash Negocios"
-                : "Entrá a Flash";
-  const copy = isVerification
-    ? `Ingresá el código de seis dígitos que enviamos a ${verificationEmail}.`
-    : recoveryStep === "request"
-      ? "Te enviaremos instrucciones si encontramos una cuenta con ese email."
-      : recoveryStep === "confirm"
-        ? "Pegá el código recibido y elegí una contraseña segura."
-        : creating
-          ? "Comidas, viajes y envíos con una única cuenta protegida."
-          : loginStep === "password"
-            ? "Ingresá tu contraseña para continuar de forma segura."
-            : isCustomerAccess
-              ? "Usá tu email para continuar. Tu cuenta funciona en todos los servicios."
-              : "Usá el email habilitado para tu espacio de trabajo.";
+  const isMfa = loginStep === "mfa";
+  const title = isMfa
+    ? "Verificación en dos pasos"
+    : isVerification
+      ? "Confirmá que sos vos"
+      : recoveryStep === "request"
+        ? "Recuperá tu cuenta"
+        : recoveryStep === "confirm"
+          ? "Creá una contraseña nueva"
+          : creating
+            ? "Creá tu cuenta Flash"
+            : loginStep === "password"
+              ? "Te damos la bienvenida"
+              : mobileAppVariant === "driver"
+                ? "Entrá a Flash Driver"
+                : mobileAppVariant === "merchant"
+                  ? "Entrá a Flash Negocios"
+                  : "Entrá a Flash";
+  const copy = isMfa
+    ? "Ingresá el código de 6 dígitos de tu app autenticadora, o uno de tus códigos de recuperación."
+    : isVerification
+      ? `Ingresá el código de seis dígitos que enviamos a ${verificationEmail}.`
+      : recoveryStep === "request"
+        ? "Te enviaremos instrucciones si encontramos una cuenta con ese email."
+        : recoveryStep === "confirm"
+          ? "Pegá el código recibido y elegí una contraseña segura."
+          : creating
+            ? "Comidas, viajes y envíos con una única cuenta protegida."
+            : loginStep === "password"
+              ? "Ingresá tu contraseña para continuar de forma segura."
+              : isCustomerAccess
+                ? "Usá tu email para continuar. Tu cuenta funciona en todos los servicios."
+                : "Usá el email habilitado para tu espacio de trabajo.";
   const primaryLabel =
     busy || recoveryBusy
       ? "Procesando…"
-      : isVerification
+      : isMfa || isVerification
         ? "Verificar y entrar"
         : recoveryStep === "request"
           ? "Enviar instrucciones"
@@ -255,17 +288,19 @@ export function LoginScreen({
   const primaryDisabled =
     busy ||
     recoveryBusy ||
-    (isVerification
-      ? verificationCode.length !== 6
-      : recoveryStep === "request"
-        ? !emailIsValid
-        : recoveryStep === "confirm"
-          ? !recoveryToken.trim() || password.length < 8 || !confirmation
-          : creating
-            ? !name.trim() || !emailIsValid || password.length < 8 || !confirmation
-            : loginStep === "password"
-              ? !emailIsValid || !password
-              : !emailIsValid);
+    (isMfa
+      ? mfaCode.trim().length < 6
+      : isVerification
+        ? verificationCode.length !== 6
+        : recoveryStep === "request"
+          ? !emailIsValid
+          : recoveryStep === "confirm"
+            ? !recoveryToken.trim() || password.length < 8 || !confirmation
+            : creating
+              ? !name.trim() || !emailIsValid || password.length < 8 || !confirmation
+              : loginStep === "password"
+                ? !emailIsValid || !password
+                : !emailIsValid);
 
   return (
     <LinearGradient
@@ -313,7 +348,7 @@ export function LoginScreen({
         </View>
         <View style={styles.loginCard}>
           <View style={styles.loginCardHeader}>
-            {loginStep === "password" || creating || recoveryStep !== "none" || isVerification ? (
+            {loginStep !== "email" || creating || recoveryStep !== "none" || isVerification ? (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Volver"
@@ -449,6 +484,31 @@ export function LoginScreen({
                   keyboardType="number-pad"
                   autoComplete="one-time-code"
                   maxLength={6}
+                  placeholder="000000"
+                  placeholderTextColor="#c5c0c8"
+                  style={styles.loginCodeInput}
+                />
+              </View>
+            </View>
+          ) : null}
+
+          {isMfa ? (
+            <View style={styles.loginFieldGroup}>
+              <Text style={styles.loginFieldLabel}>Código de seguridad</Text>
+              <View style={styles.loginCodeShell}>
+                <TextInput
+                  accessibilityLabel="Código de la app autenticadora o de recuperación"
+                  value={mfaCode}
+                  onChangeText={(value) => {
+                    setMfaCode(value.trim().toUpperCase().slice(0, 16));
+                    setError("");
+                  }}
+                  autoCapitalize="characters"
+                  autoComplete="one-time-code"
+                  textContentType="oneTimeCode"
+                  autoFocus
+                  returnKeyType="go"
+                  onSubmitEditing={() => void submit()}
                   placeholder="000000"
                   placeholderTextColor="#c5c0c8"
                   style={styles.loginCodeInput}

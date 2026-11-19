@@ -3,6 +3,7 @@ import { ArrowRight, Flame, LogIn, RefreshCw, ShieldCheck, TriangleAlert } from 
 import { roleLabel } from "../labels";
 import type { User } from "../types";
 import { AccountDeletion } from "./AccountDeletion";
+import { TwoStepVerification } from "./TwoStepVerification";
 import { LegalLinks } from "./LegalLinks";
 
 type SystemStateScreenProps = {
@@ -82,6 +83,8 @@ export function DesktopAccessGate({ user, onLogout }: { user: User | null; onLog
         </div>
         {/* El camino web para eliminar la cuenta, que Google Play exige además
             del de la app: un cliente en escritorio llega acá. */}
+        {/* La seguridad de la cuenta también se maneja desde la web (SEG-08). */}
+        <TwoStepVerification />
         <LegalLinks />
         <AccountDeletion />
       </section>

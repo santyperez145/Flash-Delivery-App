@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { deleteAccount } from "./account-api";
 import { flashDesign } from "./design-system";
+import { getMfaStatus } from "./mfa-api";
 
 // Eliminar la cuenta desde la app (LAN-001). Apple y Google lo exigen en toda
 // app que permite crear cuentas, así que va en las tres variantes. Mismo
@@ -17,13 +18,25 @@ export function AccountDeletion({ onDeleted }: { onDeleted: () => Promise<void> 
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState("");
   const [resultado, setResultado] = useState<"deleted" | "requested" | null>(null);
+  // Con la verificación en dos pasos activa (SEG-08) también se pide el código. Si
+  // no se puede saber, se muestra el campo: el servidor decide si lo exige.
+  const [conCodigo, setConCodigo] = useState(false);
+  const [codigo, setCodigo] = useState("");
+  useEffect(() => {
+    if (!abierto) return;
+    getMfaStatus()
+      .then((respuesta) => setConCodigo(respuesta.mfa.enabled))
+      .catch(() => setConCodigo(true));
+  }, [abierto]);
+  const listo = Boolean(password) && (!conCodigo || codigo.length >= 6);
 
   const eliminar = async () => {
     setOcupado(true);
     setError("");
     try {
-      const { status } = await deleteAccount(password);
+      const { status } = await deleteAccount(password, conCodigo ? codigo : undefined);
       setPassword("");
+      setCodigo("");
       setResultado(status);
       // El servidor ya cerró las sesiones; esto limpia la guardada en el teléfono.
       if (status === "deleted") await onDeleted();
@@ -84,6 +97,19 @@ export function AccountDeletion({ onDeleted }: { onDeleted: () => Promise<void> 
         style={estilos.campo}
         accessibilityLabel="Contraseña para confirmar"
       />
+      {conCodigo ? (
+        <TextInput
+          value={codigo}
+          onChangeText={(texto) => setCodigo(texto.trim())}
+          editable={!ocupado}
+          textContentType="oneTimeCode"
+          autoComplete="one-time-code"
+          placeholder="Código de tu app autenticadora"
+          placeholderTextColor={flashDesign.color.muted}
+          style={estilos.campo}
+          accessibilityLabel="Código de verificación en dos pasos"
+        />
+      ) : null}
       {error ? (
         <Text style={estilos.error} accessibilityRole="alert">
           {error}
@@ -100,8 +126,8 @@ export function AccountDeletion({ onDeleted }: { onDeleted: () => Promise<void> 
         </Pressable>
         <Pressable
           onPress={() => void eliminar()}
-          disabled={ocupado || !password}
-          style={[estilos.boton, estilos.peligro, (ocupado || !password) && estilos.inactivo]}
+          disabled={ocupado || !listo}
+          style={[estilos.boton, estilos.peligro, (ocupado || !listo) && estilos.inactivo]}
           accessibilityRole="button"
           accessibilityLabel="Eliminar definitivamente"
         >

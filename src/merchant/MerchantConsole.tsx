@@ -35,6 +35,7 @@ import { compactMinutes, money } from "../format";
 import { orderStatusLabel } from "../labels";
 import { AdminKpi, AdminSectionHeader, OrderOpsCard } from "../ui/panels";
 import { DeliveryPreferenceTags } from "../ui/DeliveryPreferenceTags";
+import { TwoStepVerification } from "../ui/TwoStepVerification";
 import {
   BranchScheduleEditor,
   DietaryCatalogEditor,
@@ -442,13 +443,20 @@ export function MerchantDesktopConsole({
   >(null);
   const [paymentProviderConfigured, setPaymentProviderConfigured] = useState(false);
   const [paymentConnectionPassword, setPaymentConnectionPassword] = useState("");
+  // Con la verificación en dos pasos activa (SEG-08), retirar y desvincular piden el código.
+  const [mfaActive, setMfaActive] = useState(false);
+  const [payoutMfaCode, setPayoutMfaCode] = useState("");
+  const [disconnectMfaCode, setDisconnectMfaCode] = useState("");
   const loadFinance = useCallback(async () => {
     setFinanceLoading(true);
     try {
-      const [financeResult, connectionResult] = await Promise.all([
+      const [financeResult, connectionResult, mfaResult] = await Promise.all([
         api.getMerchantFinance(restaurant.id),
         api.getMerchantPaymentConnection(restaurant.id),
+        // Si no se puede saber, se muestra el campo: el servidor decide si lo exige.
+        api.getMfaStatus().catch(() => ({ mfa: { enabled: true } })),
       ]);
+      setMfaActive(mfaResult.mfa.enabled);
       setFinance(financeResult.finance);
       setPaymentConnection(connectionResult.connection);
       setPaymentProviderConfigured(connectionResult.configured);
@@ -1151,17 +1159,33 @@ export function MerchantDesktopConsole({
                       value={paymentConnectionPassword}
                       onChange={(event) => setPaymentConnectionPassword(event.target.value)}
                     />
+                    {mfaActive && (
+                      <input
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        placeholder="Código de tu app autenticadora"
+                        aria-label="Código de verificación en dos pasos para desvincular"
+                        value={disconnectMfaCode}
+                        onChange={(event) => setDisconnectMfaCode(event.target.value.trim())}
+                      />
+                    )}
                     <button
                       className="secondary-button"
-                      disabled={busy || paymentConnectionPassword.length < 4}
+                      disabled={
+                        busy ||
+                        paymentConnectionPassword.length < 4 ||
+                        (mfaActive && disconnectMfaCode.length < 6)
+                      }
                       onClick={() =>
                         runAction(async () => {
                           const result = await api.disconnectMerchantPaymentConnection(
                             restaurant.id,
                             paymentConnectionPassword,
+                            mfaActive ? disconnectMfaCode : undefined,
                           );
                           setPaymentConnection(result.connection);
                           setPaymentConnectionPassword("");
+                          setDisconnectMfaCode("");
                         }, "Mercado Pago desvinculado y credenciales eliminadas")
                       }
                     >
@@ -1223,12 +1247,23 @@ export function MerchantDesktopConsole({
                   onChange={(event) => setPayoutPassword(event.target.value)}
                   aria-label="Contraseña actual para autorizar el retiro"
                 />
+                {mfaActive && (
+                  <input
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    placeholder="Código de tu app autenticadora"
+                    aria-label="Código de verificación en dos pasos para autorizar el retiro"
+                    value={payoutMfaCode}
+                    onChange={(event) => setPayoutMfaCode(event.target.value.trim())}
+                  />
+                )}
                 <button
                   className="primary-button"
                   disabled={
                     busy ||
                     !Number(payoutAmount) ||
                     payoutPassword.length < 4 ||
+                    (mfaActive && payoutMfaCode.length < 6) ||
                     Number(payoutAmount) > (finance?.availableBalance || 0)
                   }
                   onClick={async () => {
@@ -1238,6 +1273,7 @@ export function MerchantDesktopConsole({
                         restaurant.id,
                         amount,
                         payoutPassword,
+                        mfaActive ? payoutMfaCode : undefined,
                       );
                       return api.requestMerchantPayout(
                         restaurant.id,
@@ -1247,6 +1283,7 @@ export function MerchantDesktopConsole({
                     }, "Retiro reservado");
                     setPayoutAmount("");
                     setPayoutPassword("");
+                    setPayoutMfaCode("");
                     await loadFinance();
                   }}
                 >
@@ -1254,10 +1291,13 @@ export function MerchantDesktopConsole({
                 </button>
               </div>
               <small>
-                Confirmás comercio e importe con tu contraseña. La autorización vence en 5 minutos,
-                funciona una sola vez y el retiro queda pendiente del proveedor bancario.
+                Confirmás comercio e importe con tu contraseña
+                {mfaActive ? " y un código de tu app autenticadora" : ""}. La autorización vence en
+                5 minutos, funciona una sola vez y el retiro queda pendiente del proveedor bancario.
               </small>
             </section>
+            {/* SEG-08: la protección de la cuenta que mueve la plata del comercio. */}
+            <TwoStepVerification />
             <section className="admin-card">
               <AdminSectionHeader
                 title="Movimientos"

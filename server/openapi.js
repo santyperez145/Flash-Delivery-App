@@ -1989,6 +1989,8 @@ Object.assign(openApiDocument.components.schemas, {
       merchantId: { type: "string" },
       amount: { type: "number", exclusiveMinimum: 0, maximum: 100000000 },
       password: { type: "string", minLength: 4, maxLength: 128, writeOnly: true },
+      // Con la verificación en dos pasos activa (SEG-08). Sin él responde 403 con `mfaRequired`.
+      mfaCode: { type: "string", maxLength: 32, writeOnly: true },
     },
   },
   PayoutRequest: {

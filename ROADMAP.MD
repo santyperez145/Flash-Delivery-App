@@ -45,6 +45,33 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
 
+## Avance 19 de noviembre de 2026 — SEG-08, verificación en dos pasos para toda cuenta
+
+- **Qué faltaba.** Uber deja proteger cualquier cuenta con un segundo factor; en Flash existía
+  sólo para administradores.
+- **Ahora cualquier cliente, conductor o comercio la activa** con una app autenticadora, en
+  la web y en la app.
+  - Al ingresar en un dispositivo nuevo se pide el código. La sesión que lo pasó se renueva
+    sola (`refresh_sessions.mfa_verified_at`, migración 145).
+  - Activarla cierra todas las demás sesiones.
+  - Eliminar la cuenta, autorizar un retiro y desvincular el cobro piden el código.
+  - Desactivarla o generar códigos nuevos pide un código vigente.
+  - Cada cambio se avisa por push y por email.
+- **Dos defectos encontrados y corregidos en el camino.**
+  - Un código TOTP se podía reusar dentro de su ventana de 30 segundos; ahora sirve una sola
+    vez (`user_mfa.last_totp_step`).
+  - Un código mal escrito dentro de una sesión respondía 401. Los clientes renuevan la sesión
+    ante un 401, y un administrador que renueva vuelve a pasar el segundo factor, así que
+    quedaba afuera. Ahora responde 403.
+- **Verificación:**
+  - `test:account-mfa` (nueva, en `ci-critical-flows`) recorre el flujo completo con dos
+    cuentas sintéticas. No se pudo correr en local, porque no hay credenciales de la base
+    local; corre en el CI.
+  - `test:account-mfa-contract` (nueva, en `ci-fast`) vigila el cableado en servidor, web y
+    teléfono. Falsificado: cada aserción falla cuando se rompe lo que vigila.
+- **Detalle:** [`docs/account-mfa.md`](docs/account-mfa.md). Quedan las llaves de acceso
+  (passkeys) y el código por SMS, que necesita un proveedor (dueño).
+
 ## Avance 18 de noviembre de 2026 — PAG-02, dividir la tarifa
 
 - **Qué faltaba.** Uber deja dividir la tarifa de un viaje con quien viaja; Flash no.

@@ -37,6 +37,7 @@ import {
 } from "../payment-oauth-repository.js";
 import { recordPaymentWebhook, verifyWebhookSignature } from "../payment-repository.js";
 import { postgresPool } from "../postgres.js";
+import { failFromStepUp, stepUpMfa } from "./mfa-step-up.js";
 import { payoutStepUpLimiter } from "./rate-limits.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";
 
@@ -165,6 +166,12 @@ router.post(
       return fail(res, 400, "Comercio y contraseña actual son obligatorios");
     if (!bcrypt.compareSync(password, req.auth.user.password))
       return fail(res, 401, "La contraseña actual no es válida");
+    // Desvincular corta los cobros: con la verificación activa, también el código.
+    try {
+      await stepUpMfa(req, req.body?.mfaCode);
+    } catch (error) {
+      return failFromStepUp(res, error, "No se pudo confirmar el código");
+    }
     try {
       return ok(res, {
         connection: await revokeMerchantPaymentConnection({

@@ -11,7 +11,9 @@ export function accountPaths({ success, json, errorResponses }) {
         summary: "Eliminar la cuenta propia, o pedirlo a soporte si tiene roles con obligaciones",
         description:
           "Pide la contraseña otra vez. Un cliente sin pedidos en curso ni saldo queda anonimizado " +
-          "al instante (200); un comercio, repartidor o staff genera una solicitud a soporte (202).",
+          "al instante (200); un comercio, repartidor o staff genera una solicitud a soporte (202). " +
+          "Con la verificación en dos pasos activa pide además `mfaCode`; si falta, responde 403 con " +
+          "`mfaRequired: true`.",
         security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
@@ -22,6 +24,7 @@ export function accountPaths({ success, json, errorResponses }) {
                 required: ["password"],
                 properties: {
                   password: { type: "string", minLength: 1, maxLength: 200, writeOnly: true },
+                  mfaCode: { type: "string", maxLength: 32, writeOnly: true },
                 },
               },
             },
@@ -35,7 +38,11 @@ export function accountPaths({ success, json, errorResponses }) {
           ),
           400: errorResponses[400],
           401: errorResponses[401],
-          403: { description: "La contraseña no coincide", content: json },
+          403: {
+            description:
+              "La contraseña no coincide, o falta (`mfaRequired`) o no sirve el código de verificación",
+            content: json,
+          },
           409: {
             description: "Pedido, reclamo o devolución en curso, o saldo en la Wallet",
             content: json,

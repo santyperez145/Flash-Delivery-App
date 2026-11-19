@@ -19,7 +19,7 @@ import jwt from "jsonwebtoken";
 import { findAuthUserByPublicId, usesPostgresAuth } from "../auth-repository.js";
 import { config } from "../config.js";
 import { readDb } from "../fallback-runtime.js";
-import { getAdminMfaStatus } from "../mfa-repository.js";
+import { getMfaStatus } from "../mfa-repository.js";
 import { fail } from "./responses.js";
 
 /**
@@ -66,7 +66,7 @@ export async function requireAuth(req, res, next) {
       mfaVerified: payload.mfa === true,
       mfa:
         usesPostgresAuth() && user.roles?.includes("admin")
-          ? await getAdminMfaStatus(user.id)
+          ? await getMfaStatus(user.id)
           : { enabled: false },
     };
     res.set("Cache-Control", "no-store, private");

@@ -387,3 +387,15 @@ export type FareSplitInvitation = {
   destination: string;
   share: number;
 };
+
+/** SEG-08: la verificación en dos pasos de la cuenta. */
+export type MfaStatus = {
+  enabled: boolean;
+  method: string;
+  confirmedAt: string | null;
+  lockedUntil: string | null;
+  recoveryCodesRemaining: number;
+};
+
+/** SEG-08: lo que se muestra una sola vez al empezar a activarla. */
+export type MfaEnrollment = { secret: string; otpauthUri: string; recoveryCodes: string[] };

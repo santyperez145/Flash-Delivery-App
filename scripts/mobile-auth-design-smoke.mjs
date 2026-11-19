@@ -13,7 +13,7 @@ const [app, api, roadmap, research] = await Promise.all([
 ]);
 
 for (const contract of [
-  'useState<"email"|"password">("email")',
+  'useState<"email"|"password"|"mfa">("email")',
   'loginStep==="password"',
   "¿La olvidaste?",
   "Código de verificación",

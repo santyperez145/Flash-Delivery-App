@@ -1,5 +1,8 @@
 # MFA administrativo
 
+> Desde SEG-08 cualquier cuenta puede activar el segundo factor: ver
+> [`account-mfa.md`](account-mfa.md). Este documento describe lo propio de los administradores.
+
 Flash protege las cuentas `admin` con TOTP compatible con aplicaciones autenticadoras. La contraseña no alcanza para emitir una sesión privilegiada cuando MFA está activo: `/api/auth/login` devuelve un desafío JWT de cinco minutos y `/api/auth/mfa/complete` emite el access token y refresh token sólo después de verificar el segundo factor.
 
 ## Flujo

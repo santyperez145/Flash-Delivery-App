@@ -42,6 +42,28 @@ const categoryForTemplate = (template) =>
 const essentialTemplates = new Set(["dispatch_offer", "security_alert"]);
 let smtpTransport = null;
 
+// Aviso de un cambio en la verificación en dos pasos (SEG-08). El texto es fijo
+// por evento: el payload sólo dice cuál fue, así que nada que venga del pedido
+// termina en el correo.
+const securityChangeEmails = {
+  mfa_enabled: {
+    subject: "Activaste la verificación en dos pasos en Flash",
+    text: "Desde ahora, al ingresar en un dispositivo nuevo te vamos a pedir un código de tu app autenticadora.",
+  },
+  mfa_disabled: {
+    subject: "Se desactivó la verificación en dos pasos en Flash",
+    text: "Si no fuiste vos, cambiá tu contraseña ahora y escribinos desde Ayuda en la app.",
+  },
+  mfa_recovery_codes_regenerated: {
+    subject: "Generaste códigos de recuperación nuevos en Flash",
+    text: "Los códigos anteriores dejaron de funcionar. Si no fuiste vos, cambiá tu contraseña y escribinos desde Ayuda.",
+  },
+  mfa_recovery_code_used: {
+    subject: "Se usó un código de recuperación de tu cuenta Flash",
+    text: "Si no fuiste vos, cambiá tu contraseña ahora y escribinos desde Ayuda en la app.",
+  },
+};
+
 async function deliverEmail(notification) {
   const recipient = (
     await postgresPool.query("SELECT email FROM users WHERE id=$1 AND status='active'", [
@@ -52,6 +74,11 @@ async function deliverEmail(notification) {
     throw Object.assign(new Error("recipient_unavailable"), {
       code: "recipient_unavailable",
     });
+  const securityChange =
+    notification.template === "account_security_change"
+      ? securityChangeEmails[notification.payload?.event]
+      : null;
+  if (securityChange) return sendEmail(recipient.email, securityChange);
   if (
     !notification.sensitive_payload_ciphertext ||
     !["password_recovery", "email_verification"].includes(notification.template)
@@ -64,6 +91,21 @@ async function deliverEmail(notification) {
       ? decryptEmailVerificationCode(notification.sensitive_payload_ciphertext)
       : decryptRecoveryToken(notification.sensitive_payload_ciphertext),
     link = `${config.appPublicUrl.replace(/\/$/, "")}/recover-password?token=${encodeURIComponent(secret)}`;
+  const message = isVerification
+    ? {
+        subject: "Verificá tu email en Flash",
+        text: `Tu código de verificación es ${secret}. Vence en 10 minutos.`,
+        html: `<p>Tu código de verificación de Flash es:</p><p style="font-size:28px;font-weight:bold;letter-spacing:6px">${secret}</p><p>Vence en 10 minutos.</p>`,
+      }
+    : {
+        subject: "Recuperá tu cuenta Flash",
+        text: `Abrí este enlace para crear una contraseña nueva. Vence en 20 minutos: ${link}\n\nSi no lo pediste, ignorá este mensaje.`,
+        html: `<p>Abrí el siguiente enlace para crear una contraseña nueva. Vence en 20 minutos.</p><p><a href="${link}">Recuperar cuenta Flash</a></p><p>Si no lo pediste, ignorá este mensaje.</p>`,
+      };
+  return sendEmail(recipient.email, message);
+}
+
+async function sendEmail(to, message) {
   if (config.emailProvider === "sandbox") return `sandbox-email-${crypto.randomUUID()}`;
   if (config.emailProvider !== "smtp")
     throw Object.assign(new Error("email_provider_disabled"), {
@@ -76,22 +118,7 @@ async function deliverEmail(notification) {
     auth: { user: config.smtp.user, pass: config.smtp.password },
     pool: true,
   });
-  const message = isVerification
-    ? {
-        subject: "Verificá tu email en Flash",
-        text: `Tu código de verificación es ${secret}. Vence en 10 minutos.`,
-        html: `<p>Tu código de verificación de Flash es:</p><p style="font-size:28px;font-weight:bold;letter-spacing:6px">${secret}</p><p>Vence en 10 minutos.</p>`,
-      }
-    : {
-        subject: "Recuperá tu cuenta Flash",
-        text: `Abrí este enlace para crear una contraseña nueva. Vence en 20 minutos: ${link}\n\nSi no lo pediste, ignorá este mensaje.`,
-        html: `<p>Abrí el siguiente enlace para crear una contraseña nueva. Vence en 20 minutos.</p><p><a href="${link}">Recuperar cuenta Flash</a></p><p>Si no lo pediste, ignorá este mensaje.</p>`,
-      };
-  const info = await smtpTransport.sendMail({
-    from: config.smtp.from,
-    to: recipient.email,
-    ...message,
-  });
+  const info = await smtpTransport.sendMail({ from: config.smtp.from, to, ...message });
   return info.messageId || `smtp-${crypto.randomUUID()}`;
 }
 
