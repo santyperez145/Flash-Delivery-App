@@ -51,11 +51,18 @@ export function mapCatalogItem(row) {
  */
 export const MERCHANT_VERTICALS = ["restaurant", "grocery", "pharmacy", "kiosk", "retail"];
 
-export async function getPostgresRestaurants({ publicIds = null, ownerPublicId = null } = {}) {
+// `includeSuspended` sólo lo pide el listado de operaciones (FE-05): el catálogo, la
+// consola del comercio y la cotización siguen viendo nada más que los activos, que
+// es lo que significa suspender (migración 130).
+export async function getPostgresRestaurants({
+  publicIds = null,
+  ownerPublicId = null,
+  includeSuspended = false,
+} = {}) {
   const result = await postgresPool.query(
     `
     SELECT m.id, m.public_id, m.owner_id, owner.public_id AS owner_public_id,
-      m.name, m.vertical, COALESCE(branch.address,m.address) address, CASE WHEN branch.id IS NULL THEN m.open ELSE branch.open AND branch.status='active' AND app.branch_is_scheduled_open(branch.id,now()) END open, COALESCE(branch.open,m.open) manual_open, COALESCE(branch.eta_min,m.eta_min) eta_min, m.delivery_fee_cents, m.metadata,
+      m.name, m.vertical, m.status, COALESCE(branch.address,m.address) address, CASE WHEN branch.id IS NULL THEN m.open ELSE branch.open AND branch.status='active' AND app.branch_is_scheduled_open(branch.id,now()) END open, COALESCE(branch.open,m.open) manual_open, COALESCE(branch.eta_min,m.eta_min) eta_min, m.delivery_fee_cents, m.metadata,
       (SELECT round(avg(r.score),2) FROM ratings r WHERE r.subject_type='merchant' AND r.subject_id=m.id) AS merchant_rating,
       (SELECT count(*)::int FROM ratings r WHERE r.subject_type='merchant' AND r.subject_id=m.id) AS merchant_rating_count,
       ST_Y(COALESCE(branch.location,m.location)::geometry) AS lat, ST_X(COALESCE(branch.location,m.location)::geometry) AS lng,
@@ -249,11 +256,11 @@ export async function getPostgresRestaurants({ publicIds = null, ownerPublicId =
     LEFT JOIN LATERAL(SELECT * FROM merchant_branches b WHERE b.merchant_id=m.id AND b.is_primary LIMIT 1) branch ON true
     LEFT JOIN catalog_items ci ON ci.merchant_id = m.id
     LEFT JOIN catalog_branch_inventory inventory ON inventory.branch_id=branch.id AND inventory.catalog_item_id=ci.id
-    WHERE m.status = 'active' AND ($1::text[] IS NULL OR m.public_id=ANY($1::text[]))
+    WHERE (m.status = 'active' OR $3::boolean) AND ($1::text[] IS NULL OR m.public_id=ANY($1::text[]))
       AND ($2::text IS NULL OR owner.public_id=$2)
     ORDER BY m.created_at, ci.created_at
   `,
-    [publicIds, ownerPublicId],
+    [publicIds, ownerPublicId, includeSuspended],
   );
   const restaurants = new Map();
   for (const row of result.rows) {
@@ -264,6 +271,9 @@ export async function getPostgresRestaurants({ publicIds = null, ownerPublicId =
         ownerId: row.owner_public_id,
         name: row.name,
         vertical: row.vertical,
+        // `active` o `suspended` (migración 130). La pausa del local no es un estado
+        // del comercio: es `manualOpen` y la pausa de cada sucursal.
+        status: row.status,
         cuisine: metadata.cuisine || "Comercio",
         // Sólo de calificaciones reales. `metadata.rating` era un número fijo
         // cargado al dar de alta el local; un local sin opiniones no tiene
@@ -379,22 +389,56 @@ export async function getPostgresCatalogVerticals() {
   }));
 }
 
+/**
+ * El listado de comercios de operaciones, suspendidos incluidos (FE-05, OPS-W15).
+ *
+ * Antes la página contaba los suspendidos pero los perdía al armar cada comercio, que
+ * sólo trae activos: un local suspendido desaparecía de la única pantalla desde la
+ * que se lo puede reactivar, y la consola tenía que recordarlo «en esta sesión».
+ *
+ * **Cuándo y por qué se suspendió sale de la auditoría**, no de columnas nuevas:
+ * `merchants` no las tiene, y el evento `merchant.status_changed` ya guarda el motivo
+ * obligatorio, el actor y la hora (OPS-001). Un suspendido sin ese evento —un UPDATE
+ * a mano de antes de OPS-001— responde `null` en los dos: no se inventa una fecha.
+ */
 export async function getPostgresOperationsRestaurantPage({
   limit = 50,
   cursor = null,
   query = "",
 } = {}) {
   const page = await postgresPool.query(
-    `SELECT id,public_id,to_char(created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') cursor_created_at FROM merchants WHERE ($1='' OR name ILIKE '%'||$1||'%' OR public_id ILIKE '%'||$1||'%') AND ($2::timestamptz IS NULL OR (created_at,id)>($2::timestamptz,$3::uuid)) ORDER BY created_at,id LIMIT $4`,
+    `SELECT m.id,m.public_id,m.status,
+       to_char(m.created_at AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"') cursor_created_at,
+       suspension.occurred_at suspended_at, suspension.after_data->>'reason' suspension_reason
+     FROM merchants m
+     LEFT JOIN LATERAL(
+       SELECT e.occurred_at,e.after_data FROM audit_events e
+       WHERE m.status='suspended' AND e.entity_type='merchant' AND e.entity_id=m.public_id
+         AND e.action='merchant.status_changed' AND e.after_data->>'status'='suspended'
+       ORDER BY e.occurred_at DESC,e.id DESC LIMIT 1
+     ) suspension ON true
+     WHERE ($1='' OR m.name ILIKE '%'||$1||'%' OR m.public_id ILIKE '%'||$1||'%')
+       AND ($2::timestamptz IS NULL OR (m.created_at,m.id)>($2::timestamptz,$3::uuid))
+     ORDER BY m.created_at,m.id LIMIT $4`,
     [query.trim(), cursor?.createdAt || null, cursor?.id || null, limit + 1],
   );
   const hasMore = page.rows.length > limit,
     rows = page.rows.slice(0, limit),
-    restaurants = await getPostgresRestaurants({ publicIds: rows.map((row) => row.public_id) }),
+    restaurants = await getPostgresRestaurants({
+      publicIds: rows.map((row) => row.public_id),
+      includeSuspended: true,
+    }),
     byId = new Map(restaurants.map((item) => [item.id, item])),
     last = rows.at(-1);
   return {
-    restaurants: rows.map((row) => byId.get(row.public_id)).filter(Boolean),
+    restaurants: rows
+      .filter((row) => byId.has(row.public_id))
+      .map((row) => ({
+        ...byId.get(row.public_id),
+        status: row.status,
+        suspendedAt: row.suspended_at ? new Date(row.suspended_at).toISOString() : null,
+        suspensionReason: row.suspension_reason || null,
+      })),
     nextCursor:
       hasMore && last
         ? Buffer.from(JSON.stringify({ createdAt: last.cursor_created_at, id: last.id })).toString(

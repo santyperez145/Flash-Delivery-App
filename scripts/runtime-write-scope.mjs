@@ -92,7 +92,9 @@ const GRUPOS_SIN_BORRADO_RUNTIME = [
 const PERMISOS_ADMINISTRATIVOS_NO_USADOS = [
   { tabla: "user_roles", operaciones: ["UPDATE"] },
   { tabla: "feature_flags", operaciones: ["INSERT", "DELETE"] },
-  { tabla: "merchants", operaciones: ["INSERT", "DELETE"] },
+  // FE-05: el runtime vuelve a crear comercios, sólo al aprobar una solicitud de alta
+  // (migración 152, `merchant-application-repository.js`). Borrarlos sigue vedado.
+  { tabla: "merchants", operaciones: ["DELETE"] },
   { tabla: "service_zones", operaciones: ["INSERT", "DELETE"] },
   { tabla: "support_agent_profiles", operaciones: ["INSERT", "DELETE"] },
 ];
@@ -114,7 +116,8 @@ const PERMISOS_FINALES_NO_USADOS = [
   { tabla: "driver_preferences", operaciones: ["DELETE"] },
   { tabla: "favorites", operaciones: ["UPDATE"] },
   { tabla: "map_provider_cache", operaciones: ["DELETE"] },
-  { tabla: "merchant_branches", operaciones: ["INSERT", "DELETE"] },
+  // FE-05: la sucursal principal nace con el comercio aprobado (migración 152).
+  { tabla: "merchant_branches", operaciones: ["DELETE"] },
   { tabla: "notification_dead_letters", operaciones: ["DELETE"] },
   { tabla: "pricing_change_requests", operaciones: ["DELETE"] },
   { tabla: "pricing_plans", operaciones: ["DELETE"] },

@@ -11,14 +11,16 @@ import type { CatalogVertical, MenuItem, MerchantVertical, Restaurant } from "..
 // migración 001 y ninguna pantalla lo mostraba: un comercio que no era
 // restaurante aparecía mezclado entre las parrillas o no aparecía.
 
-const RUBROS: Record<MerchantVertical, { label: string; Icon: ComponentType<{ size?: number }> }> =
-  {
-    restaurant: { label: "Restaurantes", Icon: UtensilsCrossed },
-    grocery: { label: "Súper", Icon: ShoppingBasket },
-    pharmacy: { label: "Farmacia", Icon: Pill },
-    kiosk: { label: "Kiosco", Icon: Candy },
-    retail: { label: "Tiendas", Icon: ShoppingBag },
-  };
+export const RUBROS: Record<
+  MerchantVertical,
+  { label: string; Icon: ComponentType<{ size?: number }> }
+> = {
+  restaurant: { label: "Restaurantes", Icon: UtensilsCrossed },
+  grocery: { label: "Súper", Icon: ShoppingBasket },
+  pharmacy: { label: "Farmacia", Icon: Pill },
+  kiosk: { label: "Kiosco", Icon: Candy },
+  retail: { label: "Tiendas", Icon: ShoppingBag },
+};
 
 export const rubroDe = (restaurant: Restaurant): MerchantVertical =>
   restaurant.vertical ?? "restaurant";

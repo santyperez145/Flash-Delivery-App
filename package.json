@@ -109,6 +109,7 @@
     "test:gift-cards-contract": "node scripts/gift-cards-contract.mjs",
     "test:family-profiles": "node --env-file-if-exists=.env.local scripts/family-profiles-smoke.mjs",
     "test:family-profiles-contract": "node scripts/family-profiles-contract.mjs",
+    "test:merchant-applications": "node --env-file-if-exists=.env.local scripts/merchant-applications-smoke.mjs",
     "test:cash-food-orders": "node --env-file-if-exists=.env.local scripts/cash-food-orders-smoke.mjs",
     "test:cash-food-orders-contract": "node scripts/cash-food-orders-contract.mjs",
     "test:order-batching": "node --env-file-if-exists=.env.local scripts/order-batching-smoke.mjs",

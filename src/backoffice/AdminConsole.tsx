@@ -4,6 +4,7 @@
 import {
   BadgeDollarSign,
   Bike,
+  ClipboardCheck,
   CreditCard,
   Flag,
   Flame,
@@ -24,6 +25,7 @@ import { useState } from "react";
 
 import type { AdminDashboard, AppState } from "../types";
 
+import { AdminApplications } from "./AdminApplications";
 import { ShipmentReturnsPanel } from "./ShipmentReturnsPanel";
 import { PaymentReconciliationPanel } from "./AdminFinancePanels";
 import { AdminFinanceOverview } from "./AdminFinanceOverview";
@@ -43,6 +45,33 @@ import {
 import { ShipmentClaimsPanel, ShipmentConfigurationPanel } from "./AdminShipmentPanels";
 import { ServiceQuickReplyPanel, SupportOperationsPanel } from "./AdminSupportPanels";
 import { AdminSecurityPanel, AdminUserModeration } from "./AdminTrustPanels";
+import { WorkQueueNavigation } from "./WorkQueueBoard";
+
+type AdminSection =
+  | "overview"
+  | "dispatch"
+  | "applications"
+  | "merchants"
+  | "drivers"
+  | "shipments"
+  | "claims"
+  | "payments"
+  | "pricing"
+  | "messages"
+  | "users"
+  | "finance"
+  | "investors"
+  | "product"
+  | "support"
+  | "security"
+  | "infra";
+
+// Qué sección atiende cada cola del tablero (FE-05). Sólo las que tienen una
+// pantalla donde se resuelven: una fila que lleva a una sección que no la
+// atiende sería un atajo a ninguna parte.
+const SECCION_DE_COLA: Partial<Record<string, AdminSection>> = {
+  merchant_applications: "applications",
+};
 
 export function SuperAdminConsole({
   state,
@@ -65,24 +94,7 @@ export function SuperAdminConsole({
   onLogout: () => void;
   isSupport?: boolean;
 }) {
-  const [section, setSection] = useState<
-    | "overview"
-    | "dispatch"
-    | "merchants"
-    | "drivers"
-    | "shipments"
-    | "claims"
-    | "payments"
-    | "pricing"
-    | "messages"
-    | "users"
-    | "finance"
-    | "investors"
-    | "product"
-    | "support"
-    | "security"
-    | "infra"
-  >(isSupport ? "support" : "overview");
+  const [section, setSection] = useState<AdminSection>(isSupport ? "support" : "overview");
   const activeOrders = state.orders.filter(
     (order) => !["delivered", "cancelled"].includes(order.status),
   );
@@ -102,6 +114,7 @@ export function SuperAdminConsole({
   const nav = [
     ["overview", "Resumen", LineChart],
     ["dispatch", "Dispatch", LocateFixed],
+    ["applications", "Altas", ClipboardCheck],
     ["merchants", "Comercios", Store],
     ["drivers", "Drivers", Bike],
     ["shipments", "Envíos", PackageCheck],
@@ -117,166 +130,193 @@ export function SuperAdminConsole({
     ["security", "Seguridad", KeyRound],
     ["infra", "Infra", ShieldCheck],
   ] as const;
-  const visibleNav = isSupport ? nav.filter(([id]) => id === "support") : nav;
+  // Soporte también ve Altas, sólo para leer: es a quien llama el comercio que
+  // pregunta por su solicitud. Decidir sigue siendo de un administrador.
+  const visibleNav = isSupport
+    ? nav.filter(([id]) => id === "support" || id === "applications")
+    : nav;
+  const destinoDeCola = (cola: string) => {
+    const destino = SECCION_DE_COLA[cola];
+    return destino ? nav.find(([id]) => id === destino)?.[1] || null : null;
+  };
+  const abrirCola = (cola: string) => {
+    const destino = SECCION_DE_COLA[cola];
+    if (destino) setSection(destino);
+  };
 
   return (
-    <main className="admin-shell">
-      <aside className="admin-sidebar">
-        <div className="admin-brand">
-          <span>
-            <Flame size={22} />
-          </span>
-          <div>
-            <strong>{isSupport ? "Flash Support" : "Flash Command"}</strong>
-            <small>{isSupport ? "Mesa de ayuda" : "Superadministrador"}</small>
-          </div>
-        </div>
-        <nav className="admin-nav">
-          {!isSupport && (
-            <button type="button" onClick={onSwitchPortal}>
-              <Store size={17} /> Portal de comercio
-            </button>
-          )}
-          {visibleNav.map(([id, label, Icon]) => (
-            <button
-              className={section === id ? "active" : ""}
-              key={id}
-              onClick={() => setSection(id)}
-              type="button"
-            >
-              <Icon size={17} />
-              {label}
-            </button>
-          ))}
-          <button type="button" onClick={onLogout}>
-            <LogIn size={17} /> Cerrar sesión
-          </button>
-        </nav>
-        <div className="admin-note">
-          <strong>Superficie correcta</strong>
-          <span>
-            {isSupport
-              ? "Esta cuenta sólo puede atender tickets, SLA, asignaciones y colas autorizadas."
-              : "En escritorio solo se muestra gestion de plataforma. Cliente, comercio y driver quedan como app mobile/PWA."}
-          </span>
-        </div>
-      </aside>
-
-      <section className="admin-main">
-        <header className="admin-topbar">
-          <div>
+    <WorkQueueNavigation.Provider value={{ destino: destinoDeCola, abrir: abrirCola }}>
+      <main className="admin-shell">
+        <aside className="admin-sidebar">
+          <div className="admin-brand">
             <span>
-              {isSupport ? "Soporte · PostgreSQL/PostGIS" : "Operaciones · PostgreSQL/PostGIS"}
+              <Flame size={22} />
             </span>
-            <h1>
-              {isSupport
-                ? "Atención de clientes y operación de tickets"
-                : "Control de marketplace, movilidad y delivery"}
-            </h1>
+            <div>
+              <strong>{isSupport ? "Flash Support" : "Flash Command"}</strong>
+              <small>{isSupport ? "Mesa de ayuda" : "Superadministrador"}</small>
+            </div>
           </div>
-          <div className="admin-actions">
-            <RealtimeStatus status={realtimeStatus} />
-            <button type="button" onClick={() => window.location.reload()}>
-              <RefreshCw size={16} /> Refrescar
+          <nav className="admin-nav">
+            {!isSupport && (
+              <button type="button" onClick={onSwitchPortal}>
+                <Store size={17} /> Portal de comercio
+              </button>
+            )}
+            {visibleNav.map(([id, label, Icon]) => (
+              <button
+                className={section === id ? "active" : ""}
+                key={id}
+                onClick={() => setSection(id)}
+                type="button"
+              >
+                <Icon size={17} />
+                {label}
+              </button>
+            ))}
+            <button type="button" onClick={onLogout}>
+              <LogIn size={17} /> Cerrar sesión
             </button>
+          </nav>
+          <div className="admin-note">
+            <strong>Superficie correcta</strong>
+            <span>
+              {isSupport
+                ? "Esta cuenta sólo puede atender tickets, SLA, asignaciones y colas autorizadas."
+                : "En escritorio solo se muestra gestion de plataforma. Cliente, comercio y driver quedan como app mobile/PWA."}
+            </span>
           </div>
-        </header>
+        </aside>
 
-        {section === "overview" && (
-          <AdminOverviewHome
-            state={state}
-            dashboard={dashboard}
-            grossVolume={grossVolume}
-            platformRevenue={platformRevenue}
-            cancellationCount={cancellationCount}
-            activeOrders={activeOrders}
-            activeRides={activeRides}
-            busy={busy}
-            runAction={runAction}
-          />
-        )}
+        <section className="admin-main">
+          <header className="admin-topbar">
+            <div>
+              <span>
+                {isSupport ? "Soporte · PostgreSQL/PostGIS" : "Operaciones · PostgreSQL/PostGIS"}
+              </span>
+              <h1>
+                {isSupport
+                  ? "Atención de clientes y operación de tickets"
+                  : "Control de marketplace, movilidad y delivery"}
+              </h1>
+            </div>
+            <div className="admin-actions">
+              <RealtimeStatus status={realtimeStatus} />
+              <button type="button" onClick={() => window.location.reload()}>
+                <RefreshCw size={16} /> Refrescar
+              </button>
+            </div>
+          </header>
 
-        {section === "dispatch" && (
-          <AdminDispatchPanel
-            state={state}
-            orders={activeOrders}
-            rides={activeRides}
-            busy={busy}
-            runAction={runAction}
-          />
-        )}
+          {section === "overview" && (
+            <AdminOverviewHome
+              state={state}
+              dashboard={dashboard}
+              grossVolume={grossVolume}
+              platformRevenue={platformRevenue}
+              cancellationCount={cancellationCount}
+              activeOrders={activeOrders}
+              activeRides={activeRides}
+              busy={busy}
+              runAction={runAction}
+            />
+          )}
 
-        {section === "merchants" && (
-          <AdminMerchantsPanel restaurants={state.restaurants} busy={busy} runAction={runAction} />
-        )}
+          {section === "dispatch" && (
+            <AdminDispatchPanel
+              state={state}
+              orders={activeOrders}
+              rides={activeRides}
+              busy={busy}
+              runAction={runAction}
+            />
+          )}
 
-        {section === "drivers" && (
-          <AdminDriversSupplyPanel drivers={state.drivers} busy={busy} runAction={runAction} />
-        )}
+          {section === "applications" && (
+            <AdminApplications
+              canDecide={!isSupport}
+              // La consola recarga su estado para que el comercio recién aprobado
+              // aparezca en Comercios sin refrescar la página.
+              onDecided={(mensaje) => runAction(async () => undefined, mensaje)}
+            />
+          )}
 
-        {section === "finance" && (
-          <AdminFinanceOverview
-            state={state}
-            dashboard={dashboard}
-            cancellationCount={cancellationCount}
-            currentUserId={currentUserId}
-          />
-        )}
+          {section === "merchants" && (
+            <AdminMerchantsPanel
+              restaurants={state.restaurants}
+              busy={busy}
+              runAction={runAction}
+            />
+          )}
 
-        {section === "investors" && (
-          <AdminInvestorPanels
-            state={state}
-            dashboard={dashboard}
-            grossVolume={grossVolume}
-            platformRevenue={platformRevenue}
-          />
-        )}
+          {section === "drivers" && (
+            <AdminDriversSupplyPanel drivers={state.drivers} busy={busy} runAction={runAction} />
+          )}
 
-        {section === "product" && (
-          <AdminProductOpsPanel zones={state.zones} runAction={runAction} />
-        )}
+          {section === "finance" && (
+            <AdminFinanceOverview
+              state={state}
+              dashboard={dashboard}
+              cancellationCount={cancellationCount}
+              currentUserId={currentUserId}
+            />
+          )}
 
-        {section === "support" && (
-          <SupportOperationsPanel
-            tickets={state.supportTickets}
-            currentUserId={currentUserId}
-            busy={busy}
-            runAction={runAction}
-            isSupport={isSupport}
-          />
-        )}
+          {section === "investors" && (
+            <AdminInvestorPanels
+              state={state}
+              dashboard={dashboard}
+              grossVolume={grossVolume}
+              platformRevenue={platformRevenue}
+            />
+          )}
 
-        {section === "shipments" && (
-          <ShipmentConfigurationPanel busy={busy} runAction={runAction} />
-        )}
+          {section === "product" && (
+            <AdminProductOpsPanel zones={state.zones} runAction={runAction} />
+          )}
 
-        {section === "claims" && (
-          <div className="admin-grid">
-            <ShipmentClaimsPanel />
-            <ShipmentReturnsPanel runAction={runAction} busy={busy} />
-          </div>
-        )}
-        {section === "payments" && <PaymentReconciliationPanel />}
+          {section === "support" && (
+            <SupportOperationsPanel
+              tickets={state.supportTickets}
+              currentUserId={currentUserId}
+              busy={busy}
+              runAction={runAction}
+              isSupport={isSupport}
+            />
+          )}
 
-        {section === "pricing" && (
-          <AdminPricingOpsPanel
-            state={state}
-            currentUserId={currentUserId}
-            busy={busy}
-            runAction={runAction}
-          />
-        )}
+          {section === "shipments" && (
+            <ShipmentConfigurationPanel busy={busy} runAction={runAction} />
+          )}
 
-        {section === "messages" && <ServiceQuickReplyPanel busy={busy} />}
+          {section === "claims" && (
+            <div className="admin-grid">
+              <ShipmentClaimsPanel />
+              <ShipmentReturnsPanel runAction={runAction} busy={busy} />
+            </div>
+          )}
+          {section === "payments" && <PaymentReconciliationPanel />}
 
-        {section === "users" && (
-          <AdminUserModeration users={state.users} busy={busy} runAction={runAction} />
-        )}
+          {section === "pricing" && (
+            <AdminPricingOpsPanel
+              state={state}
+              currentUserId={currentUserId}
+              busy={busy}
+              runAction={runAction}
+            />
+          )}
 
-        {section === "security" && <AdminSecurityPanel />}
+          {section === "messages" && <ServiceQuickReplyPanel busy={busy} />}
 
-        {section === "infra" && <AdminInfraPanel />}
-      </section>
-    </main>
+          {section === "users" && (
+            <AdminUserModeration users={state.users} busy={busy} runAction={runAction} />
+          )}
+
+          {section === "security" && <AdminSecurityPanel />}
+
+          {section === "infra" && <AdminInfraPanel />}
+        </section>
+      </main>
+    </WorkQueueNavigation.Provider>
   );
 }

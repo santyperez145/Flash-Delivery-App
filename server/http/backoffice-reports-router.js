@@ -137,6 +137,14 @@ router.get(
           cursor,
           query,
           search: (item) => [item.id, item.name, item.cuisine, item.address].join(" "),
+          // La misma forma que en PostgreSQL. El fallback no suspende comercios, así
+          // que no hay fecha ni motivo que mostrar.
+          map: (item) => ({
+            ...item,
+            status: item.status || "active",
+            suspendedAt: null,
+            suspensionReason: null,
+          }),
         });
         return ok(res, { restaurants: page.items, nextCursor: page.nextCursor });
       }

@@ -152,6 +152,7 @@ jobs:
           test:fare-splits
           test:gift-cards
           test:family-profiles
+          test:merchant-applications
           test:cash-food-orders
           test:order-batching
           test:service-chat

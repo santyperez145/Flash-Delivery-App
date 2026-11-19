@@ -10,7 +10,7 @@ import { calificacionConductor, initials } from "../format";
 import type { AppState, Order, Ride } from "../types";
 import { AdminCashDeposit } from "./AdminCashDeposit";
 import { AdminLiveGrid } from "./AdminOverviewBoards";
-import { DispatchReleasePanel, MerchantSuspensionPanel } from "./OperationsInterventionPanel";
+import { DispatchReleasePanel, MerchantOperationsList } from "./OperationsInterventionPanel";
 import { DriverCompliancePanel } from "./AdminTrustPanels";
 
 type RunAction = (action: () => Promise<unknown>, success: string) => void;
@@ -60,51 +60,13 @@ export function AdminMerchantsPanel({
   busy: boolean;
   runAction: RunAction;
 }) {
+  // FE-05: una sola lista. Antes había una tarjeta para suspender y otra con
+  // «Pausar/Abrir» del mismo comercio, y cada una mostraba un estado distinto.
   return (
-    <>
-      <section className="admin-card">
-        <AdminSectionHeader
-          title="Suspender ingreso de pedidos"
-          action="No cancela lo que ya está en curso"
-        />
-        <MerchantSuspensionPanel restaurants={restaurants} busy={busy} runAction={runAction} />
-      </section>
-      <section className="admin-card">
-        <AdminSectionHeader title="Comercios" action="Control operativo" />
-        <div className="admin-table">
-          {restaurants.map((restaurant) => (
-            <article className="admin-row" key={restaurant.id}>
-              <img src={restaurant.image} alt={restaurant.name} />
-              <div>
-                <strong>{restaurant.name}</strong>
-                <span>
-                  {restaurant.cuisine} · {restaurant.address}
-                </span>
-              </div>
-              <b>{restaurant.open ? "Abierto" : "Pausado"}</b>
-              <small>
-                {restaurant.etaMin}m · {restaurant.menu.length} items
-              </small>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() =>
-                  runAction(
-                    () =>
-                      api.updateRestaurant(restaurant.id, {
-                        open: !restaurant.open,
-                      }),
-                    restaurant.open ? "Comercio pausado" : "Comercio abierto",
-                  )
-                }
-              >
-                {restaurant.open ? "Pausar" : "Abrir"}
-              </button>
-            </article>
-          ))}
-        </div>
-      </section>
-    </>
+    <section className="admin-card">
+      <AdminSectionHeader title="Comercios" action="Suspender no cancela lo que ya está en curso" />
+      <MerchantOperationsList restaurants={restaurants} busy={busy} runAction={runAction} />
+    </section>
   );
 }
 

@@ -308,6 +308,10 @@
       "clase": "por-usuario",
       "rls": true
     },
+    "merchant_applications": {
+      "clase": "por-usuario",
+      "rls": true
+    },
     "ride_pickup_verifications": {
       "clase": "por-usuario",
       "rls": true

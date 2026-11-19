@@ -2242,8 +2242,8 @@ try {
   // El tablero de colas, contra la base de verdad, con la sesion de operaciones
   // puesta: la ruta la leen `admin` y `support`, no el cliente.
   //
-  // **Su consulta nunca se habia ejecutado.** Son doce subconsultas unidas por
-  // `UNION ALL` sobre doce tablas, escritas sin base local: un solo nombre de
+  // **Su consulta nunca se habia ejecutado.** Son trece subconsultas unidas por
+  // `UNION ALL` sobre trece tablas, escritas sin base local: un solo nombre de
   // columna equivocado rompe la consulta entera, y ninguna puerta estatica mira
   // columnas. Llamarlo una vez desde el smoke convierte eso en una falla de CI
   // en vez de un 500 en produccion.
@@ -2251,12 +2251,12 @@ try {
   if (colas.status !== 200) console.error("work queue diagnostic", colas);
   assert(
     colas.status === 200 &&
-      colas.body.queues?.length === 12 &&
+      colas.body.queues?.length === 13 &&
       colas.body.queues.every(
         (cola) => typeof cola.pending === "number" && typeof cola.oldestMinutes === "number",
       ) &&
       colas.body.queues.some((cola) => cola.key === "dispatch"),
-    "el tablero de colas responde las doce colas con profundidad y antiguedad",
+    "el tablero de colas responde las trece colas con profundidad y antiguedad",
   );
   const reactivacionComercio = await request("/admin/merchants/rest_roja/status", {
     method: "PATCH",

@@ -19,6 +19,11 @@ import type {
   Shipment,
   DeliveryEvidence,
   User,
+  AdminMerchantApplication,
+  MerchantApplication,
+  MerchantApplicationDecision,
+  MerchantApplicationInput,
+  MerchantApplicationStatus,
 } from "./types";
 import type { AnalyticsEvent } from "./analytics";
 import { createAuthRefreshCoordinator } from "./auth-refresh-coordinator";
@@ -1846,6 +1851,44 @@ export const api = {
   async cancelSubscription() {
     return request<{ id: string; cancelled: true; benefitsUntil: string }>("/subscription", {
       method: "DELETE",
+    });
+  },
+
+  // Alta de comercio (FE-05). La solicitud la presenta cualquier cuenta con sesión; el
+  // comercio y el rol `merchant` recién existen cuando operaciones la aprueba.
+  async submitMerchantApplication(input: MerchantApplicationInput) {
+    return request<{ application: MerchantApplication }>("/applications/merchant", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+  async getMyApplications() {
+    return request<{ applications: MerchantApplication[] }>("/applications/me");
+  },
+  // La cola de altas para operaciones: paginada por cursor, la más vieja primero en
+  // pendientes. Leer lo pueden admin y soporte; decidir, sólo admin.
+  async getAdminMerchantApplications({
+    status,
+    cursor,
+  }: {
+    status: MerchantApplicationStatus;
+    cursor?: string | null;
+  }) {
+    const params = new URLSearchParams({ status, ...(cursor ? { cursor } : {}) });
+    return request<{ applications: AdminMerchantApplication[]; nextCursor: string | null }>(
+      `/admin/merchant-applications?${params}`,
+    );
+  },
+  async decideMerchantApplication(
+    applicationId: string,
+    { decision, reason }: { decision: MerchantApplicationDecision; reason?: string },
+  ) {
+    return request<{
+      application: AdminMerchantApplication;
+      merchant?: { id: string; name: string };
+    }>(`/admin/merchant-applications/${encodeURIComponent(applicationId)}/decision`, {
+      method: "POST",
+      body: JSON.stringify({ decision, ...(reason?.trim() ? { reason: reason.trim() } : {}) }),
     });
   },
 

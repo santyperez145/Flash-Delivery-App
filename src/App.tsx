@@ -137,6 +137,17 @@ const OpsApp = lazy(() =>
 const OpsRail = lazy(() =>
   import("./operations/OperationsSurface").then((module) => ({ default: module.OpsRail })),
 );
+const MerchantApplicationPage = lazy(() =>
+  import("./partners/MerchantApplication").then((module) => ({
+    default: module.MerchantApplicationPage,
+  })),
+);
+
+// «Sumá tu comercio» (FE-05) vive en una ruta pública: se llega sin sesión desde un
+// enlace compartido o desde el ingreso, y también con cualquier sesión abierta.
+const RUTA_COMERCIOS = "/comercios";
+const enRutaComercios = () =>
+  typeof window !== "undefined" && window.location.pathname.replace(/\/$/, "") === RUTA_COMERCIOS;
 
 function App() {
   const [state, setState] = useState<AppState | null>(null);
@@ -186,12 +197,9 @@ function App() {
     "idle",
   );
   const [locationMessage, setLocationMessage] = useState("");
-  const [newDish, setNewDish] = useState({
-    name: "Menu ejecutivo",
-    description: "Principal, bebida y postre del dia.",
-    category: "Especiales",
-    price: 6900,
-  });
+  // El formulario de producto nuevo arranca vacío: un nombre, una categoría y un
+  // precio de ejemplo se publican tal cual si el comercio aprieta «Crear» sin leer.
+  const [newDish, setNewDish] = useState({ name: "", description: "", category: "", price: 0 });
   const [loading, setLoading] = useState(true);
   const [authRequired, setAuthRequired] = useState(false);
   const [mfaChallenge, setMfaChallenge] = useState("");
@@ -218,6 +226,22 @@ function App() {
     typeof window === "undefined" ? false : window.matchMedia("(min-width: 620px)").matches,
   );
   const [desktopPortal, setDesktopPortal] = useState<"admin" | "merchant">("admin");
+  const [enComercios, setEnComercios] = useState(enRutaComercios);
+  // Entrar y salir de /comercios es navegación del historial: «atrás» del navegador vuelve
+  // a donde se estaba en lugar de salir de Flash.
+  useEffect(() => {
+    const alNavegar = () => setEnComercios(enRutaComercios());
+    window.addEventListener("popstate", alNavegar);
+    return () => window.removeEventListener("popstate", alNavegar);
+  }, []);
+  const abrirComercios = useCallback(() => {
+    if (!enRutaComercios()) window.history.pushState(null, "", RUTA_COMERCIOS);
+    setEnComercios(true);
+  }, []);
+  const salirDeComercios = useCallback(() => {
+    window.history.pushState(null, "", "/");
+    setEnComercios(false);
+  }, []);
 
   useEffect(() => configureAnalytics((events) => api.sendAnalyticsEvents(events)), []);
 
@@ -912,6 +936,8 @@ function App() {
           mfaChallenge={mfaChallenge}
           onLogin={loginWeb}
           onMfa={completeMfaWeb}
+          contexto={enComercios ? "comercio" : undefined}
+          onComercios={abrirComercios}
           tokenRecuperacion={tokenRecuperacion}
           onRecuperacionTerminada={async (cambiada) => {
             setTokenRecuperacion("");
@@ -941,6 +967,32 @@ function App() {
     );
   }
 
+  // FE-05: con sesión, /comercios muestra la solicitud de alta antes que cualquier
+  // superficie por rol. Quien la presenta todavía no es comercio: el rol llega al aprobarla.
+  if (enComercios && activeUser) {
+    return (
+      <Suspense
+        fallback={
+          <SystemStateScreen
+            tone="loading"
+            eyebrow="Flash para comercios"
+            title="Preparando tu solicitud"
+            message="Estamos cargando el alta de comercios."
+          />
+        }
+      >
+        <MerchantApplicationPage
+          user={activeUser}
+          onVolver={salirDeComercios}
+          // Recarga completa a propósito: el rol `merchant` se otorgó en el servidor después
+          // de abrir esta sesión, y recién un arranque nuevo trae el comercio y su portal.
+          onAbrirPortal={() => window.location.assign("/")}
+          onCerrarSesion={() => void logoutWeb()}
+        />
+      </Suspense>
+    );
+  }
+
   // RES-06/FE-01: quien sólo pide ve Flash como sitio, también en escritorio.
   const soloCliente = activeUser?.roles.every((role) => role === "customer") ?? false;
   if (isDesktop && !soloCliente) {
@@ -960,7 +1012,7 @@ function App() {
       return (
         <>
           {networkBanner}
-          <DesktopAccessGate user={activeUser} onLogout={logoutWeb} />
+          <DesktopAccessGate user={activeUser} onLogout={logoutWeb} onComercios={abrirComercios} />
         </>
       );
     if (canMerchant && (!canAdmin || desktopPortal === "merchant")) {

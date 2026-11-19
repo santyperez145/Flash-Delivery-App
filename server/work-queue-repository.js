@@ -124,6 +124,16 @@ const COLAS = [
     sql: `SELECT count(*)::int total, min(created_at) mas_viejo
           FROM driver_documents WHERE status='pending'`,
   },
+  {
+    // FE-05: las postulaciones de comercio que esperan revisión. Sólo `pending`: una
+    // observada espera a quien se postuló, no a operaciones, y contarla pintaría de
+    // rojo una cola que nadie de adentro puede vaciar.
+    clave: "merchant_applications",
+    etiqueta: "Solicitudes de comercio por revisar",
+    owner: "human",
+    sql: `SELECT count(*)::int total, min(created_at) mas_viejo
+          FROM merchant_applications WHERE status='pending'`,
+  },
 ];
 
 /**
@@ -151,11 +161,11 @@ const severidad = (owner, minutos, total) => {
 };
 
 /**
- * Estado de las doce colas, en una sola ida a la base.
+ * Estado de las trece colas, en una sola ida a la base.
  *
- * Se arma un `UNION ALL` en vez de doce consultas: el tablero se refresca solo y
- * doce viajes por refresco, con doce operadores mirando, son ciento cuarenta y
- * cuatro consultas por ciclo para responder algo que cabe en una.
+ * Se arma un `UNION ALL` en vez de trece consultas: el tablero se refresca solo y
+ * trece viajes por refresco, con doce operadores mirando, son ciento cincuenta y
+ * seis consultas por ciclo para responder algo que cabe en una.
  */
 export async function getWorkQueueDepths() {
   const union = COLAS.map(

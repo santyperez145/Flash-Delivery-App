@@ -85,7 +85,7 @@ Que un comercio de verdad pueda sumarse sin seed: se postula en la web, operacio
 
 **Cambios:**
 
-- database/migrations/151_merchant_applications.sql y database/rls-classification.json — tabla por-usuario con estados pendiente, observada, aprobada, rechazada; prueba negativa por rol.
+- database/migrations/152_merchant_applications.sql y database/rls-classification.json — tabla por-usuario con estados pendiente, observada, aprobada, rechazada; prueba negativa por rol.
 - server/merchant-application-repository.js y server/http/applications-router.js (nuevos), montados en server/index.js — POST /api/applications/merchant, GET /api/applications/me, GET /api/admin/merchant-applications?status&cursor, POST /api/admin/merchant-applications/:id/decision. Aprobar crea el comercio y su sucursal y recién ahí otorga el rol merchant.
 - server/work-queue-repository.js — cola merchant_applications.
 - src/partners/MerchantApplication.tsx (nuevo) y ruta pública /comercios en src/App.tsx — «Sumá tu comercio» en 3 pasos con barra de progreso: rubro (VerticalRail) y datos (razón social, CUIT), dirección con geocodificación, horarios. Cierre honesto: «Recibimos tu solicitud. Te avisamos cuando la revisemos», con el estado visible al volver.

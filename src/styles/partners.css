@@ -1,0 +1,729 @@
+/* «Sumá tu comercio» (FE-05). Todo color sale de los tokens de foundation.css: los
+   tintes se mezclan con `color-mix` sobre --paper para que un tema oscuro que redefina
+   los tokens no deje fondos claros fijos. */
+
+.partner-shell {
+  min-height: 100dvh;
+  padding: calc(16px + var(--layout-safe-top, 0px)) calc(16px + var(--layout-safe-right, 0px))
+    calc(32px + var(--layout-safe-bottom, 0px)) calc(16px + var(--layout-safe-left, 0px));
+  color: var(--ink);
+  background:
+    radial-gradient(
+      circle at 0% 0%,
+      color-mix(in srgb, var(--food) 12%, transparent),
+      transparent 26rem
+    ),
+    radial-gradient(
+      circle at 100% 100%,
+      color-mix(in srgb, var(--brand) 10%, transparent),
+      transparent 28rem
+    ),
+    var(--paper-soft);
+}
+
+.partner-shell :where(button, a, input, textarea, [tabindex]):focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.partner-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: min(100%, 1120px);
+  margin: 0 auto 20px;
+}
+
+.partner-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  font-size: 1.15rem;
+}
+
+.partner-brand-tag {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.partner-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.2fr);
+  gap: clamp(20px, 4vw, 48px);
+  align-items: start;
+  width: min(100%, 1120px);
+  margin: 0 auto;
+}
+
+.partner-aside {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.partner-aside h1 {
+  margin: 0;
+  font-size: clamp(1.9rem, 4vw, 2.8rem);
+  line-height: 1.04;
+  letter-spacing: -0.04em;
+}
+
+.partner-aside h2 {
+  margin: 10px 0 0;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand);
+}
+
+.partner-aside p,
+.partner-aside li {
+  margin: 0;
+  color: var(--ink-soft);
+  line-height: 1.55;
+}
+
+.partner-aside ul,
+.partner-aside ol {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 20px;
+}
+
+.partner-account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+
+.partner-main {
+  min-width: 0;
+}
+
+.partner-card {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+  padding: clamp(20px, 4vw, 36px);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-surface);
+  box-shadow: var(--shadow-card);
+}
+
+.partner-state {
+  justify-items: center;
+  text-align: center;
+  color: var(--ink-soft);
+}
+
+.partner-state p {
+  margin: 0;
+}
+
+/* Barra de avance y pasos */
+.partner-progress {
+  display: grid;
+  gap: 12px;
+}
+
+.partner-progress-track {
+  height: 8px;
+  overflow: hidden;
+  background: var(--line);
+  border-radius: 999px;
+}
+
+.partner-progress-track span {
+  display: block;
+  height: 100%;
+  background: var(--brand);
+  border-radius: inherit;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .partner-progress-track span {
+    transition: width 220ms ease;
+  }
+}
+
+.partner-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.partner-steps li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.partner-steps li > span {
+  display: inline-grid;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  font-size: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+}
+
+.partner-steps li.active {
+  color: var(--ink);
+}
+
+.partner-steps li.active > span,
+.partner-steps li.done > span {
+  color: var(--paper);
+  background: var(--brand);
+  border-color: var(--brand);
+}
+
+.partner-form-header small {
+  color: var(--brand);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.partner-form-header h2,
+.partner-status h2 {
+  margin: 6px 0 0;
+  font-size: clamp(1.4rem, 3vw, 1.9rem);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.partner-form-header h2:focus,
+.partner-focus-title:focus {
+  outline: none;
+}
+
+.partner-form-header h2:focus-visible,
+.partner-focus-title:focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: 4px;
+}
+
+/* Campos */
+.partner-field {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.partner-field label,
+.partner-rubros legend {
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.partner-field input,
+.partner-field textarea {
+  width: 100%;
+  min-height: var(--layout-touch, 44px);
+  padding: 10px 14px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+
+.partner-field textarea {
+  resize: vertical;
+}
+
+.partner-field.invalid input,
+.partner-field.invalid textarea {
+  border-color: var(--danger);
+}
+
+.partner-field.valid input {
+  border-color: var(--shipment);
+}
+
+.partner-field small {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.partner-field small.partner-error,
+.partner-error {
+  color: var(--danger);
+  font-weight: 750;
+}
+
+.partner-field small.partner-ok {
+  color: var(--shipment);
+  font-weight: 750;
+}
+
+.partner-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+/* Rubros */
+.partner-rubros {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.partner-rubro-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  gap: 8px;
+}
+
+.partner-rubro {
+  position: relative;
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  min-height: 84px;
+  padding: 12px;
+  cursor: pointer;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+}
+
+.partner-rubro input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.partner-rubro:has(input:checked) {
+  background: color-mix(in srgb, var(--brand) 8%, var(--paper));
+  border-color: var(--brand);
+  box-shadow: inset 0 0 0 1px var(--brand);
+}
+
+.partner-rubro:has(input:focus-visible) {
+  outline: 3px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.partner-rubro-icon {
+  display: inline-grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 10%, var(--paper));
+  border-radius: var(--radius-control);
+}
+
+.partner-rubro strong {
+  font-size: 0.86rem;
+}
+
+/* Dirección encontrada */
+.partner-matches {
+  display: grid;
+  gap: 6px;
+}
+
+.partner-matches small {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.partner-matches button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--layout-touch, 44px);
+  padding: 10px 12px;
+  color: var(--ink);
+  text-align: left;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.partner-matches button:hover {
+  border-color: var(--brand);
+}
+
+.partner-matches button svg {
+  flex: none;
+  color: var(--brand);
+}
+
+.partner-found {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  padding: 16px;
+  background: color-mix(in srgb, var(--shipment) 7%, var(--paper));
+  border: 1px solid color-mix(in srgb, var(--shipment) 35%, var(--line));
+  border-radius: var(--radius-card);
+}
+
+.partner-found > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.partner-found small {
+  color: var(--shipment);
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+.partner-found-icon {
+  display: inline-grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  color: var(--shipment);
+  background: var(--paper);
+  border-radius: var(--radius-control);
+}
+
+.partner-found small.partner-error {
+  color: var(--danger);
+}
+
+.partner-found .partner-check,
+.partner-found .partner-error {
+  grid-column: 1 / -1;
+}
+
+.partner-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--layout-touch, 44px);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.partner-check input {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+}
+
+.partner-muted {
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+
+/* Revisión */
+.partner-review {
+  display: grid;
+  gap: 0;
+  margin: 0;
+}
+
+.partner-review-head,
+.partner-review-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.4fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+}
+
+.partner-review-head {
+  grid-template-columns: 1fr auto;
+  margin-top: 8px;
+  padding-bottom: 4px;
+}
+
+.partner-review-head dt {
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--brand);
+}
+
+.partner-review-head dd,
+.partner-review-row dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.partner-review-row {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.partner-review-row dt {
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+}
+
+.partner-review-row dd {
+  font-weight: 750;
+}
+
+.partner-review-compact .partner-review-row:last-child {
+  border-bottom: 0;
+}
+
+.partner-fineprint {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.partner-alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 14px;
+  color: var(--danger);
+  font-weight: 750;
+  background: color-mix(in srgb, var(--danger) 7%, var(--paper));
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--line));
+  border-radius: var(--radius-control);
+}
+
+/* Botones */
+.partner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.partner-primary,
+.partner-secondary,
+.partner-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--layout-touch, 44px);
+  padding: 0 18px;
+  font: inherit;
+  font-weight: 900;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.partner-primary {
+  color: var(--paper);
+  background: var(--brand);
+  border: 1px solid var(--brand);
+}
+
+.partner-primary:hover:not(:disabled) {
+  background: var(--brand-deep);
+}
+
+.partner-secondary {
+  color: var(--brand);
+  background: var(--paper);
+  border: 1px solid var(--brand);
+}
+
+.partner-ghost {
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--line);
+}
+
+.partner-primary:disabled,
+.partner-secondary:disabled,
+.partner-ghost:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.partner-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: var(--layout-touch, 44px);
+  padding: 0 4px;
+  color: var(--brand);
+  font: inherit;
+  font-weight: 850;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+/* Estado de la solicitud */
+.partner-status {
+  justify-items: start;
+}
+
+.partner-status p {
+  margin: 0;
+  color: var(--ink-soft);
+  line-height: 1.55;
+}
+
+.partner-status .partner-review {
+  justify-self: stretch;
+}
+
+.partner-status-icon {
+  display: inline-grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  color: var(--tone, var(--brand));
+  background: color-mix(in srgb, var(--tone, var(--brand)) 10%, var(--paper));
+  border-radius: var(--radius-card);
+}
+
+.partner-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 12px;
+  color: var(--tone, var(--brand));
+  font-size: 0.75rem;
+  font-weight: 900;
+  background: color-mix(in srgb, var(--tone, var(--brand)) 10%, var(--paper));
+  border-radius: 999px;
+}
+
+.partner-status-pending {
+  --tone: var(--brand);
+}
+
+.partner-status-changes {
+  --tone: var(--food);
+}
+
+.partner-status-approved {
+  --tone: var(--shipment);
+}
+
+.partner-status-rejected {
+  --tone: var(--danger);
+}
+
+.partner-reason {
+  display: grid;
+  gap: 4px;
+  justify-self: stretch;
+  margin: 0;
+  padding: 14px 16px;
+  color: var(--ink);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  background: var(--paper-soft);
+  border-left: 4px solid var(--tone, var(--brand));
+  border-radius: var(--radius-control);
+}
+
+.partner-reason small {
+  color: var(--ink-soft);
+  font-size: 0.75rem;
+  font-weight: 900;
+}
+
+/* Entradas desde el ingreso y desde el portal sin acceso */
+.web-auth-partner,
+.role-gate-partner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--layout-touch, 44px);
+  color: var(--brand);
+  font-weight: 900;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.role-gate-partner {
+  justify-content: space-between;
+  padding: 0 16px;
+  text-decoration: none;
+  border: 1px solid var(--brand);
+  border-radius: var(--radius-control);
+}
+
+.web-auth-partner:focus-visible,
+.role-gate-partner:focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: 2px;
+}
+
+@media (max-width: 860px) {
+  .partner-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* En angosto la columna queda arriba del formulario: se dejan el título y la cuenta, y
+     las listas se ocultan porque los textos de ayuda de cada campo ya dicen lo mismo. */
+  .partner-aside ul,
+  .partner-aside ol,
+  .partner-aside h2 {
+    display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .partner-brand-tag,
+  .partner-steps li {
+    font-size: 0.72rem;
+  }
+
+  .partner-search {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .partner-actions > * {
+    flex: 1 1 auto;
+  }
+
+  .partner-review-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+}

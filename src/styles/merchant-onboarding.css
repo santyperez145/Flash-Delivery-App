@@ -1,0 +1,537 @@
+/* Alta y puesta en marcha de comercios (FE-05).
+ *
+ * Hoja propia porque `styles.css` es el monolito del hallazgo H-08 y ningún PR
+ * lo hace crecer. La importan los componentes que la usan (Altas, la lista
+ * operativa de comercios, la fila de la cola y la tarjeta de puesta en marcha),
+ * así viaja en el mismo pedazo del bundle que la pantalla y no en el del cliente.
+ *
+ * Todos los colores salen de tokens: el día que la web tenga modo oscuro,
+ * cambiar `--paper`, `--ink` y `--line` alcanza para que esto se lea igual.
+ */
+
+/* ---------- Altas (operaciones) ---------- */
+
+.altas-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.altas-tabs button {
+  min-height: var(--layout-touch, 44px);
+  padding: 0 14px;
+  color: var(--ink-soft);
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.altas-tabs button[aria-selected="true"] {
+  color: var(--paper);
+  background: var(--ink);
+  border-color: var(--ink);
+}
+.altas-tabs button b {
+  margin-left: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.altas-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 960px) {
+  .altas-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.altas-lista {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.altas-lista button {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  min-height: var(--layout-touch, 44px);
+  padding: 10px 12px;
+  color: var(--ink);
+  text-align: left;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font: inherit;
+  cursor: pointer;
+}
+.altas-lista button[aria-current="true"] {
+  border-color: var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.altas-lista strong {
+  overflow-wrap: anywhere;
+}
+.altas-lista small {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.altas-mas {
+  justify-self: start;
+  min-height: var(--layout-touch, 44px);
+  margin-top: 10px;
+  padding: 0 16px;
+  color: var(--ink);
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.altas-detalle {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+.altas-detalle h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  overflow-wrap: anywhere;
+}
+.altas-datos {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 14px;
+  margin: 0;
+  font-size: 0.86rem;
+}
+.altas-datos dt {
+  color: var(--ink-soft);
+}
+.altas-datos dd {
+  margin: 0;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 520px) {
+  .altas-datos {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .altas-datos dd {
+    margin-bottom: 6px;
+  }
+}
+
+.altas-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.altas-acciones button,
+.altas-decision button {
+  min-height: var(--layout-touch, 44px);
+  padding: 0 16px;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.altas-acciones button:disabled,
+.altas-decision button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.altas-acciones .altas-aprobar,
+.altas-decision .altas-aprobar {
+  color: var(--paper);
+  background: var(--shipment, var(--ink));
+  border-color: var(--shipment, var(--ink));
+}
+.altas-acciones .altas-rechazar,
+.altas-decision .altas-rechazar {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.altas-decision {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.altas-decision fieldset {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.altas-decision legend {
+  margin-bottom: 4px;
+  font-weight: 700;
+}
+.altas-decision fieldset label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: var(--layout-touch, 44px);
+  font-size: 0.86rem;
+}
+.altas-decision textarea {
+  min-height: 88px;
+  padding: 10px;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font: inherit;
+  resize: vertical;
+}
+.altas-decision > label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.86rem;
+}
+
+.altas-aviso {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+.altas-error {
+  margin: 0;
+  color: var(--danger);
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+.altas-ok {
+  margin: 0;
+  color: var(--shipment, var(--ink));
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+
+.altas-tabs button:focus-visible,
+.altas-lista button:focus-visible,
+.altas-mas:focus-visible,
+.altas-acciones button:focus-visible,
+.altas-decision button:focus-visible,
+.altas-decision textarea:focus-visible,
+.comercio-menu button:focus-visible,
+.cola-ir:focus-visible,
+.puesta-item a:focus-visible,
+.puesta-item button:focus-visible,
+.puesta-encabezado button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ---------- Comercios en operaciones ---------- */
+
+.comercios-lista {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.comercio-fila {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+@media (max-width: 640px) {
+  .comercio-fila {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+  .comercio-fila .comercio-menu {
+    grid-column: 1 / -1;
+  }
+}
+.comercio-foto {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 10px;
+}
+.comercio-foto-vacia {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  color: var(--muted);
+  background: var(--paper-soft);
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+}
+.comercio-datos {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.comercio-datos strong {
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.comercio-datos small {
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+.comercio-estado {
+  justify-self: start;
+  padding: 2px 10px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+}
+.comercio-estado.activo {
+  color: var(--shipment, var(--ink));
+}
+.comercio-estado.pausado {
+  color: var(--ink-soft);
+}
+.comercio-estado.suspendido {
+  color: var(--danger);
+}
+
+.comercio-menu {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+}
+.comercio-menu button {
+  min-height: var(--layout-touch, 44px);
+  padding: 0 14px;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.comercio-menu button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.comercio-menu .intervencion-peligro {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+.comercio-opciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.comercio-confirmar {
+  display: grid;
+  gap: 8px;
+  width: min(100%, 340px);
+}
+.comercio-confirmar p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+}
+.comercio-confirmar .intervencion-motivo input {
+  color: var(--ink);
+  background: var(--paper);
+}
+.comercio-confirmar > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+/* ---------- Fila de la cola que lleva a una sección ---------- */
+
+.cola-ir {
+  display: block;
+  min-height: var(--layout-touch, 44px);
+  padding: 0;
+  color: inherit;
+  text-align: left;
+  background: none;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+.cola-ir strong {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---------- Puesta en marcha (consola del comercio) ---------- */
+
+.puesta-en-marcha {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 16px;
+  padding: 16px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+.puesta-encabezado {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+.puesta-encabezado h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+.puesta-encabezado small {
+  display: block;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+.puesta-encabezado button {
+  min-height: var(--layout-touch, 44px);
+  padding: 0 14px;
+  color: var(--ink);
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.puesta-barra {
+  height: 8px;
+  overflow: hidden;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+.puesta-barra span {
+  display: block;
+  height: 100%;
+  background: var(--shipment, var(--ink));
+}
+.puesta-lista {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.puesta-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+@media (max-width: 560px) {
+  .puesta-item {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .puesta-item > button {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+.puesta-item strong {
+  display: block;
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+.puesta-item small {
+  display: block;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.puesta-icono {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+}
+.puesta-icono.hecho {
+  color: var(--paper);
+  background: var(--shipment, var(--ink));
+}
+.puesta-icono.pendiente {
+  color: var(--ink-soft);
+  border: 2px solid var(--line);
+}
+.puesta-icono.borde {
+  color: var(--ink-soft);
+  border: 2px dashed var(--muted);
+}
+.puesta-item > button {
+  min-height: var(--layout-touch, 44px);
+  padding: 0 14px;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.puesta-info {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+}
+/* Texto para lectores de pantalla: el ícono dice «listo» con forma y color, y
+   eso solo no llega a quien no ve. */
+.puesta-oculto {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Rótulos del alta de producto (FE-05): el campo se nombra arriba, no con un
+   placeholder que desaparece apenas se empieza a escribir. El margen negativo lo
+   pega a su campo dentro de la grilla de 12px de la tarjeta. */
+.merchant-create-label {
+  margin-bottom: -6px;
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
