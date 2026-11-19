@@ -128,6 +128,7 @@ jobs:
           test:activity-pagination
           test:catalog-pagination
           test:mfa
+          test:account-mfa
           test:password-recovery
           test:email-verification
           test:phone-verification

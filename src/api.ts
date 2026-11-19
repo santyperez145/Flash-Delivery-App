@@ -627,35 +627,22 @@ export const api = {
     persistRefreshToken(session.refreshToken || "");
     return session;
   },
+  // Verificación en dos pasos de cualquier cuenta (SEG-08); desactivar y regenerar
+  // códigos están en `mfa-api.ts`.
   async getMfaStatus() {
-    return request<{
-      mfa: {
-        enabled: boolean;
-        method: string;
-        confirmedAt: string | null;
-        lockedUntil: string | null;
-        recoveryCodesRemaining: number;
-      };
-    }>("/auth/mfa/status");
+    return request<{ mfa: import("./types").MfaStatus }>("/auth/mfa/status");
   },
   async enrollMfa() {
-    return request<{
-      enrollment: {
-        secret: string;
-        otpauthUri: string;
-        recoveryCodes: string[];
-      };
-    }>("/auth/mfa/enroll", { method: "POST", body: "{}" });
+    return request<{ enrollment: import("./types").MfaEnrollment }>("/auth/mfa/enroll", {
+      method: "POST",
+      body: "{}",
+    });
   },
+  /** Activa y cambia a la sesión nueva: el servidor cierra todas las demás. */
   async confirmMfa(code: string) {
     const session = await request<{
-      mfa: {
-        enabled: boolean;
-        method: string;
-        confirmedAt: string | null;
-        lockedUntil: string | null;
-        recoveryCodesRemaining: number;
-      };
+      mfa: import("./types").MfaStatus;
+      revokedSessions: number;
       token: string;
       refreshToken?: string;
     }>("/auth/mfa/confirm", {
@@ -683,13 +670,22 @@ export const api = {
       { method: "POST", body: JSON.stringify({ merchantId }) },
     );
   },
-  async disconnectMerchantPaymentConnection(merchantId: string, password: string) {
+  async disconnectMerchantPaymentConnection(
+    merchantId: string,
+    password: string,
+    mfaCode?: string,
+  ) {
     return request<{ connection: import("./types").MerchantPaymentConnection }>(
       "/merchant/payment-provider/disconnect",
-      { method: "POST", body: JSON.stringify({ merchantId, password }) },
+      { method: "POST", body: JSON.stringify({ merchantId, password, mfaCode }) },
     );
   },
-  async authorizeMerchantPayout(merchantId: string, amount: number, password: string) {
+  async authorizeMerchantPayout(
+    merchantId: string,
+    amount: number,
+    password: string,
+    mfaCode?: string,
+  ) {
     return request<{
       authorizationToken: string;
       expiresAt: string;
@@ -697,7 +693,7 @@ export const api = {
       amount: number;
     }>("/merchant/payouts/authorize", {
       method: "POST",
-      body: JSON.stringify({ merchantId, amount, password }),
+      body: JSON.stringify({ merchantId, amount, password, mfaCode }),
     });
   },
   async requestMerchantPayout(merchantId: string, amount: number, authorizationToken: string) {

@@ -9,6 +9,7 @@ import "./styles/pickup.css";
 import "./styles/verticals.css";
 import "./styles/delivery-preferences.css";
 import "./styles/account-deletion.css";
+import "./styles/two-step.css";
 import "./styles/legal-links.css";
 import "./styles/customer-home.css";
 import "./styles/customer-site.css";

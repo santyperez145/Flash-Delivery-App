@@ -124,12 +124,37 @@ async function refreshAccessToken() {
     await persistSession();
     return false;
   }
-  const session = (await response.json()) as { token: string; refreshToken: string };
+  const session = (await response.json()) as { token?: string; refreshToken?: string };
+  // Sin token: la cuenta activó la verificación en dos pasos y esta sesión no la
+  // pasó (SEG-08). El servidor ya la cerró; se vuelve al ingreso, que pide el código.
+  if (!session.token || !session.refreshToken) {
+    token = "";
+    refreshToken = "";
+    await persistSession();
+    return false;
+  }
   token = session.token;
   refreshToken = session.refreshToken;
   await persistSession();
   return true;
 }
+
+/**
+ * El ingreso pide el segundo factor (SEG-08): la contraseña era correcta y el
+ * servidor devolvió un desafío de cinco minutos en vez de una sesión.
+ */
+export class MfaRequiredError extends Error {
+  constructor(readonly challenge: string) {
+    super("Ingresá el código de tu app autenticadora");
+    this.name = "MfaRequiredError";
+  }
+}
+
+type SessionResponse = {
+  token: string;
+  refreshToken: string;
+  user: import("./types").User;
+};
 
 export async function request<T>(
   path: string,
@@ -194,11 +219,9 @@ export const api = {
     });
   },
   async login(email: string, password: string) {
-    const session = await request<{
-      token: string;
-      refreshToken: string;
-      user: import("./types").User;
-    }>("/auth/login", {
+    const session = await request<
+      SessionResponse & { mfaRequired?: boolean; mfaChallenge?: string }
+    >("/auth/login", {
       method: "POST",
       body: JSON.stringify({
         email,
@@ -207,6 +230,38 @@ export const api = {
         audience: mobileAppVariant,
       }),
     });
+    if (session.mfaRequired && session.mfaChallenge)
+      throw new MfaRequiredError(session.mfaChallenge);
+    return api.establishSession(session);
+  },
+  /** Segundo paso del ingreso: cambia el desafío y el código por la sesión. */
+  async completeMfa(challenge: string, code: string) {
+    const session = await request<SessionResponse>("/auth/mfa/complete", {
+      method: "POST",
+      body: JSON.stringify({ challenge, code, deviceName: "Flash Mobile" }),
+    });
+    return api.establishSession(session);
+  },
+  /**
+   * Activa la verificación en dos pasos. El servidor cierra todas las demás
+   * sesiones, ésta incluida, y emite una nueva que ya la pasó: hay que adoptarla.
+   */
+  async confirmMfa(code: string) {
+    const result = await request<{
+      mfa: import("./types").MfaStatus;
+      revokedSessions: number;
+      token: string;
+      refreshToken: string;
+    }>("/auth/mfa/confirm", {
+      method: "POST",
+      body: JSON.stringify({ code, deviceName: "Flash Mobile" }),
+    });
+    token = result.token;
+    refreshToken = result.refreshToken;
+    await persistSession();
+    return { mfa: result.mfa, revokedSessions: result.revokedSessions };
+  },
+  async establishSession(session: SessionResponse) {
     if (!allowsVariant(session.user)) {
       await fetchWithTimeout(`${API_BASE}/auth/logout`, {
         method: "POST",

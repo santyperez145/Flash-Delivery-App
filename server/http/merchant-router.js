@@ -35,6 +35,7 @@ import { recordPostgresAudit } from "../operations-repository.js";
 import { getPostgresMerchantActiveOrderPage } from "../order-repository.js";
 import { paraElComercio } from "../delivery-preferences.js";
 import { usesPostgresCommerce } from "../postgres.js";
+import { failFromStepUp, stepUpMfa } from "./mfa-step-up.js";
 import { payoutStepUpLimiter } from "./rate-limits.js";
 import { publishRealtimeEvent } from "./realtime.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";
@@ -47,7 +48,8 @@ const payoutRequestSchema = z.object({
 });
 const payoutAuthorizeSchema = payoutRequestSchema
   .omit({ authorizationToken: true })
-  .extend({ password: z.string().min(4).max(128) });
+  // Con la verificación en dos pasos activa (SEG-08), también el código.
+  .extend({ password: z.string().min(4).max(128), mfaCode: z.string().trim().max(32).optional() });
 
 const jwtSecret = config.jwtSecret;
 
@@ -250,6 +252,11 @@ router.post(
     if (!merchantId) return fail(res, 400, "Falta el comercio");
     if (!bcrypt.compareSync(parsed.data.password, req.auth.user.password))
       return fail(res, 401, "La contraseña actual no es válida");
+    try {
+      await stepUpMfa(req, parsed.data.mfaCode);
+    } catch (error) {
+      return failFromStepUp(res, error, "No se pudo confirmar el código");
+    }
     try {
       const jti = crypto.randomUUID(),
         expiresAt = new Date(Date.now() + 5 * 60 * 1000);

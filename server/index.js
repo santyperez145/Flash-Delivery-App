@@ -288,12 +288,6 @@ import {
   verifyRidePickupCode,
 } from "./ride-safety-repository.js";
 import {
-  beginAdminMfaEnrollment,
-  confirmAdminMfa,
-  getAdminMfaStatus,
-  verifyAdminMfa,
-} from "./mfa-repository.js";
-import {
   createServiceMessage,
   createServiceQuickReply,
   getServiceAttachmentContent,

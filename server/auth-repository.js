@@ -880,15 +880,44 @@ export async function confirmEmailVerification({ email, code }) {
   }
 }
 
-export async function createPostgresSession(user, deviceName = "unknown") {
+/**
+ * `mfaVerified`: la sesión nace después de pasar el segundo factor y lo recuerda
+ * (`mfa_verified_at`, SEG-08). Con la verificación activa, sólo una sesión así se
+ * renueva sin volver a pedir el código.
+ */
+export async function createPostgresSession(
+  user,
+  deviceName = "unknown",
+  { mfaVerified = false } = {},
+) {
   const refreshToken = crypto.randomBytes(48).toString("base64url");
   const expiresAt = new Date(Date.now() + refreshLifetimeMs);
   await postgresPool.query(
-    `INSERT INTO refresh_sessions(user_id, token_hash, device_name, expires_at)
-     VALUES ($1, $2, $3, $4)`,
-    [user.internalId, tokenHash(refreshToken), String(deviceName).slice(0, 160), expiresAt],
+    `INSERT INTO refresh_sessions(user_id, token_hash, device_name, expires_at, mfa_verified_at)
+     VALUES ($1, $2, $3, $4, CASE WHEN $5 THEN now() END)`,
+    [
+      user.internalId,
+      tokenHash(refreshToken),
+      String(deviceName).slice(0, 160),
+      expiresAt,
+      mfaVerified,
+    ],
   );
   return { refreshToken, expiresAt: expiresAt.toISOString() };
+}
+
+/**
+ * Cierra todas las sesiones de la cuenta menos una. Al activar la verificación en
+ * dos pasos: una sesión abierta antes no la pasó, y si la cuenta estaba
+ * comprometida es justo la que hay que cortar.
+ */
+export async function revokePostgresSessionsExcept({ userPublicId, keepRefreshToken }) {
+  const result = await postgresPool.query(
+    `UPDATE refresh_sessions s SET revoked_at=now() FROM users u
+    WHERE u.id=s.user_id AND u.public_id=$1 AND s.token_hash<>$2 AND s.revoked_at IS NULL`,
+    [userPublicId, tokenHash(keepRefreshToken)],
+  );
+  return { revokedSessions: result.rowCount };
 }
 
 export async function rotatePostgresSession(refreshToken, deviceName = "unknown") {
@@ -896,7 +925,7 @@ export async function rotatePostgresSession(refreshToken, deviceName = "unknown"
   try {
     await client.query("BEGIN");
     const current = await client.query(
-      `SELECT id, user_id, device_name FROM refresh_sessions
+      `SELECT id, user_id, device_name, mfa_verified_at FROM refresh_sessions
        WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > now()
        FOR UPDATE`,
       [tokenHash(refreshToken)],
@@ -911,18 +940,27 @@ export async function rotatePostgresSession(refreshToken, deviceName = "unknown"
     const nextToken = crypto.randomBytes(48).toString("base64url");
     const expiresAt = new Date(Date.now() + refreshLifetimeMs);
     await client.query(
-      `INSERT INTO refresh_sessions(user_id, token_hash, device_name, expires_at)
-       VALUES ($1, $2, $3, $4)`,
+      `INSERT INTO refresh_sessions(user_id, token_hash, device_name, expires_at, mfa_verified_at)
+       VALUES ($1, $2, $3, $4, $5)`,
       [
         current.rows[0].user_id,
         tokenHash(nextToken),
         String(deviceName || current.rows[0].device_name).slice(0, 160),
         expiresAt,
+        // La marca del segundo factor pasa a la sesión nueva: rotar no la borra ni la renueva.
+        current.rows[0].mfa_verified_at,
       ],
     );
     await client.query("COMMIT");
     const user = await findAuthUserByInternalId(current.rows[0].user_id);
-    return user ? { user, refreshToken: nextToken, expiresAt: expiresAt.toISOString() } : null;
+    return user
+      ? {
+          user,
+          refreshToken: nextToken,
+          expiresAt: expiresAt.toISOString(),
+          mfaVerifiedAt: current.rows[0].mfa_verified_at?.toISOString?.() || null,
+        }
+      : null;
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;

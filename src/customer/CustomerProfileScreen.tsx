@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Check, CreditCard, MapPin, MessageCircle, ShieldCheck, UserRound } from "lucide-react";
 import { AccountDeletion } from "../ui/AccountDeletion";
 import { LegalLinks } from "../ui/LegalLinks";
+import { TwoStepVerification } from "../ui/TwoStepVerification";
 
 import { initials } from "../format";
 import type { AppState, DietaryPreferences, User, UserAddress } from "../types";
@@ -121,6 +122,7 @@ export function CustomerProfileScreen({
       >
         <Check size={17} /> Guardar cambios
       </button>
+      <TwoStepVerification />
       <LegalLinks />
       <AccountDeletion />
     </div>

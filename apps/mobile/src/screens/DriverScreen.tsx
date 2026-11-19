@@ -6,6 +6,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AccountDeletion } from "../AccountDeletion";
+import { TwoStepVerification } from "../TwoStepVerification";
 import { LegalLinks } from "../LegalLinks";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
@@ -125,6 +126,8 @@ export function DriverScreen({
         )}
         {/* Eliminar la cuenta (LAN-001): un repartidor tiene ganancias y pagos,
             así que esto crea una solicitud a soporte. */}
+        {/* SEG-08: el segundo factor protege las ganancias y la cuenta del conductor. */}
+        {driverView === "account" && <TwoStepVerification />}
         {driverView === "account" && <LegalLinks />}
         {driverView === "account" && <AccountDeletion onDeleted={onLogout} />}
         {driverView === "earnings" && (

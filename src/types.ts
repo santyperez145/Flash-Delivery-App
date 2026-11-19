@@ -30,6 +30,8 @@ import type {
   RideTripCheck,
   FareSplit,
   FareSplitInvitation,
+  MfaStatus,
+  MfaEnrollment,
 } from "@flash/domain-contracts";
 
 export type {
@@ -64,6 +66,8 @@ export type {
   RideTripCheck,
   FareSplit,
   FareSplitInvitation,
+  MfaStatus,
+  MfaEnrollment,
 };
 
 export type Mode = "customer" | "merchant" | "driver" | "ops";

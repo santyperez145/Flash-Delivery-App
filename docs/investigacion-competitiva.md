@@ -834,6 +834,18 @@ Detalle en [`cash-rides.md`](cash-rides.md).
 - **Brecha:** el conductor no puede saldar la deuda pagando; se netea contra sus ganancias.
 - **Brecha:** efectivo en pedidos de comida, que exige que el comercio lo acepte.
 
+### Decisión 19 de noviembre de 2026 — verificación en dos pasos (SEG-08)
+
+Uber deja activar la verificación en dos pasos en cualquier cuenta, con código por SMS o de una
+app autenticadora, y recomienda guardar códigos de respaldo de un solo uso para cuando se
+pierde el teléfono ([Uber, ayuda](https://help.uber.com/h/b8bb9152-8c91-4f49-83c4-35cf2e1dcf72)).
+Flash ofrece la app autenticadora, con ocho códigos de recuperación, sesión de confianza y el
+código en acciones sensibles. Detalle en [`account-mfa.md`](account-mfa.md).
+
+- **Por encima de lo publicado:** cada código TOTP sirve una sola vez, activar cierra las
+  demás sesiones y cada cambio se avisa por push y email.
+- **Brecha:** sin código por SMS (necesita proveedor) ni llaves de acceso.
+
 ### Decisión 18 de noviembre de 2026 — dividir la tarifa (PAG-02)
 
 Uber deja dividir la tarifa con otros pasajeros; quien no acepta o no tiene un medio de pago

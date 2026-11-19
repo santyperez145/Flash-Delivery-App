@@ -13,11 +13,17 @@
 // —no hay DOM donde robarlo— y lo recibe en el JSON, porque no tiene dónde
 // guardar una cookie de sesión.
 //
-// El MFA administrativo es de dos pasos y por eso hay dos tokens distintos.
+// La verificación en dos pasos (MFA administrativo, y desde SEG-08 de cualquier
+// cuenta) usa dos tokens distintos.
 // `issueMfaChallenge` firma un token de cinco minutos cuyo único propósito es
 // decir «esta persona ya puso la contraseña»; sólo `mfa/complete` lo cambia por
 // una sesión. Un token de acceso emitido antes del segundo factor haría que el
 // segundo factor no sirviera para nada.
+//
+// Un administrador vuelve a pasar el segundo factor en cada renovación. El resto
+// de las cuentas no: la sesión que lo pasó lo recuerda (`mfa_verified_at`) y se
+// renueva sola, como el «dispositivo de confianza» de Uber o Google. Una sesión
+// sin esa marca no se renueva mientras la verificación esté activa.
 //
 // El alta y la recuperación de contraseña responden lo mismo exista o no la
 // cuenta. Distinguirlas convertiría cualquiera de las dos en un oráculo de qué
@@ -43,6 +49,7 @@ import {
   revokeOtherPostgresSessions,
   revokeOwnedPostgresSession,
   revokePostgresSession,
+  revokePostgresSessionsExcept,
   rotatePostgresSession,
   usesPostgresAuth,
 } from "../auth-repository.js";
@@ -52,11 +59,14 @@ import { hasRole } from "./authorization.js";
 import { config } from "../config.js";
 import { audit, readDb } from "../fallback-runtime.js";
 import {
-  beginAdminMfaEnrollment,
-  confirmAdminMfa,
-  getAdminMfaStatus,
-  verifyAdminMfa,
+  beginMfaEnrollment,
+  confirmMfa,
+  disableMfa,
+  getMfaStatus,
+  regenerateMfaRecoveryCodes,
+  verifyMfa,
 } from "../mfa-repository.js";
+import { failFromStepUp, stepUpMfa } from "./mfa-step-up.js";
 import { createPostgresSupportTicket, recordPostgresAudit } from "../operations-repository.js";
 import { deletePostgresCustomerAccount } from "../account-deletion-repository.js";
 import { legalRouter } from "./legal-router.js";
@@ -113,20 +123,24 @@ const refreshSchema = z.object({
 });
 
 function issueAccessToken(user, { mfaVerified = false } = {}) {
-  return jwt.sign({ sub: user.id, roles: user.roles, mfa: mfaVerified }, jwtSecret, {
+  // `typ: "access"` es lo único que `requireAuth` acepta. El desafío MFA, la
+  // autorización de un retiro y la validación de una dirección se firman con la
+  // misma clave y algunos llevan `sub`: sin el tipo, cualquiera de ellos servía
+  // como token de acceso (el desafío, con la contraseña sola).
+  return jwt.sign({ typ: "access", sub: user.id, roles: user.roles, mfa: mfaVerified }, jwtSecret, {
     expiresIn: "15m",
   });
 }
 
 function issueMfaChallenge(user) {
-  return jwt.sign({ sub: user.id, purpose: "admin_mfa" }, jwtSecret, {
+  return jwt.sign({ sub: user.id, purpose: "mfa" }, jwtSecret, {
     expiresIn: "5m",
   });
 }
 
 async function issueSession(user, deviceName, { mfaVerified = false } = {}) {
   const session = usesPostgresAuth()
-    ? await createPostgresSession(user, deviceName)
+    ? await createPostgresSession(user, deviceName, { mfaVerified })
     : createAuthSession(user.id, deviceName);
   return {
     token: issueAccessToken(user, { mfaVerified }),
@@ -177,8 +191,9 @@ function deliverSession(req, res, session) {
   return publicSession;
 }
 
-const requireAdminIdentity = (req, res, next) =>
-  hasRole(req, "admin") ? next() : fail(res, 403, "MFA administrativo requiere rol admin");
+// La auditoría separa el MFA administrativo del de una cuenta cualquiera.
+const mfaAudit = (roles, event) => `${roles?.includes("admin") ? "admin" : "account"}.${event}`;
+const mfaRequiredFor = async (user) => usesPostgresAuth() && (await getMfaStatus(user.id)).enabled;
 
 const jwtSecret = config.jwtSecret;
 
@@ -230,11 +245,7 @@ router.post("/api/auth/login", async (req, res) => {
     return fail(res, 403, `Esta cuenta no pertenece a ${productName}`);
   }
   if (usesPostgresAuth()) await recordPostgresLoginSuccess(user.id);
-  if (
-    usesPostgresAuth() &&
-    user.roles?.includes("admin") &&
-    (await getAdminMfaStatus(user.id)).enabled
-  ) {
+  if (await mfaRequiredFor(user)) {
     return ok(res, {
       user: sanitizeUser(user),
       mfaRequired: true,
@@ -252,21 +263,26 @@ router.post("/api/auth/login", async (req, res) => {
 });
 
 router.get("/api/auth/mfa/status", requireAuth, async (req, res) => {
-  if (!hasRole(req, "admin")) return fail(res, 403, "MFA administrativo requiere rol admin");
-  return ok(res, { mfa: await getAdminMfaStatus(req.auth.userId) });
+  try {
+    return ok(res, { mfa: await getMfaStatus(req.auth.userId) });
+  } catch (error) {
+    return failFrom(res, error, "No se pudo consultar la verificación en dos pasos");
+  }
 });
 
-router.post("/api/auth/mfa/enroll", requireAuth, requireAdminIdentity, async (req, res) => {
-  if (!usesPostgresAuth()) return fail(res, 503, "MFA real requiere PostgreSQL");
+router.post("/api/auth/mfa/enroll", requireAuth, async (req, res) => {
+  if (!usesPostgresAuth())
+    return fail(res, 503, "La verificación en dos pasos no está disponible en este momento");
   try {
-    const enrollment = await beginAdminMfaEnrollment({
+    const enrollment = await beginMfaEnrollment({
       userPublicId: req.auth.userId,
       email: req.auth.user.email,
+      admin: hasRole(req, "admin"),
     });
     await recordPostgresAudit({
       actorPublicId: req.auth.userId,
       roles: req.auth.roles,
-      action: "admin.mfa_enrollment_started",
+      action: mfaAudit(req.auth.roles, "mfa_enrollment_started"),
       entityType: "user",
       entityId: req.auth.userId,
       requestId: req.requestId,
@@ -277,34 +293,35 @@ router.post("/api/auth/mfa/enroll", requireAuth, requireAdminIdentity, async (re
   }
 });
 
-router.post("/api/auth/mfa/confirm", requireAuth, requireAdminIdentity, async (req, res) => {
+router.post("/api/auth/mfa/confirm", requireAuth, async (req, res) => {
   const parsed = parseOrFail(mfaCodeSchema, req.body || {});
   if (!parsed.ok) return fail(res, 400, parsed.message);
+  if (!usesPostgresAuth())
+    return fail(res, 503, "La verificación en dos pasos no está disponible en este momento");
   try {
-    const mfa = await confirmAdminMfa({
+    const mfa = await confirmMfa({
       userPublicId: req.auth.userId,
       code: parsed.data.code,
     });
     await recordPostgresAudit({
       actorPublicId: req.auth.userId,
       roles: req.auth.roles,
-      action: "admin.mfa_enabled",
+      action: mfaAudit(req.auth.roles, "mfa_enabled"),
       entityType: "user",
       entityId: req.auth.userId,
       requestId: req.requestId,
     });
-    return ok(res, {
-      mfa,
-      ...deliverSession(
-        req,
-        res,
-        await issueSession(
-          req.auth.user,
-          req.body?.deviceName || req.get("user-agent") || "unknown",
-          { mfaVerified: true },
-        ),
-      ),
+    const session = await issueSession(
+      req.auth.user,
+      req.body?.deviceName || req.get("user-agent") || "unknown",
+      { mfaVerified: true },
+    );
+    // Las demás sesiones no pasaron el segundo factor: se cierran todas.
+    const { revokedSessions } = await revokePostgresSessionsExcept({
+      userPublicId: req.auth.userId,
+      keepRefreshToken: session.refreshToken,
     });
+    return ok(res, { mfa, revokedSessions, ...deliverSession(req, res, session) });
   } catch (error) {
     return failFrom(res, error, "No se pudo confirmar MFA");
   }
@@ -315,17 +332,20 @@ router.post("/api/auth/mfa/complete", async (req, res) => {
   if (!parsed.ok) return fail(res, 400, parsed.message);
   try {
     const challenge = jwt.verify(parsed.data.challenge, jwtSecret);
-    if (challenge.purpose !== "admin_mfa") return fail(res, 401, "Desafío MFA inválido");
+    if (challenge.purpose !== "mfa") return fail(res, 401, "Desafío MFA inválido");
     const user = await findAuthUserByPublicId(challenge.sub);
-    if (!user?.roles?.includes("admin")) return fail(res, 401, "Desafío MFA inválido");
-    const verification = await verifyAdminMfa({
+    if (!user) return fail(res, 401, "Desafío MFA inválido");
+    const verification = await verifyMfa({
       userPublicId: user.id,
       code: parsed.data.code,
     });
     await recordPostgresAudit({
       actorPublicId: user.id,
       roles: user.roles,
-      action: verification.recoveryCodeUsed ? "admin.mfa_recovery_used" : "admin.mfa_verified",
+      action: mfaAudit(
+        user.roles,
+        verification.recoveryCodeUsed ? "mfa_recovery_used" : "mfa_verified",
+      ),
       entityType: "user",
       entityId: user.id,
       requestId: req.requestId,
@@ -358,6 +378,56 @@ router.post("/api/auth/mfa/complete", async (req, res) => {
   }
 });
 
+// Desactivar y regenerar los códigos piden un código vigente: con la sesión sola
+// (un teléfono desbloqueado, un token robado) no se apaga la protección.
+router.post("/api/auth/mfa/disable", requireAuth, async (req, res) => {
+  const parsed = parseOrFail(mfaCodeSchema, req.body || {});
+  if (!parsed.ok) return fail(res, 400, parsed.message);
+  if (!usesPostgresAuth())
+    return fail(res, 503, "La verificación en dos pasos no está disponible en este momento");
+  // Producción exige MFA a los administradores: no pueden apagarlo.
+  if (hasRole(req, "admin") && config.requireAdminMfa)
+    return fail(res, 403, "La política exige verificación en dos pasos para administradores");
+  try {
+    const result = await disableMfa({ userPublicId: req.auth.userId, code: parsed.data.code });
+    await recordPostgresAudit({
+      actorPublicId: req.auth.userId,
+      roles: req.auth.roles,
+      action: mfaAudit(req.auth.roles, "mfa_disabled"),
+      entityType: "user",
+      entityId: req.auth.userId,
+      requestId: req.requestId,
+    });
+    return ok(res, { mfa: result.mfa });
+  } catch (error) {
+    return failFrom(res, error, "No se pudo desactivar la verificación en dos pasos");
+  }
+});
+
+router.post("/api/auth/mfa/recovery-codes", requireAuth, async (req, res) => {
+  const parsed = parseOrFail(mfaCodeSchema, req.body || {});
+  if (!parsed.ok) return fail(res, 400, parsed.message);
+  if (!usesPostgresAuth())
+    return fail(res, 503, "La verificación en dos pasos no está disponible en este momento");
+  try {
+    const result = await regenerateMfaRecoveryCodes({
+      userPublicId: req.auth.userId,
+      code: parsed.data.code,
+    });
+    await recordPostgresAudit({
+      actorPublicId: req.auth.userId,
+      roles: req.auth.roles,
+      action: mfaAudit(req.auth.roles, "mfa_recovery_codes_regenerated"),
+      entityType: "user",
+      entityId: req.auth.userId,
+      requestId: req.requestId,
+    });
+    return ok(res, { mfa: result.mfa, recoveryCodes: result.recoveryCodes });
+  } catch (error) {
+    return failFrom(res, error, "No se pudieron generar códigos nuevos");
+  }
+});
+
 router.post("/api/auth/refresh", async (req, res) => {
   const parsed = parseOrFail(refreshSchema, {
     ...(req.body || {}),
@@ -379,11 +449,15 @@ router.post("/api/auth/refresh", async (req, res) => {
     ? rotated.user
     : db.users.find((entry) => entry.id === rotated.userId);
   if (!user) return fail(res, 401, "Usuario no existe");
-  if (
-    usesPostgresAuth() &&
-    user.roles?.includes("admin") &&
-    (await getAdminMfaStatus(user.id)).enabled
-  ) {
+  const mfa = usesPostgresAuth() ? await getMfaStatus(user.id) : { enabled: false };
+  // Con la verificación activa, una cuenta común renueva sólo una sesión que la pasó
+  // después de activarla; un administrador la vuelve a pasar siempre.
+  const trustedSession =
+    mfa.enabled &&
+    !user.roles?.includes("admin") &&
+    Boolean(rotated.mfaVerifiedAt && mfa.confirmedAt) &&
+    new Date(rotated.mfaVerifiedAt) >= new Date(mfa.confirmedAt);
+  if (mfa.enabled && !trustedSession) {
     await revokePostgresSession(rotated.refreshToken);
     if (isWebSessionRequest(req)) clearRefreshCookie(res);
     return ok(res, {
@@ -394,7 +468,7 @@ router.post("/api/auth/refresh", async (req, res) => {
   }
   return ok(res, {
     user: usesPostgresAuth() ? sanitizeUser(user) : publicUser(db, user.id),
-    token: issueAccessToken(user),
+    token: issueAccessToken(user, { mfaVerified: trustedSession }),
     ...deliverSession(req, res, {
       refreshToken: rotated.refreshToken,
       refreshExpiresAt: rotated.expiresAt,
@@ -426,7 +500,11 @@ router.get("/api/me/sessions", requireAuth, async (req, res) => {
 // publicar. Un cliente se borra en el momento (se anonimiza: ver migración 138);
 // un comercio, repartidor o staff tiene pagos u obligaciones pendientes, así que
 // su pedido se convierte en una solicitud a soporte, que las tiendas aceptan.
-const borradoSchema = z.object({ password: z.string().min(1).max(200) });
+const borradoSchema = z.object({
+  password: z.string().min(1).max(200),
+  // Con la verificación en dos pasos activa (SEG-08), además de la contraseña.
+  mfaCode: z.string().trim().max(32).optional(),
+});
 router.post("/api/me/delete", requireAuth, async (req, res) => {
   if (!usesPostgresAuth()) return fail(res, 503, "El borrado de cuenta requiere PostgreSQL");
   const parsed = parseOrFail(borradoSchema, req.body || {});
@@ -435,9 +513,11 @@ router.post("/api/me/delete", requireAuth, async (req, res) => {
     await deletePostgresCustomerAccount({
       userPublicId: req.auth.userId,
       password: parsed.data.password,
+      // Después de la contraseña: con la contraseña mal, el código no se gasta.
+      confirmSecondFactor: () => stepUpMfa(req, parsed.data.mfaCode),
     });
   } catch (error) {
-    if (!error.requiereSoporte) return failFrom(res, error, "No se pudo eliminar la cuenta");
+    if (!error.requiereSoporte) return failFromStepUp(res, error, "No se pudo eliminar la cuenta");
     try {
       await createPostgresSupportTicket({
         userPublicId: req.auth.userId,

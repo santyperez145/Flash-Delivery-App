@@ -19,7 +19,7 @@ import jwt from "jsonwebtoken";
 import { findAuthUserByPublicId, usesPostgresAuth } from "../auth-repository.js";
 import { config } from "../config.js";
 import { readDb } from "../fallback-runtime.js";
-import { getAdminMfaStatus } from "../mfa-repository.js";
+import { getMfaStatus } from "../mfa-repository.js";
 import { fail } from "./responses.js";
 
 /**
@@ -54,6 +54,10 @@ export async function requireAuth(req, res, next) {
   if (!token) return fail(res, 401, "Token requerido");
   try {
     const payload = jwt.verify(token, config.jwtSecret);
+    // Sólo un token de acceso. El desafío del segundo factor (SEG-08), una
+    // autorización de retiro o una cotización se firman con la misma clave; sin
+    // esto, el desafío que devuelve la contraseña sola abría la cuenta entera.
+    if (payload.typ !== "access") return fail(res, 401, "Token invalido o expirado");
     const db = usesPostgresAuth() ? null : readDb();
     const user = usesPostgresAuth()
       ? await findAuthUserByPublicId(payload.sub)
@@ -66,7 +70,7 @@ export async function requireAuth(req, res, next) {
       mfaVerified: payload.mfa === true,
       mfa:
         usesPostgresAuth() && user.roles?.includes("admin")
-          ? await getAdminMfaStatus(user.id)
+          ? await getMfaStatus(user.id)
           : { enabled: false },
     };
     res.set("Cache-Control", "no-store, private");

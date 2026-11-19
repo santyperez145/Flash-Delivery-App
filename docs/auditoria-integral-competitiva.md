@@ -14,7 +14,7 @@ perfecto.
 | Aspecto | Nota | Qué la baja |
 | --- | --- | --- |
 | Seguridad del viaje | 7 | Falta grabar audio, preferencias de seguridad y la opción conductora-pasajera (el control del viaje ya está, SEG-01) |
-| Seguridad de la cuenta | 6 | El segundo factor existe sólo para administradores; no hay llaves de acceso (passkeys) |
+| Seguridad de la cuenta | 8 | Segundo factor para toda cuenta, de un solo uso y con aviso de cada cambio (SEG-08); faltan llaves de acceso (passkeys) y código por SMS |
 | Identidad de conductores y repartidores | 6 | El legajo se valida al alta; no hay verificación periódica con selfie |
 | Fraude y riesgo | 7 | Hay puntaje explicable por transacción; falta la señal de dispositivo |
 | Prueba de entrega | 9 | Foto en la puerta, PIN en envíos y código en pedidos de valor alto o con reclamo previo (SEG-03) |
@@ -40,7 +40,7 @@ perfecto.
 | SEG-05 | **Conductoras con pasajeras** como opción | Uber (Women Rider Preference) | **No existe.** Depende de un dato de género declarado y de la densidad de conductoras: se decide con el piloto. |
 | SEG-06 | **Verificación periódica de identidad del conductor** con selfie | Uber (Real-Time ID Check) | El legajo con identidad, licencia y antecedentes se valida al alta (`docs/driver-kyc.md`); **no hay verificación periódica**. La comparación facial necesita un proveedor (dueño). |
 | SEG-07 | **Teléfono enmascarado** entre pasajero y conductor | Uber | Hay chat en la app (`docs/service-chat.md`); **llamar** exige un proveedor de telefonía (dueño). |
-| SEG-08 | **Segundo factor y llaves de acceso para todos** | Uber (2FA para cuentas) | El TOTP existe **sólo para administradores** (`docs/admin-mfa.md`). Llevarlo a clientes y conductores no depende de terceros. |
+| SEG-08 | **Segundo factor y llaves de acceso para todos** | Uber (2FA para cuentas) | **Hecho el segundo factor.** Migración 145, TOTP de un solo uso para toda cuenta, sesión de confianza, código en acciones sensibles, web y móvil · `test:account-mfa`. Ver [`account-mfa.md`](account-mfa.md). Faltan passkeys y SMS (proveedor, dueño). |
 
 ### Lo que Flash tiene y conviene sostener
 
@@ -76,7 +76,7 @@ un tercero.
 2. **SEG-03** (hecho): PIN de entrega en pedidos de valor alto.
 3. **PAG-01** (hecho en viajes): efectivo en viajes, con la comisión descontada del saldo del conductor.
 4. **PAG-02** (hecho): dividir la tarifa.
-5. **SEG-08**: segundo factor para clientes y conductores.
+5. **SEG-08** (hecho el segundo factor): verificación en dos pasos para toda cuenta.
 6. **FE-02**: Pedidos y Viajes separados en la app móvil.
 7. **PAG-04 y PAG-05**: tarjetas de regalo y perfil familiar.
 

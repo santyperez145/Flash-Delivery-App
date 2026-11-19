@@ -207,6 +207,19 @@ function AppContent() {
     }
   };
 
+  // Segundo paso del ingreso (SEG-08): la contraseña ya era correcta.
+  const completeMfa = async (challenge: string, code: string) => {
+    setBusy(true);
+    try {
+      const user = await api.completeMfa(challenge, code);
+      setSessionUser(user);
+      setMode(mobileAppVariant);
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const register = async (input: {
     name: string;
     email: string;
@@ -253,7 +266,12 @@ function AppContent() {
     return (
       <SafeAreaView style={styles.loginSafeArea}>
         <View style={[styles.appViewport, styles.customerViewport]}>
-          <LoginScreen busy={busy} onLogin={login} onRegister={register} />
+          <LoginScreen
+            busy={busy}
+            onLogin={login}
+            onCompleteMfa={completeMfa}
+            onRegister={register}
+          />
         </View>
       </SafeAreaView>
     );

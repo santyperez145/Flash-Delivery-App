@@ -1,11 +1,28 @@
+// Verificación en dos pasos (TOTP) para toda cuenta (SEG-08; antes sólo admin).
+//
+// El secreto se guarda cifrado con AES-256-GCM y los códigos de recuperación sólo
+// como hashes bcrypt. Cinco fallos seguidos bloquean la verificación quince
+// minutos, también cuando el código se pide para confirmar una acción sensible
+// (desactivar, regenerar códigos, eliminar la cuenta o autorizar un retiro): si
+// no, esas acciones servirían para probar códigos sin el bloqueo.
+//
+// Cada cambio (activar, desactivar, regenerar códigos o usar uno) se avisa por
+// push y por email, como hacen Uber y Google: si no fue la persona, se entera.
+//
+// **Un código TOTP sirve una sola vez** (RFC 6238, sección 5.2). Se acepta un
+// paso de 30 segundos de tolerancia hacia cada lado por relojes desfasados, y se
+// guarda el último paso usado: quien vea el código por encima del hombro, o lo
+// intercepte, no puede reusarlo dentro de su ventana.
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { authenticator } from "otplib";
+import { enqueuePostgresNotification } from "./notification-repository.js";
 import { postgresPool } from "./postgres.js";
 import { decryptMfaSecret, encryptMfaSecret } from "./secret-envelope.js";
 
 const maxAttempts = 5,
-  lockMinutes = 15;
+  lockMinutes = 15,
+  recoveryCodeCount = 8;
 const normalizeCode = (value) =>
   String(value || "")
     .replace(/[\s-]/g, "")
@@ -19,8 +36,68 @@ const publicStatus = (row) => ({
     ? row.recovery_code_hashes.length
     : 0,
 });
+const httpError = (message, status) => Object.assign(new Error(message), { status });
 
-export async function getAdminMfaStatus(userPublicId) {
+const totp = authenticator.clone({ window: 1 });
+/** Paso TOTP (número de ventana de 30 s) que valida el código, o `null`. */
+const totpStep = (code, secret) => {
+  const delta = totp.checkDelta(code, secret);
+  return delta === null ? null : Math.floor(Date.now() / 30000) + delta;
+};
+
+async function newRecoveryCodes() {
+  const codes = Array.from({ length: recoveryCodeCount }, () =>
+    `${crypto.randomBytes(2).toString("hex")}-${crypto.randomBytes(2).toString("hex")}`.toUpperCase(),
+  );
+  // Asíncrono: ocho hashes bcrypt seguidos bloquearían el proceso medio segundo.
+  const hashes = await Promise.all(codes.map((code) => bcrypt.hash(normalizeCode(code), 10)));
+  return { codes, hashes };
+}
+
+/** Avisos de seguridad: push esencial (no se puede apagar) y email. */
+const securityCopy = {
+  mfa_enabled: {
+    title: "Activaste la verificación en dos pasos",
+    body: "Desde ahora, al ingresar en un dispositivo nuevo te pedimos un código.",
+  },
+  mfa_disabled: {
+    title: "Se desactivó la verificación en dos pasos",
+    body: "Si no fuiste vos, cambiá tu contraseña y escribinos desde Ayuda.",
+  },
+  mfa_recovery_codes_regenerated: {
+    title: "Generaste códigos de recuperación nuevos",
+    body: "Los anteriores dejaron de funcionar.",
+  },
+  mfa_recovery_code_used: {
+    title: "Se usó un código de recuperación",
+    body: "Si no fuiste vos, cambiá tu contraseña y escribinos desde Ayuda.",
+  },
+};
+
+export async function notifyMfaChange(userPublicId, event) {
+  const copy = securityCopy[event];
+  if (!copy || !postgresPool) return;
+  const key = `mfa:${event}:${crypto.randomUUID()}`;
+  // Un aviso que no se pudo encolar no deshace el cambio de seguridad ya hecho.
+  await Promise.allSettled([
+    enqueuePostgresNotification({
+      userPublicId,
+      channel: "push",
+      template: "security_alert",
+      payload: { ...copy, kind: event },
+      deduplicationKey: key,
+    }),
+    enqueuePostgresNotification({
+      userPublicId,
+      channel: "email",
+      template: "account_security_change",
+      payload: { event },
+      deduplicationKey: key,
+    }),
+  ]);
+}
+
+export async function getMfaStatus(userPublicId) {
   if (!postgresPool)
     return {
       enabled: false,
@@ -36,88 +113,91 @@ export async function getAdminMfaStatus(userPublicId) {
   return publicStatus(result.rows[0]);
 }
 
-export async function beginAdminMfaEnrollment({ userPublicId, email }) {
-  const current = await getAdminMfaStatus(userPublicId);
-  if (current.enabled) {
-    const error = new Error("MFA ya está activo");
-    error.status = 409;
-    throw error;
-  }
-  const secret = authenticator.generateSecret();
-  const recoveryCodes = Array.from({ length: 8 }, () =>
-    `${crypto.randomBytes(4).toString("hex").slice(0, 4)}-${crypto.randomBytes(4).toString("hex").slice(0, 4)}`.toUpperCase(),
-  );
-  const hashes = recoveryCodes.map((code) => bcrypt.hashSync(normalizeCode(code), 10));
+export async function beginMfaEnrollment({ userPublicId, email, admin = false }) {
+  const current = await getMfaStatus(userPublicId);
+  if (current.enabled) throw httpError("La verificación en dos pasos ya está activa", 409);
+  const secret = totp.generateSecret();
+  const { codes, hashes } = await newRecoveryCodes();
   const result = await postgresPool.query(
     `INSERT INTO user_mfa(user_id,secret_ciphertext,recovery_code_hashes)
     SELECT id,$2,$3 FROM users WHERE public_id=$1
-    ON CONFLICT(user_id) DO UPDATE SET secret_ciphertext=EXCLUDED.secret_ciphertext,recovery_code_hashes=EXCLUDED.recovery_code_hashes,enabled=false,failed_attempts=0,locked_until=NULL,confirmed_at=NULL,updated_at=now()
+    ON CONFLICT(user_id) DO UPDATE SET secret_ciphertext=EXCLUDED.secret_ciphertext,recovery_code_hashes=EXCLUDED.recovery_code_hashes,enabled=false,failed_attempts=0,locked_until=NULL,confirmed_at=NULL,last_totp_step=NULL,updated_at=now()
+    WHERE NOT user_mfa.enabled
     RETURNING user_id`,
     [userPublicId, encryptMfaSecret(secret), hashes],
   );
-  if (!result.rows[0]) {
-    const error = new Error("Usuario no existe");
-    error.status = 404;
-    throw error;
-  }
+  // Sin fila: o la cuenta no existe, o la verificación se activó entre la consulta y acá.
+  if (!result.rows[0])
+    throw (await getMfaStatus(userPublicId)).enabled
+      ? httpError("La verificación en dos pasos ya está activa", 409)
+      : httpError("Usuario no existe", 404);
   return {
     secret,
-    otpauthUri: authenticator.keyuri(email, "Flash Delivery Admin", secret),
-    recoveryCodes,
+    otpauthUri: totp.keyuri(email, admin ? "Flash Delivery Admin" : "Flash", secret),
+    recoveryCodes: codes,
   };
 }
 
-export async function confirmAdminMfa({ userPublicId, code }) {
+export async function confirmMfa({ userPublicId, code }) {
   const result = await postgresPool.query(
     `SELECT m.* FROM user_mfa m JOIN users u ON u.id=m.user_id WHERE u.public_id=$1`,
     [userPublicId],
   );
   const row = result.rows[0];
-  if (!row || row.enabled) {
-    const error = new Error(row ? "MFA ya está activo" : "Primero inicia el enrolamiento");
-    error.status = 409;
-    throw error;
-  }
-  if (!authenticator.check(normalizeCode(code), decryptMfaSecret(row.secret_ciphertext))) {
-    const error = new Error("Código TOTP inválido");
-    error.status = 400;
-    throw error;
-  }
-  await postgresPool.query(
-    `UPDATE user_mfa SET enabled=true,confirmed_at=now(),failed_attempts=0,locked_until=NULL,updated_at=now() WHERE user_id=$1`,
-    [row.user_id],
+  if (!row || row.enabled)
+    throw httpError(
+      row ? "La verificación en dos pasos ya está activa" : "Primero iniciá la activación",
+      409,
+    );
+  const step = totpStep(normalizeCode(code), decryptMfaSecret(row.secret_ciphertext));
+  if (step === null) throw httpError("Código inválido", 400);
+  const updated = await postgresPool.query(
+    `UPDATE user_mfa SET enabled=true,confirmed_at=now(),failed_attempts=0,locked_until=NULL,last_totp_step=$3,updated_at=now()
+    WHERE user_id=$1 AND NOT enabled AND secret_ciphertext=$2`,
+    [row.user_id, row.secret_ciphertext, step],
   );
-  return getAdminMfaStatus(userPublicId);
+  // Otra activación ganó la carrera o empezó una nueva con otro secreto.
+  if (!updated.rowCount) throw httpError("La activación cambió; volvé a empezar", 409);
+  await notifyMfaChange(userPublicId, "mfa_enabled");
+  return getMfaStatus(userPublicId);
 }
 
-export async function verifyAdminMfa({ userPublicId, code }) {
+/**
+ * Verifica un código (TOTP o de recuperación) y, si es válido, corre `after` en la
+ * misma transacción, con la fila bloqueada. Un fallo se guarda aunque la
+ * operación se rechace: es lo que hace que el bloqueo por intentos funcione.
+ *
+ * `invalidStatus`: 401 en el segundo paso del ingreso, donde todavía no hay
+ * sesión; 403 dentro de una sesión. Los clientes web y móvil renuevan la sesión
+ * ante cualquier 401, y un administrador que renueva vuelve a pasar el segundo
+ * factor: un código mal escrito lo dejaría afuera.
+ */
+async function withVerifiedCode(userPublicId, code, after, { invalidStatus = 401 } = {}) {
   const client = await postgresPool.connect();
   try {
     await client.query("BEGIN");
     const result = await client.query(
-      `SELECT m.* FROM user_mfa m JOIN users u ON u.id=m.user_id WHERE u.public_id=$1 FOR UPDATE`,
+      `SELECT m.* FROM user_mfa m JOIN users u ON u.id=m.user_id WHERE u.public_id=$1 FOR UPDATE OF m`,
       [userPublicId],
     );
     const row = result.rows[0];
-    if (!row?.enabled) {
-      const error = new Error("MFA no está activo");
-      error.status = 409;
-      throw error;
-    }
-    if (row.locked_until && new Date(row.locked_until) > new Date()) {
-      const error = new Error("MFA bloqueado temporalmente");
-      error.status = 429;
-      throw error;
-    }
+    if (!row?.enabled) throw httpError("La verificación en dos pasos no está activa", 409);
+    if (row.locked_until && new Date(row.locked_until) > new Date())
+      throw httpError("Demasiados códigos inválidos. Probá de nuevo en 15 minutos", 429);
     const normalized = normalizeCode(code),
       secret = decryptMfaSecret(row.secret_ciphertext);
-    let valid = authenticator.check(normalized, secret),
-      recoveryIndex = -1;
-    if (!valid)
-      recoveryIndex = (row.recovery_code_hashes || []).findIndex((hash) =>
-        bcrypt.compareSync(normalized, hash),
+    let recoveryIndex = -1;
+    const step = totpStep(normalized, secret);
+    // Un código ya usado (o uno anterior) no vale aunque siga en su ventana.
+    const totpValid = step !== null && step > Number(row.last_totp_step ?? -1);
+    let valid = totpValid;
+    if (!valid && step === null) {
+      const matches = await Promise.all(
+        (row.recovery_code_hashes || []).map((hash) => bcrypt.compare(normalized, hash)),
       );
-    valid = valid || recoveryIndex >= 0;
+      recoveryIndex = matches.indexOf(true);
+      valid = recoveryIndex >= 0;
+    }
     if (!valid) {
       const attempts = Number(row.failed_attempts || 0) + 1,
         locked = attempts >= maxAttempts;
@@ -126,18 +206,22 @@ export async function verifyAdminMfa({ userPublicId, code }) {
         [row.user_id, locked ? 0 : attempts, locked, String(lockMinutes)],
       );
       await client.query("COMMIT");
-      const error = new Error(locked ? "MFA bloqueado temporalmente" : "Código MFA inválido");
-      error.status = locked ? 429 : 401;
-      throw error;
+      throw httpError(
+        locked ? "Demasiados códigos inválidos. Probá de nuevo en 15 minutos" : "Código inválido",
+        locked ? 429 : invalidStatus,
+      );
     }
     const hashes = [...(row.recovery_code_hashes || [])];
     if (recoveryIndex >= 0) hashes.splice(recoveryIndex, 1);
     await client.query(
-      `UPDATE user_mfa SET recovery_code_hashes=$2,failed_attempts=0,locked_until=NULL,updated_at=now() WHERE user_id=$1`,
-      [row.user_id, hashes],
+      `UPDATE user_mfa SET recovery_code_hashes=$2,failed_attempts=0,locked_until=NULL,
+        last_totp_step=CASE WHEN $3::bigint IS NULL THEN last_totp_step ELSE $3 END,updated_at=now() WHERE user_id=$1`,
+      [row.user_id, hashes, totpValid ? step : null],
     );
+    const extra = after ? await after(client, row) : {};
     await client.query("COMMIT");
-    return { recoveryCodeUsed: recoveryIndex >= 0 };
+    if (recoveryIndex >= 0) await notifyMfaChange(userPublicId, "mfa_recovery_code_used");
+    return { recoveryCodeUsed: recoveryIndex >= 0, ...extra };
   } catch (error) {
     try {
       await client.query("ROLLBACK");
@@ -146,4 +230,59 @@ export async function verifyAdminMfa({ userPublicId, code }) {
   } finally {
     client.release();
   }
+}
+
+/** Segundo paso del ingreso, o confirmación de una acción sensible. */
+export const verifyMfa = ({ userPublicId, code, inSession = false }) =>
+  withVerifiedCode(userPublicId, code, null, { invalidStatus: inSession ? 403 : 401 });
+
+/** Apagar exige un código: con la sesión robada sola no se puede desactivar. */
+export async function disableMfa({ userPublicId, code }) {
+  const result = await withVerifiedCode(
+    userPublicId,
+    code,
+    async (client, row) => {
+      await client.query(
+        `UPDATE user_mfa SET enabled=false,recovery_code_hashes='{}',confirmed_at=NULL,disabled_at=now(),updated_at=now() WHERE user_id=$1`,
+        [row.user_id],
+      );
+      return {};
+    },
+    { invalidStatus: 403 },
+  );
+  await notifyMfaChange(userPublicId, "mfa_disabled");
+  return { ...result, mfa: await getMfaStatus(userPublicId) };
+}
+
+/** Códigos nuevos; los anteriores dejan de servir. */
+export async function regenerateMfaRecoveryCodes({ userPublicId, code }) {
+  const { codes, hashes } = await newRecoveryCodes();
+  const result = await withVerifiedCode(
+    userPublicId,
+    code,
+    async (client, row) => {
+      await client.query(
+        `UPDATE user_mfa SET recovery_code_hashes=$2,updated_at=now() WHERE user_id=$1`,
+        [row.user_id, hashes],
+      );
+      return {};
+    },
+    { invalidStatus: 403 },
+  );
+  await notifyMfaChange(userPublicId, "mfa_recovery_codes_regenerated");
+  return { ...result, recoveryCodes: codes, mfa: await getMfaStatus(userPublicId) };
+}
+
+/**
+ * Para una acción sensible: si la cuenta tiene la verificación activa, exige un
+ * código válido; si no la tiene, no pide nada. Un 403 con `mfaRequired` le dice
+ * al cliente que muestre el campo del código (403 y no 401: ver `withVerifiedCode`).
+ */
+export async function requireMfaCodeIfEnabled({ userPublicId, code }) {
+  if (!postgresPool || !(await getMfaStatus(userPublicId)).enabled) return { checked: false };
+  if (!code)
+    throw Object.assign(httpError("Ingresá el código de tu app autenticadora", 403), {
+      mfaRequired: true,
+    });
+  return { checked: true, ...(await verifyMfa({ userPublicId, code, inSession: true })) };
 }

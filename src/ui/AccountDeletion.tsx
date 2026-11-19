@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
 
 import { deleteAccount } from "../account-api";
+import { api } from "../api";
 
 // Eliminar la cuenta desde la app (LAN-001). Requisito de Apple y Google para
 // publicar, y el camino para ejercer el derecho de supresión.
@@ -16,14 +17,26 @@ export function AccountDeletion() {
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState("");
   const [resultado, setResultado] = useState<"deleted" | "requested" | null>(null);
+  // Con la verificación en dos pasos activa (SEG-08) también se pide el código. Si
+  // no se puede saber, se muestra el campo: el servidor decide si lo exige.
+  const [conCodigo, setConCodigo] = useState(false);
+  const [codigo, setCodigo] = useState("");
+  useEffect(() => {
+    if (!abierto) return;
+    api
+      .getMfaStatus()
+      .then((respuesta) => setConCodigo(respuesta.mfa.enabled))
+      .catch(() => setConCodigo(true));
+  }, [abierto]);
 
   const eliminar = async () => {
     setOcupado(true);
     setError("");
     try {
-      const { status } = await deleteAccount(password);
+      const { status } = await deleteAccount(password, conCodigo ? codigo : undefined);
       setResultado(status);
       setPassword("");
+      setCodigo("");
       // El servidor ya cerró las sesiones: recargar lleva al ingreso.
       if (status === "deleted") window.setTimeout(() => window.location.reload(), 3000);
     } catch (fallo) {
@@ -76,6 +89,18 @@ export function AccountDeletion() {
           onChange={(event) => setPassword(event.target.value)}
         />
       </label>
+      {conCodigo && (
+        <label>
+          <span>Y con un código de tu app autenticadora (o uno de recuperación)</span>
+          <input
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            value={codigo}
+            disabled={ocupado}
+            onChange={(event) => setCodigo(event.target.value.trim())}
+          />
+        </label>
+      )}
       {error && (
         <p className="account-deletion-error" role="alert">
           {error}
@@ -88,7 +113,7 @@ export function AccountDeletion() {
         <button
           type="button"
           className="danger"
-          disabled={ocupado || !password}
+          disabled={ocupado || !password || (conCodigo && codigo.length < 6)}
           onClick={() => void eliminar()}
         >
           {ocupado ? "Eliminando…" : "Eliminar definitivamente"}

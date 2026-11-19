@@ -50,7 +50,11 @@ const MOTIVOS = {
  * podría probar contraseñas acá sin límite: cinco fallos bloquean quince minutos,
  * acá y en el ingreso.
  */
-export async function deletePostgresCustomerAccount({ userPublicId, password }) {
+export async function deletePostgresCustomerAccount({
+  userPublicId,
+  password,
+  confirmSecondFactor,
+}) {
   const usuario = (
     await postgresPool.query(
       "SELECT id, email, password_hash, login_locked_until FROM users WHERE public_id=$1 AND status='active'",
@@ -66,6 +70,8 @@ export async function deletePostgresCustomerAccount({ userPublicId, password }) 
     await recordPostgresLoginFailure(usuario.email);
     throw Object.assign(new Error("La contraseña no coincide"), { status: 403 });
   }
+  // Con la verificación en dos pasos activa, el código (SEG-08).
+  if (confirmSecondFactor) await confirmSecondFactor();
   try {
     await postgresPool.query("SELECT app.delete_customer_account($1)", [usuario.id]);
   } catch (error) {
