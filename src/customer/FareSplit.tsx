@@ -111,7 +111,12 @@ export function FareSplitPanel({ ride }: { ride: Ride }) {
 }
 
 /** En el inicio de Viajes, para quien recibió una invitación. */
-export function FareSplitInvitations() {
+export function FareSplitInvitations({
+  onPagado,
+}: {
+  /** Después de pagar una parte: la Wallet cambió y la cuenta se vuelve a leer. */
+  onPagado?: () => void;
+} = {}) {
   const [invitaciones, setInvitaciones] = useState<FareSplitInvitation[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -148,6 +153,7 @@ export function FareSplitInvitations() {
     setAviso(null);
     try {
       const respuesta = await api.respondToFareSplit(invitacion.id, accept);
+      if (accept) onPagado?.();
       setAviso(
         accept && respuesta.split.share !== undefined
           ? `Listo: pagaste ${money.format(respuesta.split.share)} con tu Flash Wallet`

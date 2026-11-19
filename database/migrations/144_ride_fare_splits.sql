@@ -62,6 +62,7 @@ ALTER TABLE ledger_transactions ADD CONSTRAINT ledger_transactions_kind_check
 -- Quien aceptó dividir un viaje que sigue en curso no puede borrar su cuenta: un
 -- reequilibrio o una cancelación le van a devolver plata. Se suma al resguardo de
 -- `app.delete_customer_account` (migración 138) como trigger, con su mismo error.
+-- Al borrarse la cuenta, además, se borran los emails escritos en invitaciones.
 CREATE OR REPLACE FUNCTION app.reject_deletion_with_open_fare_split() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_catalog, pg_temp AS $$
 BEGIN
@@ -71,6 +72,13 @@ BEGIN
        AND j.status NOT IN ('completed', 'cancelled')
   ) THEN
     RAISE EXCEPTION 'FLASH_DELETE_ACTIVE_JOB' USING ERRCODE = 'P0001';
+  END IF;
+  -- El email escrito en una invitación es un dato personal: se borra con la cuenta,
+  -- la de quien fue invitado y la de quien invitó. Lo que se pagó queda.
+  IF NEW.status = 'deleted' AND OLD.status <> 'deleted' THEN
+    UPDATE ride_fare_splits
+       SET invitee_email = 'eliminado:' || public_id
+     WHERE inviter_id = NEW.id OR invitee_id = NEW.id OR invitee_email = lower(OLD.email::text);
   END IF;
   RETURN NEW;
 END $$;

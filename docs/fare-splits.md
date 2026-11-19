@@ -22,8 +22,13 @@ Como en Uber: quien pidió un viaje invita a quienes viajan con él, y cada uno 
 - **Borrar la cuenta.** Quien aceptó dividir un viaje que sigue en curso no puede borrar su
   cuenta hasta que termine: un reequilibrio o una cancelación le van a devolver plata.
 - **Sin bloqueos cruzados.** Sólo se bloquea la billetera del invitado que paga, para
-  controlar su saldo. Bloquear varias en distinto orden podía trabar una aceptación con una
-  cancelación simultánea.
+  controlar su saldo, y con `FOR NO KEY UPDATE`, que no choca con el bloqueo compartido que
+  toma la clave foránea al asentar en otra billetera. Al cancelar, las partes se devuelven
+  **antes** de bloquear la cuenta de compensación: después, se trababan con un pago simultáneo
+  del invitado.
+- **Borrar la cuenta borra el email.** El email escrito en una invitación se borra con la
+  cuenta de quien invitó o de quien fue invitado; lo pagado queda.
+- **El saldo se actualiza.** Después de pagar una parte, web y móvil vuelven a leer la cuenta.
 - **En pantalla.** Las invitaciones se releen cada 30 segundos en el inicio, y si no se pueden
   leer se dice, con «Reintentar».
 

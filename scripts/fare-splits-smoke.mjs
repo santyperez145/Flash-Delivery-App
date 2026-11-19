@@ -257,6 +257,32 @@ try {
     "al cancelar, cada uno recupera exactamente lo que había pagado",
   );
 
+  // --- Borrar la cuenta borra el email de la invitación -------------------------
+  // Con el viaje cancelado ya no hay nada que devolver: la cuenta se puede borrar, y
+  // el email escrito en la invitación se borra con ella. Lo pagado queda.
+  const borrar = await pool.connect();
+  let restante = null;
+  try {
+    await borrar.query("BEGIN");
+    await borrar.query(
+      "UPDATE users SET status='deleted',email='eliminada+'||public_id||'@flash.invalid' WHERE id=$1",
+      [usuarios.beto.id],
+    );
+    restante = (
+      await borrar.query(
+        "SELECT invitee_email FROM ride_fare_splits WHERE job_id=$1 AND invitee_id=$2",
+        [jobId, usuarios.beto.id],
+      )
+    ).rows[0]?.invitee_email;
+  } finally {
+    await borrar.query("ROLLBACK");
+    borrar.release();
+  }
+  assert(
+    typeof restante === "string" && restante.startsWith("eliminado:") && !restante.includes("@"),
+    "al borrar la cuenta se borra el email que tenía la invitación",
+  );
+
   // --- La ruta, cableada ----------------------------------------------------------
   const login = await fetch(`${base}/auth/login`, {
     method: "POST",

@@ -37,6 +37,7 @@ export function CustomerHomeScreen({
   activeOrders,
   activeRides,
   ridesWithCheck,
+  onWalletChanged,
   activeShipments,
   onSearch,
   onWhereTo,
@@ -54,6 +55,8 @@ export function CustomerHomeScreen({
   activeRides: Ride[];
   /** SEG-01: viajes con un aviso del control del viaje sin contestar. */
   ridesWithCheck: Ride[];
+  /** PAG-02: después de pagar una parte de un viaje, se vuelve a leer la cuenta. */
+  onWalletChanged: () => void;
   activeShipments: Shipment[];
   onSearch: () => void;
   onWhereTo: (destino: Destino | null) => void;
@@ -140,7 +143,7 @@ export function CustomerHomeScreen({
       )}
       {fallo && <AvisoRubros onRetry={reintentar} />}
       {/* PAG-02: invitaciones a dividir un viaje. */}
-      <FareSplitInvitations />
+      <FareSplitInvitations onPagado={onWalletChanged} />
       {ridesWithCheck.map((ride) => (
         <TripCheckBanner key={ride.id} ride={ride} />
       ))}

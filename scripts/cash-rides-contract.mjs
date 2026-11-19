@@ -109,10 +109,20 @@ console.log("ok - web y móvil dejan elegir efectivo, y el conductor ve cuánto 
       "apps/mobile/src/FareSplit.tsx",
     ].map(leer),
   );
+  // La cancelación de viajes y envíos, sola: el archivo tiene otras que también
+  // bloquean la cuenta de compensación.
+  const cancelacion = billetera.slice(
+    billetera.indexOf("export async function cancelMobilityJobAndRefundWallet"),
+  );
   assert.ok(
     contains(viajes, "router.use(rideFareSplitRouter);") &&
       contains(rutas, "fareSplitLimiter,") &&
-      contains(billetera, "await refundFareSplitsOnCancel(client, {") &&
+      contains(cancelacion, "await refundFareSplitsOnCancel(client, {") &&
+      // Antes de bloquear la cuenta de compensación: después, se trababa con un pago
+      // simultáneo del invitado.
+      squeeze(cancelacion).indexOf(squeeze("await refundFareSplitsOnCancel(client, {")) <
+        squeeze(cancelacion).indexOf(squeeze("account_type='cash_clearing' FOR UPDATE")) &&
+      contains(migracion, "SET invitee_email = 'eliminado:' || public_id") &&
       contains(division, "const parte = Math.floor(total / (aceptados.length + 2));") &&
       contains(division, "SELECT id FROM ledger_accounts WHERE id=$1 FOR NO KEY UPDATE") &&
       !contains(division, "ORDER BY id FOR UPDATE") &&
@@ -133,13 +143,14 @@ console.log("ok - web y móvil dejan elegir efectivo, y el conductor ve cuánto 
   );
   assert.ok(
     contains(webSeguimiento, "<FareSplitPanel ride={ride} />") &&
-      contains(webInicio, "<FareSplitInvitations />") &&
+      contains(webInicio, "<FareSplitInvitations onPagado={onWalletChanged} />") &&
       contains(movilSeguimiento, "<FareSplitPanel ride={ride} />") &&
-      contains(movilInicio, "<FareSplitInvitations />") &&
+      contains(movilInicio, "<FareSplitInvitations onPagado={onWalletChanged} />") &&
       // Una invitación que llega con el inicio abierto aparece sola, y un error se dice.
       [webDivision, movilDivision].every(
         (fuente) =>
           contains(fuente, "const timer = setInterval(() => void cargar(), 30000);") &&
+          contains(fuente, "if (accept) onPagado?.();") &&
           // En el panel y en las invitaciones: los dos lugares que leen.
           squeeze(fuente).split(squeeze(".catch(() => setFallo(true)),")).length - 1 === 2,
       ),

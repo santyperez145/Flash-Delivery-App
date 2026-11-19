@@ -67,6 +67,7 @@ export function RidesHome({
   portada,
   setRideForm,
   onOpenActivity,
+  onWalletChanged,
 }: {
   state: AppState;
   user: User | null;
@@ -74,6 +75,8 @@ export function RidesHome({
   portada: Portada;
   setRideForm: React.Dispatch<React.SetStateAction<RideForm>>;
   onOpenActivity: () => void;
+  /** PAG-02: después de pagar una parte de un viaje, se vuelve a leer la cuenta. */
+  onWalletChanged: () => void;
 }) {
   const { servicios } = useServiciosWeb(features, "viajes");
   const viajes = servicios.some((servicio) => servicio.tipo === "ride");
@@ -111,7 +114,7 @@ export function RidesHome({
           <TripCheckBanner key={ride.id} ride={ride} />
         ))}
       {/* PAG-02: invitaciones a dividir un viaje. */}
-      <FareSplitInvitations />
+      <FareSplitInvitations onPagado={onWalletChanged} />
       <EnCurso items={enCursoDe(state, user?.id, "viajes")} onOpen={onOpenActivity} />
       {lugares.length > 0 && (
         <ul className="rides-places" aria-label="Lugares">

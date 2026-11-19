@@ -44,6 +44,9 @@ export function CustomerHomeTab({
         portada={portada}
         setRideForm={props.setRideForm}
         onOpenActivity={() => setTab("activity")}
+        onWalletChanged={() =>
+          props.runAction(() => Promise.resolve(), "Pagaste tu parte del viaje")
+        }
       />
     );
 

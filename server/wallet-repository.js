@@ -691,6 +691,16 @@ export async function cancelMobilityJobAndRefundWallet({
       "UPDATE dispatch_offers SET status='withdrawn',responded_at=now() WHERE job_id=$1 AND status='pending'",
       [job.id],
     );
+    // PAG-02: si el viaje estaba dividido, a cada invitado se le devuelve lo que pagó
+    // (y quien pidió recibe el total más abajo). Va **antes** de bloquear la cuenta de
+    // compensación: con ese bloqueo tomado, asentar en la billetera de un invitado
+    // que justo está pagando otra cosa con su Wallet trababa las dos operaciones.
+    if (kind === "ride")
+      await refundFareSplitsOnCancel(client, {
+        jobId: job.id,
+        ridePublicId: publicId,
+        customerId: job.customer_id,
+      });
     const payment = (
       await client.query(
         "SELECT * FROM payment_intents WHERE job_id=$1 AND provider='flash_wallet' AND status='captured' FOR UPDATE",
@@ -742,14 +752,6 @@ export async function cancelMobilityJobAndRefundWallet({
         "UPDATE payment_intents SET status='refunded',captured_amount_cents=0,updated_at=now() WHERE id=$1",
         [payment.id],
       );
-      // PAG-02: si el viaje estaba dividido, quien pidió acaba de recibir el total;
-      // a cada invitado se le devuelve lo que pagó.
-      if (kind === "ride")
-        await refundFareSplitsOnCancel(client, {
-          jobId: job.id,
-          ridePublicId: publicId,
-          customerId: job.customer_id,
-        });
     }
     const refundAmount = Number(payment?.captured_amount_cents || 0);
     const cancellation = (
