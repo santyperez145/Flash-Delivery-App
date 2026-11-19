@@ -28,7 +28,6 @@ Ordenado por valor sobre esfuerzo, no por facilidad.
 
 | # | Hueco | Quién lo tiene | Estado real en Flash (verificado) |
 | --- | --- | --- | --- |
-| P-03 | **Lotes de reparto** (dos pedidos cercanos a un repartidor) | Uber Eats, DoorDash | **No existe.** `processPostgresDispatchBatch` es el lote del barrido del despacho, no la agrupación de pedidos en un viaje. Es la palanca más directa sobre el costo por entrega. |
 | P-04 | **Programa de lealtad por pedido** | PedidosYa | Hay referidos con premio real (`referral_campaigns`, acreditado al ledger). **No hay puntos ni beneficios acumulables por pedido.** |
 | P-05 | **Publicidad y posicionamiento de comercios** | Uber Eats, PedidosYa (es su segunda línea de ingreso) | **No existe.** Hay promociones financiadas por el comercio, no inventario publicitario ni posicionamiento pago. |
 | P-06 | **Cuentas corporativas** | Uber for Business, PedidosYa Empresas | **No existe.** Hay suscripción individual (Flash Más) y pedidos grupales, no facturación a una empresa con centros de costo. |
@@ -59,6 +58,7 @@ suposición.
 | Verificación en dos pasos para toda cuenta (SEG-08, Uber) | Migración 145, `server/mfa-repository.js`, `server/http/mfa-step-up.js`, web y móvil · `test:account-mfa`, `test:account-mfa-contract` |
 | Tarjetas de regalo, por código o dirigidas a una cuenta, anulables (PAG-04, Uber) | Migración 146, `server/gift-card-repository.js`, web y móvil · `test:gift-cards`, `test:gift-cards-contract` |
 | Efectivo en pedidos de comida, por sucursal, con vuelto y rendición de efectivo (PAG-01, PedidosYa, Rappi, DiDi Food) | Migración 148, `settleCapturedFoodOrder` con cobro en mano, tope proyectado en `dispatch-repository.js`, `registerCashDeposit`, web y móvil · `test:cash-food-orders`, `test:cash-food-orders-contract` |
+| Pedidos agrupados: un segundo pedido del mismo local, en el camino, con tope de desvío (era P-03, Uber Eats, DoorDash) | Migración 149, `LOTE_COMPATIBLE_SQL` en `dispatch-repository.js`, oferta y aceptación con el lote, recorrido, navegación y seguimiento en web y móvil · `test:order-batching`, `test:order-batching-contract` |
 | Perfil familiar: la Wallet de quien organiza paga viajes, envíos y pedidos, con tope por miembro (PAG-05, Uber) | Migración 147, `server/family-profile-repository.js`, reintegros a quien pagó, web y móvil · `test:family-profiles`, `test:family-profiles-contract` |
 | Rubros de comercio: restaurantes, súper, farmacia, kiosco y tiendas (era P-01) | `merchants.vertical` proyectado, `GET /api/catalog/verticals`, filtro `?vertical=` en la base, `VerticalRail` en web y móvil · `test:catalog-verticals` |
 | Retiro en el local, en web y en la app móvil (el móvil era P-11) | Migración 137, `getPostgresFoodPickupQuote`, `FoodFulfillmentPicker.tsx`, `FulfillmentToggle.tsx`, `MerchantPickupSwitch.tsx` · `test:mobile-food-design` |

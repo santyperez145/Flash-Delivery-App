@@ -1,0 +1,55 @@
+/* Pedidos agrupados del mismo local (P-03).
+ *
+ * Hoja propia porque `styles.css` es un monolito identificado en el hallazgo H-08.
+ * La tarjeta de oferta y los avisos reusan lo que ya existe; acá sólo lo nuevo.
+ */
+
+/* La oferta que se suma a un pedido en curso se distingue de una suelta antes de
+ * leerla: quien reparte decide en segundos. */
+.offer-card.batch-offer {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+}
+.batch-offer-heading {
+  display: block;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+.batch-offer-detail {
+  display: block;
+  margin: 2px 0 6px;
+  color: var(--ink-soft);
+  font-size: 0.74rem;
+  line-height: 1.35;
+}
+
+.batch-chip {
+  display: inline-block;
+  margin: 0 0 6px;
+  padding: 3px 9px;
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  background: color-mix(in srgb, var(--accent) 10%, var(--paper));
+  border-radius: 999px;
+}
+
+.batch-next-stop,
+.batch-notice {
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  font-size: 0.84rem;
+  overflow-wrap: anywhere;
+  border-radius: var(--radius-control);
+}
+.batch-next-stop {
+  color: var(--ink);
+  font-weight: 800;
+  background: var(--paper-soft);
+}
+.batch-notice {
+  color: var(--accent);
+  font-weight: 700;
+  background: color-mix(in srgb, var(--accent) 10%, var(--paper));
+}

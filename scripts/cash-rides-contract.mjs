@@ -40,7 +40,7 @@ assert.ok(
   // PAG-01 en comida: el tope se proyecta con lo que va a deber al cobrar.
   contains(
     despacho,
-    "const habilitados = job.cash ? await elegiblesParaEfectivo(client, driverIds, Number(job.cash_debt)) : driverIds;",
+    "const habilitadosEfectivo = job.cash ? await elegiblesParaEfectivo(client, driverIds, Number(job.cash_debt)) : driverIds;",
   ) &&
     contains(
       despacho,

@@ -169,6 +169,8 @@ jobs:
         run: npm run test:family-profiles-contract
       - name: Efectivo en pedidos de comida (PAG-01)
         run: npm run test:cash-food-orders-contract
+      - name: Pedidos agrupados (P-03)
+        run: npm run test:order-batching-contract
 
       # Borrado de cuenta (LAN-001): requisito de Apple y Google para publicar.
       # Vigila que esté ofrecido en web y en las tres apps, y acotado en la base.

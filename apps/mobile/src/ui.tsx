@@ -39,6 +39,7 @@ import { styles } from "./styles";
 import type { Order, ServiceMessage } from "./types";
 import { DeliveryPreferenceTags } from "./DeliveryPreferenceTags";
 import { courierCashLine, merchantCashLine } from "./cash-payment";
+import { batchStopLabel } from "./order-batch";
 export function NativeMapUnavailable({
   message,
   height = 260,
@@ -386,6 +387,22 @@ export function OrderCard({
   return (
     <View style={styles.card}>
       <Text style={styles.cardTitle}>{mobileOrderStatusLabel[order.status]}</Text>
+      {/* P-03: sólo quien reparte necesita saber en qué orden entrega el lote. */}
+      {preferencias === "reparto" && order.batch && (
+        <View
+          style={{
+            alignSelf: "flex-start",
+            backgroundColor: "rgba(124,60,255,0.12)",
+            borderRadius: 999,
+            paddingHorizontal: 10,
+            paddingVertical: 4,
+          }}
+        >
+          <Text style={{ fontSize: 12, fontWeight: "800", color: "#7c3cff" }}>
+            {batchStopLabel(order.batch)}
+          </Text>
+        </View>
+      )}
       <Text style={styles.cardText}>{order.deliveryAddress}</Text>
       <Text style={styles.cardText}>
         {order.items.length} items - {money.format(order.total)}

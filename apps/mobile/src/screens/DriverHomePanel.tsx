@@ -26,6 +26,7 @@ import {
 import DriverDemandMap from "../DriverDemandMap";
 import FlashNativeMap from "../FlashNativeMap";
 import { money, navigationInstruction } from "../format";
+import { batchOfferDetail, batchPickupPending } from "../order-batch";
 import { styles } from "../styles";
 import { ActionButton, KpiRow, NativeMapUnavailable, OrderCard } from "../ui";
 import type {
@@ -382,6 +383,18 @@ export function DriverHomePanel(props: {
           ["Modo", driver.activeService === "delivery" ? "Delivery" : "Taxi"],
         ]}
       />
+      {/* P-03: los dos pedidos del lote se retiran juntos; recién después se reparten. */}
+      {batchPickupPending(activeOrders) && (
+        <View style={styles.deliveryProofCard}>
+          <View style={[styles.deliveryProofIcon, { backgroundColor: "#7c3cff" }]}>
+            <Ionicons name="layers" size={22} color="#fff" />
+          </View>
+          <View style={styles.itemCopy}>
+            <Text style={styles.sectionTitle}>Retirá los 2 pedidos del local</Text>
+            <Text style={styles.cardText}>Después entregás en el orden de la lista.</Text>
+          </View>
+        </View>
+      )}
       {activeOrders.map((order) => {
         // P-02b: dejado en la puerta, el pedido se cierra con foto.
         const fotoEnPuerta =
@@ -622,12 +635,27 @@ export function DriverHomePanel(props: {
           Math.ceil((new Date(offer.expiresAt).getTime() - clock) / 1000),
         );
         const accepting = offerBusy === offer.id;
+        // Para la comida, `fare` es lo que paga el cliente: quien reparte decide por lo
+        // que gana (el envío). Si el servidor no lo manda, queda el monto de siempre.
+        const ganancia =
+          offer.kind === "delivery" && offer.subtype !== "shipment" && offer.courierEarning != null
+            ? `Ganás ${money.format(offer.courierEarning)}`
+            : money.format(offer.fare);
         return (
           <View key={offer.id} style={styles.dispatchOffer}>
+            {/* P-03: un pedido más del local al que ya va; se entrega después del primero. */}
+            {offer.batch && (
+              <View style={styles.dispatchOfferHeader}>
+                <View style={styles.itemCopy}>
+                  <Text style={styles.sectionTitle}>Sumá un pedido del mismo local</Text>
+                  <Text style={styles.cardText}>{batchOfferDetail(offer.batch)}</Text>
+                </View>
+              </View>
+            )}
             <View style={styles.dispatchOfferHeader}>
               <View style={styles.dispatchOfferIcon}>
                 <Ionicons
-                  name={offer.kind === "ride" ? "car-sport" : "cube"}
+                  name={offer.kind === "ride" ? "car-sport" : offer.batch ? "layers" : "cube"}
                   size={22}
                   color="#fff"
                 />
@@ -638,11 +666,13 @@ export function DriverHomePanel(props: {
                     ? "NUEVO VIAJE"
                     : offer.subtype === "shipment"
                       ? "NUEVO ENVÍO"
-                      : "NUEVO DELIVERY"}
+                      : offer.batch
+                        ? "PEDIDO AGRUPADO"
+                        : "NUEVO DELIVERY"}
                 </Text>
                 <Text style={styles.dispatchOfferTimer}>{seconds}s</Text>
               </View>
-              <Text style={styles.dispatchOfferFare}>{money.format(offer.fare)}</Text>
+              <Text style={styles.dispatchOfferFare}>{ganancia}</Text>
             </View>
             <View style={styles.dispatchRoute}>
               <View style={styles.routeDot} />
@@ -683,12 +713,16 @@ export function DriverHomePanel(props: {
                   .join(" · ")}
               </Text>
             )}
-            {offer.scoreBreakdown && (
-              <Text style={styles.helperText}>
-                Historial: {Math.round(offer.scoreBreakdown.acceptanceRate * 100)}% aceptación ·{" "}
-                {Math.round(offer.scoreBreakdown.averageResponseSeconds)}s respuesta
-              </Text>
-            )}
+            {/* Una oferta de lote (P-03) no pasa por el scoring: sin el historial no se
+                muestra la línea, en lugar de «NaN% aceptación». */}
+            {Number.isFinite(offer.scoreBreakdown?.acceptanceRate) &&
+              Number.isFinite(offer.scoreBreakdown?.averageResponseSeconds) &&
+              offer.scoreBreakdown && (
+                <Text style={styles.helperText}>
+                  Historial: {Math.round(offer.scoreBreakdown.acceptanceRate * 100)}% aceptación ·{" "}
+                  {Math.round(offer.scoreBreakdown.averageResponseSeconds)}s respuesta
+                </Text>
+              )}
             <View style={styles.offerActions}>
               <Pressable
                 disabled={busy || accepting || seconds === 0}

@@ -156,6 +156,15 @@ export function OrderTrackingSheet({
             {cobroParaCliente(order.cashPayment)}
           </p>
         )}
+        {/* P-03: si el repartidor lleva dos del mismo local, el cliente sabe en qué
+            lugar va el suyo. Del otro pedido no se dice nada: es de otra persona. */}
+        {order.batch && !["delivered", "cancelled"].includes(order.status) && (
+          <p className="batch-notice" role="note">
+            {order.batch.position === 2
+              ? "Tu repartidor entrega primero otro pedido del mismo local. Ya está contado en el horario estimado."
+              : "Tu pedido es la primera entrega del recorrido."}
+          </p>
+        )}
         <div className="tracking-status-panel">
           <div className="tracking-status-copy">
             <div>

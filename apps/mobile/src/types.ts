@@ -33,6 +33,7 @@ import type {
   ReceivedGiftCard,
   FamilyMember,
   CashPayment,
+  OrderBatch,
   FamilyCharge,
   FamilyProfile,
   FamilyPaymentLabel,
@@ -75,6 +76,7 @@ export type {
   ReceivedGiftCard,
   FamilyMember,
   CashPayment,
+  OrderBatch,
   FamilyCharge,
   FamilyProfile,
   FamilyPaymentLabel,
@@ -191,6 +193,8 @@ export type Driver = {
 export type Order = {
   /** PAG-01: en efectivo, cuánto cobrar, con cuánto paga y el vuelto. */
   cashPayment?: CashPayment | null;
+  /** P-03: si va en un lote, qué entrega es. */
+  batch?: OrderBatch | null;
   /** Cómo lo recibe el cliente (GTM-002, P-11). */
   fulfillment?: "delivery" | "pickup";
   /** Recortadas según quién mira: el comercio recibe sólo los cubiertos (P-02). */

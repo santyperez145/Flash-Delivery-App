@@ -46,6 +46,14 @@ import type {
   User,
 } from "../types";
 import { DoorPhoto, faltaFotoEnPuerta } from "./DoorPhoto";
+import {
+  BatchChip,
+  encabezadoDeLote,
+  montoDeOferta,
+  ordenarRecorrido,
+  proximaParada,
+  retiraDosDelLocal,
+} from "./BatchRoute";
 import { faltaCodigoDeEntrega, OrderDeliveryCodeEntry } from "../customer/OrderDeliveryCode";
 
 /**
@@ -59,8 +67,11 @@ import { faltaCodigoDeEntrega, OrderDeliveryCodeEntry } from "../customer/OrderD
  * número negativo que sugiera tiempo restante.
  */
 function describirOferta(oferta: DispatchOffer, ahora: number) {
-  const aceptacion = oferta.scoreBreakdown
-    ? ` · ${Math.round(oferta.scoreBreakdown.acceptanceRate * 100)}% aceptación`
+  // Una oferta de lote (P-03) no pasa por el scoring y no trae la tasa: sin el número,
+  // no se muestra nada, ni «NaN%».
+  const tasa = oferta.scoreBreakdown?.acceptanceRate;
+  const aceptacion = Number.isFinite(tasa)
+    ? ` · ${Math.round(Number(tasa) * 100)}% aceptación`
     : "";
   const restanS = Math.max(0, Math.ceil((new Date(oferta.expiresAt).getTime() - ahora) / 1000));
   // Antes de aceptar se sabe si es sin contacto y si hay indicaciones, no el texto (P-02).
@@ -347,9 +358,14 @@ export function DriverApp({
     return () => navigator.geolocation.clearWatch(watchId);
   }, [driver.id, driver.online]);
 
-  const activeOrders = state.orders.filter(
-    (order) => order.courierId === driver.id && !["delivered", "cancelled"].includes(order.status),
+  // P-03: en el orden del recorrido, para que la lista diga qué sigue.
+  const activeOrders = ordenarRecorrido(
+    state.orders.filter(
+      (order) =>
+        order.courierId === driver.id && !["delivered", "cancelled"].includes(order.status),
+    ),
   );
+  const siguienteParada = proximaParada(activeOrders, state.restaurants);
   const activeRides = state.rides.filter(
     (ride) => ride.driverId === driver.id && !["completed", "cancelled"].includes(ride.status),
   );
@@ -450,8 +466,20 @@ export function DriverApp({
 
       <SectionTitle title="Activos" action={money.format(driver.earningsToday)} />
       <div className="activity-stack">
+        {siguienteParada && (
+          <p className="batch-next-stop" role="status">
+            Próxima parada: {siguienteParada}
+          </p>
+        )}
+        {/* P-03: los dos pedidos del lote salen juntos del local. */}
+        {retiraDosDelLocal(activeOrders) && (
+          <p className="batch-notice" role="note">
+            Retirá los 2 pedidos del local
+          </p>
+        )}
         {activeOrders.map((order) => (
           <div key={order.id}>
+            <BatchChip order={order} />
             {/* P-02b: dejado en la puerta, el cierre espera la foto. */}
             <DoorPhoto order={order} busy={busy} runAction={runAction} />
             {/* SEG-03: con código, se ingresa antes de cerrar el pedido. */}
@@ -500,7 +528,8 @@ export function DriverApp({
             }
             title={`${offer.pickup} → ${offer.destination}`}
             subtitle={describirOferta(offer, clock)}
-            amount={offer.fare}
+            amount={montoDeOferta(offer)}
+            batch={encabezadoDeLote(offer)}
             action="Aceptar"
             secondaryAction="Rechazar"
             onSecondaryAction={async () => {
@@ -899,6 +928,7 @@ function OfferCard({
   title,
   subtitle,
   amount,
+  batch,
   action,
   secondaryAction,
   onAction,
@@ -908,7 +938,10 @@ function OfferCard({
   icon: LucideIcon;
   title: string;
   subtitle: string;
-  amount: number;
+  /** Ya formateado: «Ganás …» en comida, la tarifa en el resto. */
+  amount: string;
+  /** P-03: la oferta se suma a un pedido que ya lleva. */
+  batch?: { titulo: string; detalle: string } | null;
   action: string;
   secondaryAction?: string;
   onAction: () => void;
@@ -916,14 +949,20 @@ function OfferCard({
   busy: boolean;
 }) {
   return (
-    <article className="offer-card">
+    <article className={batch ? "offer-card batch-offer" : "offer-card"}>
       <span className="offer-icon">
         <Icon size={18} />
       </span>
       <div>
+        {batch && (
+          <>
+            <span className="batch-offer-heading">{batch.titulo}</span>
+            <span className="batch-offer-detail">{batch.detalle}</span>
+          </>
+        )}
         <strong>{title}</strong>
         <small>{subtitle}</small>
-        <b>{money.format(amount)}</b>
+        <b>{amount}</b>
       </div>
       <div className="offer-card-actions">
         {secondaryAction && (

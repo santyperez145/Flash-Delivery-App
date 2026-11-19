@@ -79,6 +79,10 @@ const envSchema = z.object({
   DISPATCH_SEARCH_RADIUS_M: z.coerce.number().int().min(500).max(100000).default(8000),
   DISPATCH_MAX_RADIUS_M: z.coerce.number().int().min(500).max(200000).default(25000),
   DISPATCH_SHORTLIST_SIZE: z.coerce.number().int().min(5).max(200).default(30),
+  // P-03: pedidos agrupados. Se puede apagar por ambiente. El desvío es lo que el
+  // segundo cliente espera de más por la entrega del primero (en línea recta).
+  FOOD_BATCHING_ENABLED: booleanFromEnv.default(true),
+  FOOD_BATCH_MAX_DETOUR_M: z.coerce.number().int().min(0).max(50000).default(2500),
   MAPS_PROVIDER: z.enum(["openstreetmap", "google"]).default("openstreetmap"),
   GOOGLE_MAPS_SERVER_API_KEY: z.string().min(20).optional(),
   GEOCODING_URL: z.string().url().default("https://nominatim.openstreetmap.org"),
@@ -310,6 +314,8 @@ export const config = {
     searchRadiusM: env.DISPATCH_SEARCH_RADIUS_M,
     maxRadiusM: Math.max(env.DISPATCH_SEARCH_RADIUS_M, env.DISPATCH_MAX_RADIUS_M),
     shortlistSize: env.DISPATCH_SHORTLIST_SIZE,
+    batchingEnabled: env.FOOD_BATCHING_ENABLED,
+    batchMaxDetourM: env.FOOD_BATCH_MAX_DETOUR_M,
   },
   maps: { provider: env.MAPS_PROVIDER, googleServerApiKey: env.GOOGLE_MAPS_SERVER_API_KEY ?? null },
   geocodingUrl: env.GEOCODING_URL,

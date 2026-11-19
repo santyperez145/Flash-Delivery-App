@@ -34,6 +34,7 @@ import type {
   ReceivedGiftCard,
   FamilyMember,
   CashPayment,
+  OrderBatch,
   FamilyCharge,
   FamilyProfile,
   FamilyPaymentLabel,
@@ -77,6 +78,7 @@ export type {
   ReceivedGiftCard,
   FamilyMember,
   CashPayment,
+  OrderBatch,
   FamilyCharge,
   FamilyProfile,
   FamilyPaymentLabel,
@@ -299,6 +301,8 @@ export type Order = {
   customerId: string;
   /** PAG-01: en efectivo, cuánto cobrar, con cuánto paga y el vuelto. */
   cashPayment?: CashPayment | null;
+  /** P-03: si va en un lote, qué entrega es. */
+  batch?: OrderBatch | null;
   restaurantId: string;
   branchId?: string | null;
   courierId: string | null;

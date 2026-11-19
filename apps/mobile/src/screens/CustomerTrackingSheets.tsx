@@ -22,6 +22,7 @@ import { OrderDeliveryPhoto } from "../OrderDeliveryPhoto";
 import { OrderDeliveryCodeView } from "../OrderDeliveryCode";
 import { TripCheckBanner } from "../TripCheckBanner";
 import { customerCashLine } from "../cash-payment";
+import { customerBatchLine } from "../order-batch";
 import { FareSplitPanel } from "../FareSplit";
 
 export function OrderTrackingSheet({
@@ -43,6 +44,7 @@ export function OrderTrackingSheet({
   if (!order) return null;
   // Retiro en el local (P-11): sus etapas terminan en el mostrador, sin repartidor.
   const retiro = order.fulfillment === "pickup";
+  const batchLine = retiro ? null : customerBatchLine(order);
   const stages = retiro
       ? ["accepted", "preparing", "ready_for_pickup", "delivered"]
       : [
@@ -110,6 +112,8 @@ export function OrderTrackingSheet({
             : `ETA publicada: ${order.etaMin} min`}
         </Text>
         <CustomerTrackingProgress labels={labels} current={current} activeColor="#ff6a21" />
+        {/* P-03: si el repartidor lleva dos pedidos, el cliente sabe en qué turno va el suyo. */}
+        {batchLine && <Text style={styles.cardText}>{batchLine}</Text>}
         {/* PAG-01: cuánto tener a mano, y el vuelto si avisó con cuánto paga. */}
         {order.cashPayment && !["delivered", "cancelled"].includes(order.status) && (
           <Text style={[styles.cardTitle, { color: "#087A50" }]}>
