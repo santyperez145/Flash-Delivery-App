@@ -590,3 +590,39 @@
   color: var(--ink);
   background: var(--paper-soft);
 }
+
+/* Cerrar sesión desde Cuenta (FE-03), antes de la eliminación de la cuenta. */
+.profile-logout {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 16px;
+  color: var(--ink);
+  font-weight: 800;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+.profile-logout:hover,
+.profile-logout:focus-visible {
+  border-color: var(--ink-soft);
+}
+.profile-logout-confirm {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  background: var(--paper-soft);
+  border-radius: var(--radius-control);
+}
+.profile-logout-confirm p {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 800;
+}
+.profile-logout-danger {
+  color: var(--danger);
+}

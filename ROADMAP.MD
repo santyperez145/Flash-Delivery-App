@@ -45,6 +45,35 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
 
+## Avance 19 de noviembre de 2026 — FE-03, acceso y confianza
+
+- **Cómo se encontró.** Probando el sistema en el navegador contra PostgreSQL, con cuentas
+  de prueba creadas por la API real y sin datos sembrados.
+- **La web ahora deja crear la cuenta**, verificar el email con el código e ingresar, y
+  recuperar la contraseña: antes sólo dejaba ingresar, con un texto para cuentas asignadas.
+  Mismos endpoints que la app.
+- **«Cerrar sesión»** en la cuenta de cliente de la web, que no lo tenía.
+- **Nada prometido sin respaldo.** Una base nueva mostraba «40% off en seleccionados» sin un
+  solo comercio: la migración 150 apaga las dos promociones de demostración donde nadie las
+  usó, y las semillas de desarrollo las vuelven a crear. Sin comercios, la portada y
+  Explorar dicen qué pasa (web y app) y no muestran promociones de comida.
+- **La revisión del PR sumó ocho correcciones:** el enlace del email de recuperación abre el
+  paso de la contraseña nueva, aun con una sesión abierta en el navegador (y un enlace pegado
+  se entiende); un alta sin PostgreSQL entra
+  directo en vez de quedar en una verificación imposible; un fallo del ingreso automático
+  después de verificar se ve en el ingreso; el alta muestra los términos y la privacidad; las
+  promociones piden un comercio abierto; sin comercios no se ofrecen viajes ni envíos
+  apagados; y la decisión quedó en la investigación competitiva.
+- **Verificación:** `test:web-access-trust` (nueva, en `ci-fast`), falsificado con 40
+  mutaciones; los 40 flujos críticos pasan con la migración 150.
+- **Detalle:** [`docs/acceso-y-confianza.md`](docs/acceso-y-confianza.md).
+- **El plan de los frontends**, salido de una auditoría de las cinco superficies contra Uber,
+  Uber Eats, PedidosYa, Rappi y DoorDash: 24 olas (FE-03 a FE-26), cada una un PR, en
+  [`docs/plan-frontends.md`](docs/plan-frontends.md). Esta es la primera.
+- **Despliegue real decidido:** Google Cloud con la infraestructura de `infra/gcp`, primero un
+  staging sin dominio en URLs de Cloud Run. Falta del dueño: el proyecto con facturación y el
+  inicio de sesión en `gcloud`.
+
 ## Avance 19 de noviembre de 2026 — P-03, pedidos agrupados
 
 - **Qué faltaba.** Uber Eats y DoorDash le ofrecen a quien reparte sumar un segundo pedido del

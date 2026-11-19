@@ -52,6 +52,8 @@ export type CustomerAppProps = Parameters<typeof CustomerApp>[0];
 export function CustomerApp(props: {
   state: AppState;
   user: User | null;
+  /** Cerrar sesión desde Cuenta (FE-03): la web de cliente no tenía cómo salir. */
+  onLogout: () => void;
   service: Service;
   setService: (service: Service) => void;
   features: Record<string, { active: boolean; variant: Record<string, unknown> }> | null;
@@ -308,6 +310,7 @@ export function CustomerApp(props: {
           onDeleteAddress={onDeleteAddress}
           dietaryPreferences={dietaryPreferences}
           onDietaryPreferencesChange={onDietaryPreferencesChange}
+          onLogout={props.onLogout}
         />
       )}
       {/* La suscripción, al lado del perfil: su carga fallida no tira la cuenta. */}

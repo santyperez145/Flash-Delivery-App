@@ -171,6 +171,8 @@ jobs:
         run: npm run test:cash-food-orders-contract
       - name: Pedidos agrupados (P-03)
         run: npm run test:order-batching-contract
+      - name: Acceso y confianza en web y app (FE-03)
+        run: npm run test:web-access-trust
 
       # Borrado de cuenta (LAN-001): requisito de Apple y Google para publicar.
       # Vigila que esté ofrecido en web y en las tres apps, y acotado en la base.

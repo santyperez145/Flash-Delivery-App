@@ -263,7 +263,12 @@ export async function request<T>(
   }
   const payload = (await response.json()) as ApiEnvelope<T>;
   if (!response.ok || payload.ok === false) {
-    throw new Error(payload.message || "No se pudo completar la accion");
+    // El estado y el cuerpo viajan con el error: hay respuestas que dicen qué sigue, como
+    // el ingreso con el email todavía sin verificar (`verificationRequired`).
+    throw Object.assign(new Error(payload.message || "No se pudo completar la acción"), {
+      status: response.status,
+      body: payload as unknown,
+    });
   }
   return payload as T;
 }
@@ -568,6 +573,44 @@ export const api = {
       if (session.user) activeAudience = audienceForUser(session.user);
     }
     return session;
+  },
+  // Alta de cuenta desde la web, con el mismo flujo que la app: verificar el email antes
+  // del primer ingreso. Fuera de producción el servidor devuelve el código de desarrollo.
+  async register(input: { name: string; email: string; password: string; phone?: string }) {
+    return request<{
+      user: User;
+      // Sin PostgreSQL (respaldo local) el alta devuelve la sesión y no pide verificar.
+      verificationRequired?: boolean;
+      developmentCode?: string;
+      expiresAt?: string;
+    }>("/auth/register", {
+      method: "POST",
+      body: JSON.stringify({ ...input, deviceName: "Flash Web" }),
+    });
+  },
+  async resendEmailVerification(email: string) {
+    return request<{ message: string; developmentCode?: string; expiresAt?: string }>(
+      "/auth/email-verification/resend",
+      { method: "POST", body: JSON.stringify({ email }) },
+    );
+  },
+  async confirmEmailVerification(email: string, code: string) {
+    return request<{ verified: boolean; user: User }>("/auth/email-verification/confirm", {
+      method: "POST",
+      body: JSON.stringify({ email, code }),
+    });
+  },
+  async requestPasswordRecovery(email: string) {
+    return request<{ message: string; developmentToken?: string; expiresAt?: string }>(
+      "/auth/password-recovery/request",
+      { method: "POST", body: JSON.stringify({ email }) },
+    );
+  },
+  async confirmPasswordRecovery(token: string, password: string) {
+    return request<{ passwordChanged: boolean; revokedSessions: number }>(
+      "/auth/password-recovery/confirm",
+      { method: "POST", body: JSON.stringify({ token, password }) },
+    );
   },
   async createAddress(payload: {
     label: string;
