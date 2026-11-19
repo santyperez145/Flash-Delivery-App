@@ -3,6 +3,7 @@
 import { accountPaths } from "./openapi-account.js";
 import { accountMfaPaths } from "./openapi-account-mfa.js";
 import { giftCardPaths } from "./openapi-gift-cards.js";
+import { familyProfilePaths } from "./openapi-family-profile.js";
 import { orderDeliveryCodePaths } from "./openapi-order-delivery-code.js";
 import { orderDeliveryPhotoPaths } from "./openapi-order-delivery-photo.js";
 import { rideFareSplitPaths } from "./openapi-ride-fare-splits.js";
@@ -16,4 +17,5 @@ export const extraPaths = (helpers) => ({
   ...rideTripCheckPaths(helpers),
   ...rideFareSplitPaths(helpers),
   ...giftCardPaths(helpers),
+  ...familyProfilePaths(helpers),
 });

@@ -8,6 +8,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 import { api } from "../api";
+import { notificationPayloadText } from "../format";
 import { styles } from "../styles";
 import type { AppNotification } from "../types";
 
@@ -135,12 +136,14 @@ export function DriverInboxPanel({
               </View>
               <View style={styles.itemCopy}>
                 <Text style={styles.sectionTitle}>
-                  {notificationTitles[item.template] || "Novedad de Flash"}
+                  {notificationPayloadText(item.payload, "title") ??
+                    (notificationTitles[item.template] || "Novedad de Flash")}
                 </Text>
                 <Text style={styles.cardText}>
-                  {String(
-                    item.payload.status || item.payload.kind || "Revisá el detalle de tu cuenta",
-                  )}
+                  {notificationPayloadText(item.payload, "body") ??
+                    String(
+                      item.payload.status || item.payload.kind || "Revisá el detalle de tu cuenta",
+                    )}
                 </Text>
                 <Text style={styles.notificationTime}>
                   {new Date(item.createdAt).toLocaleString("es-AR")}

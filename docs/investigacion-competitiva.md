@@ -834,6 +834,21 @@ Detalle en [`cash-rides.md`](cash-rides.md).
 - **Brecha:** el conductor no puede saldar la deuda pagando; se netea contra sus ganancias.
 - **Brecha:** efectivo en pedidos de comida, que exige que el comercio lo acepte.
 
+### Decisión 19 de noviembre de 2026 — perfil familiar (PAG-05)
+
+En Uber, quien organiza invita a otras cuentas y paga sus viajes con su medio de pago sin
+mostrarlo, recibe el comprobante de cada viaje y puede poner a cada miembro un tope de gasto
+o dejarlo sin tope; en sus inicios admitía hasta diez personas
+([Uber, perfiles familiares](https://www.uber.com/ride/how-it-works/family-profiles/);
+[Uber, lanzamiento](https://www.uber.com/newsroom/family-profiles)).
+Flash lo ofrece para viajes, envíos y pedidos, con la Wallet de quien organiza. Detalle en
+[`family-profiles.md`](family-profiles.md).
+
+- **Por encima de lo publicado:** cubre también envíos, el tope se controla en la misma
+  transacción del cobro, cada reintegro vuelve a quien pagó con aviso, e invitar o cambiar un
+  tope pide el segundo factor.
+- **Brecha:** sin perfiles para adolescentes ni seguimiento en vivo para quien organiza.
+
 ### Decisión 19 de noviembre de 2026 — tarjetas de regalo (PAG-04)
 
 Uber vende tarjetas de regalo digitales que se mandan por email con un diseño y un mensaje, y

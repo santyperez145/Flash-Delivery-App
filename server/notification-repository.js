@@ -31,6 +31,7 @@ const categoryForTemplate = (template) =>
       ? "support"
       : template.startsWith("tip_") ||
           template.startsWith("gift_card_") ||
+          template === "family_charge" ||
           template.includes("refund")
         ? "wallet"
         : template.startsWith("promotion_")

@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { postgresPool } from "./postgres.js";
+import { payerWalletForRefund } from "./wallet-repository.js";
 import { markHeldTipRefunded } from "./tip-repository.js";
 import { enqueueNotificationForInternalUser } from "./notification-repository.js";
 import { upsertCase } from "./payment-repository.js";
@@ -100,12 +101,10 @@ export async function resolveOrderIssue({
         throw Object.assign(new Error("No existe saldo capturado suficiente para reintegrar"), {
           status: 409,
         });
-      const wallet = (
-        await client.query(
-          "SELECT id FROM ledger_accounts WHERE owner_type='user' AND owner_id=$1 AND account_type='wallet' FOR UPDATE",
-          [issue.customer_id],
-        )
-      ).rows[0];
+      // A quien pagó (PAG-05): con el perfil familiar, quien organiza.
+      const wallet = await payerWalletForRefund(client, payment.customer_id, {
+        fallbackUserId: issue.customer_id,
+      });
       const clearing = (
         await client.query(
           "SELECT id FROM ledger_accounts WHERE owner_type='platform' AND owner_id IS NULL AND account_type='cash_clearing' FOR UPDATE",

@@ -18,6 +18,7 @@ let fixtureOfferId;
 let fixtureTripCheckId;
 let fixtureFareSplitId;
 let fixtureGiftCardId;
+let fixtureFamilyProfileId;
 let fixtureDeliveryCodeJobId;
 let fixturePayoutId;
 let fixtureTipId;
@@ -590,6 +591,18 @@ try {
       [`GFT-RLS-${Date.now()}`, `rls-gift-${Date.now()}`, customer.id],
     )
   ).rows[0].id;
+  // PAG-05: un perfil familiar lo ve quien lo organiza; nadie más. Una invitación a un
+  // email sin cuenta, así no hay otra cuenta que pueda verla con razón.
+  fixtureFamilyProfileId = (
+    await owner.query(
+      "INSERT INTO family_profiles(public_id,organizer_id) VALUES($1,$2) ON CONFLICT (organizer_id) DO UPDATE SET organizer_id=EXCLUDED.organizer_id RETURNING id",
+      [`FAM-RLS-${Date.now()}`, customer.id],
+    )
+  ).rows[0].id;
+  await owner.query(
+    "INSERT INTO family_members(public_id,profile_id,invitee_email) VALUES($1,$2,$3)",
+    [`FMB-RLS-${Date.now()}`, fixtureFamilyProfileId, `rls-family-${Date.now()}@flash.test`],
+  );
   // SEG-01: un aviso del control del viaje del cliente, para probar que la
   // política discrimina: lo ve quien viaja y nadie más.
   // SEG-03: el código de entrega lo ven quien pidió y quien reparte; nadie más.
@@ -774,6 +787,14 @@ try {
       ])
     ).rows[0].count === 1,
     "RLS exposes the gift cards the customer bought",
+  );
+  assert(
+    (
+      await client.query("SELECT count(*)::int count FROM family_members WHERE profile_id=$1", [
+        fixtureFamilyProfileId,
+      ])
+    ).rows[0].count >= 1,
+    "RLS exposes the family profile members to its organizer",
   );
   // Siempre se afirma sobre el pedido de prueba: si ya tenía código, la fila existe
   // igual y el cliente la tiene que ver. Sólo se borra la que se creó acá.
@@ -993,6 +1014,14 @@ try {
     ).rows[0].count === 0,
     "RLS hides the customer's gift cards from a driver",
   );
+  assert(
+    (
+      await client.query("SELECT count(*)::int count FROM family_profiles WHERE id=$1", [
+        fixtureFamilyProfileId,
+      ])
+    ).rows[0].count === 0,
+    "RLS hides the customer's family profile from a driver",
+  );
   // La otra mitad de la politica de `drivers`. Sin esto, la prueba del auditor
   // solo demostraria que la tabla esta cerrada: una politica que niega a todos
   // pasa el test negativo y deja al conductor sin poder verse a si mismo.
@@ -1047,6 +1076,10 @@ try {
   assert(
     (await client.query("SELECT count(*)::int count FROM gift_cards")).rows[0].count === 0,
     "RLS hides another customer's gift cards",
+  );
+  assert(
+    (await client.query("SELECT count(*)::int count FROM family_members")).rows[0].count === 0,
+    "RLS hides another customer's family profile",
   );
   assert(
     (await client.query("SELECT count(*)::int count FROM order_delivery_codes")).rows[0].count ===
@@ -1178,6 +1211,16 @@ try {
     "RLS hides another customer's service chat",
   );
 } finally {
+  if (owner && fixtureFamilyProfileId) {
+    await owner.query(
+      "DELETE FROM family_members WHERE profile_id=$1 AND public_id LIKE 'FMB-RLS-%'",
+      [fixtureFamilyProfileId],
+    );
+    await owner.query(
+      "DELETE FROM family_profiles WHERE id=$1 AND public_id LIKE 'FAM-RLS-%' AND NOT EXISTS (SELECT 1 FROM family_members WHERE profile_id=$1)",
+      [fixtureFamilyProfileId],
+    );
+  }
   if (owner && fixtureGiftCardId)
     await owner.query("DELETE FROM gift_cards WHERE id=$1", [fixtureGiftCardId]);
   if (owner && fixtureFareSplitId)

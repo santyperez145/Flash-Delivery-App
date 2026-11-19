@@ -31,6 +31,10 @@ import type {
   FareSplitInvitation,
   GiftCard,
   ReceivedGiftCard,
+  FamilyMember,
+  FamilyCharge,
+  FamilyProfile,
+  FamilyPaymentLabel,
   MfaStatus,
   MfaEnrollment,
 } from "@flash/domain-contracts";
@@ -68,6 +72,10 @@ export type {
   FareSplitInvitation,
   GiftCard,
   ReceivedGiftCard,
+  FamilyMember,
+  FamilyCharge,
+  FamilyProfile,
+  FamilyPaymentLabel,
   MfaStatus,
   MfaEnrollment,
 };

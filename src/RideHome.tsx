@@ -8,10 +8,12 @@ import {
   ShieldCheck,
   Sparkles,
   Truck,
+  Users,
   Wallet,
 } from "lucide-react";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { api } from "./api";
+import { FAMILY_PAYMENT, familyPaymentDetail, useFamilyPayment } from "./customer/family-payment";
 import type {
   AppState,
   Ride,
@@ -78,6 +80,16 @@ export default function RideHome({
   locationMessage: string;
   busy: boolean;
 }) {
+  // PAG-05: la opción «Perfil familiar» aparece sólo con una membresía activa.
+  const familia = useFamilyPayment();
+  useEffect(() => {
+    // Si la membresía deja de estar, el pago vuelve a la Wallet: pedir el viaje con
+    // el perfil terminaría en un rechazo seguro.
+    if (!familia)
+      setRideForm((form) =>
+        form.paymentMethod === FAMILY_PAYMENT ? { ...form, paymentMethod: "Flash Wallet" } : form,
+      );
+  }, [familia, setRideForm]);
   const [route, setRoute] = useState<RoadRoute | null>(null),
     [routeError, setRouteError] = useState("");
   const activeRide = state.rides.find(
@@ -248,8 +260,13 @@ export default function RideHome({
             </small>
           </div>
         )}
-        {/* PAG-01: Flash Wallet o efectivo al conductor, como Uber en Argentina. */}
-        <div className="ride-payment" role="radiogroup" aria-label="Cómo pagás">
+        {/* PAG-01: Flash Wallet o efectivo al conductor, como Uber en Argentina.
+            PAG-05: y el perfil familiar, sólo para quien es miembro activo. */}
+        <div
+          className={familia ? "ride-payment with-family" : "ride-payment"}
+          role="radiogroup"
+          aria-label="Cómo pagás"
+        >
           {(["Flash Wallet", "Efectivo"] as const).map((metodo) => (
             <button
               key={metodo}
@@ -262,12 +279,26 @@ export default function RideHome({
               {metodo}
             </button>
           ))}
+          {familia && (
+            <button
+              type="button"
+              role="radio"
+              aria-checked={rideForm.paymentMethod === FAMILY_PAYMENT}
+              onClick={() => setRideForm((form) => ({ ...form, paymentMethod: FAMILY_PAYMENT }))}
+            >
+              <Users size={16} />
+              {FAMILY_PAYMENT}
+            </button>
+          )}
         </div>
         {rideForm.paymentMethod === "Efectivo" && (
           <p className="ride-payment-note">
             Le pagás {quote ? money.format(quote.fare) : "el total"} en efectivo al conductor al
             terminar el viaje.
           </p>
+        )}
+        {familia && rideForm.paymentMethod === FAMILY_PAYMENT && (
+          <p className="ride-payment-note">{familyPaymentDetail(familia)}</p>
         )}
         <div className="two-actions">
           <button

@@ -15,6 +15,7 @@ import { ActivityIndicator, Alert, Pressable, ScrollView, Share, Text, View } fr
 import { track } from "../analytics";
 import { api } from "../api";
 import { flashDesign } from "../design-system";
+import { FAMILY_PAYMENT, FAMILY_PAYMENT_ID, useFamilyPayment } from "../family-payment";
 import { mobileOrderStatusLabel, money } from "../format";
 import { styles } from "../styles";
 import { ActionButton, ServiceChatModal } from "../ui";
@@ -702,6 +703,23 @@ export function CustomerScreen({
     customerPaymentMethods.find((method) => method.id === selectedFoodPaymentId) ||
     customerPaymentMethods.find((method) => method.isDefault) ||
     customerPaymentMethods[0];
+  // PAG-05: «Perfil familiar» paga con la Wallet de quien organiza. Se ofrece sólo
+  // con una membresía activa; si deja de estarlo, vuelve el medio guardado.
+  const { membership: foodFamily, reload: reloadFoodFamily } = useFamilyPayment();
+  const payFoodWithFamily = selectedFoodPaymentId === FAMILY_PAYMENT_ID && foodFamily !== null;
+  // Lo que viaja a la API: la etiqueta de la familia va sin `paymentMethodId`.
+  const foodPaymentFields = payFoodWithFamily
+    ? { paymentMethod: FAMILY_PAYMENT, paymentMethodId: undefined }
+    : selectedFoodPayment
+      ? { paymentMethod: selectedFoodPayment.label, paymentMethodId: selectedFoodPayment.id }
+      : null;
+  // Lo que queda del mes cambia con cada compra, y el perfil se puede dejar desde
+  // Cuenta: se relee cada vez que el carrito queda a la vista, no sólo al entrar.
+  const foodCartVisible =
+    sharedView === "service" && customerWindow === "food" && foodScreen === "cart";
+  useEffect(() => {
+    if (foodCartVisible) void reloadFoodFamily();
+  }, [foodCartVisible, reloadFoodFamily]);
   const selectedRestaurant =
     state.restaurants.find((restaurant) => restaurant.id === selectedRestaurantId) || null;
   const foodMenuCategories = useMemo(
@@ -805,7 +823,7 @@ export function CustomerScreen({
       !cart.length ||
       !cartRestaurant ||
       (!esRetiro && !selectedFoodAddress) ||
-      !selectedFoodPayment
+      !foodPaymentFields
     ) {
       Alert.alert(
         "Checkout incompleto",
@@ -822,8 +840,8 @@ export function CustomerScreen({
           ? pickupBranch?.id
           : cartRestaurant.branches?.find((branch) => branch.isPrimary)?.id,
         fulfillment: esRetiro ? "pickup" : "delivery",
-        paymentMethod: selectedFoodPayment.label,
-        paymentMethodId: selectedFoodPayment.id,
+        paymentMethod: foodPaymentFields.paymentMethod,
+        paymentMethodId: foodPaymentFields.paymentMethodId,
         promotionCode: foodPromotionCode.trim().toUpperCase() || undefined,
         items: foodCheckoutItems,
       });
@@ -875,7 +893,7 @@ export function CustomerScreen({
       !cart.length ||
       !cartRestaurant ||
       (!retiro && !selectedFoodAddress) ||
-      !selectedFoodPayment ||
+      !foodPaymentFields ||
       !foodCheckoutQuote
     ) {
       Alert.alert(
@@ -894,8 +912,10 @@ export function CustomerScreen({
             ? foodCheckoutQuote.pickupAddress
             : deliveryAddress.trim(),
         fulfillment: foodCheckoutQuote.fulfillment,
-        paymentMethod: selectedFoodPayment.label,
-        paymentMethodId: selectedFoodPayment.id,
+        // El medio sale de la cotización firmada, como en la web: si la membresía
+        // cambió entre cotizar y confirmar, el pedido no viaja con otro medio (409).
+        paymentMethod: foodCheckoutQuote.paymentMethod,
+        paymentMethodId: foodCheckoutQuote.paymentMethodId || undefined,
         promotionCode: foodCheckoutQuote.promotionCode || undefined,
         quoteToken: foodCheckoutQuote.quoteToken,
         // En retiro no hay propina de reparto ni modo de entrega: sólo cubiertos.
@@ -924,6 +944,7 @@ export function CustomerScreen({
       setFoodScheduledFor(null);
       setFoodPreferences(PREFERENCIAS_INICIALES);
       setFoodScreen("orders");
+      if (payFoodWithFamily) void reloadFoodFamily();
       track("job_created", "customer_app", { service: "food" });
     }, "Pedido enviado al comercio");
   };
@@ -1076,12 +1097,14 @@ export function CustomerScreen({
               userId={user.id}
               deliveryAddress={deliveryAddress}
               paymentMethods={customerPaymentMethods}
-              selectedPayment={selectedFoodPayment}
+              selectedPayment={payFoodWithFamily ? undefined : selectedFoodPayment}
+              family={foodFamily}
+              familySelected={payFoodWithFamily}
               promotion={activeFoodPromotion}
               promotionCode={foodPromotionCode}
               subtotal={cartTotal}
               busy={busy}
-              canCheckout={Boolean((esRetiro || selectedFoodAddress) && selectedFoodPayment)}
+              canCheckout={Boolean((esRetiro || selectedFoodAddress) && foodPaymentFields)}
               fulfillment={esRetiro ? "pickup" : "delivery"}
               onFulfillmentChange={setFoodFulfillment}
               pickupAddress={pickupBranch?.address ?? null}
@@ -1111,7 +1134,8 @@ export function CustomerScreen({
               visible={foodScreen === "checkout"}
               quote={foodCheckoutQuote}
               restaurantName={cartRestaurant?.name}
-              paymentMethod={selectedFoodPayment}
+              paymentMethod={payFoodWithFamily ? undefined : selectedFoodPayment}
+              family={payFoodWithFamily ? foodFamily : null}
               busy={busy}
               tipCents={foodTipCents}
               scheduledFor={foodScheduledFor}

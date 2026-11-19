@@ -62,7 +62,7 @@ perfecto.
 | PAG-02 | **Dividir la tarifa** entre pasajeros | Uber | **Hecho.** Migración 144, `server/ride-fare-split-repository.js`, web y móvil · `test:fare-splits`. Ver [`fare-splits.md`](fare-splits.md). |
 | PAG-03 | **Cargar saldo en efectivo** por Rapipago o Pago Fácil | Uber Cash en Argentina | **No existe.** La Wallet se carga con tarjeta. Necesita convenio con la red de cobranza (dueño). |
 | PAG-04 | **Tarjetas de regalo** y saldo de regalo | Uber | **Hecho.** Migración 146, `server/gift-card-repository.js`, web y móvil · `test:gift-cards`, `test:gift-cards-contract`. Ver [`gift-cards.md`](gift-cards.md). |
-| PAG-05 | **Perfil familiar**: un medio de pago para varias personas | Uber | **No existe.** |
+| PAG-05 | **Perfil familiar**: un medio de pago para varias personas | Uber | **Hecho.** Migración 147, `server/family-profile-repository.js`, reintegros a quien pagó, web y móvil · `test:family-profiles`, `test:family-profiles-contract`. Ver [`family-profiles.md`](family-profiles.md). |
 | PAG-06 | **Perfil de empresa** con facturación a la empresa | Uber for Business, PedidosYa Empresas | Es P-06 de [`paridad-competitiva.md`](paridad-competitiva.md). |
 | PAG-07 | **Cobro real** con tarjeta, cuotas y reintegros | Todos | Construido hasta el borde: tokenización, cuotas, webhook y conciliación existen (`docs/payment-methods.md`, `docs/payment-reconciliation.md`). **Faltan las credenciales productivas de Mercado Pago (dueño).** |
 | PAG-08 | **Factura electrónica** | Todos en Argentina | Hay comprobante no fiscal (`docs/service-receipts.md`). **Necesita alta en ARCA y punto de venta (dueño).** |
@@ -79,7 +79,7 @@ un tercero.
 5. **SEG-08** (hecho el segundo factor): verificación en dos pasos para toda cuenta.
 6. **FE-02** (hecho): Pedidos y Viajes separados en la app móvil.
 7. **PAG-04** (hecho): tarjetas de regalo.
-8. **PAG-05**: perfil familiar.
+8. **PAG-05** (hecho): perfil familiar.
 
 Quedan del dueño: SEG-04 (decisión legal), SEG-05 (decisión con el piloto), SEG-06 y SEG-07
 (proveedores), PAG-03 (red de cobranza), PAG-07 (Mercado Pago) y PAG-08 (ARCA).

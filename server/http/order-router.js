@@ -62,6 +62,7 @@ import { fail, failFrom, ok, parseOrFail } from "./responses.js";
 import { assessTransactionRisk, setRiskEntity } from "../risk-repository.js";
 import { createId, createLocalNotification, getTimestamp, orderStatuses } from "../store.js";
 import { cancelOrderAndRefundWallet } from "../wallet-repository.js";
+import { FAMILY_LABEL } from "../family-profile-repository.js";
 import {
   MAX_INDICACIONES,
   MODOS_DE_ENTREGA,
@@ -506,7 +507,11 @@ router.post("/api/orders", requireAuth, requireAnyRole("customer", "admin"), asy
         deliveryPreferences,
         idempotencyKey,
       });
-      if (providerPayment && !String(order.paymentMethod).toLowerCase().includes("wallet"))
+      if (
+        providerPayment &&
+        order.paymentMethod !== FAMILY_LABEL &&
+        !String(order.paymentMethod).toLowerCase().includes("wallet")
+      )
         order = await processPostgresOrderMarketplacePayment({
           orderPublicId: order.id,
           customerPublicId: customerId,

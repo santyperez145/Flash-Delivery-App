@@ -151,6 +151,7 @@ jobs:
           test:cash-rides
           test:fare-splits
           test:gift-cards
+          test:family-profiles
           test:service-chat
           test:shipment-claims
           test:support-sla

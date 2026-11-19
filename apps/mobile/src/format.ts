@@ -109,3 +109,16 @@ export function navigationInstruction(step: RoadStep) {
             : "Continuá";
   return `${action} por ${step.street}`;
 }
+
+/**
+ * El texto que el servidor ya redactó para una notificación, si lo mandó. Las del
+ * perfil familiar (PAG-05) traen `title` y `body`; sin leerlos, la bandeja mostraba
+ * un texto genérico. `null`: la bandeja sigue con su texto de siempre.
+ */
+export const notificationPayloadText = (
+  payload: Record<string, unknown>,
+  key: "title" | "body",
+): string | null => {
+  const value = payload[key];
+  return typeof value === "string" && value.trim() ? value : null;
+};

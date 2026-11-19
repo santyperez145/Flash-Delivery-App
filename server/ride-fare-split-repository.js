@@ -54,7 +54,9 @@ const viaje = (client, ridePublicId) =>
   client.query(
     `SELECT j.id,j.public_id,j.status,j.customer_id,j.dropoff_address,u.name customer_name,
        (SELECT p.captured_amount_cents FROM payment_intents p
-         WHERE p.job_id=j.id AND p.provider='flash_wallet' AND p.status='captured') captured_cents
+         WHERE p.job_id=j.id AND p.provider='flash_wallet' AND p.status='captured') captured_cents,
+       (SELECT p.customer_id FROM payment_intents p
+         WHERE p.job_id=j.id AND p.provider='flash_wallet' AND p.status='captured') payer_id
      FROM jobs j JOIN users u ON u.id=j.customer_id
      WHERE j.public_id=$1 AND j.kind='ride' FOR UPDATE OF j`,
     [ridePublicId],
@@ -111,6 +113,12 @@ export async function inviteToSplitFare({ ridePublicId, userPublicId, email }) {
       throw Object.assign(new Error("El viaje ya terminó"), { status: 409 });
     if (!ride.captured_cents)
       throw Object.assign(new Error("Sólo se divide un viaje pagado con Flash Wallet"), {
+        status: 409,
+      });
+    // PAG-05: un viaje pagado con el perfil familiar lo pagó quien organiza. Las partes
+    // irían a quien pidió y, al cancelar, a quien organiza volvería el total.
+    if (String(ride.payer_id) !== String(ride.customer_id))
+      throw Object.assign(new Error("Un viaje pagado con el perfil familiar no se divide"), {
         status: 409,
       });
     // Invitar no dice quién tiene cuenta: un email que no es de un cliente activo se

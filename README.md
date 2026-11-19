@@ -16,7 +16,7 @@ La Fase 0 está en marcha: ver el [plan de acción](docs/plan-de-accion.md) y el
 
 | Hallazgo | Ticket | Resumen |
 | --- | --- | --- |
-| H-01 | CI-001 | **En curso.** Cuatro workflows, 121 de 122 suites con puerta, 119 bloqueantes y **cero en cuarentena**; falta incorporar un segundo revisor |
+| H-01 | CI-001 | **En curso.** Cuatro workflows, 123 de 124 suites con puerta, 121 bloqueantes y **cero en cuarentena**; falta incorporar un segundo revisor |
 | H-02 | NOT-001 | **En curso.** Proveedor Expo implementado y con puerta CI; falta la entrega en un dispositivo físico |
 | H-03 | SEC-001 | **Corregido.** Default-deny activo y con puerta CI; queda la verificación de runtime contra PostgreSQL |
 | H-04 | DAT-001 | **En curso.** 109 tablas clasificadas y **69 de 69 `por-usuario` con política**; quedan `FORCE ROW LEVEL SECURITY` en cero y la cola larga de privilegios excedentes |

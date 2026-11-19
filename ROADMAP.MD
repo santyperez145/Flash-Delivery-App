@@ -45,6 +45,66 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
 
+## Avance 19 de noviembre de 2026 — PAG-05, perfil familiar
+
+- **Qué faltaba.** Uber deja que una persona pague los viajes y pedidos de su familia con su
+  medio de pago; Flash no.
+- **Ahora quien organiza invita por email a otras cuentas Flash**, hasta nueve, y le pone a
+  cada una un tope por mes o ninguno. Funciona en web (Wallet) y en la app (Cuenta).
+  - Cada miembro que acepta elige «Perfil familiar» al pedir comida, un viaje o un envío, y el
+    cobro sale de la Wallet de quien organiza. El miembro ve quién paga y cuánto le queda,
+    nunca el saldo.
+  - Quien organiza recibe un aviso con cada cobro y puede leer el comprobante.
+  - Los dos pueden cortar el vínculo cuando quieran.
+- **Todo reintegro vuelve a quien pagó.** Cancelación, incidencia, sustitución y propinas
+  devolvían a quien pidió. Con el perfil eso habría pasado plata de quien organiza al miembro
+  en cada cancelación. Ahora se usa `payment_intents.customer_id` (migración 147).
+- **El tope se controla en la transacción del cobro**, con la membresía bloqueada, y lo
+  gastado es neto de reintegros.
+- **Tres defectos que ya existían, corregidos en el camino:**
+  - La API de envíos aceptaba cualquier texto como medio de pago, y uno que no dijera «wallet»
+    creaba un envío sin cobrar. Ahora sólo acepta «Flash Wallet» o «Perfil familiar».
+  - Cancelar un pedido con un reintegro parcial previo no devolvía el resto.
+  - Cancelar rompía si quien pidió no tenía una fila de billetera.
+- **Seguridad.** Invitar y cambiar un tope piden el segundo factor si está activo; quien
+  organiza no borra su cuenta con un servicio pagado en curso; RLS en las dos tablas, sin
+  políticas que se consulten entre sí.
+- **Verificación:**
+  - `test:family-profiles` (nueva, en `ci-critical-flows`) recorre invitaciones, un viaje y un
+    envío reales por la API, el tope, los reintegros a quien organiza, dejar y sacar, y el
+    borrado de cuentas, con los saldos del libro contable en cada paso. No se pudo correr en
+    local, porque no hay credenciales de la base local; corre en el CI.
+  - `test:family-profiles-contract` (nueva, en `ci-fast`) vigila cada camino de reintegro y
+    las dos apps. Falsificado: cada mutación probada la hace fallar.
+  - `test:rls` suma las dos tablas.
+- **Una revisión adversarial antes del PR** (dinero, concurrencia, prueba en CI y apps)
+  encontró 13 defectos, corregidos:
+  - El runtime no tenía permiso para bloquear el perfil al invitar, así que toda invitación
+    habría fallado en CI y en producción.
+  - El cobro y el borrado de la cuenta de quien organiza tomaban los bloqueos en orden
+    inverso y podían trabarse.
+  - La prueba nocturna creaba un envío con «Efectivo», que ahora se rechaza.
+  - Quien organiza podía borrar su cuenta con una incidencia abierta de un miembro, y ese
+    reintegro caía en una cuenta borrada.
+  - Lo gastado no descontaba las propinas devueltas.
+  - Dos aceptaciones simultáneas terminaban en 500.
+  - Siete detalles de las apps: el tope mínimo en el teléfono, un código escrito que se
+    ignoraba, el perfil ofrecido con el tope agotado, el pedido del teléfono que no usaba el
+    medio de la cotización, entre otros.
+  - El contrato se falsificó con 46 mutaciones.
+- **La revisión del PR sumó seis más, corregidas:**
+  - Un reclamo abierto después de que quien organiza borró su cuenta le devolvía la plata a esa
+    cuenta borrada. Ahora el reintegro va a quien pidió.
+  - Quien organiza no tenía en las apps cómo ver lo que se pagó ni el comprobante: ahora ve
+    los cobros del perfil y abre cada comprobante.
+  - Los avisos de cobro se veían como «Novedad de Flash» en las bandejas: ahora dicen quién
+    pagó y cuánto.
+  - La propina del checkout no aparecía en la actividad del miembro.
+  - La cotización pedía una segunda conexión a la base.
+  - Dejar y sacar del perfil podían trabarse con el borrado de una cuenta.
+  - El contrato suma 13 mutaciones más, todas detectadas.
+- **Detalle:** [`docs/family-profiles.md`](docs/family-profiles.md).
+
 ## Avance 19 de noviembre de 2026 — PAG-04, tarjetas de regalo
 
 - **Qué faltaba.** Uber deja regalar saldo con tarjetas de regalo; Flash sólo tenía el premio de

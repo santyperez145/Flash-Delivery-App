@@ -57,7 +57,8 @@ assert.ok(
 console.log("ok - quien debe más del tope no recibe ni acepta viajes en efectivo");
 
 assert.ok(
-  contains(viajes, 'paymentMethod: z.enum(["Flash Wallet", "Efectivo"], {') &&
+  // PAG-05 suma «Perfil familiar», que también cobra de una Wallet; ningún texto libre.
+  contains(viajes, 'paymentMethod: z.enum(["Flash Wallet", "Efectivo", "Perfil familiar"], {') &&
     contains(
       billetera,
       'const efectivo = !payment && job.kind === "ride" && job.payment_method_label === CASH_LABEL;',
@@ -122,7 +123,11 @@ console.log("ok - web y móvil dejan elegir efectivo, y el conductor ve cuánto 
       // simultáneo del invitado.
       squeeze(cancelacion).indexOf(squeeze("await refundFareSplitsOnCancel(client, {")) <
         squeeze(cancelacion).indexOf(squeeze("account_type='cash_clearing' FOR UPDATE")) &&
-      contains(cancelacion, "AND account_type='wallet' FOR NO KEY UPDATE") &&
+      // La billetera de quien pagó (PAG-05), con `NO KEY UPDATE`.
+      contains(
+        cancelacion,
+        "await payerWalletForRefund(client, payment.customer_id, { noKeyUpdate: true, fallbackUserId: job.customer_id, });",
+      ) &&
       contains(migracion, "SET invitee_email = 'eliminado:' || public_id") &&
       contains(division, "const parte = Math.floor(total / (aceptados.length + 2));") &&
       contains(division, "SELECT id FROM ledger_accounts WHERE id=$1 FOR NO KEY UPDATE") &&

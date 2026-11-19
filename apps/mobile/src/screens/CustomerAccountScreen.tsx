@@ -2,6 +2,7 @@
 // Se mantiene montada al cambiar de pestaña para no descartar formularios en curso.
 import { useEffect, useState } from "react";
 import { AccountDeletion } from "../AccountDeletion";
+import { FamilyProfile } from "../FamilyProfile";
 import { GiftCards } from "../GiftCards";
 import { TwoStepVerification } from "../TwoStepVerification";
 import { LegalLinks } from "../LegalLinks";
@@ -10,7 +11,7 @@ import { Alert, Pressable, ScrollView, Share, Text, TextInput, View } from "reac
 
 import { api } from "../api";
 import { SubscriptionCard } from "../SubscriptionCard";
-import { money } from "../format";
+import { money, notificationPayloadText } from "../format";
 import { styles } from "../styles";
 import type {
   AccountSession,
@@ -148,6 +149,8 @@ export function CustomerAccountScreen({
       </View>
       {/* PAG-04: al lado del saldo, que es con lo que se compran y adonde van. */}
       <GiftCards wallet={user.wallet} onWalletChanged={onWalletChanged} />
+      {/* PAG-05: también paga con la Wallet, así que va justo después. */}
+      <FamilyProfile onChanged={onWalletChanged} />
       <View style={styles.addressBookCard}>
         <View style={styles.addressBookHeading}>
           <View style={styles.savedAddressCopy}>
@@ -578,12 +581,16 @@ export function CustomerAccountScreen({
               <View style={styles.notificationStatusDot} />
               <View style={styles.savedAddressCopy}>
                 <Text style={styles.sectionTitle}>
-                  {titles[item.template] || "Novedad de Flash"}
+                  {notificationPayloadText(item.payload, "title") ??
+                    (titles[item.template] || "Novedad de Flash")}
                 </Text>
                 <Text style={styles.cardText}>
-                  {String(
-                    item.payload.status || item.payload.kind || "Revisá la actividad de tu cuenta",
-                  )}
+                  {notificationPayloadText(item.payload, "body") ??
+                    String(
+                      item.payload.status ||
+                        item.payload.kind ||
+                        "Revisá la actividad de tu cuenta",
+                    )}
                 </Text>
                 <Text style={styles.notificationTime}>
                   {new Date(item.createdAt).toLocaleString("es-AR")}

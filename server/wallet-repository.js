@@ -19,9 +19,22 @@ const userAccount = async (client, userId) =>
     )
   ).rows[0].id;
 
+/**
+ * Cobra un servicio de la Wallet de `customerId`, que es **quien paga**: con el
+ * perfil familiar (PAG-05) es quien organiza, no quien pidió. `familyMemberId` es la
+ * membresía que lo usó; queda en el cobro para sumar el gasto del mes.
+ */
 export async function captureWalletPayment(
   client,
-  { jobId, customerId, amountCents, idempotencyKey, description, metadata = {} },
+  {
+    jobId,
+    customerId,
+    amountCents,
+    idempotencyKey,
+    description,
+    metadata = {},
+    familyMemberId = null,
+  },
 ) {
   const wallet = await userAccount(client, customerId);
   await client.query("SELECT id FROM ledger_accounts WHERE id=$1 FOR UPDATE", [wallet]);
@@ -49,10 +62,68 @@ export async function captureWalletPayment(
     [transaction.id, wallet, jobId, amountCents, metadata, clearing],
   );
   await client.query(
-    `INSERT INTO payment_intents(job_id,customer_id,provider,status,amount_cents,captured_amount_cents,currency,idempotency_key,provider_payload)
-    VALUES($1,$2,'flash_wallet','captured',$3,$3,'ARS',$4,$5)`,
-    [jobId, customerId, amountCents, `wallet-${idempotencyKey}`, metadata],
+    `INSERT INTO payment_intents(job_id,customer_id,provider,status,amount_cents,captured_amount_cents,currency,idempotency_key,provider_payload,family_member_id)
+    VALUES($1,$2,'flash_wallet','captured',$3,$3,'ARS',$4,$5,$6)`,
+    [jobId, customerId, amountCents, `wallet-${idempotencyKey}`, metadata, familyMemberId],
   );
+}
+
+/**
+ * La Wallet de **quien pagó** un servicio, bloqueada, para devolverle plata. Es
+ * `payment_intents.customer_id`, no `jobs.customer_id`: con el perfil familiar
+ * (PAG-05) pagó quien organiza, y devolverle a quien pidió le pasaba plata ajena.
+ * La crea si no existe: quien pagó siempre la tuvo, pero una cancelación no puede
+ * romperse por una fila que falta.
+ */
+export async function payerWalletForRefund(
+  client,
+  payerId,
+  { noKeyUpdate = false, fallbackUserId = null } = {},
+) {
+  payerId = await refundRecipient(client, payerId, fallbackUserId);
+  await client.query(
+    `INSERT INTO ledger_accounts(owner_type,owner_id,currency,account_type)
+     VALUES('user',$1,'ARS','wallet') ON CONFLICT(owner_type,owner_id,currency,account_type) DO NOTHING`,
+    [payerId],
+  );
+  return (
+    await client.query(
+      `SELECT id FROM ledger_accounts WHERE owner_type='user' AND owner_id=$1 AND currency='ARS' AND account_type='wallet' ${
+        noKeyUpdate ? "FOR NO KEY UPDATE" : "FOR UPDATE"
+      }`,
+      [payerId],
+    )
+  ).rows[0];
+}
+
+/**
+ * A quién se le devuelve: a quien pagó, salvo que ya haya borrado su cuenta. Un
+ * reclamo se puede abrir y aprobar después de que quien organiza la borró, y esa plata
+ * quedaba en una billetera a la que nadie entra. Entonces vuelve a quien pidió, que es
+ * quien recibió el servicio.
+ */
+export async function refundRecipient(client, payerId, fallbackUserId) {
+  if (!fallbackUserId || String(payerId) === String(fallbackUserId)) return payerId;
+  const pagador = (await client.query("SELECT status FROM users WHERE id=$1", [payerId])).rows[0];
+  return pagador && pagador.status !== "deleted" ? payerId : fallbackUserId;
+}
+
+/**
+ * Si quien pagó no es quien pidió (perfil familiar), quien pagó se entera del
+ * reintegro: es su plata la que vuelve.
+ */
+export async function notifyPayerRefund(client, { payment, job, amountCents, label }) {
+  if (!payment || String(payment.customer_id) === String(job.customer_id) || amountCents <= 0)
+    return;
+  await enqueueNotificationForInternalUser(client, {
+    userId: payment.customer_id,
+    template: "family_refund",
+    payload: {
+      title: "Te devolvimos plata del perfil familiar",
+      body: `Volvieron $${pesos(amountCents).toLocaleString("es-AR")} a tu Wallet: ${label}.`,
+    },
+    deduplicationKey: `family_refund:${payment.id}:${amountCents}:${label}`,
+  });
 }
 
 export async function getWallet(publicUserId) {
@@ -565,19 +636,20 @@ export async function cancelOrderAndRefundWallet({
       "UPDATE dispatch_offers SET status='withdrawn',responded_at=now() WHERE job_id=$1 AND status='pending'",
       [job.id],
     );
+    // También un cobro con un reintegro parcial (incidencia o sustitución): se
+    // devuelve lo que queda. Antes sólo se miraba `captured` y ese pedido se cancelaba
+    // sin devolver el resto.
     const payment = (
       await client.query(
-        "SELECT * FROM payment_intents WHERE job_id=$1 AND provider='flash_wallet' AND status='captured' FOR UPDATE",
+        "SELECT * FROM payment_intents WHERE job_id=$1 AND provider='flash_wallet' AND status IN('captured','partially_refunded') AND captured_amount_cents>0 FOR UPDATE",
         [job.id],
       )
     ).rows[0];
     if (payment) {
-      const wallet = (
-        await client.query(
-          "SELECT id FROM ledger_accounts WHERE owner_type='user' AND owner_id=$1 AND account_type='wallet' FOR UPDATE",
-          [job.customer_id],
-        )
-      ).rows[0];
+      // A quien pagó (PAG-05), no a quien pidió.
+      const wallet = await payerWalletForRefund(client, payment.customer_id, {
+        fallbackUserId: job.customer_id,
+      });
       const clearing = (
         await client.query(
           "SELECT id FROM ledger_accounts WHERE owner_type='platform' AND owner_id IS NULL AND account_type='cash_clearing' FOR UPDATE",
@@ -624,6 +696,12 @@ export async function cancelOrderAndRefundWallet({
       await markHeldTipRefunded(client, job.id);
     }
     const refundAmount = Number(payment?.captured_amount_cents || 0);
+    await notifyPayerRefund(client, {
+      payment,
+      job,
+      amountCents: refundAmount,
+      label: `pedido ${orderPublicId} cancelado`,
+    });
     const cancellation = (
       await client.query(
         `INSERT INTO job_cancellations(public_id,job_id,actor_id,reason_code,reason_detail,refund_amount_cents) VALUES($1,$2,$3,$4,$5,$6) RETURNING public_id`,
@@ -703,21 +781,19 @@ export async function cancelMobilityJobAndRefundWallet({
       });
     const payment = (
       await client.query(
-        "SELECT * FROM payment_intents WHERE job_id=$1 AND provider='flash_wallet' AND status='captured' FOR UPDATE",
+        "SELECT * FROM payment_intents WHERE job_id=$1 AND provider='flash_wallet' AND status IN('captured','partially_refunded') AND captured_amount_cents>0 FOR UPDATE",
         [job.id],
       )
     ).rows[0];
     if (payment) {
-      const wallet = (
-        await client.query(
-          // `NO KEY UPDATE`: las partes de un viaje dividido ya se devolvieron con
-          // asientos que toman un bloqueo compartido de clave foránea sobre esta
-          // billetera, y `FOR UPDATE` choca con él. Dos cancelaciones de viajes
-          // divididos entre las mismas personas se trababan.
-          "SELECT id FROM ledger_accounts WHERE owner_type='user' AND owner_id=$1 AND account_type='wallet' FOR NO KEY UPDATE",
-          [job.customer_id],
-        )
-      ).rows[0];
+      // A quien pagó (PAG-05), no a quien pidió. `NO KEY UPDATE`: las partes de un
+      // viaje dividido ya se devolvieron con asientos que toman un bloqueo compartido
+      // de clave foránea sobre esta billetera, y `FOR UPDATE` choca con él. Dos
+      // cancelaciones de viajes divididos entre las mismas personas se trababan.
+      const wallet = await payerWalletForRefund(client, payment.customer_id, {
+        noKeyUpdate: true,
+        fallbackUserId: job.customer_id,
+      });
       const clearing = (
         await client.query(
           "SELECT id FROM ledger_accounts WHERE owner_type='platform' AND owner_id IS NULL AND account_type='cash_clearing' FOR UPDATE",
@@ -758,6 +834,12 @@ export async function cancelMobilityJobAndRefundWallet({
       );
     }
     const refundAmount = Number(payment?.captured_amount_cents || 0);
+    await notifyPayerRefund(client, {
+      payment,
+      job,
+      amountCents: refundAmount,
+      label: `${kind === "ride" ? "viaje" : "envío"} ${publicId} cancelado`,
+    });
     const cancellation = (
       await client.query(
         `INSERT INTO job_cancellations(public_id,job_id,actor_id,reason_code,reason_detail,refund_amount_cents) VALUES($1,$2,$3,$4,$5,$6) RETURNING public_id`,

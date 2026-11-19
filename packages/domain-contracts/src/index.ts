@@ -411,6 +411,62 @@ export type ReceivedGiftCard = {
   createdAt: string;
 };
 
+/** PAG-05: la etiqueta del medio de pago «Perfil familiar» en pedidos, viajes y envíos. */
+export type FamilyPaymentLabel = "Perfil familiar";
+
+/** PAG-05: una persona del perfil familiar, vista por quien organiza. */
+export type FamilyMember = {
+  id: string;
+  /** Primer nombre; `null` mientras la invitación no se aceptó. */
+  name: string | null;
+  /** El email que escribió quien organiza. */
+  email?: string | null;
+  status: "invited" | "active";
+  /** Tope por mes en pesos; `null` es sin tope. */
+  monthlyLimit: number | null;
+  spentThisMonth: number;
+};
+
+/** PAG-05: un cobro pagado con el perfil familiar. */
+export type FamilyCharge = {
+  jobId: string;
+  service: "order" | "ride" | "shipment";
+  memberName: string;
+  amount: number;
+  /** Lo devuelto a quien organiza por cancelación o reclamo. */
+  refunded: number;
+  /** Estado del servicio: el comprobante está cuando es «completed». */
+  status: string;
+  createdAt: string;
+};
+
+/** PAG-05: el perfil familiar desde el punto de vista de la persona. */
+export type FamilyProfile = {
+  role: "organizer" | "member" | "none";
+  organizer: {
+    id: string;
+    members: FamilyMember[];
+    activeMembers: number;
+    maxMembers: number;
+    /** Lo que se pagó con el perfil: el comprobante de cada cobro, para quien organiza. */
+    charges: FamilyCharge[];
+  } | null;
+  /** Si es miembro: quién paga, su tope y lo que le queda. Nunca el saldo de quien organiza. */
+  membership: {
+    id: string;
+    organizerName: string;
+    monthlyLimit: number | null;
+    spentThisMonth: number;
+    remaining: number | null;
+  } | null;
+  invitations: {
+    id: string;
+    organizerName: string;
+    monthlyLimit: number | null;
+    createdAt: string;
+  }[];
+};
+
 /** SEG-08: la verificación en dos pasos de la cuenta. */
 export type MfaStatus = {
   enabled: boolean;
