@@ -45,6 +45,7 @@ import {
 } from "./MerchantCatalogEditors";
 import { MerchantCashSwitch } from "./MerchantCashSwitch";
 import { MerchantPickupSwitch } from "./MerchantPickupSwitch";
+import { MerchantSetupChecklist, type DestinoPuesta } from "./MerchantSetupChecklist";
 import type {
   AppState,
   MerchantFinance,
@@ -485,6 +486,24 @@ export function MerchantDesktopConsole({
   const [disconnectMfaCode, setDisconnectMfaCode] = useState("");
   // El panel de seguridad de esta misma sección avisa cuando se activa o se apaga.
   const sincronizarMfa = useCallback((mfa: { enabled: boolean }) => setMfaActive(mfa.enabled), []);
+  // FE-05: a dónde lleva un paso de la puesta en marcha. Se guarda y se resuelve
+  // después de dibujar la sección, porque el elemento recién existe ahí.
+  const [destinoPuesta, setDestinoPuesta] = useState<string | null>(null);
+  const irAPaso = useCallback((destino: DestinoPuesta) => {
+    setSection(destino.section);
+    setDestinoPuesta(destino.ancla);
+  }, []);
+  useEffect(() => {
+    if (!destinoPuesta) return;
+    const elemento = document.getElementById(destinoPuesta);
+    if (elemento) {
+      elemento.scrollIntoView({ behavior: "smooth", block: "start" });
+      // El foco va con la vista: con teclado o lector de pantalla, llevar la
+      // pantalla a otro lado sin mover el foco deja a la persona donde estaba.
+      elemento.focus({ preventScroll: true });
+    }
+    setDestinoPuesta(null);
+  }, [destinoPuesta, section]);
   const loadFinance = useCallback(async () => {
     setFinanceLoading(true);
     try {
@@ -697,6 +716,15 @@ export function MerchantDesktopConsole({
             </button>
           )}
         </section>
+        {/* Arriba de todo y en todas las secciones: es lo que separa a un comercio
+            recién aprobado de uno que vende, y cada paso lleva a donde se resuelve. */}
+        <MerchantSetupChecklist
+          restaurant={restaurant}
+          // Cambia cuando Finanzas lee o cambia la verificación o la cuenta de
+          // cobro: así el paso no queda viejo después de resolverlo ahí.
+          revision={`${mfaActive}:${paymentConnection?.status ?? "sin-leer"}`}
+          onGo={irAPaso}
+        />
         <div className="admin-kpis">
           <AdminKpi
             label="Pedidos activos"
@@ -874,7 +902,7 @@ export function MerchantDesktopConsole({
         )}
         {section === "catalog" && (
           <div className="merchant-catalog-grid">
-            <section className="admin-card">
+            <section className="admin-card" id="merchant-products" tabIndex={-1}>
               <AdminSectionHeader title="Productos" action={`${restaurant.menu.length} items`} />
               <div className="merchant-product-table">
                 {restaurant.menu.map((item) => (
@@ -918,9 +946,20 @@ export function MerchantDesktopConsole({
                 ))}
               </div>
             </section>
-            <section className="admin-card merchant-create-product">
+            <section
+              className="admin-card merchant-create-product"
+              id="merchant-new-product"
+              tabIndex={-1}
+            >
               <AdminSectionHeader title="Nuevo producto" action="Alta" />
+              {/* Cada campo con su rótulo y sin valores de ejemplo: lo que se crea es lo
+                  que el comercio escribió. La categoría es obligatoria porque ordena el
+                  menú del cliente y el servidor ya no inventa una. */}
+              <label className="merchant-create-label" htmlFor="merchant-new-product-name">
+                Nombre
+              </label>
               <input
+                id="merchant-new-product-name"
                 value={newDish.name}
                 onChange={(event) =>
                   setNewDish((current) => ({
@@ -928,9 +967,13 @@ export function MerchantDesktopConsole({
                     name: event.target.value,
                   }))
                 }
-                placeholder="Nombre"
+                autoComplete="off"
               />
+              <label className="merchant-create-label" htmlFor="merchant-new-product-description">
+                Descripción (opcional)
+              </label>
               <textarea
+                id="merchant-new-product-description"
                 value={newDish.description}
                 onChange={(event) =>
                   setNewDish((current) => ({
@@ -938,9 +981,12 @@ export function MerchantDesktopConsole({
                     description: event.target.value,
                   }))
                 }
-                placeholder="Descripcion"
               />
+              <label className="merchant-create-label" htmlFor="merchant-new-product-category">
+                Categoría
+              </label>
               <input
+                id="merchant-new-product-category"
                 value={newDish.category}
                 onChange={(event) =>
                   setNewDish((current) => ({
@@ -948,11 +994,18 @@ export function MerchantDesktopConsole({
                     category: event.target.value,
                   }))
                 }
-                placeholder="Categoria"
+                placeholder="Por ejemplo, Pizzas"
+                autoComplete="off"
               />
+              <label className="merchant-create-label" htmlFor="merchant-new-product-price">
+                Precio en pesos
+              </label>
               <input
+                id="merchant-new-product-price"
                 type="number"
-                value={newDish.price}
+                inputMode="decimal"
+                min={1}
+                value={newDish.price || ""}
                 onChange={(event) =>
                   setNewDish((current) => ({
                     ...current,
@@ -962,20 +1015,35 @@ export function MerchantDesktopConsole({
               />
               <button
                 className="primary-button"
-                disabled={busy}
+                disabled={
+                  busy || !newDish.name.trim() || !newDish.category.trim() || !(newDish.price > 0)
+                }
                 onClick={() =>
-                  runAction(() => api.addMenuItem(restaurant.id, newDish), "Producto creado")
+                  runAction(async () => {
+                    await api.addMenuItem(restaurant.id, {
+                      ...newDish,
+                      name: newDish.name.trim(),
+                      description: newDish.description.trim(),
+                      category: newDish.category.trim(),
+                    });
+                    setNewDish({ name: "", description: "", category: "", price: 0 });
+                  }, "Producto creado")
                 }
               >
-                <Plus size={17} /> Crear producto
+                <Plus size={17} aria-hidden="true" /> Crear producto
               </button>
             </section>
           </div>
         )}
         {section === "branches" && (
-          <div className="merchant-branches-grid">
+          <div className="merchant-branches-grid" id="merchant-branches" tabIndex={-1}>
             {(restaurant.branches || []).map((branch) => (
-              <section className="admin-card merchant-branch-card" key={branch.id}>
+              <section
+                className="admin-card merchant-branch-card"
+                key={branch.id}
+                id={`merchant-branch-${branch.id}`}
+                tabIndex={-1}
+              >
                 <div className="branch-card-head">
                   <span className={`branch-pin ${branch.open ? "live" : "paused"}`}>
                     <MapPin size={20} />
@@ -1181,7 +1249,11 @@ export function MerchantDesktopConsole({
         )}
         {section === "finance" && (
           <div className="merchant-finance-grid">
-            <section className="admin-card merchant-payout-history">
+            <section
+              className="admin-card merchant-payout-history"
+              id="merchant-payments"
+              tabIndex={-1}
+            >
               <AdminSectionHeader
                 title="Cobros del marketplace"
                 action={
@@ -1348,7 +1420,9 @@ export function MerchantDesktopConsole({
               </small>
             </section>
             {/* SEG-08: la protección de la cuenta que mueve la plata del comercio. */}
-            <TwoStepVerification onChange={sincronizarMfa} />
+            <div id="merchant-two-step" tabIndex={-1}>
+              <TwoStepVerification onChange={sincronizarMfa} />
+            </div>
             <section className="admin-card">
               <AdminSectionHeader
                 title="Movimientos"

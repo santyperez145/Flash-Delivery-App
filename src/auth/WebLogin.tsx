@@ -5,6 +5,7 @@ import {
   EyeOff,
   Flame,
   LockKeyhole,
+  MapPin,
   ShieldCheck,
   Store,
   UserRound,
@@ -24,6 +25,11 @@ type WebLoginProps = {
   tokenRecuperacion?: string;
   /** Terminó la recuperación abierta por el enlace; `cambiada` si se cambió la contraseña. */
   onRecuperacionTerminada?: (cambiada: boolean) => void;
+  /** `comercio` cuando se llega desde «Sumá tu comercio» (/comercios): el ingreso es el
+   *  paso previo a la solicitud y el texto lo dice. */
+  contexto?: "comercio";
+  /** Abre la postulación de comercios sin recargar la página. */
+  onComercios?: () => void;
 };
 
 const audiences = [
@@ -31,6 +37,14 @@ const audiences = [
   { icon: Store, label: "Comercios", detail: "Cocina, catálogo y ventas" },
   { icon: Bike, label: "Repartidores", detail: "Demanda, tareas y ganancias" },
   { icon: ShieldCheck, label: "Operaciones", detail: "Soporte y control" },
+];
+
+// Lo que sigue al ingreso cuando se viene a sumar un comercio: los mismos tres pasos del
+// formulario, para que nadie cree la cuenta sin saber qué le van a pedir después.
+const pasosComercio = [
+  { icon: Store, label: "Rubro y datos", detail: "Nombre, razón social, CUIT y teléfono" },
+  { icon: MapPin, label: "Dirección", detail: "La ubicación exacta del local" },
+  { icon: ShieldCheck, label: "Revisión", detail: "Operaciones la aprueba antes de publicar" },
 ];
 
 export function WebLogin({
@@ -41,7 +55,11 @@ export function WebLogin({
   onMfa,
   tokenRecuperacion = "",
   onRecuperacionTerminada,
+  contexto,
+  onComercios,
 }: WebLoginProps) {
+  const paraComercio = contexto === "comercio";
+  const tarjetas = paraComercio ? pasosComercio : audiences;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mfaCode, setMfaCode] = useState("");
@@ -75,15 +93,20 @@ export function WebLogin({
           <strong>Flash</strong>
         </div>
         <div className="web-auth-story-copy">
-          <span className="web-auth-eyebrow">Una plataforma conectada</span>
-          <h1>Todo lo que se mueve, bajo control.</h1>
+          <span className="web-auth-eyebrow">
+            {paraComercio ? "Flash para comercios" : "Una plataforma conectada"}
+          </span>
+          <h1>
+            {paraComercio ? "Sumá tu comercio a Flash." : "Todo lo que se mueve, bajo control."}
+          </h1>
           <p>
-            Una sola cuenta para entrar a las herramientas que corresponden a tu rol, con datos y
-            permisos reales.
+            {paraComercio
+              ? "Ingresá o creá tu cuenta para empezar la solicitud. La revisamos antes de publicar tu comercio."
+              : "Una sola cuenta para entrar a las herramientas que corresponden a tu rol, con datos y permisos reales."}
           </p>
         </div>
         <div className="web-auth-audiences">
-          {audiences.map(({ icon: Icon, label, detail }) => (
+          {tarjetas.map(({ icon: Icon, label, detail }) => (
             <article key={label}>
               <span aria-hidden="true">
                 <Icon size={20} />
@@ -95,7 +118,9 @@ export function WebLogin({
             </article>
           ))}
         </div>
-        <small className="web-auth-story-note">Flash Delivery · Acceso por audiencia</small>
+        <small className="web-auth-story-note">
+          {paraComercio ? "Flash para comercios" : "Flash Delivery · Acceso por audiencia"}
+        </small>
       </section>
 
       <section className="web-auth-panel">
@@ -163,12 +188,22 @@ export function WebLogin({
               Acceso protegido
             </div>
             <header>
-              <span>{isMfa ? "Segundo paso" : "Bienvenido"}</span>
-              <h2>{isMfa ? "Verificá tu identidad" : "Ingresá a Flash"}</h2>
+              <span>
+                {isMfa ? "Segundo paso" : paraComercio ? "Sumá tu comercio" : "Bienvenido"}
+              </span>
+              <h2>
+                {isMfa
+                  ? "Verificá tu identidad"
+                  : paraComercio
+                    ? "Ingresá para seguir"
+                    : "Ingresá a Flash"}
+              </h2>
               <p>
                 {isMfa
                   ? "Usá el código de tu autenticador o uno de recuperación."
-                  : "Pedí, viajá y enviá, o entrá a tu panel de comercio u operaciones."}
+                  : paraComercio
+                    ? "Con tu cuenta de Flash, o creá una nueva. Después completás la solicitud."
+                    : "Pedí, viajá y enviá, o entrá a tu panel de comercio u operaciones."}
               </p>
             </header>
 
@@ -256,6 +291,27 @@ export function WebLogin({
                   Creá tu cuenta
                 </button>
               </p>
+            )}
+            {/* FE-05: la entrada a la postulación desde el ingreso. Es un enlace real a
+                /comercios (funciona sin JavaScript de la app y se puede abrir en otra
+                pestaña); con `onComercios` se navega sin recargar. */}
+            {!isMfa && !paraComercio && (
+              <a
+                className="web-auth-partner"
+                href="/comercios"
+                onClick={(event) => {
+                  if (!onComercios || event.metaKey || event.ctrlKey || event.shiftKey) return;
+                  event.preventDefault();
+                  onComercios();
+                }}
+              >
+                <Store size={17} aria-hidden="true" /> ¿Tenés un comercio? Sumalo a Flash
+              </a>
+            )}
+            {!isMfa && paraComercio && (
+              <a className="web-auth-partner" href="/">
+                Volver al inicio de Flash
+              </a>
             )}
             <p className="web-auth-footnote">
               El acceso y los permisos se validan en el servidor para cada cuenta.

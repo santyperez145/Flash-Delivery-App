@@ -220,6 +220,13 @@ export type Restaurant = {
   deliveryFee: number;
   open: boolean;
   manualOpen?: boolean;
+  /** Estado del comercio para operaciones (FE-05). Sólo lo trae el listado de
+   *  `/operations/restaurants`: el catálogo público nunca devuelve un suspendido. */
+  status?: "active" | "suspended";
+  /** Cuándo y por qué operaciones lo suspendió; null si no está suspendido o si la
+   *  base todavía no guarda el dato. Ausente en respuestas que no son de operaciones. */
+  suspendedAt?: string | null;
+  suspensionReason?: string | null;
   image: string;
   cover: string;
   badge: string;
@@ -1016,3 +1023,47 @@ export type ShipmentCreatePayload = {
 
 /** Plan de suscripción ofrecido. Los beneficios vienen del servidor: la pantalla
  *  no puede inventar un umbral ni un porcentaje que la tarifa no vaya a aplicar. */
+
+/** Estado de una solicitud de alta de comercio (FE-05). `needs_changes` es «observada»:
+ *  operaciones pidió cambios y la solicitud sigue abierta. */
+export type MerchantApplicationStatus = "pending" | "needs_changes" | "approved" | "rejected";
+
+/** Solicitud de alta de comercio, tal como la ve quien la presentó. `merchantId` existe
+ *  recién cuando se aprueba: el comercio no se crea antes de la decisión. */
+export type MerchantApplication = {
+  id: string;
+  status: MerchantApplicationStatus;
+  businessName: string;
+  legalName: string;
+  taxId: string;
+  vertical: string;
+  contactPhone: string;
+  address: string;
+  lat: number;
+  lng: number;
+  notes: string | null;
+  decisionReason: string | null;
+  createdAt: string;
+  decidedAt: string | null;
+  merchantId: string | null;
+};
+
+/** La misma solicitud en la cola de operaciones, con quién la presentó. */
+export type AdminMerchantApplication = MerchantApplication & {
+  applicant: { id: string; name: string; email: string };
+};
+
+/** Lo que manda el formulario «Sumá tu comercio». */
+export type MerchantApplicationInput = {
+  businessName: string;
+  legalName: string;
+  taxId: string;
+  vertical: MerchantVertical;
+  contactPhone: string;
+  address: string;
+  lat: number;
+  lng: number;
+  notes?: string;
+};
+
+export type MerchantApplicationDecision = "approve" | "reject" | "needs_changes";

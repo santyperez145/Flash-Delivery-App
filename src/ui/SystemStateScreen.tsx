@@ -1,4 +1,12 @@
-import { ArrowRight, Flame, LogIn, RefreshCw, ShieldCheck, TriangleAlert } from "lucide-react";
+import {
+  ArrowRight,
+  Flame,
+  LogIn,
+  RefreshCw,
+  ShieldCheck,
+  Store,
+  TriangleAlert,
+} from "lucide-react";
 
 import { roleLabel } from "../labels";
 import type { User } from "../types";
@@ -52,7 +60,19 @@ export function SystemStateScreen({
   );
 }
 
-export function DesktopAccessGate({ user, onLogout }: { user: User | null; onLogout: () => void }) {
+export function DesktopAccessGate({
+  user,
+  onLogout,
+  onComercios,
+}: {
+  user: User | null;
+  onLogout: () => void;
+  /** Abre «Sumá tu comercio» sin recargar; sin él, el enlace navega a /comercios. */
+  onComercios?: () => void;
+}) {
+  // Un comercio llega acá sólo si su local no vino en el estado (recién aprobado o un
+  // error al cargarlo): decirle «no tenés comercio» sería falso.
+  const esComercio = Boolean(user?.roles.includes("merchant"));
   return (
     <main className="role-gate-shell">
       <section className="role-gate-card">
@@ -67,13 +87,33 @@ export function DesktopAccessGate({ user, onLogout }: { user: User | null; onLog
         </span>
         <div>
           <small>Acceso por audiencia</small>
-          <h1>Esta cuenta continúa en la app móvil</h1>
+          <h1>Este portal es para comercios y operaciones</h1>
+          {/* FE-05: antes esto era un callejón sin salida («continúa en la app móvil»).
+              Quien llega acá con un comercio ahora puede postularlo; el resto sigue en la
+              app de Flash, donde están pedir, viajar y repartir. */}
           <p>
-            {user?.name || "Tu cuenta"}, este portal web está reservado para operaciones y negocios.
-            Abrí Flash mobile para usar los servicios habilitados para tu cuenta.
+            {user?.name || "Tu cuenta"},{" "}
+            {esComercio
+              ? "no encontramos el comercio de esta cuenta. Si tu solicitud se aprobó hace un momento, recargá la página o revisá su estado."
+              : "esta cuenta todavía no administra un comercio. Si tenés uno, sumalo a Flash desde acá. Para pedir, viajar o repartir, usá la app de Flash."}
           </p>
         </div>
         <div className="role-gate-actions">
+          <a
+            className="role-gate-partner"
+            href="/comercios"
+            onClick={(event) => {
+              if (!onComercios || event.metaKey || event.ctrlKey || event.shiftKey) return;
+              event.preventDefault();
+              onComercios();
+            }}
+          >
+            <span>
+              <Store size={17} aria-hidden="true" />{" "}
+              {esComercio ? "Ver el estado de mi solicitud" : "Sumá tu comercio"}
+            </span>
+            <ArrowRight size={18} aria-hidden="true" />
+          </a>
           <span>
             {user?.roles.map((role) => roleLabel[role]).join(" · ") || "Sin rol operativo"}
           </span>

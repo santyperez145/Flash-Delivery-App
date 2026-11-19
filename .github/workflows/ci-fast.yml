@@ -175,6 +175,8 @@ jobs:
         run: npm run test:web-access-trust
       - name: Nada inventado en web, app y consolas (FE-04)
         run: npm run test:no-invented-data
+      - name: Alta de comercio en las pantallas (FE-05)
+        run: npm run test:merchant-onboarding
 
       # Borrado de cuenta (LAN-001): requisito de Apple y Google para publicar.
       # Vigila que esté ofrecido en web y en las tres apps, y acotado en la base.

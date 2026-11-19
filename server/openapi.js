@@ -1367,6 +1367,9 @@ Object.assign(openApiDocument.paths, {
       tags: ["Operations"],
       operationId: "listOperationsRestaurants",
       summary: "Paginar comercios para backoffice",
+      description:
+        "Incluye los suspendidos. Cada comercio trae status (active o suspended), y suspendedAt y " +
+        "suspensionReason del último evento de auditoría que lo suspendió; null si no hay.",
       security: [{ bearerAuth: [] }],
       parameters: operationsPageParameters,
       responses: {

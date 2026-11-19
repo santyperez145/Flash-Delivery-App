@@ -13,9 +13,23 @@
 // Si una cola que vacía un trabajo programado se llena, falta cron. Si se llena
 // una que atiende una persona, falta gente o falta prioridad. Sin separarlas,
 // las doce se leen igual y ninguna dice qué hacer.
-import { useCallback, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 import { api } from "../api";
+import "../styles/merchant-onboarding.css";
+
+/**
+ * Cómo llega una fila de la cola a la sección que la resuelve (FE-05).
+ *
+ * Va por contexto y no por prop porque el tablero se dibuja dentro del resumen,
+ * que no sabe nada de secciones: la consola es la dueña de la navegación y es
+ * la que dice qué colas tienen a dónde ir. Sin proveedor (o sin destino) la
+ * fila se queda como texto, en lugar de ser un botón que no lleva a nada.
+ */
+export const WorkQueueNavigation = createContext<{
+  destino: (cola: string) => string | null;
+  abrir: (cola: string) => void;
+} | null>(null);
 
 type Cola = {
   key: string;
@@ -49,6 +63,7 @@ export function WorkQueueBoard() {
     generatedAt: string;
   } | null>(null);
   const [error, setError] = useState("");
+  const navegacion = useContext(WorkQueueNavigation);
 
   const cargar = useCallback(async () => {
     try {
@@ -97,20 +112,37 @@ export function WorkQueueBoard() {
       </header>
 
       <ul className="colas-lista">
-        {ordenadas.map((cola) => (
-          <li key={cola.key} className={`cola-fila cola-${cola.severity}`}>
-            <div>
-              <strong>{cola.label}</strong>
-              <small>{ETIQUETA_DUENO[cola.owner]}</small>
-            </div>
-            <span className="cola-cantidad">{cola.pending}</span>
-            {/* La antigüedad se muestra vacía cuando no hay nada esperando, en
+        {ordenadas.map((cola) => {
+          const destino = navegacion?.destino(cola.key) ?? null;
+          return (
+            <li key={cola.key} className={`cola-fila cola-${cola.severity}`}>
+              {destino ? (
+                <button
+                  type="button"
+                  className="cola-ir"
+                  aria-label={`${cola.label}: abrir ${destino}`}
+                  onClick={() => navegacion?.abrir(cola.key)}
+                >
+                  <strong>{cola.label}</strong>
+                  <small>
+                    {ETIQUETA_DUENO[cola.owner]} · se resuelve en {destino}
+                  </small>
+                </button>
+              ) : (
+                <div>
+                  <strong>{cola.label}</strong>
+                  <small>{ETIQUETA_DUENO[cola.owner]}</small>
+                </div>
+              )}
+              <span className="cola-cantidad">{cola.pending}</span>
+              {/* La antigüedad se muestra vacía cuando no hay nada esperando, en
                 lugar de «0 min»: un cero ahí se lee como «recién llegó algo». */}
-            <span className="cola-antiguedad">
-              {cola.pending === 0 ? "—" : antiguedad(cola.oldestMinutes)}
-            </span>
-          </li>
-        ))}
+              <span className="cola-antiguedad">
+                {cola.pending === 0 ? "—" : antiguedad(cola.oldestMinutes)}
+              </span>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

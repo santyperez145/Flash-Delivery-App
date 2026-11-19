@@ -391,7 +391,12 @@ router.post(
     if (!canManageRestaurant(req, restaurant))
       return fail(res, 403, "No podés gestionar este local");
     const { name, description, category, price, kcal, timeMin, image } = req.body || {};
-    if (!name || !price) return fail(res, 400, "Nombre y precio son obligatorios");
+    // La categoría la declara el comercio (FE-05). Antes un producto sin categoría
+    // caía en «Especiales», una sección que el local nunca creó y que además daba
+    // por cumplido el paso «Al menos una categoría» de la puesta en marcha.
+    const declaredCategory = typeof category === "string" ? category.trim() : "";
+    if (!name || !price || !declaredCategory)
+      return fail(res, 400, "Nombre, categoría y precio son obligatorios");
     // Nada inventado: un producto recién creado no tiene calificación (nadie lo
     // pidió todavía), ni calorías, tiempo o foto que el comercio no declaró.
     // Antes se completaba con 4,5 estrellas, 500 kcal, la etiqueta «Nuevo» y la
@@ -403,7 +408,7 @@ router.post(
       id: createId("ITEM"),
       name: String(name),
       description: String(description || ""),
-      category: String(category || "Especiales"),
+      category: declaredCategory,
       price: Math.max(100, Number(price)),
       stock: true,
       ...(Number.isInteger(declaredKcal) && declaredKcal > 0 && { kcal: declaredKcal }),

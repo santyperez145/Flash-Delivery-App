@@ -19,6 +19,7 @@ let fixtureTripCheckId;
 let fixtureFareSplitId;
 let fixtureGiftCardId;
 let fixtureFamilyProfileId;
+let fixtureMerchantApplicationId;
 let fixtureDeliveryCodeJobId;
 let fixturePayoutId;
 let fixtureTipId;
@@ -603,6 +604,18 @@ try {
     "INSERT INTO family_members(public_id,profile_id,invitee_email) VALUES($1,$2,$3)",
     [`FMB-RLS-${Date.now()}`, fixtureFamilyProfileId, `rls-family-${Date.now()}@flash.test`],
   );
+  // FE-05: una solicitud de alta de comercio la ven quien se postuló y operaciones;
+  // nadie más. Rechazada, para no ocupar la única solicitud abierta del cliente.
+  fixtureMerchantApplicationId = (
+    await owner.query(
+      `INSERT INTO merchant_applications(public_id,applicant_id,status,business_name,legal_name,tax_id,vertical,
+         contact_phone,address,location,decision_reason,decided_by,decided_at)
+       VALUES($1,$2,'rejected','Comercio RLS','Prueba RLS','30000000007','restaurant','+541100000000',
+         'Dirección de prueba RLS',ST_SetSRID(ST_MakePoint(-58.38,-34.60),4326)::geography,
+         'Fixture de la prueba RLS',$3,now()) RETURNING id`,
+      [`MAP-RLS-${Date.now()}`, customer.id, admin.id],
+    )
+  ).rows[0].id;
   // SEG-01: un aviso del control del viaje del cliente, para probar que la
   // política discrimina: lo ve quien viaja y nadie más.
   // SEG-03: el código de entrega lo ven quien pidió y quien reparte; nadie más.
@@ -795,6 +808,14 @@ try {
       ])
     ).rows[0].count >= 1,
     "RLS exposes the family profile members to its organizer",
+  );
+  assert(
+    (
+      await client.query("SELECT count(*)::int count FROM merchant_applications WHERE id=$1", [
+        fixtureMerchantApplicationId,
+      ])
+    ).rows[0].count === 1,
+    "RLS exposes the merchant application to the person who applied",
   );
   // Siempre se afirma sobre el pedido de prueba: si ya tenía código, la fila existe
   // igual y el cliente la tiene que ver. Sólo se borra la que se creó acá.
@@ -1022,6 +1043,14 @@ try {
     ).rows[0].count === 0,
     "RLS hides the customer's family profile from a driver",
   );
+  assert(
+    (
+      await client.query("SELECT count(*)::int count FROM merchant_applications WHERE id=$1", [
+        fixtureMerchantApplicationId,
+      ])
+    ).rows[0].count === 0,
+    "RLS hides the customer's merchant application from a driver",
+  );
   // La otra mitad de la politica de `drivers`. Sin esto, la prueba del auditor
   // solo demostraria que la tabla esta cerrada: una politica que niega a todos
   // pasa el test negativo y deja al conductor sin poder verse a si mismo.
@@ -1080,6 +1109,11 @@ try {
   assert(
     (await client.query("SELECT count(*)::int count FROM family_members")).rows[0].count === 0,
     "RLS hides another customer's family profile",
+  );
+  assert(
+    (await client.query("SELECT count(*)::int count FROM merchant_applications")).rows[0].count ===
+      0,
+    "RLS hides another customer's merchant applications",
   );
   assert(
     (await client.query("SELECT count(*)::int count FROM order_delivery_codes")).rows[0].count ===
@@ -1221,6 +1255,10 @@ try {
       [fixtureFamilyProfileId],
     );
   }
+  if (owner && fixtureMerchantApplicationId)
+    await owner.query("DELETE FROM merchant_applications WHERE id=$1", [
+      fixtureMerchantApplicationId,
+    ]);
   if (owner && fixtureGiftCardId)
     await owner.query("DELETE FROM gift_cards WHERE id=$1", [fixtureGiftCardId]);
   if (owner && fixtureFareSplitId)

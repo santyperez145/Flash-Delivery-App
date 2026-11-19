@@ -94,6 +94,14 @@ export const familyProfileLimiter = createLimiter({
   message: "Demasiadas operaciones con el perfil familiar. Intenta más tarde.",
 });
 
+// FE-05: postularse como comercio. Una persona manda una solicitud y, a lo sumo,
+// corrige un dato; el límite corta un barrido de CUIT contra la validación.
+export const merchantApplicationLimiter = createLimiter({
+  max: 20,
+  prefix: "merchant-application",
+  message: "Demasiados intentos de postulación. Probá de nuevo en un rato.",
+});
+
 export const serviceChatLimiter = createLimiter({
   max: 60,
   prefix: "service-chat",

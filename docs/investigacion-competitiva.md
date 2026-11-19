@@ -853,6 +853,26 @@ Flash lo ofrece por sucursal, con vuelto, liquidación en mano y rendición. Det
 - **Brecha:** sin red de cobranza para que el repartidor deposite solo (PAG-03, dueño) y sin
   franja horaria para no aceptar efectivo de noche.
 
+### Decisión 19 de noviembre de 2026 — alta de comercios (FE-05)
+
+Uber Eats deja que un local se postule desde una página pública: datos del negocio, dirección
+y contacto, y después una revisión antes de publicarse
+([Uber Eats para comercios, alta](https://merchants.ubereats.com/us/es/s/signup);
+[requisitos para unirse](https://help.uber.com/en/merchants-and-restaurants/article/cu%C3%A1les-son-los-requisitos-para-unirte-a-uber%C2%A0eats?nodeId=514f1720-55b0-4155-a820-7dc9496ebcf4)).
+De PedidosYa **no se encontró fuente oficial** del formulario de alta; se observa el mismo
+patrón de postularse en la web y esperar el contacto del equipo comercial. Uber (viajes) no
+aplica. Flash no tenía ningún camino: los comercios existían sólo por semillas. Ahora se
+postulan en `/comercios` (rubro, razón social, CUIT con dígito verificador, teléfono y
+dirección geocodificada), operaciones aprueba en «Altas» y la consola guía la puesta en
+marcha con datos reales. Detalle en [`merchant-applications.md`](merchant-applications.md).
+
+- **Por encima de lo publicado:** la aprobación crea el comercio y la sucursal en una
+  transacción y recién ahí otorga el rol; la puesta en marcha se calcula con el estado real
+  del local y no simula la vinculación de cobros.
+- **Brecha:** el CUIT se controla sólo por dígito verificador, sin el padrón de ARCA
+  (tercero); quien recibió «pedir cambios» no puede editar su solicitud todavía; la app móvil
+  no enlaza la postulación.
+
 ### Decisión 19 de noviembre de 2026 — alta y recuperación de la cuenta en la web (FE-03)
 
 Uber crea la cuenta desde el mismo ingreso, en la app o en la web, con email o teléfono y

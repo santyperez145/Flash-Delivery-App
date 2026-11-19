@@ -45,6 +45,36 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
 
+## Avance 19 de noviembre de 2026 — FE-05, alta real de comercio
+
+- **Qué faltaba.** No había ningún camino de producto para crear un comercio: el único alta
+  vivía en una semilla, y con «todo real, nada falso» el catálogo quedaba vacío para siempre.
+- **Cómo quedó.** Quien tiene un local se postula en `/comercios` (web, como Uber Eats): rubro,
+  razón social, CUIT con dígito verificador, teléfono y la dirección geocodificada. Operaciones
+  lo revisa en «Altas» (soporte lee, decide sólo admin) y aprueba, pide cambios o rechaza con
+  motivo. **Aprobar** crea en una transacción, con la solicitud bloqueada, el comercio y su
+  sucursal principal, cerrados y sin horario, y recién ahí el rol `merchant`, con auditoría y
+  aviso. La consola del comercio lo guía con «Puesta en marcha · x de 6», calculada de datos
+  reales. Operaciones ve una sola fila por comercio, suspendidos incluidos, con su motivo y
+  fecha de la auditoría.
+- **Nada inventado, también acá.** El alta de producto ya no arranca con «Menu ejecutivo» a
+  $6900 ni cae en una categoría «Especiales» que el local no creó (web, app y servidor).
+- **Probado de punta a punta en el navegador**, contra PostgreSQL y sin semillas: postulación
+  en `/comercios` con geocodificación real, aprobación desde la cola de «Altas», consola del
+  comercio con «Puesta en marcha», un producto (guardado sin calificación, kcal ni foto) y el
+  horario. La prueba encontró dos defectos, corregidos: **el horario de una sucursal se
+  borraba solo** a los pocos segundos de empezar a cargarlo (la consola se actualiza y el
+  formulario se reiniciaba), y el teléfono de la solicitud quedaba «+54 +54…» si la persona
+  escribía su prefijo. Los controles del horario ahora tienen nombre para lectores de pantalla.
+- **Verificación:** `test:merchant-applications` (nueva, en flujos críticos, falsificada sin el
+  `FOR UPDATE`), `test:postgres`, `test:rls`, `test:runtime-write-scope` y
+  `test:operations-resources` con la **migración 152**; `test:merchant-onboarding` (nueva, en
+  `ci-fast`) vigila las pantallas, falsificada con 21 mutaciones.
+- **Pendiente:** que quien recibió «pedir cambios» edite su solicitud (hoy responde por
+  soporte), el enlace desde el ingreso de la app móvil (no tiene la URL pública de la web) y
+  el control del CUIT contra ARCA. Detalle:
+  [`docs/merchant-applications.md`](docs/merchant-applications.md).
+
 ## Avance 19 de noviembre de 2026 — FE-04, nada inventado
 
 - **Qué se sacó.** Valores fijos que se leían como datos reales, en todas las superficies:

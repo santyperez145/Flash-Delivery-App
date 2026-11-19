@@ -65,7 +65,7 @@ export function MerchantScreen({
   const [newItem, setNewItem] = useState({
     name: "",
     description: "",
-    category: "Especiales",
+    category: "",
     price: "",
   });
   useEffect(() => {
@@ -429,6 +429,7 @@ export function MerchantScreen({
                   value={newItem.name}
                   onChangeText={(value) => setNewItem((current) => ({ ...current, name: value }))}
                   placeholder="Nombre"
+                  accessibilityLabel="Nombre del producto"
                   style={styles.input}
                 />
                 <TextInput
@@ -436,7 +437,8 @@ export function MerchantScreen({
                   onChangeText={(value) =>
                     setNewItem((current) => ({ ...current, description: value }))
                   }
-                  placeholder="Descripcion"
+                  placeholder="Descripción"
+                  accessibilityLabel="Descripción del producto"
                   style={styles.input}
                 />
                 <TextInput
@@ -444,31 +446,38 @@ export function MerchantScreen({
                   onChangeText={(value) =>
                     setNewItem((current) => ({ ...current, category: value }))
                   }
-                  placeholder="Categoria"
+                  placeholder="Categoría (por ejemplo, Pizzas)"
+                  accessibilityLabel="Categoría del producto"
                   style={styles.input}
                 />
                 <TextInput
                   value={newItem.price}
                   onChangeText={(value) => setNewItem((current) => ({ ...current, price: value }))}
                   placeholder="Precio"
+                  accessibilityLabel="Precio en pesos"
                   keyboardType="numeric"
                   style={styles.input}
                 />
                 <ActionButton
                   label="Crear producto"
-                  disabled={busy || !newItem.name.trim() || Number(newItem.price) <= 0}
+                  disabled={
+                    busy ||
+                    !newItem.name.trim() ||
+                    !newItem.category.trim() ||
+                    Number(newItem.price) <= 0
+                  }
                   onPress={() =>
                     runAction(async () => {
                       await api.addMenuItem(restaurant.id, {
                         name: newItem.name.trim(),
                         description: newItem.description.trim(),
-                        category: newItem.category.trim() || "Especiales",
+                        category: newItem.category.trim(),
                         price: Number(newItem.price),
                       });
                       setNewItem({
                         name: "",
                         description: "",
-                        category: "Especiales",
+                        category: "",
                         price: "",
                       });
                     }, "Producto creado")
