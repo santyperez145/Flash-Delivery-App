@@ -72,6 +72,12 @@ const securityCopy = {
     title: "Se usó un código de recuperación",
     body: "Si no fuiste vos, cambiá tu contraseña y escribinos desde Ayuda.",
   },
+  // PAG-04: comprar una tarjeta de regalo es la forma de sacar saldo de una cuenta
+  // robada. El aviso llega en el momento, por push y por email.
+  gift_card_purchased: {
+    title: "Compraste una tarjeta de regalo",
+    body: "Si no fuiste vos, anulala desde tu Wallet y cambiá tu contraseña.",
+  },
 };
 
 export async function notifyMfaChange(userPublicId, event) {

@@ -287,6 +287,7 @@ export function CustomerApp(props: {
           promotions={state.promotions}
           transactions={state.walletTransactions.filter((entry) => entry.userId === user?.id)}
           onTopUp={onTopUpWallet}
+          onWalletChanged={(aviso) => runAction(() => Promise.resolve(), aviso)}
         />
       )}
       {tab === "profile" && (

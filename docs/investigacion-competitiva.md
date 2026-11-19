@@ -834,6 +834,23 @@ Detalle en [`cash-rides.md`](cash-rides.md).
 - **Brecha:** el conductor no puede saldar la deuda pagando; se netea contra sus ganancias.
 - **Brecha:** efectivo en pedidos de comida, que exige que el comercio lo acepte.
 
+### Decisión 19 de noviembre de 2026 — tarjetas de regalo (PAG-04)
+
+Uber vende tarjetas de regalo digitales que se mandan por email con un diseño y un mensaje, y
+deja regalar desde la app. El código se canjea en la Wallet y suma Uber Cash. Las de Uber no se
+devuelven ni se cambian por dinero, y su vencimiento depende del país
+([Uber, tarjetas de regalo](https://www.uber.com/nz/en/gift-cards/);
+[Uber India](https://www.uber.com/en-IN/blog/uber-india-gift-cards)). PedidosYa vende tarjetas
+por revendedores en algunos países, y se canjean como cupón
+([Bitrefill, PedidosYa Costa Rica](https://www.bitrefill.com/cr/zh-Hans/gift-cards/pedidosya-costa-rica/)).
+Flash las vende con el saldo de la Wallet, por código o dirigidas a una cuenta. Detalle en
+[`gift-cards.md`](gift-cards.md).
+
+- **Por encima de lo publicado:** no vencen, quien compró la anula mientras nadie la canjeó,
+  la dirigida a una cuenta se canjea sin código, y comprar pide el segundo factor y se avisa
+  por push y email.
+- **Brecha:** se compran sólo con saldo de Wallet, sin venta en comercios ni diseños.
+
 ### Decisión 19 de noviembre de 2026 — verificación en dos pasos (SEG-08)
 
 Uber deja activar la verificación en dos pasos en cualquier cuenta, con código por SMS o de una

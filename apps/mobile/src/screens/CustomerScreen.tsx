@@ -1258,6 +1258,7 @@ export function CustomerScreen({
           busy={busy}
           runAction={runAction}
           onLogout={onLogout}
+          onWalletChanged={() => void refresh()}
           dietaryPreferences={dietaryPreferences}
           setDietaryPreferences={setDietaryPreferences}
           onUseAddress={(address, point) => {
