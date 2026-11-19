@@ -1,7 +1,8 @@
-import { ShoppingBag, Star, X } from "lucide-react";
+import { ShoppingBag, X } from "lucide-react";
 
 import { money } from "../format";
 import type { MenuItem, Restaurant } from "../types";
+import { DishPhoto, MerchantRating } from "./FoodCatalogComponents";
 import { QuantityCounter } from "./QuantityCounter";
 
 export function ItemSheet({
@@ -44,19 +45,19 @@ export function ItemSheet({
           <X size={16} />
         </button>
         <div className="sheet-hero">
-          <img src={item.image} alt={item.name} />
+          <DishPhoto item={item} size={92} />
           <div>
             <span>{restaurant.name}</span>
             <h2>{item.name}</h2>
             <p>{item.description}</p>
           </div>
         </div>
+        {/* La calificación es del local, no del plato; calorías y minutos sólo
+            si el comercio los declaró. */}
         <div className="sheet-stats">
-          <span>
-            <Star size={13} /> {item.rating}
-          </span>
-          <span>{item.kcal} kcal</span>
-          <span>{item.timeMin} min</span>
+          <MerchantRating restaurant={restaurant} />
+          {item.kcal ? <span>{item.kcal} kcal</span> : null}
+          {item.timeMin ? <span>{item.timeMin} min</span> : null}
         </div>
         <div className="extras-list">
           <strong>Extras</strong>

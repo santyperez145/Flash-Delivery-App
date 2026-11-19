@@ -7,47 +7,55 @@ import { ReceiptText } from "lucide-react";
 
 import { money } from "../format";
 import { AdminKpi, AdminSectionHeader } from "../ui/panels";
-import type { AppState, Order, Ride } from "../types";
+import type { AdminDashboard, AppState, Order, Ride } from "../types";
 import { PayoutReviewPanel, TipAdjustmentPanel } from "./AdminFinancePanels";
+import { LedgerUnavailable, grossVolumePeriod } from "./AdminOverviewBoards";
 
 export function AdminFinanceOverview({
   state,
-  grossVolume,
-  platformRevenue,
-  takeRatePercent,
+  dashboard,
   cancellationCount,
   currentUserId,
 }: {
   state: AppState;
-  grossVolume: number;
-  platformRevenue: number;
-  takeRatePercent: number;
+  dashboard: AdminDashboard | null;
   cancellationCount: number;
   currentUserId: string;
 }) {
   const recent: Array<Order | Ride> = [...state.orders.slice(0, 4), ...state.rides.slice(0, 4)];
+  // El saldo de Wallet de clientes suma sólo cuentas con rol de cliente. Antes
+  // sumaba a todos los usuarios, y un conductor o un comercio con saldo propio
+  // inflaba un número que dice «clientes».
+  const customerWallet = state.users
+    .filter((user) => user.roles.includes("customer"))
+    .reduce((sum, user) => sum + user.wallet, 0);
+  const marketplace = dashboard?.marketplace;
 
   return (
     <div className="admin-grid">
       <section className="admin-card">
-        <AdminSectionHeader title="Finanzas y conciliacion" action="Ledger PostgreSQL" />
+        <AdminSectionHeader title="Finanzas y conciliación" action="Ledger PostgreSQL" />
         <div className="admin-kpis finance">
+          {/* GMV e ingreso salen sólo del tablero, con su período dicho. Sin
+              tablero, «—»: un $0 se leería como que no se vendió nada. */}
           <AdminKpi
-            label="GMV total"
-            value={money.format(grossVolume)}
-            detail="Pedidos + viajes"
+            label="GMV"
+            value={marketplace ? money.format(marketplace.grossVolume) : "—"}
+            detail={dashboard ? grossVolumePeriod(dashboard) : "Sin lectura del ledger"}
             tone="orange"
           />
           <AdminKpi
             label="Ingreso plataforma"
-            value={money.format(platformRevenue)}
-            detail={`${takeRatePercent}% registrado`}
+            value={marketplace ? money.format(marketplace.estimatedPlatformRevenue) : "—"}
+            detail={
+              marketplace ? `${marketplace.takeRatePercent}% registrado` : "Sin lectura del ledger"
+            }
             tone="green"
           />
           <AdminKpi
             label="Wallet clientes"
-            value={money.format(state.users.reduce((sum, user) => sum + user.wallet, 0))}
-            detail="Saldo total"
+            value={money.format(customerWallet)}
+            detail="Saldo de cuentas con rol de cliente"
             tone="teal"
           />
           <AdminKpi
@@ -57,6 +65,7 @@ export function AdminFinanceOverview({
             tone="dark"
           />
         </div>
+        {!dashboard && <LedgerUnavailable />}
         <div className="admin-table">
           {recent.map((entry) => (
             <article className="admin-row compact" key={entry.id}>

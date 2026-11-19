@@ -29,7 +29,9 @@ export function DriverAccountPanel({
 }) {
   const [compliance, setCompliance] = useState<DriverCompliance | null>(null);
   const [documentType, setDocumentType] = useState<DriverDocument["type"]>("identity");
-  const [documentExpiry, setDocumentExpiry] = useState("2099-12-31");
+  // FE-04: el vencimiento arranca vacío. Un valor precargado (antes 2099-12-31) mandaba a
+  // revisión una fecha que nadie leyó del documento y que lo daba por vigente para siempre.
+  const [documentExpiry, setDocumentExpiry] = useState("");
   const [documentUploading, setDocumentUploading] = useState(false);
   const [vehicleBusy, setVehicleBusy] = useState(false);
   const [driverPreferenceBusy, setDriverPreferenceBusy] = useState(false);
@@ -106,6 +108,18 @@ export function DriverAccountPanel({
   };
 
   const pickComplianceDocument = async () => {
+    const needsExpiry = ["driver_license", "vehicle_registration", "insurance"].includes(
+      documentType,
+    );
+    // Se valida antes de abrir el selector: elegir el archivo y recién ahí enterarse de que
+    // falta la fecha obliga a repetir el paso.
+    if (needsExpiry) {
+      const expiryError = documentExpiryError(documentExpiry);
+      if (expiryError) {
+        Alert.alert("Falta el vencimiento", expiryError);
+        return;
+      }
+    }
     const result = await DocumentPicker.getDocumentAsync({
       type: ["image/jpeg", "image/png", "application/pdf"],
       copyToCacheDirectory: true,
@@ -130,9 +144,7 @@ export function DriverAccountPanel({
         type: documentType,
         mimeType,
         contentBase64,
-        expiresAt: ["driver_license", "vehicle_registration", "insurance"].includes(documentType)
-          ? documentExpiry
-          : null,
+        expiresAt: needsExpiry ? documentExpiry.trim() : null,
       });
       await loadCompliance();
       Alert.alert("Flash", "Documento cifrado y enviado a revisión");
@@ -324,7 +336,10 @@ export function DriverAccountPanel({
             style={styles.input}
             value={documentExpiry}
             onChangeText={setDocumentExpiry}
-            placeholder="Vencimiento AAAA-MM-DD"
+            placeholder="Vencimiento AAAA-MM-DD (obligatorio)"
+            accessibilityLabel="Fecha de vencimiento del documento, obligatoria"
+            keyboardType="numbers-and-punctuation"
+            autoCorrect={false}
           />
         )}
         <Pressable
@@ -505,4 +520,25 @@ export function DriverAccountPanel({
       </View>
     </>
   );
+}
+
+// Devuelve el motivo por el que la fecha no sirve, o null si es una fecha futura válida.
+// Se compara contra hoy en la hora local: un documento que vence hoy ya no habilita mañana.
+function documentExpiryError(value: string): string | null {
+  const text = value.trim();
+  if (!text) return "Cargá la fecha de vencimiento que figura en el documento.";
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+  if (!match) return "Escribí la fecha como AAAA-MM-DD, por ejemplo 2027-03-15.";
+  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  const date = new Date(year, month - 1, day);
+  // `Date` corrige solo un 31 de febrero al 3 de marzo; si cambió, la fecha no existe.
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return "Esa fecha no existe. Revisá el día y el mes.";
+  }
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (date <= today) {
+    return "El vencimiento tiene que ser posterior a hoy. Si el documento venció, subí uno vigente.";
+  }
+  return null;
 }

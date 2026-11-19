@@ -484,104 +484,79 @@ img {
   white-space: nowrap;
 }
 
-.dispatch-map,
-.control-map,
+/* El panel de marca y la consola de operaciones mostraban las zonas sobre una
+   grilla con tres pines fijos: parecía un mapa en vivo y no representaba nada.
+   Ahora son una lista con lo que la plataforma sabe de cada zona. La grilla
+   queda sólo en `.ride-map`, que es el contenedor de un mapa real. */
 .ride-map {
   position: relative;
   overflow: hidden;
-  background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
-    linear-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px),
-    linear-gradient(135deg, rgba(21, 166, 106, 0.22), rgba(18, 161, 167, 0.14));
-  background-size:
-    44px 44px,
-    44px 44px,
-    auto;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-}
-
-.dispatch-map {
-  height: 310px;
-  margin-top: 24px;
-}
-
-.control-map,
-.ride-map {
   height: 248px;
   margin: 12px 0;
   background:
     linear-gradient(90deg, #e8edf3 1px, transparent 1px),
     linear-gradient(#e8edf3 1px, transparent 1px), #f9fbfd;
   background-size: 42px 42px;
-  border-color: var(--line);
-}
-
-.control-map {
-  height: 210px;
-}
-
-.zone {
-  position: absolute;
-  display: grid;
-  place-items: center;
-  color: rgba(255, 255, 255, 0.84);
-  font-size: 0.78rem;
-  font-weight: 900;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--line);
   border-radius: 8px;
 }
 
-.zone-one {
-  inset: 28px auto auto 24px;
-  width: 130px;
-  height: 92px;
-  background: rgba(244, 81, 30, 0.34);
+.dispatch-map,
+.control-map {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  list-style: none;
 }
 
-.zone-two {
-  right: 28px;
-  bottom: 52px;
-  width: 145px;
-  height: 106px;
-  background: rgba(18, 161, 167, 0.28);
+.dispatch-map {
+  margin: 24px 0 0;
 }
 
-.zone-three {
-  left: 72px;
-  bottom: 34px;
-  width: 118px;
-  height: 82px;
-  background: rgba(255, 204, 28, 0.2);
+.control-map {
+  margin: 12px 0;
+}
+
+.zone {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  font-size: 0.78rem;
+  border-radius: 8px;
+}
+
+.dispatch-map .zone {
+  color: rgba(255, 255, 255, 0.84);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .control-map .zone {
+  color: var(--ink-soft);
+  background: var(--paper);
+  border: 1px solid var(--line);
+}
+
+.zone strong {
+  font-weight: 900;
+}
+
+.dispatch-map .zone strong {
   color: #fff;
 }
 
-.pin {
-  position: absolute;
-  width: 14px;
-  height: 14px;
-  background: var(--accent);
-  border: 3px solid #fff;
-  border-radius: 50%;
-  box-shadow: 0 0 0 8px rgba(244, 81, 30, 0.15);
+.control-map .zone strong {
+  color: var(--ink);
 }
 
-.pin-a {
-  top: 52%;
-  left: 47%;
+.dispatch-map-empty {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.82rem;
 }
 
-.pin-b {
-  top: 26%;
-  right: 24%;
-}
-
-.pin-c {
-  bottom: 18%;
-  left: 24%;
+.control-map-empty {
+  color: var(--ink-soft);
+  font-size: 0.82rem;
 }
 
 .phone-stage {

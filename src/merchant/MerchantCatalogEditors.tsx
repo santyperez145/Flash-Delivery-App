@@ -20,36 +20,39 @@ export function BranchScheduleEditor({
   busy: boolean;
   runAction: (action: () => Promise<unknown>, success: string) => void;
 }) {
-  const defaultHours = Array.from(
-    { length: 7 },
-    (_, weekday) =>
-      branch.weeklyHours?.find((hour) => hour.weekday === weekday) || {
-        weekday,
-        opensAt: "09:00",
-        closesAt: "23:00",
-        enabled: true,
-      },
-  );
-  const [hours, setHours] = useState(defaultHours),
+  // Un día sin horario cargado arranca apagado y sin horas. Antes se precargaba
+  // 09:00 a 23:00, y la consola mostraba como horario de la sucursal uno que el
+  // comercio nunca eligió; con un clic en «Guardar» quedaba como real.
+  const loadedHours = () =>
+    Array.from(
+      { length: 7 },
+      (_, weekday) =>
+        branch.weeklyHours?.find((hour) => hour.weekday === weekday) || {
+          weekday,
+          opensAt: "",
+          closesAt: "",
+          enabled: false,
+        },
+    );
+  const hasSchedule = Boolean(branch.weeklyHours?.length);
+  const [hours, setHours] = useState(loadedHours),
     [timezone, setTimezone] = useState(branch.timezone || "America/Argentina/Buenos_Aires"),
     [exceptionDate, setExceptionDate] = useState(""),
     [exceptionOpen, setExceptionOpen] = useState(false),
     [exceptionReason, setExceptionReason] = useState("");
   useEffect(() => {
-    setHours(
-      Array.from(
-        { length: 7 },
-        (_, weekday) =>
-          branch.weeklyHours?.find((hour) => hour.weekday === weekday) || {
-            weekday,
-            opensAt: "09:00",
-            closesAt: "23:00",
-            enabled: true,
-          },
-      ),
-    );
+    setHours(loadedHours());
     setTimezone(branch.timezone || "America/Argentina/Buenos_Aires");
+    // `loadedHours` sólo lee `branch.weeklyHours`, que ya está en la lista.
   }, [branch.id, branch.timezone, branch.weeklyHours]);
+  // Un día prendido necesita sus dos horas; uno apagado no abre, así que sus horas
+  // no importan y viajan como 00:00 sólo porque la API pide los siete días.
+  const incompleteDay = hours.some((hour) => hour.enabled && (!hour.opensAt || !hour.closesAt));
+  const hoursToSave = hours.map((hour) =>
+    hour.enabled
+      ? hour
+      : { ...hour, opensAt: hour.opensAt || "00:00", closesAt: hour.closesAt || "00:00" },
+  );
   const dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
   const change = (
     weekday: number,
@@ -65,18 +68,21 @@ export function BranchScheduleEditor({
         <div>
           <strong>Horario automático</strong>
           <small>
-            {branch.open ? "Abierta ahora" : "Cerrada ahora"} · {timezone}
+            {hasSchedule
+              ? `${branch.open ? "Abierta ahora" : "Cerrada ahora"} · ${timezone}`
+              : "Esta sucursal todavía no tiene horario"}
           </small>
+          {incompleteDay && <small>Completá la apertura y el cierre de cada día prendido.</small>}
         </div>
         <button
           className="secondary-button"
-          disabled={busy}
+          disabled={busy || incompleteDay}
           onClick={() =>
             runAction(
               () =>
                 api.replaceBranchSchedule(restaurantId, branch.id, {
                   timezone,
-                  hours,
+                  hours: hoursToSave,
                 }),
               "Horario semanal guardado",
             )

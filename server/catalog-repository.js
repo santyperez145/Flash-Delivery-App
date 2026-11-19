@@ -14,17 +14,25 @@
 import { postgresPool } from "./postgres.js";
 import { pesos } from "./money.js";
 
+// Un dato que el comercio no declaró viaja como null, nunca como 0: un 0 se
+// lee como «0 kcal» o «listo en 0 min», que es un dato inventado.
+const declaredPositive = (value) => {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
+};
+
 export function mapCatalogItem(row) {
   const metadata = row.item_metadata || row.metadata || {};
+  // Sin calificación por plato: Flash califica el pedido y el local, no cada
+  // producto, así que una estrella por plato no tendría de dónde salir.
   return {
     id: row.item_public_id || row.public_id,
     name: row.item_name || row.name,
     description: row.description || "",
     category: row.category,
     price: pesos(row.unit_price_cents),
-    rating: Number(metadata.rating || 0),
-    timeMin: Number(metadata.timeMin || 0),
-    kcal: Number(metadata.kcal || 0),
+    timeMin: declaredPositive(metadata.timeMin),
+    kcal: declaredPositive(metadata.kcal),
     stock: Boolean(row.available),
     image: metadata.image || "",
     tags: metadata.tags || [],
@@ -49,6 +57,7 @@ export async function getPostgresRestaurants({ publicIds = null, ownerPublicId =
     SELECT m.id, m.public_id, m.owner_id, owner.public_id AS owner_public_id,
       m.name, m.vertical, COALESCE(branch.address,m.address) address, CASE WHEN branch.id IS NULL THEN m.open ELSE branch.open AND branch.status='active' AND app.branch_is_scheduled_open(branch.id,now()) END open, COALESCE(branch.open,m.open) manual_open, COALESCE(branch.eta_min,m.eta_min) eta_min, m.delivery_fee_cents, m.metadata,
       (SELECT round(avg(r.score),2) FROM ratings r WHERE r.subject_type='merchant' AND r.subject_id=m.id) AS merchant_rating,
+      (SELECT count(*)::int FROM ratings r WHERE r.subject_type='merchant' AND r.subject_id=m.id) AS merchant_rating_count,
       ST_Y(COALESCE(branch.location,m.location)::geometry) AS lat, ST_X(COALESCE(branch.location,m.location)::geometry) AS lng,
       ci.public_id AS item_public_id, ci.name AS item_name, ci.description,
        ci.category, ci.unit_price_cents, COALESCE(inventory.available,ci.available) available, ci.metadata AS item_metadata,
@@ -256,7 +265,11 @@ export async function getPostgresRestaurants({ publicIds = null, ownerPublicId =
         name: row.name,
         vertical: row.vertical,
         cuisine: metadata.cuisine || "Comercio",
-        rating: Number(row.merchant_rating ?? metadata.rating ?? 0),
+        // Sólo de calificaciones reales. `metadata.rating` era un número fijo
+        // cargado al dar de alta el local; un local sin opiniones no tiene
+        // promedio, y la interfaz lo muestra como «Nuevo».
+        rating: row.merchant_rating == null ? null : Number(row.merchant_rating),
+        ratingCount: Number(row.merchant_rating_count || 0),
         distanceKm: Number(metadata.distanceKm || 0),
         etaMin: row.eta_min,
         deliveryFee: pesos(row.delivery_fee_cents),
@@ -284,6 +297,7 @@ const publicRestaurant = (restaurant) => ({
   vertical: restaurant.vertical,
   cuisine: restaurant.cuisine,
   rating: restaurant.rating,
+  ratingCount: restaurant.ratingCount,
   distanceKm: restaurant.distanceKm,
   etaMin: restaurant.etaMin,
   deliveryFee: restaurant.deliveryFee,
@@ -452,12 +466,12 @@ export async function createPostgresMenuItem(merchantPublicId, item) {
       item.description,
       item.category,
       Math.round(item.price * 100),
+      // Sólo lo que el comercio declaró. Sin calificación, etiquetas ni foto
+      // prestada del local: la migración 151 limpió los que se guardaban así.
       {
-        rating: item.rating,
-        timeMin: item.timeMin,
-        kcal: item.kcal,
-        image: item.image,
-        tags: item.tags,
+        ...(item.timeMin != null && { timeMin: item.timeMin }),
+        ...(item.kcal != null && { kcal: item.kcal }),
+        ...(item.image && { image: item.image }),
       },
     ],
   );

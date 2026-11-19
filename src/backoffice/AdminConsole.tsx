@@ -89,17 +89,16 @@ export function SuperAdminConsole({
   const activeRides = state.rides.filter(
     (ride) => !["completed", "cancelled"].includes(ride.status),
   );
-  const grossVolume = [
-    ...state.orders.map((order) => order.total),
-    ...state.rides.map((ride) => ride.fare),
-  ].reduce((sum, value) => sum + value, 0);
   const cancellationCount =
     state.orders.filter((order) => order.status === "cancelled").length +
     state.rides.filter((ride) => ride.status === "cancelled").length;
   const marketplace = dashboard?.marketplace;
-  const investor = dashboard?.investor;
-  const platformRevenue = marketplace?.estimatedPlatformRevenue ?? 0;
-  const readinessScore = investor?.readinessScore ?? 0;
+  // El volumen sale sólo del tablero, que lo lee del ledger. Antes se sumaba
+  // acá cada pedido y viaje del estado cargado, cancelados incluidos: una cifra
+  // distinta a la del ledger y más alta que lo realmente vendido. Sin tablero
+  // no hay cifra (null), y cada panel muestra su estado vacío en lugar de $0.
+  const grossVolume = marketplace?.grossVolume ?? null;
+  const platformRevenue = marketplace?.estimatedPlatformRevenue ?? null;
   const nav = [
     ["overview", "Resumen", LineChart],
     ["dispatch", "Dispatch", LocateFixed],
@@ -189,7 +188,6 @@ export function SuperAdminConsole({
             dashboard={dashboard}
             grossVolume={grossVolume}
             platformRevenue={platformRevenue}
-            readinessScore={readinessScore}
             cancellationCount={cancellationCount}
             activeOrders={activeOrders}
             activeRides={activeRides}
@@ -219,9 +217,7 @@ export function SuperAdminConsole({
         {section === "finance" && (
           <AdminFinanceOverview
             state={state}
-            grossVolume={grossVolume}
-            platformRevenue={platformRevenue}
-            takeRatePercent={marketplace?.takeRatePercent ?? 0}
+            dashboard={dashboard}
             cancellationCount={cancellationCount}
             currentUserId={currentUserId}
           />
@@ -233,7 +229,6 @@ export function SuperAdminConsole({
             dashboard={dashboard}
             grossVolume={grossVolume}
             platformRevenue={platformRevenue}
-            readinessScore={readinessScore}
           />
         )}
 

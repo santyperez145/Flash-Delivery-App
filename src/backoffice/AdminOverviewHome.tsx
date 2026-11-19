@@ -7,7 +7,13 @@ import { money } from "../format";
 import { AdminKpi, AdminSectionHeader } from "../ui/panels";
 import type { AdminDashboard, AppState, Order, Ride } from "../types";
 import { WorkQueueBoard } from "./WorkQueueBoard";
-import { AdminLiveGrid, InvestorPulse, MarketplaceHealth, ZoneBoard } from "./AdminOverviewBoards";
+import {
+  AdminLiveGrid,
+  InvestorPulse,
+  MarketplaceHealth,
+  ZoneBoard,
+  grossVolumePeriod,
+} from "./AdminOverviewBoards";
 
 type RunAction = (action: () => Promise<unknown>, success: string) => void;
 
@@ -16,7 +22,6 @@ export function AdminOverviewHome({
   dashboard,
   grossVolume,
   platformRevenue,
-  readinessScore,
   cancellationCount,
   activeOrders,
   activeRides,
@@ -25,17 +30,15 @@ export function AdminOverviewHome({
 }: {
   state: AppState;
   dashboard: AdminDashboard | null;
-  grossVolume: number;
-  platformRevenue: number;
-  readinessScore: number;
+  /** null sin tablero: no hay cifra que mostrar, y cada tarjeta lo dice. */
+  grossVolume: number | null;
+  platformRevenue: number | null;
   cancellationCount: number;
   activeOrders: Order[];
   activeRides: Ride[];
   busy: boolean;
   runAction: RunAction;
 }) {
-  const marketplace = dashboard?.marketplace;
-
   return (
     <>
       {/* Primero de todo en la vista general: es la única pantalla que
@@ -46,13 +49,18 @@ export function AdminOverviewHome({
         <AdminKpi
           label="Pedidos activos"
           value={state.metrics.activeOrders}
-          detail={`${state.metrics.avgOrderEta}m ETA`}
+          // Sin nada activo el servidor devuelve 0, que no es un promedio.
+          detail={
+            state.metrics.activeOrders ? `${state.metrics.avgOrderEta}m ETA` : "Sin pedidos activos"
+          }
           tone="orange"
         />
         <AdminKpi
           label="Viajes activos"
           value={state.metrics.activeRides}
-          detail={`${state.metrics.avgRideEta}m pickup`}
+          detail={
+            state.metrics.activeRides ? `${state.metrics.avgRideEta}m pickup` : "Sin viajes activos"
+          }
           tone="teal"
         />
         <AdminKpi
@@ -63,13 +71,23 @@ export function AdminOverviewHome({
         />
         <AdminKpi
           label="GMV registrado"
-          value={money.format(marketplace?.grossVolume ?? grossVolume)}
-          detail={`Revenue posteado ${money.format(platformRevenue)}`}
+          // FE-04: sin tablero, «—» y no $0, que se leería como «no se vendió nada».
+          value={grossVolume === null ? "—" : money.format(grossVolume)}
+          detail={
+            platformRevenue === null
+              ? "Sin lectura del ledger"
+              : `Revenue posteado ${money.format(platformRevenue)}`
+          }
           tone="dark"
         />
       </div>
       <section className="admin-card">
-        <AdminSectionHeader title="Investor pulse" action={`${readinessScore}/100 readiness`} />
+        {/* Sin el puntaje de «readiness»: parte de una constante del servidor y no
+            mide nada verificable (ver AdminInvestorPanels). */}
+        <AdminSectionHeader
+          title="Investor pulse"
+          action={dashboard ? grossVolumePeriod(dashboard) : "Sin lectura"}
+        />
         <InvestorPulse
           dashboard={dashboard}
           grossVolume={grossVolume}

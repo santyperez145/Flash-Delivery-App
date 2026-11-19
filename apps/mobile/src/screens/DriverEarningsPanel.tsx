@@ -8,41 +8,63 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
-import { api } from "../api";
+import { api, type DriverProfile } from "../api";
 import { compactMoney, money, operationalDuration } from "../format";
 import { styles } from "../styles";
 import { KpiRow } from "../ui";
 import type { DriverEarnings } from "../types";
 
+// FE-04: la calificación sólo se muestra si alguien calificó. Sin calificaciones,
+// `drivers.rating` es el 5 con que arranca todo perfil y presentarlo como nota sería
+// inventarla; sin el conteo (cargando, error o servidor viejo) no se sabe, y va «—».
+export function driverRatingLabel(
+  driver: Pick<DriverProfile, "rating" | "ratingCount"> | null,
+): string {
+  if (!driver || driver.ratingCount == null || !Number.isFinite(driver.ratingCount)) return "—";
+  if (driver.ratingCount <= 0) return "Todavía no te calificaron";
+  if (!Number.isFinite(driver.rating)) return "—";
+  return driver.rating.toFixed(2).replace(".", ",");
+}
+
 export function DriverEarningsPanel({
   driverId,
   fallbackEarningsToday,
-  rating,
   cashDebt,
 }: {
   driverId: string;
   fallbackEarningsToday: number;
-  rating: number;
+  /**
+   * Ya no se usa: el panel lee su propio perfil para saber cuántas calificaciones hay.
+   * Queda opcional mientras `DriverScreen` lo siga pasando.
+   */
+  rating?: number;
   /** PAG-01: efectivo cobrado que todavía no se rindió, en pesos. */
   cashDebt?: number;
 }) {
   const [driverEarnings, setDriverEarnings] = useState<DriverEarnings | null>(null);
   const [driverEarningsLoading, setDriverEarningsLoading] = useState(false);
   const [driverEarningsError, setDriverEarningsError] = useState("");
+  const [driverProfile, setDriverProfile] = useState<DriverProfile | null>(null);
   const [selectedDriverDay, setSelectedDriverDay] = useState<string | null>(null);
 
   const loadDriverEarnings = useCallback(async () => {
     setDriverEarningsLoading(true);
     setDriverEarningsError("");
-    try {
-      setDriverEarnings((await api.getDriverEarnings()).earnings);
-    } catch (error) {
+    // El perfil viaja aparte de las ganancias: si falla, la nota queda en «—» sin tapar
+    // el ledger, y si falla el ledger la nota real se sigue viendo.
+    const [earnings, profile] = await Promise.allSettled([
+      api.getDriverEarnings(),
+      api.getCurrentDriver(),
+    ]);
+    if (earnings.status === "fulfilled") setDriverEarnings(earnings.value.earnings);
+    else
       setDriverEarningsError(
-        error instanceof Error ? error.message : "No se pudieron cargar las ganancias",
+        earnings.reason instanceof Error
+          ? earnings.reason.message
+          : "No se pudieron cargar las ganancias",
       );
-    } finally {
-      setDriverEarningsLoading(false);
-    }
+    setDriverProfile(profile.status === "fulfilled" ? profile.value.driver : null);
+    setDriverEarningsLoading(false);
   }, [driverId]);
 
   useEffect(() => {
@@ -99,17 +121,18 @@ export function DriverEarningsPanel({
       <View style={styles.driverPeriodGrid}>
         <View style={styles.driverPeriodCard}>
           <Text style={styles.driverPeriodLabel}>ESTA SEMANA</Text>
+          {/* FE-04: sin el ledger leído no hay cifra; un $ 0 se leería como «no gané nada». */}
           <Text style={styles.driverPeriodValue}>
-            {money.format(driverEarnings?.week.amount ?? 0)}
+            {driverEarnings ? money.format(driverEarnings.week.amount) : "—"}
           </Text>
           <Text style={styles.driverPeriodMeta}>
-            {driverEarnings?.week.services ?? 0} servicios
+            {driverEarnings ? `${driverEarnings.week.services} servicios` : "— servicios"}
           </Text>
         </View>
         <View style={styles.driverPeriodCard}>
           <Text style={styles.driverPeriodLabel}>SALDO WALLET</Text>
           <Text style={styles.driverPeriodValue}>
-            {money.format(driverEarnings?.walletBalance ?? 0)}
+            {driverEarnings ? money.format(driverEarnings.walletBalance) : "—"}
           </Text>
           <Text style={styles.driverPeriodMeta}>retiro aún no habilitado</Text>
         </View>
@@ -332,10 +355,10 @@ export function DriverEarningsPanel({
       ) : null}
       <KpiRow
         items={[
-          ["Servicios", driverEarnings?.today.services ?? 0],
-          ["Propinas", money.format(driverEarnings?.today.tips ?? 0)],
-          ["Ajustes", money.format(driverEarnings?.today.adjustments ?? 0)],
-          ["Rating", rating],
+          ["Servicios", driverEarnings ? driverEarnings.today.services : "—"],
+          ["Propinas", driverEarnings ? money.format(driverEarnings.today.tips) : "—"],
+          ["Ajustes", driverEarnings ? money.format(driverEarnings.today.adjustments) : "—"],
+          ["Rating", driverRatingLabel(driverProfile)],
         ]}
       />
       <View style={styles.complianceCard}>

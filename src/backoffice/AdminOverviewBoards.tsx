@@ -4,8 +4,7 @@
 // Salen de AdminConsole porque son presentación del dashboard, no orquestación
 // de secciones.
 
-import { Car, ShoppingBag, ShieldCheck } from "lucide-react";
-import type { CSSProperties } from "react";
+import { Car, RefreshCw, ShoppingBag } from "lucide-react";
 
 import { api } from "../api";
 import { money } from "../format";
@@ -71,49 +70,64 @@ export function MarketplaceHealth({
   );
 }
 
+// Sin tablero no hay cifras que mostrar: el tablero es lo único que lee el
+// ledger. Antes cada tarjeta caía a $0 o 0%, que se lee como «no vendimos nada»
+// cuando en realidad la lectura falló. El reintento recarga la consola, igual
+// que el botón Refrescar de la barra superior, que es quien vuelve a pedirlo.
+export function LedgerUnavailable() {
+  return (
+    <div role="status">
+      <p className="admin-empty">Sin datos del ledger todavía</p>
+      <button type="button" onClick={() => window.location.reload()}>
+        <RefreshCw size={16} /> Reintentar
+      </button>
+    </div>
+  );
+}
+
+// El período de las cifras del tablero: el servidor suma todo lo registrado,
+// sin ventana de fechas. Con PostgreSQL son los pagos del ledger; sin él, los
+// pedidos y viajes del estado cargado.
+export function grossVolumePeriod(dashboard: AdminDashboard) {
+  return dashboard.marketplace.financial
+    ? "Pagos procesados · acumulado histórico"
+    : "Pedidos + viajes · acumulado histórico";
+}
+
 export function InvestorPulse({
   dashboard,
   grossVolume,
   platformRevenue,
 }: {
   dashboard: AdminDashboard | null;
-  grossVolume: number;
-  platformRevenue: number;
+  grossVolume: number | null;
+  platformRevenue: number | null;
 }) {
-  const investor = dashboard?.investor;
-  const score = investor?.readinessScore ?? 0;
-  const margin = investor?.contributionMarginPercent ?? null;
-  const runway = investor?.runwayMonths ?? null;
+  if (!dashboard) return <LedgerUnavailable />;
+  const investor = dashboard.investor;
+  const margin = investor.contributionMarginPercent;
+  const runway = investor.runwayMonths;
+  // Sin el medidor de «readiness»: el puntaje parte de una constante del
+  // servidor y no mide nada que se pueda verificar. Tampoco va el párrafo de
+  // pitch, que era un texto de venta presentado como lectura del tablero.
+  const volume = grossVolume ?? dashboard.marketplace.grossVolume;
+  const revenue = platformRevenue ?? dashboard.marketplace.estimatedPlatformRevenue;
   return (
-    <div className="investor-pulse">
-      <div className="readiness-meter" style={{ "--score": `${score}%` } as CSSProperties}>
-        <strong>{score}</strong>
-        <span>readiness</span>
+    <div className="investor-summary">
+      <div className="investor-stats">
+        <span>GMV {money.format(volume)}</span>
+        <span>Revenue posteado {money.format(revenue)}</span>
+        <span>Runway {runway === null || runway === 0 ? "sin configurar" : `${runway}m`}</span>
+        <span>Margen {margin === null ? "sin configurar" : `${margin}%`}</span>
       </div>
-      <div className="investor-summary">
-        <h3>Historia para inversores</h3>
-        <p>
-          Marketplace multi-servicio con demanda de comida y movilidad, supply flexible y backoffice
-          operativo. El foco de la ronda es convertir el MVP local en beta con realtime, pagos y app
-          nativa.
-        </p>
-        <div className="investor-stats">
-          <span>GMV {money.format(grossVolume)}</span>
-          <span>Revenue {money.format(platformRevenue)}</span>
-          <span>Runway {runway === null || runway === 0 ? "sin configurar" : `${runway}m`}</span>
-          <span>Margen {margin === null ? "sin configurar" : `${margin}%`}</span>
-        </div>
-      </div>
+      <p className="admin-empty">{grossVolumePeriod(dashboard)}</p>
     </div>
   );
 }
 
 export function UnitEconomicsBoard({ dashboard }: { dashboard: AdminDashboard | null }) {
-  const rows = dashboard?.investor.unitEconomics || [
-    { label: "AOV comida", value: "$0", detail: "Ticket promedio" },
-    { label: "Fare taxi", value: "$0", detail: "Tarifa promedio" },
-    { label: "Take rate", value: "0%", detail: "Sin revenue posteado" },
-  ];
+  if (!dashboard) return <LedgerUnavailable />;
+  const rows = dashboard.investor.unitEconomics;
   return (
     <div className="unit-grid">
       {rows.map((row) => (
@@ -127,23 +141,10 @@ export function UnitEconomicsBoard({ dashboard }: { dashboard: AdminDashboard | 
   );
 }
 
-export function MilestoneBoard({ dashboard }: { dashboard: AdminDashboard | null }) {
-  const milestones = dashboard?.investor.milestones || [];
-  return (
-    <div className="milestone-list">
-      {milestones.map((milestone) => (
-        <article className={milestone.status} key={milestone.label}>
-          <span />
-          <div>
-            <strong>{milestone.label}</strong>
-            <small>{milestone.value}</small>
-          </div>
-          <b>{milestone.status.replace("_", " ")}</b>
-        </article>
-      ))}
-    </div>
-  );
-}
+// Sin tablero de hitos: el servidor devuelve una lista fija escrita a mano
+// («Realtime dispatch: next», «Pagos reales: next») que no se deriva de nada y
+// quedó desactualizada. Una hoja de ruta presentada como estado es un dato
+// inventado; el estado real de cada capacidad vive en docs/matriz-madurez.md.
 
 export function GrowthFunnel({
   state,
@@ -153,42 +154,61 @@ export function GrowthFunnel({
   dashboard: AdminDashboard | null;
 }) {
   const activatedUsers = state.users.filter((user) => user.roles.includes("customer")).length;
+  const totalJobs = state.orders.length + state.rides.length;
   const completedJobs =
     state.orders.filter((order) => order.status === "delivered").length +
     state.rides.filter((ride) => ride.status === "completed").length;
+  // El ancho de cada barra es proporcional a su valor. Antes bajaba 9 puntos
+  // por fila sin importar el número, así que un embudo vacío se veía lleno.
+  // Los conteos se miden contra el mayor de ellos; las tasas, contra 100 %.
+  const largestCount = Math.max(state.users.length, activatedUsers, totalJobs, completedJobs);
+  const countShare = (value: number) => (largestCount ? (value / largestCount) * 100 : 0);
+  const fillDelivery = dashboard?.marketplace.fillRateDelivery ?? null;
+  const fillRide = dashboard?.marketplace.fillRateRide ?? null;
   const funnel = [
     {
       label: "Usuarios",
-      value: state.users.length,
+      value: String(state.users.length),
+      width: countShare(state.users.length),
       detail: "Cuentas registradas",
     },
-    { label: "Activados", value: activatedUsers, detail: "Cliente con wallet" },
+    {
+      label: "Activados",
+      value: String(activatedUsers),
+      width: countShare(activatedUsers),
+      detail: "Con rol de cliente",
+    },
     {
       label: "Jobs",
-      value: state.orders.length + state.rides.length,
+      value: String(totalJobs),
+      width: countShare(totalJobs),
       detail: "Pedidos + viajes",
     },
     {
       label: "Cumplidos",
-      value: completedJobs,
-      detail: "Conversion operativa",
+      value: String(completedJobs),
+      width: countShare(completedJobs),
+      detail: "Conversión operativa",
     },
+    // Las tasas de asignación sólo las calcula el tablero: sin él, «—».
     {
       label: "Fill delivery",
-      value: `${dashboard?.marketplace.fillRateDelivery ?? 0}%`,
-      detail: "Asignacion",
+      value: fillDelivery === null ? "—" : `${fillDelivery}%`,
+      width: fillDelivery ?? 0,
+      detail: "Asignación",
     },
     {
       label: "Fill taxi",
-      value: `${dashboard?.marketplace.fillRateRide ?? 0}%`,
-      detail: "Asignacion",
+      value: fillRide === null ? "—" : `${fillRide}%`,
+      width: fillRide ?? 0,
+      detail: "Asignación",
     },
   ];
   return (
     <div className="funnel-list">
-      {funnel.map((row, index) => (
+      {funnel.map((row) => (
         <article key={row.label}>
-          <div style={{ width: `${100 - index * 9}%` }} />
+          <div style={{ width: `${Math.min(100, Math.max(0, row.width))}%` }} />
           <span>{row.label}</span>
           <strong>{row.value}</strong>
           <small>{row.detail}</small>
@@ -199,7 +219,8 @@ export function GrowthFunnel({
 }
 
 export function RiskSignalBoard({ dashboard }: { dashboard: AdminDashboard | null }) {
-  const risks = dashboard?.riskSignals || [];
+  if (!dashboard) return <LedgerUnavailable />;
+  const risks = dashboard.riskSignals;
   return (
     <div className="risk-list">
       {risks.map((risk) => (
@@ -211,7 +232,7 @@ export function RiskSignalBoard({ dashboard }: { dashboard: AdminDashboard | nul
               ? "Controlado"
               : risk.level === "medium"
                 ? "Monitorear"
-                : "Accion inmediata"}
+                : "Acción inmediata"}
           </small>
         </article>
       ))}
@@ -304,17 +325,5 @@ export function AdminLiveGrid({
         })}
       </div>
     </div>
-  );
-}
-
-export function InfraItem({ title, text }: { title: string; text: string }) {
-  return (
-    <article>
-      <ShieldCheck size={18} />
-      <div>
-        <strong>{title}</strong>
-        <span>{text}</span>
-      </div>
-    </article>
   );
 }

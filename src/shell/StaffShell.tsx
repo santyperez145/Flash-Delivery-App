@@ -12,6 +12,12 @@ import type { LucideIcon } from "lucide-react";
 import type { AppState, Mode, User } from "../types";
 import { Metric } from "../ui/panels";
 
+const demandLabel: Record<AppState["zones"][number]["demandLevel"], string> = {
+  low: "Demanda baja",
+  medium: "Demanda media",
+  high: "Demanda alta",
+};
+
 export function PhoneStatus({ online }: { online: boolean }) {
   const [time, setTime] = useState(() => new Date());
   useEffect(() => {
@@ -111,16 +117,24 @@ export function BrandPanel({
           trend={`${state.metrics.openRestaurants} locales`}
         />
       </div>
-      <div className="dispatch-map">
-        {state.zones.slice(0, 3).map((zone, index) => (
-          <div className={`zone zone-${["one", "two", "three"][index]}`} key={zone.id}>
-            {zone.name} · {zone.demandLevel}
-          </div>
-        ))}
-        <span className="pin pin-a" />
-        <span className="pin pin-b" />
-        <span className="pin pin-c" />
-      </div>
+      {/* Antes era un «mapa» con una grilla y tres pines fijos que no
+          representaban nada: parecía tracking en vivo y no lo era. Lo que la
+          plataforma sí sabe de cada zona es su nombre, su demanda y cuánto
+          tiene activo, así que eso es lo que se muestra, como lista. */}
+      {state.zones.length > 0 ? (
+        <ul className="dispatch-map" aria-label="Zonas">
+          {state.zones.slice(0, 3).map((zone) => (
+            <li className="zone" key={zone.id}>
+              <strong>{zone.name}</strong>
+              <span>
+                {demandLabel[zone.demandLevel]} · {zone.activeOrders + zone.activeRides} activos
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="dispatch-map dispatch-map-empty">Sin zonas configuradas todavía</p>
+      )}
     </aside>
   );
 }

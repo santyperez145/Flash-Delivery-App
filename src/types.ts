@@ -134,9 +134,10 @@ export type MenuItem = {
   description: string;
   category: string;
   price: number;
-  rating: number;
-  timeMin: number;
-  kcal: number;
+  // Sin calificación por plato: Flash califica el pedido y el local.
+  /** null (o ausente) cuando el comercio no lo declaró; nunca 0 de relleno. */
+  timeMin?: number | null;
+  kcal?: number | null;
   stock: boolean;
   modifierGroups?: Array<{
     id: string;
@@ -210,7 +211,10 @@ export type Restaurant = {
   /** Rubro (P-01). Ausente en el respaldo SQLite, que sólo tiene restaurantes. */
   vertical?: MerchantVertical;
   cuisine: string;
-  rating: number;
+  /** Promedio de calificaciones reales del local; null si todavía no tiene. */
+  rating: number | null;
+  /** Cuántas calificaciones lo forman. Ausente en respuestas viejas: se lee como 0. */
+  ratingCount?: number;
   distanceKm: number;
   etaMin: number;
   deliveryFee: number;
@@ -271,6 +275,11 @@ export type Driver = {
   vehicle: string;
   plate: string;
   rating: number;
+  /**
+   * FE-04: cuántas calificaciones reales tiene. Sólo lo trae el perfil propio
+   * (`/api/driver/me`); sin él no se sabe si `rating` es una nota o el valor inicial.
+   */
+  ratingCount?: number;
   location: {
     lat: number;
     lng: number;

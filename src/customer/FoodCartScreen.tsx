@@ -29,6 +29,7 @@ import type {
 } from "../types";
 import { TopBar } from "../ui/panels";
 import { EmptyState } from "./EmptyState";
+import { DishPhoto } from "./FoodCatalogComponents";
 import { FAMILY_PAYMENT, familyPaymentDetail, useFamilyPayment } from "./family-payment";
 import { MercadoPagoCardCheckout } from "./FoodCardPayment";
 import { FoodDeliveryPreferences, PREFERENCIAS_INICIALES } from "./FoodDeliveryPreferences";
@@ -389,7 +390,9 @@ export function CartScreen({
           <div className="cart-items">
             {cart.map((line, index) => (
               <div className="cart-row" key={`${line.item.id}-${index}`}>
-                <img src={line.item.image} alt={line.item.name} />
+                {/* FE-04: un plato sin foto ya no hereda la del local; «Sin foto» y no
+                    un <img> vacío que el navegador muestra roto. */}
+                <DishPhoto item={line.item} size={68} />
                 <div>
                   <strong>{line.item.name}</strong>
                   <span>{line.extras.length ? `${line.extras.length} extras` : "Sin extras"}</span>

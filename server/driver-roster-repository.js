@@ -14,6 +14,9 @@ export async function getPostgresDrivers({ userPublicId = null, publicIds = null
   const result = await postgresPool.query(
     `
     SELECT d.*, u.public_id AS user_public_id,(SELECT round(avg(r.score),2) FROM ratings r WHERE r.subject_type='driver' AND r.subject_id=d.id) AS feedback_rating,
+      -- FE-04: cuántas calificaciones reales tiene. Sin ninguna, drivers.rating es el valor
+      -- por defecto de la columna, no una opinión de nadie, y la app no lo muestra como tal.
+      (SELECT count(*)::int FROM ratings r WHERE r.subject_type='driver' AND r.subject_id=d.id) AS rating_count,
       v.model vehicle_model,v.plate vehicle_plate,v.kind vehicle_kind,v.status vehicle_status,
       ST_Y(d.current_location::geometry) AS lat, ST_X(d.current_location::geometry) AS lng,
       (SELECT COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint
@@ -53,6 +56,7 @@ export async function getPostgresDrivers({ userPublicId = null, publicIds = null
       vehicleKind: row.vehicle_kind || null,
       vehicleStatus: row.vehicle_status || null,
       rating: Number(row.feedback_rating ?? row.rating),
+      ratingCount: Number(row.rating_count || 0),
       location: {
         lat: Number(row.lat),
         lng: Number(row.lng),
