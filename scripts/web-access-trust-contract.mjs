@@ -198,12 +198,15 @@ assert.ok(
 
 // --- Lo que pidió la revisión del PR -----------------------------------------------------
 assert.ok(
-  contains(login, 'window.location.pathname !== "/recover-password"') &&
-    contains(login, 'new URLSearchParams(window.location.search).get("token")') &&
-    contains(login, 'window.history.replaceState(null, "", "/");') &&
-    contains(login, "tokenInicial={tokenDelEnlace}") &&
+  contains(app, 'window.location.pathname !== "/recover-password"') &&
+    contains(app, 'new URLSearchParams(window.location.search).get("token")') &&
+    contains(app, 'window.history.replaceState(null, "", "/");') &&
+    contains(app, "if (authRequired || tokenRecuperacion) {") &&
+    contains(app, "if (cambiada && !authRequired) await logoutWeb();") &&
+    contains(login, "tokenInicial={tokenRecuperacion}") &&
+    contains(login, "onRecuperacionTerminada?.(true);") &&
     contains(flujos, "const token = tokenDeRecuperacion(codigo);"),
-  "el enlace del email de recuperación abre la contraseña nueva, y un enlace pegado se entiende",
+  "el enlace del email de recuperación abre la contraseña nueva aun con una sesión abierta, y un enlace pegado se entiende",
 );
 assert.ok(
   contains(flujos, "verificar: alta.verificationRequired === true,") &&

@@ -49,7 +49,7 @@ la verificación y la recuperación; que el error del cliente conserve el cuerpo
 respuesta, de donde sale `verificationRequired`; que el alta y la recuperación validen lo
 mismo que el servidor; el «Cerrar sesión»; los textos de Cuenta; los estados sin comercios
 y la promoción condicionada en web y app; y que la migración 150 respete las promociones
-usadas. Falsificado con 38 mutaciones. Si falla, la web vuelve a dejar a alguien sin forma
+usadas. Falsificado con 40 mutaciones. Si falla, la web vuelve a dejar a alguien sin forma
 de crear su cuenta o de salir, o una pantalla vuelve a prometer lo que no hay.
 
 ## Lo que sigue

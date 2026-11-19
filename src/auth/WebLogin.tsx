@@ -20,6 +20,10 @@ type WebLoginProps = {
   /** Devuelve `verificationRequired` cuando la cuenta todavía no confirmó su email. */
   onLogin: (email: string, password: string) => Promise<{ verificationRequired: true } | void>;
   onMfa: (code: string) => Promise<void>;
+  /** El token del enlace del email de recuperación, leído por `App` antes que la sesión. */
+  tokenRecuperacion?: string;
+  /** Terminó la recuperación abierta por el enlace; `cambiada` si se cambió la contraseña. */
+  onRecuperacionTerminada?: (cambiada: boolean) => void;
 };
 
 const audiences = [
@@ -29,21 +33,21 @@ const audiences = [
   { icon: ShieldCheck, label: "Operaciones", detail: "Soporte y control" },
 ];
 
-export function WebLogin({ busy, error, mfaChallenge, onLogin, onMfa }: WebLoginProps) {
+export function WebLogin({
+  busy,
+  error,
+  mfaChallenge,
+  onLogin,
+  onMfa,
+  tokenRecuperacion = "",
+  onRecuperacionTerminada,
+}: WebLoginProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mfaCode, setMfaCode] = useState("");
   const [passwordVisible, setPasswordVisible] = useState(false);
-  // El enlace del email de recuperación abre la web en `/recover-password?token=…`: se
-  // entra directo al paso de la contraseña nueva, y el token se saca de la barra.
-  const [tokenDelEnlace] = useState(() => {
-    if (typeof window === "undefined" || window.location.pathname !== "/recover-password")
-      return "";
-    const token = new URLSearchParams(window.location.search).get("token") || "";
-    window.history.replaceState(null, "", "/");
-    return token;
-  });
-  const [modo, setModo] = useState<Modo>(tokenDelEnlace ? "recuperar" : "ingresar");
+  // Con el enlace del email de recuperación se entra directo al paso de la contraseña nueva.
+  const [modo, setModo] = useState<Modo>(tokenRecuperacion ? "recuperar" : "ingresar");
   const [codigoInicial, setCodigoInicial] = useState<string>();
   const [aviso, setAviso] = useState("");
   const isMfa = Boolean(mfaChallenge);
@@ -127,11 +131,15 @@ export function WebLogin({ busy, error, mfaChallenge, onLogin, onMfa }: WebLogin
         {!isMfa && modo === "recuperar" && (
           <RecuperarClave
             emailInicial={email}
-            tokenInicial={tokenDelEnlace}
-            onIngresar={() => volverAIngresar()}
+            tokenInicial={tokenRecuperacion}
+            onIngresar={() => {
+              onRecuperacionTerminada?.(false);
+              volverAIngresar();
+            }}
             onListo={(texto, correo) => {
               setEmail(correo);
               setPassword("");
+              onRecuperacionTerminada?.(true);
               volverAIngresar(texto);
             }}
           />
