@@ -17,14 +17,16 @@ llevan o en el mostrador si lo retira. Completa el efectivo de viajes
 - **No se cobra nada al crear el pedido** y no se crea una intención de pago. El comercio lo
   recibe aceptado, como un pedido pagado.
 - **Quien cobra lo ve**: el repartidor, «Cobrá $ X en efectivo · paga con $ Y, vuelto $ Z»
-  (también en la oferta, antes de aceptar); el comercio, en un retiro, «Cobrá $ X en el
+  (también en la oferta, antes de aceptar, para saber si sale con cambio); el comercio, en un retiro, «Cobrá $ X en el
   mostrador»; quien pidió, «Pagás en efectivo».
 - **Antifraude**, como la competencia. Un pedido en efectivo que nadie recibe deja comida
   hecha y un viaje sin cobrar, así que:
   - hace falta el teléfono verificado;
   - quien tiene dos pedidos en efectivo cancelados **después de empezar a prepararse** en 90
     días ya no puede pagar así, quien sea que haya cancelado y con el motivo que sea;
-  - se puede tener un solo pedido en efectivo en curso a la vez;
+  - se puede tener un solo pedido en efectivo en curso a la vez. El control corre después de
+    resolver un reintento (el reintento de un pedido ya creado devuelve ese pedido) y con un
+    bloqueo por persona, así dos altas simultáneas con claves distintas no pasan juntas;
   - un pedido en efectivo que superaría el tope de deuda de cualquier repartidor no se acepta
     («Para pedidos de este monto, pagá con Wallet o tarjeta»): ningún repartidor podría
     tomarlo y el comercio cocinaría un pedido que nadie lleva;
@@ -55,7 +57,9 @@ Liquidarlo dos veces no duplica nada.
 - **Cancelación.** No hay nada cobrado, así que no hay reintegro. **Un pedido en efectivo que
   ya salió del local lo cancela la operación**, no el repartidor ni quien pidió: quien
   reparte tiene la comida o la plata en la mano, y cancelar no liquida nada. Sin esto, se podía
-  cobrar en la puerta, cancelar y quedarse el efectivo sin deuda.
+  cobrar en la puerta, cancelar y quedarse el efectivo sin deuda. El pedido se bloquea antes
+  de mirar su estado: si el retiro se confirmaba entre la lectura y la cancelación, se
+  cancelaba igual.
 - **Comprobante.** Dice «Efectivo · cobrado» y quién cobró, en vez de «sin registrar».
 
 ## La deuda del repartidor y la rendición

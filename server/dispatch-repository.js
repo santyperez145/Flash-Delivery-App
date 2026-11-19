@@ -235,6 +235,15 @@ export async function getPostgresDispatchOffers(driverPublicId) {
     // PAG-01: antes de aceptar, quien maneja sabe si cobra en mano, y cuánto.
     cash: Boolean(row.cash),
     cashToCollect: row.cash ? pesos(row.final_amount_cents ?? row.quoted_amount_cents) : null,
+    // Con cuánto paga y el vuelto, para saber antes de aceptar si lleva cambio.
+    cashTendered:
+      row.cash && row.metadata?.cashPayment?.tenderedCents != null
+        ? pesos(row.metadata.cashPayment.tenderedCents)
+        : null,
+    cashChange:
+      row.cash && row.metadata?.cashPayment?.tenderedCents != null
+        ? pesos(row.metadata.cashPayment.changeCents || 0)
+        : null,
     // Antes de aceptar, el repartidor sabe si es sin contacto y si hay
     // indicaciones —como en DoorDash y Uber—, pero no el texto, que es de la
     // casa de alguien y recién lo ve quien acepta (P-02).

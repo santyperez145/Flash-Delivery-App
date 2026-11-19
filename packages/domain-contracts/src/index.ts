@@ -365,8 +365,10 @@ export type DispatchOffer = {
   hasInstructions?: boolean;
   /** PAG-01: el viaje se cobra en efectivo. */
   cash?: boolean;
-  /** PAG-01: cuánto cobrar en mano si es en efectivo. */
+  /** PAG-01: cuánto cobrar en mano si es en efectivo, con cuánto paga y el vuelto. */
   cashToCollect?: number | null;
+  cashTendered?: number | null;
+  cashChange?: number | null;
 };
 
 /** SEG-01: una señal del control del viaje que el pasajero todavía no contestó. */

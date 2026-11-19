@@ -24,6 +24,7 @@ import { closePostgres } from "../server/postgres.js";
 import { settleCapturedFoodOrder } from "../server/merchant-finance-repository.js";
 import { registerCashDeposit } from "../server/wallet-repository.js";
 import { createOrderIssue, resolveOrderIssue } from "../server/order-issue-repository.js";
+import { setPostgresOrderStatus } from "../server/order-repository.js";
 
 const base = process.env.API_URL || "http://127.0.0.1:4000/api",
   pool = createPool(),
@@ -192,10 +193,10 @@ try {
     "la sucursal que acepta efectivo lo cotiza",
   );
   const totalCents = Math.round(Number(cotizacion.body.quote.total) * 100);
-  const pedir = (cashTenderedCents) =>
+  const pedir = (cashTenderedCents, clave = `${marca}-pedido-${crypto.randomUUID()}`) =>
     api("/orders", {
       token: cliente.token,
-      headers: { "Idempotency-Key": `${marca}-pedido-${crypto.randomUUID()}` },
+      headers: { "Idempotency-Key": clave },
       body: {
         ...pedidoBase(cliente),
         quoteToken: cotizacion.body.quote.quoteToken,
@@ -205,11 +206,23 @@ try {
   const corto = await pedir(totalCents - 100);
   assert(corto.status === 400, "con menos que el total no alcanza");
   const antesCliente = await saldoUsuario(usuarios.cliente.id);
-  const pedido = await pedir(totalCents + 500000);
+  const clavePedido = `${marca}-pedido-retiro`;
+  const pedido = await pedir(totalCents + 500000, clavePedido);
   const orderId = pedido.body.order?.id;
   assert(
-    pedido.status === 200 && orderId && pedido.body.order.paymentStatus === "cash_on_delivery",
-    "un retiro en efectivo se crea sin cobro",
+    pedido.status === 200 &&
+      orderId &&
+      pedido.body.order.paymentStatus === "cash_on_delivery" &&
+      pedido.body.order.cashPayment?.change === 5000 &&
+      pedido.body.order.cashPayment?.collector === "merchant",
+    "un retiro en efectivo se crea sin cobro, y la confirmación trae el vuelto",
+  );
+  // El reintento de la misma solicitud devuelve el mismo pedido: no lo frena la regla de
+  // un pedido en efectivo en curso, que es justamente el que ya creó.
+  const reintento = await pedir(totalCents + 500000, clavePedido);
+  assert(
+    reintento.status === 200 && reintento.body.order?.id === orderId,
+    "reintentar con la misma clave devuelve el mismo pedido",
   );
   const job = (
     await pool.query("SELECT id,status,metadata FROM jobs WHERE public_id=$1", [orderId])
@@ -237,13 +250,17 @@ try {
   const comercioAntes = await saldoComercio(sucursal.merchant_id);
   const ingresosAntes = await saldoPlataforma("revenue");
   const compensacionAntes = await saldoPlataforma("cash_clearing");
-  await pool.query("UPDATE jobs SET status='completed' WHERE id=$1", [job.id]);
+  // Por la función de estado, la misma que usa el comercio: es la que no deja completar
+  // un pedido en efectivo sin su liquidación.
+  for (const estado of ["preparing", "ready_for_pickup", "delivered"])
+    await setPostgresOrderStatus(orderId, estado, usuarios.cliente.public_id);
   const retiro = await liquidar(job.id);
   const deltaComercio = (await saldoComercio(sucursal.merchant_id)) - comercioAntes;
   const deltaIngresos = (await saldoPlataforma("revenue")) - ingresosAntes;
   assert(
-    retiro.settled &&
-      retiro.collector === "merchant" &&
+    (await pool.query("SELECT status FROM jobs WHERE id=$1", [job.id])).rows[0].status ===
+      "completed" &&
+      retiro.idempotent &&
       deltaIngresos > 0 &&
       deltaComercio === -deltaIngresos &&
       (await saldoPlataforma("cash_clearing")) === compensacionAntes,

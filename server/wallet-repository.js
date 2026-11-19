@@ -625,13 +625,15 @@ export async function cancelOrderAndRefundWallet({
     // en la mano de quien reparte. Cancelarlo no liquida nada, así que quien reparte
     // podría cobrar en la puerta, cancelar y quedarse el efectivo sin deuda. Desde
     // ahí lo cancela la operación, que registra qué pasó con la comida o el efectivo.
+    // Con el pedido bloqueado: sin el bloqueo, el retiro del repartidor podía confirmarse
+    // entre esta lectura y la cancelación, y el pedido se cancelaba ya en camino.
     const enCamino = (
       await client.query(
-        `SELECT 1 FROM jobs WHERE public_id=$1 AND payment_method_label=$2
-           AND status IN ('picked_up','delivering')`,
+        `SELECT payment_method_label=$2 AND status IN ('picked_up','delivering') en_camino
+         FROM jobs WHERE public_id=$1 FOR UPDATE`,
         [orderPublicId, CASH_LABEL],
       )
-    ).rows[0];
+    ).rows[0]?.en_camino;
     if (enCamino) {
       const operacion = actor
         ? (

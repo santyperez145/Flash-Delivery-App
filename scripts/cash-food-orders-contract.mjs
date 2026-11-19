@@ -216,7 +216,10 @@ assert.ok(
   "un pedido en efectivo que ningún repartidor puede tomar, o sin nada que cobrar, no se crea",
 );
 assert.ok(
-  contains(billetera, "AND status IN ('picked_up','delivering')`,") &&
+  contains(
+    billetera,
+    "SELECT payment_method_label=$2 AND status IN ('picked_up','delivering') en_camino",
+  ) &&
     contains(
       billetera,
       "\"SELECT 1 FROM user_roles WHERE user_id=$1 AND role IN ('admin','support')\",",
@@ -240,3 +243,29 @@ assert.ok(
 ok(
   "revisión: antifraude, montos, cancelación en camino, deuda en curso y rendición sin doble registro",
 );
+
+// --- Lo que encontró la revisión del PR ----------------------------------------------------
+// La elegibilidad se controla después de resolver un reintento, con un bloqueo por persona.
+assert.ok(
+  antes(
+    pedidos,
+    'throw Object.assign(new Error("La solicitud con esta clave todavía está procesándose"), {',
+    "\"SELECT pg_advisory_xact_lock(hashtextextended('cash-order:' || $1::text, 0))\",",
+  ) &&
+    antes(
+      pedidos,
+      "\"SELECT pg_advisory_xact_lock(hashtextextended('cash-order:' || $1::text, 0))\",",
+      "merchantId: merchant.rows[0].id, }); } const snapshots = [];",
+    ),
+  "un reintento devuelve el pedido, y dos altas simultáneas no pasan juntas el antifraude",
+);
+assert.ok(
+  contains(billetera, "FROM jobs WHERE public_id=$1 FOR UPDATE`,") &&
+    contains(pedidos, "cashPayment: vistaEfectivo(metadata.cashPayment, totalCents),") &&
+    (
+      squeeze(despacho).match(/row\.cash&&row\.metadata\?\.cashPayment\?\.tenderedCents!=null/g) ||
+      []
+    ).length === 2,
+  "la cancelación bloquea el pedido, la confirmación trae el efectivo y la oferta el vuelto",
+);
+ok("revisión del PR: reintentos, altas simultáneas, cancelación, confirmación y oferta");

@@ -103,6 +103,17 @@ function controlarMontoEfectivo({ totalCents, deliveryFeeCents, esRetiro }) {
     });
 }
 
+/** El efectivo de un pedido para quien lo mira: cuánto cobrar, con cuánto paga y el vuelto. */
+const vistaEfectivo = (cashPayment, totalCents) =>
+  cashPayment
+    ? {
+        toCollect: pesos(totalCents),
+        tendered: cashPayment.tenderedCents == null ? null : pesos(cashPayment.tenderedCents),
+        change: pesos(cashPayment.changeCents || 0),
+        collector: cashPayment.collector === "merchant" ? "merchant" : "courier",
+      }
+    : null;
+
 const formatoPesos = (cents) => `$${pesos(cents).toLocaleString("es-AR")}`;
 
 // Se paga desde una Flash Wallet: la propia, o la de quien organiza el perfil
@@ -195,17 +206,10 @@ function rowsToOrders(rows) {
         paymentMethod: row.payment_method_label || "",
         // PAG-01: en efectivo, cuánto cobrar, con cuánto paga y el vuelto, para quien
         // pidió, quien reparte y el comercio (que cobra en un retiro).
-        cashPayment: metadata.cashPayment
-          ? {
-              toCollect: pesos(row.final_amount_cents ?? row.quoted_amount_cents),
-              tendered:
-                metadata.cashPayment.tenderedCents == null
-                  ? null
-                  : pesos(metadata.cashPayment.tenderedCents),
-              change: pesos(metadata.cashPayment.changeCents || 0),
-              collector: metadata.cashPayment.collector === "merchant" ? "merchant" : "courier",
-            }
-          : null,
+        cashPayment: vistaEfectivo(
+          metadata.cashPayment,
+          row.final_amount_cents ?? row.quoted_amount_cents,
+        ),
         items: [],
         subtotal: Number(metadata.subtotal || 0),
         deliveryFee: Number(metadata.deliveryFee || 0),
@@ -797,12 +801,6 @@ export async function createPostgresOrder({
         throw Object.assign(new Error("El efectivo no lleva un método de pago guardado"), {
           status: 400,
         });
-      await controlarEfectivo(client, {
-        userId: customer.rows[0].id,
-        cashEnabled: merchant.rows[0].cash_enabled,
-        phoneVerifiedAt: customer.rows[0].phone_verified_at,
-        merchantId: merchant.rows[0].id,
-      });
       // La propina del checkout viaja dentro de un cobro: en efectivo no hay cobro, y
       // liquidarla le pagaría al repartidor plata que Flash nunca recibió.
       if (tipCents > 0)
@@ -876,6 +874,23 @@ export async function createPostgresOrder({
       }
       throw Object.assign(new Error("La solicitud con esta clave todavía está procesándose"), {
         status: 409,
+      });
+    }
+    // PAG-01: la elegibilidad del efectivo se controla **después** de resolver un
+    // reintento: el pedido que ya creó esta misma solicitud cuenta como «en curso», y
+    // controlarla antes le respondía 409 al reintento en vez del pedido. Un bloqueo por
+    // persona ordena dos altas simultáneas con claves distintas: la segunda espera a que
+    // la primera confirme y la ve en curso.
+    if (cashPayment) {
+      await client.query(
+        "SELECT pg_advisory_xact_lock(hashtextextended('cash-order:' || $1::text, 0))",
+        [customer.rows[0].id],
+      );
+      await controlarEfectivo(client, {
+        userId: customer.rows[0].id,
+        cashEnabled: merchant.rows[0].cash_enabled,
+        phoneVerifiedAt: customer.rows[0].phone_verified_at,
+        merchantId: merchant.rows[0].id,
       });
     }
     const snapshots = [];
@@ -1297,6 +1312,9 @@ export async function createPostgresOrder({
       createdAt: new Date().toISOString(),
       timeline: [{ status: initialStatus, at: new Date().toISOString() }],
       paymentStatus,
+      // PAG-01: la confirmación muestra cuánto tener a mano y el vuelto, como después
+      // el seguimiento. La misma forma que `rowsToOrders`.
+      cashPayment: vistaEfectivo(metadata.cashPayment, totalCents),
     };
     await client.query(
       "UPDATE idempotency_keys SET response_status = 200, response_body = $2 WHERE key = $1",

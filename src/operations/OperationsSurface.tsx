@@ -71,7 +71,12 @@ function describirOferta(oferta: DispatchOffer, ahora: number) {
   // salir con cambio encima.
   const cobroEnMano =
     oferta.cash && oferta.cashToCollect != null
-      ? ` · Cobrás ${money.format(oferta.cashToCollect)} en efectivo`
+      ? ` · Cobrás ${money.format(oferta.cashToCollect)} en efectivo${
+          // Con cuánto paga y el vuelto: decide si conviene salir con cambio encima.
+          oferta.cashTendered != null && oferta.cashChange != null
+            ? ` (paga con ${money.format(oferta.cashTendered)}, vuelto ${money.format(oferta.cashChange)})`
+            : ""
+        }`
       : cobro;
   return `${oferta.distanceKm} km · ${oferta.durationMin} min${cobroEnMano}${aceptacion}${entrega} · vence en ${restanS}s`;
 }

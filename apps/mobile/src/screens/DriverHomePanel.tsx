@@ -663,7 +663,12 @@ export function DriverHomePanel(props: {
             {offer.cash && (
               <Text style={[styles.helperText, { color: "#087A50", fontWeight: "800" }]}>
                 {offer.cashToCollect != null
-                  ? `Cobrás ${money.format(offer.cashToCollect)} en efectivo`
+                  ? `Cobrás ${money.format(offer.cashToCollect)} en efectivo${
+                      // Con cuánto paga y el vuelto: decide si conviene salir con cambio.
+                      offer.cashTendered != null && offer.cashChange != null
+                        ? ` · paga con ${money.format(offer.cashTendered)}, vuelto ${money.format(offer.cashChange)}`
+                        : ""
+                    }`
                   : "Se cobra en efectivo"}
               </Text>
             )}

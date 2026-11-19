@@ -84,6 +84,11 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   - El comercio no tenía tope de deuda por retiros en efectivo.
   - El formulario de rendición podía registrarla dos veces si se cortaba la red.
   - La prueba nueva dejaba evaluaciones de riesgo sin borrar y habría fallado en el CI.
+- **La revisión del PR sumó seis más, corregidas:** el reintento de un pedido ya creado chocaba
+  con la regla de uno en curso; dos altas simultáneas la pasaban juntas; una cancelación en
+  carrera con el retiro esquivaba la regla de la operación; la confirmación no traía el
+  efectivo; la oferta no decía con cuánto paga; y la prueba ahora completa el retiro por la
+  misma función que usa el comercio, la que exige la liquidación.
 - **Detalle:** [`docs/cash-food-orders.md`](docs/cash-food-orders.md). La red de cobranza para
   que el repartidor deposite solo (PAG-03) sigue del dueño.
 
