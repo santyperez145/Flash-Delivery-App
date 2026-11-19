@@ -38,8 +38,8 @@ const iso = (valor) => (valor ? new Date(valor).toISOString() : null);
 export function isValidCuit(valor) {
   const cuit = String(valor || "");
   if (!/^[0-9]{11}$/.test(cuit)) return false;
-  const pesos = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
-  const suma = pesos.reduce((total, peso, indice) => total + peso * Number(cuit[indice]), 0);
+  const ponderadores = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+  const suma = ponderadores.reduce((total, peso, indice) => total + peso * Number(cuit[indice]), 0);
   const verificador = 11 - (suma % 11);
   if (verificador === 10) return false;
   return (verificador === 11 ? 0 : verificador) === Number(cuit[10]);

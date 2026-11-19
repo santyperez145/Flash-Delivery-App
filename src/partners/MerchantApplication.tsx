@@ -527,7 +527,11 @@ function Formulario({
               value={borrador.contactPhone}
               placeholder="+54 9 11 2345 6789"
               onFocus={() => !borrador.contactPhone && cambiar("contactPhone", "+54 ")}
-              onChange={(event) => cambiar("contactPhone", event.target.value)}
+              // El campo arranca con «+54 »: si la persona escribe o pega el número
+              // completo con su propio +54, no queda «+54 +54…».
+              onChange={(event) =>
+                cambiar("contactPhone", event.target.value.replace(/^\+54\s*(?=\+)/, ""))
+              }
             />
           </Campo>
         </>

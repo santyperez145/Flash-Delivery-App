@@ -40,11 +40,16 @@ export function BranchScheduleEditor({
     [exceptionDate, setExceptionDate] = useState(""),
     [exceptionOpen, setExceptionOpen] = useState(false),
     [exceptionReason, setExceptionReason] = useState("");
+  // La consola se actualiza sola cada pocos segundos y cada vez llega un arreglo nuevo
+  // con el mismo horario. Si el formulario se reiniciara con cada llegada, lo que el
+  // comercio estaba cargando se borraba antes de guardarlo: se reinicia sólo cuando el
+  // horario guardado cambia de verdad (después de guardar, o si lo cambia otra persona).
+  const horarioGuardado = JSON.stringify(branch.weeklyHours ?? []);
   useEffect(() => {
     setHours(loadedHours());
     setTimezone(branch.timezone || "America/Argentina/Buenos_Aires");
-    // `loadedHours` sólo lee `branch.weeklyHours`, que ya está en la lista.
-  }, [branch.id, branch.timezone, branch.weeklyHours]);
+    // `loadedHours` sólo lee `branch.weeklyHours`, que `horarioGuardado` resume.
+  }, [branch.id, branch.timezone, horarioGuardado]);
   // Un día prendido necesita sus dos horas; uno apagado no abre, así que sus horas
   // no importan y viajan como 00:00 sólo porque la API pide los siete días.
   const incompleteDay = hours.some((hour) => hour.enabled && (!hour.opensAt || !hour.closesAt));
@@ -54,6 +59,7 @@ export function BranchScheduleEditor({
       : { ...hour, opensAt: hour.opensAt || "00:00", closesAt: hour.closesAt || "00:00" },
   );
   const dayNames = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+  const fullDayNames = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
   const change = (
     weekday: number,
     field: "opensAt" | "closesAt" | "enabled",
@@ -97,6 +103,7 @@ export function BranchScheduleEditor({
             <label>
               <input
                 type="checkbox"
+                aria-label={`Abrir el ${fullDayNames[hour.weekday]}`}
                 checked={hour.enabled}
                 onChange={(event) => change(hour.weekday, "enabled", event.target.checked)}
               />
@@ -104,6 +111,7 @@ export function BranchScheduleEditor({
             </label>
             <input
               type="time"
+              aria-label={`Apertura del ${fullDayNames[hour.weekday]}`}
               disabled={!hour.enabled}
               value={hour.opensAt}
               onChange={(event) => change(hour.weekday, "opensAt", event.target.value)}
@@ -111,6 +119,7 @@ export function BranchScheduleEditor({
             <span>—</span>
             <input
               type="time"
+              aria-label={`Cierre del ${fullDayNames[hour.weekday]}`}
               disabled={!hour.enabled}
               value={hour.closesAt}
               onChange={(event) => change(hour.weekday, "closesAt", event.target.value)}

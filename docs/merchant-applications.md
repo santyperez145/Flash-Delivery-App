@@ -65,6 +65,16 @@ rol `merchant`, `/api/merchant/me` del nuevo comercio, y la suspensión vista de
 operaciones. Borra todo lo que crea. `test:rls` prueba la política por rol y
 `test:rls-matrix` la clasificación.
 
+`npm run test:merchant-onboarding` (en `ci-fast`) vigila las pantallas: que `/comercios` sea
+una ruta pública con enlaces desde el ingreso y desde la web de cliente, que la consola de
+operaciones tenga Altas y la cola lleve ahí, que la puesta en marcha se calcule con el
+horario, el segundo factor y los cobros reales sin simular Mercado Pago, que el estado de un
+comercio salga del servidor, que el horario de una sucursal no se borre solo mientras se
+carga (el defecto que encontró la prueba en el navegador: la consola se actualiza cada pocos
+segundos y el formulario se reiniciaba) y que cada control del horario tenga nombre, y que el
+teléfono no quede «+54 +54». Falsificado con 12 mutaciones. Si falla, un comercio de verdad
+vuelve a perder su horario o a no encontrar cómo sumarse.
+
 ## Lo que falta
 
 - **Corregir una observada.** No hay ruta para que quien se postuló edite una solicitud

@@ -59,9 +59,17 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   fecha de la auditoría.
 - **Nada inventado, también acá.** El alta de producto ya no arranca con «Menu ejecutivo» a
   $6900 ni cae en una categoría «Especiales» que el local no creó (web, app y servidor).
+- **Probado de punta a punta en el navegador**, contra PostgreSQL y sin semillas: postulación
+  en `/comercios` con geocodificación real, aprobación desde la cola de «Altas», consola del
+  comercio con «Puesta en marcha», un producto (guardado sin calificación, kcal ni foto) y el
+  horario. La prueba encontró dos defectos, corregidos: **el horario de una sucursal se
+  borraba solo** a los pocos segundos de empezar a cargarlo (la consola se actualiza y el
+  formulario se reiniciaba), y el teléfono de la solicitud quedaba «+54 +54…» si la persona
+  escribía su prefijo. Los controles del horario ahora tienen nombre para lectores de pantalla.
 - **Verificación:** `test:merchant-applications` (nueva, en flujos críticos, falsificada sin el
   `FOR UPDATE`), `test:postgres`, `test:rls`, `test:runtime-write-scope` y
-  `test:operations-resources` con la **migración 152**.
+  `test:operations-resources` con la **migración 152**; `test:merchant-onboarding` (nueva, en
+  `ci-fast`) vigila las pantallas, falsificada con 12 mutaciones.
 - **Pendiente:** que quien recibió «pedir cambios» edite su solicitud (hoy responde por
   soporte), el enlace desde el ingreso de la app móvil (no tiene la URL pública de la web) y
   el control del CUIT contra ARCA. Detalle:
