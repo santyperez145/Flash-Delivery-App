@@ -100,6 +100,12 @@ export function AdminApplications({
   // Cada pedido lleva su número: si alguien cambia de pestaña antes de que
   // vuelva el anterior, la respuesta vieja no pisa la lista nueva.
   const pedido = useRef(0);
+  // La pestaña que se ve ahora. Una decisión que vuelve después de cambiar de pestaña
+  // trae la lista y la pestaña de cuando se tomó: no tiene que pisar la nueva.
+  const pestanaVigente = useRef(status);
+  useEffect(() => {
+    pestanaVigente.current = status;
+  }, [status]);
 
   const cargar = useCallback(async (estado: MerchantApplicationStatus) => {
     const numero = ++pedido.current;
@@ -154,6 +160,8 @@ export function AdminApplications({
   const alDecidir = (decidida: AdminMerchantApplication, mensaje: string) => {
     setResultado(mensaje);
     onDecided(mensaje);
+    // Ya se está mirando otra pestaña, que se cargó del servidor después de la decisión.
+    if (pestanaVigente.current !== status) return;
     // Volver a pedir cambios sobre una observada no la cambia de pestaña: se
     // actualiza en su lugar con el motivo nuevo en vez de desaparecer de la lista.
     if (decidida.status === status) {
@@ -162,10 +170,12 @@ export function AdminApplications({
     }
     // La solicitud decidida sale de esta pestaña (ya pertenece a otra) y se
     // pasa a la siguiente, que es lo que el operador iba a hacer igual.
-    const restantes = items.filter((item) => item.id !== decidida.id);
-    const indice = items.findIndex((item) => item.id === decidida.id);
-    setItems(restantes);
-    setSeleccionId(restantes[Math.min(indice, restantes.length - 1)]?.id ?? null);
+    setItems((previas) => {
+      const restantes = previas.filter((item) => item.id !== decidida.id);
+      const indice = previas.findIndex((item) => item.id === decidida.id);
+      setSeleccionId(restantes[Math.min(indice, restantes.length - 1)]?.id ?? null);
+      return restantes;
+    });
   };
 
   return (

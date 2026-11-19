@@ -149,4 +149,9 @@ assert.ok(
   "aprobar toma el candado de la persona antes que la fila: un envío simultáneo no se cuela",
 );
 
+assert.ok(
+  contains(altas, "if (pestanaVigente.current !== status) return;"),
+  "una decisión que vuelve después de cambiar de pestaña no pisa la lista nueva",
+);
+
 console.log("merchant onboarding contract ok");
