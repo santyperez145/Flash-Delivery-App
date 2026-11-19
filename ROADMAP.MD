@@ -69,7 +69,7 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
 - **Verificación:** `test:merchant-applications` (nueva, en flujos críticos, falsificada sin el
   `FOR UPDATE`), `test:postgres`, `test:rls`, `test:runtime-write-scope` y
   `test:operations-resources` con la **migración 152**; `test:merchant-onboarding` (nueva, en
-  `ci-fast`) vigila las pantallas, falsificada con 19 mutaciones.
+  `ci-fast`) vigila las pantallas, falsificada con 21 mutaciones.
 - **Pendiente:** que quien recibió «pedir cambios» edite su solicitud (hoy responde por
   soporte), el enlace desde el ingreso de la app móvil (no tiene la URL pública de la web) y
   el control del CUIT contra ARCA. Detalle:

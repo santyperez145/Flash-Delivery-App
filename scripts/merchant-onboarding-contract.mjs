@@ -156,8 +156,10 @@ assert.ok(
 
 assert.ok(
   contains(altas, "const intervalo = window.setInterval(() => void refrescar(), 30_000);") &&
-    contains(altas, "const nuevas = pagina.applications.filter((item) => !vistas.has(item.id));"),
-  "la cola de Altas suma sola las solicitudes nuevas sin descartar lo cargado",
+    contains(altas, ".filter((item) => frescas.has(item.id) || !cubre(item))") &&
+    contains(altas, ".map((item) => frescas.get(item.id) ?? item);") &&
+    contains(altas, "if ((fallo as { status?: number }).status === 409) onConflicto();"),
+  "la cola de Altas se concilia sola: suma lo nuevo, actualiza y saca lo que decidió otra persona",
 );
 assert.ok(
   contains(repositorio, "AND ST_Covers(c.boundary, a.location) AND c.status IN ('beta','active')"),

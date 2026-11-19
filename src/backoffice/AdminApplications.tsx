@@ -132,27 +132,46 @@ export function AdminApplications({
     void cargar(status);
   }, [cargar, status]);
 
-  // Con la pestaña abierta, la cola se actualiza sola: cada 30 s y al volver a la pestaña
-  // se relee la primera página y se suman las solicitudes nuevas. No se descarta lo ya
-  // cargado ni la selección: el operador puede estar leyendo una solicitud.
+  // Con la pestaña abierta, la cola se actualiza sola: cada 30 s, al volver a la pestaña
+  // y cuando una decisión choca con otra (409). Se relee la primera página y se concilia
+  // con lo cargado, sin descartar las páginas siguientes ni la selección:
+  // - lo que vino se actualiza (otra persona pudo pedir cambios con otro motivo);
+  // - lo cargado que ya no está se saca si cae dentro de lo que la página cubre (sus
+  //   fechas, o todo si la página es la lista entera): lo decidió otra persona;
+  // - lo nuevo se suma al final.
+  const refrescar = useCallback(async () => {
+    const numero = pedido.current;
+    try {
+      const pagina = await api.getAdminMerchantApplications({ status });
+      if (numero !== pedido.current || pestanaVigente.current !== status) return;
+      const frescas = new Map(pagina.applications.map((item) => [item.id, item]));
+      const fechas = pagina.applications.map((item) => item.createdAt).sort();
+      const cubre = (item: AdminMerchantApplication) =>
+        !pagina.nextCursor ||
+        (fechas.length > 0 &&
+          item.createdAt >= fechas[0] &&
+          item.createdAt <= fechas[fechas.length - 1]);
+      setItems((previas) => {
+        const vigentes = previas
+          .filter((item) => frescas.has(item.id) || !cubre(item))
+          .map((item) => frescas.get(item.id) ?? item);
+        const vistas = new Set(vigentes.map((item) => item.id));
+        return [...vigentes, ...pagina.applications.filter((item) => !vistas.has(item.id))];
+      });
+      setNextCursor((actual) => actual ?? pagina.nextCursor);
+    } catch {
+      // Se reintenta en la próxima vuelta; el error de la carga principal ya se ve.
+    }
+  }, [status]);
+
+  // Si la solicitud elegida salió de la lista (la decidió otra persona), se pasa a la
+  // primera que queda, igual que después de decidir.
   useEffect(() => {
-    const refrescar = async () => {
-      const numero = pedido.current;
-      try {
-        const pagina = await api.getAdminMerchantApplications({ status });
-        if (numero !== pedido.current || pestanaVigente.current !== status) return;
-        setItems((previas) => {
-          const vistas = new Set(previas.map((item) => item.id));
-          const nuevas = pagina.applications.filter((item) => !vistas.has(item.id));
-          if (!nuevas.length) return previas;
-          setSeleccionId((actual) => actual ?? nuevas[0].id);
-          return [...previas, ...nuevas];
-        });
-        setNextCursor((actual) => actual ?? pagina.nextCursor);
-      } catch {
-        // Se reintenta en la próxima vuelta; el error de la carga principal ya se ve.
-      }
-    };
+    if (cargando) return;
+    if (!items.some((item) => item.id === seleccionId)) setSeleccionId(items[0]?.id ?? null);
+  }, [items, seleccionId, cargando]);
+
+  useEffect(() => {
     const intervalo = window.setInterval(() => void refrescar(), 30_000);
     const alVolver = () => {
       if (document.visibilityState === "visible") void refrescar();
@@ -164,7 +183,7 @@ export function AdminApplications({
       document.removeEventListener("visibilitychange", alVolver);
       window.removeEventListener("focus", alVolver);
     };
-  }, [status]);
+  }, [refrescar]);
 
   const verMas = async () => {
     if (!nextCursor) return;
@@ -320,6 +339,7 @@ export function AdminApplications({
                 solicitud={seleccion}
                 canDecide={canDecide}
                 onDecidida={alDecidir}
+                onConflicto={() => void refrescar()}
               />
             ) : (
               <p className="admin-empty">Elegí una solicitud para ver el detalle.</p>
@@ -335,10 +355,13 @@ function DetalleSolicitud({
   solicitud,
   canDecide,
   onDecidida,
+  onConflicto,
 }: {
   solicitud: AdminMerchantApplication;
   canDecide: boolean;
   onDecidida: (solicitud: AdminMerchantApplication, mensaje: string) => void;
+  /** La decidió otra persona mientras tanto (409): la cola se vuelve a leer. */
+  onConflicto: () => void;
 }) {
   const [modo, setModo] = useState<Modo>(null);
   const [motivo, setMotivo] = useState("");
@@ -372,6 +395,7 @@ function DetalleSolicitud({
       setMotivo("");
     } catch (fallo) {
       setError(fallo instanceof Error ? fallo.message : "No se pudo registrar la decisión");
+      if ((fallo as { status?: number }).status === 409) onConflicto();
     } finally {
       setEnviando(false);
     }
