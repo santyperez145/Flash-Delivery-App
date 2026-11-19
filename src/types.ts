@@ -576,12 +576,6 @@ export type AdminDashboard = {
     netRevenueRunRate: number | null;
     contributionMargin: number | null;
     contributionMarginPercent: number | null;
-    readinessScore: number;
-    milestones: Array<{
-      label: string;
-      status: "done" | "in_progress" | "next";
-      value: string;
-    }>;
     unitEconomics: Array<{
       label: string;
       value: string;

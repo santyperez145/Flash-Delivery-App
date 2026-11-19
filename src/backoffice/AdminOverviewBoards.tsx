@@ -42,16 +42,21 @@ export function MarketplaceHealth({
   const rows = [
     [
       "Fill rate delivery",
-      dashboard
-        ? `${dashboard.marketplace.fillRateDelivery}%`
-        : `${state.orders.filter((order) => order.courierId).length}/${state.orders.length}`,
+      // FE-04: sin pedidos no hay tasa de asignación; 0% diría que no se asignó ninguno.
+      !state.orders.length
+        ? "—"
+        : dashboard
+          ? `${dashboard.marketplace.fillRateDelivery}%`
+          : `${state.orders.filter((order) => order.courierId).length}/${state.orders.length}`,
       "Asignacion",
     ],
     [
       "Fill rate taxi",
-      dashboard
-        ? `${dashboard.marketplace.fillRateRide}%`
-        : `${state.rides.filter((ride) => ride.driverId).length}/${state.rides.length}`,
+      !state.rides.length
+        ? "—"
+        : dashboard
+          ? `${dashboard.marketplace.fillRateRide}%`
+          : `${state.rides.filter((ride) => ride.driverId).length}/${state.rides.length}`,
       "Conductores",
     ],
     ["Locales abiertos", `${state.metrics.openRestaurants}/${state.restaurants.length}`, "Supply"],
@@ -240,13 +245,16 @@ export function RiskSignalBoard({ dashboard }: { dashboard: AdminDashboard | nul
   );
 }
 
+const nivelDeDemanda: Record<string, string> = { low: "baja", medium: "media", high: "alta" };
+
 export function ZoneBoard({ state }: { state: AppState }) {
   return (
     <div className="zone-board">
       {state.zones?.map((zone) => (
         <article className={zone.demandLevel === "high" ? "hot" : ""} key={zone.id}>
           <strong>{zone.name}</strong>
-          <span>{zone.demandLevel}</span>
+          {/* La demanda de la zona es configuración de precios, no una medición en vivo. */}
+          <span>Demanda configurada: {nivelDeDemanda[zone.demandLevel] ?? zone.demandLevel}</span>
           <small>
             {zone.activeOrders} pedidos · {zone.activeRides} viajes
           </small>

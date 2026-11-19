@@ -393,7 +393,7 @@ async function run() {
 
   const adminDashboard = await request("/admin/dashboard", { headers: auth(adminToken) });
   assert(
-    adminDashboard.status === 200 && adminDashboard.body?.dashboard?.investor?.readinessScore,
+    adminDashboard.status === 200 && Boolean(adminDashboard.body?.dashboard?.marketplace),
     "admin reads investor dashboard",
     adminDashboard.text,
   );

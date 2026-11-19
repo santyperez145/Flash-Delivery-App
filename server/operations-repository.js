@@ -639,7 +639,12 @@ export async function getPostgresAuditEventPage({ limit = 100, cursor = null, qu
 export async function getPostgresAdminFinancials() {
   const [payments, refunds, revenue, merchantPayable, payouts] = await Promise.all([
     postgresPool.query(
-      `SELECT COALESCE(sum(amount_cents),0)::bigint gross_processed_cents,COALESCE(sum(captured_amount_cents),0)::bigint net_captured_cents,count(*)::int payment_count FROM payment_intents`,
+      // FE-04: lo procesado es lo cobrado; una intención fallida, cancelada o sin pagar no
+      // es volumen.
+      `SELECT COALESCE(sum(amount_cents) FILTER(WHERE status IN ('captured','partially_refunded','refunded')),0)::bigint gross_processed_cents,
+        COALESCE(sum(captured_amount_cents),0)::bigint net_captured_cents,
+        count(*) FILTER(WHERE status IN ('captured','partially_refunded','refunded'))::int payment_count
+       FROM payment_intents`,
     ),
     postgresPool.query(
       `SELECT COALESCE(sum(amount_cents) FILTER(WHERE status='succeeded'),0)::bigint refunded_cents,count(*) FILTER(WHERE status='succeeded')::int refund_count FROM refunds`,

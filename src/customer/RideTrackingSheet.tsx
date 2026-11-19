@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useState, type FormEvent } from "react";
 import { Car, Check, Copy, KeyRound, MapPin, ShieldCheck, TriangleAlert, X } from "lucide-react";
 
 import { api } from "../api";
-import { initials, money } from "../format";
+import { calificacionConductor, initials, money } from "../format";
 import { rideStatusLabel, rideSteps } from "../labels";
 import type { Driver, Ride, RoadRoute } from "../types";
 import { TripCheckBanner } from "./TripCheckBanner";
@@ -225,7 +225,7 @@ export function RideTrackingSheet({
                 <span>
                   <strong>{driver.name}</strong>
                   <small>
-                    {driver.vehicle} · {driver.plate} · ★ {driver.rating.toFixed(1)}
+                    {driver.vehicle} · {driver.plate} · {calificacionConductor(driver)}
                   </small>
                 </span>
               </div>

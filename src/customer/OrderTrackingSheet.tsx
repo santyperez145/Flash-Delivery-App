@@ -3,7 +3,7 @@ import { Check, Copy, MapPin, X } from "lucide-react";
 
 import { api } from "../api";
 import { cobroParaCliente } from "../cash-payment";
-import { initials } from "../format";
+import { calificacionConductor, initials } from "../format";
 import { orderStatusLabel, orderSteps, pickupOrderSteps } from "../labels";
 import { OrderDeliveryCodeView } from "./OrderDeliveryCode";
 import type { Driver, Order, RoadRoute } from "../types";
@@ -177,7 +177,7 @@ export function OrderTrackingSheet({
                 <span>
                   <strong>{driver.name}</strong>
                   <small>
-                    {driver.vehicle} · ★ {driver.rating.toFixed(1)}
+                    {driver.vehicle} · {calificacionConductor(driver)}
                   </small>
                 </span>
               </div>

@@ -184,6 +184,8 @@ export type Driver = {
   vehicleKind?: "bicycle" | "motorcycle" | "car" | "van" | null;
   vehicleStatus?: "pending" | "approved" | "rejected" | null;
   rating: number;
+  /** FE-04: cuántas calificaciones hay; sin ninguna, `rating` es el valor inicial. */
+  ratingCount?: number;
   earningsToday: number;
   /** PAG-01: efectivo cobrado que todavía debe rendir. */
   cashDebt?: number;

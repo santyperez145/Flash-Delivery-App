@@ -6,7 +6,7 @@
 
 import { AdminSectionHeader } from "../ui/panels";
 import { api } from "../api";
-import { initials } from "../format";
+import { calificacionConductor, initials } from "../format";
 import type { AppState, Order, Ride } from "../types";
 import { AdminCashDeposit } from "./AdminCashDeposit";
 import { AdminLiveGrid } from "./AdminOverviewBoards";
@@ -132,7 +132,7 @@ export function AdminDriversSupplyPanel({
             </div>
             <b>{driver.online ? "Online" : "Offline"}</b>
             <small>
-              {driver.activeService} · {driver.rating}
+              {driver.activeService} · {calificacionConductor(driver)}
             </small>
             <button
               type="button"

@@ -78,7 +78,9 @@ export async function getAssignedDriverProjections({ userPublicId, roles }) {
     `SELECT DISTINCT ON(d.id)
       d.public_id id,
       COALESCE(d.metadata->>'name',d.public_id) name,
-      COALESCE((SELECT round(avg(r.score),2) FROM ratings r WHERE r.subject_type='driver' AND r.subject_id=d.id),d.rating) rating,
+      -- FE-04: la nota sale de las calificaciones; sin ninguna no se manda el 5 inicial.
+      (SELECT round(avg(r.score),2) FROM ratings r WHERE r.subject_type='driver' AND r.subject_id=d.id) rating,
+      (SELECT count(*)::int FROM ratings r WHERE r.subject_type='driver' AND r.subject_id=d.id) rating_count,
       COALESCE(v.model,'Vehículo asignado') vehicle,
       COALESCE(v.plate,'') plate,
       v.kind vehicle_kind,
@@ -101,6 +103,7 @@ export async function getAssignedDriverProjections({ userPublicId, roles }) {
     id: row.id,
     name: row.name,
     rating: Number(row.rating || 0),
+    ratingCount: Number(row.rating_count || 0),
     vehicle: row.vehicle,
     plate: row.plate,
     vehicleKind: row.vehicle_kind || null,

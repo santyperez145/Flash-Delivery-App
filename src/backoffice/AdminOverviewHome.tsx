@@ -107,7 +107,7 @@ export function AdminOverviewHome({
           />
         </section>
         <section className="admin-card">
-          <AdminSectionHeader title="Zonas calientes" action="Live" />
+          <AdminSectionHeader title="Zonas de servicio" action="Pedidos y viajes en curso" />
           <ZoneBoard state={state} />
         </section>
       </div>
