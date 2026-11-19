@@ -210,6 +210,9 @@ function rowsToOrders(rows) {
           metadata.cashPayment,
           row.final_amount_cents ?? row.quoted_amount_cents,
         ),
+        // P-03: si el pedido va en un lote, qué entrega es (1 o 2 de 2). Nada del otro
+        // pedido: es de otra persona. Quien reparte ordena sus paradas con esto.
+        batch: row.batch_position ? { position: Number(row.batch_position), stops: 2 } : null,
         items: [],
         subtotal: Number(metadata.subtotal || 0),
         deliveryFee: Number(metadata.deliveryFee || 0),
@@ -264,6 +267,14 @@ export async function getPostgresOrders({ publicIds = null } = {}) {
       merchant.public_id AS merchant_public_id, branch.public_id AS branch_public_id,
       driver.public_id AS driver_public_id,
       EXISTS(SELECT 1 FROM shipment_delivery_evidence e WHERE e.job_id=j.id AND e.evidence_type='photo') AS has_delivery_photo,
+      -- P-03: el lugar del pedido en un lote, mientras los dos siguen en curso.
+      CASE
+        WHEN EXISTS (SELECT 1 FROM jobs f WHERE f.batch_anchor_id=j.id AND f.status NOT IN ('completed','cancelled'))
+          THEN 1
+        WHEN j.batch_anchor_id IS NOT NULL AND EXISTS (SELECT 1 FROM jobs a WHERE a.id=j.batch_anchor_id
+          AND a.status NOT IN ('completed','cancelled'))
+          THEN 2
+      END AS batch_position,
       -- SEG-03: si se entrega con código y si ya se verificó (nunca el código).
       (SELECT jsonb_build_object('required',true,'verified',dc.verified_at IS NOT NULL)
         FROM order_delivery_codes dc WHERE dc.job_id=j.id) AS delivery_code,

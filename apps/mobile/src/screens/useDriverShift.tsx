@@ -12,6 +12,7 @@ import { Alert, Linking, Platform } from "react-native";
 import { api } from "../api";
 import { getBackgroundLocationState, type BackgroundLocationState } from "../background-location";
 import { buildExternalNavigationUrl } from "../navigation-links";
+import { orderPickedUp, ordersInRouteOrder } from "../order-batch";
 import type {
   AppState,
   DispatchOffer,
@@ -286,8 +287,13 @@ export function useDriverShift({
     };
   }, [driver.id, driver.online]);
 
-  const activeOrders = state.orders.filter(
-    (order) => order.courierId === driver.id && !["delivered", "cancelled"].includes(order.status),
+  // P-03: en el orden del recorrido, así la lista y la navegación muestran primero la
+  // próxima parada (retirar en el local y después la entrega 1 antes que la 2).
+  const activeOrders = ordersInRouteOrder(
+    state.orders.filter(
+      (order) =>
+        order.courierId === driver.id && !["delivered", "cancelled"].includes(order.status),
+    ),
   );
   const activeRides = state.rides.filter(
     (ride) => ride.driverId === driver.id && !["completed", "cancelled"].includes(ride.status),
@@ -312,9 +318,11 @@ export function useDriverShift({
         address: toPickup ? ride.pickup : ride.destination,
       };
     }
+    // La próxima parada: si falta retirar alguno, el local; si no, la entrega con la
+    // posición más baja del lote. Con un solo pedido es ese mismo.
     const order = activeOrders[0];
     if (order) {
-      const toPickup = !["picked_up", "delivering"].includes(order.status);
+      const toPickup = !orderPickedUp(order);
       return {
         id: order.id,
         kind: "Comida",

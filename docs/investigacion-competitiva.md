@@ -853,6 +853,26 @@ Flash lo ofrece por sucursal, con vuelto, liquidación en mano y rendición. Det
 - **Brecha:** sin red de cobranza para que el repartidor deposite solo (PAG-03, dueño) y sin
   franja horaria para no aceptar efectivo de noche.
 
+### Decisión 19 de noviembre de 2026 — pedidos agrupados (P-03)
+
+Uber Eats le ofrece a quien reparte sumar otro pedido del mismo comercio, con un aviso para
+aceptarlo o rechazarlo, y no agrupa cuando las entregas se demorarían demasiado
+([Uber, entregar varios pedidos](https://www.uber.com/drive/delivery/basics/delivering-multiple-orders/);
+[Uber Australia, pedidos agrupados](https://www.uber.com/au/en/newsroom/batched-orders-how-do-they-work-for-restaurants/)).
+En algunos mercados agrupa hasta tres
+([Uber Australia, lotes de tres](https://www.uber.com/au/en/blog/triple-batching-for-restaurants)).
+DoorDash los llama ofertas agrupadas, suelen salir del mismo local y sugiere el orden del
+recorrido
+([DoorDash](https://help.doordash.com/dashers/s/article/Why-did-I-receive-multiple-orders-at-once)).
+Flash agrupa dos pedidos de la misma sucursal, con tope de desvío para el segundo cliente,
+el horario estimado ajustado y el recorrido ordenado. Detalle en
+[`order-batching.md`](order-batching.md).
+
+- **Por encima de lo publicado:** el primer cliente no espera de más, el segundo recibe un
+  horario que ya cuenta el desvío, y la aceptación vuelve a controlar el lote con los
+  pedidos bloqueados.
+- **Brecha:** hasta dos pedidos, sólo del mismo local, con el desvío en línea recta.
+
 ### Decisión 19 de noviembre de 2026 — perfil familiar (PAG-05)
 
 En Uber, quien organiza invita a otras cuentas y paga sus viajes con su medio de pago sin

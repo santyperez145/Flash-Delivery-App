@@ -2399,6 +2399,21 @@ try {
     substitutionOk,
     "customer accepts substitution, order snapshot changes and Wallet receives the exact balanced price difference",
   );
+  // P-03: a quien ya lleva un pedido no se le ofrece uno de comida suelto de otro local
+  // (sólo como lote del mismo local). El repartidor de ejemplo tiene sembrado un pedido
+  // en camino: se aparta mientras recibe y acepta este, y se le devuelve enseguida.
+  const pedidosApartados = (
+    await pool.query(
+      `SELECT j.id, j.driver_id FROM jobs j JOIN drivers d ON d.id=j.driver_id
+       JOIN users u ON u.id=d.user_id
+       WHERE u.email='conductor@flash.app' AND j.kind='delivery'
+         AND j.status NOT IN ('completed','cancelled') AND j.public_id<>$1`,
+      [settlementOrderId],
+    )
+  ).rows;
+  await pool.query("UPDATE jobs SET driver_id=NULL WHERE id = ANY($1::uuid[])", [
+    pedidosApartados.map((fila) => fila.id),
+  ]);
   token = merchantSubLogin.body.token;
   const merchantPreparing = await request(`/orders/${settlementOrderId}/advance`, {
       method: "POST",
@@ -2447,6 +2462,8 @@ try {
       ).status === 200,
     "driver accepts the settlement order from a private offer",
   );
+  for (const fila of pedidosApartados)
+    await pool.query("UPDATE jobs SET driver_id=$2 WHERE id=$1", [fila.id, fila.driver_id]);
 
   // -------------------------------------------------------------------------
   // Soltar un servicio asignado (OPS-001).

@@ -96,6 +96,9 @@ try {
     "delivery",
     RADIO_M,
     LISTA_CORTA,
+    // Sin el filtro de quien ya lleva un servicio (P-03): el plan que se mide es el de
+    // viajes y envíos, el camino más frecuente.
+    false,
   ];
 
   // --- El plan usa el índice -------------------------------------------------

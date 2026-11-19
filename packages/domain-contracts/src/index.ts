@@ -369,6 +369,10 @@ export type DispatchOffer = {
   cashToCollect?: number | null;
   cashTendered?: number | null;
   cashChange?: number | null;
+  /** P-03: sumar un pedido del mismo local al que ya lleva; se entrega después. */
+  batch?: { anchorOrderId: string; sequence: number; extraM: number; extraMinutes: number } | null;
+  /** Lo que gana quien reparte un pedido de comida (el envío). `fare` es lo que paga el cliente. */
+  courierEarning?: number | null;
 };
 
 /** SEG-01: una señal del control del viaje que el pasajero todavía no contestó. */
@@ -426,6 +430,9 @@ export type CashPayment = {
   change: number;
   collector: "courier" | "merchant";
 };
+
+/** P-03: el lugar de un pedido en un lote de dos (1: se entrega primero). */
+export type OrderBatch = { position: 1 | 2; stops: 2 };
 
 /** PAG-05: la etiqueta del medio de pago «Perfil familiar» en pedidos, viajes y envíos. */
 export type FamilyPaymentLabel = "Perfil familiar";

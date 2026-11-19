@@ -32,6 +32,12 @@ const SHORTLIST_SQL = `
     AND ST_DWithin(d.current_location, $1::geography, $3)
     AND d.location_updated_at >= now() - interval '10 minutes'
     AND (d.location_accuracy_m IS NULL OR d.location_accuracy_m <= 200)
+    -- P-03: un pedido de comida suelto, sólo a quien no lleva ningún servicio. Va acá y
+    -- no después: si los más cercanos están ocupados, el radio se sigue ampliando hasta
+    -- encontrar libres, en lugar de cortar con tres que después se descartan. El índice
+    -- parcial jobs_active_driver_idx lo resuelve sin recorrer pedidos terminados.
+    AND (NOT $5::boolean OR NOT EXISTS (SELECT 1 FROM jobs x WHERE x.driver_id = d.id
+      AND x.status NOT IN ('completed','cancelled')))
   ORDER BY d.current_location <-> $1::geography
   LIMIT $4`;
 
@@ -114,10 +120,18 @@ export function radiusLadder({
  */
 export async function shortlistDrivers(
   client,
-  { pickup, mode, needed, shortlistSize = config.dispatch.shortlistSize },
+  {
+    pickup,
+    mode,
+    needed,
+    shortlistSize = config.dispatch.shortlistSize,
+    sinServicioEnCurso = false,
+  },
 ) {
   for (const radius of radiusLadder()) {
-    const rows = (await client.query(SHORTLIST_SQL, [pickup, mode, radius, shortlistSize])).rows;
+    const rows = (
+      await client.query(SHORTLIST_SQL, [pickup, mode, radius, shortlistSize, sinServicioEnCurso])
+    ).rows;
     if (rows.length >= needed || radius === config.dispatch.maxRadiusM) {
       return {
         driverIds: rows.map((row) => row.id),

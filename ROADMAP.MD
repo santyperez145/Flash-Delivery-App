@@ -45,6 +45,59 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
 
+## Avance 19 de noviembre de 2026 — P-03, pedidos agrupados
+
+- **Qué faltaba.** Uber Eats y DoorDash le ofrecen a quien reparte sumar un segundo pedido del
+  mismo local; en Flash cada pedido era un viaje al local. Es la palanca más directa sobre el
+  costo por entrega.
+- **Ahora, si un pedido está listo y otro repartidor va a buscar uno a la misma sucursal**, a
+  ese repartidor se le ofrece primero sumarlo: «Sumá un pedido del mismo local», con los
+  minutos de desvío.
+  - Retira los dos juntos y entrega primero el que ya llevaba: el primer cliente no espera de
+    más.
+  - El desvío del segundo cliente tiene tope (`FOOD_BATCH_MAX_DETOUR_M`, 2,5 km) y se le suma
+    a su horario estimado.
+  - Como mucho dos pedidos (migración 149, con un índice único). Se puede apagar por ambiente.
+- **Lo que se corrigió de paso.** Un repartidor con un pedido en curso podía aceptar otro de
+  cualquier local, sin orden ni tope. Ahora, con uno en curso, uno de comida sólo se acepta si
+  forma lote, y a quien ya lleva un pedido no le llegan ofertas sueltas.
+- **Al aceptar se vuelve a controlar**, con el repartidor y el primer pedido bloqueados. Un lote
+  en efectivo respeta el tope de deuda (PAG-01).
+- **Quien reparte**, en web y en la app, ve sus pedidos en el orden del recorrido con «Entrega 1
+  de 2», el aviso de retirar los dos, y la navegación a la próxima parada. En toda oferta de
+  comida ve lo que gana, el envío, en lugar del total que paga el cliente.
+- **Quien pidió** ve en el seguimiento si su pedido va segundo y que el horario ya lo cuenta.
+  Del otro pedido no se muestra nada.
+- **El lote se deshace solo** (un trigger de la base) si uno se cancela o la operación libera
+  un pedido: el que queda sigue solo y su horario pierde el desvío.
+- **Una revisión adversarial antes del PR encontró seis defectos, corregidos:**
+  - Quien ya llevaba un pedido se sacaba después del corte de puntuación: un pedido podía
+    quedar sin ofertas aunque hubiera repartidores libres cerca. Ahora se saca antes.
+  - Liberar o cancelar un pedido de un lote dejaba el vínculo y el desvío: «Entrega 2 de 2»
+    a quien llevaba uno solo y el desvío sumado dos veces al reagrupar.
+  - La oferta de lote mostraba «NaN% aceptación» en web y en la app.
+  - «Ganás» dejaba afuera la propina del checkout, que también es de quien reparte.
+  - Las rondas siguientes le volvían a ofrecer el lote a los mismos dos repartidores.
+  - La prueba nueva usaba un repartidor sin vehículo, así que una de sus afirmaciones no
+    podía fallar.
+- **La revisión del PR sumó seis más, corregidas:** el filtro de quien ya lleva un servicio
+  pasó a la lista corta (si no, el radio dejaba de ampliarse con tres ocupados); un viaje con
+  pasajero en curso también impide el lote; el efectivo se filtra antes de elegir los dos
+  repartidores; el lote tiene su ronda exclusiva antes de abrirse a los libres; el lote exige
+  ubicación reciente y precisa, como la lista corta; y los controles de orden del contrato
+  no dependen del espaciado. La prueba de PostgreSQL del
+  runtime aparta el pedido en camino sembrado del repartidor de ejemplo mientras toma el
+  suyo: con la regla nueva, ya no recibe uno suelto de otro local.
+- **Verificación:**
+  - `test:order-batching` (nueva, en `ci-critical-flows`) recorre la oferta del lote, el
+    desvío de más, el pedido de otro local, el rechazo al aceptar, la aceptación, las vistas,
+    la liberación y el reagrupado, la cancelación y un control con el repartidor libre.
+    No se pudo correr en local, porque no hay credenciales de la base local; corre en el CI.
+  - `test:order-batching-contract` (nueva, en `ci-fast`) vigila el cableado en la base, el
+    servidor, web y teléfono. Falsificado con 57 mutaciones.
+- **Brechas:** hasta dos pedidos y sólo del mismo local; el desvío se mide en línea recta.
+  Detalle en [`docs/order-batching.md`](docs/order-batching.md).
+
 ## Avance 19 de noviembre de 2026 — PAG-01, efectivo en pedidos de comida
 
 - **Qué faltaba.** En Argentina, PedidosYa, Rappi y DiDi Food dejan pagar el delivery en

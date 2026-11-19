@@ -23,9 +23,9 @@ perfecto.
 | Pagos: cobro real | 3 | Todo listo hasta el borde: faltan las credenciales productivas de Mercado Pago (dueño) |
 | Reintegros y reclamos | 7 | Reintegros, faltantes y reclamos de envíos existen; falta el reintegro inmediato a la Wallet sin revisión en montos chicos |
 | Comprobantes | 5 | Comprobante no fiscal; la factura electrónica necesita alta en ARCA (dueño) |
-| Experiencia del cliente | 8 | Pedidos y Viajes separados en web (FE-01) y móvil (FE-02); faltan servicios por ciudad (RES-04) y lotes de reparto |
+| Experiencia del cliente | 8 | Pedidos y Viajes separados en web (FE-01) y móvil (FE-02); faltan los servicios por ciudad (RES-04) |
 | Operación del comercio | 7 | Pausa con tiempo y motivo; faltan modo ocupado, pausa automática y la pausa en la web |
-| Repartidor y conductor | 7 | Desglose de ganancias en viajes y envíos; falta en comida y los lotes de reparto |
+| Repartidor y conductor | 8 | Desglose de ganancias en viajes y envíos, y pedidos agrupados del mismo local (P-03) con lo que gana en cada oferta de comida; falta el desglose de ganancias en comida |
 
 ## Seguridad
 
