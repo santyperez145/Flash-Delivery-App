@@ -260,7 +260,13 @@ export async function respondToFareSplit({ splitPublicId, userPublicId, accept }
       })),
     ];
     const cuentaInvitado = await cuentaWallet(client, user.id);
-    await client.query("SELECT id FROM ledger_accounts WHERE id=$1 FOR UPDATE", [cuentaInvitado]);
+    // `NO KEY UPDATE` y no `UPDATE`: asentar en la billetera de otro toma un bloqueo
+    // compartido por la clave foránea, que `FOR UPDATE` bloquearía. Dos pasajeros
+    // aceptando cada uno el viaje del otro se trabarían. Sigue serializando contra
+    // cualquier otro control de saldo de esta billetera.
+    await client.query("SELECT id FROM ledger_accounts WHERE id=$1 FOR NO KEY UPDATE", [
+      cuentaInvitado,
+    ]);
     if ((await saldo(client, cuentaInvitado)) < parte)
       throw Object.assign(new Error("Saldo insuficiente en Flash Wallet para tu parte"), {
         status: 402,

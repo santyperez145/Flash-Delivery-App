@@ -114,6 +114,8 @@ console.log("ok - web y móvil dejan elegir efectivo, y el conductor ve cuánto 
       contains(rutas, "fareSplitLimiter,") &&
       contains(billetera, "await refundFareSplitsOnCancel(client, {") &&
       contains(division, "const parte = Math.floor(total / (aceptados.length + 2));") &&
+      contains(division, "SELECT id FROM ledger_accounts WHERE id=$1 FOR NO KEY UPDATE") &&
+      !contains(division, "ORDER BY id FOR UPDATE") &&
       contains(
         division,
         'if (suma !== 0) throw new Error("La división de la tarifa no cuadra");',
