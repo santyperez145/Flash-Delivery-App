@@ -15,7 +15,7 @@
 // cifrado; nunca en claro, ni en un log, ni en la auditoría.
 import crypto from "node:crypto";
 
-import { notifyMfaChange } from "./mfa-repository.js";
+import { enqueueSecurityAlert } from "./mfa-repository.js";
 import { enqueueNotificationForInternalUser } from "./notification-repository.js";
 import { pesos } from "./money.js";
 import { postgresPool } from "./postgres.js";
@@ -94,14 +94,51 @@ async function asentar(client, { idempotencyKey, description, card, accion, desd
   );
 }
 
+// `FOR SHARE` hasta el final de la transacción: choca con el `FOR UPDATE` con que
+// `app.delete_customer_account` empieza. Si el borrado llegó antes, la fila ya no está
+// activa y esto responde 404; si llegó después, espera, ve el saldo nuevo y rechaza
+// borrar la cuenta. Sin el bloqueo, un canje o una anulación en paralelo con el
+// borrado acreditaba la plata en una cuenta ya borrada.
 const usuarioActivo = async (client, userPublicId) => {
   const user = (
-    await client.query("SELECT id,name,email FROM users WHERE public_id=$1 AND status='active'", [
-      userPublicId,
-    ])
+    await client.query(
+      "SELECT id,name,email FROM users WHERE public_id=$1 AND status='active' FOR SHARE",
+      [userPublicId],
+    )
   ).rows[0];
   if (!user) throw error("Usuario no encontrado", 404);
   return user;
+};
+
+const claveCompra = (userId, idempotencyKey) => `gift_card:purchase:${userId}:${idempotencyKey}`;
+
+/** Importe en centavos, email y mensaje tal como se guardan; 400 debajo del mínimo. */
+const datosCompra = ({ amount, recipientEmail, message }) => {
+  const amountCents = Math.round(Number(amount) * 100);
+  if (!Number.isSafeInteger(amountCents) || amountCents < GIFT_CARD_MIN_PESOS * 100)
+    throw error(`El mínimo de una tarjeta de regalo es ${importe(GIFT_CARD_MIN_PESOS * 100)}`, 400);
+  return {
+    amountCents,
+    correo: recipientEmail ? String(recipientEmail).trim().toLowerCase() : null,
+    nota: message ? String(message).trim() || null : null,
+  };
+};
+
+/**
+ * Un reintento con la misma clave tiene que ser la misma compra. Si cambió el importe,
+ * el destinatario o el mensaje, devolver la tarjeta anterior haría creer que se compró
+ * la nueva: se responde 409, como las APIs de pago.
+ */
+const exigirMismaCompra = (row, { amountCents, correo, nota }) => {
+  if (
+    Number(row.amount_cents) !== amountCents ||
+    (row.recipient_email ?? null) !== correo ||
+    (row.message ?? null) !== nota
+  )
+    throw error(
+      "Esa compra ya se hizo con otros datos. Revisá tus tarjetas antes de comprar otra.",
+      409,
+    );
 };
 
 /** Lo que ve quien compró: el código sólo mientras la tarjeta está vigente. */
@@ -129,14 +166,13 @@ export async function purchaseGiftCard({
   message = null,
   idempotencyKey,
 }) {
-  const amountCents = Math.round(Number(amount) * 100);
-  if (!Number.isSafeInteger(amountCents) || amountCents < GIFT_CARD_MIN_PESOS * 100)
-    throw error(`El mínimo de una tarjeta de regalo es ${importe(GIFT_CARD_MIN_PESOS * 100)}`, 400);
+  const datos = datosCompra({ amount, recipientEmail, message });
+  const { amountCents, correo, nota } = datos;
   const client = await postgresPool.connect();
   try {
     await client.query("BEGIN");
     const user = await usuarioActivo(client, userPublicId);
-    const clave = `gift_card:purchase:${user.id}:${idempotencyKey}`;
+    const clave = claveCompra(user.id, idempotencyKey);
     const walletId = await wallet(client, user.id);
     // Se bloquea la Wallet de quien compra: su saldo no cambia mientras se controla,
     // y dos compras simultáneas con el mismo saldo no pasan las dos.
@@ -149,12 +185,12 @@ export async function purchaseGiftCard({
       )
     ).rows[0];
     if (repetida) {
+      exigirMismaCompra(repetida, datos);
       await client.query("ROLLBACK");
       return { card: vistaComprada(repetida), replayed: true };
     }
     if ((await saldo(client, walletId)) < amountCents)
       throw error("Saldo insuficiente en Flash Wallet", 402);
-    const correo = recipientEmail ? String(recipientEmail).trim().toLowerCase() : null;
     if (correo && correo === String(user.email).toLowerCase())
       throw error("La tarjeta es para regalar: no puede ser para tu propia cuenta", 400);
     // Dirigirla no dice quién tiene cuenta: un email que no es de un cliente activo
@@ -162,8 +198,11 @@ export async function purchaseGiftCard({
     const destinatario = correo
       ? (
           await client.query(
+            // `FOR SHARE OF u`: si la cuenta se está borrando, se espera. Si el borrado
+            // llegó antes, ya no está activa y la tarjeta se guarda sin destinatario; si
+            // llega después, su trigger ve la tarjeta y borra el email y el mensaje.
             `SELECT u.id FROM users u JOIN user_roles r ON r.user_id=u.id AND r.role='customer'
-             WHERE lower(u.email)=$1 AND u.status='active' AND u.id<>$2 LIMIT 1`,
+             WHERE lower(u.email)=$1 AND u.status='active' AND u.id<>$2 LIMIT 1 FOR SHARE OF u`,
             [correo, user.id],
           )
         ).rows[0]
@@ -183,7 +222,7 @@ export async function purchaseGiftCard({
           user.id,
           destinatario?.id ?? null,
           correo,
-          message ? String(message).trim() || null : null,
+          nota,
         ],
       )
     ).rows[0];
@@ -206,10 +245,11 @@ export async function purchaseGiftCard({
         },
         deduplicationKey: `gift_card_received:${card.public_id}`,
       });
-    await client.query("COMMIT");
     // Aviso por push y email a quien compró: si no fue la persona, se entera ahora
-    // y no cuando el saldo ya se canjeó en otra cuenta.
-    await notifyMfaChange(userPublicId, "gift_card_purchased");
+    // y no cuando el saldo ya se canjeó en otra cuenta. Con la misma transacción: se
+    // encola si y sólo si la compra se confirma.
+    await enqueueSecurityAlert(client, { userId: user.id, event: "gift_card_purchased" });
+    await client.query("COMMIT");
     return { card: vistaComprada(card), replayed: false };
   } catch (failure) {
     await client.query("ROLLBACK");
@@ -219,11 +259,74 @@ export async function purchaseGiftCard({
   }
 }
 
-/** Las que compró la persona y las dirigidas a su cuenta que todavía puede canjear. */
+/**
+ * Una compra ya hecha con esta clave por esta persona. La ruta la busca **antes**
+ * de pedir el segundo factor: si la respuesta de una compra se perdió, el reintento
+ * trae el mismo código de la app autenticadora, que ya se usó y no vuelve a servir.
+ */
+export async function findGiftCardPurchase({
+  userPublicId,
+  idempotencyKey,
+  amount,
+  recipientEmail = null,
+  message = null,
+}) {
+  const user = (await postgresPool.query("SELECT id FROM users WHERE public_id=$1", [userPublicId]))
+    .rows[0];
+  if (!user) return null;
+  const row = (
+    await postgresPool.query(
+      `SELECT g.* FROM ledger_transactions t JOIN gift_cards g ON g.public_id=t.metadata->>'giftCardId'
+       WHERE t.idempotency_key=$1 AND g.purchaser_id=$2`,
+      [claveCompra(user.id, idempotencyKey), user.id],
+    )
+  ).rows[0];
+  if (!row) return null;
+  exigirMismaCompra(row, datosCompra({ amount, recipientEmail, message }));
+  return vistaComprada(row);
+}
+
+/**
+ * Lo que puede hacer fallar una compra y se controla sin cobrar: se mira **antes** del
+ * segundo factor. El código de la app autenticadora sirve una sola vez, y gastarlo en
+ * una compra que después se rechaza por saldo o por destinatario obliga a esperar otro.
+ * La compra lo vuelve a controlar con la Wallet bloqueada.
+ */
+export async function assertGiftCardPurchasable({ userPublicId, amount, recipientEmail = null }) {
+  const { amountCents, correo } = datosCompra({ amount, recipientEmail });
+  const user = (
+    await postgresPool.query("SELECT id,email FROM users WHERE public_id=$1 AND status='active'", [
+      userPublicId,
+    ])
+  ).rows[0];
+  if (!user) throw error("Usuario no encontrado", 404);
+  if (correo && correo === String(user.email).toLowerCase())
+    throw error("La tarjeta es para regalar: no puede ser para tu propia cuenta", 400);
+  const disponible = Number(
+    (
+      await postgresPool.query(
+        `SELECT COALESCE(sum(CASE WHEN e.direction='credit' THEN e.amount_cents ELSE -e.amount_cents END),0)::bigint b
+         FROM ledger_accounts a JOIN ledger_entries e ON e.account_id=a.id
+         WHERE a.owner_type='user' AND a.owner_id=$1 AND a.currency='ARS' AND a.account_type='wallet'`,
+        [user.id],
+      )
+    ).rows[0].b,
+  );
+  if (disponible < amountCents) throw error("Saldo insuficiente en Flash Wallet", 402);
+}
+
+/**
+ * Las que compró la persona y las dirigidas a su cuenta que todavía puede canjear.
+ * De las compradas, **todas las vigentes** —tienen un código útil y plata que se
+ * puede recuperar— y las últimas 50 cerradas, que son sólo historia.
+ */
 export async function listGiftCards(userPublicId) {
   const { rows: compradas } = await postgresPool.query(
     `SELECT g.* FROM gift_cards g JOIN users u ON u.id=g.purchaser_id
-     WHERE u.public_id=$1 ORDER BY g.created_at DESC LIMIT 50`,
+     WHERE u.public_id=$1 AND (g.status='active' OR g.id IN (
+       SELECT x.id FROM gift_cards x WHERE x.purchaser_id=u.id AND x.status<>'active'
+       ORDER BY x.created_at DESC LIMIT 50))
+     ORDER BY g.status='active' DESC, g.created_at DESC`,
     [userPublicId],
   );
   const { rows: recibidas } = await postgresPool.query(
@@ -276,6 +379,23 @@ async function canjear(client, card, user) {
   return { id: card.public_id, amount: pesos(card.amount_cents), status: "redeemed" };
 }
 
+/**
+ * La tarjeta, bloqueada para canjearla, **después** de la cuenta de quien la compró.
+ * El borrado de esa cuenta bloquea primero su fila y después, con su trigger, la de la
+ * tarjeta; el canje avisa a quien compró, y ese aviso necesita su fila. En el orden
+ * inverso, canje y borrado se esperaban mutuamente y PostgreSQL abortaba uno.
+ * `purchaser_id` no cambia nunca, así que leerlo antes del bloqueo es seguro.
+ */
+const tarjetaParaCanjear = async (client, columna, valor) => {
+  const comprador = (
+    await client.query(`SELECT purchaser_id FROM gift_cards WHERE ${columna}=$1`, [valor])
+  ).rows[0];
+  if (!comprador) return null;
+  await client.query("SELECT 1 FROM users WHERE id=$1 FOR KEY SHARE", [comprador.purchaser_id]);
+  return (await client.query(`SELECT * FROM gift_cards WHERE ${columna}=$1 FOR UPDATE`, [valor]))
+    .rows[0];
+};
+
 const enTransaccion = async (trabajo) => {
   const client = await postgresPool.connect();
   try {
@@ -298,11 +418,7 @@ export const redeemGiftCardCode = ({ userPublicId, code }) =>
     const codigo = normalizeGiftCardCode(code);
     // Un código mal escrito y uno que no existe responden igual.
     const card = codigo
-      ? (
-          await client.query("SELECT * FROM gift_cards WHERE code_hash=$1 FOR UPDATE", [
-            hashGiftCardCode(codigo),
-          ])
-        ).rows[0]
+      ? await tarjetaParaCanjear(client, "code_hash", hashGiftCardCode(codigo))
       : null;
     if (!card) throw error("Ese código no es de una tarjeta de regalo", 404);
     return canjear(client, card, user);
@@ -312,11 +428,7 @@ export const redeemGiftCardCode = ({ userPublicId, code }) =>
 export const claimGiftCard = ({ userPublicId, giftCardPublicId }) =>
   enTransaccion(async (client) => {
     const user = await usuarioActivo(client, userPublicId);
-    const card = (
-      await client.query("SELECT * FROM gift_cards WHERE public_id=$1 FOR UPDATE", [
-        giftCardPublicId,
-      ])
-    ).rows[0];
+    const card = await tarjetaParaCanjear(client, "public_id", giftCardPublicId);
     // Una tarjeta dirigida a otra cuenta responde como una que no existe.
     if (!card || card.recipient_id !== user.id) throw error("Tarjeta no encontrada", 404);
     return canjear(client, card, user);

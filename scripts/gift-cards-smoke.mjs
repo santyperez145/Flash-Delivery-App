@@ -10,10 +10,19 @@
 // - canjear por cuenta (sin código) y por código; un código ya usado, uno mal
 //   escrito y el propio de quien compró se rechazan;
 // - anular devuelve la plata a quien compró y el código deja de servir;
-// - la cuenta de la plataforma queda en cero cuando no hay tarjetas vigentes.
+// - la cuenta de la plataforma queda en cero cuando no hay tarjetas vigentes;
+// - un canje en carrera con el borrado de la cuenta no acredita una cuenta borrada;
+// - una tarjeta vigente sigue en la lista aunque haya 50 cerradas más nuevas;
+// - con la verificación en dos pasos, el reintento de una compra cuya respuesta se
+//   perdió devuelve la misma tarjeta aunque traiga el código ya usado, y una compra
+//   nueva con ese código se rechaza;
+// - la misma clave con otros datos responde 409 y no cobra;
+// - una compra que se iba a rechazar por saldo no gasta el código del segundo factor.
 //
 // Todo lo que crea lo borra al final.
 import crypto from "node:crypto";
+import bcrypt from "bcryptjs";
+import { authenticator } from "otplib";
 import { createPool } from "./db-client.mjs";
 import { closePostgres } from "../server/postgres.js";
 import {
@@ -77,6 +86,8 @@ try {
     ["recibe", 0],
     ["canjea", 0],
     ["sinsaldo", 50000],
+    ["borrada", 0],
+    ["segura", 1000000],
   ]) {
     const user = (
       await pool.query(
@@ -112,7 +123,7 @@ try {
       [tx, cuenta, clearing, cargaCents],
     );
   }
-  const { compra, recibe, canjea, sinsaldo } = usuarios;
+  const { compra, recibe, canjea, sinsaldo, borrada, segura } = usuarios;
 
   // --- Comprar ------------------------------------------------------------------
   const dirigida = await purchaseGiftCard({
@@ -126,9 +137,12 @@ try {
   assert(dirigida.card.status === "active" && dirigida.card.amount === 10000, "compra una tarjeta");
   assert((await saldo(compra.id)) === 4000000, "el importe sale de la Wallet de quien compra");
   assert((await pasivoPropio()) === 1000000, "y entra a la cuenta de la plataforma");
+  // El reintento trae los mismos datos, escritos como los escribió la persona.
   const repetida = await purchaseGiftCard({
     userPublicId: compra.public_id,
     amount: 10000,
+    recipientEmail: ` ${recibe.email.toUpperCase()} `,
+    message: "¡Feliz cumple!  ",
     idempotencyKey: `${marca}-dirigida`,
   });
   assert(
@@ -137,6 +151,23 @@ try {
       (await saldo(compra.id)) === 4000000,
     "repetir la clave devuelve la misma tarjeta y no cobra otra",
   );
+  for (const [cambio, datos] of [
+    ["el importe", { amount: 20000, recipientEmail: recibe.email, message: "¡Feliz cumple!" }],
+    ["el destinatario", { amount: 10000, message: "¡Feliz cumple!" }],
+    ["el mensaje", { amount: 10000, recipientEmail: recibe.email, message: "Otro" }],
+  ]) {
+    const distinta = await espera(
+      purchaseGiftCard({
+        userPublicId: compra.public_id,
+        idempotencyKey: `${marca}-dirigida`,
+        ...datos,
+      }),
+    );
+    assert(
+      distinta?.status === 409 && (await saldo(compra.id)) === 4000000,
+      `la misma clave con otro valor en ${cambio} se rechaza y no cobra`,
+    );
+  }
 
   // El código no se guarda en claro.
   const fila = (await pool.query("SELECT * FROM gift_cards WHERE public_id=$1", [dirigida.card.id]))
@@ -309,6 +340,149 @@ try {
     "quien compró ve sus tarjetas; el código ya no, porque ninguna está vigente",
   );
 
+  // --- Canje en carrera con el borrado de la cuenta ---------------------------------
+  // El borrado real (`app.delete_customer_account`) toma la fila de la cuenta y la
+  // marca borrada; mientras no confirma, el canje tiene que esperarlo y, después,
+  // rechazarse. Sin el bloqueo, el canje leía la cuenta activa y acreditaba la plata
+  // en una cuenta que ya no existe.
+  const carrera = await purchaseGiftCard({
+    userPublicId: compra.public_id,
+    amount: 3000,
+    idempotencyKey: `${marca}-carrera`,
+  });
+  tarjetas.push(await idDe(carrera.card.id));
+  const borrado = await pool.connect();
+  let canjeEnCarrera = null;
+  let canjeTermino = false;
+  try {
+    await borrado.query("BEGIN");
+    await borrado.query("SELECT app.delete_customer_account($1)", [borrada.id]);
+    canjeEnCarrera = espera(
+      redeemGiftCardCode({ userPublicId: borrada.public_id, code: carrera.card.code }),
+    ).then((resultado) => {
+      canjeTermino = true;
+      return resultado;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    assert(!canjeTermino, "el canje espera a que el borrado de la cuenta termine");
+    await borrado.query("COMMIT");
+  } catch (failure) {
+    await borrado.query("ROLLBACK");
+    throw failure;
+  } finally {
+    borrado.release();
+  }
+  const resultadoCarrera = await canjeEnCarrera;
+  assert(
+    resultadoCarrera?.status === 404 && (await saldo(borrada.id)) === 0,
+    "y después se rechaza: nada se acredita en la cuenta borrada",
+  );
+  assert(
+    (await pool.query("SELECT status FROM gift_cards WHERE public_id=$1", [carrera.card.id]))
+      .rows[0].status === "active",
+    "la tarjeta sigue vigente para quien tenga el código",
+  );
+
+  // --- Una vigente vieja no se pierde detrás de 50 cerradas ---------------------------
+  for (let i = 0; i < 51; i += 1)
+    await pool.query(
+      `INSERT INTO gift_cards(public_id,code_hash,code_last4,amount_cents,purchaser_id,status,
+         cancelled_at,created_at)
+       VALUES($1,$2,'WXYZ',100000,$3,'cancelled',now(),now() + make_interval(secs => $4))`,
+      [`GFT-${marca}-${i}`, `${marca}-cerrada-${i}`, compra.id, i + 1],
+    );
+  const conHistoria = await listGiftCards(compra.public_id);
+  const vigente = conHistoria.purchased.find((card) => card.id === carrera.card.id);
+  assert(
+    vigente?.code === carrera.card.code &&
+      conHistoria.purchased.filter((card) => card.status !== "active").length === 50,
+    "una vigente sigue en la lista, con su código, aunque haya 50 cerradas más nuevas",
+  );
+  await cancelGiftCard({ userPublicId: compra.public_id, giftCardPublicId: carrera.card.id });
+
+  // --- Reintento de una compra con verificación en dos pasos --------------------------
+  const password = `Clave-${crypto.randomBytes(9).toString("base64url")}`;
+  await pool.query("UPDATE users SET password_hash=$1 WHERE id=$2", [
+    await bcrypt.hash(password, 10),
+    segura.id,
+  ]);
+  const api = async (path, { token, body, headers = {} } = {}) => {
+    const response = await fetch(`${base}${path}`, {
+      method: body ? "POST" : "GET",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...headers,
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return { status: response.status, body: await response.json() };
+  };
+  const ingreso = await api("/auth/login", {
+    body: { email: segura.email, password, deviceName: "gift-cards-smoke" },
+  });
+  const alta = await api("/auth/mfa/enroll", { token: ingreso.body.token, body: {} });
+  const secreto = alta.body.enrollment.secret;
+  const confirmada = await api("/auth/mfa/confirm", {
+    token: ingreso.body.token,
+    body: { code: authenticator.generate(secreto), deviceName: "gift-cards-smoke" },
+  });
+  assert(confirmada.status === 200 && confirmada.body.token, "la cuenta activa el segundo factor");
+  const sesion = confirmada.body.token;
+  // Un código del paso siguiente: el de la activación ya se usó.
+  const codigo = authenticator.clone({ epoch: Date.now() + 30000 }).generate(secreto);
+  const claveSegura = `${marca}-segura-compra`;
+  const comprarSegura = (key, mfaCode, amount = 1000) =>
+    api("/gift-cards", {
+      token: sesion,
+      headers: { "Idempotency-Key": key },
+      body: { amount, ...(mfaCode ? { mfaCode } : {}) },
+    });
+  const sinCodigo = await comprarSegura(`${marca}-segura-sin`);
+  assert(
+    sinCodigo.status === 403 && sinCodigo.body.mfaRequired,
+    "sin el código, la compra se rechaza",
+  );
+  // Más que el saldo: se rechaza antes del segundo factor, y el código sigue sirviendo.
+  const caro = await comprarSegura(`${marca}-segura-caro`, codigo, 50000);
+  assert(caro.status === 402, "una compra sin saldo se rechaza antes de pedir el código");
+  const primera = await comprarSegura(claveSegura, codigo);
+  assert(
+    primera.status === 201 && primera.body.card?.code,
+    "con el mismo código, se compra: el rechazo por saldo no lo gastó",
+  );
+  tarjetas.push(await idDe(primera.body.card.id));
+  const reintento = await comprarSegura(claveSegura, codigo);
+  assert(
+    reintento.status === 200 &&
+      reintento.body.card.id === primera.body.card.id &&
+      (await saldo(segura.id)) === 900000,
+    "el reintento con el código ya usado devuelve la misma tarjeta, sin cobrar otra",
+  );
+  const otroImporte = await comprarSegura(claveSegura, codigo, 2000);
+  assert(
+    otroImporte.status === 409 && (await saldo(segura.id)) === 900000,
+    "el reintento con la misma clave y otro importe responde 409",
+  );
+  const otraCompra = await comprarSegura(`${marca}-segura-otra`, codigo);
+  assert(
+    otraCompra.status === 403 && (await saldo(segura.id)) === 900000,
+    "una compra nueva con el código ya usado se rechaza",
+  );
+  const avisosSegura = (
+    await pool.query(
+      `SELECT channel FROM notifications WHERE user_id=$1 AND deduplication_key LIKE 'security:gift_card_purchased:%'
+`,
+      [segura.id],
+    )
+  ).rows
+    .map((row) => row.channel)
+    .sort();
+  assert(
+    avisosSegura.join() === "email,push",
+    "la compra encola, en su transacción, el aviso por push y por email",
+  );
+
   // --- La ruta responde ---------------------------------------------------------------
   const login = await fetch(`${base}/auth/login`, {
     method: "POST",
@@ -349,6 +523,12 @@ try {
     ids,
   ]);
   await pool.query("DELETE FROM notifications WHERE user_id = ANY($1)", [ids]);
+  await pool.query("DELETE FROM audit_events WHERE actor_id = ANY($1) OR entity_id = ANY($2)", [
+    ids,
+    Object.values(usuarios).map((user) => user.public_id),
+  ]);
+  await pool.query("DELETE FROM refresh_sessions WHERE user_id = ANY($1)", [ids]);
+  await pool.query("DELETE FROM user_mfa WHERE user_id = ANY($1)", [ids]);
   await pool.query("DELETE FROM user_roles WHERE user_id = ANY($1)", [ids]);
   await pool.query("DELETE FROM users WHERE id = ANY($1)", [ids]);
   await pool.end();

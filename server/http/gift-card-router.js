@@ -5,7 +5,9 @@ import { z } from "zod";
 
 import {
   cancelGiftCard,
+  assertGiftCardPurchasable,
   claimGiftCard,
+  findGiftCardPurchase,
   GIFT_CARD_MIN_PESOS,
   listGiftCards,
   purchaseGiftCard,
@@ -85,16 +87,25 @@ giftCardRouter.post(
     if (!idempotencyKey || !/^[a-zA-Z0-9._:-]{16,128}$/.test(idempotencyKey))
       return fail(res, 400, "Idempotency-Key válido es obligatorio");
     try {
-      // Con la verificación en dos pasos activa, comprar pide el código: con la
-      // contraseña sola no alcanza para convertir el saldo en un código y llevárselo.
-      await stepUpMfa(req, parsed.data.mfaCode);
-      const { card, replayed } = await purchaseGiftCard({
+      res.set("Cache-Control", "no-store, private");
+      // Un reintento de una compra ya hecha responde la misma tarjeta antes de pedir
+      // el segundo factor: trae el mismo código, que ya se usó. Sólo la clave de esta
+      // cuenta: no cobra nada ni muestra una tarjeta ajena.
+      const pedido = {
         userPublicId: req.auth.userId,
         amount: parsed.data.amount,
         recipientEmail: parsed.data.recipientEmail || null,
         message: parsed.data.message || null,
-        idempotencyKey,
-      });
+      };
+      const previa = await findGiftCardPurchase({ ...pedido, idempotencyKey });
+      if (previa) return ok(res, { card: previa });
+      // Saldo y destinatario se controlan antes del segundo factor: su código sirve una
+      // sola vez y no se gasta en una compra que igual se iba a rechazar.
+      await assertGiftCardPurchasable(pedido);
+      // Con la verificación en dos pasos activa, comprar pide el código: con la
+      // contraseña sola no alcanza para convertir el saldo en un código y llevárselo.
+      await stepUpMfa(req, parsed.data.mfaCode);
+      const { card, replayed } = await purchaseGiftCard({ ...pedido, idempotencyKey });
       if (!replayed) {
         await auditar(req, "gift_card.purchased", card.id, {
           amount: card.amount,
@@ -102,7 +113,6 @@ giftCardRouter.post(
         });
         await avisarWallet(req, "wallet.gift_card_purchased");
       }
-      res.set("Cache-Control", "no-store, private");
       return res.status(replayed ? 200 : 201).json({ ok: true, requestId: req.requestId, card });
     } catch (error) {
       return failFromStepUp(res, error, "No se pudo comprar la tarjeta de regalo");

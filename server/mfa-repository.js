@@ -16,7 +16,10 @@
 import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { authenticator } from "otplib";
-import { enqueuePostgresNotification } from "./notification-repository.js";
+import {
+  enqueueNotificationForInternalUser,
+  enqueuePostgresNotification,
+} from "./notification-repository.js";
 import { postgresPool } from "./postgres.js";
 import { decryptMfaSecret, encryptMfaSecret } from "./secret-envelope.js";
 
@@ -79,6 +82,31 @@ const securityCopy = {
     body: "Si no fuiste vos, anulala desde tu Wallet y cambiá tu contraseña.",
   },
 };
+
+/**
+ * El mismo aviso de seguridad, encolado con la transacción del cambio: se guarda si
+ * y sólo si el cambio se confirma, y no pide otra conexión mientras la transacción
+ * tiene una (con el pool lleno, esperarla descartaba el aviso en silencio).
+ */
+export async function enqueueSecurityAlert(client, { userId, event }) {
+  const copy = securityCopy[event];
+  if (!copy) throw new Error(`Aviso de seguridad desconocido: ${event}`);
+  const deduplicationKey = `security:${event}:${crypto.randomUUID()}`;
+  await enqueueNotificationForInternalUser(client, {
+    userId,
+    channel: "push",
+    template: "security_alert",
+    payload: { ...copy, kind: event },
+    deduplicationKey,
+  });
+  await enqueueNotificationForInternalUser(client, {
+    userId,
+    channel: "email",
+    template: "account_security_change",
+    payload: { event },
+    deduplicationKey,
+  });
+}
 
 export async function notifyMfaChange(userPublicId, event) {
   const copy = securityCopy[event];

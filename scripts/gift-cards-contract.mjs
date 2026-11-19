@@ -60,7 +60,10 @@ assert.ok(
       "hashGiftCardCode(codigo), encryptGiftCardCode(codigo), codigo.slice(-4),",
     ) &&
     contains(repositorio, "code_ciphertext=NULL WHERE id=$1`, [card.id, user.id],") &&
-    contains(repositorio, "SELECT * FROM gift_cards WHERE code_hash=$1 FOR UPDATE"),
+    contains(
+      repositorio,
+      'await tarjetaParaCanjear(client, "code_hash", hashGiftCardCode(codigo))',
+    ),
   "el código no se guarda en claro y se borra al dejar de estar vigente",
 );
 ok("el código se guarda cifrado, se busca por HMAC y se borra al usarse");
@@ -93,6 +96,15 @@ assert.ok(
     contains(rutas, "return failFromStepUp(res, error,"),
   "comprar pide el segundo factor antes de cobrar y exige Idempotency-Key",
 );
+// El reintento de una compra hecha se responde ANTES del segundo factor: trae el mismo
+// código, ya usado, y pedirlo de nuevo dejaba a la persona sin su tarjeta.
+assert.ok(
+  compra.indexOf(squeeze("if (previa) return ok(res, { card: previa });")) > 0 &&
+    compra.indexOf(squeeze("if (previa) return ok(res, { card: previa });")) <
+      compra.indexOf(squeeze("await stepUpMfa(req, parsed.data.mfaCode);")) &&
+    contains(repositorio, "WHERE t.idempotency_key=$1 AND g.purchaser_id=$2`,"),
+  "un reintento de la propia compra se responde antes de pedir otra vez el código",
+);
 const repo = squeeze(repositorio);
 assert.ok(
   repo.indexOf(
@@ -108,13 +120,89 @@ assert.ok(
   "la Wallet se bloquea antes de controlar el saldo: dos compras no gastan lo mismo",
 );
 assert.ok(
-  contains(repositorio, 'await notifyMfaChange(userPublicId, "gift_card_purchased");') &&
+  // En la transacción de la compra, antes de confirmarla: el aviso no pide otra
+  // conexión (con el pool lleno se perdía) y existe si y sólo si la compra existe.
+  repo.indexOf(
+    squeeze(
+      'await enqueueSecurityAlert(client, { userId: user.id, event: "gift_card_purchased" });',
+    ),
+  ) > 0 &&
+    repo.indexOf(
+      squeeze(
+        'await enqueueSecurityAlert(client, { userId: user.id, event: "gift_card_purchased" });',
+      ),
+    ) <
+      repo.indexOf(
+        squeeze(
+          'await client.query("COMMIT"); return { card: vistaComprada(card), replayed: false };',
+        ),
+      ) &&
+    !contains(repositorio, "notifyMfaChange") &&
     contains(avisosPush, "gift_card_purchased: {") &&
     contains(avisosEmail, "gift_card_purchased: {") &&
     contains(avisosEmail, 'template.startsWith("gift_card_") ||'),
   "quien compra recibe aviso por push y email, y los avisos van a la categoría Wallet",
 );
-ok("comprar: segundo factor, idempotencia, saldo bloqueado y aviso");
+// La cuenta se bloquea (`FOR SHARE`) para toda la operación: choca con el
+// `FOR UPDATE` del borrado, y un canje en paralelo no acredita una cuenta borrada.
+assert.ok(
+  contains(
+    repositorio,
+    `"SELECT id,name,email FROM users WHERE public_id=$1 AND status='active' FOR SHARE",`,
+  ),
+  "la cuenta queda bloqueada contra el borrado mientras se mueve la plata",
+);
+// El destinatario también: si se está borrando, la compra espera y su trigger ve la tarjeta.
+assert.ok(
+  contains(
+    repositorio,
+    "WHERE lower(u.email)=$1 AND u.status='active' AND u.id<>$2 LIMIT 1 FOR SHARE OF u`,",
+  ),
+  "la cuenta a la que se dirige la tarjeta queda bloqueada contra su borrado",
+);
+// Canjear bloquea la cuenta de quien compró antes que la tarjeta: el orden del borrado.
+// En el orden inverso, canje y borrado se esperaban mutuamente.
+const canje = squeeze(repositorio);
+const bloqueoComprador = canje.indexOf(
+  squeeze(
+    'await client.query("SELECT 1 FROM users WHERE id=$1 FOR KEY SHARE", [comprador.purchaser_id]);',
+  ),
+);
+assert.ok(
+  bloqueoComprador > 0 &&
+    bloqueoComprador <
+      canje.indexOf(
+        squeeze(
+          "await client.query(`SELECT * FROM gift_cards WHERE ${columna}=$1 FOR UPDATE`, [valor])",
+        ),
+      ) &&
+    contains(
+      repositorio,
+      'const card = await tarjetaParaCanjear(client, "public_id", giftCardPublicId);',
+    ),
+  "canjear bloquea la cuenta de quien compró antes que la tarjeta",
+);
+// Saldo y destinatario antes del segundo factor; la misma clave con otros datos, 409.
+const rutaCompra = squeeze(rutas);
+assert.ok(
+  rutaCompra.indexOf(squeeze("await assertGiftCardPurchasable(pedido);")) > 0 &&
+    rutaCompra.indexOf(squeeze("await assertGiftCardPurchasable(pedido);")) <
+      rutaCompra.indexOf(squeeze("await stepUpMfa(req, parsed.data.mfaCode);")) &&
+    contains(repositorio, "exigirMismaCompra(repetida, datos);") &&
+    contains(
+      repositorio,
+      "exigirMismaCompra(row, datosCompra({ amount, recipientEmail, message }));",
+    ),
+  "saldo y destinatario se controlan antes de gastar el código, y una clave repetida con otros datos es 409",
+);
+// Todas las vigentes en la lista: tienen un código útil y plata que se recupera.
+assert.ok(
+  contains(repositorio, "WHERE u.public_id=$1 AND (g.status='active' OR g.id IN (") &&
+    contains(repositorio, "x.status<>'active' ORDER BY x.created_at DESC LIMIT 50))") &&
+    !contains(repositorio, "ORDER BY g.created_at DESC LIMIT 50"),
+  "la lista trae todas las vigentes; el tope de 50 es sólo para las cerradas",
+);
+ok("comprar: segundo factor, reintento, idempotencia, saldo y cuenta bloqueados, y aviso");
 
 // Canjear tiene límite; un código mal escrito responde como uno inexistente.
 for (const ruta of [
@@ -172,7 +260,28 @@ for (const [panel, donde] of [
     contains(panel, "clave.current,") &&
       contains(panel, "clave.current = nuevaClave();") &&
       contains(panel, "getMfaStatus()") &&
-      contains(panel, "...(conMfa && codigoMfa ? { mfaCode: codigoMfa } : {}),"),
+      // Se relee antes de comprar y después de un error: la verificación se puede
+      // activar en la misma pantalla, y sin el campo no hay cómo mandar el código.
+      contains(
+        panel,
+        'if (conMfa !== true && (await releerMfa()) === true) throw new Error("Escribí el código de tu app autenticadora para comprar");',
+      ) &&
+      contains(panel, "void releerMfa();") &&
+      contains(panel, "...(conCodigo ? { mfaCode: codigoMfa } : {}),") &&
+      // Sin saber el estado, el campo se ofrece pero no se exige.
+      contains(panel, ".catch(() => null)") &&
+      contains(panel, "(conMfa === true && !codigoMfa)") &&
+      // Un código enviado en una compra fallida pudo usarse: se pide uno nuevo.
+      contains(panel, 'if (conCodigo) { setCodigoMfa("");') &&
+      // Otros datos, otra compra: otra clave.
+      contains(panel, "useEffect(() => { clave.current = nuevaClave(); }, [monto, email,") &&
+      // Tras un error, la lista se relee: la compra pudo haberse hecho.
+      contains(
+        panel,
+        "// Una compra cuya respuesta se perdió pudo haberse hecho: la lista lo muestra. void cargar();",
+      ) &&
+      // Tras comprar, la clave cambia aunque el formulario quede igual.
+      contains(panel, "clave.current = nuevaClave(); setRecien(card);"),
     `${donde}: una clave por compra y el código del segundo factor cuando está activo`,
   );
 }

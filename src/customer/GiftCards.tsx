@@ -44,11 +44,19 @@ export function GiftCards({
   const [email, setEmail] = useState("");
   const [mensaje, setMensaje] = useState("");
   const [codigoMfa, setCodigoMfa] = useState("");
-  const [conMfa, setConMfa] = useState(false);
+  // `null`: no se pudo saber. El campo se muestra, pero no se exige: el servidor
+  // responde si hace falta. Exigirlo dejaba sin poder comprar a quien no la usa
+  // cada vez que la lectura fallaba (por ejemplo, sin conexión).
+  const [conMfa, setConMfa] = useState<boolean | null>(false);
   const [codigoCanje, setCodigoCanje] = useState("");
   const [recien, setRecien] = useState<GiftCard | null>(null);
-  // Una clave por compra: un reintento tras un corte devuelve la misma tarjeta.
+  // Una clave por compra: un reintento tras un corte devuelve la misma tarjeta. Si
+  // cambian el importe, el destinatario o el mensaje, es otra compra y lleva otra clave
+  // (el servidor además rechaza una clave repetida con otros datos).
   const clave = useRef(nuevaClave());
+  useEffect(() => {
+    clave.current = nuevaClave();
+  }, [monto, email, mensaje]);
 
   const cargar = useCallback(
     () =>
@@ -61,15 +69,25 @@ export function GiftCards({
         .catch(() => setFallo(true)),
     [],
   );
+  // Con la verificación en dos pasos activa, comprar pide el código. El estado se
+  // lee al abrir y **otra vez antes de comprar**: se puede activar en esta misma
+  // pantalla, y sin el campo la compra fallaría sin forma de mandar el código.
+  const releerMfa = useCallback(
+    () =>
+      api
+        .getMfaStatus()
+        .then((respuesta): boolean | null => respuesta.mfa.enabled)
+        .catch(() => null)
+        .then((activa) => {
+          setConMfa(activa);
+          return activa;
+        }),
+    [],
+  );
   useEffect(() => {
     void cargar();
-    // Con la verificación en dos pasos activa, comprar pide el código. Si no se
-    // puede saber, se muestra el campo: el servidor decide si lo exige.
-    api
-      .getMfaStatus()
-      .then((respuesta) => setConMfa(respuesta.mfa.enabled))
-      .catch(() => setConMfa(true));
-  }, [cargar]);
+    void releerMfa();
+  }, [cargar, releerMfa]);
 
   const importe = Number(monto);
   const importeValido = Number.isInteger(importe) && importe >= MINIMO;
@@ -88,6 +106,8 @@ export function GiftCards({
         texto: error instanceof Error ? error.message : "No se pudo completar",
         error: true,
       });
+      // Una compra cuya respuesta se perdió pudo haberse hecho: la lista lo muestra.
+      void cargar();
     } finally {
       setOcupado(null);
     }
@@ -97,15 +117,29 @@ export function GiftCards({
     event.preventDefault();
     if (!alcanza) return;
     void hacer("comprar", async () => {
+      if (conMfa !== true && (await releerMfa()) === true)
+        throw new Error("Escribí el código de tu app autenticadora para comprar");
+      const conCodigo = conMfa !== false && Boolean(codigoMfa);
       const { card } = await purchaseGiftCard(
         {
           amount: importe,
           ...(email.trim() ? { recipientEmail: email.trim() } : {}),
           ...(mensaje.trim() ? { message: mensaje.trim() } : {}),
-          ...(conMfa && codigoMfa ? { mfaCode: codigoMfa } : {}),
+          ...(conCodigo ? { mfaCode: codigoMfa } : {}),
         },
         clave.current,
-      );
+      ).catch((fallo: unknown) => {
+        // Un 403 que pide el código, entre otros: se vuelve a leer el estado.
+        void releerMfa();
+        // El código pudo haberse usado aunque la compra fallara: sirve una sola vez.
+        if (conCodigo) {
+          setCodigoMfa("");
+          throw new Error(
+            `${fallo instanceof Error ? fallo.message : "No se pudo comprar"}. Para reintentar, escribí un código nuevo.`,
+          );
+        }
+        throw fallo;
+      });
       clave.current = nuevaClave();
       setRecien(card);
       setEmail("");
@@ -244,9 +278,11 @@ export function GiftCards({
             placeholder="¡Feliz cumple!"
           />
         </label>
-        {conMfa && (
+        {conMfa !== false && (
           <label>
-            Código de tu app autenticadora
+            {conMfa
+              ? "Código de tu app autenticadora"
+              : "Código de tu app autenticadora, si la usás"}
             <input
               value={codigoMfa}
               onChange={(event) => setCodigoMfa(event.target.value.replace(/\s/g, ""))}
@@ -261,7 +297,7 @@ export function GiftCards({
         )}
         <button
           type="submit"
-          disabled={!alcanza || ocupado === "comprar" || (conMfa && !codigoMfa)}
+          disabled={!alcanza || ocupado === "comprar" || (conMfa === true && !codigoMfa)}
         >
           {importeValido
             ? `Comprar por ${money.format(importe)}`

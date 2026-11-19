@@ -71,8 +71,29 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
     cada paso. No se pudo correr en local, porque no hay credenciales de la base local; corre
     en el CI.
   - `test:gift-cards-contract` (nueva, en `ci-fast`) vigila el cableado en servidor, web y
-    teléfono. Falsificado: cada una de las 13 mutaciones probadas la hace fallar.
+    teléfono. Falsificado: cada una de las mutaciones probadas la hace fallar.
   - `test:rls` suma la tabla `gift_cards`.
+- **Diez defectos de la revisión, corregidos antes de fusionar** (siete de las revisiones del PR y
+  tres de una revisión adversarial propia sobre esos arreglos):
+  - Un canje o una anulación en paralelo con el borrado de la cuenta podía acreditar la
+    plata en una cuenta ya borrada. Ahora la cuenta queda bloqueada durante la operación.
+  - Con más de 50 compras, una tarjeta vigente vieja desaparecía de la lista con su código y
+    su botón de anular. Ahora la lista trae todas las vigentes.
+  - El reintento de una compra cuya respuesta se perdió traía el código del segundo factor ya
+    usado y se rechazaba. Ahora se responde antes de pedirlo.
+  - Con el pool de conexiones lleno, el aviso de la compra podía perderse. Ahora se encola en
+    la misma transacción.
+  - Activar la verificación en dos pasos en la misma pantalla dejaba la compra sin el campo
+    del código. Ahora las apps lo vuelven a leer antes de comprar; si no se puede saber, el
+    campo se ofrece sin exigirlo.
+  - Canje y borrado de la cuenta de quien compró podían trabarse mutuamente. Ahora el canje
+    bloquea las filas en el mismo orden que el borrado.
+  - La cuenta a la que se dirige la tarjeta no se bloqueaba contra su propio borrado.
+  - Una compra rechazada por saldo gastaba el código del segundo factor. Ahora saldo y
+    destinatario se controlan antes de pedirlo.
+  - La misma clave con otro importe o destinatario devolvía la tarjeta anterior como si fuera
+    nueva. Ahora responde 409, y las apps cambian la clave cuando cambian los datos.
+  - `test:gift-cards` suma cada caso y el contrato los vigila. Falsificado con 30 mutaciones.
 - **Detalle:** [`docs/gift-cards.md`](docs/gift-cards.md). Comprar con tarjeta en el momento
   depende de Mercado Pago en producción (PAG-07, dueño).
 
