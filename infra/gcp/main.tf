@@ -52,7 +52,10 @@ locals {
     "TWILIO_AUTH_TOKEN",
     "TWILIO_VERIFY_SERVICE_SID",
   ])
-  secretos_montados = local.es_staging ? setsubtract(local.secretos, local.secretos_de_terceros) : local.secretos
+  # Con staging_smtp, el email deja de ser de prueba: sus secretos sí se montan.
+  secretos_smtp       = toset(["SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD"])
+  terceros_en_staging = var.staging_smtp ? setsubtract(local.secretos_de_terceros, local.secretos_smtp) : local.secretos_de_terceros
+  secretos_montados   = local.es_staging ? setsubtract(local.secretos, local.terceros_en_staging) : local.secretos
 
   # Staging: los proveedores de prueba que el servidor admite, y nada más.
   env_staging = local.es_staging ? {
@@ -60,7 +63,7 @@ locals {
     STAGING_EXPOSE_DEV_CODES     = tostring(var.staging_expose_dev_codes)
     MAPS_PROVIDER                = "openstreetmap"
     NOTIFICATION_PROVIDER        = "sandbox"
-    EMAIL_PROVIDER               = "sandbox"
+    EMAIL_PROVIDER               = var.staging_smtp ? "smtp" : "sandbox"
     PHONE_VERIFY_PROVIDER        = "sandbox"
     PAYMENT_MARKETPLACE_PROVIDER = "disabled"
   } : {}

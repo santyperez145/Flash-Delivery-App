@@ -286,8 +286,13 @@ export const config = {
   isStaging,
   deployStage: env.NODE_ENV === "production" ? env.DEPLOY_STAGE : "local",
   // Fuera de producción siempre; en staging, sólo si se pidió (STAGING_EXPOSE_DEV_CODES).
+  // Son los códigos de verificación de email y teléfono: mostrarlos deja crear cuentas
+  // con datos ajenos, pero no entrar a una cuenta que ya existe.
   exposeDevelopmentCodes:
     env.NODE_ENV !== "production" || (isStaging && env.STAGING_EXPOSE_DEV_CODES),
+  // El token de recuperación de contraseña, nunca en un despliegue: con sólo saber el
+  // email de alguien se le cambiaría la contraseña y se le cerrarían las sesiones.
+  exposeRecoveryTokens: env.NODE_ENV !== "production",
   // Producción exige direcciones validadas por el proveedor comercial; staging no lo tiene.
   requireCommercialGeocoding: strictProviders,
   // Medios de pago y cargas de prueba: nunca en producción real.

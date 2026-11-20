@@ -133,7 +133,11 @@ migraciones. **Qué cambia** (`DEPLOY_STAGE=staging`, en `server/config.js`):
 - **Códigos de verificación:** sin SMTP ni SMS no llegan por ningún lado. Se pueden mostrar
   en pantalla con `staging_expose_dev_codes = true`, **a propósito y por poco tiempo**:
   mientras esté prendido, quien tenga la URL puede crear cuentas con emails ajenos. Lo
-  correcto es cargar un SMTP (aunque sea uno gratuito) y dejarlo apagado.
+  correcto es cargar un SMTP (aunque sea uno gratuito) con `staging_smtp = true`, que monta
+  sus secretos y manda los códigos por email, y dejar los códigos apagados. **El token de
+  recuperación de contraseña no se muestra nunca en un despliegue**, ni en staging: con sólo
+  saber el email de alguien se le podría cambiar la contraseña.
+- **La web** compilada llama a `/api` del mismo origen: en Cloud Run la misma API la sirve.
 - **Infraestructura más chica:** Cloud SQL zonal (sin conmutación por falla de zona) y Redis
   básico. Los backups y el PITR quedan. Los cinco workers y la API siguen con una instancia
   siempre viva, porque el despacho y el realtime lo necesitan.

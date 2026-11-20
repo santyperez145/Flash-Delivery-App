@@ -618,7 +618,7 @@ router.post("/api/auth/password-recovery/request", async (req, res) => {
       });
     return ok(res, {
       message: "Si la cuenta existe, enviamos las instrucciones de recuperación.",
-      ...(config.exposeDevelopmentCodes && recovery
+      ...(config.exposeRecoveryTokens && recovery
         ? { developmentToken: recovery.token, expiresAt: recovery.expiresAt }
         : {}),
     });

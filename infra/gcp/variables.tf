@@ -37,6 +37,12 @@ variable "staging_expose_dev_codes" {
   default     = false
 }
 
+variable "staging_smtp" {
+  description = "Sólo staging: usar el SMTP real (cargar SMTP_HOST, SMTP_USER y SMTP_PASSWORD en Secret Manager). Con esto los códigos llegan por email y staging_expose_dev_codes queda en false."
+  type        = bool
+  default     = false
+}
+
 variable "legal_terms_url" {
   description = "URL pública de los términos y condiciones (LEGAL_TERMS_URL). La redacta el dueño con asesoría. En staging puede quedar vacía."
   type        = string

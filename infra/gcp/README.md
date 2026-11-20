@@ -36,6 +36,8 @@ montan**: no hace falta cargarlos. Qué cambia y qué no, en
     cors_origins   = "https://flash-api-<número del proyecto>.southamerica-east1.run.app"
     web_map_origins = "https://tile.openstreetmap.org"
     smtp_from      = "Flash <no-responder@example.invalid>"
+    # Con un SMTP real (recomendado): staging_smtp = true y cargar SMTP_HOST, SMTP_USER y
+    # SMTP_PASSWORD. Sin él, los códigos no llegan (staging_expose_dev_codes los muestra).
 
 Los pasos son los mismos de abajo. En el paso 5, `terraform output secretos_a_cargar` lista
 sólo los que hay que cargar: en staging, los propios.

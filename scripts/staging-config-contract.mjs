@@ -11,6 +11,7 @@
 // - staging permite pagos de prueba y direcciones sin proveedor comercial; producción no.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import fs from "node:fs";
 
 // Secretos propios, todos distintos de los valores locales que producción rechaza.
 const secretos = {
@@ -48,6 +49,7 @@ const leerConfig = (entorno) => {
        console.log(JSON.stringify({
          isProduction: config.isProduction, isStaging: config.isStaging,
          deployStage: config.deployStage, exposeDevelopmentCodes: config.exposeDevelopmentCodes,
+         exposeRecoveryTokens: config.exposeRecoveryTokens,
          requireCommercialGeocoding: config.requireCommercialGeocoding,
          allowSandboxPayments: config.allowSandboxPayments, allowSandboxTopups: config.allowSandboxTopups,
        }));`,
@@ -92,6 +94,14 @@ const conCodigos = leerConfig({
   ...proveedoresDePrueba,
 });
 assert.equal(conCodigos.exposeDevelopmentCodes, true, "staging muestra códigos sólo si se pide");
+// Aun con los códigos visibles, el token de recuperación no: con sólo saber el email de
+// alguien se le cambiaría la contraseña.
+assert.equal(
+  conCodigos.exposeRecoveryTokens,
+  false,
+  "staging nunca muestra tokens de recuperación",
+);
+assert.equal(staging.exposeRecoveryTokens, false);
 
 const stagingSinSecreto = leerConfig({
   NODE_ENV: "production",
@@ -128,5 +138,32 @@ assert.equal(
   "en desarrollo local los códigos se muestran como antes",
 );
 assert.equal(local.requireCommercialGeocoding, false);
+assert.equal(
+  local.exposeRecoveryTokens,
+  true,
+  "en desarrollo local el token se muestra como antes",
+);
+
+// El servidor usa la bandera de recuperación, y la web compilada llama a la API del mismo
+// origen (en Cloud Run la misma API sirve la web).
+const fuente = (ruta) => fs.readFileSync(ruta, "utf8").replace(/\s+/g, "");
+assert.ok(
+  fuente("server/http/auth-router.js").includes("...(config.exposeRecoveryTokens&&recovery"),
+  "la recuperación usa su propia bandera",
+);
+assert.ok(
+  fuente("src/api.ts").includes(
+    'import.meta.env.VITE_API_URL||(import.meta.env.DEV?"http://127.0.0.1:4000/api":"/api");',
+  ),
+  "la web compilada llama a /api del mismo origen",
+);
+const terraform = fuente("infra/gcp/main.tf");
+assert.ok(
+  terraform.includes('EMAIL_PROVIDER=var.staging_smtp?"smtp":"sandbox"') &&
+    terraform.includes(
+      "terceros_en_staging=var.staging_smtp?setsubtract(local.secretos_de_terceros,local.secretos_smtp):local.secretos_de_terceros",
+    ),
+  "staging puede usar un SMTP real y entonces monta sus secretos",
+);
 
 console.log("staging config contract ok");
