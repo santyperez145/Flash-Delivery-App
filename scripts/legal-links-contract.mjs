@@ -58,8 +58,12 @@ assert.ok(
     contains(config, '["LEGAL_PRIVACY_URL", env.LEGAL_PRIVACY_URL],') &&
     contains(
       config,
-      'if (env.NODE_ENV === "production" && !value?.startsWith("https://")) throw new Error(`${name} must be an HTTPS URL in production`);',
-    ),
+      'if (strictProviders && !value?.startsWith("https://")) throw new Error(`${name} must be an HTTPS URL in production`);',
+    ) &&
+    // Producción real es producción sin el modo staging (INF-002), que sólo afloja esto
+    // para un despliegue de pruebas y aun así exige HTTPS si la URL está.
+    contains(config, 'const strictProviders = env.NODE_ENV === "production" && !isStaging;') &&
+    contains(config, 'if (isStaging && value && !value.startsWith("https://"))'),
   "producción arranca sin las URLs legales o sin HTTPS",
 );
 ok("producción no arranca sin las dos URLs legales en HTTPS");

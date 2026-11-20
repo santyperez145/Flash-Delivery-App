@@ -74,7 +74,10 @@ export function verifyGeocodeValidation(token, userPublicId) {
     payload.type.length >= 1 &&
     payload.type.length <= 80;
   if (!valid) throw validationError("La respuesta geográfica no coincide con el proveedor activo");
-  if (config.isProduction && (!isCommercialProvider(payload.provider) || !payload.placeId)) {
+  if (
+    config.requireCommercialGeocoding &&
+    (!isCommercialProvider(payload.provider) || !payload.placeId)
+  ) {
     throw validationError("La dirección debe validarse con el proveedor comercial activo");
   }
   return {

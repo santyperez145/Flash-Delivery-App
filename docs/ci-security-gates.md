@@ -2,7 +2,7 @@
 
 ## Estado al 29 de agosto de 2026
 
-`ci.yml` se dividió en cuatro workflows. La cobertura pasó de 15 a **131 de 132 suites** detrás de una puerta: **129 bloquean el merge**, 2 corren de noche y la cuarentena está vacía.
+`ci.yml` se dividió en cuatro workflows. La cobertura pasó de 15 a **132 de 133 suites** detrás de una puerta: **130 bloquean el merge**, 2 corren de noche y la cuarentena está vacía.
 
 Desde el 27 de agosto la rama `main` **está protegida**: los siete checks son obligatorios, la rama debe estar al día, la historia es lineal y no hay excepción para administradores. Hasta ese día se habían mergeado once PR con CI en verde sin que nada lo exigiera.
 

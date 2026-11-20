@@ -618,7 +618,7 @@ router.post("/api/auth/password-recovery/request", async (req, res) => {
       });
     return ok(res, {
       message: "Si la cuenta existe, enviamos las instrucciones de recuperación.",
-      ...(!config.isProduction && recovery
+      ...(config.exposeDevelopmentCodes && recovery
         ? { developmentToken: recovery.token, expiresAt: recovery.expiresAt }
         : {}),
     });
@@ -649,7 +649,7 @@ router.post("/api/auth/email-verification/resend", async (req, res) => {
     const challenge = await resendEmailVerification(parsed.data.email);
     return ok(res, {
       message: "Si la cuenta está pendiente, enviamos un código nuevo.",
-      ...(!config.isProduction && challenge
+      ...(config.exposeDevelopmentCodes && challenge
         ? { developmentCode: challenge.code, expiresAt: challenge.expiresAt }
         : {}),
     });
@@ -720,7 +720,7 @@ router.post("/api/auth/register", async (req, res) => {
     return ok(res, {
       user: sanitizeUser(user),
       verificationRequired: true,
-      ...(!config.isProduction
+      ...(config.exposeDevelopmentCodes
         ? {
             developmentCode: verificationCode.code,
             expiresAt: verificationCode.expiresAt,
