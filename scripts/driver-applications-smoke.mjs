@@ -81,6 +81,7 @@ try {
     ["sintel", "customer", false],
     ["clienta", "customer", true],
     ["doble", "customer", true],
+    ["motero", "customer", true],
     ["soporte", "support", false],
     ["admin", "admin", false],
   ]) {
@@ -410,6 +411,65 @@ try {
     retirada.status === 200 && seguro.status === 201 && enBiciDeNuevo.status === 200,
     "de vuelta en bici, el seguro vencido de la moto retirada no impide conectarse",
   );
+
+  // --- Se postuló en moto y se pasa a la bici antes de completar los papeles ------------
+  const motero = await api("/applications/driver", {
+    token: tokens.motero,
+    body: {
+      cityId: ciudad.public_id,
+      services: ["delivery"],
+      vehicle: { kind: "motorcycle", model: "Moto de prueba", plate: `A${sufijo}444` },
+    },
+  });
+  const driverMotero = motero.body.application?.driverId;
+  const motoDelMotero = motero.body.vehicleId;
+  for (const tipo of ["identity", "background_check"]) {
+    const subido = await api(`/drivers/${driverMotero}/documents`, {
+      token: tokens.motero,
+      body: documento(tipo),
+    });
+    await api(`/admin/driver-documents/${subido.body.document?.id}/review`, {
+      token: tokens.admin,
+      method: "PATCH",
+      body: { status: "approved" },
+    });
+  }
+  const biciDelMotero = await api(`/drivers/${driverMotero}/vehicles`, {
+    token: tokens.motero,
+    body: { kind: "bicycle", model: "Bici de prueba", serviceModes: ["delivery"] },
+  });
+  await api(`/admin/driver-vehicles/${biciDelMotero.body.vehicle?.id}/review`, {
+    token: tokens.admin,
+    method: "PATCH",
+    body: { status: "approved" },
+  });
+  await api(`/driver-vehicles/${biciDelMotero.body.vehicle?.id}/activate`, {
+    token: tokens.motero,
+    method: "POST",
+  });
+  const antesDeRetirar = await api(`/drivers/${driverMotero}/compliance`, {
+    token: tokens.motero,
+  });
+  await api(`/driver-vehicles/${motoDelMotero}`, { token: tokens.motero, method: "DELETE" });
+  const trasRetirar = await api(`/drivers/${driverMotero}/compliance`, { token: tokens.motero });
+  const conectado = await api(`/drivers/${driverMotero}/availability`, {
+    token: tokens.motero,
+    method: "PATCH",
+    body: { online: true },
+  });
+  assert(
+    motero.status === 201 &&
+      biciDelMotero.status === 201 &&
+      antesDeRetirar.body.compliance?.status === "in_review" &&
+      trasRetirar.body.compliance?.status === "approved" &&
+      conectado.status === 200,
+    "al retirar la moto, el legajo de quien sigue en bici se completa solo y se puede conectar",
+  );
+  await api(`/drivers/${driverMotero}/availability`, {
+    token: tokens.motero,
+    method: "PATCH",
+    body: { online: false },
+  });
   await api(`/drivers/${driverBici}/availability`, {
     token: tokens.bici,
     method: "PATCH",

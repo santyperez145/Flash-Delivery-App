@@ -24,6 +24,25 @@ const requiredTypesFor = async (client, driverId) =>
       ])
     ).rows.map((row) => row.kind),
   );
+/**
+ * Cuando un cambio de vehículo achica lo que se pide (retirar la moto y quedarse con la
+ * bici), el legajo puede quedar completo sin que nadie suba nada nuevo: se recalcula acá.
+ * Sólo sube a `approved` un legajo en revisión, pendiente o rechazado que ya tiene todo lo
+ * de hoy aprobado y vigente; uno suspendido no se toca, y uno aprobado no baja (salir con
+ * un vehículo con motor lo controla `assertDriverCanGoOnline`).
+ */
+export async function recomputeDriverCompliance(client, driverId) {
+  const tipos = await requiredTypesFor(client, driverId);
+  await client.query(
+    `UPDATE driver_compliance SET status='approved', rejection_reason=NULL, updated_at=now()
+     WHERE driver_id=$1 AND status IN ('pending','in_review','rejected')
+       AND (SELECT count(DISTINCT document_type) FROM driver_documents
+            WHERE driver_id=$1 AND status='approved'
+              AND (expires_at IS NULL OR expires_at>=current_date)
+              AND document_type=ANY($2)) = cardinality($2::text[])`,
+    [driverId, tipos],
+  );
+}
 const publicId = () => `DOC-${crypto.randomBytes(5).toString("hex").toUpperCase()}`;
 const staff = (roles) => roles.includes("admin") || roles.includes("support");
 const mapDocument = (row) => ({

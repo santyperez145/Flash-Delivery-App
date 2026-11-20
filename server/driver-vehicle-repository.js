@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import { recomputeDriverCompliance } from "./compliance-repository.js";
 import { postgresPool } from "./postgres.js";
 
 // Una bicicleta no tiene patente (FE-06): se guarda NULL, nunca una inventada.
@@ -170,6 +171,8 @@ export async function updateDriverVehicle({ vehiclePublicId, actorPublicId, role
     );
     if (current.active)
       await client.query("UPDATE drivers SET online=false WHERE id=$1", [current.driver_id]);
+    // Pasar el vehículo de moto a bici achica lo que se pide.
+    await recomputeDriverCompliance(client, current.driver_id);
     await client.query("COMMIT");
     return (
       await getDriverVehicles({
@@ -246,6 +249,8 @@ export async function retireDriverVehicle({ vehiclePublicId, actorPublicId, role
     );
     if (row.active)
       await client.query("UPDATE drivers SET online=false WHERE id=$1", [row.driver_id]);
+    // Retirar un vehículo con motor puede dejar completo el legajo de quien sigue en bici.
+    await recomputeDriverCompliance(client, row.driver_id);
     await client.query("COMMIT");
     return mapVehicle({ ...row, active: false, retired_at: new Date(), updated_at: new Date() });
   } catch (error) {

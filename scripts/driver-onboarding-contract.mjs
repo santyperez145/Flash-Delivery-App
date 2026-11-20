@@ -211,4 +211,13 @@ assert.ok(
   "un documento que espera revisión se muestra aunque el vehículo de hoy ya no lo pida",
 );
 
+{
+  const vehiculos = await leer("server/driver-vehicle-repository.js");
+  assert.ok(
+    squeeze(vehiculos).split(squeeze("await recomputeDriverCompliance(client,")).length - 1 === 2 &&
+      contains(legajo, "WHERE driver_id=$1 AND status IN ('pending','in_review','rejected')"),
+    "retirar o cambiar un vehículo recalcula el legajo, sin tocar uno suspendido",
+  );
+}
+
 console.log("driver onboarding contract ok");
