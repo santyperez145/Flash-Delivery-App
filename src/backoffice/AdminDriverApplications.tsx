@@ -279,6 +279,15 @@ function DetalleLegajo({
   onRevisado: (mensaje: string) => void;
 }) {
   const documento = (tipo: string) => legajo.documents.find((doc) => doc.type === tipo) || null;
+  // Lo que piden los vehículos de hoy, más cualquier documento que espere revisión aunque
+  // ya no se pida (subió el seguro de una moto que después retiró): si no se muestra, el
+  // conductor queda en «Para revisar» sin nada que revisar.
+  const tiposAMostrar = [
+    ...legajo.requiredTypes,
+    ...legajo.documents
+      .filter((doc) => doc.status === "pending" && !legajo.requiredTypes.includes(doc.type))
+      .map((doc) => doc.type),
+  ];
   return (
     <article className="altas-detalle" aria-labelledby="legajo-titulo">
       <h3 id="legajo-titulo">{legajo.person.name}</h3>
@@ -302,7 +311,7 @@ function DetalleLegajo({
 
       <h4 className="legajo-subtitulo">Documentos</h4>
       <ul className="legajo-documentos">
-        {legajo.requiredTypes.map((tipo) => (
+        {tiposAMostrar.map((tipo) => (
           <ItemDocumento
             // Por documento y no por tipo: si la persona lo reemplaza con la vista abierta, la
             // vista vieja no queda mostrando un archivo mientras se aprueba otro.
@@ -312,6 +321,7 @@ function DetalleLegajo({
             nombre={legajo.person.name}
             canDecide={canDecide}
             onRevisado={onRevisado}
+            fueraDeRequisitos={!legajo.requiredTypes.includes(tipo)}
           />
         ))}
       </ul>
@@ -367,8 +377,11 @@ function ItemDocumento({
   nombre,
   canDecide,
   onRevisado,
+  fueraDeRequisitos = false,
 }: {
   tipo: AdminDriverApplication["requiredTypes"][number];
+  /** Un documento que espera revisión pero que el vehículo de hoy ya no pide. */
+  fueraDeRequisitos?: boolean;
   documento: AdminDriverApplication["documents"][number] | null;
   nombre: string;
   canDecide: boolean;
@@ -422,6 +435,7 @@ function ItemDocumento({
     <li className={`legajo-documento legajo-${estado}`}>
       <div className="legajo-documento-cabecera">
         <strong>{info.label}</strong>
+        {fueraDeRequisitos && <small>No lo pide el vehículo que tiene ahora</small>}
         <small>
           {estado === "missing"
             ? "Todavía no lo subió"

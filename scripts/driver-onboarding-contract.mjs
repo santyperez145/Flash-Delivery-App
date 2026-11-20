@@ -202,4 +202,13 @@ assert.ok(
   "un vencido bloquea sólo si es de lo que piden los vehículos de hoy, como lo muestra la pantalla",
 );
 
+assert.ok(
+  contains(cola, "{tiposAMostrar.map((tipo) => (") &&
+    contains(
+      cola,
+      '.filter((doc) => doc.status === "pending" && !legajo.requiredTypes.includes(doc.type))',
+    ),
+  "un documento que espera revisión se muestra aunque el vehículo de hoy ya no lo pida",
+);
+
 console.log("driver onboarding contract ok");
