@@ -7,8 +7,10 @@
 // final.
 //
 // Necesita POSTGRES_ADMIN_URL (el administrador del servidor) y las URLs de los tres roles
-// (MIGRATION_DATABASE_URL, DATABASE_URL, RLS_AUDIT_DATABASE_URL), de donde toma sus claves:
-// así correrlo no cambia la clave de ningún rol.
+// (MIGRATION_DATABASE_URL, DATABASE_URL, RLS_AUDIT_DATABASE_URL). Los roles son del
+// servidor entero, no de la base: la prueba les pone claves largas y aleatorias, como en la
+// nube (la preparación rechaza las de menos de 24 caracteres), y al terminar, pase lo que
+// pase, les devuelve las claves de esas URLs para que el resto de las pruebas siga igual.
 import { spawnSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -23,11 +25,13 @@ const requerida = (nombre) => {
   return process.env[nombre];
 };
 const claveDe = (url) => decodeURIComponent(new URL(url).password);
-const conBase = (url, base) => {
+const conBase = (url, base, clave) => {
   const nueva = new URL(url);
   nueva.pathname = `/${base}`;
+  if (clave) nueva.password = encodeURIComponent(clave);
   return nueva.toString();
 };
+const claveNueva = () => crypto.randomBytes(24).toString("base64url");
 
 const admin = requerida("POSTGRES_ADMIN_URL");
 const migracion = requerida("MIGRATION_DATABASE_URL");
@@ -52,18 +56,22 @@ const correr = (script, entorno) => {
 const servidor = new pg.Client({ connectionString: admin });
 await servidor.connect();
 await servidor.query(`CREATE DATABASE ${servidor.escapeIdentifier(base)}`);
+const claves = { migracion: claveNueva(), runtime: claveNueva(), auditoria: claveNueva() };
 try {
   const entornoBootstrap = {
     POSTGRES_ADMIN_URL: conBase(admin, base),
-    DB_PASSWORD_MIGRATION: claveDe(migracion),
-    DB_PASSWORD_RUNTIME: claveDe(runtime),
-    DB_PASSWORD_AUDIT: claveDe(auditoria),
+    DB_PASSWORD_MIGRATION: claves.migracion,
+    DB_PASSWORD_RUNTIME: claves.runtime,
+    DB_PASSWORD_AUDIT: claves.auditoria,
   };
   const primera = correr("scripts/db-bootstrap-cloud.mjs", entornoBootstrap);
   assert(/lista: dueño flash_app, PostGIS/.test(primera), "la preparación deja la base lista");
   correr("scripts/db-bootstrap-cloud.mjs", entornoBootstrap);
   assert(true, "correrla otra vez no rompe nada");
-  correr("scripts/db-migrate.mjs", { MIGRATION_DATABASE_URL: conBase(migracion, base) });
+  // Migrar con la clave nueva prueba que la preparación se la puso a flash_app.
+  correr("scripts/db-migrate.mjs", {
+    MIGRATION_DATABASE_URL: conBase(migracion, base, claves.migracion),
+  });
 
   const nueva = new pg.Client({ connectionString: conBase(admin, base) });
   await nueva.connect();
@@ -96,6 +104,15 @@ try {
     await nueva.end();
   }
 } finally {
+  for (const [rol, url] of [
+    ["flash_app", migracion],
+    ["flash_runtime", runtime],
+    ["flash_rls_audit", auditoria],
+  ]) {
+    await servidor.query(
+      `ALTER ROLE ${servidor.escapeIdentifier(rol)} PASSWORD ${servidor.escapeLiteral(claveDe(url))}`,
+    );
+  }
   await servidor.query(`DROP DATABASE IF EXISTS ${servidor.escapeIdentifier(base)} WITH (FORCE)`);
   await servidor.end();
 }
