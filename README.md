@@ -14,17 +14,17 @@ La Fase 0 está en marcha: ver el [plan de acción](docs/plan-de-accion.md) y el
 
 ### Bloqueadores P0
 
-| Hallazgo | Ticket  | Resumen                                                                                                                                                                                                    |
-| -------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| H-01     | CI-001  | **En curso.** Cuatro workflows, 136 de 137 suites con puerta, 134 bloqueantes y **cero en cuarentena**; falta incorporar un segundo revisor                                                                |
-| H-02     | NOT-001 | **En curso.** Proveedor Expo implementado y con puerta CI; falta la entrega en un dispositivo físico                                                                                                       |
-| H-03     | SEC-001 | **Corregido.** Default-deny activo y con puerta CI; queda la verificación de runtime contra PostgreSQL                                                                                                     |
-| H-04     | DAT-001 | **En curso.** 109 tablas clasificadas y **69 de 69 `por-usuario` con política**; quedan `FORCE ROW LEVEL SECURITY` en cero y la cola larga de privilegios excedentes                                       |
-| H-05     | INF-001 | **Corregido.** Imagen multi-etapa, `uid=999(flash)` verificado en build real, mismo entrypoint que Compose                                                                                                 |
-| H-06     | DSP-001 | **En curso.** Recorte espacial y KNN activos; falta medir el plan y el ETA vial                                                                                                                            |
-| H-07     | GEO-001 | **En curso.** Adapter con proveedor comercial y producción bloqueada para instancias públicas; falta una API key                                                                                           |
-| H-08     | ARC-001 | **En curso.** Los dos `App.tsx` cumplen el techo de 1.500, `server/index.js` bajó a 33 KB y hay 32 grupos de rutas extraídos sobre 118 módulos de servidor; faltan los entrypoints separados por audiencia |
-| H-09     | PAY-001 | Mercado Pago integrado pero nunca validado contra el proveedor                                                                                                                                             |
+| Hallazgo | Ticket | Resumen |
+| --- | --- | --- |
+| H-01 | CI-001 | **En curso.** Cuatro workflows, 136 de 137 suites con puerta, 134 bloqueantes y **cero en cuarentena**; falta incorporar un segundo revisor |
+| H-02 | NOT-001 | **En curso.** Proveedor Expo implementado y con puerta CI; falta la entrega en un dispositivo físico |
+| H-03 | SEC-001 | **Corregido.** Default-deny activo y con puerta CI; queda la verificación de runtime contra PostgreSQL |
+| H-04 | DAT-001 | **En curso.** 109 tablas clasificadas y **69 de 69 `por-usuario` con política**; quedan `FORCE ROW LEVEL SECURITY` en cero y la cola larga de privilegios excedentes |
+| H-05 | INF-001 | **Corregido.** Imagen multi-etapa, `uid=999(flash)` verificado en build real, mismo entrypoint que Compose |
+| H-06 | DSP-001 | **En curso.** Recorte espacial y KNN activos; falta medir el plan y el ETA vial |
+| H-07 | GEO-001 | **En curso.** Adapter con proveedor comercial y producción bloqueada para instancias públicas; falta una API key |
+| H-08 | ARC-001 | **En curso.** Los dos `App.tsx` cumplen el techo de 1.500, `server/index.js` bajó a 33 KB y hay 32 grupos de rutas extraídos sobre 118 módulos de servidor; faltan los entrypoints separados por audiencia |
+| H-09 | PAY-001 | Mercado Pago integrado pero nunca validado contra el proveedor |
 
 Fuera de los P0, al 28 de agosto **GTM-001 y OPS-001 están cerrados**: los cuatro huecos comerciales medidos contra la competencia, y la operación sin SQL manual. El destino de despliegue quedó decidido en [`docs/despliegue.md`](docs/despliegue.md) y espera una cuenta de nube.
 | H-11 | — | **Corregido.** Una base desde cero no equivalía a una migrada y las cuentas sembradas no podían iniciar sesión: `db:seed:derived` reaplica los backfills |
@@ -234,7 +234,7 @@ reutilizar estas contraseñas en un ambiente desplegado.
 - Postventa de comida: incidencias persistidas, resolución operacional y reintegros parciales con reversión contable del split.
 - Sustituciones: propuesta del comercio, consentimiento del cliente y devolución automática de diferencias antes de avanzar el pedido.
 - Sucursales: ubicación PostGIS, apertura, ETA e inventario independiente utilizados realmente por cotización y checkout.
-- Suscripción: _Flash Más_ con beneficios en la fila del plan —cambiar la oferta es un `UPDATE`, no un despliegue—; el envío sin cargo se aplica antes de firmar la cotización y sale del margen de Flash, no del comercio ni del conductor. Todavía no cobra, y la app lo dice. Ver `docs/subscription.md`.
+- Suscripción: *Flash Más* con beneficios en la fila del plan —cambiar la oferta es un `UPDATE`, no un despliegue—; el envío sin cargo se aplica antes de firmar la cotización y sale del margen de Flash, no del comercio ni del conductor. Todavía no cobra, y la app lo dice. Ver `docs/subscription.md`.
 - Propina en el checkout: se cobra con el pedido en un solo cargo y queda retenida hasta que hay conductor; no entra en el reparto. Ver `docs/service-tips.md`.
 - Servicios programados: pedidos de comida y viajes se reservan y **se reprograman** mientras nadie empezó; una reserva futura no cuenta como trabajo activo del comercio. Ver `docs/scheduled-rides.md`.
 - Pedidos grupales: canasta por participante, tope de gasto verificado contra la base y un código que da entrada pero no lectura. Un grupo confirmado se vuelve un pedido normal. Ver `docs/group-orders.md`.

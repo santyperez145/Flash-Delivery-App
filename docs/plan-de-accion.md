@@ -27,24 +27,24 @@ Excepción única: un hallazgo de seguridad explotable se atiende de inmediato, 
 
 Este es el orden obligatorio. No se adelanta un ítem sin cerrar el anterior o sin declarar explícitamente por qué se desvía.
 
-|   # | Acción                                                                       | Ticket                                                              | Fase |
-| --: | ---------------------------------------------------------------------------- | ------------------------------------------------------------------- | ---- |
-|   1 | Congelar funcionalidades nuevas durante un ciclo de estabilización           | —                                                                   | 0    |
-|   2 | Separar las aplicaciones y los archivos monolíticos                          | [ARC-001](backlog-tecnico.md#arc-001--modularización)               | 0    |
-|   3 | Hacer que PostgreSQL/PostGIS y la suite crítica bloqueen todos los PR        | [CI-001](backlog-tecnico.md#ci-001--pipeline-productivo)            | 0    |
-|   4 | Implementar push real                                                        | [NOT-001](backlog-tecnico.md#not-001--push-real)                    | 0    |
-|   5 | Reemplazar Nominatim/OSRM públicos para producción                           | [GEO-001](backlog-tecnico.md#geo-001--proveedor-de-mapas-comercial) | 0    |
-|   6 | Corregir la audiencia por defecto del realtime                               | [SEC-001](backlog-tecnico.md#sec-001--realtime-default-deny)        | 0    |
-|   7 | Optimizar dispatch con radio, KNN, stats precomputadas y Route Matrix        | [DSP-001](backlog-tecnico.md#dsp-001--dispatch-v2)                  | 0–1  |
-|   8 | Endurecer la imagen Docker y ejecutar siempre el entrypoint instrumentado    | [INF-001](backlog-tecnico.md#inf-001--imagen-productiva-endurecida) | 0    |
-|   9 | Completar OpenAPI y contratos de integración                                 | [INT-001](backlog-tecnico.md#int-001--pos-y-api)                    | 1–3  |
-|  10 | Validar Mercado Pago de extremo a extremo con sellers de prueba              | [PAY-001](backlog-tecnico.md#pay-001--validación-marketplace)       | 1    |
-|  11 | Generar builds internos reales para las tres apps                            | [MOB-001](backlog-tecnico.md#mob-001--release-engineering)          | 1    |
-|  12 | Ejecutar una beta cerrada de delivery y courier en una sola zona             | [OPS-001](backlog-tecnico.md#ops-001--operación-real)               | 2    |
-|  13 | Desarrollar Flash Business                                                   | —                                                                   | 3    |
-|  14 | Validar unit economics antes de subsidiar crecimiento                        | —                                                                   | 2–3  |
-|  15 | Postergar viajes públicos hasta resolver legal, seguros y safety 24/7        | —                                                                   | 4    |
-|  16 | No expandirse a otra ciudad antes de demostrar liquidez y margen en La Rioja | —                                                                   | 5    |
+| # | Acción | Ticket | Fase |
+| ---: | --- | --- | --- |
+| 1 | Congelar funcionalidades nuevas durante un ciclo de estabilización | — | 0 |
+| 2 | Separar las aplicaciones y los archivos monolíticos | [ARC-001](backlog-tecnico.md#arc-001--modularización) | 0 |
+| 3 | Hacer que PostgreSQL/PostGIS y la suite crítica bloqueen todos los PR | [CI-001](backlog-tecnico.md#ci-001--pipeline-productivo) | 0 |
+| 4 | Implementar push real | [NOT-001](backlog-tecnico.md#not-001--push-real) | 0 |
+| 5 | Reemplazar Nominatim/OSRM públicos para producción | [GEO-001](backlog-tecnico.md#geo-001--proveedor-de-mapas-comercial) | 0 |
+| 6 | Corregir la audiencia por defecto del realtime | [SEC-001](backlog-tecnico.md#sec-001--realtime-default-deny) | 0 |
+| 7 | Optimizar dispatch con radio, KNN, stats precomputadas y Route Matrix | [DSP-001](backlog-tecnico.md#dsp-001--dispatch-v2) | 0–1 |
+| 8 | Endurecer la imagen Docker y ejecutar siempre el entrypoint instrumentado | [INF-001](backlog-tecnico.md#inf-001--imagen-productiva-endurecida) | 0 |
+| 9 | Completar OpenAPI y contratos de integración | [INT-001](backlog-tecnico.md#int-001--pos-y-api) | 1–3 |
+| 10 | Validar Mercado Pago de extremo a extremo con sellers de prueba | [PAY-001](backlog-tecnico.md#pay-001--validación-marketplace) | 1 |
+| 11 | Generar builds internos reales para las tres apps | [MOB-001](backlog-tecnico.md#mob-001--release-engineering) | 1 |
+| 12 | Ejecutar una beta cerrada de delivery y courier en una sola zona | [OPS-001](backlog-tecnico.md#ops-001--operación-real) | 2 |
+| 13 | Desarrollar Flash Business | — | 3 |
+| 14 | Validar unit economics antes de subsidiar crecimiento | — | 2–3 |
+| 15 | Postergar viajes públicos hasta resolver legal, seguros y safety 24/7 | — | 4 |
+| 16 | No expandirse a otra ciudad antes de demostrar liquidez y margen en La Rioja | — | 5 |
 
 ---
 
@@ -60,14 +60,14 @@ Convertir una plataforma extensa en una base verificable. Al final de la Fase 0,
 
 El primer entregable es una matriz que clasifique **cada capacidad** en uno de seis estados. Sin esta matriz no se puede decidir qué es real.
 
-| Estado  | Significado                                  |
-| ------- | -------------------------------------------- |
-| `IMPL`  | Implementado en código                       |
+| Estado | Significado |
+| --- | --- |
+| `IMPL` | Implementado en código |
 | `LOCAL` | Probado localmente por un humano o un script |
-| `CI`    | Probado en CI como puerta bloqueante         |
-| `PROV`  | Probado contra el proveedor real en sandbox  |
-| `STG`   | Validado en staging con datos separados      |
-| `PROD`  | Operado en producción con usuarios reales    |
+| `CI` | Probado en CI como puerta bloqueante |
+| `PROV` | Probado contra el proveedor real en sandbox |
+| `STG` | Validado en staging con datos separados |
+| `PROD` | Operado en producción con usuarios reales |
 
 Regla: **una capacidad no puede anunciarse como disponible por encima de su estado real.** Una capacidad en `IMPL` no se demuestra a un inversor como funcional, y una capacidad en `CI` no se anuncia como productiva.
 
@@ -77,42 +77,42 @@ La matriz vive en `docs/matriz-madurez.md` y se actualiza en el mismo PR que cam
 
 #### Semana 1 (25–31 de agosto) — Puertas y default-deny
 
-| Entregable                                           | Ticket  | Criterio de cierre                                                                                                                                                                               |
-| ---------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| ~~PostgreSQL/PostGIS como servicio en CI~~ **hecho** | CI-001  | `ci-postgres.yml` corre migraciones desde cero y de forma incremental sobre la base del PR                                                                                                       |
-| ~~Realtime default-deny~~ **hecho**                  | SEC-001 | Entidad desconocida sólo llega a `admin`; `test:realtime-audience` cubre todos los `entityType`                                                                                                  |
-| ~~Imagen Docker multi-etapa non-root~~ **hecho**     | INF-001 | `USER flash`, `server/start.js`, sin devDependencies · verificado en build real                                                                                                                  |
-| ~~Protección de rama y CODEOWNERS~~ **hecho**        | CI-001  | Desde el 27 de agosto de 2026 `main` exige PR y los 7 checks, con `enforce_admins`. Sin aprobaciones ni Code Owners: con un solo colaborador, exigirlas dejaría el repositorio sin poder mergear |
-| ~~Matriz de madurez inicial~~ **hecho**              | —       | 91 capacidades clasificadas y actualizadas en cada entrega                                                                                                                                       |
+| Entregable | Ticket | Criterio de cierre |
+| --- | --- | --- |
+| ~~PostgreSQL/PostGIS como servicio en CI~~ **hecho** | CI-001 | `ci-postgres.yml` corre migraciones desde cero y de forma incremental sobre la base del PR |
+| ~~Realtime default-deny~~ **hecho** | SEC-001 | Entidad desconocida sólo llega a `admin`; `test:realtime-audience` cubre todos los `entityType` |
+| ~~Imagen Docker multi-etapa non-root~~ **hecho** | INF-001 | `USER flash`, `server/start.js`, sin devDependencies · verificado en build real |
+| ~~Protección de rama y CODEOWNERS~~ **hecho** | CI-001 | Desde el 27 de agosto de 2026 `main` exige PR y los 7 checks, con `enforce_admins`. Sin aprobaciones ni Code Owners: con un solo colaborador, exigirlas dejaría el repositorio sin poder mergear |
+| ~~Matriz de madurez inicial~~ **hecho** | — | 91 capacidades clasificadas y actualizadas en cada entrega |
 
 #### Semana 2 (1–7 de septiembre) — Cobertura de riesgo
 
-| Entregable                                   | Ticket  | Criterio de cierre                                                                                                                                                                                                              |
-| -------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ~~`ci-critical-flows.yml`~~ **hecho**        | CI-001  | Pagos, ledger, webhooks, conciliación, KYC, soporte y safety bloquean el merge · **cuarentena vacía desde el 27-08**                                                                                                            |
-| ~~Matriz formal de cobertura RLS~~ **hecho** | DAT-001 | 109 tablas clasificadas y con puerta CI; `FORCE ROW LEVEL SECURITY` sigue pendiente                                                                                                                                             |
-| ~~Pruebas negativas por rol~~ **hecho**      | DAT-001 | Las cinco tablas de la deuda cerraron el 27-08: `test:rls-matrix` reporta 69 de 69 y `test:rls` afirma las dos mitades de cada una —el rol auditor no ve nada, y el dueño sí ve lo suyo—. Falta acotar los grants por operación |
-| ~~Vitest + Testcontainers~~ **hecho**        | CI-001  | `test:authorization` corre sobre Vitest 4.1; `test:runtime-role-shape` crea además PostGIS 17 aislado, aplica las 153 migraciones y bloquea `ci-postgres`                                                                       |
+| Entregable | Ticket | Criterio de cierre |
+| --- | --- | --- |
+| ~~`ci-critical-flows.yml`~~ **hecho** | CI-001 | Pagos, ledger, webhooks, conciliación, KYC, soporte y safety bloquean el merge · **cuarentena vacía desde el 27-08** |
+| ~~Matriz formal de cobertura RLS~~ **hecho** | DAT-001 | 109 tablas clasificadas y con puerta CI; `FORCE ROW LEVEL SECURITY` sigue pendiente |
+| ~~Pruebas negativas por rol~~ **hecho** | DAT-001 | Las cinco tablas de la deuda cerraron el 27-08: `test:rls-matrix` reporta 69 de 69 y `test:rls` afirma las dos mitades de cada una —el rol auditor no ve nada, y el dueño sí ve lo suyo—. Falta acotar los grants por operación |
+| ~~Vitest + Testcontainers~~ **hecho** | CI-001 | `test:authorization` corre sobre Vitest 4.1; `test:runtime-role-shape` crea además PostGIS 17 aislado, aplica las 153 migraciones y bloquea `ci-postgres` |
 
 #### Semana 3 (8–14 de septiembre) — Proveedores reales
 
-| Entregable                                   | Ticket  | Criterio de cierre                                                        |
-| -------------------------------------------- | ------- | ------------------------------------------------------------------------- |
-| ~~`NOTIFICATION_PROVIDER=expo`~~ **hecho**   | NOT-001 | Falta que el push llegue a un dispositivo físico                          |
-| ~~Receipts y device invalidation~~ **hecho** | NOT-001 | `DeviceNotRegistered` revoca el token; receipt ausente genera alerta      |
-| ~~Adapter `MapsProvider`~~ **hecho**         | GEO-001 | Geocode, route y route matrix detrás de una interfaz, con dos proveedores |
-| Proveedor comercial conectado                | GEO-001 | **Bloqueado por credenciales.** Producción ya rechaza instancias públicas |
+| Entregable | Ticket | Criterio de cierre |
+| --- | --- | --- |
+| ~~`NOTIFICATION_PROVIDER=expo`~~ **hecho** | NOT-001 | Falta que el push llegue a un dispositivo físico |
+| ~~Receipts y device invalidation~~ **hecho** | NOT-001 | `DeviceNotRegistered` revoca el token; receipt ausente genera alerta |
+| ~~Adapter `MapsProvider`~~ **hecho** | GEO-001 | Geocode, route y route matrix detrás de una interfaz, con dos proveedores |
+| Proveedor comercial conectado | GEO-001 | **Bloqueado por credenciales.** Producción ya rechaza instancias públicas |
 
 #### Semana 4 (15–20 de septiembre) — Modularización y cierre
 
-| Entregable                                       | Ticket  | Criterio de cierre                                                                                                                                                                                                                                                                                                           |
-| ------------------------------------------------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Separación de `src/App.tsx`                      | ARC-001 | Shell web en 1.274 líneas; cliente delegado y, dentro de él, Wallet, Cuenta, Actividad, Envíos, descubrimiento, restaurante, personalización, carrito/checkout, navegación y los tres trackings tienen límites propios. `CustomerSurface.tsx` queda en 360 líneas. Backoffice: paneles de dinero en `AdminFinancePanels.tsx` |
-| Separación de `apps/mobile/App.tsx`              | ARC-001 | Entrypoints customer/driver/merchant independientes; Actividad, tracking, Cuenta, Envíos y Viajes fuera del coordinador customer                                                                                                                                                                                             |
-| Descomposición de `server/index.js`              | ARC-001 | Controllers separados de use cases y repositories. **9 de 57 grupos extraídos**; el núcleo compartido está completo, así que lo que queda es repetitivo y no de diseño                                                                                                                                                       |
-| ~~Reformateo de archivos comprimidos~~ **hecho** | ARC-001 | Línea máxima 4.061 → 206; quedan 262 líneas largas, casi todas SQL                                                                                                                                                                                                                                                           |
-| ~~Dispatch v2 etapa 1~~ **hecho**                | DSP-001 | `ST_DWithin` + KNN recortan candidatos antes del scoring                                                                                                                                                                                                                                                                     |
-| SLOs documentados                                | —       | Objetivos técnicos de la auditoría publicados y medibles                                                                                                                                                                                                                                                                     |
+| Entregable | Ticket | Criterio de cierre |
+| --- | --- | --- |
+| Separación de `src/App.tsx` | ARC-001 | Shell web en 1.274 líneas; cliente delegado y, dentro de él, Wallet, Cuenta, Actividad, Envíos, descubrimiento, restaurante, personalización, carrito/checkout, navegación y los tres trackings tienen límites propios. `CustomerSurface.tsx` queda en 360 líneas. Backoffice: paneles de dinero en `AdminFinancePanels.tsx` |
+| Separación de `apps/mobile/App.tsx` | ARC-001 | Entrypoints customer/driver/merchant independientes; Actividad, tracking, Cuenta, Envíos y Viajes fuera del coordinador customer |
+| Descomposición de `server/index.js` | ARC-001 | Controllers separados de use cases y repositories. **9 de 57 grupos extraídos**; el núcleo compartido está completo, así que lo que queda es repetitivo y no de diseño |
+| ~~Reformateo de archivos comprimidos~~ **hecho** | ARC-001 | Línea máxima 4.061 → 206; quedan 262 líneas largas, casi todas SQL |
+| ~~Dispatch v2 etapa 1~~ **hecho** | DSP-001 | `ST_DWithin` + KNN recortan candidatos antes del scoring |
+| SLOs documentados | — | Objetivos técnicos de la auditoría publicados y medibles |
 
 ### Criterios de salida de la Fase 0
 
@@ -283,12 +283,12 @@ packages/
 
 Cuatro workflows sustituyen al `ci.yml` único. Detalle de implementación en [CI-001](backlog-tecnico.md#ci-001--pipeline-productivo).
 
-| Workflow                | Cuándo     | Contenido                                                                                                                                                              |
-| ----------------------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ci-fast.yml`           | Cada PR    | Typecheck · lint · unit tests · static security · secret scan · build · bundle budget                                                                                  |
-| `ci-postgres.yml`       | Cada PR    | PostgreSQL/PostGIS · migraciones aisladas con Testcontainers · migraciones desde snapshot anterior · RLS · audit chain · runtime smoke · city isolation · idempotencia |
-| `ci-critical-flows.yml` | Cada PR    | Pago · webhook · refund · ledger · dispatch · reconciliation · KYC · support SLA · safety                                                                              |
-| `ci-nightly.yml`        | Cada noche | Playwright E2E · performance · load · provider sandbox · restore drill · dependency scan completo · mobile build preview                                               |
+| Workflow | Cuándo | Contenido |
+| --- | --- | --- |
+| `ci-fast.yml` | Cada PR | Typecheck · lint · unit tests · static security · secret scan · build · bundle budget |
+| `ci-postgres.yml` | Cada PR | PostgreSQL/PostGIS · migraciones aisladas con Testcontainers · migraciones desde snapshot anterior · RLS · audit chain · runtime smoke · city isolation · idempotencia |
+| `ci-critical-flows.yml` | Cada PR | Pago · webhook · refund · ledger · dispatch · reconciliation · KYC · support SLA · safety |
+| `ci-nightly.yml` | Cada noche | Playwright E2E · performance · load · provider sandbox · restore drill · dependency scan completo · mobile build preview |
 
 ---
 
@@ -296,20 +296,20 @@ Cuatro workflows sustituyen al `ci.yml` único. Detalle de implementación en [C
 
 Estado al **25 de agosto de 2026**. Se actualiza en el PR que cambia el estado, nunca en un PR aparte.
 
-| Ticket                                                              | Prioridad | Hallazgo | Estado       | Fase |
-| ------------------------------------------------------------------- | --------- | -------- | ------------ | ---- |
-| [SEC-001](backlog-tecnico.md#sec-001--realtime-default-deny)        | P0        | H-03     | **En curso** | 0    |
-| [CI-001](backlog-tecnico.md#ci-001--pipeline-productivo)            | P0        | H-01     | **En curso** | 0    |
-| [ARC-001](backlog-tecnico.md#arc-001--modularización)               | P0        | H-08     | **En curso** | 0    |
-| [DAT-001](backlog-tecnico.md#dat-001--matriz-rls-default-deny)      | P0        | H-04     | **En curso** | 0    |
-| [INF-001](backlog-tecnico.md#inf-001--imagen-productiva-endurecida) | P0        | H-05     | **En curso** | 0    |
-| [NOT-001](backlog-tecnico.md#not-001--push-real)                    | P0        | H-02     | **En curso** | 0    |
-| [GEO-001](backlog-tecnico.md#geo-001--proveedor-de-mapas-comercial) | P0        | H-07     | **En curso** | 0    |
-| [DSP-001](backlog-tecnico.md#dsp-001--dispatch-v2)                  | P0        | H-06     | **En curso** | 0–1  |
-| [PAY-001](backlog-tecnico.md#pay-001--validación-marketplace)       | P0        | H-09     | Pendiente    | 1    |
-| [MOB-001](backlog-tecnico.md#mob-001--release-engineering)          | P0        | —        | Pendiente    | 1    |
-| [OPS-001](backlog-tecnico.md#ops-001--operación-real)               | P1        | —        | Pendiente    | 2    |
-| [INT-001](backlog-tecnico.md#int-001--pos-y-api)                    | P1        | —        | Pendiente    | 3    |
+| Ticket | Prioridad | Hallazgo | Estado | Fase |
+| --- | --- | --- | --- | --- |
+| [SEC-001](backlog-tecnico.md#sec-001--realtime-default-deny) | P0 | H-03 | **En curso** | 0 |
+| [CI-001](backlog-tecnico.md#ci-001--pipeline-productivo) | P0 | H-01 | **En curso** | 0 |
+| [ARC-001](backlog-tecnico.md#arc-001--modularización) | P0 | H-08 | **En curso** | 0 |
+| [DAT-001](backlog-tecnico.md#dat-001--matriz-rls-default-deny) | P0 | H-04 | **En curso** | 0 |
+| [INF-001](backlog-tecnico.md#inf-001--imagen-productiva-endurecida) | P0 | H-05 | **En curso** | 0 |
+| [NOT-001](backlog-tecnico.md#not-001--push-real) | P0 | H-02 | **En curso** | 0 |
+| [GEO-001](backlog-tecnico.md#geo-001--proveedor-de-mapas-comercial) | P0 | H-07 | **En curso** | 0 |
+| [DSP-001](backlog-tecnico.md#dsp-001--dispatch-v2) | P0 | H-06 | **En curso** | 0–1 |
+| [PAY-001](backlog-tecnico.md#pay-001--validación-marketplace) | P0 | H-09 | Pendiente | 1 |
+| [MOB-001](backlog-tecnico.md#mob-001--release-engineering) | P0 | — | Pendiente | 1 |
+| [OPS-001](backlog-tecnico.md#ops-001--operación-real) | P1 | — | Pendiente | 2 |
+| [INT-001](backlog-tecnico.md#int-001--pos-y-api) | P1 | — | Pendiente | 3 |
 
 ### Detalle de lo que está en curso — 26 de agosto de 2026
 
@@ -465,8 +465,8 @@ recibir.
 El segundo paso reveló el mismo defecto que el primero, en otra forma: un
 contrato con un archivo hardcodeado **pierde cobertura en silencio** cuando la
 extracción mueve el código. `test:realtime-audience` pasó de 43 a 37
-publicaciones y siguió en verde. Un contrato acoplado a _dónde vive_ el código
-es tan frágil como uno acoplado a _cómo está escrito_, y falla peor.
+publicaciones y siguió en verde. Un contrato acoplado a *dónde vive* el código
+es tan frágil como uno acoplado a *cómo está escrito*, y falla peor.
 
 El tercer paso dejó un criterio que conviene escrito, porque cambia cómo se
 corta lo que falta: **un prefijo de URL no es un dominio**. `/api/admin` no
@@ -495,20 +495,20 @@ Operaciones y Superadmin cargan por audiencia. La extracción interna
 continúa por dominio: Actividad mobile pasó a `CustomerActivityScreen.tsx` con
 grupos, sustituciones, servicios activos, comprobantes, repetición, reclamos y
 propinas; las tres hojas de seguimiento pasaron a
-`CustomerTrackingSheets.tsx`; Cuenta pasó a `CustomerAccountScreen.tsx` sin
-perder estado de navegación ni el cableado de direcciones; y Envíos pasó a
-`CustomerShipmentScreen.tsx` con su cotización, ruta, opciones y solicitud
-reales. Ambos límites permanecen montados y comparten sólo el evento tipado de
-dirección. Viajes pasó a `CustomerRideScreen.tsx` con GPS, destinos, ruta,
-tarifa adelantada, reserva, contactos y solicitud persistida; un cambio de
-origen invalida el precio y las maniobras quedan sólo en Driver.
-Comidas se dividió luego en descubrimiento/búsqueda, restaurante/personalización,
-carrito, checkout y pedidos. Los modales de incidencias, devoluciones y siniestros
-también salieron a un límite tipado. `CustomerScreen.tsx` bajó de 6.241 a 1.321
-líneas y un contrato fija el techo en 1.350. En web, Wallet salió de
-`CustomerSurface.tsx` a un límite propio y Cuenta siguió a
-`CustomerProfileScreen.tsx`; el coordinador quedó en 3.172 líneas y su ratchet
-en 3.180. También quedó activo un ratchet que impide que el
+  `CustomerTrackingSheets.tsx`; Cuenta pasó a `CustomerAccountScreen.tsx` sin
+  perder estado de navegación ni el cableado de direcciones; y Envíos pasó a
+  `CustomerShipmentScreen.tsx` con su cotización, ruta, opciones y solicitud
+  reales. Ambos límites permanecen montados y comparten sólo el evento tipado de
+  dirección. Viajes pasó a `CustomerRideScreen.tsx` con GPS, destinos, ruta,
+  tarifa adelantada, reserva, contactos y solicitud persistida; un cambio de
+  origen invalida el precio y las maniobras quedan sólo en Driver.
+  Comidas se dividió luego en descubrimiento/búsqueda, restaurante/personalización,
+  carrito, checkout y pedidos. Los modales de incidencias, devoluciones y siniestros
+  también salieron a un límite tipado. `CustomerScreen.tsx` bajó de 6.241 a 1.321
+  líneas y un contrato fija el techo en 1.350. En web, Wallet salió de
+  `CustomerSurface.tsx` a un límite propio y Cuenta siguió a
+  `CustomerProfileScreen.tsx`; el coordinador quedó en 3.172 líneas y su ratchet
+  en 3.180. También quedó activo un ratchet que impide que el
 problema crezca:
 `test:line-length` fija una línea base vigente de **258 líneas de más de 200
 caracteres en 56 archivos** y sólo admite bajarla.

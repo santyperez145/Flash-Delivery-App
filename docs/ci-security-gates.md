@@ -12,13 +12,13 @@ Además, `main` llevaba en rojo desde el 23 de agosto sin que nadie estuviera bl
 
 ## Workflows
 
-| Workflow                        | Cuándo             | Contenido                                                                                                                                                                                                                                                                 | Estado                                                                                 |
-| ------------------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `ci-fast.yml`                   | Cada PR            | Build · contratos estáticos · contratos de pago sin proveedor · web y sesión · superficies mobile · secret scan · dependency gate · telemetría · alertas · resiliencia · contenedor · rate limit Redis · audiencias realtime · ratchet de línea · cobertura CI            | **Verde**                                                                              |
-| `ci-postgres.yml`               | Cada PR            | PostGIS 17 · roles separados · migraciones desde cero · Testcontainers aislado · migración incremental sobre la base del PR · seeds reproducibles · RLS · cadena de auditoría · aislamiento por ciudad · datos sensibles · idempotencia · comercio, zonas y configuración | **Verde**                                                                              |
-| `ci-critical-flows.yml`         | Cada PR            | API levantada contra PostgreSQL · runtime smoke · pagos · conciliación · riesgo · payouts · propinas · KYC · vehículos · ganancias · safety · chat · siniestros · SLA · notificaciones · recursos por audiencia                                                           | **Verde**                                                                              |
-| `local-fallback` (en `ci-fast`) | Cada PR            | API sobre el fallback SQLite · contratos que no son los de PostgreSQL                                                                                                                                                                                                     | **Verde**                                                                              |
-| `ci-nightly.yml`                | 06:00 UTC y a mano | Auditoría responsive en navegador real, una corrida por variante · latencia de endpoints contra PostgreSQL                                                                                                                                                                | **Existe** desde el 27-08. Sin k6, sandbox de proveedores, builds EAS ni restore drill |
+| Workflow | Cuándo | Contenido | Estado |
+| --- | --- | --- | --- |
+| `ci-fast.yml` | Cada PR | Build · contratos estáticos · contratos de pago sin proveedor · web y sesión · superficies mobile · secret scan · dependency gate · telemetría · alertas · resiliencia · contenedor · rate limit Redis · audiencias realtime · ratchet de línea · cobertura CI | **Verde** |
+| `ci-postgres.yml` | Cada PR | PostGIS 17 · roles separados · migraciones desde cero · Testcontainers aislado · migración incremental sobre la base del PR · seeds reproducibles · RLS · cadena de auditoría · aislamiento por ciudad · datos sensibles · idempotencia · comercio, zonas y configuración | **Verde** |
+| `ci-critical-flows.yml` | Cada PR | API levantada contra PostgreSQL · runtime smoke · pagos · conciliación · riesgo · payouts · propinas · KYC · vehículos · ganancias · safety · chat · siniestros · SLA · notificaciones · recursos por audiencia | **Verde** |
+| `local-fallback` (en `ci-fast`) | Cada PR | API sobre el fallback SQLite · contratos que no son los de PostgreSQL | **Verde** |
+| `ci-nightly.yml` | 06:00 UTC y a mano | Auditoría responsive en navegador real, una corrida por variante · latencia de endpoints contra PostgreSQL | **Existe** desde el 27-08. Sin k6, sandbox de proveedores, builds EAS ni restore drill |
 
 ### Qué descubrió cada primera corrida
 
@@ -115,7 +115,7 @@ Bloquea vulnerabilidades **altas o críticas** en runtime web/API y mobile. Al 2
 
 `test:realtime-audience` extrae del código todas las publicaciones de `publishRealtimeEvent` y exige que cada una resuelva una audiencia explícita. La difusión a todos los roles se compara contra una lista aprobada: **ampliarla exige tocar el test**, lo que la convierte en una decisión revisable en lugar de un efecto secundario. Es un contrato estático, así que corre en la puerta rápida sin necesidad de PostgreSQL. Ver [`docs/realtime.md`](realtime.md).
 
-El inventario recorre **todo el árbol de `server/`, no un archivo**. Leía sólo `server/index.js`, y cuando ARC-001 empezó a extraer grupos de rutas las publicaciones que se mudaban dejaban de contarse: al sacar las direcciones pasó de 43 a 37 publicaciones **y siguió en verde**, con un `entityType` menos cubierto. Un contrato acoplado a _dónde vive_ el código es tan frágil como uno acoplado a _cómo está escrito_, sólo que degrada en silencio en lugar de fallar. El piso de publicaciones es explícito y bajarlo exige escribir por qué.
+El inventario recorre **todo el árbol de `server/`, no un archivo**. Leía sólo `server/index.js`, y cuando ARC-001 empezó a extraer grupos de rutas las publicaciones que se mudaban dejaban de contarse: al sacar las direcciones pasó de 43 a 37 publicaciones **y siguió en verde**, con un `entityType` menos cubierto. Un contrato acoplado a *dónde vive* el código es tan frágil como uno acoplado a *cómo está escrito*, sólo que degrada en silencio en lugar de fallar. El piso de publicaciones es explícito y bajarlo exige escribir por qué.
 
 ### Autorización
 
@@ -212,7 +212,6 @@ El defecto tiene una forma reconocible y el repositorio ya la había documentado
 Lo que se afirma es la degradación, no la funcionalidad. Una ruta puede responder 200 vacío, 400, 401, 403, 404 o **503 porque necesita PostgreSQL**. Lo único inadmisible es 500: significa que el servidor no anticipó su propio runtime.
 
 Apareció levantando la aplicación de conductor en un navegador. Ninguna puerta estática lo veía, y no por descuido: estáticamente el código es correcto —la llamada existe, el nombre está importado, el error está capturado—. Es el argumento a favor de tener una suite que ejerza el runtime además de las que leen el código.
-
 ### Nocturnas frente a bloqueantes
 
 Desde el 27 de agosto `test:ci-coverage` distingue tres categorías y no dos. Una suite nocturna **tiene** puerta, pero no bloquea un merge, así que contarla junto a las que sí diría que un PR queda frenado por algo que en realidad corre ocho horas después.
@@ -222,7 +221,6 @@ Las dos nocturnas están ahí por motivos distintos y los dos son legítimos: `t
 Lo que la categoría **no** permite es esconder una suite: si una nocturna no aparece invocada en ningún workflow, la puerta falla igual. La etiqueta explica por qué no bloquea, no la exime de correr.
 
 La auditoría de navegador vale la pena de noche por lo que encontró al arreglarse: hasta el 27 de agosto pasaba **sobre la pantalla de login**, porque su marcador de cliente era también el rótulo de un chip previo a autenticarse. Corregida, las tres variantes se auditan ya autenticadas.
-
 ### Qué encontró la primera corrida del nocturno
 
 Las tres variantes del navegador pasaron. La latencia falló, y por dos motivos que sólo se ven corriéndola:
@@ -244,7 +242,6 @@ Eso cambia el modo de fallar, y a mejor: antes una tabla sin revisar quedaba sil
 La puerta persigue la forma `ON ALL TABLES` porque es la que uno escribe sin pensar cuando una migración falla por permisos, y resuelve el síntoma deshaciendo la decisión. La migración 010 queda exceptuada: es el registro histórico y las migraciones son de sólo agregar.
 
 **El inventario mecánico no alcanzaba.** Buscar `INSERT`/`UPDATE`/`DELETE` por tabla en `server/**` daba diez candidatas de sólo lectura, y dos eran falsas: `drivers` tiene disparadores que insertan en `driver_availability_sessions` y `driver_job_sessions` cuando alguien se pone en línea, y esas funciones **no** son `SECURITY DEFINER`, así que corren con los permisos de quien las dispara. Revocar ahí habría roto que un conductor se conecte, con un error de permisos dentro de un trigger.
-
 ### Dependencias: qué se audita y qué se despliega
 
 Son dos puertas distintas y el orden entre ellas importó.
@@ -288,7 +285,7 @@ La segunda puerta nació sin poder fallar y hubo que corregirla dos veces. Busca
 
 ### SBOM y scan de la imagen
 
-El job `container-image` genera un SBOM en CycloneDX y lo publica como artefacto de la corrida. Sirve para responder después _«¿esta imagen tenía el paquete X?»_ sin reconstruirla — que es exactamente la pregunta que aparece el día que se publica una vulnerabilidad, cuando reconstruir una imagen de hace tres semanas no da el mismo resultado.
+El job `container-image` genera un SBOM en CycloneDX y lo publica como artefacto de la corrida. Sirve para responder después *«¿esta imagen tenía el paquete X?»* sin reconstruirla — que es exactamente la pregunta que aparece el día que se publica una vulnerabilidad, cuando reconstruir una imagen de hace tres semanas no da el mismo resultado.
 
 Se usa Trivy por **imagen fijada** y no por una acción del marketplace. Una acción es código de terceros corriendo con el token del workflow, y para esto no hace falta: una etiqueta fija es revisable y se actualiza a propósito.
 
@@ -362,11 +359,11 @@ Apareció al escribir la conciliación programada, que no tiene persona detrás.
 
 Ahora hay tres formas, distintas a propósito:
 
-| Actor               | Qué pasa                                                                                                                  |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| existe              | evento normal, con su `actor_id`                                                                                          |
-| no se pasa ninguno  | evento anónimo, `actor_id` nulo — «alguien hizo esto y no sabemos quién» es peor que un nombre y muchísimo mejor que nada |
-| se pasa y no existe | **error**, porque eso es un defecto de quien llama                                                                        |
+| Actor | Qué pasa |
+| --- | --- |
+| existe | evento normal, con su `actor_id` |
+| no se pasa ninguno | evento anónimo, `actor_id` nulo — «alguien hizo esto y no sabemos quién» es peor que un nombre y muchísimo mejor que nada |
+| se pasa y no existe | **error**, porque eso es un defecto de quien llama |
 
 Para lo que sí origina el sistema hay `recordSystemAudit`, que exige declarar un `origin`. Está separada y no es «un actor nulo» porque un evento de sistema y uno cuyo actor no se pudo identificar son cosas distintas, y quien lee la auditoría necesita poder distinguirlas: `actor_id` nulo por sí solo no dice cuál de las dos es.
 
@@ -528,7 +525,7 @@ La herramienta la aprendió, y con un matiz que costó una iteración: sólo cue
 
 Ese lote incluyó el hallazgo más serio del inventario: **`flash_runtime` tenía INSERT, UPDATE y DELETE sobre `schema_migrations`**, el registro de qué migraciones se aplicaron. Con eso, un handler comprometido podía declarar aplicada una migración que no corrió, o borrar el rastro de una que sí — y tanto el despliegue como el ensayo de restore, que compara ese registro contra los archivos del repositorio, descansan en que diga la verdad.
 
-Es la contraparte del trigger de balance. El trigger impide _escribir_ una transacción torcida; esto impide _enderezar_ una que ya cuadra, o hacerla desaparecer. Sin lo segundo, lo primero se puede rodear en dos sentencias.
+Es la contraparte del trigger de balance. El trigger impide *escribir* una transacción torcida; esto impide *enderezar* una que ya cuadra, o hacerla desaparecer. Sin lo segundo, lo primero se puede rodear en dos sentencias.
 
 El tercer lote (migración 131) quita **11 DELETE** sobre artefactos de identidad y
 autorización: sesiones, MFA, dispositivos, verificaciones, enlaces de safety,
@@ -615,7 +612,6 @@ Y una entrada declarada que ya no aparece en el código hace fallar la puerta, p
 `test:docs-coverage` exige que cada script `test:` esté nombrado en algún documento de `docs/`. Una puerta que nadie sabe que existe no se mantiene: cuando falla, quien la encuentra no sabe qué protegía ni si conviene arreglarla o borrarla.
 
 Al escribirse había **14 suites sin mencionar en ningún lado**, casi todas anteriores a la auditoría. Es un trinquete: el número sólo puede bajar, así que una puerta nueva se documenta en el mismo PR que la crea, y la deuda heredada se paga cuando se toca cada suite.
-
 ### Raíz de sólo lectura, verificada arrancando
 
 El job `container-image` arranca la imagen con `--read-only` hasta que responde, y **después comprueba que un `touch` sobre la raíz falle**. Esa segunda mitad importa: sin ella el paso pasaría igual aunque la raíz fuera escribible, y estaríamos verificando que la imagen arranca, que ya se sabía.
@@ -640,14 +636,14 @@ Sin `workflow_dispatch`, la única forma de limpiar eso era **empujar otro commi
 
 ## Reglas de merge
 
-| Regla                                                                      | Estado                                                                                                                                                      |
-| -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Un PR queda bloqueado si falla cualquier suite de las tres puertas         | Activo                                                                                                                                                      |
-| Una suite nueva no puede quedar fuera de toda puerta sin motivo escrito    | Activo (`test:ci-coverage`)                                                                                                                                 |
-| `CODEOWNERS` declara propiedad de dinero, aislamiento y puertas de calidad | Activo                                                                                                                                                      |
-| ~~Rama `main` protegida con PR obligatoria~~                               | **Hecho** (27 de agosto de 2026): PR obligatoria, los 7 checks exigidos, rama al día, historia lineal, sin force push ni borrado, y `enforce_admins` activo |
-| Dos aprobaciones para pagos y seguridad                                    | **Pendiente: requiere más de un revisor**                                                                                                                   |
-| Artefactos de test almacenados tras el run                                 | Pendiente                                                                                                                                                   |
+| Regla | Estado |
+| --- | --- |
+| Un PR queda bloqueado si falla cualquier suite de las tres puertas | Activo |
+| Una suite nueva no puede quedar fuera de toda puerta sin motivo escrito | Activo (`test:ci-coverage`) |
+| `CODEOWNERS` declara propiedad de dinero, aislamiento y puertas de calidad | Activo |
+| ~~Rama `main` protegida con PR obligatoria~~ | **Hecho** (27 de agosto de 2026): PR obligatoria, los 7 checks exigidos, rama al día, historia lineal, sin force push ni borrado, y `enforce_admins` activo |
+| Dos aprobaciones para pagos y seguridad | **Pendiente: requiere más de un revisor** |
+| Artefactos de test almacenados tras el run | Pendiente |
 
 `CODEOWNERS` por sí solo no bloquea nada: necesita que la rama esté protegida. Desde el 27 de
 agosto de 2026 lo está, con los 7 checks exigidos por nombre exacto.
