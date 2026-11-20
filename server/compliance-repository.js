@@ -207,7 +207,14 @@ export async function getDriverDocumentContent({ actorPublicId, roles, documentP
 export async function assertDriverCanGoOnline(driverPublicId, activeMode = null) {
   const row = (
     await postgresPool.query(
-      `SELECT c.status,EXISTS(SELECT 1 FROM driver_documents doc WHERE doc.driver_id=d.id AND doc.status='approved' AND doc.expires_at<current_date) expired,
+      // Vencido cuenta sólo entre los documentos que piden los vehículos de hoy, con la misma
+      // regla que `requiredTypesForKinds`: quien pasó de la moto a la bici y retiró la moto
+      // no queda bloqueado por el seguro de la moto, que ya no se le pide ni se le muestra.
+      `SELECT c.status,EXISTS(SELECT 1 FROM driver_documents doc WHERE doc.driver_id=d.id AND doc.status='approved' AND doc.expires_at<current_date
+    AND doc.document_type=ANY(CASE
+      WHEN EXISTS(SELECT 1 FROM vehicles v WHERE v.driver_id=d.id AND v.retired_at IS NULL)
+       AND NOT EXISTS(SELECT 1 FROM vehicles v WHERE v.driver_id=d.id AND v.retired_at IS NULL AND v.kind<>'bicycle')
+      THEN $4::text[] ELSE $5::text[] END)) expired,
   EXISTS(SELECT 1 FROM vehicles v WHERE v.driver_id=d.id AND v.active AND v.retired_at IS NULL AND v.status='approved' AND COALESCE($2::job_kind,d.active_mode)=ANY(v.service_modes)) vehicle_ready,
   EXISTS(SELECT 1 FROM vehicles v WHERE v.driver_id=d.id AND v.active AND v.retired_at IS NULL AND v.kind<>'bicycle') motorized,
   EXISTS(SELECT 1 FROM driver_documents doc WHERE doc.driver_id=d.id) has_documents,
@@ -216,7 +223,7 @@ export async function assertDriverCanGoOnline(driverPublicId, activeMode = null)
       AND (doc.expires_at IS NULL OR doc.expires_at>=current_date)
       AND doc.document_type=ANY($3))::int motor_documents
   FROM drivers d LEFT JOIN driver_compliance c ON c.driver_id=d.id WHERE d.public_id=$1`,
-      [driverPublicId, activeMode, TIPOS_CON_MOTOR],
+      [driverPublicId, activeMode, TIPOS_CON_MOTOR, TIPOS_BICICLETA, requiredTypes],
     )
   ).rows[0];
   if (!row || row.status !== "approved" || row.expired)

@@ -383,6 +383,39 @@ try {
     "quien se aprobó en bici no sale en moto sin licencia, cédula y seguro aprobados",
   );
 
+  // --- De vuelta a la bici: lo que ya no se pide no bloquea ---------------------------
+  await api(`/driver-vehicles/${vehiculoBici}/activate`, { token: tokens.bici, method: "POST" });
+  const retirada = await api(`/driver-vehicles/${motoId}`, {
+    token: tokens.bici,
+    method: "DELETE",
+  });
+  const seguro = await api(`/drivers/${driverBici}/documents`, {
+    token: tokens.bici,
+    body: documento("insurance"),
+  });
+  await api(`/admin/driver-documents/${seguro.body.document?.id}/review`, {
+    token: tokens.admin,
+    method: "PATCH",
+    body: { status: "approved" },
+  });
+  await pool.query("UPDATE driver_documents SET expires_at=current_date-1 WHERE public_id=$1", [
+    seguro.body.document?.id,
+  ]);
+  const enBiciDeNuevo = await api(`/drivers/${driverBici}/availability`, {
+    token: tokens.bici,
+    method: "PATCH",
+    body: { online: true },
+  });
+  assert(
+    retirada.status === 200 && seguro.status === 201 && enBiciDeNuevo.status === 200,
+    "de vuelta en bici, el seguro vencido de la moto retirada no impide conectarse",
+  );
+  await api(`/drivers/${driverBici}/availability`, {
+    token: tokens.bici,
+    method: "PATCH",
+    body: { online: false },
+  });
+
   // --- Un documento aprobado que venció --------------------------------------------
   await pool.query("UPDATE driver_documents SET expires_at=current_date-1 WHERE public_id=$1", [
     subidos.identity,

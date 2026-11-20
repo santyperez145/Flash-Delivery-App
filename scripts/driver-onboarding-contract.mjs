@@ -193,4 +193,13 @@ assert.ok(
   "dos envíos a la vez no se traban, y una página de otra pestaña no se mezcla",
 );
 
+assert.ok(
+  contains(legajo, "THEN $4::text[] ELSE $5::text[] END)) expired,") &&
+    contains(
+      legajo,
+      "[driverPublicId, activeMode, TIPOS_CON_MOTOR, TIPOS_BICICLETA, requiredTypes],",
+    ),
+  "un vencido bloquea sólo si es de lo que piden los vehículos de hoy, como lo muestra la pantalla",
+);
+
 console.log("driver onboarding contract ok");
