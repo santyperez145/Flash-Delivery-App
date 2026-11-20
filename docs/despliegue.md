@@ -29,29 +29,29 @@ Sobre esa restricción, el proveedor se elige por lo que el proyecto ya exige.
 
 No son preferencias. Cada punto sale de leer el repositorio, y cada uno descarta opciones.
 
-| Exigencia | Dónde está en el código | Qué descarta |
-| --- | --- | --- |
-| **PostGIS**, no PostgreSQL a secas | `docker-compose.yml` usa `postgis/postgis:17-3.5` | Todo Postgres gestionado sin la extensión |
-| **`LISTEN/NOTIFY`** en conexión dedicada | `server/realtime-repository.js` hace `LISTEN flash_realtime` | Cualquier pooler en **modo transacción**: el endpoint *pooled* de Neon, Supavisor por omisión |
-| **SSE de larga duración** | `server/http/realtime.js` responde `text/event-stream` con heartbeat | Funciones serverless con duración máxima corta: Vercel, Netlify |
-| **Redis** con readiness bloqueante | `REDIS_REQUIRED` en `server/config.js` | Nada, pero hay que proveerlo |
-| **~20 secretos de producción** | `server/config.js` los exige uno por uno al arrancar | Pegarlos a mano en un panel |
-| **Contenedor endurecido** | El job `container-image` lo construye y verifica en cada PR | Plataformas que sólo aceptan buildpacks |
-| **Planificador externo** | `worker:dispatch` y `job:payment-reconciliation` no traen el suyo | Plataformas sin cron de verdad |
-| **Tres roles de base separados** | `flash_app`, `flash_runtime`, `flash_rls_audit` | Bases gestionadas que no dejan crear roles |
+| Exigencia                                | Dónde está en el código                                              | Qué descarta                                                                                  |
+| ---------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| **PostGIS**, no PostgreSQL a secas       | `docker-compose.yml` usa `postgis/postgis:17-3.5`                    | Todo Postgres gestionado sin la extensión                                                     |
+| **`LISTEN/NOTIFY`** en conexión dedicada | `server/realtime-repository.js` hace `LISTEN flash_realtime`         | Cualquier pooler en **modo transacción**: el endpoint _pooled_ de Neon, Supavisor por omisión |
+| **SSE de larga duración**                | `server/http/realtime.js` responde `text/event-stream` con heartbeat | Funciones serverless con duración máxima corta: Vercel, Netlify                               |
+| **Redis** con readiness bloqueante       | `REDIS_REQUIRED` en `server/config.js`                               | Nada, pero hay que proveerlo                                                                  |
+| **~20 secretos de producción**           | `server/config.js` los exige uno por uno al arrancar                 | Pegarlos a mano en un panel                                                                   |
+| **Contenedor endurecido**                | El job `container-image` lo construye y verifica en cada PR          | Plataformas que sólo aceptan buildpacks                                                       |
+| **Planificador externo**                 | `worker:dispatch` y `job:payment-reconciliation` no traen el suyo    | Plataformas sin cron de verdad                                                                |
+| **Tres roles de base separados**         | `flash_app`, `flash_runtime`, `flash_rls_audit`                      | Bases gestionadas que no dejan crear roles                                                    |
 
 ## El mapeo
 
-| Necesidad | Servicio | Nota |
-| --- | --- | --- |
-| API | **Cloud Run** | Corre la imagen que CI ya valida. Sin Kubernetes, que [la auditoría descartó](auditoria-2026-08-25.md) para esta etapa |
-| Base | **Cloud SQL para PostgreSQL 17** + extensión PostGIS | Con PITR, que es lo que cubre el RPO ≤ 15 min del [checklist](deployment-checklist.md) |
-| Redis | **Memorystore** | |
-| Trabajos programados | **Cloud Run Jobs + Cloud Scheduler** | Calza exacto con la política de «el planificador es del entorno» |
-| Secretos | **Secret Manager** | Montados en Cloud Run, nunca en variables del panel |
-| PWA web | **Cloud Storage + Cloud CDN** | Es un build estático de Vite |
-| Imágenes | **Artifact Registry** | La imagen sale de CI, no de una build local |
-| Observabilidad | **Cloud Trace / Monitoring** | El exportador OTLP ya existe; no hay que tocar código |
+| Necesidad            | Servicio                                             | Nota                                                                                                                   |
+| -------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| API                  | **Cloud Run**                                        | Corre la imagen que CI ya valida. Sin Kubernetes, que [la auditoría descartó](auditoria-2026-08-25.md) para esta etapa |
+| Base                 | **Cloud SQL para PostgreSQL 17** + extensión PostGIS | Con PITR, que es lo que cubre el RPO ≤ 15 min del [checklist](deployment-checklist.md)                                 |
+| Redis                | **Memorystore**                                      |                                                                                                                        |
+| Trabajos programados | **Cloud Run Jobs + Cloud Scheduler**                 | Calza exacto con la política de «el planificador es del entorno»                                                       |
+| Secretos             | **Secret Manager**                                   | Montados en Cloud Run, nunca en variables del panel                                                                    |
+| PWA web              | **Cloud Storage + Cloud CDN**                        | Es un build estático de Vite                                                                                           |
+| Imágenes             | **Artifact Registry**                                | La imagen sale de CI, no de una build local                                                                            |
+| Observabilidad       | **Cloud Trace / Monitoring**                         | El exportador OTLP ya existe; no hay que tocar código                                                                  |
 
 ## Las tres trampas
 
@@ -73,7 +73,7 @@ pero **no la evita**: sin instancia mínima, la configuración correcta sigue si
 
 ### 2. Conexión directa a la base, nunca un pooler en modo transacción
 
-`LISTEN/NOTIFY` no sobrevive a PgBouncer ni a Supavisor en *transaction mode*: la suscripción
+`LISTEN/NOTIFY` no sobrevive a PgBouncer ni a Supavisor en _transaction mode_: la suscripción
 se pierde en cuanto la transacción termina. Es el error más caro de esta lista porque
 **parece funcionar** — las consultas normales andan perfecto, y lo único que falla es el
 realtime, en silencio.
@@ -150,21 +150,58 @@ pide. Si falla, staging dejó de parecerse a producción o producción aflojó u
 ### Lo que hace el dueño
 
 1. Crear el proyecto de Google Cloud **con la facturación activada**.
-2. Instalar la herramienta: `winget install Google.CloudSDK`.
+2. Instalar las herramientas: `winget install Google.CloudSDK` y
+   `winget install Hashicorp.Terraform`.
 3. Iniciar sesión (la contraseña la escribe el dueño):
    `gcloud auth login` y `gcloud auth application-default login`.
-4. Pasar el *project ID*.
+4. Correr el despliegue, que pide escribir `CREAR` después de mostrar el costo:
+   `.\infra\gcp\bootstrap.ps1 -ProjectId <project_id> -Stage staging`.
 
-### Lo que hace el equipo, con el OK del dueño antes de crear recursos pagos
+## Despliegue real en un comando, y después solo (INF-003)
+
+Las plataformas grandes no despliegan a mano: cada cambio aprobado sale solo, la base se
+migra antes que el código que la necesita y nadie guarda una clave de la nube en una
+computadora. Así quedó:
+
+- **El primer despliegue es un comando** ([`infra/gcp/bootstrap.ps1`](../infra/gcp/bootstrap.ps1)):
+  verifica la facturación, muestra el costo y espera la confirmación escrita, aplica
+  Terraform, genera los secretos propios sin pisar los que ya tienen valor, construye la
+  imagen, **prepara y migra la base con trabajos de Cloud Run** y recién después despliega
+  la API, los workers y los lotes. Los pasos uno por uno están en
+  [`infra/gcp/README.md`](../infra/gcp/README.md#un-comando-bootstrapps1).
+- **La base se prepara dentro del proyecto.** `flash-db-bootstrap` corre
+  [`scripts/db-bootstrap-cloud.mjs`](../scripts/db-bootstrap-cloud.mjs): los tres roles sin
+  superusuario ni `BYPASSRLS`, la base de `flash_app` y PostGIS. `flash-db-migrate` corre las
+  migraciones. Cloud SQL no se abre a ninguna IP, y la clave del administrador la leen sólo
+  esos dos trabajos (cuenta `flash-db-jobs`), nunca la API ni los workers.
+- **Cada cambio de `main` se publica solo**
+  ([`.github/workflows/deploy-gcp.yml`](../.github/workflows/deploy-gcp.yml)): imagen fijada
+  por digest, migración esperando a que termine, y después cada servicio y lote `flash-*`.
+  Entra con Workload Identity: credenciales de corta vida, sólo para este repositorio y su
+  rama `main`, con una cuenta que puede publicar en Cloud Run y nada más.
+- **Terraform no pisa lo publicado**: la API, los workers y los trabajos ignoran el cambio de
+  imagen, que es del workflow.
+
+Dos puertas lo vigilan. `npm run test:db-bootstrap-cloud` (en `ci-postgres`) corre la
+preparación dos veces contra PostgreSQL real en una base descartable, migra desde cero y
+verifica el dueño, las extensiones, que ningún rol tenga privilegios y que estén todas las
+migraciones; si falla, el primer despliegue dejaría una base a medio preparar.
+`npm run test:gcp-deploy` (en `ci-fast`) vigila el cableado: sólo `main` puede desplegar,
+sin `owner` ni `editor`, la migración antes que los servicios, la confirmación escrita, los
+secretos que no se pisan, nada de semillas y la red de los lotes hacia Redis. Se falsificó
+con 16 mutaciones.
+
+### Qué hace el script, por si hay que hacerlo a mano
 
 1. La URL de staging se conoce antes de desplegar: `https://flash-api-<número del
-   proyecto>.southamerica-east1.run.app` (el número sale de `gcloud projects describe`). La
+proyecto>.southamerica-east1.run.app` (el número sale de `gcloud projects describe`). La
    misma API sirve la web, así que es una sola URL para todo.
 2. `staging.tfvars` (no se versiona), con `deploy_stage = "staging"` y esa URL en
    `app_public_url`, `api_public_url` y `cors_origins`.
 3. Seguir los pasos de [`infra/gcp/README.md`](../infra/gcp/README.md): bucket del estado,
    primera aplicación, secretos propios (en staging no hace falta cargar los de terceros),
-   roles, PostGIS y migraciones **sin semillas**, imagen, segunda aplicación.
+   imagen, roles, PostGIS y migraciones **sin semillas** con los trabajos de la base,
+   segunda aplicación.
 4. Verificar `/api/ready`, crear una cuenta real, y que un pedido reciba oferta sin que nadie
    toque nada.
 
@@ -175,7 +212,8 @@ de 2026 están escritos en Terraform** ([`infra/gcp`](../infra/gcp/README.md)) y
 cada PR: lo que falta es la cuenta, no la infraestructura.
 
 - [ ] Proyecto de GCP y facturación, región por omisión `southamerica-east1`.
-- [ ] Artifact Registry, y que CI publique ahí la imagen que ya construye.
+- [ ] Artifact Registry, y que CI publique ahí la imagen que ya construye (escrito en
+      INF-003, `deploy-gcp.yml`; corre cuando exista el proyecto).
 - [ ] Cloud SQL PostgreSQL 17 con PostGIS, HA y PITR. Crear los tres roles.
 - [ ] Memorystore para Redis.
 - [ ] Los ~20 secretos en Secret Manager. Ninguno en el panel de Cloud Run.

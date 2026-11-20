@@ -190,6 +190,14 @@ jobs:
           docker exec "$cid" pg_restore -U postgres -d flash_restore --exit-on-error /tmp/flash.dump
           npm run test:restore-drill
 
+      # El primer despliegue en Google Cloud prepara la base con un trabajo de Cloud Run
+      # (INF-003): roles separados, dueño flash_app, PostGIS y todas las migraciones. Acá
+      # corre igual, en una base nueva y descartable, con las mismas claves de los roles.
+      - name: Preparación de la base en la nube
+        env:
+          POSTGRES_ADMIN_URL: postgresql://postgres:ci_admin@127.0.0.1:5432/postgres
+        run: npm run test:db-bootstrap-cloud
+
       # Suites que consultan PostgreSQL directamente, sin necesitar la API.
       - name: Merchant, zone and configuration state
         run: |

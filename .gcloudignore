@@ -1,0 +1,14 @@
+# Lo que `gcloud builds submit` no sube al construir la imagen del primer arranque
+# (infra/gcp/bootstrap.ps1). Todo lo que ignora git, más lo que no hace falta para la
+# imagen. El Dockerfile instala las dependencias adentro.
+#!include:.gitignore
+.git/
+.github/
+Flash-Delivery-App/
+apps/mobile/
+infra/
+docs/
+test-artifacts/
+*.tfvars
+.env
+.env.*

@@ -118,6 +118,8 @@
     "test:no-invented-data": "node scripts/no-invented-data-contract.mjs",
     "test:merchant-onboarding": "node scripts/merchant-onboarding-contract.mjs",
     "test:staging-config": "node scripts/staging-config-contract.mjs",
+    "test:gcp-deploy": "node scripts/gcp-deploy-contract.mjs",
+    "test:db-bootstrap-cloud": "node scripts/db-bootstrap-cloud-smoke.mjs",
     "test:service-chat": "node --env-file-if-exists=.env.local scripts/service-chat-smoke.mjs",
     "test:shipment-claims": "node --env-file-if-exists=.env.local scripts/shipment-claims-smoke.mjs",
     "test:payment-reconciliation": "node --env-file-if-exists=.env.local scripts/payment-reconciliation-smoke.mjs",

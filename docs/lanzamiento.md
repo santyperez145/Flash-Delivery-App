@@ -44,16 +44,16 @@ tardan días o semanas en aprobarse.
 Ordenadas por cuánto bloquean. Ninguna la puede crear el equipo de ingeniería: son cuentas
 a nombre de la empresa, con facturación y datos legales.
 
-| # | Qué | Para qué | Tiempo típico de alta |
-| --- | --- | --- | --- |
-| 1 | **Cuenta de Mercado Pago para marketplace** y aplicación con credenciales productivas | Cobrar y repartir el dinero entre comercio, repartidor y plataforma | Días; la aprobación del marketplace la decide Mercado Pago |
-| 2 | **Proyecto de GCP con facturación** | Todo el despliegue | Horas |
-| 3 | **Apple Developer Program** y **Google Play Console** | Publicar las apps | Apple: días (verificación de la empresa); Google: horas a días |
-| 4 | **Dominio** y **proveedor de correo** (SMTP con SPF/DKIM) | Verificación de cuentas, recibos, recuperación de contraseña | Horas |
-| 5 | **API key comercial de mapas** con tope de gasto | Geocoding, rutas y ETA vial (GEO-001, DSP-001) | Horas |
-| 6 | **Proveedor de SMS** | Verificación de teléfono | Días (registro del remitente) |
-| 7 | **Cuenta de Sentry** | Errores en producción | Minutos |
-| 8 | **Dos teléfonos de prueba** (Android y iPhone) | Probar push y la app instalada (NOT-001, MOB-001) | — |
+| #   | Qué                                                                                   | Para qué                                                            | Tiempo típico de alta                                          |
+| --- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------------- |
+| 1   | **Cuenta de Mercado Pago para marketplace** y aplicación con credenciales productivas | Cobrar y repartir el dinero entre comercio, repartidor y plataforma | Días; la aprobación del marketplace la decide Mercado Pago     |
+| 2   | **Proyecto de GCP con facturación**                                                   | Todo el despliegue                                                  | Horas                                                          |
+| 3   | **Apple Developer Program** y **Google Play Console**                                 | Publicar las apps                                                   | Apple: días (verificación de la empresa); Google: horas a días |
+| 4   | **Dominio** y **proveedor de correo** (SMTP con SPF/DKIM)                             | Verificación de cuentas, recibos, recuperación de contraseña        | Horas                                                          |
+| 5   | **API key comercial de mapas** con tope de gasto                                      | Geocoding, rutas y ETA vial (GEO-001, DSP-001)                      | Horas                                                          |
+| 6   | **Proveedor de SMS**                                                                  | Verificación de teléfono                                            | Días (registro del remitente)                                  |
+| 7   | **Cuenta de Sentry**                                                                  | Errores en producción                                               | Minutos                                                        |
+| 8   | **Dos teléfonos de prueba** (Android y iPhone)                                        | Probar push y la app instalada (NOT-001, MOB-001)                   | —                                                              |
 
 ### 2. Legal y fiscal — del dueño, con asesoría profesional
 
@@ -95,8 +95,9 @@ Lo que se puede hacer hoy, en este orden:
 2. ~~**Infraestructura como código para GCP**~~, en [`infra/gcp`](../infra/gcp/README.md).
    - Hecho: Terraform validado en CI, con despliegue en dos fases porque Cloud Run lee los
      secretos al crear cada revisión.
-   - Falta el workflow que publica la imagen y aplica. Se escribe con la cuenta, porque
-     necesita la identidad federada de GitHub en el proyecto.
+   - Hecho (INF-003): el primer despliegue en un comando (`infra/gcp/bootstrap.ps1`) y el
+     workflow que publica cada cambio de `main` (`deploy-gcp.yml`), con la identidad
+     federada de GitHub escrita en Terraform. Corren cuando exista el proyecto.
 3. ~~**Enlaces legales en la app** (términos, privacidad) apuntando a las URLs que defina el
    dueño, con el estado honesto mientras no existan.~~ Hecho (LAN-002).
    - El día que existan los documentos, alcanza con cargar `LEGAL_TERMS_URL` y

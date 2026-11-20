@@ -1,0 +1,88 @@
+# Despliegue continuo a Google Cloud (INF-003).
+#
+# Cada cambio que entra a main —que ya pasó las puertas de CI para poder mergearse— se
+# publica solo, como en cualquier plataforma grande: imagen nueva, base migrada y recién
+# después los servicios, los workers y los lotes con esa imagen.
+#
+# Sin claves guardadas: GitHub presenta su token OIDC y Google le da credenciales de corta
+# vida, sólo para este repositorio y su rama main (Workload Identity, infra/gcp/deploy.tf).
+#
+# No hace nada hasta que exista el proyecto: las variables del repositorio
+# (GCP_PROJECT_ID, GCP_WORKLOAD_IDENTITY_PROVIDER, GCP_DEPLOYER_SA y, opcional,
+# GCP_REGION) las deja el script de arranque, infra/gcp/bootstrap.ps1.
+name: Despliegue a Google Cloud
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+# Un despliegue a la vez y en orden: dos seguidos no se pisan las migraciones.
+concurrency:
+  group: deploy-gcp
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Publicar en Cloud Run
+    if: vars.GCP_PROJECT_ID != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      PROJECT: ${{ vars.GCP_PROJECT_ID }}
+      REGION: ${{ vars.GCP_REGION || 'southamerica-east1' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Credenciales de corta vida (Workload Identity)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+
+      - name: gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Imagen, fijada por digest
+        run: |
+          set -euo pipefail
+          gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+          etiqueta="$REGION-docker.pkg.dev/$PROJECT/flash/api:$GITHUB_SHA"
+          docker build -t "$etiqueta" .
+          docker push "$etiqueta"
+          digest=$(gcloud artifacts docker images describe "$etiqueta" --format='value(image_summary.digest)')
+          echo "IMAGE=$REGION-docker.pkg.dev/$PROJECT/flash/api@$digest" >> "$GITHUB_ENV"
+
+      # Primero la base: la versión nueva de la API puede necesitar una migración nueva, y
+      # sin ella no pasa su chequeo de arranque.
+      - name: Migrar la base
+        run: |
+          set -euo pipefail
+          gcloud run jobs update flash-db-migrate --region "$REGION" --image "$IMAGE" --quiet
+          gcloud run jobs execute flash-db-migrate --region "$REGION" --wait
+          gcloud run jobs update flash-db-bootstrap --region "$REGION" --image "$IMAGE" --quiet
+
+      # Se buscan por nombre en lugar de una lista escrita acá: un worker o un lote nuevo
+      # en Terraform se publica sin tocar este archivo.
+      - name: Publicar la API, los workers y los lotes
+        run: |
+          set -euo pipefail
+          for servicio in $(gcloud run services list --region "$REGION" --format='value(metadata.name)' --filter='metadata.name ~ ^flash-'); do
+            gcloud run services update "$servicio" --region "$REGION" --image "$IMAGE" --quiet
+          done
+          for trabajo in $(gcloud run jobs list --region "$REGION" --format='value(metadata.name)' --filter='metadata.name ~ ^flash-job-'); do
+            gcloud run jobs update "$trabajo" --region "$REGION" --image "$IMAGE" --quiet
+          done
+
+      - name: Verificar que la API está lista
+        run: |
+          set -euo pipefail
+          url=$(gcloud run services describe flash-api --region "$REGION" --format='value(status.url)')
+          curl -fsS --retry 5 --retry-delay 10 "$url/api/ready" | head -c 600
+          echo
+          echo "Publicado en $url"
