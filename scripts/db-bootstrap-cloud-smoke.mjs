@@ -38,6 +38,7 @@ const migracion = requerida("MIGRATION_DATABASE_URL");
 const runtime = requerida("DATABASE_URL");
 const auditoria = requerida("RLS_AUDIT_DATABASE_URL");
 const base = `flash_boot_${crypto.randomBytes(4).toString("hex")}`;
+const adminNube = `${base}_admin`;
 
 const correr = (script, entorno) => {
   const salida = spawnSync(process.execPath, [script], {
@@ -66,8 +67,28 @@ try {
   };
   const primera = correr("scripts/db-bootstrap-cloud.mjs", entornoBootstrap);
   assert(/lista: dueño flash_app, PostGIS/.test(primera), "la preparación deja la base lista");
-  correr("scripts/db-bootstrap-cloud.mjs", entornoBootstrap);
-  assert(true, "correrla otra vez no rompe nada");
+  // La segunda vez, como en Cloud SQL: con un administrador que no es superusuario, sólo
+  // puede crear roles y bases y administra los de Flash (como `postgres`, miembro de
+  // `cloudsqlsuperuser`, administra los roles que creó). Ahí un ALTER ROLE que nombre
+  // SUPERUSER o BYPASSRLS falla.
+  const claveAdminNube = claveNueva();
+  await servidor.query(
+    `CREATE ROLE ${servidor.escapeIdentifier(adminNube)} LOGIN NOSUPERUSER CREATEDB CREATEROLE NOBYPASSRLS PASSWORD ${servidor.escapeLiteral(claveAdminNube)}`,
+  );
+  await servidor.query(
+    `GRANT flash_app, flash_runtime, flash_rls_audit TO ${servidor.escapeIdentifier(adminNube)} WITH ADMIN OPTION`,
+  );
+  const urlAdminNube = new URL(conBase(admin, base));
+  urlAdminNube.username = adminNube;
+  urlAdminNube.password = encodeURIComponent(claveAdminNube);
+  const segunda = correr("scripts/db-bootstrap-cloud.mjs", {
+    ...entornoBootstrap,
+    POSTGRES_ADMIN_URL: urlAdminNube.toString(),
+  });
+  assert(
+    /actualizado flash_app/.test(segunda) && /lista: dueño flash_app/.test(segunda),
+    "correrla otra vez, con un administrador sin superusuario como el de Cloud SQL, no rompe nada",
+  );
   // Migrar con la clave nueva prueba que la preparación se la puso a flash_app.
   correr("scripts/db-migrate.mjs", {
     MIGRATION_DATABASE_URL: conBase(migracion, base, claves.migracion),
@@ -114,5 +135,7 @@ try {
     );
   }
   await servidor.query(`DROP DATABASE IF EXISTS ${servidor.escapeIdentifier(base)} WITH (FORCE)`);
+  await servidor.query(`DROP OWNED BY ${servidor.escapeIdentifier(adminNube)}`).catch(() => {});
+  await servidor.query(`DROP ROLE IF EXISTS ${servidor.escapeIdentifier(adminNube)}`);
   await servidor.end();
 }

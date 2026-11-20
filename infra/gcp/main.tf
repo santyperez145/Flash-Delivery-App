@@ -135,6 +135,8 @@ resource "google_project_service" "apis" {
     "servicenetworking.googleapis.com",
     # INF-003: imagen del primer arranque, y GitHub sin claves (Workload Identity).
     "cloudbuild.googleapis.com",
+    "storage.googleapis.com",
+    "logging.googleapis.com",
     "iam.googleapis.com",
     "iamcredentials.googleapis.com",
     "sts.googleapis.com",

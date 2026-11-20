@@ -181,15 +181,26 @@ computadora. Así quedó:
   rama `main`, con una cuenta que puede publicar en Cloud Run y nada más.
 - **Terraform no pisa lo publicado**: la API, los workers y los trabajos ignoran el cambio de
   imagen, que es del workflow.
+- **Volver a correr el script no baja nada.** Si ya hay un despliegue, cada aplicación de
+  Terraform conserva los servicios y la imagen que corren; la base se prepara y se migra con
+  la imagen nueva y recién después los servicios la toman. Una clave de la base cargada sin
+  su URL (una corrida cortada a la mitad) se completa con la clave que ya estaba.
+- **La imagen se construye con una cuenta propia** (`flash-build`): leer el código subido a
+  su bucket, escribir logs y publicar en el registro. La cuenta por omisión de Compute
+  Engine no tiene esos permisos en proyectos nuevos.
+- **En Cloud SQL el administrador no es superusuario.** A un rol que ya existe la
+  preparación sólo le cambia la clave, y si alguno ganó privilegios de más (superusuario,
+  saltar RLS, crear roles o bases, heredar) se frena con el nombre del rol.
 
 Dos puertas lo vigilan. `npm run test:db-bootstrap-cloud` (en `ci-postgres`) corre la
-preparación dos veces contra PostgreSQL real en una base descartable, migra desde cero y
+preparación dos veces contra PostgreSQL real en una base descartable, la segunda con un
+administrador sin superusuario como el de Cloud SQL, migra desde cero y
 verifica el dueño, las extensiones, que ningún rol tenga privilegios y que estén todas las
 migraciones; si falla, el primer despliegue dejaría una base a medio preparar.
 `npm run test:gcp-deploy` (en `ci-fast`) vigila el cableado: sólo `main` puede desplegar,
 sin `owner` ni `editor`, la migración antes que los servicios, la confirmación escrita, los
 secretos que no se pisan, nada de semillas y la red de los lotes hacia Redis. Se falsificó
-con 16 mutaciones.
+con 28 mutaciones.
 
 ### Qué hace el script, por si hay que hacerlo a mano
 

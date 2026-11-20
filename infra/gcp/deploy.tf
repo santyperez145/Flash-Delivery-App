@@ -172,3 +172,50 @@ resource "google_service_account_iam_member" "deployer_actua" {
   role               = "roles/iam.serviceAccountUser"
   member             = "serviceAccount:${google_service_account.deployer.email}"
 }
+
+# --- La imagen del primer arranque, con una identidad propia ---------------------------
+# Cloud Build corre como la cuenta que se le indique. Sin indicarla usa la de Compute
+# Engine por omisión, que en proyectos nuevos (o con organizaciones que bloquean los
+# permisos automáticos) no puede leer el código subido, escribir logs ni publicar la
+# imagen. `flash-build` tiene exactamente eso, y el código se sube a un bucket propio que
+# borra lo viejo solo.
+resource "google_service_account" "build" {
+  account_id   = "flash-build"
+  display_name = "Construcción de la imagen de Flash (Cloud Build)"
+}
+
+resource "google_storage_bucket" "build_source" {
+  name                        = "${var.project_id}-flash-build"
+  location                    = var.region
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+  force_destroy               = true
+  lifecycle_rule {
+    condition {
+      age = 7
+    }
+    action {
+      type = "Delete"
+    }
+  }
+  depends_on = [google_project_service.apis]
+}
+
+resource "google_storage_bucket_iam_member" "build_source" {
+  bucket = google_storage_bucket.build_source.name
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${google_service_account.build.email}"
+}
+
+resource "google_artifact_registry_repository_iam_member" "build" {
+  repository = google_artifact_registry_repository.flash.name
+  location   = var.region
+  role       = "roles/artifactregistry.writer"
+  member     = "serviceAccount:${google_service_account.build.email}"
+}
+
+resource "google_project_iam_member" "build_logs" {
+  project = var.project_id
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${google_service_account.build.email}"
+}

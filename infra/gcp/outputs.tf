@@ -37,3 +37,13 @@ output "secretos_a_cargar" {
   description = "Secretos que hay que cargar antes del primer arranque: los que montan los servicios (en staging, sólo los propios)."
   value       = sort(tolist(local.secretos_montados))
 }
+
+output "build_service_account" {
+  description = "Cuenta con la que Cloud Build construye la imagen del primer arranque."
+  value       = google_service_account.build.id
+}
+
+output "build_source_bucket" {
+  description = "Bucket donde se sube el código para construir la imagen."
+  value       = google_storage_bucket.build_source.name
+}

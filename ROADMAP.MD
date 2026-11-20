@@ -63,7 +63,7 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   para llegar a Redis, que les faltaba.
 - **Verificación:** `test:db-bootstrap-cloud` (nueva, en `ci-postgres`) corre la preparación
   dos veces contra PostgreSQL y migra las 152 migraciones desde cero; `test:gcp-deploy`
-  (nueva, en `ci-fast`), falsificada con 16 mutaciones; `terraform validate` y `fmt` en
+  (nueva, en `ci-fast`), falsificada con 28 mutaciones; `terraform validate` y `fmt` en
   verde. Suites: 135.
 - **Falta del dueño:** el proyecto con facturación, `gcloud` y `terraform` instalados, la
   sesión iniciada, y correr el script. Nada pago se crea sin que escriba `CREAR`.

@@ -59,12 +59,17 @@ saltarse nada. Lo corre el dueño, con su sesión de `gcloud`:
 5. Genera los secretos propios (JWT, cifrado, tokens internos, las claves de los tres
    roles y del administrador de la base) **sólo si todavía no tienen valor**: correrlo de
    nuevo no pisa nada que ya se use. En producción no sigue sin los de terceros.
-6. Construye la imagen con Cloud Build y la fija por digest.
+6. Construye la imagen con Cloud Build, con la cuenta `flash-build` y su bucket, y la fija
+   por digest.
 7. Crea y corre `flash-db-bootstrap` (roles sin privilegios, la base de `flash_app`,
    PostGIS) y `flash-db-migrate` (todas las migraciones). **Sin semillas.**
 8. Segunda aplicación: la API, los workers y los lotes con esa imagen.
 9. Verifica `/api/ready` y, si se confirma, deja las variables de GitHub para el despliegue
    continuo.
+
+Volverlo a correr no baja nada: si ya hay un despliegue, Terraform conserva los servicios
+y la imagen que corren, la base se migra con la imagen nueva y recién después los servicios
+la toman.
 
 Después de eso, **cada cambio que entra a `main` se publica solo**
 (`.github/workflows/deploy-gcp.yml`): imagen nueva por digest, migración con

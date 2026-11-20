@@ -156,11 +156,28 @@ smtp_from       = "Flash <no-responder@example.invalid>"
 }
 
 Invoke-Terraform @("init", "-input=false", "-reconfigure", "-backend-config=bucket=$ProjectId-tfstate", "-backend-config=prefix=flash-$Stage") | Out-Null
-Invoke-Terraform @("apply", "-input=false", "-auto-approve", "-var-file=$tfvars", "-var=deploy_services=false", "-var=image=")
+
+# Si ya hay un despliegue, volver a correr el script no lo baja: las aplicaciones de
+# Terraform conservan los servicios y la imagen que están corriendo. Con
+# `deploy_services=false` o sin imagen, Terraform borraría la API, los workers, los lotes,
+# sus horarios y los trabajos de la base hasta la última aplicación, y un fallo en el medio
+# dejaría Flash caído.
+$imagenActual = & gcloud run services describe flash-api --region $Region --project $ProjectId --format "value(spec.template.spec.containers[0].image)" 2>$null
+$desplegado = ($LASTEXITCODE -eq 0) -and [bool]$imagenActual
+if (-not $desplegado) {
+  $imagenActual = & gcloud run jobs describe flash-db-migrate --region $Region --project $ProjectId --format "value(spec.template.spec.template.spec.containers[0].image)" 2>$null
+  if ($LASTEXITCODE -ne 0) { $imagenActual = "" }
+}
+$imagenActual = "$imagenActual".Trim()
+$servicios = if ($desplegado) { "true" } else { "false" }
+if ($desplegado) { Write-Host "  Ya hay un despliegue ($imagenActual): se conserva mientras se actualiza" }
+Invoke-Terraform @("apply", "-input=false", "-auto-approve", "-var-file=$tfvars", "-var=deploy_services=$servicios", "-var=image=$imagenActual")
 
 $conexion = (Invoke-Terraform @("output", "-raw", "cloudsql_connection_name")).Trim()
 $redis = (Invoke-Terraform @("output", "-raw", "redis_host")).Trim()
 $registro = (Invoke-Terraform @("output", "-raw", "artifact_registry")).Trim()
+$cuentaBuild = (Invoke-Terraform @("output", "-raw", "build_service_account")).Trim()
+$bucketBuild = (Invoke-Terraform @("output", "-raw", "build_source_bucket")).Trim()
 
 # --- 4. Secretos propios ---------------------------------------------------------------
 Write-Paso "4. Secretos propios (se generan acá y nunca se muestran)"
@@ -188,11 +205,19 @@ if (-not (Test-SecretoCargado "POSTGRES_ADMIN_URL")) {
   Invoke-Herramienta gcloud @("sql", "users", "set-password", "postgres", "--instance", "flash-pg", "--project", $ProjectId, "--password", $claveAdmin) -Silencioso | Out-Null
   Set-SecretoSiFalta "POSTGRES_ADMIN_URL" "postgresql://postgres:$claveAdmin$sufijoConexion" | Out-Null
 }
+# Cada clave y su URL se miran por separado: si una corrida anterior cargó la clave y se
+# cortó antes de la URL, la URL se arma con la clave ya cargada, sin cambiarla.
 foreach ($rol in @(@("DB_PASSWORD_MIGRATION", "MIGRATION_DATABASE_URL", "flash_app"), @("DB_PASSWORD_RUNTIME", "DATABASE_URL", "flash_runtime"), @("DB_PASSWORD_AUDIT", $null, "flash_rls_audit"))) {
+  $clave = $null
   if (-not (Test-SecretoCargado $rol[0])) {
     $clave = New-Secreto
     Set-SecretoSiFalta $rol[0] $clave | Out-Null
-    if ($rol[1]) { Set-SecretoSiFalta $rol[1] "postgresql://$($rol[2]):$clave$sufijoConexion" | Out-Null }
+  }
+  if ($rol[1] -and -not (Test-SecretoCargado $rol[1])) {
+    if (-not $clave) {
+      $clave = ("" + (Invoke-Herramienta gcloud @("secrets", "versions", "access", "latest", "--secret", $rol[0], "--project", $ProjectId) -Silencioso)).Trim()
+    }
+    Set-SecretoSiFalta $rol[1] "postgresql://$($rol[2]):$clave$sufijoConexion" | Out-Null
   }
 }
 
@@ -211,7 +236,9 @@ Write-Paso "5. Imagen en Cloud Build"
 $commit = (& git -C $raiz rev-parse --short HEAD).Trim()
 $etiqueta = "$($registro)/api:bootstrap-$commit"
 Push-Location $raiz
-try { Invoke-Herramienta gcloud @("builds", "submit", "--project", $ProjectId, "--region", $Region, "--tag", $etiqueta, ".") }
+# Con la cuenta `flash-build` y su bucket: la cuenta por omisión de Compute Engine no
+# tiene permisos en proyectos nuevos.
+try { Invoke-Herramienta gcloud @("builds", "submit", "--project", $ProjectId, "--region", $Region, "--config", (Join-Path $infra "cloudbuild.yaml"), "--substitutions", "_IMAGE=$etiqueta", "--service-account", $cuentaBuild, "--gcs-source-staging-dir", "gs://$bucketBuild/source", ".") }
 finally { Pop-Location }
 $digest = (Invoke-Herramienta gcloud @("artifacts", "docker", "images", "describe", $etiqueta, "--format", "value(image_summary.digest)")).Trim()
 $imagen = "$($registro)/api@$digest"
@@ -219,13 +246,28 @@ Write-Host "  Imagen: $imagen"
 
 # --- 6. Base: roles, PostGIS y migraciones ----------------------------------------------
 Write-Paso "6. Base: roles separados, PostGIS y migraciones (sin semillas)"
-Invoke-Terraform @("apply", "-input=false", "-auto-approve", "-var-file=$tfvars", "-var=deploy_services=false", "-var=image=$imagen")
+Invoke-Terraform @("apply", "-input=false", "-auto-approve", "-var-file=$tfvars", "-var=deploy_services=$servicios", "-var=image=$imagen")
+# Terraform crea los trabajos pero no les cambia la imagen después (la publica el
+# workflow): en una segunda corrida se la pone acá, para preparar y migrar con esta.
+foreach ($trabajo in @("flash-db-bootstrap", "flash-db-migrate")) {
+  Invoke-Herramienta gcloud @("run", "jobs", "update", $trabajo, "--region", $Region, "--project", $ProjectId, "--image", $imagen, "--quiet") -Silencioso | Out-Null
+}
 Invoke-Herramienta gcloud @("run", "jobs", "execute", "flash-db-bootstrap", "--region", $Region, "--project", $ProjectId, "--wait")
 Invoke-Herramienta gcloud @("run", "jobs", "execute", "flash-db-migrate", "--region", $Region, "--project", $ProjectId, "--wait")
 
 # --- 7. Servicios ------------------------------------------------------------------------
 Write-Paso "7. API, workers y lotes"
 Invoke-Terraform @("apply", "-input=false", "-auto-approve", "-var-file=$tfvars", "-var=deploy_services=true", "-var=image=$imagen")
+# Los servicios que ya existían no toman la imagen de Terraform: se publica como lo hace
+# el workflow, servicio por servicio, con la base ya migrada.
+if ($desplegado) {
+  foreach ($servicio in (Invoke-Herramienta gcloud @("run", "services", "list", "--region", $Region, "--project", $ProjectId, "--format", "value(metadata.name)", "--filter", "metadata.name ~ ^flash-"))) {
+    Invoke-Herramienta gcloud @("run", "services", "update", $servicio, "--region", $Region, "--project", $ProjectId, "--image", $imagen, "--quiet") -Silencioso | Out-Null
+  }
+  foreach ($trabajo in (Invoke-Herramienta gcloud @("run", "jobs", "list", "--region", $Region, "--project", $ProjectId, "--format", "value(metadata.name)", "--filter", "metadata.name ~ ^flash-job-"))) {
+    Invoke-Herramienta gcloud @("run", "jobs", "update", $trabajo, "--region", $Region, "--project", $ProjectId, "--image", $imagen, "--quiet") -Silencioso | Out-Null
+  }
+}
 $listo = Invoke-RestMethod -Uri "$url/api/ready" -TimeoutSec 60
 if (-not $listo.ok) { throw "La API respondió pero no está lista: $($listo | ConvertTo-Json -Depth 4)" }
 Write-Host "  /api/ready en verde · base $($listo.database.database) · realtime $($listo.realtime.listening)"

@@ -37,6 +37,7 @@ Para repartidores y conductores, la utilidad real depende de tres cosas: ver gan
 ## Requisitos derivados
 
 Cliente:
+
 - Alternar entre comida y taxi sin salir de la app.
 - Buscar restaurantes, categorias y platos.
 - Crear carrito por comercio, elegir extras, notas y checkout.
@@ -47,6 +48,7 @@ Cliente:
 - Wallet, promociones, metodos de pago y direcciones guardadas.
 
 Comercio:
+
 - Abrir o pausar local.
 - Ver pedidos por estado.
 - Avanzar cocina: aceptado, preparando, listo para retirar.
@@ -56,6 +58,7 @@ Comercio:
 - Base preparada para chat y tickets.
 
 Conductor/repartidor:
+
 - Online/offline.
 - Elegir modo delivery o taxi.
 - Ver ofertas con monto, distancia, origen/destino.
@@ -64,6 +67,7 @@ Conductor/repartidor:
 - Ver ganancias, vehiculo, patente, rating y zona.
 
 Operaciones:
+
 - Ver demanda por zona.
 - Medir pedidos activos, viajes activos, drivers online, locales abiertos y tickets.
 - Avanzar o corregir estados.
@@ -84,32 +88,32 @@ Lo que sigue se verificó contra el código y las migraciones, no contra la memo
 
 ### Lo que ya está a la par
 
-| Capacidad | Estado | Dónde se verifica |
-| --- | --- | --- |
-| Descubrimiento, búsqueda y catálogo paginado | sí | `test:catalog-pagination` |
-| Carrito por comercio, extras y notas | sí | `catalog_modifiers`, `cart_items` |
-| Cotización por coordenadas y ETA | sí | `test:maps`, `test:dispatch-candidates` |
-| Tracking en vivo y reanudable | sí | `realtime_events`, `test:realtime-audience-runtime` |
-| Enlace público de seguimiento de viaje | sí | `ride_tracking_links` |
-| Programación de pedidos | sí | `jobs.scheduled_for` |
-| Sustituciones y aceptación por el cliente | sí | `test:order-substitutions` |
-| Reembolso total y **parcial** | sí | `payment_intents.partially_refunded` |
-| Propinas con revisión y ajuste | sí | `test:tip-adjustments` |
-| Chat de servicio con respuestas rápidas | sí | `service_messages`, `test:service-chat` |
-| Calificaciones y favoritos | sí | `ratings`, `favorites` |
-| Promociones, referidos y wallet | sí | `test:referrals`, `test:postgres` |
-| Alérgenos y preferencias dietarias | sí | `test:dietary-local` |
-| Sucursales por comercio y horarios | sí | `merchant_branches` |
-| Envíos con protección, siniestros y devoluciones | sí | `test:shipment-claims` |
-| Riesgo transaccional con revisión humana | sí | `test:transaction-risk` |
-| Multi-ciudad en el modelo de datos | sí | `cities`, selector en el panel de zonas |
-| Flags por rol, ciudad y rollout | sí | `test:feature-flags` |
+| Capacidad                                        | Estado | Dónde se verifica                                   |
+| ------------------------------------------------ | ------ | --------------------------------------------------- |
+| Descubrimiento, búsqueda y catálogo paginado     | sí     | `test:catalog-pagination`                           |
+| Carrito por comercio, extras y notas             | sí     | `catalog_modifiers`, `cart_items`                   |
+| Cotización por coordenadas y ETA                 | sí     | `test:maps`, `test:dispatch-candidates`             |
+| Tracking en vivo y reanudable                    | sí     | `realtime_events`, `test:realtime-audience-runtime` |
+| Enlace público de seguimiento de viaje           | sí     | `ride_tracking_links`                               |
+| Programación de pedidos                          | sí     | `jobs.scheduled_for`                                |
+| Sustituciones y aceptación por el cliente        | sí     | `test:order-substitutions`                          |
+| Reembolso total y **parcial**                    | sí     | `payment_intents.partially_refunded`                |
+| Propinas con revisión y ajuste                   | sí     | `test:tip-adjustments`                              |
+| Chat de servicio con respuestas rápidas          | sí     | `service_messages`, `test:service-chat`             |
+| Calificaciones y favoritos                       | sí     | `ratings`, `favorites`                              |
+| Promociones, referidos y wallet                  | sí     | `test:referrals`, `test:postgres`                   |
+| Alérgenos y preferencias dietarias               | sí     | `test:dietary-local`                                |
+| Sucursales por comercio y horarios               | sí     | `merchant_branches`                                 |
+| Envíos con protección, siniestros y devoluciones | sí     | `test:shipment-claims`                              |
+| Riesgo transaccional con revisión humana         | sí     | `test:transaction-risk`                             |
+| Multi-ciudad en el modelo de datos               | sí     | `cities`, selector en el panel de zonas             |
+| Flags por rol, ciudad y rollout                  | sí     | `test:feature-flags`                                |
 
 ### Lo que falta para competir, y no es técnico
 
 Cuatro huecos con nombre. **Los cuatro están cerrados al 28 de agosto.** Lo que queda es comercial —precio, oferta, medición—, no de ingeniería.
 
-**1. ~~No hay producto de suscripción.~~ Hay uno: *Flash Más*.** Uber One, DashPass y
+**1. ~~No hay producto de suscripción.~~ Hay uno: _Flash Más_.** Uber One, DashPass y
 PedidosYa Plus son el motor de retención y de margen de la categoría, y era el hueco que
 más pesaba. La migración 125 lo modela y las rutas `/api/subscription*` lo exponen; web y
 móvil lo venden, lo muestran y lo dan de baja.
@@ -183,7 +187,7 @@ Vale decirlo con la misma honestidad que los huecos, porque es lo que un due dil
 técnico mira y rara vez encuentra en una etapa temprana:
 
 - **Partida doble obligada por la base**, no por convención de código: un `CONSTRAINT
-  TRIGGER` diferido rechaza al commit toda transacción contable que no cuadre.
+TRIGGER` diferido rechaza al commit toda transacción contable que no cuadre.
 - **Los registros de dinero y de eventos son append-only para el runtime**: el rol que
   atiende el tráfico no puede modificar ni borrar un asiento posteado, un mensaje enviado o
   el registro de migraciones aplicadas.
@@ -225,13 +229,13 @@ refactors.
 
 ### Lo que depende de terceros y no de decidir
 
-| Bloqueo | Qué destraba |
-| --- | --- |
-| Credenciales de Mercado Pago con sellers de prueba | validar el marketplace de punta a punta (PAY-001) |
-| API key de mapas comercial | ETA vial real en el scoring y direcciones validadas (GEO-001) |
-| Un Android y un iPhone físicos, y credenciales de EAS | push real y background location (NOT-001, MOB-001) |
-| Un entorno desplegado | todo lo que hoy dice `PROV`, `STG` o `PROD` en cero |
-| Un segundo revisor en GitHub | las dos aprobaciones en pagos y seguridad (CI-001) |
+| Bloqueo                                               | Qué destraba                                                  |
+| ----------------------------------------------------- | ------------------------------------------------------------- |
+| Credenciales de Mercado Pago con sellers de prueba    | validar el marketplace de punta a punta (PAY-001)             |
+| API key de mapas comercial                            | ETA vial real en el scoring y direcciones validadas (GEO-001) |
+| Un Android y un iPhone físicos, y credenciales de EAS | push real y background location (NOT-001, MOB-001)            |
+| Un entorno desplegado                                 | todo lo que hoy dice `PROV`, `STG` o `PROD` en cero           |
+| Un segundo revisor en GitHub                          | las dos aprobaciones en pagos y seguridad (CI-001)            |
 
 ## Matriz de paridad para los siguientes sprints
 
@@ -309,7 +313,7 @@ Flash vende medicamentos (P-10): exige farmacia habilitada, y es un bloqueo exte
 ### Decisión 17 de noviembre de 2026 — retiro en el local, y por qué sin código
 
 **Comparado contra:** Uber Eats y PedidosYa, los dos con retiro en el local en su checkout, y
-DoorDash, que lo llama *pickup* y lo usa como palanca de margen.
+DoorDash, que lo llama _pickup_ y lo usa como palanca de margen.
 
 Los tres resuelven el mismo problema igual: el modo se elige antes de la dirección, el
 pedido no entra al despacho, no se cobra envío, y la entrega se hace en el mostrador contra
@@ -852,6 +856,31 @@ Flash lo ofrece por sucursal, con vuelto, liquidación en mano y rendición. Det
   Wallet de quien pidió una vez cobrado.
 - **Brecha:** sin red de cobranza para que el repartidor deposite solo (PAG-03, dueño) y sin
   franja horaria para no aceptar efectivo de noche.
+
+### Decisión 19 de noviembre de 2026 — despliegue continuo (INF-003)
+
+Uber cuenta que en 2022 tenía unos 4.500 microservicios y unas 7.000 publicaciones a
+producción por semana, un tercio todavía a mano, y que más de la mitad de sus incidentes
+venían de cambios de código; por eso pasó a un sistema que publica solo y con las pruebas y
+el monitoreo integrados ([Uber, despliegue continuo](https://www.uber.com/blog/continuous-deployment/)).
+Para cambios que tocan muchos servicios, publica por etapas y frena una etapa si la anterior
+falló o hay alertas activas ([Uber, cambios grandes en el monorepo](https://www.uber.com/en-IN/blog/controlling-the-rollout-of-large-scale-monorepo-changes/)).
+DoorDash publica con dos versiones en paralelo (azul y verde) y, para no exponer a todos los
+clientes a la vez, armó una publicación gradual a una parte del tráfico
+([DoorDash, publicación gradual](https://careersatdoordash.com/?p=4458)). PedidosYa y Rappi no
+publican cómo despliegan; no se encontró fuente oficial.
+
+Flash desplegaba a mano: diez pasos y la base preparada desde una computadora. Ahora el
+primer despliegue es un comando y cada cambio de `main` se publica solo, con la base migrada
+antes del código que la necesita y sin claves de la nube guardadas en ningún lado. Detalle en
+[`despliegue.md`](despliegue.md#despliegue-real-en-un-comando-y-después-solo-inf-003).
+
+- **A la par:** publicación automática de lo aprobado, imagen fija por digest, una
+  publicación a la vez, credenciales de corta vida.
+- **Brecha:** Flash publica todo de una vez. No hay publicación gradual a una parte del
+  tráfico ni vuelta atrás automática si suben los errores, que es lo que Uber y DoorDash
+  agregaron después. Cloud Run lo permite repartiendo tráfico entre revisiones; queda para
+  cuando haya tráfico real que medir.
 
 ### Decisión 19 de noviembre de 2026 — alta de comercios (FE-05)
 
