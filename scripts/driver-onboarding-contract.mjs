@@ -124,7 +124,10 @@ assert.ok(
 // --- La cola de operaciones -------------------------------------------------------------
 assert.ok(
   contains(api, "`/admin/driver-applications?${query.toString()}`") &&
-    contains(cola, "const pagina = await api.getAdminDriverApplications({ status: estado });") &&
+    contains(
+      cola,
+      "const pagina = await api.getAdminDriverApplications({ status: estado, cursor });",
+    ) &&
     !contains(cola, "getDriverCompliance(") &&
     contains(cola, "const respuesta = await api.getDriverDocumentContent(documento.id);") &&
     contains(cola, "URL.revokeObjectURL(vista.url)"),
@@ -144,6 +147,40 @@ assert.ok(
     contains(movil, '{vehicle.plate ? ` · ${vehicle.plate}` : ""}') &&
     contains(movil, 'plate: vehicleDraft.kind === "bicycle" ? null : vehicleDraft.plate.trim(),'),
   "una bici sin patente no deja « · » colgando y la app permite cargarla",
+);
+
+// --- Lo que encontró la revisión del PR ---------------------------------------------
+assert.ok(
+  contains(
+    documentos,
+    'ayuda: "La cédula verde o azul, con su fecha de vencimiento.", vence: true,',
+  ),
+  "la cédula pide vencimiento, como exige el servidor",
+);
+assert.ok(
+  contains(telefono, "u.phone user_phone") &&
+    contains(telefono, "if (row.phone !== row.user_phone) {") &&
+    contains(telefono, "WHERE user_id IN (SELECT id FROM cambiado) AND consumed_at IS NULL"),
+  "el código de un número no verifica otro",
+);
+assert.ok(
+  contains(cola, 'key={`${tipo}-${documento(tipo)?.id ?? "falta"}`}') &&
+    contains(cola, "if (!montado.current) return;") &&
+    contains(cola, "for (let leidas = 0; leidas < paginas.current; leidas += 1) {"),
+  "la vista sigue al documento y refrescar no pierde las páginas cargadas",
+);
+assert.ok(
+  contains(pagina, "{!ciudades && errorCiudades && (") &&
+    contains(
+      pagina,
+      'legajo.requiredTypes.every((tipo) => actual(tipo)?.status === "approved");',
+    ) &&
+    contains(
+      pagina,
+      "<CorregirVehiculo vehiculo={vehiculo} onCorregido={() => void releer()} />",
+    ) &&
+    contains(legajo, 'status: row.vencido ? "expired" : row.status,'),
+  "las ciudades que no cargan se reintentan, un vencido no dice «listo» y un vehículo rechazado se corrige",
 );
 
 console.log("driver onboarding contract ok");

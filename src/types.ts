@@ -1115,7 +1115,7 @@ export type AdminDriverApplication = {
     mimeType: string;
     sizeBytes: number;
     expiresAt: string | null;
-    status: "pending" | "approved" | "rejected";
+    status: "pending" | "approved" | "rejected" | "expired";
     rejectionReason: string | null;
     createdAt: string;
   }>;

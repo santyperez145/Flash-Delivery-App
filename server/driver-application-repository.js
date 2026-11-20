@@ -220,7 +220,9 @@ export async function listDriverApplicationsForReview({ status, cursor }) {
               c.status compliance_status, c.rejection_reason, ci.name city_name,
               COALESCE((SELECT jsonb_agg(jsonb_build_object(
                   'id', doc.public_id, 'type', doc.document_type, 'mimeType', doc.mime_type,
-                  'sizeBytes', doc.size_bytes, 'expiresAt', doc.expires_at, 'status', doc.status,
+                  'sizeBytes', doc.size_bytes, 'expiresAt', doc.expires_at,
+                  'status', CASE WHEN doc.status='approved' AND doc.expires_at<current_date
+                                 THEN 'expired' ELSE doc.status END,
                   'rejectionReason', doc.rejection_reason, 'createdAt', doc.created_at)
                 ORDER BY doc.created_at)
                 FROM driver_documents doc

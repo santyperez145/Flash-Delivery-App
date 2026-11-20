@@ -130,6 +130,33 @@ try {
       sinTelefono.body.code === "phone_verification_required",
     "sin sesión es 401, y sin teléfono verificado es 409 con su código",
   );
+  // El código vale para el número al que se mandó: cambiar de número antes de confirmarlo
+  // lo anula, aunque el segundo pedido choque con la espera de 30 segundos.
+  const numeroA = `+5491188${crypto.randomInt(100000, 999999)}`;
+  const numeroB = `+5491177${crypto.randomInt(100000, 999999)}`;
+  const pedidoA = await api("/me/phone-verification/request", {
+    token: tokens.sintel,
+    body: { phone: numeroA },
+  });
+  const pedidoB = await api("/me/phone-verification/request", {
+    token: tokens.sintel,
+    body: { phone: numeroB },
+  });
+  const conCodigoDeA = await api("/me/phone-verification/confirm", {
+    token: tokens.sintel,
+    body: { code: pedidoA.body.developmentCode },
+  });
+  const trasCambio = (
+    await pool.query("SELECT phone, phone_verified_at FROM users WHERE id=$1", [usuarios.sintel.id])
+  ).rows[0];
+  assert(
+    pedidoA.status === 200 &&
+      pedidoB.status === 429 &&
+      conCodigoDeA.status === 400 &&
+      trasCambio.phone === numeroB &&
+      trasCambio.phone_verified_at === null,
+    "el código de un número no verifica otro: cambiar de número anula el código anterior",
+  );
   const invalidas = await Promise.all(
     [
       { ...enBici, vehicle: { ...enBici.vehicle, plate: "ABC123" } },
@@ -187,6 +214,12 @@ try {
     auto.status === 201 && patenteRepetida.status === 409 && restos === 0,
     "una patente repetida es 409 y no deja un conductor a medias",
   );
+  // La cédula del vehículo vence: sin fecha es 400, como la licencia y el seguro.
+  const cedulaSinFecha = await api(`/drivers/${driverAuto}/documents`, {
+    token: tokens.auto,
+    body: { ...documento("vehicle_registration"), expiresAt: null },
+  });
+  assert(cedulaSinFecha.status === 400, "la cédula del vehículo sin vencimiento es 400");
 
   const legajoBici = await api(`/drivers/${driverBici}/compliance`, { token: tokens.bici });
   const legajoAuto = await api(`/drivers/${driverAuto}/compliance`, { token: tokens.auto });
@@ -335,6 +368,43 @@ try {
   assert(
     moto.status === 201 && enMoto.status === 409 && /licencia/.test(enMoto.body.message || ""),
     "quien se aprobó en bici no sale en moto sin licencia, cédula y seguro aprobados",
+  );
+
+  // --- Un documento aprobado que venció --------------------------------------------
+  await pool.query("UPDATE driver_documents SET expires_at=current_date-1 WHERE public_id=$1", [
+    subidos.identity,
+  ]);
+  const conVencido = await api(`/drivers/${driverBici}/compliance`, { token: tokens.bici });
+  const enColaVencido = mios(
+    await api("/admin/driver-applications?status=approved", { token: tokens.admin }),
+  ).find((fila) => fila.id === driverBici);
+  assert(
+    conVencido.body.compliance.documents.find((doc) => doc.id === subidos.identity)?.status ===
+      "expired" &&
+      enColaVencido?.documents.find((doc) => doc.type === "identity")?.status === "expired",
+    "un documento aprobado que venció se muestra vencido, para que se reemplace",
+  );
+
+  // --- Un vehículo rechazado se corrige y vuelve a revisión -------------------------
+  const vehiculoAuto = enCola[1].vehicles[0].id;
+  await api(`/admin/driver-vehicles/${vehiculoAuto}/review`, {
+    token: tokens.admin,
+    method: "PATCH",
+    body: { status: "rejected", rejectionReason: "La patente no coincide con la cédula" },
+  });
+  const corregido = await api(`/driver-vehicles/${vehiculoAuto}`, {
+    token: tokens.auto,
+    method: "PATCH",
+    body: { plate: `AB${sufijo}33` },
+  });
+  const vuelveACola = mios(
+    await api("/admin/driver-applications?status=pending", { token: tokens.admin }),
+  ).find((fila) => fila.id === driverAuto);
+  assert(
+    corregido.status === 200 &&
+      corregido.body.vehicle?.status === "pending" &&
+      vuelveACola?.vehicles[0].status === "pending",
+    "un vehículo rechazado se corrige y vuelve a la cola para revisar",
   );
 } finally {
   const ids = Object.values(usuarios).map((user) => user.id);

@@ -80,21 +80,32 @@ export function AdminDriverApplications({
   const [seleccionId, setSeleccionId] = useState<string | null>(null);
   const pedido = useRef(0);
 
+  // Cuántas páginas hay cargadas: al refrescar se vuelven a leer todas, así quien se
+  // está revisando en la página 2 no desaparece porque no está en la primera.
+  const paginas = useRef(1);
   const cargar = useCallback(async (estado: Estado, mantener: string | null = null) => {
     const numero = ++pedido.current;
     setError("");
     try {
-      const pagina = await api.getAdminDriverApplications({ status: estado });
+      let todos: AdminDriverApplication[] = [];
+      let cursor: string | null = null;
+      for (let leidas = 0; leidas < paginas.current; leidas += 1) {
+        const pagina = await api.getAdminDriverApplications({ status: estado, cursor });
+        todos = [
+          ...todos,
+          ...pagina.drivers.filter((item) => !todos.some((t) => t.id === item.id)),
+        ];
+        cursor = pagina.nextCursor;
+        if (!cursor) break;
+      }
       if (numero !== pedido.current) return;
-      setItems(pagina.drivers);
-      setNextCursor(pagina.nextCursor);
+      setItems(todos);
+      setNextCursor(cursor);
       // Se queda en el mismo conductor si sigue en la cola y le queda algo para revisar;
       // si no, pasa al primero que espera.
-      const sigue = pagina.drivers.find((item) => item.id === mantener);
+      const sigue = todos.find((item) => item.id === mantener);
       setSeleccionId(
-        sigue && (estado !== "pending" || pendientes(sigue))
-          ? sigue.id
-          : (pagina.drivers[0]?.id ?? null),
+        sigue && (estado !== "pending" || pendientes(sigue)) ? sigue.id : (todos[0]?.id ?? null),
       );
     } catch (fallo) {
       if (numero !== pedido.current) return;
@@ -107,6 +118,7 @@ export function AdminDriverApplications({
   useEffect(() => {
     setCargando(true);
     setItems([]);
+    paginas.current = 1;
     void cargar(status);
   }, [cargar, status]);
 
@@ -129,6 +141,7 @@ export function AdminDriverApplications({
         ...pagina.drivers.filter((item) => !actuales.some((actual) => actual.id === item.id)),
       ]);
       setNextCursor(pagina.nextCursor);
+      paginas.current += 1;
     } catch (fallo) {
       setError(fallo instanceof Error ? fallo.message : "No se pudo cargar la página siguiente");
     } finally {
@@ -283,7 +296,9 @@ function DetalleLegajo({
       <ul className="legajo-documentos">
         {legajo.requiredTypes.map((tipo) => (
           <ItemDocumento
-            key={tipo}
+            // Por documento y no por tipo: si la persona lo reemplaza con la vista abierta, la
+            // vista vieja no queda mostrando un archivo mientras se aprueba otro.
+            key={`${tipo}-${documento(tipo)?.id ?? "falta"}`}
             tipo={tipo}
             documento={documento(tipo)}
             nombre={legajo.person.name}
@@ -363,12 +378,22 @@ function ItemDocumento({
     [vista],
   );
 
+  // Un pedido que vuelve después de desmontar (el documento se reemplazó) no se muestra.
+  const montado = useRef(true);
+  useEffect(() => {
+    // En modo estricto React monta, desmonta y vuelve a montar: se marca de nuevo.
+    montado.current = true;
+    return () => {
+      montado.current = false;
+    };
+  }, []);
   const abrir = async () => {
     if (!documento) return;
     setAbriendo(true);
     setError("");
     try {
       const respuesta = await api.getDriverDocumentContent(documento.id);
+      if (!montado.current) return;
       const bytes = Uint8Array.from(atob(respuesta.contentBase64), (caracter) =>
         caracter.charCodeAt(0),
       );

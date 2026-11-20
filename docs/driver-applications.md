@@ -40,6 +40,23 @@ requisitos, no las ofertas: `assertDriverCanGoOnline` exige el legajo aprobado y
 vigente y un vehículo aprobado, y ahora también que quien se aprobó en bicicleta y activa
 una moto o un auto tenga la licencia, la cédula y el seguro aprobados.
 
+**Lo que corrigió la revisión del PR:**
+
+- **El código de un número no verifica otro.** Cambiar el teléfono (por la postulación o
+  por el perfil) anula los códigos pendientes en la misma sentencia, y confirmar exige
+  que el código sea del número que la cuenta tiene ahora. Antes, pedir un código para un
+  número, cambiarlo por otro y confirmar con el primero dejaba verificado el segundo.
+- **La cédula del vehículo pide vencimiento**, como ya exigía el servidor: sin eso nadie
+  con moto o auto podía terminar el alta.
+- **Un documento aprobado que venció** se devuelve como `expired`, y la pantalla no dice
+  «Ya podés conectarte» mientras el servidor lo rechazaría.
+- **Un vehículo rechazado se corrige** desde `/repartir` y vuelve a revisión.
+- **Si las ciudades no cargan**, se dice y se reintenta: no es lo mismo que no haya
+  ninguna abierta.
+- **La cola** sigue al documento por su identificador (si se reemplaza con la vista
+  abierta, no se aprueba uno mientras se mira otro) y al refrescar vuelve a leer todas las
+  páginas cargadas.
+
 ## Pantallas
 
 - **`/repartir`** (web, `src/partners/DriverApplication.tsx`): sin sesión, el ingreso
@@ -63,7 +80,7 @@ una moto o un auto tenga la licencia, la cédula y el seguro aprobados.
 - **`npm run test:driver-onboarding`** (en `ci-fast`). Vigila que las pantallas sigan
   cableadas a eso: la ruta y el ingreso, el teléfono antes que todo, la bici sin patente,
   los requisitos con su motivo, la cola de un solo pedido y la decisión con motivo. Se
-  falsificó con 19 mutaciones.
+  falsificó con 28 mutaciones.
 
 ## Lo que falta
 

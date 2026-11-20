@@ -22,8 +22,8 @@ export const DOCUMENTOS: Record<
   },
   vehicle_registration: {
     label: "Cédula del vehículo",
-    ayuda: "La cédula verde o azul.",
-    vence: false,
+    ayuda: "La cédula verde o azul, con su fecha de vencimiento.",
+    vence: true,
   },
   insurance: {
     label: "Seguro del vehículo",

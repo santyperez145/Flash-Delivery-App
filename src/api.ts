@@ -1436,6 +1436,17 @@ export const api = {
       `/drivers/${driverId}/vehicles${includeRetired ? "?includeRetired=true" : ""}`,
     );
   },
+  // Corregir un vehículo lo vuelve a mandar a revisión (FE-06): el servidor lo deja
+  // pendiente y, si era el activo, desconecta al conductor.
+  async updateDriverVehicle(
+    vehicleId: string,
+    changes: { model?: string; plate?: string | null; color?: string | null },
+  ) {
+    return request<{ vehicle: import("./types").DriverVehicle }>(`/driver-vehicles/${vehicleId}`, {
+      method: "PATCH",
+      body: JSON.stringify(changes),
+    });
+  },
   async reviewDriverVehicle(
     vehicleId: string,
     status: "approved" | "rejected",

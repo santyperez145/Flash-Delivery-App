@@ -851,3 +851,22 @@
     justify-content: center;
   }
 }
+
+/* Corregir un vehículo rechazado (FE-06) */
+.driver-vehiculo-correccion {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.driver-vehiculo-correccion input {
+  min-height: var(--layout-touch, 44px);
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+
+.driver-vehiculo-correccion button {
+  justify-self: start;
+  margin-top: 4px;
+}

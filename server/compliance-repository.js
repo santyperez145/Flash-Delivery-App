@@ -33,7 +33,9 @@ const mapDocument = (row) => ({
   sha256: row.content_sha256,
   sizeBytes: row.size_bytes,
   expiresAt: row.expires_at ? new Date(row.expires_at).toISOString().slice(0, 10) : null,
-  status: row.status,
+  // Aprobado pero ya vencido no habilita a conectarse (`assertDriverCanGoOnline`): se
+  // devuelve `expired` para que la app pida reemplazarlo en lugar de decir que está listo.
+  status: row.vencido ? "expired" : row.status,
   rejectionReason: row.rejection_reason || null,
   reviewedAt: row.reviewed_at ? new Date(row.reviewed_at).toISOString() : null,
   createdAt: new Date(row.created_at).toISOString(),
@@ -58,7 +60,7 @@ export async function getDriverCompliance({ actorPublicId, roles, driverPublicId
   const [compliance, documents, tipos] = await Promise.all([
     postgresPool.query("SELECT * FROM driver_compliance WHERE driver_id=$1", [driver.id]),
     postgresPool.query(
-      "SELECT * FROM driver_documents WHERE driver_id=$1 ORDER BY created_at DESC",
+      "SELECT *,(status='approved' AND expires_at<current_date) vencido FROM driver_documents WHERE driver_id=$1 ORDER BY created_at DESC",
       [driver.id],
     ),
     requiredTypesFor(postgresPool, driver.id),

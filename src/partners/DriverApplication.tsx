@@ -206,9 +206,14 @@ function Postularse({
   const [intento, setIntento] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [errorEnvio, setErrorEnvio] = useState("");
+  // Que no se hayan podido leer las ciudades no es lo mismo que no haya ninguna abierta:
+  // el primero se reintenta, el segundo es la realidad del negocio.
+  const [errorCiudades, setErrorCiudades] = useState("");
+  const [intentoCiudades, setIntentoCiudades] = useState(0);
 
   useEffect(() => {
     let vigente = true;
+    setErrorCiudades("");
     api
       .getCities()
       .then((respuesta) => {
@@ -216,11 +221,16 @@ function Postularse({
         setCiudades(respuesta.cities);
         if (respuesta.cities.length === 1) setCityId(respuesta.cities[0].id);
       })
-      .catch(() => vigente && setCiudades([]));
+      .catch((fallo) => {
+        if (!vigente) return;
+        setErrorCiudades(
+          fallo instanceof Error ? fallo.message : "No pudimos cargar las ciudades.",
+        );
+      });
     return () => {
       vigente = false;
     };
-  }, []);
+  }, [intentoCiudades]);
 
   const errores: Partial<Record<"cityId" | "kind" | "model" | "plate" | "seats", string>> = {};
   if (!cityId) errores.cityId = "Elegí la ciudad donde vas a trabajar.";
@@ -283,7 +293,9 @@ function Postularse({
           aria-describedby={error("cityId") ? `${id}-cityId-error` : undefined}
           disabled={!ciudades}
         >
-          <option value="">{ciudades ? "Elegí una ciudad" : "Cargando ciudades…"}</option>
+          <option value="">
+            {ciudades ? "Elegí una ciudad" : errorCiudades ? "Sin ciudades" : "Cargando ciudades…"}
+          </option>
           {(ciudades || []).map((ciudad) => (
             <option key={ciudad.id} value={ciudad.id}>
               {ciudad.name}
@@ -292,6 +304,18 @@ function Postularse({
         </select>
         {ciudades && !ciudades.length && (
           <small className="partner-error">Flash todavía no abrió ninguna ciudad.</small>
+        )}
+        {!ciudades && errorCiudades && (
+          <small className="partner-error" role="alert">
+            {errorCiudades}{" "}
+            <button
+              type="button"
+              className="partner-link"
+              onClick={() => setIntentoCiudades((intento) => intento + 1)}
+            >
+              Reintentar
+            </button>
+          </small>
         )}
         {error("cityId") && (
           <small id={`${id}-cityId-error`} className="partner-error">
@@ -552,7 +576,12 @@ function Requisitos({
   const vehiculo = vehiculos.find((entrada) => entrada.active) || vehiculos[0] || null;
   const actual = (tipo: Tipo) =>
     legajo?.documents.find((doc) => doc.type === tipo && doc.status !== "superseded") || null;
-  const aprobado = legajo?.status === "approved" && vehiculo?.status === "approved";
+  // Listo para conectarse es lo mismo que exige el servidor: el legajo y el vehículo
+  // aprobados y ningún documento pedido vencido (el servidor lo devuelve `expired`).
+  const aprobado =
+    legajo?.status === "approved" &&
+    vehiculo?.status === "approved" &&
+    legajo.requiredTypes.every((tipo) => actual(tipo)?.status === "approved");
   // Mientras haya algo en revisión, la pantalla se actualiza sola: cada 30 s y al volver.
   const enRevision =
     !aprobado &&
@@ -644,6 +673,9 @@ function Requisitos({
                     ? `Rechazado: ${vehiculo.rejectionReason || "sin motivo"}`
                     : "En revisión"}
               </small>
+              {vehiculo.status === "rejected" && (
+                <CorregirVehiculo vehiculo={vehiculo} onCorregido={() => void releer()} />
+              )}
             </div>
           </li>
         )}
@@ -654,6 +686,83 @@ function Requisitos({
         </p>
       )}
     </div>
+  );
+}
+
+/** Un vehículo rechazado se corrige acá y vuelve a revisión, sin pasar por soporte. */
+function CorregirVehiculo({
+  vehiculo,
+  onCorregido,
+}: {
+  vehiculo: DriverVehicle;
+  onCorregido: () => void;
+}) {
+  const id = useId();
+  const [model, setModel] = useState(vehiculo.model);
+  const [plate, setPlate] = useState(vehiculo.plate || "");
+  const [color, setColor] = useState(vehiculo.color || "");
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState("");
+  const conPatente = vehiculo.kind !== "bicycle";
+
+  const enviar = async (event: FormEvent) => {
+    event.preventDefault();
+    if (model.trim().length < 2) return setError("Escribí la marca y el modelo.");
+    if (conPatente && !/^[A-Za-z0-9 -]{3,16}$/.test(plate.trim()))
+      return setError("Escribí la patente con letras y números.");
+    setEnviando(true);
+    setError("");
+    try {
+      await api.updateDriverVehicle(vehiculo.id, {
+        model: model.trim(),
+        ...(conPatente ? { plate: plate.trim().toUpperCase() } : {}),
+        color: color.trim() || null,
+      });
+      onCorregido();
+    } catch (fallo) {
+      setError(fallo instanceof Error ? fallo.message : "No pudimos mandar la corrección.");
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <form className="driver-vehiculo-correccion" onSubmit={enviar} noValidate>
+      <label htmlFor={`${id}-model`}>Marca y modelo</label>
+      <input
+        id={`${id}-model`}
+        value={model}
+        maxLength={80}
+        onChange={(event) => setModel(event.target.value)}
+      />
+      {conPatente && (
+        <>
+          <label htmlFor={`${id}-plate`}>Patente</label>
+          <input
+            id={`${id}-plate`}
+            value={plate}
+            maxLength={16}
+            autoCapitalize="characters"
+            onChange={(event) => setPlate(event.target.value)}
+          />
+        </>
+      )}
+      <label htmlFor={`${id}-color`}>Color (opcional)</label>
+      <input
+        id={`${id}-color`}
+        value={color}
+        maxLength={40}
+        onChange={(event) => setColor(event.target.value)}
+      />
+      {error && (
+        <small className="partner-error" role="alert">
+          {error}
+        </small>
+      )}
+      <button type="submit" className="partner-primary" disabled={enviando}>
+        {enviando ? "Enviando…" : "Corregir y mandar a revisión"}
+      </button>
+    </form>
   );
 }
 
