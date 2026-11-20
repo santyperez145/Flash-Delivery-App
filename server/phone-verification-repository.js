@@ -91,7 +91,7 @@ export async function requestPhoneVerification(userPublicId) {
     return {
       expiresAt: expiresAt.toISOString(),
       retryAfterSeconds: 30,
-      ...(started.developmentCode && !config.isProduction
+      ...(started.developmentCode && config.exposeDevelopmentCodes
         ? { developmentCode: started.developmentCode }
         : {}),
     };

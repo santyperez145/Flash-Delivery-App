@@ -33,6 +33,41 @@ locals {
     "TWILIO_VERIFY_SERVICE_SID",
   ])
 
+  es_staging = var.deploy_stage == "staging"
+
+  # Las credenciales de terceros. En staging todavía no existen: Cloud Run no puede
+  # montar un secreto sin versión, así que en staging no se montan y el servidor usa
+  # los proveedores de prueba que `server/config.js` admite con DEPLOY_STAGE=staging.
+  secretos_de_terceros = toset([
+    "MERCADOPAGO_CLIENT_ID",
+    "MERCADOPAGO_CLIENT_SECRET",
+    "MERCADOPAGO_PUBLIC_KEY",
+    "MERCADOPAGO_WEBHOOK_SECRET",
+    "EXPO_ACCESS_TOKEN",
+    "GOOGLE_MAPS_SERVER_API_KEY",
+    "SMTP_HOST",
+    "SMTP_USER",
+    "SMTP_PASSWORD",
+    "TWILIO_ACCOUNT_SID",
+    "TWILIO_AUTH_TOKEN",
+    "TWILIO_VERIFY_SERVICE_SID",
+  ])
+  # Con staging_smtp, el email deja de ser de prueba: sus secretos sí se montan.
+  secretos_smtp       = toset(["SMTP_HOST", "SMTP_USER", "SMTP_PASSWORD"])
+  terceros_en_staging = var.staging_smtp ? setsubtract(local.secretos_de_terceros, local.secretos_smtp) : local.secretos_de_terceros
+  secretos_montados   = local.es_staging ? setsubtract(local.secretos, local.terceros_en_staging) : local.secretos
+
+  # Staging: los proveedores de prueba que el servidor admite, y nada más.
+  env_staging = local.es_staging ? {
+    DEPLOY_STAGE                 = "staging"
+    STAGING_EXPOSE_DEV_CODES     = tostring(var.staging_expose_dev_codes)
+    MAPS_PROVIDER                = "openstreetmap"
+    NOTIFICATION_PROVIDER        = "sandbox"
+    EMAIL_PROVIDER               = var.staging_smtp ? "smtp" : "sandbox"
+    PHONE_VERIFY_PROVIDER        = "sandbox"
+    PAYMENT_MARKETPLACE_PROVIDER = "disabled"
+  } : {}
+
   # Los workers que corren en bucle: servicios con una instancia siempre viva,
   # que escuchan sólo para informar su latido (scripts/worker-health.mjs).
   workers = {
@@ -70,20 +105,22 @@ locals {
     }
   }
 
-  env_publico = merge(var.plain_env, {
-    APP_PUBLIC_URL = var.app_public_url
-    # Las tiendas exigen la política de privacidad pública (LAN-002).
-    LEGAL_TERMS_URL   = var.legal_terms_url
-    LEGAL_PRIVACY_URL = var.legal_privacy_url
-    CORS_ORIGIN       = var.cors_origins
-    WEB_MAP_ORIGINS   = var.web_map_origins
-    SMTP_FROM         = var.smtp_from
+  env_publico = merge(var.plain_env, local.env_staging, {
+    APP_PUBLIC_URL  = var.app_public_url
+    CORS_ORIGIN     = var.cors_origins
+    WEB_MAP_ORIGINS = var.web_map_origins
+    SMTP_FROM       = var.smtp_from
     # Cloud Run entrega el tráfico en la interfaz del contenedor, no en loopback.
     HOST = "0.0.0.0"
     # Mercado Pago vuelve a la API después de vincular la cuenta del comercio.
     MERCADOPAGO_REDIRECT_URI = "${var.api_public_url}/api/payment-provider/mercadopago/callback"
     PAYMENT_OAUTH_RETURN_URL = var.app_public_url
-  })
+    },
+    # Las tiendas exigen la política de privacidad pública (LAN-002). En staging pueden
+    # faltar; una variable vacía no se manda, porque el servidor la leería como inválida.
+    var.legal_terms_url == "" ? {} : { LEGAL_TERMS_URL = var.legal_terms_url },
+    var.legal_privacy_url == "" ? {} : { LEGAL_PRIVACY_URL = var.legal_privacy_url },
+  )
 }
 
 resource "google_project_service" "apis" {
@@ -135,9 +172,11 @@ resource "google_sql_database_instance" "flash" {
   settings {
     # Explícita: PostgreSQL 16+ toma Enterprise Plus por defecto, y los tamaños
     # `db-custom-*` sólo existen en Enterprise.
-    edition           = "ENTERPRISE"
-    tier              = var.database_tier
-    availability_type = "REGIONAL"
+    edition = "ENTERPRISE"
+    tier    = var.database_tier
+    # Staging zonal: la mitad de costo, sin la conmutación por falla de zona que
+    # producción necesita para su RPO.
+    availability_type = local.es_staging ? "ZONAL" : "REGIONAL"
     disk_autoresize   = true
 
     backup_configuration {
@@ -178,7 +217,7 @@ resource "google_sql_database" "flash" {
 # --- Redis --------------------------------------------------------------------
 resource "google_redis_instance" "flash" {
   name               = "flash-redis"
-  tier               = "STANDARD_HA"
+  tier               = local.es_staging ? "BASIC" : "STANDARD_HA"
   memory_size_gb     = var.redis_memory_gb
   region             = var.region
   authorized_network = google_compute_network.flash.id

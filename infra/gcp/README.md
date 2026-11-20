@@ -21,6 +21,27 @@ uno, se marca en `docs/despliegue.md` con la fecha.
 | 25 secretos en Secret Manager, creados **vacíos** | El valor nunca queda en el estado de Terraform ni en el panel |
 | Cuenta de servicio `flash-runtime` con lo mínimo | Cliente de Cloud SQL, lectura de cada secreto, trazas, métricas y logs |
 
+## Staging
+
+Con `deploy_stage = "staging"` la misma infraestructura queda más chica (Cloud SQL zonal,
+Redis básico) y el servidor arranca con proveedores de prueba donde todavía no hay cuenta
+de tercero. Los secretos de terceros (Mercado Pago, Maps, SMTP, Twilio, Expo) **no se
+montan**: no hace falta cargarlos. Qué cambia y qué no, en
+[`docs/despliegue.md`](../../docs/despliegue.md#staging-el-primer-despliegue-real-antes-de-tener-las-cuentas-de-terceros).
+
+    project_id     = "<project_id>"
+    deploy_stage   = "staging"
+    app_public_url = "https://flash-api-<número del proyecto>.southamerica-east1.run.app"
+    api_public_url = "https://flash-api-<número del proyecto>.southamerica-east1.run.app"
+    cors_origins   = "https://flash-api-<número del proyecto>.southamerica-east1.run.app"
+    web_map_origins = "https://tile.openstreetmap.org"
+    smtp_from      = "Flash <no-responder@example.invalid>"
+    # Con un SMTP real (recomendado): staging_smtp = true y cargar SMTP_HOST, SMTP_USER y
+    # SMTP_PASSWORD. Sin él, los códigos no llegan (staging_expose_dev_codes los muestra).
+
+Los pasos son los mismos de abajo. En el paso 5, `terraform output secretos_a_cargar` lista
+sólo los que hay que cargar: en staging, los propios.
+
 ## Pasos, en orden
 
 El despliegue va en **dos aplicaciones**. Cloud Run lee los secretos al crear cada

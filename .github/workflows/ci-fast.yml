@@ -177,6 +177,8 @@ jobs:
         run: npm run test:no-invented-data
       - name: Alta de comercio en las pantallas (FE-05)
         run: npm run test:merchant-onboarding
+      - name: Modo staging sin aflojar producción (INF-002)
+        run: npm run test:staging-config
 
       # Borrado de cuenta (LAN-001): requisito de Apple y Google para publicar.
       # Vigila que esté ofrecido en web y en las tres apps, y acotado en la base.

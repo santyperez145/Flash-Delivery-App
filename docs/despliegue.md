@@ -113,6 +113,61 @@ Bajarlo significa renunciar al RTO/RPO que [`docs/deployment-checklist.md`](depl
 ya declaró bloqueante. Es una decisión de negocio, no técnica, y conviene tomarla explícita
 en vez de descubrirla el día del primer incidente.
 
+## Staging: el primer despliegue real, antes de tener las cuentas de terceros
+
+Decisión del dueño del 19 de noviembre de 2026: **primero un staging en Google Cloud, sin
+dominio**, con la URL que da Cloud Run. Sirve para probar todo con una base real en la nube
+mientras se consiguen Mercado Pago, Google Maps, email, SMS, push, el dominio y los textos
+legales.
+
+**Qué es igual que producción.** `NODE_ENV=production`: secretos propios (el servidor no
+arranca con un valor local), cookies seguras, HTTPS, RLS sin bypass, rol de runtime sin
+privilegios, segundo factor obligatorio para operaciones, la misma imagen y las mismas
+migraciones. **Qué cambia** (`DEPLOY_STAGE=staging`, en `server/config.js`):
+
+- **Proveedores de prueba** donde todavía no hay cuenta: mapas de OpenStreetMap, email, SMS
+  y push en modo sandbox, Mercado Pago apagado. Producción los sigue rechazando.
+- **Direcciones** sin el proveedor comercial de mapas, y **pagos de prueba** (Wallet y
+  medios de pago sandbox). En producción, nunca.
+- **Documentos legales:** pueden faltar; si están, tienen que ser HTTPS.
+- **Códigos de verificación:** sin SMTP ni SMS no llegan por ningún lado. Se pueden mostrar
+  en pantalla con `staging_expose_dev_codes = true`, **a propósito y por poco tiempo**:
+  mientras esté prendido, quien tenga la URL puede crear cuentas con emails ajenos. Lo
+  correcto es cargar un SMTP (aunque sea uno gratuito) con `staging_smtp = true`, que monta
+  sus secretos y manda los códigos por email, y dejar los códigos apagados. **El token de
+  recuperación de contraseña no se muestra nunca en un despliegue**, ni en staging: con sólo
+  saber el email de alguien se le podría cambiar la contraseña.
+- **La web** compilada llama a `/api` del mismo origen: en Cloud Run la misma API la sirve.
+- **Infraestructura más chica:** Cloud SQL zonal (sin conmutación por falla de zona) y Redis
+  básico. Los backups y el PITR quedan. Los cinco workers y la API siguen con una instancia
+  siempre viva, porque el despacho y el realtime lo necesitan.
+
+`npm run test:staging-config` (en `ci-fast`) prueba la configuración en procesos aparte:
+producción con proveedores de prueba no arranca, staging sí, staging sin un secreto propio
+o sin el segundo factor de operaciones no arranca, y los códigos sólo se muestran si se
+pide. Si falla, staging dejó de parecerse a producción o producción aflojó un control.
+
+### Lo que hace el dueño
+
+1. Crear el proyecto de Google Cloud **con la facturación activada**.
+2. Instalar la herramienta: `winget install Google.CloudSDK`.
+3. Iniciar sesión (la contraseña la escribe el dueño):
+   `gcloud auth login` y `gcloud auth application-default login`.
+4. Pasar el *project ID*.
+
+### Lo que hace el equipo, con el OK del dueño antes de crear recursos pagos
+
+1. La URL de staging se conoce antes de desplegar: `https://flash-api-<número del
+   proyecto>.southamerica-east1.run.app` (el número sale de `gcloud projects describe`). La
+   misma API sirve la web, así que es una sola URL para todo.
+2. `staging.tfvars` (no se versiona), con `deploy_stage = "staging"` y esa URL en
+   `app_public_url`, `api_public_url` y `cors_origins`.
+3. Seguir los pasos de [`infra/gcp/README.md`](../infra/gcp/README.md): bucket del estado,
+   primera aplicación, secretos propios (en staging no hace falta cargar los de terceros),
+   roles, PostGIS y migraciones **sin semillas**, imagen, segunda aplicación.
+4. Verificar `/api/ready`, crear una cuenta real, y que un pedido reciba oferta sin que nadie
+   toque nada.
+
 ## Pasos, en orden
 
 Ninguno ejecutado. Cada uno se marca al correrlo, con la fecha. **Desde el 18 de noviembre

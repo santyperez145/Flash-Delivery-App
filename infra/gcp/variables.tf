@@ -21,20 +21,44 @@ variable "deploy_services" {
   default     = false
 }
 
-variable "legal_terms_url" {
-  description = "URL pública de los términos y condiciones (LEGAL_TERMS_URL). La redacta el dueño con asesoría."
+variable "deploy_stage" {
+  description = "production o staging. Staging es un despliegue real con todo el endurecimiento de producción, pero con proveedores de prueba donde todavía no hay cuenta de tercero (mapas, email, SMS, push, Mercado Pago) y una infraestructura más chica (base zonal, Redis básico). Ver docs/despliegue.md, «Staging»."
   type        = string
+  default     = "production"
   validation {
-    condition     = startswith(var.legal_terms_url, "https://")
+    condition     = contains(["production", "staging"], var.deploy_stage)
+    error_message = "deploy_stage es production o staging."
+  }
+}
+
+variable "staging_expose_dev_codes" {
+  description = "Sólo staging: mostrar en pantalla los códigos de verificación mientras no haya SMTP ni SMS. Quien tenga la URL puede crear cuentas con emails ajenos: se prende a propósito y se apaga al tener proveedor."
+  type        = bool
+  default     = false
+}
+
+variable "staging_smtp" {
+  description = "Sólo staging: usar el SMTP real (cargar SMTP_HOST, SMTP_USER y SMTP_PASSWORD en Secret Manager). Con esto los códigos llegan por email y staging_expose_dev_codes queda en false."
+  type        = bool
+  default     = false
+}
+
+variable "legal_terms_url" {
+  description = "URL pública de los términos y condiciones (LEGAL_TERMS_URL). La redacta el dueño con asesoría. En staging puede quedar vacía."
+  type        = string
+  default     = ""
+  validation {
+    condition     = startswith(var.legal_terms_url, "https://") || (var.deploy_stage == "staging" && var.legal_terms_url == "")
     error_message = "legal_terms_url tiene que ser HTTPS: el servidor no arranca en producción sin eso."
   }
 }
 
 variable "legal_privacy_url" {
-  description = "URL pública de la política de privacidad (LEGAL_PRIVACY_URL). Las tiendas la exigen."
+  description = "URL pública de la política de privacidad (LEGAL_PRIVACY_URL). Las tiendas la exigen. En staging puede quedar vacía."
   type        = string
+  default     = ""
   validation {
-    condition     = startswith(var.legal_privacy_url, "https://")
+    condition     = startswith(var.legal_privacy_url, "https://") || (var.deploy_stage == "staging" && var.legal_privacy_url == "")
     error_message = "legal_privacy_url tiene que ser HTTPS: el servidor no arranca en producción sin eso."
   }
 }

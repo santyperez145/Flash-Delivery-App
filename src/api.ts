@@ -29,7 +29,11 @@ import type { AnalyticsEvent } from "./analytics";
 import { createAuthRefreshCoordinator } from "./auth-refresh-coordinator";
 import { createCatalogApi } from "./catalog-api";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:4000/api";
+// En desarrollo, la API local de siempre. Compilada, la web la sirve la misma API (Cloud
+// Run, staging y producción): la ruta relativa apunta al mismo origen. Antes el build caía
+// a 127.0.0.1, la máquina de quien visitaba la página.
+const API_BASE =
+  import.meta.env.VITE_API_URL || (import.meta.env.DEV ? "http://127.0.0.1:4000/api" : "/api");
 const TOKEN_KEY = "flash_platform_token";
 const REFRESH_KEY = "flash_platform_refresh";
 const EVENT_CURSOR_KEY = "flash_platform_event_cursor";

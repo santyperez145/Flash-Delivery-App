@@ -361,7 +361,7 @@ export async function getPostgresFoodDeliveryQuote({
         merchantPublicId,
         deliveryAddressId,
         branchPublicId || null,
-        config.isProduction,
+        config.requireCommercialGeocoding,
         config.maps.provider,
       ],
     ),
@@ -755,7 +755,7 @@ export async function createPostgresOrder({
             deliveryAddressId,
             customer.rows[0].id,
             merchant.rows[0].branch_location,
-            config.isProduction,
+            config.requireCommercialGeocoding,
             config.maps.provider,
           ],
         )

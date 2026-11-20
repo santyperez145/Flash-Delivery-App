@@ -75,7 +75,7 @@ resource "google_cloud_run_v2_service" "api" {
       }
 
       dynamic "env" {
-        for_each = local.secretos
+        for_each = local.secretos_montados
         content {
           name = env.value
           value_source {
@@ -199,7 +199,7 @@ resource "google_cloud_run_v2_service" "worker" {
       }
 
       dynamic "env" {
-        for_each = local.secretos
+        for_each = local.secretos_montados
         content {
           name = env.value
           value_source {
@@ -268,7 +268,7 @@ resource "google_cloud_run_v2_job" "lote" {
         }
 
         dynamic "env" {
-          for_each = local.secretos
+          for_each = local.secretos_montados
           content {
             name = env.value
             value_source {

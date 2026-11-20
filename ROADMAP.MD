@@ -45,6 +45,26 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
 
+## Avance 19 de noviembre de 2026 — INF-002, modo staging para el primer despliegue real
+
+- **Decisión del dueño:** alojar todo en Google Cloud con la infraestructura de `infra/gcp`, y
+  **primero un staging sin dominio** en la URL de Cloud Run.
+- **El problema:** producción (`NODE_ENV=production`) no arranca sin Google Maps, SMTP,
+  Twilio, Expo y Mercado Pago, y esas cuentas son del dueño y tardan. Sin un modo intermedio,
+  no se podía desplegar nada hasta tenerlas todas.
+- **Qué se hizo:** `DEPLOY_STAGE=staging` en `server/config.js`. Corre como producción
+  (secretos propios, cookies seguras, RLS sin bypass, segundo factor de operaciones) pero
+  admite proveedores de prueba, direcciones sin el proveedor comercial y pagos de prueba;
+  los códigos de verificación se muestran sólo si se pide a propósito. Producción no cambió:
+  sigue rechazando todo eso. En Terraform, `deploy_stage = "staging"` deja Cloud SQL zonal y
+  Redis básico y no monta los secretos de terceros.
+- **Verificación:** `test:staging-config` (nueva, en `ci-fast`) prueba la configuración en
+  procesos aparte, falsificada con 6 mutaciones; `terraform validate` y `fmt` en verde.
+- **Falta del dueño:** el proyecto de Google Cloud con facturación, instalar `gcloud` e
+  iniciar sesión. Con eso se despliega siguiendo
+  [`docs/despliegue.md`](docs/despliegue.md#staging-el-primer-despliegue-real-antes-de-tener-las-cuentas-de-terceros),
+  con el OK del dueño antes de crear cada recurso pago.
+
 ## Avance 19 de noviembre de 2026 — FE-05, alta real de comercio
 
 - **Qué faltaba.** No había ningún camino de producto para crear un comercio: el único alta

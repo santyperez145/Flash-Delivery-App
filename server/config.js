@@ -15,6 +15,13 @@ const optionalUrl = z.preprocess(
 
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  // Staging: un despliegue real (NODE_ENV=production, con todo el endurecimiento) que
+  // todavía no tiene las cuentas de terceros. Ver docs/despliegue.md, «Staging».
+  DEPLOY_STAGE: z.enum(["production", "staging"]).default("production"),
+  // Sólo staging, y sólo si se pide: mostrar los códigos de verificación en pantalla
+  // cuando no hay proveedor de email ni SMS. Quien tenga la URL puede crear cuentas con
+  // emails ajenos sin verificarlos, así que se prende a mano y se apaga al tener SMTP.
+  STAGING_EXPOSE_DEV_CODES: booleanFromEnv.default(false),
   PORT: z.coerce.number().int().min(1).max(65535).default(4000),
   // SEG-03: desde qué total (en centavos) un pedido con envío pide código de entrega.
   ORDER_DELIVERY_CODE_MIN_CENTS: z.coerce.number().int().min(0).default(6000000),
@@ -158,6 +165,12 @@ const webMapOrigins = [
   ),
 ];
 
+// Staging corre como producción (secretos propios, cookies seguras, RLS sin bypass, MFA de
+// operaciones) pero admite proveedores de prueba donde todavía no hay cuenta de tercero:
+// mapas, notificaciones, email, SMS, pagos y documentos legales. Lo demás se exige igual.
+const isStaging = env.NODE_ENV === "production" && env.DEPLOY_STAGE === "staging";
+const strictProviders = env.NODE_ENV === "production" && !isStaging;
+
 if (env.NODE_ENV === "production" && env.JWT_SECRET === defaultJwtSecret) {
   throw new Error("JWT_SECRET must be configured before running in production");
 }
@@ -175,7 +188,7 @@ if (env.NODE_ENV === "production" && env.METRICS_TOKEN === "local-metrics-token-
 // La política de uso de Nominatim prohíbe autocomplete de cliente contra la
 // instancia pública y advierte a las aplicaciones comerciales que no dependan
 // de ella. El demo público de OSRM está en la misma situación.
-if (env.NODE_ENV === "production" && env.MAPS_PROVIDER === "openstreetmap")
+if (strictProviders && env.MAPS_PROVIDER === "openstreetmap")
   throw new Error(
     "MAPS_PROVIDER openstreetmap uses public community instances and is forbidden in production",
   );
@@ -185,7 +198,7 @@ if (
   !env.GOOGLE_MAPS_SERVER_API_KEY
 )
   throw new Error("GOOGLE_MAPS_SERVER_API_KEY is required when MAPS_PROVIDER is google");
-if (env.NODE_ENV === "production" && env.NOTIFICATION_PROVIDER === "sandbox")
+if (strictProviders && env.NOTIFICATION_PROVIDER === "sandbox")
   throw new Error("NOTIFICATION_PROVIDER sandbox is forbidden in production");
 // Expo sin access token deja el proyecto abierto: cualquiera que conozca un
 // token de dispositivo puede enviarle notificaciones en nombre de Flash.
@@ -222,7 +235,7 @@ if (
 )
   throw new Error("RECOVERY_TOKEN_ENCRYPTION_KEY must be configured before running in production");
 if (
-  env.NODE_ENV === "production" &&
+  strictProviders &&
   (env.EMAIL_PROVIDER !== "smtp" || !env.SMTP_HOST || !env.SMTP_USER || !env.SMTP_PASSWORD)
 )
   throw new Error("EMAIL_PROVIDER smtp and SMTP credentials are required in production");
@@ -234,7 +247,7 @@ if (
 )
   throw new Error("FEATURE_FLAG_SALT must be configured before running in production");
 if (
-  env.NODE_ENV === "production" &&
+  strictProviders &&
   (env.PHONE_VERIFY_PROVIDER !== "twilio" ||
     !env.TWILIO_ACCOUNT_SID ||
     !env.TWILIO_AUTH_TOKEN ||
@@ -260,13 +273,30 @@ for (const [name, value] of [
   ["LEGAL_TERMS_URL", env.LEGAL_TERMS_URL],
   ["LEGAL_PRIVACY_URL", env.LEGAL_PRIVACY_URL],
 ]) {
-  if (env.NODE_ENV === "production" && !value?.startsWith("https://"))
+  if (strictProviders && !value?.startsWith("https://"))
     throw new Error(`${name} must be an HTTPS URL in production`);
+  // En staging pueden faltar, pero si están tienen que ser HTTPS.
+  if (isStaging && value && !value.startsWith("https://"))
+    throw new Error(`${name} must be an HTTPS URL in staging`);
 }
 
 export const config = {
   env: env.NODE_ENV,
   isProduction: env.NODE_ENV === "production",
+  isStaging,
+  deployStage: env.NODE_ENV === "production" ? env.DEPLOY_STAGE : "local",
+  // Fuera de producción siempre; en staging, sólo si se pidió (STAGING_EXPOSE_DEV_CODES).
+  // Son los códigos de verificación de email y teléfono: mostrarlos deja crear cuentas
+  // con datos ajenos, pero no entrar a una cuenta que ya existe.
+  exposeDevelopmentCodes:
+    env.NODE_ENV !== "production" || (isStaging && env.STAGING_EXPOSE_DEV_CODES),
+  // El token de recuperación de contraseña, nunca en un despliegue: con sólo saber el
+  // email de alguien se le cambiaría la contraseña y se le cerrarían las sesiones.
+  exposeRecoveryTokens: env.NODE_ENV !== "production",
+  // Producción exige direcciones validadas por el proveedor comercial; staging no lo tiene.
+  requireCommercialGeocoding: strictProviders,
+  // Medios de pago y cargas de prueba: nunca en producción real.
+  allowSandboxPayments: !strictProviders,
   port: env.PORT,
   host: env.HOST,
   jwtSecret: env.JWT_SECRET,
@@ -279,7 +309,7 @@ export const config = {
   logLevel: env.LOG_LEVEL,
   databaseUrl: env.DATABASE_URL,
   databaseSsl: env.DATABASE_SSL,
-  allowSandboxTopups: !env.NODE_ENV.includes("production") && env.ALLOW_SANDBOX_TOPUPS,
+  allowSandboxTopups: !strictProviders && env.ALLOW_SANDBOX_TOPUPS,
   paymentWebhookSecret: env.PAYMENT_WEBHOOK_SECRET,
   metricsToken: env.METRICS_TOKEN,
   notificationProvider: env.NOTIFICATION_PROVIDER,

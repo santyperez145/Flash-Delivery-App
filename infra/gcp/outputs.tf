@@ -19,6 +19,6 @@ output "artifact_registry" {
 }
 
 output "secretos_a_cargar" {
-  description = "Secretos que existen vacíos y hay que cargar antes del primer arranque."
-  value       = sort(tolist(local.secretos))
+  description = "Secretos que hay que cargar antes del primer arranque: los que montan los servicios (en staging, sólo los propios)."
+  value       = sort(tolist(local.secretos_montados))
 }

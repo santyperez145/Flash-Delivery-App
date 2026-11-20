@@ -56,7 +56,7 @@ router.post(
   requireAuth,
   requireAnyRole("customer", "admin"),
   async (req, res) => {
-    if (config.isProduction) return fail(res, 404, "Ruta no disponible");
+    if (!config.allowSandboxPayments) return fail(res, 404, "Ruta no disponible");
     const parsed = parseOrFail(sandboxPaymentMethodSchema, req.body || {});
     if (!parsed.ok) return fail(res, 400, parsed.message);
     try {
