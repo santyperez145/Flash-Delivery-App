@@ -21,6 +21,12 @@ variable "deploy_services" {
   default     = false
 }
 
+variable "github_repository" {
+  description = "Repositorio de GitHub que puede desplegar con Workload Identity (dueño/nombre). Sólo su rama main."
+  type        = string
+  default     = "santyperez145/Flash-Delivery-App"
+}
+
 variable "deploy_stage" {
   description = "production o staging. Staging es un despliegue real con todo el endurecimiento de producción, pero con proveedores de prueba donde todavía no hay cuenta de tercero (mapas, email, SMS, push, Mercado Pago) y una infraestructura más chica (base zonal, Redis básico). Ver docs/despliegue.md, «Staging»."
   type        = string
