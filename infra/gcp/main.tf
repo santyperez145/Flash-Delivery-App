@@ -133,6 +133,13 @@ resource "google_project_service" "apis" {
     "cloudscheduler.googleapis.com",
     "compute.googleapis.com",
     "servicenetworking.googleapis.com",
+    # INF-003: imagen del primer arranque, y GitHub sin claves (Workload Identity).
+    "cloudbuild.googleapis.com",
+    "storage.googleapis.com",
+    "logging.googleapis.com",
+    "iam.googleapis.com",
+    "iamcredentials.googleapis.com",
+    "sts.googleapis.com",
   ])
   service            = each.value
   disable_on_destroy = false

@@ -45,6 +45,29 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
 
+## Avance 19 de noviembre de 2026 — INF-003, despliegue real en un comando y después solo
+
+- **Pedido del dueño:** dejar todo real y listo en Google Cloud, la base incluida, para
+  competir con las grandes.
+- **Qué faltaba.** Con INF-002 la infraestructura estaba escrita, pero desplegar eran diez
+  pasos a mano, la base había que prepararla conectándose desde una computadora y cada
+  cambio posterior volvía a ser manual.
+- **Cómo quedó.** `infra/gcp/bootstrap.ps1` hace el primer despliegue entero: verifica la
+  facturación, muestra el costo y espera que se escriba `CREAR`, aplica Terraform, genera los
+  secretos propios sin pisar los cargados, construye la imagen, prepara la base
+  (`flash-db-bootstrap`: roles sin privilegios, dueño `flash_app`, PostGIS) y la migra
+  (`flash-db-migrate`) con trabajos de Cloud Run dentro del proyecto, y recién después
+  despliega la API, los workers y los lotes. Después, **cada cambio de `main` se publica
+  solo** (`deploy-gcp.yml`), con Workload Identity: sin claves guardadas, sólo este
+  repositorio y su rama `main`, migrando antes de publicar. Los lotes ganaron la red privada
+  para llegar a Redis, que les faltaba.
+- **Verificación:** `test:db-bootstrap-cloud` (nueva, en `ci-postgres`) corre la preparación
+  dos veces contra PostgreSQL y migra las 152 migraciones desde cero; `test:gcp-deploy`
+  (nueva, en `ci-fast`), falsificada con 28 mutaciones; `terraform validate` y `fmt` en
+  verde. Suites: 135.
+- **Falta del dueño:** el proyecto con facturación, `gcloud` y `terraform` instalados, la
+  sesión iniciada, y correr el script. Nada pago se crea sin que escriba `CREAR`.
+
 ## Avance 19 de noviembre de 2026 — INF-002, modo staging para el primer despliegue real
 
 - **Decisión del dueño:** alojar todo en Google Cloud con la infraestructura de `infra/gcp`, y
@@ -1212,19 +1235,19 @@ Entregas novena a decimoquinta de la Fase 0. El paso 2 quedó sin registrar acá
 
 ### Lo que se extrajo
 
-| Módulo | Qué se lleva | Paso |
-| --- | --- | ---: |
-| `server/http/responses.js` | `ok`, `fail`, `parseOrFail` — 697 llamadas | 2 |
-| `server/http/maps-router.js` | 2 rutas de mapas | 2 |
-| `server/http/authorization.js` | 10 predicados + `requireAnyRole` — 81 usos | 3 |
-| `server/http/addresses-router.js` | 5 rutas de direcciones, con esquema Zod propio | 3 |
-| `server/http/realtime.js` | transporte SSE, registro de clientes y `/api/events` | 4 |
-| `server/http/authentication.js` | `requireAuth` y la lectura del token | 5 |
-| `server/fallback-runtime.js` | `readDb` instrumentada y `audit` del fallback SQLite | 5 |
-| `server/audit-trail.js` | `auditRuntime`, la auditoría que sirve a los dos runtimes | 6 |
-| `server/http/notifications-router.js` | notificaciones, preferencias y dispositivos — 7 rutas | 6 |
-| `server/http/dietary-router.js` | preferencias alimentarias — 2 rutas | 6 |
-| `server/http/feedback-router.js` | favoritos y calificaciones — 4 rutas | 7 |
+| Módulo                                | Qué se lleva                                              | Paso |
+| ------------------------------------- | --------------------------------------------------------- | ---: |
+| `server/http/responses.js`            | `ok`, `fail`, `parseOrFail` — 697 llamadas                |    2 |
+| `server/http/maps-router.js`          | 2 rutas de mapas                                          |    2 |
+| `server/http/authorization.js`        | 10 predicados + `requireAnyRole` — 81 usos                |    3 |
+| `server/http/addresses-router.js`     | 5 rutas de direcciones, con esquema Zod propio            |    3 |
+| `server/http/realtime.js`             | transporte SSE, registro de clientes y `/api/events`      |    4 |
+| `server/http/authentication.js`       | `requireAuth` y la lectura del token                      |    5 |
+| `server/fallback-runtime.js`          | `readDb` instrumentada y `audit` del fallback SQLite      |    5 |
+| `server/audit-trail.js`               | `auditRuntime`, la auditoría que sirve a los dos runtimes |    6 |
+| `server/http/notifications-router.js` | notificaciones, preferencias y dispositivos — 7 rutas     |    6 |
+| `server/http/dietary-router.js`       | preferencias alimentarias — 2 rutas                       |    6 |
+| `server/http/feedback-router.js`      | favoritos y calificaciones — 4 rutas                      |    7 |
 
 `server/index.js`: 9.696 → **8.689 líneas**, 210 → **189 rutas**, 172 → **154 declaraciones de nivel superior**. Son 9 de 57 grupos de rutas. **Lo que importa no es cuánto se movió, sino qué quedó establecido.**
 
@@ -1427,10 +1450,10 @@ Las tres viven juntas y no en un archivo cada una porque **comparten el riel, la
 
 **Con esto se cumple el primer criterio de aceptación de ARC-001, entero:**
 
-| Archivo | Al empezar | Ahora | Techo |
-| --- | ---: | ---: | ---: |
-| `apps/mobile/App.tsx` | 15.374 | **321** | 1.500 |
-| `src/App.tsx` | 10.553 | **1.245** | 1.500 |
+| Archivo               | Al empezar |     Ahora | Techo |
+| --------------------- | ---------: | --------: | ----: |
+| `apps/mobile/App.tsx` |     15.374 |   **321** | 1.500 |
+| `src/App.tsx`         |     10.553 | **1.245** | 1.500 |
 
 Lo que queda en cada uno es el shell: proveedor de contexto, banner de red, barra de modo y enrutado por audiencia.
 
@@ -1454,12 +1477,12 @@ Octava entrega de la Fase 0. **Sin cambios de comportamiento:** Prettier sólo r
 
 Era que el código estaba comprimido en líneas de hasta **4.061 caracteres**. Con eso, un diff es ilegible, un conflicto de merge irresoluble, `git blame` no aporta nada y una revisión de seguridad es impracticable.
 
-| Archivo | Antes | Ahora |
-| --- | ---: | ---: |
-| `apps/mobile/App.tsx` | 4.061 | **206** |
-| `server/commerce-repository.js` | 2.655 | 1.540 |
-| `src/App.tsx` | 1.791 | 270 |
-| `server/auth-repository.js` | 1.563 | 357 |
+| Archivo                         | Antes |   Ahora |
+| ------------------------------- | ----: | ------: |
+| `apps/mobile/App.tsx`           | 4.061 | **206** |
+| `server/commerce-repository.js` | 2.655 |   1.540 |
+| `src/App.tsx`                   | 1.791 |     270 |
+| `server/auth-repository.js`     | 1.563 |     357 |
 
 Líneas largas totales: **1.543 → 262**. `apps/mobile/App.tsx` pasó de 327 líneas largas a **1**, y de 5.695 líneas a 15.374 que una persona puede leer. Lo que queda largo es sobre todo SQL en template literals, que Prettier no parte.
 
@@ -1650,20 +1673,23 @@ Pedido de producto: cerrar paridad competitiva con pantallas/admin/config “com
 **Ya existe (no reinventar):** Cliente web/móvil (Comidas, Viajes, Envíos, Actividad, Cuenta, Wallet); Driver (mapa, ofertas, cockpit, ganancias, KYC); Merchant desktop + app (cocina, catálogo, sucursales, finanzas); Superadmin con 16 secciones (dispatch, comercios, drivers, envíos, siniestros, pagos, tarifas, mensajes, usuarios, finanzas, inversión, producto/flags, soporte, seguridad, infra); rol support acotado a tickets.
 
 **P0 post-freeze (habilitación / dinero / safety — no pantallas decorativas):**
+
 - [ ] PSP marketplace + conciliación + payouts productivos (PAY-001).
 - [ ] Push FCM/APNs en dispositivo físico + builds firmados + deep links (NOT-001 / MOB-001).
 - [ ] Mapas comerciales con SLA y Route Matrix (GEO-001 / DSP-001).
 - [ ] Safety rides: no-show/waiting regulado, seguros, ops 24/7 antes de movilidad pública.
 
 **P1 post-freeze (paridad operativa fina):**
+
 - [ ] Merchant: POS sync, campañas nativas, prep predictivo, equipo/permisos/auditoría.
 - [ ] Driver: multi-oferta cuando DSP lo soporte; promos reales; liquidación bancaria.
 - [ ] Cliente: foto en incidencias de comida; alergia por ítem con timebox; pin de pickup editable; SLA self-serve.
 - [ ] Soporte: portal con SLA visible al cliente y asignación automática medida.
-- [ ] *Flash Más* cobrado + beneficios de ride/dispatch activos (hoy el cobro depende de PAY-001).
+- [ ] _Flash Más_ cobrado + beneficios de ride/dispatch activos (hoy el cobro depende de PAY-001).
 - [ ] Settings de plataforma: actualización forzosa / mantenimiento remotos; explicación de indisponibilidad por mercado.
 
 **P2 post-freeze (diferenciadores / escala):**
+
 - [ ] Multi-comercio en un pedido; grocery/kiosco; Destination Mode; CarPlay/Android Auto.
 - [ ] Marketing desktop; personalización con consentimiento; B2B/centros de costo.
 - [ ] KYC biométrico automatizado; playbook de segunda ciudad.
@@ -1690,19 +1716,19 @@ Pedido de producto: cerrar paridad competitiva con pantallas/admin/config “com
 ## Avance 22 de agosto de 2026 — Acceso mobile profesional
 
 - [x] Login dejó la tarjeta básica sobre gradiente y adoptó una composición Flash
-  propia con hero de servicios, hoja compacta, targets táctiles y scroll seguro.
+      propia con hero de servicios, hoja compacta, targets táctiles y scroll seguro.
 - [x] El acceso ahora es progresivo: email primero, contraseña después, identidad
-  editable y recuperación contextual; registro, OTP y reset tienen estados y
-  navegación independientes sobre los contratos backend existentes.
+      editable y recuperación contextual; registro, OTP y reset tienen estados y
+      navegación independientes sobre los contratos backend existentes.
 - [x] La UI dejó de autocompletar códigos/tokens de desarrollo y no presenta
-  Apple, Google, teléfono, biometría o passkeys como disponibles sin proveedor.
+      Apple, Google, teléfono, biometría o passkeys como disponibles sin proveedor.
 - [x] Customer, Driver y Merchant reciben contexto propio; sólo Customer expone
-  registro público y un intento válido en la variante incorrecta revoca la
-  sesión recién emitida antes de informar el error.
+      registro público y un intento válido en la variante incorrecta revoca la
+      sesión recién emitida antes de informar el error.
 - [x] La decisión y sus fuentes oficiales quedan registradas en
-  `docs/competitive-research/mobile-authentication.md`.
+      `docs/competitive-research/mobile-authentication.md`.
 - [ ] Siguiente gate de identidad: integrar passkeys y proveedores nativos sólo
-  después de dominio, credenciales, backend, privacidad y builds físicos.
+      después de dominio, credenciales, backend, privacidad y builds físicos.
 
 ## Avance 22 de agosto de 2026 — Design Roadmap rector
 
@@ -2036,7 +2062,7 @@ Decisión competitiva: se adopta una bandeja transaccional persistente y prefere
 #### Fases 5/6 — B2B y multiciudad
 
 - [~] Referidos, jobs programados, **suscripción** y **pedidos grupales** existen; faltan Flash Business, centros de costo, POS, logística híbrida y multi-stop.
-  - *Flash Más* (migración 125, GTM-001) entrega el envío sin cargo desde un monto, cableado en web y móvil y revalidado al crear el pedido. Los otros dos beneficios del plan —comisión reducida en viajes y prioridad de dispatch— están en la fila y todavía no se aplican: el estimador de viajes es público y el orden de candidatos lo decide DSP-001. No cobra: el cobro recurrente depende de PAY-001.
+  - _Flash Más_ (migración 125, GTM-001) entrega el envío sin cargo desde un monto, cableado en web y móvil y revalidado al crear el pedido. Los otros dos beneficios del plan —comisión reducida en viajes y prioridad de dispatch— están en la fila y todavía no se aplican: el estimador de viajes es público y el orden de candidatos lo decide DSP-001. No cobra: el cobro recurrente depende de PAY-001.
 - [ ] `city_id` transversal, aislamiento por ciudad, warehouse, experimentación y playbook de apertura.
 
 ### Próximos bloques, en orden
@@ -2435,6 +2461,7 @@ La implementacion se sigue por flujos completos y no por pantallas aisladas. Cad
 Objetivo: tener una app fullstack real que funcione en local y demuestre flujos completos.
 
 Incluido:
+
 - Cliente crea pedidos de comida.
 - Cliente cotiza y solicita taxi.
 - Comercio gestiona cocina, stock y productos.
@@ -2443,6 +2470,7 @@ Incluido:
 - API valida payloads, permisos y propiedad.
 
 Criterios de salida:
+
 - `npm run build` pasa.
 - `npm run test:security` pasa.
 - La app levanta con `npm run dev`.
@@ -2454,6 +2482,7 @@ Criterios de salida:
 Objetivo: preparar el backend para beta cerrada.
 
 Trabajo:
+
 - Configuracion por entorno con validacion estricta.
 - Headers de seguridad, CORS controlado y rate limiting.
 - Request IDs y logs estructurados.
@@ -2463,6 +2492,7 @@ Trabajo:
 - Error handling centralizado.
 
 Criterios de salida:
+
 - CI ejecuta build y smoke security en cada push/PR.
 - Produccion falla si falta `JWT_SECRET` fuerte.
 - Las respuestas incluyen `requestId`.
@@ -2473,6 +2503,7 @@ Criterios de salida:
 Objetivo: pasar de demo local a datos de produccion.
 
 Trabajo:
+
 - [x] Migrar el runtime principal de SQLite a PostgreSQL.
 - [x] Agregar PostGIS para zonas, sucursales y distancia.
 - Migraciones versionadas con Prisma, Drizzle o Knex.
@@ -2481,6 +2512,7 @@ Trabajo:
 - Backups automaticos y restore probado.
 
 Criterios de salida:
+
 - Migraciones reproducibles.
 - Seeds por ambiente.
 - Consultas principales indexadas.
@@ -2491,6 +2523,7 @@ Criterios de salida:
 Objetivo: asignar trabajos y tracking sin polling.
 
 Trabajo:
+
 - [x] SSE durable para estado en vivo entre múltiples réplicas de API.
 - Redis GEO para ubicacion de drivers.
 - Worker de dispatch separado.
@@ -2501,6 +2534,7 @@ Trabajo:
 - Simulador de demanda/oferta.
 
 Criterios de salida:
+
 - Pedido/viaje emite ofertas a drivers elegibles.
 - Oferta expira y se reasigna.
 - Cliente, comercio, driver y admin reciben eventos en vivo.
@@ -2511,6 +2545,7 @@ Criterios de salida:
 Objetivo: publicar apps reales para Android/iOS.
 
 Trabajo:
+
 - Monorepo `apps/mobile` con Expo/React Native.
 - Builds separados para cliente, comercio y driver.
 - [x] Registro/revocación de dispositivos sin exponer push tokens.
@@ -2523,6 +2558,7 @@ Trabajo:
 - Biometria opcional, deep links y crash reporting.
 
 Criterios de salida:
+
 - Builds EAS para Android/iOS.
 - Driver comparte ubicacion en background con permisos correctos.
 - Push llega para ofertas, cambios de estado y soporte.
@@ -2533,6 +2569,7 @@ Criterios de salida:
 Objetivo: operar dinero real con conciliacion.
 
 Trabajo:
+
 - [ ] Integración productiva Mercado Pago, Stripe u otro PSP local.
 - [x] Wallet de cliente y conductor con doble partida.
 - [x] Ledger PostgreSQL inmutable por API y verificación de balance.
@@ -2545,6 +2582,7 @@ Trabajo:
 - Antifraude inicial por usuario, dispositivo, tarjeta, zona y promo.
 
 Criterios de salida:
+
 - Cobros sandbox reales.
 - Cada movimiento financiero tiene asiento en ledger.
 - Superadmin puede conciliar pagos y resolver excepciones.
@@ -2554,6 +2592,7 @@ Criterios de salida:
 Objetivo: administrar una ciudad completa.
 
 Trabajo:
+
 - Soporte multiagente con SLA.
 - [~] Promociones, cupones y referidos operativos; falta consola de campañas de referidos con aprobación dual y antifraude por dispositivo/hogar.
 - Ratings, calidad y suspensiones.
@@ -2562,6 +2601,7 @@ Trabajo:
 - Panel de onboarding de comercios y drivers.
 
 Criterios de salida:
+
 - Operaciones resuelve incidentes sin tocar base de datos.
 - Marketing lanza promos con limites y medicion.
 - [x] Calidad puede suspender o reactivar cuentas con motivo obligatorio, protecciones contra autobloqueo/último admin y trazabilidad operacional.
@@ -2571,6 +2611,7 @@ Criterios de salida:
 Objetivo: soportar crecimiento multi-ciudad.
 
 Trabajo:
+
 - API Gateway.
 - Servicios por dominio.
 - Event bus con Kafka, Redpanda o Pub/Sub.
@@ -2580,6 +2621,7 @@ Trabajo:
 - WAF, rate limits por usuario/IP, secret manager y MFA admin.
 
 Criterios de salida:
+
 - SLOs por flujo critico.
 - Runbooks operativos.
 - Rollback probado.

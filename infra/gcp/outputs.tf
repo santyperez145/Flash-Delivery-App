@@ -18,7 +18,32 @@ output "artifact_registry" {
   value       = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.flash.repository_id}"
 }
 
+output "secretos_base" {
+  description = "Secretos de la base: los genera y carga bootstrap.ps1. Sólo los leen los trabajos de la base."
+  value       = sort(tolist(local.secretos_base))
+}
+
+output "workload_identity_provider" {
+  description = "Para el workflow de despliegue (variable GCP_WORKLOAD_IDENTITY_PROVIDER de GitHub)."
+  value       = google_iam_workload_identity_pool_provider.github.name
+}
+
+output "deployer_service_account" {
+  description = "Para el workflow de despliegue (variable GCP_DEPLOYER_SA de GitHub)."
+  value       = google_service_account.deployer.email
+}
+
 output "secretos_a_cargar" {
   description = "Secretos que hay que cargar antes del primer arranque: los que montan los servicios (en staging, sólo los propios)."
   value       = sort(tolist(local.secretos_montados))
+}
+
+output "build_service_account" {
+  description = "Cuenta con la que Cloud Build construye la imagen del primer arranque."
+  value       = google_service_account.build.id
+}
+
+output "build_source_bucket" {
+  description = "Bucket donde se sube el código para construir la imagen."
+  value       = google_storage_bucket.build_source.name
 }

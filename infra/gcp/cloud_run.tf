@@ -116,6 +116,9 @@ resource "google_cloud_run_v2_service" "api" {
       condition     = can(regex("@sha256:[0-9a-f]{64}$", var.image))
       error_message = "image tiene que ser la imagen que publicó CI, fijada por digest (…@sha256:<digest>)."
     }
+    # INF-003: después del primer arranque, la imagen la actualiza el workflow de
+    # despliegue en cada cambio de main; Terraform no vuelve a la del primer arranque.
+    ignore_changes = [template[0].containers[0].image, client, client_version]
   }
 
   depends_on = [google_secret_manager_secret_iam_member.runtime]
@@ -228,6 +231,10 @@ resource "google_cloud_run_v2_service" "worker" {
     }
   }
 
+  lifecycle {
+    ignore_changes = [template[0].containers[0].image, client, client_version]
+  }
+
   depends_on = [google_secret_manager_secret_iam_member.runtime]
 }
 
@@ -242,6 +249,16 @@ resource "google_cloud_run_v2_job" "lote" {
       service_account = google_service_account.runtime.email
       timeout         = each.value.timeout
       max_retries     = each.value.max_retries
+
+      # Como la API y los workers: Redis vive en la red privada y REDIS_REQUIRED está
+      # prendido, así que sin esta salida el lote no arranca.
+      vpc_access {
+        network_interfaces {
+          network    = google_compute_network.flash.id
+          subnetwork = google_compute_subnetwork.flash.id
+        }
+        egress = "PRIVATE_RANGES_ONLY"
+      }
 
       volumes {
         name = "cloudsql"
@@ -281,6 +298,10 @@ resource "google_cloud_run_v2_job" "lote" {
         }
       }
     }
+  }
+
+  lifecycle {
+    ignore_changes = [template[0].template[0].containers[0].image, client, client_version]
   }
 
   depends_on = [google_secret_manager_secret_iam_member.runtime]

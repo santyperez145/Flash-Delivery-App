@@ -1,0 +1,9 @@
+# La imagen del primer arranque (infra/gcp/bootstrap.ps1). Las siguientes las construye
+# el workflow de despliegue. Los logs van sólo a Cloud Logging: con una cuenta de
+# servicio propia, Cloud Build no escribe en el bucket de logs por omisión.
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-t", "${_IMAGE}", "."]
+images: ["${_IMAGE}"]
+options:
+  logging: CLOUD_LOGGING_ONLY
