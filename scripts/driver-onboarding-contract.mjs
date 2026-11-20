@@ -16,7 +16,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 
-import { contains } from "./source-contract.mjs";
+import { contains, squeeze } from "./source-contract.mjs";
 
 const leer = (ruta) => fs.readFile(ruta, "utf8");
 const [
@@ -181,6 +181,16 @@ assert.ok(
     ) &&
     contains(legajo, 'status: row.vencido ? "expired" : row.status,'),
   "las ciudades que no cargan se reintentan, un vencido no dice «listo» y un vehículo rechazado se corrige",
+);
+
+assert.ok(
+  squeeze(repositorio).indexOf(
+    squeeze("SELECT pg_advisory_xact_lock(hashtextextended('driver_application:'"),
+  ) <
+    squeeze(repositorio).indexOf(
+      squeeze("FROM users WHERE public_id=$1 AND status='active' FOR SHARE"),
+    ) && contains(cola, "if (pestanaVigente.current !== pedida) return;"),
+  "dos envíos a la vez no se traban, y una página de otra pestaña no se mezcla",
 );
 
 console.log("driver onboarding contract ok");

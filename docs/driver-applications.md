@@ -80,7 +80,7 @@ una moto o un auto tenga la licencia, la cédula y el seguro aprobados.
 - **`npm run test:driver-onboarding`** (en `ci-fast`). Vigila que las pantallas sigan
   cableadas a eso: la ruta y el ingreso, el teléfono antes que todo, la bici sin patente,
   los requisitos con su motivo, la cola de un solo pedido y la decisión con motivo. Se
-  falsificó con 28 mutaciones.
+  falsificó con 29 mutaciones.
 
 ## Lo que falta
 

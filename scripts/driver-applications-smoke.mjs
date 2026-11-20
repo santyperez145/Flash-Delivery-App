@@ -80,6 +80,7 @@ try {
     ["auto", "customer", true],
     ["sintel", "customer", false],
     ["clienta", "customer", true],
+    ["doble", "customer", true],
     ["soporte", "support", false],
     ["admin", "admin", false],
   ]) {
@@ -200,6 +201,18 @@ try {
       otra.body.driverId === driverBici &&
       mia.body.application?.driverId === driverBici,
     "otra postulación es 409 y dice cuál es; la propia se lee",
+  );
+  // Dos envíos a la vez de la misma cuenta: uno entra y el otro es 409, sin que la base
+  // aborte ninguno por un bloqueo cruzado.
+  const aLaVez = await Promise.all(
+    [1, 2].map(() => api("/applications/driver", { token: tokens.doble, body: enBici })),
+  );
+  assert(
+    aLaVez
+      .map((respuesta) => respuesta.status)
+      .sort()
+      .join() === "201,409",
+    "dos postulaciones a la vez de la misma cuenta: una entra y la otra es 409",
   );
 
   const auto = await api("/applications/driver", { token: tokens.auto, body: enAuto });

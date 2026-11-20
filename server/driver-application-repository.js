@@ -58,6 +58,14 @@ const modos = (valor) =>
  */
 export async function submitDriverApplication({ userPublicId, actorRoles, input, requestId }) {
   return enTransaccion(async (client) => {
+    // El candado por cuenta va primero, antes de bloquear la fila de la persona: si dos
+    // envíos tomaran los dos el bloqueo compartido y después uno quisiera actualizar
+    // `users.profile`, se trabarían entre sí y la base abortaría uno con un error en lugar
+    // del 409 de «ya estás registrado».
+    await client.query(
+      "SELECT pg_advisory_xact_lock(hashtextextended('driver_application:' || $1::text, 0))",
+      [userPublicId],
+    );
     const persona = (
       await client.query(
         "SELECT id, public_id, name, phone, phone_verified_at FROM users WHERE public_id=$1 AND status='active' FOR SHARE",
@@ -69,10 +77,6 @@ export async function submitDriverApplication({ userPublicId, actorRoles, input,
       throw error("Verificá tu teléfono antes de postularte", 409, {
         code: "phone_verification_required",
       });
-    await client.query(
-      "SELECT pg_advisory_xact_lock(hashtextextended('driver_application:' || $1::text, 0))",
-      [persona.id],
-    );
     const existente = (
       await client.query("SELECT public_id FROM drivers WHERE user_id=$1", [persona.id])
     ).rows[0];

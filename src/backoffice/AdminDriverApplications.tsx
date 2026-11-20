@@ -131,11 +131,19 @@ export function AdminDriverApplications({
     return () => window.clearInterval(intervalo);
   }, [cargar, status, seleccionId]);
 
+  // La pestaña que se ve ahora: una página que vuelve después de cambiar de pestaña es de
+  // otra cola y no se mezcla con esta.
+  const pestanaVigente = useRef(status);
+  useEffect(() => {
+    pestanaVigente.current = status;
+  }, [status]);
   const verMas = async () => {
     if (!nextCursor) return;
+    const pedida = status;
     setCargandoMas(true);
     try {
       const pagina = await api.getAdminDriverApplications({ status, cursor: nextCursor });
+      if (pestanaVigente.current !== pedida) return;
       setItems((actuales) => [
         ...actuales,
         ...pagina.drivers.filter((item) => !actuales.some((actual) => actual.id === item.id)),
