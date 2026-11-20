@@ -3,7 +3,16 @@ import { postgresPool } from "./postgres.js";
 import { config } from "./config.js";
 import { checkPhoneVerification, startPhoneVerification } from "./phone-verification-provider.js";
 
-export async function requestPhoneVerification(userPublicId) {
+export async function requestPhoneVerification(userPublicId, { phone } = {}) {
+  // FE-06: quien se postula a repartir escribe el teléfono en el mismo paso en que pide el
+  // código, sin pasar por el perfil (que exige una dirección). Un teléfono distinto del
+  // guardado se guarda sin verificar; uno ya verificado no se cambia por acá.
+  if (phone)
+    await postgresPool.query(
+      `UPDATE users SET phone=$2, phone_verified_at=NULL, updated_at=now()
+       WHERE public_id=$1 AND status='active' AND phone IS DISTINCT FROM $2 AND phone_verified_at IS NULL`,
+      [userPublicId, phone],
+    );
   const snapshot = (
     await postgresPool.query(
       "SELECT id,public_id,phone,phone_verified_at FROM users WHERE public_id=$1 AND status='active'",

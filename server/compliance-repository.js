@@ -8,6 +8,22 @@ const requiredTypes = [
   "insurance",
   "background_check",
 ];
+// Lo que se pide depende del vehículo (FE-06), como en Uber Eats: quien reparte en
+// bicicleta o a pie muestra su identidad y sus antecedentes; con moto, auto o van se
+// suman la licencia, la cédula del vehículo y el seguro. Sin vehículo declarado se pide
+// todo: es el caso más exigente, no un atajo.
+const TIPOS_BICICLETA = ["identity", "background_check"];
+export const TIPOS_CON_MOTOR = ["driver_license", "vehicle_registration", "insurance"];
+export const requiredTypesForKinds = (kinds) =>
+  kinds.length && kinds.every((kind) => kind === "bicycle") ? TIPOS_BICICLETA : requiredTypes;
+const requiredTypesFor = async (client, driverId) =>
+  requiredTypesForKinds(
+    (
+      await client.query("SELECT kind FROM vehicles WHERE driver_id=$1 AND retired_at IS NULL", [
+        driverId,
+      ])
+    ).rows.map((row) => row.kind),
+  );
 const publicId = () => `DOC-${crypto.randomBytes(5).toString("hex").toUpperCase()}`;
 const staff = (roles) => roles.includes("admin") || roles.includes("support");
 const mapDocument = (row) => ({
@@ -39,12 +55,13 @@ async function resolveDriver({ actorPublicId, roles, driverPublicId, client = po
 }
 export async function getDriverCompliance({ actorPublicId, roles, driverPublicId }) {
   const driver = await resolveDriver({ actorPublicId, roles, driverPublicId });
-  const [compliance, documents] = await Promise.all([
+  const [compliance, documents, tipos] = await Promise.all([
     postgresPool.query("SELECT * FROM driver_compliance WHERE driver_id=$1", [driver.id]),
     postgresPool.query(
       "SELECT * FROM driver_documents WHERE driver_id=$1 ORDER BY created_at DESC",
       [driver.id],
     ),
+    requiredTypesFor(postgresPool, driver.id),
   ]);
   const row = compliance.rows[0] || {};
   return {
@@ -53,7 +70,7 @@ export async function getDriverCompliance({ actorPublicId, roles, driverPublicId
     submittedAt: row.submitted_at ? new Date(row.submitted_at).toISOString() : null,
     reviewedAt: row.reviewed_at ? new Date(row.reviewed_at).toISOString() : null,
     rejectionReason: row.rejection_reason || null,
-    requiredTypes,
+    requiredTypes: tipos,
     documents: documents.rows.map(mapDocument),
   };
 }
@@ -140,11 +157,12 @@ export async function reviewDriverDocument({
     );
     let complianceStatus = "rejected";
     if (status === "approved") {
+      const tipos = await requiredTypesFor(client, document.driver_id);
       const approved = await client.query(
         `SELECT count(DISTINCT document_type)::int count FROM driver_documents WHERE driver_id=$1 AND status='approved' AND (expires_at IS NULL OR expires_at>=current_date) AND document_type=ANY($2)`,
-        [document.driver_id, requiredTypes],
+        [document.driver_id, tipos],
       );
-      complianceStatus = approved.rows[0].count === requiredTypes.length ? "approved" : "in_review";
+      complianceStatus = approved.rows[0].count === tipos.length ? "approved" : "in_review";
     }
     await client.query(
       "UPDATE driver_compliance SET status=$2,reviewed_at=now(),reviewed_by=$3,rejection_reason=$4,updated_at=now() WHERE driver_id=$1",
@@ -188,15 +206,31 @@ export async function assertDriverCanGoOnline(driverPublicId, activeMode = null)
   const row = (
     await postgresPool.query(
       `SELECT c.status,EXISTS(SELECT 1 FROM driver_documents doc WHERE doc.driver_id=d.id AND doc.status='approved' AND doc.expires_at<current_date) expired,
-  EXISTS(SELECT 1 FROM vehicles v WHERE v.driver_id=d.id AND v.active AND v.retired_at IS NULL AND v.status='approved' AND COALESCE($2::job_kind,d.active_mode)=ANY(v.service_modes)) vehicle_ready
+  EXISTS(SELECT 1 FROM vehicles v WHERE v.driver_id=d.id AND v.active AND v.retired_at IS NULL AND v.status='approved' AND COALESCE($2::job_kind,d.active_mode)=ANY(v.service_modes)) vehicle_ready,
+  EXISTS(SELECT 1 FROM vehicles v WHERE v.driver_id=d.id AND v.active AND v.retired_at IS NULL AND v.kind<>'bicycle') motorized,
+  EXISTS(SELECT 1 FROM driver_documents doc WHERE doc.driver_id=d.id) has_documents,
+  (SELECT count(DISTINCT doc.document_type) FROM driver_documents doc
+    WHERE doc.driver_id=d.id AND doc.status='approved'
+      AND (doc.expires_at IS NULL OR doc.expires_at>=current_date)
+      AND doc.document_type=ANY($3))::int motor_documents
   FROM drivers d LEFT JOIN driver_compliance c ON c.driver_id=d.id WHERE d.public_id=$1`,
-      [driverPublicId, activeMode],
+      [driverPublicId, activeMode, TIPOS_CON_MOTOR],
     )
   ).rows[0];
   if (!row || row.status !== "approved" || row.expired)
     throw Object.assign(new Error("Tu legajo debe estar aprobado y vigente para conectarte"), {
       status: 409,
     });
+  // Quien se aprobó en bicicleta y después activa una moto o un auto no sale a manejar sin
+  // licencia, cédula y seguro aprobados. Los legajos anteriores a la carga de documentos
+  // (migración 047, sin ninguno) quedan como estaban hasta su recertificación.
+  if (row.motorized && row.has_documents && row.motor_documents < TIPOS_CON_MOTOR.length)
+    throw Object.assign(
+      new Error(
+        "Para manejar una moto o un auto necesitás la licencia, la cédula y el seguro aprobados",
+      ),
+      { status: 409 },
+    );
   if (!row.vehicle_ready)
     throw Object.assign(
       new Error("Necesitas un vehículo activo, aprobado y compatible con el servicio"),

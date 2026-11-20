@@ -727,3 +727,127 @@
     gap: 2px;
   }
 }
+
+/* --- Repartí con Flash (FE-06) ----------------------------------------------------
+   Cada requisito es una fila con su estado y su acción, como la lista de requisitos de
+   la app de Uber: lo que falta se sube desde la misma fila. */
+.partner-rubro small {
+  color: var(--ink-soft);
+  font-size: 0.74rem;
+  line-height: 1.3;
+}
+
+.partner-note {
+  margin: 0;
+  padding: 10px 12px;
+  color: var(--ink);
+  background: var(--paper-soft);
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-control);
+}
+
+.partner-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.driver-requisitos {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.driver-requisito {
+  --tone: var(--ink-soft);
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--tone);
+  border-radius: var(--radius-card);
+}
+
+.driver-requisito > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.driver-requisito small {
+  color: var(--ink-soft);
+}
+
+.driver-requisito > div > small:first-of-type {
+  color: var(--tone);
+  font-weight: 650;
+}
+
+.driver-requisito-icono {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  color: var(--tone);
+  background: color-mix(in srgb, var(--tone) 10%, var(--paper));
+  border-radius: var(--radius-control);
+}
+
+.driver-requisito-approved {
+  --tone: var(--shipment);
+}
+
+.driver-requisito-pending {
+  --tone: var(--brand);
+}
+
+.driver-requisito-rejected,
+.driver-requisito-expired {
+  --tone: var(--danger);
+}
+
+.driver-requisito-vence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 4px;
+  font-size: 0.82rem;
+}
+
+.driver-requisito-vence input {
+  min-height: var(--layout-touch, 44px);
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+
+.driver-requisito-subir {
+  position: relative;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.driver-requisito-subir:has(input:focus-visible) {
+  outline: 3px solid var(--brand);
+  outline-offset: 2px;
+}
+
+@media (max-width: 560px) {
+  .driver-requisito {
+    grid-template-columns: auto 1fr;
+  }
+
+  .driver-requisito-subir {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
+}

@@ -46,6 +46,14 @@ import { getPostgresTips } from "../tip-repository.js";
 import { sanitizeUser } from "../user-view.js";
 import { creditWallet, getWallet } from "../wallet-repository.js";
 
+// El teléfono es opcional: si viene, se guarda antes de mandar el código (FE-06).
+const phoneVerificationRequestSchema = z.object({
+  phone: z
+    .string()
+    .trim()
+    .regex(/^\+[1-9][0-9]{7,14}$/, "Usá formato internacional, por ejemplo +5491112345678")
+    .optional(),
+});
 const phoneVerificationConfirmSchema = z.object({
   code: z.string().regex(/^\d{6}$/, "Código inválido"),
 });
@@ -157,9 +165,11 @@ router.get("/api/me", requireAuth, async (req, res) => {
 });
 
 router.post("/api/me/phone-verification/request", requireAuth, async (req, res) => {
+  const parsed = parseOrFail(phoneVerificationRequestSchema, req.body || {});
+  if (!parsed.ok) return fail(res, 400, parsed.message);
   if (!usesPostgresAuth()) return fail(res, 503, "La verificación telefónica requiere PostgreSQL");
   try {
-    return ok(res, await requestPhoneVerification(req.auth.userId));
+    return ok(res, await requestPhoneVerification(req.auth.userId, parsed.data));
   } catch (error) {
     if (error.retryAfter) res.set("Retry-After", String(error.retryAfter));
     return failFrom(res, error, "No se pudo enviar el código");

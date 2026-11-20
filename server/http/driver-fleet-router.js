@@ -50,7 +50,10 @@ const driverVehicleFields = {
     .trim()
     .min(3)
     .max(16)
-    .regex(/^[A-Za-z0-9 -]+$/),
+    .regex(/^[A-Za-z0-9 -]+$/)
+    // Una bicicleta no tiene patente (FE-06): para el resto la exige el refinamiento.
+    .nullable()
+    .optional(),
   color: z.string().trim().min(2).max(40).nullable().optional(),
   seats: z.coerce.number().int().min(1).max(8).nullable().optional(),
   serviceModes: z
@@ -59,6 +62,8 @@ const driverVehicleFields = {
     .max(2),
 };
 const driverVehicleSchema = z.object(driverVehicleFields).superRefine((value, ctx) => {
+  if (value.kind !== "bicycle" && !value.plate)
+    ctx.addIssue({ code: "custom", path: ["plate"], message: "Cargá la patente del vehículo" });
   if (value.serviceModes.includes("ride") && (!["car", "van"].includes(value.kind) || !value.seats))
     ctx.addIssue({
       code: "custom",

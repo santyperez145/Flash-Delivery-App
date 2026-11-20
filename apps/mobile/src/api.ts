@@ -760,7 +760,7 @@ export const api = {
     input: {
       kind: import("./types").DriverVehicle["kind"];
       model: string;
-      plate: string;
+      plate: string | null;
       color?: string | null;
       seats?: number | null;
       serviceModes: ServiceMode[];

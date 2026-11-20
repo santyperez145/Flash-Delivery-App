@@ -6,7 +6,7 @@ Fecha de la última revisión: **29 de agosto de 2026**.
 
 ## Resumen actual
 
-Flash es una **plataforma de preproducción avanzada** con cuatro superficies: cliente, comercio, conductor/repartidor y operaciones. El runtime principal es PostgreSQL/PostGIS con 152 migraciones versionadas; SQLite quedó reducido a fallback aislado de tests.
+Flash es una **plataforma de preproducción avanzada** con cuatro superficies: cliente, comercio, conductor/repartidor y operaciones. El runtime principal es PostgreSQL/PostGIS con 153 migraciones versionadas; SQLite quedó reducido a fallback aislado de tests.
 
 **DAT-001 cerró el alcance DML del runtime.** La migración 135 conserva sólo las operaciones observadas por código, upserts, candados y triggers. Los permisos sin uso bajaron de 114 a cero y el contrato bloqueante impide reintroducir las 35 operaciones del último lote.
 
@@ -137,16 +137,16 @@ Puertas nuevas del período, todas falsificadas: reparto de dinero con subsidio 
 
 Reemplaza la lista anterior, cuyos ítems de PostgreSQL/PostGIS, ledger y realtime ya están implementados. Los bloqueadores vigentes son los P0 de la auditoría del 25 de agosto:
 
-| Hallazgo | Ticket | Bloqueador |
-| --- | --- | --- |
-| H-01 | CI-001 | CI ejecuta 15 de 104 scripts y no levanta PostgreSQL: pagos, RLS, ledger, dispatch, KYC y safety no bloquean ningún merge |
-| H-02 | NOT-001 | Push productivo imposible: `NOTIFICATION_PROVIDER` sólo admite `disabled` y `sandbox`, y producción prohíbe `sandbox` |
-| H-03 | SEC-001 | Realtime hace broadcast a todos los roles ante `entityType` desconocido |
-| H-04 | DAT-001 | 20 de 106 tablas sin política RLS y cero `FORCE ROW LEVEL SECURITY` |
-| H-05 | INF-001 | La imagen Docker corre como root y arranca `server/index.js` en lugar de `server/start.js` |
-| H-06 | DSP-001 | Dispatch sin `ST_DWithin` ni KNN: recalcula historial de 30 días de todo el padrón por oleada |
-| H-07 | GEO-001 | Nominatim y OSRM públicos como valores por defecto |
-| H-08 | ARC-001 | Cinco archivos concentran más de 1,3 MB, con líneas de hasta 4.061 caracteres |
-| H-09 | PAY-001 | Mercado Pago integrado pero nunca validado contra el proveedor |
+| Hallazgo | Ticket  | Bloqueador                                                                                                                |
+| -------- | ------- | ------------------------------------------------------------------------------------------------------------------------- |
+| H-01     | CI-001  | CI ejecuta 15 de 104 scripts y no levanta PostgreSQL: pagos, RLS, ledger, dispatch, KYC y safety no bloquean ningún merge |
+| H-02     | NOT-001 | Push productivo imposible: `NOTIFICATION_PROVIDER` sólo admite `disabled` y `sandbox`, y producción prohíbe `sandbox`     |
+| H-03     | SEC-001 | Realtime hace broadcast a todos los roles ante `entityType` desconocido                                                   |
+| H-04     | DAT-001 | 20 de 106 tablas sin política RLS y cero `FORCE ROW LEVEL SECURITY`                                                       |
+| H-05     | INF-001 | La imagen Docker corre como root y arranca `server/index.js` en lugar de `server/start.js`                                |
+| H-06     | DSP-001 | Dispatch sin `ST_DWithin` ni KNN: recalcula historial de 30 días de todo el padrón por oleada                             |
+| H-07     | GEO-001 | Nominatim y OSRM públicos como valores por defecto                                                                        |
+| H-08     | ARC-001 | Cinco archivos concentran más de 1,3 MB, con líneas de hasta 4.061 caracteres                                             |
+| H-09     | PAY-001 | Mercado Pago integrado pero nunca validado contra el proveedor                                                            |
 
 Además, sin ticket P0 asignado pero bloqueantes para las fases posteriores: completar el marco estándar ya iniciado con Vitest/Testcontainers mediante Supertest, k6, cobertura y mutation testing selectivo; builds EAS firmados, crash reporting, error tracking, colector y dashboards administrados, Safety Operating System, y seguros y habilitación para movilidad.

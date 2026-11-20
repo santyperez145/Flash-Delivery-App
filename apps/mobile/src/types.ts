@@ -347,7 +347,8 @@ export type DriverVehicle = {
   driverId: string;
   kind: "bicycle" | "motorcycle" | "car" | "van";
   model: string;
-  plate: string;
+  /** Una bicicleta no tiene patente (FE-06). */
+  plate: string | null;
   color: string | null;
   seats: number | null;
   serviceModes: ServiceMode[];

@@ -103,6 +103,12 @@ Que un comercio de verdad pueda sumarse sin seed: se postula en la web, operacio
 
 ### FE-06. Alta real de repartidor y conductor, con cola de legajos
 
+**Estado (20 de noviembre de 2026):** hecha en la web y en la consola
+([`driver-applications.md`](driver-applications.md)). Quedan para una ola siguiente
+«Quiero repartir» en `LoginScreen.tsx` de la app nativa, la lista de requisitos en
+`DriverAccountPanel.tsx` con el mismo formato que la web, y sacar el panel incrustado por
+fila de `AdminTrustPanels.tsx`, que la cola nueva reemplaza.
+
 Que alguien pueda postularse a repartir desde la web o la app, subir sus documentos con la cámara y que operaciones los revise desde una cola, no fila por fila.
 
 **Huecos:** OPS-W01 (repartidor), OPS-W02 (legajos y vehículos), DRV-10, OPS-W21 (panel de legajos)
@@ -141,7 +147,7 @@ Que ninguna pantalla del cliente muestre tuteo, palabras sin tilde, enums en ing
 - apps/mobile/src/format.ts — mapas en castellano para motivos de cancelación, relación del contacto y estados de devolución, siniestro y caso.
 - apps/mobile/src/screens/CustomerFoodOrdersScreen.tsx (97), CustomerActivityScreen.tsx, CustomerRideScreen.tsx, CustomerShipmentScreen.tsx, CustomerScreen.tsx y ui.tsx — customerOrderStatusLabel, rideStatusLabel y shipmentStatusLabel en todo lo que ve el cliente; títulos «Pedido de {comercio}», «Viaje a {destino}», «Chat con {nombre}»; voseo y tildes («Indicá origen y destino», «Primero cotizá el viaje», «Flash Envíos», «Teléfono del destinatario»).
 - server/http/maps-router.js y server/http/cancellation.js — mensajes de error que llegan al cliente, con tildes y voseo.
-- scripts/customer-copy-contract.mjs (nuevo, test:customer-copy, con source-contract.mjs) — lista de formas de tuteo, palabras sin tilde y jerga vedada en src/customer, src/auth y apps/mobile/src/screens/Customer*; se falsifica y entra a ci-fast.
+- scripts/customer-copy-contract.mjs (nuevo, test:customer-copy, con source-contract.mjs) — lista de formas de tuteo, palabras sin tilde y jerga vedada en src/customer, src/auth y apps/mobile/src/screens/Customer\*; se falsifica y entra a ci-fast.
 
 **Servidor:** Sólo textos de error. Sin rutas nuevas.
 
@@ -519,7 +525,7 @@ Que operaciones vea lo que pasa en un mapa con datos reales, abra cualquier pedi
 - src/maps/FlashMap.tsx — varios marcadores y polígonos.
 - src/backoffice/OpsLiveMap.tsx (nuevo) — capas de repartidores en línea (gris si la posición tiene más de 2 minutos), pedidos sin asignar con minutos de espera, retiros y entregas en curso y zonas por demanda; leyenda «Sin repartidores en línea en esta zona».
 - src/backoffice/AdminOverviewBoards.tsx (238-308) y OperationsInterventionPanel.tsx (128-187) — la fila abre un panel con línea de tiempo y minutos entre estados, partes con nombre, desglose de cobro, evidencia y acciones con motivo («Soltar y volver a ofrecer», «Abrir ticket», «Cancelar»); «Avanzar» sale de la grilla.
-- src/backoffice/AdminDataTable.tsx (nuevo), AdminMarketplacePanels.tsx y AdminTrustPanels.tsx — buscador con debounce, chips de estado, «Cargar más» por cursor y vacío con el texto buscado, sobre los getOperations* que ya existen; sección «Auditoría».
+- src/backoffice/AdminDataTable.tsx (nuevo), AdminMarketplacePanels.tsx y AdminTrustPanels.tsx — buscador con debounce, chips de estado, «Cargar más» por cursor y vacío con el texto buscado, sobre los getOperations\* que ya existen; sección «Auditoría».
 - src/backoffice/AdminFinanceOverview.tsx y AdminConsole.tsx — selector Hoy, 7 días, 30 días, Mes; tabla del ledger paginada con «Exportar CSV»; «Saldo repartidores» y «Efectivo por rendir».
 - src/operations/OperationsSurface.tsx (436-447) y src/api.ts — mapa de demanda del repartidor con polígonos de /api/driver/demand-zones y el pie «Actualizado hace X min · no garantiza pedidos».
 
@@ -538,7 +544,7 @@ Cumplir en toda la web la regla de tokens y modo oscuro, y cerrar los huecos de 
 **Cambios:**
 
 - src/styles/foundation.css (1-24, 9, 49) — tokens semánticos y su versión oscura bajo prefers-color-scheme y data-theme; --muted para texto a 4,5:1.
-- src/styles.css, src/adaptive.css y src/styles/customer-home.css, customer-feed.css, customer-scope.css, customer-desktop.css — hex literales a tokens, empezando por cliente, después .merchant-*, .branch-*, admin-*, offer-card y work-card; min-height de 44 px en botones de tarjetas y filas.
+- src/styles.css, src/adaptive.css y src/styles/customer-home.css, customer-feed.css, customer-scope.css, customer-desktop.css — hex literales a tokens, empezando por cliente, después .merchant-_, .branch-_, admin-\*, offer-card y work-card; min-height de 44 px en botones de tarjetas y filas.
 - src/customer/CustomerNavigation.tsx (76-88) — aria-current y aria-label «Secciones».
 - src/customer/FoodCatalogComponents.tsx (70-126) — RestaurantCard como article con botón principal y un botón de favorito aparte de 44 px con aria-pressed; alt vacío en imágenes que repiten el nombre.
 - src/merchant/MerchantConsole.tsx, MerchantCatalogEditors.tsx, MerchantCashSwitch.tsx y MerchantPickupSwitch.tsx — aria-current en la sección, aria-label en botones de ícono, diálogo del pedido con foco atrapado y Escape, role switch en los interruptores.

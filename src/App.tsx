@@ -143,6 +143,18 @@ const MerchantApplicationPage = lazy(() =>
   })),
 );
 
+const DriverApplicationPage = lazy(() =>
+  import("./partners/DriverApplication").then((module) => ({
+    default: module.DriverApplicationPage,
+  })),
+);
+
+// «Repartí con Flash» (FE-06): como /comercios, una ruta pública a la que se llega sin
+// sesión desde el ingreso o un enlace compartido.
+const RUTA_REPARTIR = "/repartir";
+const enRutaRepartir = () =>
+  typeof window !== "undefined" && window.location.pathname.replace(/\/$/, "") === RUTA_REPARTIR;
+
 // «Sumá tu comercio» (FE-05) vive en una ruta pública: se llega sin sesión desde un
 // enlace compartido o desde el ingreso, y también con cualquier sesión abierta.
 const RUTA_COMERCIOS = "/comercios";
@@ -227,10 +239,14 @@ function App() {
   );
   const [desktopPortal, setDesktopPortal] = useState<"admin" | "merchant">("admin");
   const [enComercios, setEnComercios] = useState(enRutaComercios);
+  const [enRepartir, setEnRepartir] = useState(enRutaRepartir);
   // Entrar y salir de /comercios es navegación del historial: «atrás» del navegador vuelve
   // a donde se estaba en lugar de salir de Flash.
   useEffect(() => {
-    const alNavegar = () => setEnComercios(enRutaComercios());
+    const alNavegar = () => {
+      setEnComercios(enRutaComercios());
+      setEnRepartir(enRutaRepartir());
+    };
     window.addEventListener("popstate", alNavegar);
     return () => window.removeEventListener("popstate", alNavegar);
   }, []);
@@ -241,6 +257,14 @@ function App() {
   const salirDeComercios = useCallback(() => {
     window.history.pushState(null, "", "/");
     setEnComercios(false);
+  }, []);
+  const abrirRepartir = useCallback(() => {
+    if (!enRutaRepartir()) window.history.pushState(null, "", RUTA_REPARTIR);
+    setEnRepartir(true);
+  }, []);
+  const salirDeRepartir = useCallback(() => {
+    window.history.pushState(null, "", "/");
+    setEnRepartir(false);
   }, []);
 
   useEffect(() => configureAnalytics((events) => api.sendAnalyticsEvents(events)), []);
@@ -936,8 +960,9 @@ function App() {
           mfaChallenge={mfaChallenge}
           onLogin={loginWeb}
           onMfa={completeMfaWeb}
-          contexto={enComercios ? "comercio" : undefined}
+          contexto={enComercios ? "comercio" : enRepartir ? "repartidor" : undefined}
           onComercios={abrirComercios}
+          onRepartir={abrirRepartir}
           tokenRecuperacion={tokenRecuperacion}
           onRecuperacionTerminada={async (cambiada) => {
             setTokenRecuperacion("");
@@ -964,6 +989,30 @@ function App() {
         actionLabel="Reintentar"
         onAction={() => window.location.reload()}
       />
+    );
+  }
+
+  // FE-06: con sesión, /repartir muestra la postulación y los requisitos antes que
+  // cualquier superficie por rol: quien se postuló ya tiene el rol `driver` pero no se
+  // puede conectar hasta que operaciones apruebe sus documentos.
+  if (enRepartir && activeUser) {
+    return (
+      <Suspense
+        fallback={
+          <SystemStateScreen
+            tone="loading"
+            eyebrow="Flash para repartidores"
+            title="Preparando tu postulación"
+            message="Estamos cargando el alta de repartidores."
+          />
+        }
+      >
+        <DriverApplicationPage
+          user={activeUser}
+          onVolver={salirDeRepartir}
+          onCerrarSesion={() => void logoutWeb()}
+        />
+      </Suspense>
     );
   }
 

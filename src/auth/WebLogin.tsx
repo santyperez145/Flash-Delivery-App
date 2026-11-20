@@ -1,6 +1,7 @@
 import {
   ArrowRight,
   Bike,
+  FileCheck2,
   Eye,
   EyeOff,
   Flame,
@@ -25,11 +26,14 @@ type WebLoginProps = {
   tokenRecuperacion?: string;
   /** Terminó la recuperación abierta por el enlace; `cambiada` si se cambió la contraseña. */
   onRecuperacionTerminada?: (cambiada: boolean) => void;
-  /** `comercio` cuando se llega desde «Sumá tu comercio» (/comercios): el ingreso es el
-   *  paso previo a la solicitud y el texto lo dice. */
-  contexto?: "comercio";
+  /** `comercio` cuando se llega desde «Sumá tu comercio» (/comercios) y `repartidor`
+   *  desde «Repartí con Flash» (/repartir): el ingreso es el paso previo a la
+   *  postulación y el texto lo dice. */
+  contexto?: "comercio" | "repartidor";
   /** Abre la postulación de comercios sin recargar la página. */
   onComercios?: () => void;
+  /** Abre la postulación para repartir sin recargar la página. */
+  onRepartir?: () => void;
 };
 
 const audiences = [
@@ -47,6 +51,49 @@ const pasosComercio = [
   { icon: ShieldCheck, label: "Revisión", detail: "Operaciones la aprueba antes de publicar" },
 ];
 
+// Lo que sigue al ingreso cuando se viene a repartir (FE-06): los mismos pasos de la
+// postulación, como en Uber, que dice qué documentos se piden antes de empezar.
+const pasosRepartidor = [
+  { icon: Bike, label: "Tu vehículo", detail: "Bici, moto o auto, y la ciudad" },
+  { icon: FileCheck2, label: "Tus documentos", detail: "Según el vehículo, con foto o PDF" },
+  { icon: ShieldCheck, label: "Revisión", detail: "Operaciones aprueba antes de conectarte" },
+];
+
+// El texto del ingreso según de dónde se llega. Sin contexto es el ingreso general.
+const TEXTOS = {
+  general: {
+    eyebrow: "Una plataforma conectada",
+    titulo: "Todo lo que se mueve, bajo control.",
+    bajada:
+      "Una sola cuenta para entrar a las herramientas que corresponden a tu rol, con datos y permisos reales.",
+    nota: "Flash Delivery · Acceso por audiencia",
+    saludo: "Bienvenido",
+    accion: "Ingresá a Flash",
+    ayuda: "Pedí, viajá y enviá, o entrá a tu panel de comercio u operaciones.",
+  },
+  comercio: {
+    eyebrow: "Flash para comercios",
+    titulo: "Sumá tu comercio a Flash.",
+    bajada:
+      "Ingresá o creá tu cuenta para empezar la solicitud. La revisamos antes de publicar tu comercio.",
+    nota: "Flash para comercios",
+    saludo: "Sumá tu comercio",
+    accion: "Ingresá para seguir",
+    ayuda: "Con tu cuenta de Flash, o creá una nueva. Después completás la solicitud.",
+  },
+  repartidor: {
+    eyebrow: "Repartí con Flash",
+    titulo: "Generá ingresos con tus horarios.",
+    bajada:
+      "Ingresá o creá tu cuenta para postularte. Revisamos tus documentos antes de que te conectes.",
+    nota: "Flash para repartidores y conductores",
+    saludo: "Repartí con Flash",
+    accion: "Ingresá para postularte",
+    ayuda:
+      "Con tu cuenta de Flash, o creá una nueva. Después elegís tu vehículo y subís los documentos.",
+  },
+};
+
 export function WebLogin({
   busy,
   error,
@@ -57,9 +104,16 @@ export function WebLogin({
   onRecuperacionTerminada,
   contexto,
   onComercios,
+  onRepartir,
 }: WebLoginProps) {
-  const paraComercio = contexto === "comercio";
-  const tarjetas = paraComercio ? pasosComercio : audiences;
+  const paraSocio = Boolean(contexto);
+  const textos = TEXTOS[contexto ?? "general"];
+  const tarjetas =
+    contexto === "comercio"
+      ? pasosComercio
+      : contexto === "repartidor"
+        ? pasosRepartidor
+        : audiences;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [mfaCode, setMfaCode] = useState("");
@@ -93,17 +147,9 @@ export function WebLogin({
           <strong>Flash</strong>
         </div>
         <div className="web-auth-story-copy">
-          <span className="web-auth-eyebrow">
-            {paraComercio ? "Flash para comercios" : "Una plataforma conectada"}
-          </span>
-          <h1>
-            {paraComercio ? "Sumá tu comercio a Flash." : "Todo lo que se mueve, bajo control."}
-          </h1>
-          <p>
-            {paraComercio
-              ? "Ingresá o creá tu cuenta para empezar la solicitud. La revisamos antes de publicar tu comercio."
-              : "Una sola cuenta para entrar a las herramientas que corresponden a tu rol, con datos y permisos reales."}
-          </p>
+          <span className="web-auth-eyebrow">{textos.eyebrow}</span>
+          <h1>{textos.titulo}</h1>
+          <p>{textos.bajada}</p>
         </div>
         <div className="web-auth-audiences">
           {tarjetas.map(({ icon: Icon, label, detail }) => (
@@ -118,9 +164,7 @@ export function WebLogin({
             </article>
           ))}
         </div>
-        <small className="web-auth-story-note">
-          {paraComercio ? "Flash para comercios" : "Flash Delivery · Acceso por audiencia"}
-        </small>
+        <small className="web-auth-story-note">{textos.nota}</small>
       </section>
 
       <section className="web-auth-panel">
@@ -188,22 +232,10 @@ export function WebLogin({
               Acceso protegido
             </div>
             <header>
-              <span>
-                {isMfa ? "Segundo paso" : paraComercio ? "Sumá tu comercio" : "Bienvenido"}
-              </span>
-              <h2>
-                {isMfa
-                  ? "Verificá tu identidad"
-                  : paraComercio
-                    ? "Ingresá para seguir"
-                    : "Ingresá a Flash"}
-              </h2>
+              <span>{isMfa ? "Segundo paso" : textos.saludo}</span>
+              <h2>{isMfa ? "Verificá tu identidad" : textos.accion}</h2>
               <p>
-                {isMfa
-                  ? "Usá el código de tu autenticador o uno de recuperación."
-                  : paraComercio
-                    ? "Con tu cuenta de Flash, o creá una nueva. Después completás la solicitud."
-                    : "Pedí, viajá y enviá, o entrá a tu panel de comercio u operaciones."}
+                {isMfa ? "Usá el código de tu autenticador o uno de recuperación." : textos.ayuda}
               </p>
             </header>
 
@@ -295,7 +327,7 @@ export function WebLogin({
             {/* FE-05: la entrada a la postulación desde el ingreso. Es un enlace real a
                 /comercios (funciona sin JavaScript de la app y se puede abrir en otra
                 pestaña); con `onComercios` se navega sin recargar. */}
-            {!isMfa && !paraComercio && (
+            {!isMfa && !paraSocio && (
               <a
                 className="web-auth-partner"
                 href="/comercios"
@@ -308,7 +340,21 @@ export function WebLogin({
                 <Store size={17} aria-hidden="true" /> ¿Tenés un comercio? Sumalo a Flash
               </a>
             )}
-            {!isMfa && paraComercio && (
+            {/* FE-06: lo mismo para repartir, como el «Repartí con Uber» del ingreso. */}
+            {!isMfa && !paraSocio && (
+              <a
+                className="web-auth-partner"
+                href="/repartir"
+                onClick={(event) => {
+                  if (!onRepartir || event.metaKey || event.ctrlKey || event.shiftKey) return;
+                  event.preventDefault();
+                  onRepartir();
+                }}
+              >
+                <Bike size={17} aria-hidden="true" /> ¿Querés repartir? Postulate
+              </a>
+            )}
+            {!isMfa && paraSocio && (
               <a className="web-auth-partner" href="/">
                 Volver al inicio de Flash
               </a>

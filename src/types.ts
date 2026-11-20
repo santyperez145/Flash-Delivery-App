@@ -120,6 +120,8 @@ export type User = {
   restaurantId?: string;
   driverId?: string;
   status?: "active" | "suspended" | "pending" | "deleted";
+  emailVerifiedAt?: string | null;
+  phoneVerifiedAt?: string | null;
 };
 
 export type Extra = {
@@ -851,7 +853,8 @@ export type DriverVehicle = {
   driverId: string;
   kind: "bicycle" | "motorcycle" | "car" | "van";
   model: string;
-  plate: string;
+  /** Una bicicleta no tiene patente (FE-06). */
+  plate: string | null;
   color: string | null;
   seats: number | null;
   serviceModes: Array<"delivery" | "ride">;
@@ -1067,3 +1070,64 @@ export type MerchantApplicationInput = {
 };
 
 export type MerchantApplicationDecision = "approve" | "reject" | "needs_changes";
+
+/** Con qué se puede postular para repartir o manejar (FE-06). */
+export type DriverApplicationVehicleKind = "bicycle" | "motorcycle" | "car";
+
+/** La postulación propia: quien se postula ya es conductor, desconectado, y el estado es
+ *  el de su legajo. */
+export type DriverApplication = {
+  driverId: string;
+  services: Array<"delivery" | "ride">;
+  status: DriverCompliance["status"];
+  rejectionReason: string | null;
+  city: { id: string; name: string } | null;
+  createdAt: string;
+};
+
+/** Lo que manda el formulario «Repartí con Flash». */
+export type DriverApplicationInput = {
+  cityId: string;
+  services: Array<"delivery" | "ride">;
+  vehicle: {
+    kind: DriverApplicationVehicleKind;
+    model: string;
+    plate?: string | null;
+    color?: string | null;
+    seats?: number | null;
+  };
+};
+
+/** Un conductor en la cola de legajos de operaciones, con sus documentos vigentes (sin
+ *  el contenido, que se pide al abrir cada uno) y sus vehículos. */
+export type AdminDriverApplication = {
+  id: string;
+  createdAt: string;
+  person: { id: string; name: string; email: string; phone: string | null; phoneVerified: boolean };
+  city: string | null;
+  services: Array<"delivery" | "ride">;
+  status: DriverCompliance["status"];
+  rejectionReason: string | null;
+  requiredTypes: DriverDocument["type"][];
+  documents: Array<{
+    id: string;
+    type: DriverDocument["type"];
+    mimeType: string;
+    sizeBytes: number;
+    expiresAt: string | null;
+    status: "pending" | "approved" | "rejected";
+    rejectionReason: string | null;
+    createdAt: string;
+  }>;
+  vehicles: Array<{
+    id: string;
+    kind: DriverVehicle["kind"];
+    model: string;
+    plate: string | null;
+    color: string | null;
+    seats: number | null;
+    status: DriverVehicle["status"];
+    rejectionReason: string | null;
+    active: boolean;
+  }>;
+};

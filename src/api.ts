@@ -1866,6 +1866,59 @@ export const api = {
       body: JSON.stringify(input),
     });
   },
+  // FE-06: «Repartí con Flash». Postularse crea el conductor desconectado; los
+  // documentos se suben con `submitDriverDocument` y se revisan uno por uno.
+  async submitDriverApplication(input: import("./types").DriverApplicationInput) {
+    return request<{ application: import("./types").DriverApplication; vehicleId: string }>(
+      "/applications/driver",
+      { method: "POST", body: JSON.stringify(input) },
+    );
+  },
+  async getMyDriverApplication() {
+    return request<{ application: import("./types").DriverApplication | null }>(
+      "/applications/driver/me",
+    );
+  },
+  async getAdminDriverApplications({
+    status,
+    cursor,
+  }: {
+    status: "pending" | "approved" | "rejected";
+    cursor?: string | null;
+  }) {
+    const query = new URLSearchParams({ status });
+    if (cursor) query.set("cursor", cursor);
+    return request<{
+      drivers: import("./types").AdminDriverApplication[];
+      nextCursor: string | null;
+    }>(`/admin/driver-applications?${query.toString()}`);
+  },
+  async submitDriverDocument(
+    driverId: string,
+    input: {
+      type: import("./types").DriverDocument["type"];
+      mimeType: "image/jpeg" | "image/png" | "application/pdf";
+      contentBase64: string;
+      expiresAt?: string | null;
+    },
+  ) {
+    return request<{ document: import("./types").DriverDocument }>(
+      `/drivers/${driverId}/documents`,
+      { method: "POST", body: JSON.stringify(input) },
+    );
+  },
+  async requestPhoneVerification(phone?: string) {
+    return request<{ expiresAt: string; retryAfterSeconds: number; developmentCode?: string }>(
+      "/me/phone-verification/request",
+      { method: "POST", body: JSON.stringify(phone ? { phone } : {}) },
+    );
+  },
+  async confirmPhoneVerification(code: string) {
+    return request<{ verified: true; phone: string }>("/me/phone-verification/confirm", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    });
+  },
   async getMyApplications() {
     return request<{ applications: MerchantApplication[] }>("/applications/me");
   },

@@ -857,6 +857,30 @@ Flash lo ofrece por sucursal, con vuelto, liquidación en mano y rendición. Det
 - **Brecha:** sin red de cobranza para que el repartidor deposite solo (PAG-03, dueño) y sin
   franja horaria para no aceptar efectivo de noche.
 
+### Decisión 20 de noviembre de 2026 — alta de repartidores (FE-06)
+
+Uber invita a repartir desde una página pública y la registración arranca con la cuenta,
+el vehículo y la ciudad ([Uber, repartí](https://www.uber.com/us/en/deliver/)). Lo que se
+pide depende del vehículo: en bicicleta o a pie alcanza con la identidad y la verificación
+de antecedentes, y con moto o auto se suman la licencia, el seguro y la documentación del
+vehículo ([Uber Eats en bicicleta o a pie](https://help.uber.com/en/driving-and-delivering/article/reg%C3%ADstrate-para-hacer-entregas-con-uber%C2%A0eats-en-bicicleta-o-a-pie?nodeId=d89506e6-5d67-42cd-aa2a-64e9f30b0a42)).
+Los documentos se suben desde la app, se revisan uno por uno y uno rechazado se reemplaza
+([Uber, subir documentos](https://help.uber.com/en/driving-and-delivering/article/uploading-documents?nodeId=d24c406d-e470-40f1-867d-3a8db1bbfd48)).
+De PedidosYa y Rappi **no se encontró fuente oficial** del alta de repartidores; se observa
+el mismo patrón de postularse con el vehículo y esperar la revisión de documentos.
+
+Flash no tenía ningún camino: los conductores existían sólo por semillas. Ahora se
+postulan en `/repartir`, suben los documentos según el vehículo y operaciones los revisa
+desde una cola. Detalle en [`driver-applications.md`](driver-applications.md).
+
+- **A la par:** requisitos según el vehículo, cada documento con su estado y su motivo, y
+  no conectarse hasta tener todo aprobado.
+- **Por encima de lo publicado:** quien se aprobó en bici no puede salir en moto sin la
+  licencia, la cédula y el seguro aprobados.
+- **Brecha:** la postulación todavía no está en la app nativa; no hay aviso al decidir
+  cada documento; los antecedentes se revisan a mano, sin un proveedor de verificación
+  (Uber usa uno).
+
 ### Decisión 19 de noviembre de 2026 — despliegue continuo (INF-003)
 
 Uber cuenta que en 2022 tenía unos 4.500 microservicios y unas 7.000 publicaciones a

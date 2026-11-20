@@ -119,6 +119,8 @@
     "test:merchant-onboarding": "node scripts/merchant-onboarding-contract.mjs",
     "test:staging-config": "node scripts/staging-config-contract.mjs",
     "test:gcp-deploy": "node scripts/gcp-deploy-contract.mjs",
+    "test:driver-applications": "node scripts/driver-applications-smoke.mjs",
+    "test:driver-onboarding": "node scripts/driver-onboarding-contract.mjs",
     "test:db-bootstrap-cloud": "node scripts/db-bootstrap-cloud-smoke.mjs",
     "test:service-chat": "node --env-file-if-exists=.env.local scripts/service-chat-smoke.mjs",
     "test:shipment-claims": "node --env-file-if-exists=.env.local scripts/shipment-claims-smoke.mjs",

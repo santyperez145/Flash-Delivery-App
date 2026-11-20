@@ -70,7 +70,8 @@ export function DriverAccountPanel({
       await api.createDriverVehicle(driverId, {
         kind: vehicleDraft.kind,
         model: vehicleDraft.model.trim(),
-        plate: vehicleDraft.plate.trim(),
+        // Una bicicleta no tiene patente (FE-06).
+        plate: vehicleDraft.kind === "bicycle" ? null : vehicleDraft.plate.trim(),
         color: vehicleDraft.color.trim() || null,
         seats: ride ? Number(vehicleDraft.seats) : 1,
         serviceModes: ride ? ["delivery", "ride"] : ["delivery"],
@@ -380,7 +381,8 @@ export function DriverAccountPanel({
             />
             <View style={styles.itemCopy}>
               <Text style={styles.sectionTitle}>
-                {vehicle.model} · {vehicle.plate}
+                {vehicle.model}
+                {vehicle.plate ? ` · ${vehicle.plate}` : ""}
               </Text>
               <Text style={styles.cardText}>
                 {vehicle.kind} · {vehicle.serviceModes.join(" + ")} · {vehicle.status}
@@ -472,15 +474,17 @@ export function DriverAccountPanel({
           onChangeText={(model) => setVehicleDraft((current) => ({ ...current, model }))}
           placeholder="Marca y modelo"
         />
-        <TextInput
-          style={styles.input}
-          value={vehicleDraft.plate}
-          onChangeText={(plate) =>
-            setVehicleDraft((current) => ({ ...current, plate: plate.toUpperCase() }))
-          }
-          autoCapitalize="characters"
-          placeholder="Patente"
-        />
+        {vehicleDraft.kind !== "bicycle" ? (
+          <TextInput
+            style={styles.input}
+            value={vehicleDraft.plate}
+            onChangeText={(plate) =>
+              setVehicleDraft((current) => ({ ...current, plate: plate.toUpperCase() }))
+            }
+            autoCapitalize="characters"
+            placeholder="Patente"
+          />
+        ) : null}
         <TextInput
           style={styles.input}
           value={vehicleDraft.color}
@@ -503,11 +507,15 @@ export function DriverAccountPanel({
         ) : null}
         <Pressable
           disabled={
-            vehicleBusy || !vehicleDraft.model.trim() || vehicleDraft.plate.trim().length < 3
+            vehicleBusy ||
+            !vehicleDraft.model.trim() ||
+            (vehicleDraft.kind !== "bicycle" && vehicleDraft.plate.trim().length < 3)
           }
           style={[
             styles.primaryButton,
-            (vehicleBusy || !vehicleDraft.model.trim() || vehicleDraft.plate.trim().length < 3) &&
+            (vehicleBusy ||
+              !vehicleDraft.model.trim() ||
+              (vehicleDraft.kind !== "bicycle" && vehicleDraft.plate.trim().length < 3)) &&
               styles.disabledButton,
           ]}
           onPress={() => void addVehicle()}

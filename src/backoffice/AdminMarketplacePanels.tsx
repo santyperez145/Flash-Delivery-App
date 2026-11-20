@@ -89,7 +89,8 @@ export function AdminDriversSupplyPanel({
             <div>
               <strong>{driver.name}</strong>
               <span>
-                {driver.vehicle} · {driver.plate} · {driver.location.label}
+                {driver.vehicle}
+                {driver.plate ? ` · ${driver.plate}` : ""} · {driver.location.label}
               </span>
             </div>
             <b>{driver.online ? "Online" : "Offline"}</b>
