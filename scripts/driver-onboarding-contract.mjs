@@ -137,6 +137,9 @@ assert.ok(
   contains(cola, "const valido = motivo.trim().length >= 5 && motivo.trim().length <= 500;") &&
     contains(cola, "disabled={!valido || enviando}") &&
     contains(cola, 'sigue && (estado !== "pending" || pendientes(sigue))') &&
+    // Se concilia con la selección de ahora, no con la de cuando empezó el pedido.
+    contains(cola, "setSeleccionId((actual) => {") &&
+    contains(cola, "const sigue = todos.find((item) => item.id === actual);") &&
     contains(consola, "<AdminDriverApplications"),
   "rechazar pide motivo y la cola pasa sola al siguiente",
 );

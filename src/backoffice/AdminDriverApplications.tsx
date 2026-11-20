@@ -83,7 +83,7 @@ export function AdminDriverApplications({
   // Cuántas páginas hay cargadas: al refrescar se vuelven a leer todas, así quien se
   // está revisando en la página 2 no desaparece porque no está en la primera.
   const paginas = useRef(1);
-  const cargar = useCallback(async (estado: Estado, mantener: string | null = null) => {
+  const cargar = useCallback(async (estado: Estado) => {
     const numero = ++pedido.current;
     setError("");
     try {
@@ -101,12 +101,15 @@ export function AdminDriverApplications({
       if (numero !== pedido.current) return;
       setItems(todos);
       setNextCursor(cursor);
-      // Se queda en el mismo conductor si sigue en la cola y le queda algo para revisar;
-      // si no, pasa al primero que espera.
-      const sigue = todos.find((item) => item.id === mantener);
-      setSeleccionId(
-        sigue && (estado !== "pending" || pendientes(sigue)) ? sigue.id : (todos[0]?.id ?? null),
-      );
+      // Se queda en el conductor elegido *ahora*, no en el de cuando empezó el pedido: si el
+      // operador eligió a otro mientras se refrescaba, no se le cierra lo que estaba mirando.
+      // Si el elegido ya no está o no le queda nada para revisar, pasa al primero que espera.
+      setSeleccionId((actual) => {
+        const sigue = todos.find((item) => item.id === actual);
+        return sigue && (estado !== "pending" || pendientes(sigue))
+          ? sigue.id
+          : (todos[0]?.id ?? null);
+      });
     } catch (fallo) {
       if (numero !== pedido.current) return;
       setError(fallo instanceof Error ? fallo.message : "No se pudo cargar la cola de legajos");
@@ -126,10 +129,10 @@ export function AdminDriverApplications({
   // revisar, y un conductor nuevo pudo subir documentos.
   useEffect(() => {
     const intervalo = window.setInterval(() => {
-      if (document.visibilityState === "visible") void cargar(status, seleccionId);
+      if (document.visibilityState === "visible") void cargar(status);
     }, 30_000);
     return () => window.clearInterval(intervalo);
-  }, [cargar, status, seleccionId]);
+  }, [cargar, status]);
 
   // La pestaña que se ve ahora: una página que vuelve después de cambiar de pestaña es de
   // otra cola y no se mezcla con esta.
@@ -256,7 +259,7 @@ export function AdminDriverApplications({
                 canDecide={canDecide}
                 onRevisado={(mensaje) => {
                   onDecided(mensaje);
-                  void cargar(status, seleccion.id);
+                  void cargar(status);
                 }}
               />
             ) : (
