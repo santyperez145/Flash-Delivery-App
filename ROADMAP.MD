@@ -60,9 +60,9 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
 - **Encontrado al probarlo en el navegador:** verificar el teléfono pasaba por el perfil,
   que exige una dirección, y el error salía en inglés. Ahora el pedido del código lleva el
   teléfono.
-- **Verificación:** `test:driver-applications` (nueva, en `ci-critical-flows`) con 22
+- **Verificación:** `test:driver-applications` (nueva, en `ci-critical-flows`) con 23
   comprobaciones contra PostgreSQL; `test:driver-onboarding` (nueva, en `ci-fast`),
-  falsificada con 33 mutaciones; probado de punta a punta en el navegador con las cuentas
+  falsificada con 34 mutaciones; probado de punta a punta en el navegador con las cuentas
   de prueba locales. Suites: 137. Detalle en
   [`docs/driver-applications.md`](docs/driver-applications.md).
 - **Falta:** la postulación dentro de la app nativa, el aviso al decidir cada documento y

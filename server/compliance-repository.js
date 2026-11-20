@@ -176,9 +176,20 @@ export async function reviewDriverDocument({
       "UPDATE driver_documents SET status=$2,rejection_reason=$3,reviewed_by=$4,reviewed_at=now() WHERE id=$1",
       [document.id, status, rejectionReason || null, actor?.id || null],
     );
+    const tipos = await requiredTypesFor(client, document.driver_id);
+    // Un documento que los vehículos de hoy ya no piden (el seguro de una moto retirada)
+    // se revisa, pero no decide el legajo: rechazarlo no desconecta a quien ya tiene todo
+    // lo suyo aprobado. El legajo se recalcula con lo que sí se pide.
+    if (!tipos.includes(document.document_type)) {
+      await recomputeDriverCompliance(client, document.driver_id);
+      await client.query("COMMIT");
+      const conductor = (
+        await postgresPool.query("SELECT public_id FROM drivers WHERE id=$1", [document.driver_id])
+      ).rows[0];
+      return getDriverCompliance({ actorPublicId, roles, driverPublicId: conductor.public_id });
+    }
     let complianceStatus = "rejected";
     if (status === "approved") {
-      const tipos = await requiredTypesFor(client, document.driver_id);
       const approved = await client.query(
         `SELECT count(DISTINCT document_type)::int count FROM driver_documents WHERE driver_id=$1 AND status='approved' AND (expires_at IS NULL OR expires_at>=current_date) AND document_type=ANY($2)`,
         [document.driver_id, tipos],

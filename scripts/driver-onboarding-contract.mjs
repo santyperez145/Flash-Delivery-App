@@ -220,4 +220,9 @@ assert.ok(
   );
 }
 
+assert.ok(
+  contains(legajo, "if (!tipos.includes(document.document_type)) {"),
+  "revisar un documento que ya no se pide no decide el legajo",
+);
+
 console.log("driver onboarding contract ok");

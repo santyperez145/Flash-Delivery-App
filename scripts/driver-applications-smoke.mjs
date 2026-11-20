@@ -465,6 +465,33 @@ try {
       conectado.status === 200,
     "al retirar la moto, el legajo de quien sigue en bici se completa solo y se puede conectar",
   );
+  // Un seguro de la moto ya retirada que quedó pendiente se puede rechazar sin tumbar el
+  // legajo de quien sigue en bici.
+  const seguroViejo = await pool.query(
+    `INSERT INTO driver_documents(public_id, driver_id, document_type, mime_type, content_ciphertext,
+       content_sha256, size_bytes, expires_at)
+     SELECT 'DOC-' || upper(substr(md5(random()::text), 1, 10)), d.id, 'insurance', 'application/pdf',
+       'sin-contenido', repeat('0', 64), 1, current_date + 365
+     FROM drivers d WHERE d.public_id=$1 RETURNING public_id`,
+    [driverMotero],
+  );
+  const rechazoViejo = await api(
+    `/admin/driver-documents/${seguroViejo.rows[0].public_id}/review`,
+    {
+      token: tokens.admin,
+      method: "PATCH",
+      body: { status: "rejected", rejectionReason: "Es de la moto que ya retiró" },
+    },
+  );
+  const sigueConectado = (
+    await pool.query("SELECT online FROM drivers WHERE public_id=$1", [driverMotero])
+  ).rows[0].online;
+  assert(
+    rechazoViejo.status === 200 &&
+      rechazoViejo.body.compliance?.status === "approved" &&
+      sigueConectado,
+    "rechazar un documento que el vehículo de hoy ya no pide no tumba el legajo ni desconecta",
+  );
   await api(`/drivers/${driverMotero}/availability`, {
     token: tokens.motero,
     method: "PATCH",
