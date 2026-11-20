@@ -14,6 +14,15 @@ import { Router } from "express";
 import { z } from "zod";
 
 import {
+  DRIVER_APPLICATION_VEHICLES,
+  DRIVER_QUEUE_STATUSES,
+  getMyDriverApplication,
+  listDriverApplicationsForReview,
+  parseDriverQueueCursor,
+  submitDriverApplication,
+} from "../driver-application-repository.js";
+
+import {
   decideMerchantApplication,
   listAdminMerchantApplications,
   listMyMerchantApplications,
@@ -25,7 +34,7 @@ import {
 import { usesPostgresCommerce } from "../postgres.js";
 import { requireAuth } from "./authentication.js";
 import { requireAnyRole } from "./authorization.js";
-import { merchantApplicationLimiter } from "./rate-limits.js";
+import { driverApplicationLimiter, merchantApplicationLimiter } from "./rate-limits.js";
 import { publishRealtimeEvent } from "./realtime.js";
 import { fail, failFrom, ok, parseOrFail } from "./responses.js";
 
@@ -71,6 +80,52 @@ const decisionSchema = z
 
 const listadoSchema = z.object({
   status: z.enum(MERCHANT_APPLICATION_STATUSES).default("pending"),
+  cursor: z.string().max(512).optional(),
+});
+
+// FE-06: la postulación para repartir o manejar. Viajes exige auto con asientos
+// declarados, igual que el registro de vehículos; una bicicleta no tiene patente y
+// cualquier otro vehículo sí.
+const solicitudConductorSchema = z
+  .object({
+    cityId: z.string().trim().min(3).max(64),
+    services: z
+      .array(z.enum(["delivery", "ride"]))
+      .min(1, "Elegí al menos un servicio")
+      .max(2)
+      .transform((lista) => [...new Set(lista)]),
+    vehicle: z.object({
+      kind: z.enum(DRIVER_APPLICATION_VEHICLES, { message: "Elegí con qué vas a trabajar" }),
+      model: texto(2, 80, "Marca y modelo"),
+      plate: z
+        .string()
+        .trim()
+        .regex(/^[A-Za-z0-9 -]{3,16}$/, "La patente va con letras y números")
+        .nullable()
+        .optional(),
+      color: z.string().trim().min(2).max(40).nullable().optional(),
+      seats: z.coerce.number().int().min(1).max(8).nullable().optional(),
+    }),
+  })
+  .superRefine((datos, ctx) => {
+    if (datos.vehicle.kind !== "bicycle" && !datos.vehicle.plate)
+      ctx.addIssue({ code: "custom", path: ["vehicle", "plate"], message: "Cargá la patente" });
+    if (datos.vehicle.kind === "bicycle" && datos.vehicle.plate)
+      ctx.addIssue({
+        code: "custom",
+        path: ["vehicle", "plate"],
+        message: "Una bicicleta no lleva patente",
+      });
+    if (datos.services.includes("ride") && (datos.vehicle.kind !== "car" || !datos.vehicle.seats))
+      ctx.addIssue({
+        code: "custom",
+        path: ["services"],
+        message: "Para llevar pasajeros necesitás un auto y declarar sus asientos",
+      });
+  });
+
+const colaConductoresSchema = z.object({
+  status: z.enum(DRIVER_QUEUE_STATUSES).default("pending"),
   cursor: z.string().max(512).optional(),
 });
 
@@ -157,6 +212,74 @@ applicationsRouter.post(
       return ok(res, resultado);
     } catch (error) {
       return failFrom(res, error, "No se pudo registrar la decisión");
+    }
+  },
+);
+
+applicationsRouter.post(
+  "/api/applications/driver",
+  driverApplicationLimiter,
+  requireAuth,
+  async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "El alta de repartidores requiere PostgreSQL");
+    const parsed = parseOrFail(solicitudConductorSchema, req.body || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    try {
+      res.set("Cache-Control", "no-store, private");
+      const creado = await submitDriverApplication({
+        userPublicId: req.auth.userId,
+        actorRoles: req.auth.roles,
+        input: parsed.data,
+        requestId: req.requestId,
+      });
+      return res.status(201).json({
+        ok: true,
+        requestId: req.requestId,
+        application: await getMyDriverApplication(req.auth.userId),
+        vehicleId: creado.vehicleId,
+      });
+    } catch (error) {
+      if (error.code === "phone_verification_required" || error.driverId)
+        return res.status(error.status).json({
+          ok: false,
+          requestId: req.requestId,
+          message: error.message,
+          code: error.code || "already_registered",
+          driverId: error.driverId || null,
+        });
+      return failFrom(res, error, "No se pudo enviar la postulación");
+    }
+  },
+);
+
+applicationsRouter.get("/api/applications/driver/me", requireAuth, async (req, res) => {
+  if (!usesPostgresCommerce()) return fail(res, 503, "El alta de repartidores requiere PostgreSQL");
+  try {
+    res.set("Cache-Control", "no-store, private");
+    return ok(res, { application: await getMyDriverApplication(req.auth.userId) });
+  } catch (error) {
+    return failFrom(res, error, "No se pudo leer tu postulación");
+  }
+});
+
+applicationsRouter.get(
+  "/api/admin/driver-applications",
+  requireAuth,
+  requireAnyRole("admin", "support"),
+  async (req, res) => {
+    if (!usesPostgresCommerce())
+      return fail(res, 503, "El alta de repartidores requiere PostgreSQL");
+    const parsed = parseOrFail(colaConductoresSchema, req.query || {});
+    if (!parsed.ok) return fail(res, 400, parsed.message);
+    const cursor = parseDriverQueueCursor(parsed.data.cursor);
+    if (cursor === false) return fail(res, 400, "Cursor inválido");
+    try {
+      // Lleva teléfonos y emails: no se guarda en ningún caché.
+      res.set("Cache-Control", "no-store, private");
+      return ok(res, await listDriverApplicationsForReview({ status: parsed.data.status, cursor }));
+    } catch (error) {
+      return failFrom(res, error, "No se pudo leer la cola de legajos");
     }
   },
 );

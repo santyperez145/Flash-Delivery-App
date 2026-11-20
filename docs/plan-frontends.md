@@ -103,6 +103,12 @@ Que un comercio de verdad pueda sumarse sin seed: se postula en la web, operacio
 
 ### FE-06. Alta real de repartidor y conductor, con cola de legajos
 
+**Estado (20 de noviembre de 2026):** hecha en la web y en la consola
+([`driver-applications.md`](driver-applications.md)). Quedan para una ola siguiente
+«Quiero repartir» en `LoginScreen.tsx` de la app nativa, la lista de requisitos en
+`DriverAccountPanel.tsx` con el mismo formato que la web, y sacar el panel incrustado por
+fila de `AdminTrustPanels.tsx`, que la cola nueva reemplaza.
+
 Que alguien pueda postularse a repartir desde la web o la app, subir sus documentos con la cámara y que operaciones los revise desde una cola, no fila por fila.
 
 **Huecos:** OPS-W01 (repartidor), OPS-W02 (legajos y vehículos), DRV-10, OPS-W21 (panel de legajos)

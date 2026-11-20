@@ -177,6 +177,8 @@ jobs:
         run: npm run test:no-invented-data
       - name: Alta de comercio en las pantallas (FE-05)
         run: npm run test:merchant-onboarding
+      - name: Alta de repartidor en las pantallas (FE-06)
+        run: npm run test:driver-onboarding
       - name: Modo staging sin aflojar producción (INF-002)
         run: npm run test:staging-config
       - name: Despliegue real en Google Cloud (INF-003)

@@ -1,6 +1,9 @@
 import crypto from "node:crypto";
+import { recomputeDriverCompliance } from "./compliance-repository.js";
 import { postgresPool } from "./postgres.js";
 
+// Una bicicleta no tiene patente (FE-06): se guarda NULL, nunca una inventada.
+const patente = (valor) => (valor ? String(valor).toUpperCase() : null);
 const vehicleId = () => `VEH-${crypto.randomBytes(6).toString("hex").toUpperCase()}`;
 const staff = (roles) => roles.includes("admin") || roles.includes("support");
 const modes = (value) =>
@@ -109,7 +112,7 @@ export async function createDriverVehicle({
           driver.id,
           kind,
           model,
-          plate.toUpperCase(),
+          patente(plate),
           color || null,
           seats || null,
           serviceModes,
@@ -126,6 +129,8 @@ export async function createDriverVehicle({
     await client.query("ROLLBACK");
     if (error.code === "23505")
       throw Object.assign(new Error("La patente ya está registrada"), { status: 409 });
+    if (error.constraint === "vehicles_plate_required_check")
+      throw Object.assign(new Error("Cargá la patente del vehículo"), { status: 400 });
     throw error;
   } finally {
     client.release();
@@ -146,7 +151,7 @@ export async function updateDriverVehicle({ vehiclePublicId, actorPublicId, role
     const next = {
       kind: changes.kind ?? current.kind,
       model: changes.model ?? current.model,
-      plate: (changes.plate ?? current.plate).toUpperCase(),
+      plate: patente(changes.plate === undefined ? current.plate : changes.plate),
       color: changes.color === undefined ? current.color : changes.color,
       seats: changes.seats === undefined ? current.seats : changes.seats,
       serviceModes: changes.serviceModes ?? current.service_modes,
@@ -166,6 +171,8 @@ export async function updateDriverVehicle({ vehiclePublicId, actorPublicId, role
     );
     if (current.active)
       await client.query("UPDATE drivers SET online=false WHERE id=$1", [current.driver_id]);
+    // Pasar el vehículo de moto a bici achica lo que se pide.
+    await recomputeDriverCompliance(client, current.driver_id);
     await client.query("COMMIT");
     return (
       await getDriverVehicles({
@@ -179,6 +186,8 @@ export async function updateDriverVehicle({ vehiclePublicId, actorPublicId, role
     await client.query("ROLLBACK");
     if (error.code === "23505")
       throw Object.assign(new Error("La patente ya está registrada"), { status: 409 });
+    if (error.constraint === "vehicles_plate_required_check")
+      throw Object.assign(new Error("Cargá la patente del vehículo"), { status: 400 });
     throw error;
   } finally {
     client.release();
@@ -240,6 +249,8 @@ export async function retireDriverVehicle({ vehiclePublicId, actorPublicId, role
     );
     if (row.active)
       await client.query("UPDATE drivers SET online=false WHERE id=$1", [row.driver_id]);
+    // Retirar un vehículo con motor puede dejar completo el legajo de quien sigue en bici.
+    await recomputeDriverCompliance(client, row.driver_id);
     await client.query("COMMIT");
     return mapVehicle({ ...row, active: false, retired_at: new Date(), updated_at: new Date() });
   } catch (error) {

@@ -354,7 +354,8 @@ export function DriverHomePanel(props: {
         <Text style={styles.heroLabel}>{driver.online ? "Online" : "Offline"}</Text>
         <Text style={styles.heroTitle}>{driver.name}</Text>
         <Text style={styles.heroCopy}>
-          {driver.vehicle} - {driver.plate} -{" "}
+          {driver.vehicle}
+          {driver.plate ? ` - ${driver.plate}` : ""} -{" "}
           {driver.ratingCount === 0
             ? driverRatingLabel(driver)
             : `rating ${driverRatingLabel(driver)}`}

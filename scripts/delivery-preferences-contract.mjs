@@ -255,7 +255,11 @@ assert.ok(
     // Achicada antes de subir: una foto de cámara supera el límite de 1 MB del JSON.
     contains(
       await leer("src/operations/DoorPhoto.tsx"),
-      "const contentBase64 = await achicar(archivo);",
+      "const contentBase64 = await achicarFoto(archivo);",
+    ) &&
+    contains(
+      await leer("src/media/achicarFoto.ts"),
+      "1280 / Math.max(imagen.width, imagen.height)",
     ),
   "la foto acepta cualquier byte, se pierde al reiniciar la app o la web no la puede sacar",
 );

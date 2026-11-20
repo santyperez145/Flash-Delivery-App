@@ -3,7 +3,22 @@ import { postgresPool } from "./postgres.js";
 import { config } from "./config.js";
 import { checkPhoneVerification, startPhoneVerification } from "./phone-verification-provider.js";
 
-export async function requestPhoneVerification(userPublicId) {
+export async function requestPhoneVerification(userPublicId, { phone } = {}) {
+  // FE-06: quien se postula a repartir escribe el teléfono en el mismo paso en que pide el
+  // código, sin pasar por el perfil (que exige una dirección). Un teléfono distinto del
+  // guardado se guarda sin verificar; uno ya verificado no se cambia por acá.
+  // Cambiar el número y anular los códigos pendientes va en una sola sentencia: un código
+  // mandado al número anterior no puede verificar el nuevo.
+  if (phone)
+    await postgresPool.query(
+      `WITH cambiado AS (
+         UPDATE users SET phone=$2, phone_verified_at=NULL, updated_at=now()
+         WHERE public_id=$1 AND status='active' AND phone IS DISTINCT FROM $2 AND phone_verified_at IS NULL
+         RETURNING id)
+       UPDATE phone_verification_challenges SET consumed_at=now()
+       WHERE user_id IN (SELECT id FROM cambiado) AND consumed_at IS NULL`,
+      [userPublicId, phone],
+    );
   const snapshot = (
     await postgresPool.query(
       "SELECT id,public_id,phone,phone_verified_at FROM users WHERE public_id=$1 AND status='active'",
@@ -111,7 +126,7 @@ export async function confirmPhoneVerification({ userPublicId, code }) {
     transactionOpen = true;
     const row = (
       await client.query(
-        `SELECT c.*,u.public_id FROM phone_verification_challenges c JOIN users u ON u.id=c.user_id WHERE u.public_id=$1 AND u.status='active' AND c.consumed_at IS NULL ORDER BY c.created_at DESC LIMIT 1 FOR UPDATE OF c,u`,
+        `SELECT c.*,u.public_id,u.phone user_phone FROM phone_verification_challenges c JOIN users u ON u.id=c.user_id WHERE u.public_id=$1 AND u.status='active' AND c.consumed_at IS NULL ORDER BY c.created_at DESC LIMIT 1 FOR UPDATE OF c,u`,
         [userPublicId],
       )
     ).rows[0];
@@ -119,6 +134,16 @@ export async function confirmPhoneVerification({ userPublicId, code }) {
       throw Object.assign(new Error("El código no existe, venció o agotó sus intentos"), {
         status: 400,
       });
+    // El código verifica el número al que se mandó y ningún otro: si la cuenta cambió de
+    // teléfono después (por el perfil o por otro pedido), se anula y hay que pedir otro.
+    if (row.phone !== row.user_phone) {
+      await client.query("UPDATE phone_verification_challenges SET consumed_at=now() WHERE id=$1", [
+        row.id,
+      ]);
+      await client.query("COMMIT");
+      transactionOpen = false;
+      throw Object.assign(new Error("El teléfono cambió: pedí un código nuevo"), { status: 400 });
+    }
     const valid =
       row.provider === "sandbox"
         ? Boolean(row.code_hash && bcrypt.compareSync(code, row.code_hash))

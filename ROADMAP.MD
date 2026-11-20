@@ -45,6 +45,29 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   hallazgo H-10 otra vez: lo que se escribe con cautela se lee después como un hecho. Por
   eso cada fila del registro dice dónde se verificó.
 
+## Avance 20 de noviembre de 2026 — FE-06, alta real de repartidores y conductores
+
+- **Qué faltaba.** Un conductor existía sólo si lo creaba una semilla: no había quién
+  repartiera sin inventarlo.
+- **Cómo quedó.** Quien quiere repartir se postula en `/repartir` (o desde «¿Querés
+  repartir? Postulate» en el ingreso), como en Uber: verifica el teléfono, elige ciudad y
+  vehículo, y queda registrado **sin poder conectarse**. Sube los documentos que pide su
+  vehículo (en bici, DNI y antecedentes; con moto o auto, también licencia, cédula y
+  seguro), y operaciones los revisa en «Altas → Repartidores»: una sola cola paginada,
+  el documento embebido, aprobar o rechazar con motivo, y pasa sola al siguiente. Con todo
+  aprobado, se conecta. Quien se aprobó en bici no sale en moto sin sus papeles. Una bici
+  ya no necesita una patente inventada (migración 153).
+- **Encontrado al probarlo en el navegador:** verificar el teléfono pasaba por el perfil,
+  que exige una dirección, y el error salía en inglés. Ahora el pedido del código lleva el
+  teléfono.
+- **Verificación:** `test:driver-applications` (nueva, en `ci-critical-flows`) con 23
+  comprobaciones contra PostgreSQL; `test:driver-onboarding` (nueva, en `ci-fast`),
+  falsificada con 35 mutaciones; probado de punta a punta en el navegador con las cuentas
+  de prueba locales. Suites: 137. Detalle en
+  [`docs/driver-applications.md`](docs/driver-applications.md).
+- **Falta:** la postulación dentro de la app nativa, el aviso al decidir cada documento y
+  validar los antecedentes contra el registro oficial (tercero).
+
 ## Avance 19 de noviembre de 2026 — INF-003, despliegue real en un comando y después solo
 
 - **Pedido del dueño:** dejar todo real y listo en Google Cloud, la base incluida, para
@@ -62,7 +85,7 @@ PedidosYa.** El congelamiento de Fase 0, vigente desde el 25 de agosto, queda le
   repositorio y su rama `main`, migrando antes de publicar. Los lotes ganaron la red privada
   para llegar a Redis, que les faltaba.
 - **Verificación:** `test:db-bootstrap-cloud` (nueva, en `ci-postgres`) corre la preparación
-  dos veces contra PostgreSQL y migra las 152 migraciones desde cero; `test:gcp-deploy`
+  dos veces contra PostgreSQL y migra todas las migraciones desde cero (eran 152 el 19 de noviembre); `test:gcp-deploy`
   (nueva, en `ci-fast`), falsificada con 28 mutaciones; `terraform validate` y `fmt` en
   verde. Suites: 135.
 - **Falta del dueño:** el proyecto con facturación, `gcloud` y `terraform` instalados, la

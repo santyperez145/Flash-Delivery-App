@@ -535,3 +535,98 @@
   font-size: 0.85rem;
   font-weight: 700;
 }
+
+/* --- Altas de repartidores (FE-06) ------------------------------------------------ */
+.altas-socios {
+  display: inline-flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  padding: 4px;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.altas-socios button {
+  min-height: 36px;
+  padding: 0 16px;
+  color: var(--ink-soft);
+  font-weight: 650;
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.altas-socios button[aria-pressed="true"] {
+  color: var(--paper);
+  background: var(--ink);
+}
+
+.altas-socios button:focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: 2px;
+}
+
+.legajo-subtitulo {
+  margin: 16px 0 8px;
+  font-size: 0.9rem;
+}
+
+.legajo-documentos {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legajo-documento {
+  --tone: var(--ink-soft);
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--tone);
+  border-radius: var(--radius-control, 10px);
+}
+
+.legajo-pending {
+  --tone: var(--brand);
+}
+
+.legajo-approved {
+  --tone: var(--shipment);
+}
+
+.legajo-rejected {
+  --tone: var(--danger);
+}
+
+.legajo-documento-cabecera {
+  display: grid;
+  gap: 2px;
+}
+
+.legajo-documento-cabecera small {
+  color: var(--ink-soft);
+}
+
+.legajo-vista {
+  display: grid;
+  gap: 8px;
+}
+
+.legajo-vista img,
+.legajo-vista iframe {
+  width: 100%;
+  max-height: 480px;
+  object-fit: contain;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control, 10px);
+}
+
+.legajo-vista iframe {
+  height: 480px;
+}

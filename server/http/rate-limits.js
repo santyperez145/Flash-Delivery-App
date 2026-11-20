@@ -102,6 +102,12 @@ export const merchantApplicationLimiter = createLimiter({
   message: "Demasiados intentos de postulación. Probá de nuevo en un rato.",
 });
 
+export const driverApplicationLimiter = createLimiter({
+  max: 20,
+  prefix: "driver-application",
+  message: "Demasiados intentos de postulación. Probá de nuevo en un rato.",
+});
+
 export const serviceChatLimiter = createLimiter({
   max: 60,
   prefix: "service-chat",

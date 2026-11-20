@@ -395,7 +395,8 @@ export function DriverApp({
         <div className="avatar large">{initials(driver.name)}</div>
         <div>
           <span>
-            {driver.vehicle} · {driver.plate}
+            {driver.vehicle}
+            {driver.plate ? ` · ${driver.plate}` : ""}
           </span>
           <h2>{driver.name}</h2>
           <p>

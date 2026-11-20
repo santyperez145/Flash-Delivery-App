@@ -120,8 +120,8 @@ export function DriverCompliancePanel({
         .map((vehicle) => (
           <div className="driver-document-review" key={vehicle.id}>
             <span>
-              {vehicle.kind} · {vehicle.model} · {vehicle.plate} ·{" "}
-              {vehicle.serviceModes.join(" + ")}
+              {vehicle.kind} · {vehicle.model}
+              {vehicle.plate ? ` · ${vehicle.plate}` : ""} · {vehicle.serviceModes.join(" + ")}
             </span>
             <button
               disabled={busy}

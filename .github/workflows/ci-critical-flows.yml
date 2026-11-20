@@ -153,6 +153,7 @@ jobs:
           test:gift-cards
           test:family-profiles
           test:merchant-applications
+          test:driver-applications
           test:cash-food-orders
           test:order-batching
           test:service-chat

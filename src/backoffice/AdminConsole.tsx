@@ -26,6 +26,7 @@ import { useState } from "react";
 import type { AdminDashboard, AppState } from "../types";
 
 import { AdminApplications } from "./AdminApplications";
+import { AdminDriverApplications } from "./AdminDriverApplications";
 import { ShipmentReturnsPanel } from "./ShipmentReturnsPanel";
 import { PaymentReconciliationPanel } from "./AdminFinancePanels";
 import { AdminFinanceOverview } from "./AdminFinanceOverview";
@@ -95,6 +96,8 @@ export function SuperAdminConsole({
   isSupport?: boolean;
 }) {
   const [section, setSection] = useState<AdminSection>(isSupport ? "support" : "overview");
+  // FE-06: Altas tiene dos colas, comercios y repartidores.
+  const [altas, setAltas] = useState<"comercios" | "repartidores">("comercios");
   const activeOrders = state.orders.filter(
     (order) => !["delivered", "cancelled"].includes(order.status),
   );
@@ -233,10 +236,36 @@ export function SuperAdminConsole({
           )}
 
           {section === "applications" && (
+            <div className="altas-socios" role="group" aria-label="Qué altas revisar">
+              <button
+                type="button"
+                aria-pressed={altas === "comercios"}
+                onClick={() => setAltas("comercios")}
+              >
+                Comercios
+              </button>
+              <button
+                type="button"
+                aria-pressed={altas === "repartidores"}
+                onClick={() => setAltas("repartidores")}
+              >
+                Repartidores
+              </button>
+            </div>
+          )}
+          {section === "applications" && altas === "comercios" && (
             <AdminApplications
               canDecide={!isSupport}
               // La consola recarga su estado para que el comercio recién aprobado
               // aparezca en Comercios sin refrescar la página.
+              onDecided={(mensaje) => runAction(async () => undefined, mensaje)}
+            />
+          )}
+          {section === "applications" && altas === "repartidores" && (
+            <AdminDriverApplications
+              canDecide={!isSupport}
+              // Igual que con los comercios: el conductor aprobado aparece en Repartidores
+              // sin refrescar la página.
               onDecided={(mensaje) => runAction(async () => undefined, mensaje)}
             />
           )}
